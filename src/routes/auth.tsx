@@ -12,7 +12,6 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,19 +28,9 @@ function AuthPage() {
     setError(null);
     setLoading(true);
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        navigate({ to: "/" });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate({ to: "/" });
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      navigate({ to: "/" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
@@ -77,29 +66,8 @@ function AuthPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold">ZapAgent</h1>
-            <p className="text-xs text-muted-foreground">Agente vendedor de WhatsApp</p>
+            <p className="text-xs text-muted-foreground">Painel privado · acesso restrito</p>
           </div>
-        </div>
-
-        <div className="mt-6 flex rounded-lg border border-border bg-muted p-1 text-sm">
-          <button
-            type="button"
-            onClick={() => setMode("signin")}
-            className={`flex-1 rounded-md py-1.5 font-medium transition ${
-              mode === "signin" ? "bg-card text-foreground" : "text-muted-foreground"
-            }`}
-          >
-            Entrar
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("signup")}
-            className={`flex-1 rounded-md py-1.5 font-medium transition ${
-              mode === "signup" ? "bg-card text-foreground" : "text-muted-foreground"
-            }`}
-          >
-            Criar conta
-          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -137,7 +105,7 @@ function AuthPage() {
             className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.01] disabled:opacity-60"
             style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
           >
-            {loading ? "Aguarde…" : mode === "signin" ? "Entrar" : "Criar conta"}
+            {loading ? "Aguarde…" : "Entrar"}
           </button>
         </form>
 
