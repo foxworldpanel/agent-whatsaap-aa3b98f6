@@ -39,7 +39,14 @@ function AgentePage() {
   const [activeTab, setActiveTab] = useState<"ativo" | "frio" | "inativo">("frio");
 
   useEffect(() => {
-    if (cfgQ.data) setCfg({ ...defaultConfig, ...cfgQ.data });
+    if (cfgQ.data) {
+      const d = cfgQ.data as Partial<Cfg>;
+      setCfg({
+        ...defaultConfig,
+        ...d,
+        panel_link: d.panel_link ?? "",
+      });
+    }
   }, [cfgQ.data]);
 
   const saveMut = useMutation({
@@ -138,7 +145,7 @@ function AgentePage() {
           </div>
 
           <IntegrationsPanel
-            initial={intQ.data ?? null}
+            initial={(intQ.data as Partial<IntFields> | null) ?? null}
             onSave={async (v) => {
               await saveInt({ data: v });
               qc.invalidateQueries({ queryKey: ["integrations"] });
