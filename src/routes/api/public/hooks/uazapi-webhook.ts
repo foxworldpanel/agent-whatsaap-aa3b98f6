@@ -198,7 +198,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             .eq("id", contact.id);
           await supabaseAdmin
             .from("conversations")
-            .update({ status: "encerrada" })
+            .update({ status: "aguardando" })
             .eq("id", conv.id);
           return new Response("ok (stop → blocked)");
         }
