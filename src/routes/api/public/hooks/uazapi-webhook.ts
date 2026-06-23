@@ -137,18 +137,31 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           conv = insertedConv.data;
         }
 
+        // Transcreve áudio antes de salvar (para o histórico já ir certo pro Claude)
+        let inboundBody = text;
+        if (kind === "audio" && mediaUrl) {
+          try {
+            const { transcribeAudioUrl } = await import("@/lib/ai.server");
+            const transcript = await transcribeAudioUrl(mediaUrl);
+            if (transcript) inboundBody = transcript;
+          } catch (e) {
+            console.error("transcribe failed", e);
+          }
+        }
+
         const now = new Date().toISOString();
         await supabaseAdmin.from("messages").insert({
           user_id: userId,
           conversation_id: conv.id,
           sender: "cliente",
           kind,
-          body: text,
+          body: inboundBody,
+          audio_url: kind === "audio" ? mediaUrl : null,
         });
         await supabaseAdmin
           .from("conversations")
           .update({
-            last_message_preview: text.slice(0, 120),
+            last_message_preview: inboundBody.slice(0, 120),
             last_message_at: now,
             status: "agente_respondendo",
           })
@@ -162,27 +175,6 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .eq("user_id", userId)
           .maybeSingle();
         if (!agent) return new Response("ok (no agent config)");
-
-        // Se for áudio e tivermos URL → transcreve com Whisper (Lovable AI)
-        let inboundText = text;
-        if (kind === "audio" && mediaUrl) {
-          try {
-            const { transcribeAudioUrl } = await import("@/lib/ai.server");
-            const transcript = await transcribeAudioUrl(mediaUrl);
-            if (transcript) {
-              inboundText = transcript;
-              await supabaseAdmin
-                .from("messages")
-                .update({ body: transcript, audio_url: mediaUrl })
-                .eq("conversation_id", conv.id)
-                .eq("sender", "cliente")
-                .order("created_at", { ascending: false })
-                .limit(1);
-            }
-          } catch (e) {
-            console.error("transcribe failed", e);
-          }
-        }
 
         const { data: history } = await supabaseAdmin
           .from("messages")
@@ -243,8 +235,6 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           body: reply,
           audio_url: audioDataUri,
         });
-        // silencia o lint sobre inboundText (mantido para futura passagem ao Claude)
-        void inboundText;
         await supabaseAdmin
           .from("conversations")
           .update({
