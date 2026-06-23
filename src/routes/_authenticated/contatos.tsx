@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Upload, Search, Filter } from "lucide-react";
 import { mockContacts, profileLabel, statusLabel, type ContactProfile, type ContactStatus } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/contatos")({
+export const Route = createFileRoute("/_authenticated/contatos")({
   head: () => ({ meta: [{ title: "Contatos · ZapAgent" }] }),
   component: Contatos,
 });

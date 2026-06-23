@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Send, Bot } from "lucide-react";
 import { mockConversations, profileLabel } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/conversas")({
+export const Route = createFileRoute("/_authenticated/conversas")({
   head: () => ({ meta: [{ title: "Conversas · ZapAgent" }] }),
   component: Conversas,
 });

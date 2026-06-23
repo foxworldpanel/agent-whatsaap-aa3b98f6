@@ -1,6 +1,7 @@
-import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Zap } from "lucide-react";
+import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
+import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Zap, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -12,6 +13,12 @@ const nav = [
 
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
+  }
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -50,7 +57,7 @@ export function AppShell() {
             );
           })}
         </nav>
-        <div className="p-4">
+        <div className="space-y-2 p-4">
           <div
             className="rounded-lg border border-border/50 p-3 text-xs"
             style={{ background: "var(--gradient-card)" }}
@@ -64,6 +71,13 @@ export function AppShell() {
               <span className="text-muted-foreground">Online · 3 conversas</span>
             </div>
           </div>
+          <button
+            onClick={handleSignOut}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground transition hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sair
+          </button>
         </div>
       </aside>
 
