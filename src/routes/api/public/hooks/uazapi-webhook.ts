@@ -45,6 +45,11 @@ function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audi
   return { text: m.text ?? m.content ?? "", kind: "texto" };
 }
 
+function extractMediaUrl(p: UazapiPayload): string | null {
+  const m = p.message ?? p.data ?? {};
+  return m.mediaUrl ?? null;
+}
+
 export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
   server: {
     handlers: {
@@ -71,7 +76,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         }
 
         const { text, kind } = extractContent(payload);
-        if (!text) return new Response("empty");
+        const mediaUrl = extractMediaUrl(payload);
+        if (!text && kind !== "audio") return new Response("empty");
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -131,18 +137,31 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           conv = insertedConv.data;
         }
 
+        // Transcreve áudio antes de salvar (para o histórico já ir certo pro Claude)
+        let inboundBody = text;
+        if (kind === "audio" && mediaUrl) {
+          try {
+            const { transcribeAudioUrl } = await import("@/lib/ai.server");
+            const transcript = await transcribeAudioUrl(mediaUrl);
+            if (transcript) inboundBody = transcript;
+          } catch (e) {
+            console.error("transcribe failed", e);
+          }
+        }
+
         const now = new Date().toISOString();
         await supabaseAdmin.from("messages").insert({
           user_id: userId,
           conversation_id: conv.id,
           sender: "cliente",
           kind,
-          body: text,
+          body: inboundBody,
+          audio_url: kind === "audio" ? mediaUrl : null,
         });
         await supabaseAdmin
           .from("conversations")
           .update({
-            last_message_preview: text.slice(0, 120),
+            last_message_preview: inboundBody.slice(0, 120),
             last_message_at: now,
             status: "agente_respondendo",
           })
@@ -172,13 +191,37 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           history: (history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>,
         });
 
-        const { uazapiSendText } = await import("@/lib/uazapi.server");
+        // Se cliente mandou áudio e agente está com áudio ligado + ElevenLabs configurado → responde com áudio
+        const respondWithAudio =
+          kind === "audio" &&
+          (agent as { audio_enabled?: boolean }).audio_enabled === true &&
+          !!integ.elevenlabs_api_key &&
+          !!integ.elevenlabs_voice_id;
+
+        const { uazapiSendText, uazapiSendAudio } = await import("@/lib/uazapi.server");
+        let replyKind: "texto" | "audio" = "texto";
+        let audioDataUri: string | null = null;
         try {
-          await uazapiSendText(
-            { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
-            phone,
-            reply,
-          );
+          if (respondWithAudio) {
+            const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+            audioDataUri = await ttsElevenLabsBase64({
+              apiKey: integ.elevenlabs_api_key!,
+              voiceId: integ.elevenlabs_voice_id!,
+              text: reply,
+            });
+            await uazapiSendAudio(
+              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+              phone,
+              audioDataUri,
+            );
+            replyKind = "audio";
+          } else {
+            await uazapiSendText(
+              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+              phone,
+              reply,
+            );
+          }
         } catch (e) {
           return new Response(`uazapi send failed: ${(e as Error).message}`, { status: 502 });
         }
@@ -188,8 +231,9 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           user_id: userId,
           conversation_id: conv.id,
           sender: "agente",
-          kind: "texto",
+          kind: replyKind,
           body: reply,
+          audio_url: audioDataUri,
         });
         await supabaseAdmin
           .from("conversations")
