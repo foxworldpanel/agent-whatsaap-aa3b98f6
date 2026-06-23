@@ -62,6 +62,7 @@ export const sendManualMessage = createServerFn({ method: "POST" })
       throw new Error("Configure a Evolution API na tela do Agente.");
     }
 
+    const contact = conv.contact as unknown as { telefone: string };
     const { evolutionSendText } = await import("./evolution.server");
     await evolutionSendText(
       {
@@ -69,8 +70,7 @@ export const sendManualMessage = createServerFn({ method: "POST" })
         evolution_api_key: integ.evolution_api_key,
         evolution_instance: integ.evolution_instance,
       },
-      // @ts-expect-error nested join is typed loosely
-      conv.contact.telefone,
+      contact.telefone,
       data.text,
     );
 
