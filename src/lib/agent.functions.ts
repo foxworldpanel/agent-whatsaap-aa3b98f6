@@ -69,3 +69,27 @@ export const saveIntegrations = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const previewVoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ text: z.string().min(1).max(500).optional() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: integ, error } = await context.supabase
+      .from("integrations")
+      .select("elevenlabs_api_key, elevenlabs_voice_id")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!integ?.elevenlabs_api_key || !integ.elevenlabs_voice_id) {
+      throw new Error("Configure a API Key e o Voice ID do ElevenLabs antes.");
+    }
+    const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+    const audio = await ttsElevenLabsBase64({
+      apiKey: integ.elevenlabs_api_key,
+      voiceId: integ.elevenlabs_voice_id,
+      text: data.text ?? "Oi! Aqui é a sua agente vendedora. Tudo certo com a voz?",
+    });
+    return { audio };
+  });
