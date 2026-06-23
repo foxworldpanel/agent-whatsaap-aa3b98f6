@@ -1,8 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Users, MessagesSquare, TrendingUp, DollarSign, Send, Activity } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Users, MessagesSquare, TrendingUp, CheckCircle2, Send, Activity } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getDashboardStats } from "@/lib/dashboard.functions";
 
 export const Route = createFileRoute("/_authenticated/")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Dashboard · ZapAgent" },
@@ -12,22 +15,21 @@ export const Route = createFileRoute("/_authenticated/")({
   component: Index,
 });
 
-const stats = [
-  { label: "Contatos cadastrados", value: "1.284", delta: "+24 hoje", icon: Users, color: "text-primary" },
-  { label: "Conversas ativas", value: "37", delta: "12 aguardando", icon: MessagesSquare, color: "text-warning" },
-  { label: "Taxa de resposta", value: "68%", delta: "+5% vs ontem", icon: TrendingUp, color: "text-success" },
-  { label: "Vendas geradas", value: "R$ 842", delta: "23 conversões", icon: DollarSign, color: "text-success" },
-];
-
-const recentActivity = [
-  { hora: "14:32", texto: "Lucas Silva respondeu — oferta enviada", tipo: "respondido" },
-  { hora: "14:28", texto: "Mariana Costa convertida (+R$5)", tipo: "convertido" },
-  { hora: "14:22", texto: "Disparo enviado para 3 leads frios", tipo: "enviado" },
-  { hora: "14:15", texto: "Rafael Mendes aceitou upsell (+R$18)", tipo: "convertido" },
-  { hora: "14:08", texto: "Pedro Almeida não respondeu — follow-up 2/3", tipo: "alerta" },
-];
-
 function Index() {
+  const getStats = useServerFn(getDashboardStats);
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: () => getStats(),
+    refetchInterval: 15000,
+  });
+
+  const stats = [
+    { label: "Contatos cadastrados", value: data?.totalContacts ?? 0, delta: "total", icon: Users, color: "text-primary" },
+    { label: "Conversas ativas hoje", value: data?.activeConversations ?? 0, delta: `${data?.receivedToday ?? 0} respostas`, icon: MessagesSquare, color: "text-warning" },
+    { label: "Taxa de resposta", value: `${data?.responseRate ?? 0}%`, delta: `${data?.sentToday ?? 0} enviadas hoje`, icon: TrendingUp, color: "text-success" },
+    { label: "Convertidos", value: data?.converted ?? 0, delta: "contatos fechados", icon: CheckCircle2, color: "text-success" },
+  ];
+
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -41,7 +43,7 @@ function Index() {
           style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
         >
           <Send className="h-4 w-4" />
-          Iniciar campanha
+          Nova campanha
         </Link>
       </header>
 
@@ -60,7 +62,7 @@ function Index() {
                 </p>
                 <Icon className={`h-4 w-4 ${s.color}`} />
               </div>
-              <p className="mt-3 text-3xl font-bold">{s.value}</p>
+              <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : s.value}</p>
               <p className={`mt-1 text-xs ${s.color}`}>{s.delta}</p>
             </div>
           );
@@ -75,28 +77,36 @@ function Index() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-primary" />
-              <h2 className="font-semibold">Atividade em tempo real</h2>
+              <h2 className="font-semibold">Últimos disparos</h2>
             </div>
-            <span className="text-xs text-muted-foreground">últimas 30 min</span>
+            <span className="text-xs text-muted-foreground">atualiza a cada 15s</span>
           </div>
           <ul className="mt-4 divide-y divide-border">
-            {recentActivity.map((a, i) => (
-              <li key={i} className="flex items-center gap-4 py-3 text-sm">
-                <span className="w-12 text-xs text-muted-foreground tabular-nums">{a.hora}</span>
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    a.tipo === "convertido"
-                      ? "bg-success"
-                      : a.tipo === "respondido"
-                      ? "bg-primary"
-                      : a.tipo === "alerta"
-                      ? "bg-warning"
-                      : "bg-muted-foreground"
-                  }`}
-                />
-                <span className="text-foreground">{a.texto}</span>
+            {(data?.recentLogs ?? []).length === 0 && (
+              <li className="py-6 text-center text-sm text-muted-foreground">
+                Nenhuma atividade ainda.
               </li>
-            ))}
+            )}
+            {(data?.recentLogs ?? []).map((a) => {
+              const hora = new Date(a.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+              return (
+                <li key={a.id} className="flex items-center gap-4 py-3 text-sm">
+                  <span className="w-12 text-xs text-muted-foreground tabular-nums">{hora}</span>
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      a.status === "respondido"
+                        ? "bg-primary"
+                        : a.status === "enviado"
+                          ? "bg-success"
+                          : "bg-destructive"
+                    }`}
+                  />
+                  <span className="flex-1 truncate text-foreground">
+                    <b>{a.contact_name}</b> — {a.message_preview}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -106,11 +116,17 @@ function Index() {
         >
           <h2 className="font-semibold">Performance hoje</h2>
           <div className="mt-5 space-y-4">
-            {[
-              { label: "Mensagens enviadas", value: 87, max: 120, color: "bg-primary" },
-              { label: "Respostas recebidas", value: 59, max: 87, color: "bg-success" },
-              { label: "Vendas fechadas", value: 23, max: 59, color: "bg-warning" },
-            ].map((m) => (
+            {(() => {
+              const sent = data?.sentToday ?? 0;
+              const recv = data?.receivedToday ?? 0;
+              const conv = data?.converted ?? 0;
+              const maxSent = Math.max(sent, 10);
+              return [
+                { label: "Mensagens enviadas", value: sent, max: maxSent, color: "bg-primary" },
+                { label: "Respostas recebidas", value: recv, max: Math.max(sent, 1), color: "bg-success" },
+                { label: "Convertidos (total)", value: conv, max: Math.max(data?.totalContacts ?? 1, 1), color: "bg-warning" },
+              ];
+            })().map((m) => (
               <div key={m.label}>
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">{m.label}</span>
