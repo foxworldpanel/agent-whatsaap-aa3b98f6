@@ -16,6 +16,7 @@ import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
 import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
+import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -51,6 +52,12 @@ const AuthenticatedAgenteRoute = AuthenticatedAgenteRouteImport.update({
   path: '/agente',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicHooksUazapiWebhookRoute =
+  ApiPublicHooksUazapiWebhookRouteImport.update({
+    id: '/api/public/hooks/uazapi-webhook',
+    path: '/api/public/hooks/uazapi-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
+  '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -67,6 +75,7 @@ export interface FileRoutesByTo {
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
   '/': typeof AuthenticatedIndexRoute
+  '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,6 +86,7 @@ export interface FileRoutesById {
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
   '/_authenticated/disparos': typeof AuthenticatedDisparosRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,8 +97,16 @@ export interface FileRouteTypes {
     | '/contatos'
     | '/conversas'
     | '/disparos'
+    | '/api/public/hooks/uazapi-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/agente' | '/contatos' | '/conversas' | '/disparos' | '/'
+  to:
+    | '/auth'
+    | '/agente'
+    | '/contatos'
+    | '/conversas'
+    | '/disparos'
+    | '/'
+    | '/api/public/hooks/uazapi-webhook'
   id:
     | '__root__'
     | '/_authenticated'
@@ -98,11 +116,13 @@ export interface FileRouteTypes {
     | '/_authenticated/conversas'
     | '/_authenticated/disparos'
     | '/_authenticated/'
+    | '/api/public/hooks/uazapi-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksUazapiWebhookRoute: typeof ApiPublicHooksUazapiWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -156,6 +176,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgenteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/uazapi-webhook': {
+      id: '/api/public/hooks/uazapi-webhook'
+      path: '/api/public/hooks/uazapi-webhook'
+      fullPath: '/api/public/hooks/uazapi-webhook'
+      preLoaderRoute: typeof ApiPublicHooksUazapiWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -181,6 +208,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksUazapiWebhookRoute: ApiPublicHooksUazapiWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -164,13 +164,13 @@ function AgentePage() {
 }
 
 type IntFields = {
-  evolution_url: string; evolution_api_key: string; evolution_instance: string;
+  uazapi_url: string; uazapi_token: string; uazapi_admin_token: string;
   anthropic_api_key: string; elevenlabs_api_key: string; elevenlabs_voice_id: string;
   openai_api_key: string;
 };
 
 const blankInt: IntFields = {
-  evolution_url: "", evolution_api_key: "", evolution_instance: "",
+  uazapi_url: "", uazapi_token: "", uazapi_admin_token: "",
   anthropic_api_key: "", elevenlabs_api_key: "", elevenlabs_voice_id: "",
   openai_api_key: "",
 };
@@ -187,8 +187,10 @@ function IntegrationsPanel({
   }, [initial]);
 
   const groups: Array<{ title: string; status: boolean; fields: Array<[keyof IntFields, string, boolean?]> }> = [
-    { title: "Evolution API", status: !!v.evolution_url && !!v.evolution_api_key, fields: [
-      ["evolution_url", "URL"], ["evolution_api_key", "API Key", true], ["evolution_instance", "Instância"],
+    { title: "Uazapi", status: !!v.uazapi_url && !!v.uazapi_token, fields: [
+      ["uazapi_url", "URL (ex: https://free.uazapi.com)"],
+      ["uazapi_token", "Token da instância", true],
+      ["uazapi_admin_token", "Admin Token (opcional)", true],
     ] },
     { title: "Claude (Anthropic)", status: !!v.anthropic_api_key, fields: [["anthropic_api_key", "API Key", true]] },
     { title: "ElevenLabs", status: !!v.elevenlabs_api_key, fields: [["elevenlabs_api_key", "API Key", true], ["elevenlabs_voice_id", "Voice ID"]] },
