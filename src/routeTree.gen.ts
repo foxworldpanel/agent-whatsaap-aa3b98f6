@@ -17,6 +17,7 @@ import { Route as AuthenticatedConversasRouteImport } from './routes/_authentica
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
 import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
 import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
+import { Route as ApiPublicHooksCampaignDispatcherRouteImport } from './routes/api/public/hooks/campaign-dispatcher'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -58,6 +59,12 @@ const ApiPublicHooksUazapiWebhookRoute =
     path: '/api/public/hooks/uazapi-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksCampaignDispatcherRoute =
+  ApiPublicHooksCampaignDispatcherRouteImport.update({
+    id: '/api/public/hooks/campaign-dispatcher',
+    path: '/api/public/hooks/campaign-dispatcher',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
+  '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -75,6 +83,7 @@ export interface FileRoutesByTo {
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
   '/': typeof AuthenticatedIndexRoute
+  '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
 export interface FileRoutesById {
@@ -86,6 +95,7 @@ export interface FileRoutesById {
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
   '/_authenticated/disparos': typeof AuthenticatedDisparosRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
 export interface FileRouteTypes {
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/contatos'
     | '/conversas'
     | '/disparos'
+    | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/uazapi-webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/conversas'
     | '/disparos'
     | '/'
+    | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/uazapi-webhook'
   id:
     | '__root__'
@@ -116,12 +128,14 @@ export interface FileRouteTypes {
     | '/_authenticated/conversas'
     | '/_authenticated/disparos'
     | '/_authenticated/'
+    | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/uazapi-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksCampaignDispatcherRoute: typeof ApiPublicHooksCampaignDispatcherRoute
   ApiPublicHooksUazapiWebhookRoute: typeof ApiPublicHooksUazapiWebhookRoute
 }
 
@@ -183,6 +197,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksUazapiWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/campaign-dispatcher': {
+      id: '/api/public/hooks/campaign-dispatcher'
+      path: '/api/public/hooks/campaign-dispatcher'
+      fullPath: '/api/public/hooks/campaign-dispatcher'
+      preLoaderRoute: typeof ApiPublicHooksCampaignDispatcherRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -208,6 +229,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksCampaignDispatcherRoute: ApiPublicHooksCampaignDispatcherRoute,
   ApiPublicHooksUazapiWebhookRoute: ApiPublicHooksUazapiWebhookRoute,
 }
 export const routeTree = rootRouteImport
