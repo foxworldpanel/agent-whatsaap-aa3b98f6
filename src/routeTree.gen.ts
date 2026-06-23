@@ -16,7 +16,6 @@ import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
 import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
-import { Route as ApiPublicHooksEvolutionWebhookRouteImport } from './routes/api/public/hooks/evolution-webhook'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -52,12 +51,6 @@ const AuthenticatedAgenteRoute = AuthenticatedAgenteRouteImport.update({
   path: '/agente',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiPublicHooksEvolutionWebhookRoute =
-  ApiPublicHooksEvolutionWebhookRouteImport.update({
-    id: '/api/public/hooks/evolution-webhook',
-    path: '/api/public/hooks/evolution-webhook',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -66,7 +59,6 @@ export interface FileRoutesByFullPath {
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
-  '/api/public/hooks/evolution-webhook': typeof ApiPublicHooksEvolutionWebhookRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -75,7 +67,6 @@ export interface FileRoutesByTo {
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
   '/': typeof AuthenticatedIndexRoute
-  '/api/public/hooks/evolution-webhook': typeof ApiPublicHooksEvolutionWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,7 +77,6 @@ export interface FileRoutesById {
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
   '/_authenticated/disparos': typeof AuthenticatedDisparosRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/api/public/hooks/evolution-webhook': typeof ApiPublicHooksEvolutionWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,16 +87,8 @@ export interface FileRouteTypes {
     | '/contatos'
     | '/conversas'
     | '/disparos'
-    | '/api/public/hooks/evolution-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/auth'
-    | '/agente'
-    | '/contatos'
-    | '/conversas'
-    | '/disparos'
-    | '/'
-    | '/api/public/hooks/evolution-webhook'
+  to: '/auth' | '/agente' | '/contatos' | '/conversas' | '/disparos' | '/'
   id:
     | '__root__'
     | '/_authenticated'
@@ -116,13 +98,11 @@ export interface FileRouteTypes {
     | '/_authenticated/conversas'
     | '/_authenticated/disparos'
     | '/_authenticated/'
-    | '/api/public/hooks/evolution-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  ApiPublicHooksEvolutionWebhookRoute: typeof ApiPublicHooksEvolutionWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -176,13 +156,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgenteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/hooks/evolution-webhook': {
-      id: '/api/public/hooks/evolution-webhook'
-      path: '/api/public/hooks/evolution-webhook'
-      fullPath: '/api/public/hooks/evolution-webhook'
-      preLoaderRoute: typeof ApiPublicHooksEvolutionWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -208,7 +181,6 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  ApiPublicHooksEvolutionWebhookRoute: ApiPublicHooksEvolutionWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
