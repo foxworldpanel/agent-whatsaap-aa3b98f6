@@ -23,7 +23,23 @@ type Conv = {
   status: "agente_respondendo" | "aguardando" | "convertido";
   last_message_preview: string | null;
   last_message_at: string | null;
-  contact: { id: string; nome: string; telefone: string; perfil: "frio" | "inativo" | "ativo" } | null;
+  contact: {
+    id: string;
+    nome: string;
+    telefone: string;
+    perfil: "frio" | "inativo" | "ativo";
+    source?: string | null;
+    source_ref?: string | null;
+    source_url?: string | null;
+    source_headline?: string | null;
+  } | null;
+};
+
+const sourceLabel: Record<string, string> = {
+  meta_ads: "Meta Ads",
+  organico: "Orgânico",
+  importado: "Importado",
+  manual: "Manual",
 };
 
 function formatTime(iso: string | null): string {
@@ -138,6 +154,17 @@ function Conversas() {
                       ? "Agente respondendo"
                       : "Aguardando"}
                   </span>
+                  {c.contact?.source && (
+                    <span
+                      className={`ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                        c.contact.source === "meta_ads"
+                          ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {sourceLabel[c.contact.source] ?? c.contact.source}
+                    </span>
+                  )}
                 </div>
               </button>
             );
@@ -150,6 +177,30 @@ function Conversas() {
               <h2 className="font-semibold">{active?.contact?.nome ?? "Selecione uma conversa"}</h2>
               <p className="text-xs text-muted-foreground">
                 {active?.contact ? profileLabel[active.contact.perfil] : ""}
+                {active?.contact?.source && (
+                  <>
+                    {" · "}
+                    <span className={active.contact.source === "meta_ads" ? "text-primary" : ""}>
+                      Origem: {sourceLabel[active.contact.source] ?? active.contact.source}
+                    </span>
+                    {active.contact.source_headline && (
+                      <span className="text-muted-foreground"> — “{active.contact.source_headline}”</span>
+                    )}
+                    {active.contact.source_url && (
+                      <>
+                        {" · "}
+                        <a
+                          href={active.contact.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline hover:text-primary"
+                        >
+                          anúncio
+                        </a>
+                      </>
+                    )}
+                  </>
+                )}
               </p>
             </div>
             <button className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium transition hover:bg-muted">
