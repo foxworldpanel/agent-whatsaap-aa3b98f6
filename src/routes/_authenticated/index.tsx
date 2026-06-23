@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, MessagesSquare, TrendingUp, CheckCircle2, Send, Activity } from "lucide-react";
+import { Users, MessagesSquare, TrendingUp, CheckCircle2, Send, Activity, Megaphone } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getDashboardStats } from "@/lib/dashboard.functions";
@@ -70,6 +70,46 @@ function Index() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
+        <div
+          className="lg:col-span-3 rounded-xl border border-border p-6"
+          style={{ background: "var(--gradient-card)" }}
+        >
+          <div className="flex items-center gap-2">
+            <Megaphone className="h-4 w-4 text-primary" />
+            <h2 className="font-semibold">Origem dos leads</h2>
+          </div>
+          {(data?.leadsBySource ?? []).length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Nenhum lead ainda. Quando alguém clicar no seu anúncio do Meta Ads, a origem aparece aqui.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {(data?.leadsBySource ?? []).map((s) => {
+                const label =
+                  s.source === "meta_ads"
+                    ? "Meta Ads"
+                    : s.source === "organico"
+                      ? "Orgânico"
+                      : s.source === "importado"
+                        ? "Importado"
+                        : s.source === "manual"
+                          ? "Manual"
+                          : s.source;
+                const conv = s.total > 0 ? Math.round((s.convertidos / s.total) * 100) : 0;
+                return (
+                  <div key={s.source} className="rounded-lg border border-border bg-background/40 p-4">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
+                    <p className="mt-2 text-2xl font-bold">{s.total}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {s.convertidos} convertidos · {conv}%
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <div
           className="lg:col-span-2 rounded-xl border border-border p-6"
           style={{ background: "var(--gradient-card)" }}

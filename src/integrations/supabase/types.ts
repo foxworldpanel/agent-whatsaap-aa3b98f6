@@ -151,6 +151,11 @@ export type Database = {
           last_interaction_at: string | null
           nome: string
           perfil: Database["public"]["Enums"]["contact_profile"]
+          source: string
+          source_data: Json | null
+          source_headline: string | null
+          source_ref: string | null
+          source_url: string | null
           status: Database["public"]["Enums"]["contact_status"]
           telefone: string
           updated_at: string
@@ -163,6 +168,11 @@ export type Database = {
           last_interaction_at?: string | null
           nome: string
           perfil?: Database["public"]["Enums"]["contact_profile"]
+          source?: string
+          source_data?: Json | null
+          source_headline?: string | null
+          source_ref?: string | null
+          source_url?: string | null
           status?: Database["public"]["Enums"]["contact_status"]
           telefone: string
           updated_at?: string
@@ -175,6 +185,11 @@ export type Database = {
           last_interaction_at?: string | null
           nome?: string
           perfil?: Database["public"]["Enums"]["contact_profile"]
+          source?: string
+          source_data?: Json | null
+          source_headline?: string | null
+          source_ref?: string | null
+          source_url?: string | null
           status?: Database["public"]["Enums"]["contact_status"]
           telefone?: string
           updated_at?: string
