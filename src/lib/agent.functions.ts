@@ -53,9 +53,9 @@ export const saveIntegrations = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
-      evolution_url: z.string().max(500).optional().nullable(),
-      evolution_api_key: z.string().max(500).optional().nullable(),
-      evolution_instance: z.string().max(200).optional().nullable(),
+      uazapi_url: z.string().max(500).optional().nullable(),
+      uazapi_token: z.string().max(500).optional().nullable(),
+      uazapi_admin_token: z.string().max(500).optional().nullable(),
       anthropic_api_key: z.string().max(500).optional().nullable(),
       elevenlabs_api_key: z.string().max(500).optional().nullable(),
       elevenlabs_voice_id: z.string().max(200).optional().nullable(),
