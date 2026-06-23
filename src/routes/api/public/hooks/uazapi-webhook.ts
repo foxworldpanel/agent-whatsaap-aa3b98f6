@@ -1,78 +1,92 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-// Evolution API webhook receiver.
-// Configure in Evolution: POST {site}/api/public/hooks/evolution-webhook
-// Events handled: messages.upsert (incoming user message).
+// Uazapi webhook receiver.
+// Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
+// Eventos: messages (mensagens recebidas).
 
-type EvolutionPayload = {
+type UazapiPayload = {
   event?: string;
-  instance?: string;
-  data?: {
-    key?: { remoteJid?: string; fromMe?: boolean; id?: string };
-    pushName?: string;
-    message?: {
-      conversation?: string;
-      extendedTextMessage?: { text?: string };
-      audioMessage?: { url?: string };
-    };
+  EventType?: string;
+  token?: string; // token da instância
+  instance?: { token?: string } | string;
+  message?: {
+    chatid?: string;
+    sender?: string;
+    fromMe?: boolean;
     messageType?: string;
+    type?: string;
+    text?: string;
+    content?: string;
+    senderName?: string;
+    mediaUrl?: string;
   };
+  data?: UazapiPayload["message"];
 };
 
-function extractPhone(remoteJid?: string): string | null {
-  if (!remoteJid) return null;
-  // "5511999999999@s.whatsapp.net"
-  const raw = remoteJid.split("@")[0];
-  return raw.replace(/\D+/g, "") || null;
+function pickInstanceToken(p: UazapiPayload): string | null {
+  if (typeof p.token === "string" && p.token) return p.token;
+  if (typeof p.instance === "string") return p.instance;
+  if (p.instance && typeof p.instance === "object" && p.instance.token) return p.instance.token;
+  return null;
 }
 
-function extractText(p: EvolutionPayload): { text: string; kind: "texto" | "audio" } {
-  const m = p.data?.message;
-  if (m?.conversation) return { text: m.conversation, kind: "texto" };
-  if (m?.extendedTextMessage?.text) return { text: m.extendedTextMessage.text, kind: "texto" };
-  if (m?.audioMessage) return { text: "[áudio recebido]", kind: "audio" };
-  return { text: "", kind: "texto" };
+function extractPhone(chatid?: string, sender?: string): string | null {
+  const raw = (chatid ?? sender ?? "").split("@")[0];
+  const digits = raw.replace(/\D+/g, "");
+  return digits || null;
 }
 
-export const Route = createFileRoute("/api/public/hooks/evolution-webhook")({
+function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" } {
+  const m = p.message ?? p.data ?? {};
+  const type = (m.messageType ?? m.type ?? "").toLowerCase();
+  if (type.includes("audio") || type.includes("ptt")) {
+    return { text: m.text || "[áudio recebido]", kind: "audio" };
+  }
+  return { text: m.text ?? m.content ?? "", kind: "texto" };
+}
+
+export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let payload: EvolutionPayload;
+        let payload: UazapiPayload;
         try {
-          payload = (await request.json()) as EvolutionPayload;
+          payload = (await request.json()) as UazapiPayload;
         } catch {
           return new Response("invalid json", { status: 400 });
         }
 
-        // Only handle incoming user messages
-        const event = payload.event ?? "";
-        if (!event.includes("messages.upsert")) return new Response("ignored");
-        if (payload.data?.key?.fromMe) return new Response("ignored: fromMe");
+        const event = (payload.event ?? payload.EventType ?? "").toLowerCase();
+        // Aceita messages, messages.upsert, message etc.
+        if (event && !event.includes("message")) return new Response("ignored");
 
-        const instance = payload.instance;
-        const phone = extractPhone(payload.data?.key?.remoteJid);
-        if (!instance || !phone) return new Response("missing instance/phone", { status: 400 });
+        const msg = payload.message ?? payload.data;
+        if (!msg) return new Response("no message");
+        if (msg.fromMe) return new Response("ignored: fromMe");
 
-        const { text, kind } = extractText(payload);
+        const instanceToken = pickInstanceToken(payload);
+        const phone = extractPhone(msg.chatid, msg.sender);
+        if (!instanceToken || !phone) {
+          return new Response("missing token/phone", { status: 400 });
+        }
+
+        const { text, kind } = extractContent(payload);
         if (!text) return new Response("empty");
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        // Resolve user by instance name
         const { data: integ, error: intErr } = await supabaseAdmin
           .from("integrations")
           .select(
-            "user_id, evolution_url, evolution_api_key, evolution_instance, anthropic_api_key, elevenlabs_api_key, elevenlabs_voice_id",
+            "user_id, uazapi_url, uazapi_token, anthropic_api_key, elevenlabs_api_key, elevenlabs_voice_id",
           )
-          .eq("evolution_instance", instance)
+          .eq("uazapi_token", instanceToken)
           .maybeSingle();
         if (intErr) return new Response(intErr.message, { status: 500 });
         if (!integ) return new Response("instance not registered", { status: 404 });
 
         const userId = integ.user_id;
 
-        // Find or create contact
         let { data: contact } = await supabaseAdmin
           .from("contacts")
           .select("id, nome, perfil")
@@ -85,7 +99,7 @@ export const Route = createFileRoute("/api/public/hooks/evolution-webhook")({
             .from("contacts")
             .insert({
               user_id: userId,
-              nome: payload.data?.pushName ?? phone,
+              nome: msg.senderName ?? phone,
               telefone: phone,
               perfil: "frio",
               status: "em_conversa",
@@ -96,7 +110,6 @@ export const Route = createFileRoute("/api/public/hooks/evolution-webhook")({
           contact = inserted.data;
         }
 
-        // Find or create conversation
         let { data: conv } = await supabaseAdmin
           .from("conversations")
           .select("id")
@@ -119,8 +132,6 @@ export const Route = createFileRoute("/api/public/hooks/evolution-webhook")({
         }
 
         const now = new Date().toISOString();
-
-        // Save inbound message
         await supabaseAdmin.from("messages").insert({
           user_id: userId,
           conversation_id: conv.id,
@@ -137,10 +148,7 @@ export const Route = createFileRoute("/api/public/hooks/evolution-webhook")({
           })
           .eq("id", conv.id);
 
-        // Generate AI reply if we have Claude configured
-        if (!integ.anthropic_api_key) {
-          return new Response("ok (no claude key)");
-        }
+        if (!integ.anthropic_api_key) return new Response("ok (no claude key)");
 
         const { data: agent } = await supabaseAdmin
           .from("agent_config")
@@ -164,20 +172,15 @@ export const Route = createFileRoute("/api/public/hooks/evolution-webhook")({
           history: (history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>,
         });
 
-        // Send reply via Evolution
-        const { evolutionSendText } = await import("@/lib/evolution.server");
+        const { uazapiSendText } = await import("@/lib/uazapi.server");
         try {
-          await evolutionSendText(
-            {
-              evolution_url: integ.evolution_url ?? "",
-              evolution_api_key: integ.evolution_api_key ?? "",
-              evolution_instance: integ.evolution_instance ?? "",
-            },
+          await uazapiSendText(
+            { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
             phone,
             reply,
           );
         } catch (e) {
-          return new Response(`evolution send failed: ${(e as Error).message}`, { status: 502 });
+          return new Response(`uazapi send failed: ${(e as Error).message}`, { status: 502 });
         }
 
         const nowReply = new Date().toISOString();

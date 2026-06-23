@@ -54,21 +54,20 @@ export const sendManualMessage = createServerFn({ method: "POST" })
 
     const { data: integ, error: intErr } = await supabase
       .from("integrations")
-      .select("evolution_url, evolution_api_key, evolution_instance")
+      .select("uazapi_url, uazapi_token")
       .eq("user_id", userId)
       .maybeSingle();
     if (intErr) throw new Error(intErr.message);
-    if (!integ?.evolution_url || !integ.evolution_api_key || !integ.evolution_instance) {
-      throw new Error("Configure a Evolution API na tela do Agente.");
+    if (!integ?.uazapi_url || !integ.uazapi_token) {
+      throw new Error("Configure a Uazapi na tela do Agente.");
     }
 
     const contact = conv.contact as unknown as { telefone: string };
-    const { evolutionSendText } = await import("./evolution.server");
-    await evolutionSendText(
+    const { uazapiSendText } = await import("./uazapi.server");
+    await uazapiSendText(
       {
-        evolution_url: integ.evolution_url,
-        evolution_api_key: integ.evolution_api_key,
-        evolution_instance: integ.evolution_instance,
+        uazapi_url: integ.uazapi_url,
+        uazapi_token: integ.uazapi_token,
       },
       contact.telefone,
       data.text,
