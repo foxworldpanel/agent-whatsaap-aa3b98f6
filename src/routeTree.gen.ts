@@ -9,8 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as DisparosRouteImport } from './routes/disparos'
+import { Route as ConversasRouteImport } from './routes/conversas'
+import { Route as ContatosRouteImport } from './routes/contatos'
+import { Route as AgenteRouteImport } from './routes/agente'
 import { Route as IndexRouteImport } from './routes/index'
 
+const DisparosRoute = DisparosRouteImport.update({
+  id: '/disparos',
+  path: '/disparos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConversasRoute = ConversasRouteImport.update({
+  id: '/conversas',
+  path: '/conversas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContatosRoute = ContatosRouteImport.update({
+  id: '/contatos',
+  path: '/contatos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgenteRoute = AgenteRouteImport.update({
+  id: '/agente',
+  path: '/agente',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +43,72 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agente': typeof AgenteRoute
+  '/contatos': typeof ContatosRoute
+  '/conversas': typeof ConversasRoute
+  '/disparos': typeof DisparosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agente': typeof AgenteRoute
+  '/contatos': typeof ContatosRoute
+  '/conversas': typeof ConversasRoute
+  '/disparos': typeof DisparosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agente': typeof AgenteRoute
+  '/contatos': typeof ContatosRoute
+  '/conversas': typeof ConversasRoute
+  '/disparos': typeof DisparosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/agente' | '/contatos' | '/conversas' | '/disparos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/agente' | '/contatos' | '/conversas' | '/disparos'
+  id: '__root__' | '/' | '/agente' | '/contatos' | '/conversas' | '/disparos'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgenteRoute: typeof AgenteRoute
+  ContatosRoute: typeof ContatosRoute
+  ConversasRoute: typeof ConversasRoute
+  DisparosRoute: typeof DisparosRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/disparos': {
+      id: '/disparos'
+      path: '/disparos'
+      fullPath: '/disparos'
+      preLoaderRoute: typeof DisparosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conversas': {
+      id: '/conversas'
+      path: '/conversas'
+      fullPath: '/conversas'
+      preLoaderRoute: typeof ConversasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contatos': {
+      id: '/contatos'
+      path: '/contatos'
+      fullPath: '/contatos'
+      preLoaderRoute: typeof ContatosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agente': {
+      id: '/agente'
+      path: '/agente'
+      fullPath: '/agente'
+      preLoaderRoute: typeof AgenteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,6 +121,10 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgenteRoute: AgenteRoute,
+  ContatosRoute: ContatosRoute,
+  ConversasRoute: ConversasRoute,
+  DisparosRoute: DisparosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
