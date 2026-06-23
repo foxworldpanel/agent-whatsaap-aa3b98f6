@@ -19,6 +19,13 @@ type UazapiPayload = {
     content?: string;
     senderName?: string;
     mediaUrl?: string;
+    // Meta Ads / WhatsApp Cloud referral fields (vários formatos possíveis)
+    referral?: Record<string, unknown>;
+    ctwa_clid?: string;
+    sourceUrl?: string;
+    sourceId?: string;
+    sourceType?: string;
+    contextInfo?: Record<string, unknown>;
   };
   data?: UazapiPayload["message"];
 };
@@ -48,6 +55,65 @@ function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audi
 function extractMediaUrl(p: UazapiPayload): string | null {
   const m = p.message ?? p.data ?? {};
   return m.mediaUrl ?? null;
+}
+
+type LeadSource = {
+  source: string;
+  source_ref: string | null;
+  source_url: string | null;
+  source_headline: string | null;
+  source_data: Record<string, unknown> | null;
+};
+
+function extractLeadSource(p: UazapiPayload): LeadSource | null {
+  const m = (p.message ?? p.data ?? {}) as Record<string, unknown>;
+  const ctx = (m.contextInfo as Record<string, unknown> | undefined) ?? {};
+  const ref =
+    (m.referral as Record<string, unknown> | undefined) ??
+    (ctx.externalAdReply as Record<string, unknown> | undefined) ??
+    (ctx.referral as Record<string, unknown> | undefined);
+
+  const ctwa =
+    (m.ctwa_clid as string | undefined) ??
+    (ref?.ctwa_clid as string | undefined) ??
+    (ctx.ctwa_clid as string | undefined);
+
+  const sourceUrl =
+    (m.sourceUrl as string | undefined) ??
+    (ref?.source_url as string | undefined) ??
+    (ref?.sourceUrl as string | undefined);
+
+  const sourceId =
+    (m.sourceId as string | undefined) ??
+    (ref?.source_id as string | undefined) ??
+    (ref?.sourceId as string | undefined);
+
+  const sourceType =
+    (m.sourceType as string | undefined) ??
+    (ref?.source_type as string | undefined) ??
+    (ref?.sourceType as string | undefined);
+
+  const headline =
+    (ref?.headline as string | undefined) ??
+    (ref?.body as string | undefined) ??
+    (ref?.title as string | undefined);
+
+  const sourceRef = ctwa ?? sourceId ?? null;
+
+  const isMeta =
+    !!ctwa ||
+    (typeof sourceType === "string" && /ad|fb|ig|meta/i.test(sourceType)) ||
+    (typeof sourceUrl === "string" && /(fb\.me|facebook|instagram|fb\.com)/i.test(sourceUrl));
+
+  if (!ref && !ctwa && !sourceUrl && !sourceId) return null;
+
+  return {
+    source: isMeta ? "meta_ads" : "organico",
+    source_ref: sourceRef,
+    source_url: sourceUrl ?? null,
+    source_headline: headline ?? null,
+    source_data: ref ?? { ctwa_clid: ctwa, sourceUrl, sourceId, sourceType },
+  };
 }
 
 const STOP_PATTERNS = [
@@ -115,10 +181,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         let { data: contact } = await supabaseAdmin
           .from("contacts")
-          .select("id, nome, perfil, status")
+          .select("id, nome, perfil, status, source, source_ref")
           .eq("user_id", userId)
           .eq("telefone", phone)
           .maybeSingle();
+
+        const leadSource = extractLeadSource(payload);
 
         if (!contact) {
           const inserted = await supabaseAdmin
@@ -129,11 +197,28 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               telefone: phone,
               perfil: "frio",
               status: "em_conversa",
+              source: leadSource?.source ?? "organico",
+              source_ref: leadSource?.source_ref ?? null,
+              source_url: leadSource?.source_url ?? null,
+              source_headline: leadSource?.source_headline ?? null,
+              source_data: leadSource?.source_data ?? null,
             })
-            .select("id, nome, perfil, status")
+            .select("id, nome, perfil, status, source, source_ref")
             .single();
           if (inserted.error) return new Response(inserted.error.message, { status: 500 });
           contact = inserted.data;
+        } else if (leadSource && (contact.source === "organico" || !contact.source_ref)) {
+          // Atualiza origem se chegou ref e ainda não havia
+          await supabaseAdmin
+            .from("contacts")
+            .update({
+              source: leadSource.source,
+              source_ref: leadSource.source_ref,
+              source_url: leadSource.source_url,
+              source_headline: leadSource.source_headline,
+              source_data: leadSource.source_data,
+            })
+            .eq("id", contact.id);
         }
 
         if (contact.status === "bloqueado") {
