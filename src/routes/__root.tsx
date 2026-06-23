@@ -6,11 +6,11 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { Outlet } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { AppShell } from "../components/AppShell";
 
 function NotFoundComponent() {
   return (
@@ -118,7 +118,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppShell />
+      <Outlet />
     </QueryClientProvider>
   );
 }

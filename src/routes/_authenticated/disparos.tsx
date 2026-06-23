@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle } from "lucide-react";
 import { mockLogs } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/disparos")({
+export const Route = createFileRoute("/_authenticated/disparos")({
   head: () => ({ meta: [{ title: "Disparos · ZapAgent" }] }),
   component: Disparos,
 });

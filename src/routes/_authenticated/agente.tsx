@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Bot, Save, Mic, Link2, Sparkles } from "lucide-react";
 
-export const Route = createFileRoute("/agente")({
+export const Route = createFileRoute("/_authenticated/agente")({
   head: () => ({ meta: [{ title: "Agente IA · ZapAgent" }] }),
   component: AgentePage,
 });
