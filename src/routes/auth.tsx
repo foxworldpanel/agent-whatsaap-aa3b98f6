@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -36,19 +35,6 @@ function AuthPage() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function handleGoogle() {
-    setError(null);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      setError(result.error.message ?? "Falha ao entrar com Google");
-      return;
-    }
-    if (result.redirected) return;
-    navigate({ to: "/" });
   }
 
   return (
