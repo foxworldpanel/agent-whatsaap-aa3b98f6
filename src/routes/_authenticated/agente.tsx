@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Mic, Link2, Sparkles, Check } from "lucide-react";
-import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations } from "@/lib/agent.functions";
+import { Bot, Save, Mic, Link2, Sparkles, Check, Play } from "lucide-react";
+import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/agente")({
   ssr: false,
@@ -34,6 +34,13 @@ function AgentePage() {
 
   const cfgQ = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
   const intQ = useQuery({ queryKey: ["integrations"], queryFn: () => fetchInt() });
+  const preview = useServerFn(previewVoice);
+  const previewMut = useMutation({
+    mutationFn: () => preview({ data: {} }),
+    onSuccess: ({ audio }) => {
+      new Audio(audio).play().catch(() => {});
+    },
+  });
 
   const [cfg, setCfg] = useState<Cfg>(defaultConfig);
   const [activeTab, setActiveTab] = useState<"ativo" | "frio" | "inativo">("frio");
@@ -156,6 +163,9 @@ function AgentePage() {
               await saveInt({ data: v });
               qc.invalidateQueries({ queryKey: ["integrations"] });
             }}
+            onPreviewVoice={() => previewMut.mutate()}
+            previewing={previewMut.isPending}
+            previewError={previewMut.error ? (previewMut.error as Error).message : null}
           />
         </div>
       </div>
@@ -176,8 +186,14 @@ const blankInt: IntFields = {
 };
 
 function IntegrationsPanel({
-  initial, onSave,
-}: { initial: Partial<IntFields> | null; onSave: (v: IntFields) => Promise<void> }) {
+  initial, onSave, onPreviewVoice, previewing, previewError,
+}: {
+  initial: Partial<IntFields> | null;
+  onSave: (v: IntFields) => Promise<void>;
+  onPreviewVoice: () => void;
+  previewing: boolean;
+  previewError: string | null;
+}) {
   const [v, setV] = useState<IntFields>(blankInt);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -222,6 +238,25 @@ function IntegrationsPanel({
               />
             ))}
           </div>
+          {g.title === "ElevenLabs" && (
+            <div className="mt-3 space-y-1">
+              <button
+                type="button"
+                onClick={onPreviewVoice}
+                disabled={previewing || !v.elevenlabs_api_key || !v.elevenlabs_voice_id}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-muted disabled:opacity-50"
+              >
+                <Play className="h-3 w-3" />
+                {previewing ? "Gerando…" : "Testar voz"}
+              </button>
+              {previewError && (
+                <p className="text-xs text-destructive">{previewError}</p>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Salve antes de testar — usa a chave e voz salvas no servidor.
+              </p>
+            </div>
+          )}
         </div>
       ))}
       <button
