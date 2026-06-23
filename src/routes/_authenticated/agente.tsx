@@ -145,7 +145,13 @@ function AgentePage() {
           </div>
 
           <IntegrationsPanel
-            initial={(intQ.data as Partial<IntFields> | null) ?? null}
+            initial={
+              intQ.data
+                ? (Object.fromEntries(
+                    Object.entries(intQ.data).map(([k, v]) => [k, v ?? ""]),
+                  ) as Partial<IntFields>)
+                : null
+            }
             onSave={async (v) => {
               await saveInt({ data: v });
               qc.invalidateQueries({ queryKey: ["integrations"] });
