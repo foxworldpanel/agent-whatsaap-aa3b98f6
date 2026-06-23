@@ -50,6 +50,26 @@ function extractMediaUrl(p: UazapiPayload): string | null {
   return m.mediaUrl ?? null;
 }
 
+const STOP_PATTERNS = [
+  /\bpare\b/i,
+  /\bparar\b/i,
+  /\bn[aã]o\s+quero\b/i,
+  /\bn[aã]o\s+me\s+(mande|manda|envie|mand)/i,
+  /\bsai[ar]?\s+da\s+lista\b/i,
+  /\bdescadastr/i,
+  /\bme\s+tira\b/i,
+  /\bstop\b/i,
+  /\bunsubscribe\b/i,
+  /\bcancelar?\b/i,
+];
+
+function isStopRequest(text: string): boolean {
+  if (!text) return false;
+  return STOP_PATTERNS.some((re) => re.test(text));
+}
+
+const FALLBACK_REPLY = "Deixa eu verificar aqui pra você 😊";
+
 export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
   server: {
     handlers: {
@@ -95,7 +115,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         let { data: contact } = await supabaseAdmin
           .from("contacts")
-          .select("id, nome, perfil")
+          .select("id, nome, perfil, status")
           .eq("user_id", userId)
           .eq("telefone", phone)
           .maybeSingle();
@@ -110,10 +130,14 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               perfil: "frio",
               status: "em_conversa",
             })
-            .select("id, nome, perfil")
+            .select("id, nome, perfil, status")
             .single();
           if (inserted.error) return new Response(inserted.error.message, { status: 500 });
           contact = inserted.data;
+        }
+
+        if (contact.status === "bloqueado") {
+          return new Response("ok (blocked)");
         }
 
         let { data: conv } = await supabaseAdmin
@@ -167,6 +191,18 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           })
           .eq("id", conv.id);
 
+        if (isStopRequest(inboundBody)) {
+          await supabaseAdmin
+            .from("contacts")
+            .update({ status: "bloqueado", last_interaction_at: now })
+            .eq("id", contact.id);
+          await supabaseAdmin
+            .from("conversations")
+            .update({ status: "encerrada" })
+            .eq("id", conv.id);
+          return new Response("ok (stop → blocked)");
+        }
+
         if (!integ.anthropic_api_key) return new Response("ok (no claude key)");
 
         const { data: agent } = await supabaseAdmin
@@ -184,12 +220,19 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .limit(30);
 
         const { generateAgentReply } = await import("@/lib/ai.server");
-        const reply = await generateAgentReply({
-          anthropicApiKey: integ.anthropic_api_key,
-          agent,
-          contact: { nome: contact.nome, perfil: contact.perfil },
-          history: (history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>,
-        });
+        let reply: string;
+        try {
+          reply = await generateAgentReply({
+            anthropicApiKey: integ.anthropic_api_key,
+            agent,
+            contact: { nome: contact.nome, perfil: contact.perfil },
+            history: (history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>,
+          });
+          if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
+        } catch (e) {
+          console.error("claude failed", e);
+          reply = FALLBACK_REPLY;
+        }
 
         // Se cliente mandou áudio e agente está com áudio ligado + ElevenLabs configurado → responde com áudio
         const respondWithAudio =
