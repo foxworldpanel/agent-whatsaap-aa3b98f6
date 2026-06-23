@@ -228,10 +228,10 @@ export type Database = {
           anthropic_api_key: string | null
           elevenlabs_api_key: string | null
           elevenlabs_voice_id: string | null
-          evolution_api_key: string | null
-          evolution_instance: string | null
-          evolution_url: string | null
           openai_api_key: string | null
+          uazapi_admin_token: string | null
+          uazapi_token: string | null
+          uazapi_url: string | null
           updated_at: string
           user_id: string
         }
@@ -239,10 +239,10 @@ export type Database = {
           anthropic_api_key?: string | null
           elevenlabs_api_key?: string | null
           elevenlabs_voice_id?: string | null
-          evolution_api_key?: string | null
-          evolution_instance?: string | null
-          evolution_url?: string | null
           openai_api_key?: string | null
+          uazapi_admin_token?: string | null
+          uazapi_token?: string | null
+          uazapi_url?: string | null
           updated_at?: string
           user_id: string
         }
@@ -250,10 +250,10 @@ export type Database = {
           anthropic_api_key?: string | null
           elevenlabs_api_key?: string | null
           elevenlabs_voice_id?: string | null
-          evolution_api_key?: string | null
-          evolution_instance?: string | null
-          evolution_url?: string | null
           openai_api_key?: string | null
+          uazapi_admin_token?: string | null
+          uazapi_token?: string | null
+          uazapi_url?: string | null
           updated_at?: string
           user_id?: string
         }
