@@ -9,7 +9,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     startOfDay.setHours(0, 0, 0, 0);
     const startIso = startOfDay.toISOString();
 
-    const [contactsRes, activeConvRes, sentTodayRes, recvTodayRes, convertedRes, recentLogsRes] =
+    const [contactsRes, activeConvRes, sentTodayRes, recvTodayRes, convertedRes, recentLogsRes, sourcesRes] =
       await Promise.all([
         sb.from("contacts").select("id", { count: "exact", head: true }),
         sb
@@ -35,6 +35,9 @@ export const getDashboardStats = createServerFn({ method: "GET" })
           .select("id, contact_name, message_preview, status, created_at")
           .order("created_at", { ascending: false })
           .limit(10),
+        sb
+          .from("contacts")
+          .select("source, status"),
       ]);
 
     const totalContacts = contactsRes.count ?? 0;
@@ -44,6 +47,19 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     const converted = convertedRes.count ?? 0;
     const responseRate = sentToday > 0 ? Math.round((receivedToday / sentToday) * 100) : 0;
 
+    // Agrega origem dos leads
+    const sourceMap = new Map<string, { total: number; convertidos: number }>();
+    for (const row of sourcesRes.data ?? []) {
+      const key = (row as { source?: string | null }).source ?? "organico";
+      const cur = sourceMap.get(key) ?? { total: 0, convertidos: 0 };
+      cur.total += 1;
+      if ((row as { status?: string }).status === "convertido") cur.convertidos += 1;
+      sourceMap.set(key, cur);
+    }
+    const leadsBySource = Array.from(sourceMap.entries())
+      .map(([source, v]) => ({ source, ...v }))
+      .sort((a, b) => b.total - a.total);
+
     return {
       totalContacts,
       activeConversations,
@@ -52,5 +68,6 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       converted,
       responseRate,
       recentLogs: recentLogsRes.data ?? [],
+      leadsBySource,
     };
   });
