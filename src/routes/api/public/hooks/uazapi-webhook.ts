@@ -201,7 +201,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               source_ref: leadSource?.source_ref ?? null,
               source_url: leadSource?.source_url ?? null,
               source_headline: leadSource?.source_headline ?? null,
-              source_data: leadSource?.source_data ?? null,
+              source_data: (leadSource?.source_data ?? null) as never,
             })
             .select("id, nome, perfil, status, source, source_ref")
             .single();
@@ -216,7 +216,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               source_ref: leadSource.source_ref,
               source_url: leadSource.source_url,
               source_headline: leadSource.source_headline,
-              source_data: leadSource.source_data,
+              source_data: leadSource.source_data as never,
             })
             .eq("id", contact.id);
         }
