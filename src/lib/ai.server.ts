@@ -82,3 +82,67 @@ export async function generateAgentReply(params: {
     .trim();
   return text || "…";
 }
+
+// ----- Transcrição (Whisper via Lovable AI Gateway, sem chave do usuário) -----
+
+export async function transcribeAudioUrl(audioUrl: string): Promise<string> {
+  const key = process.env.LOVABLE_API_KEY;
+  if (!key) throw new Error("LOVABLE_API_KEY ausente");
+
+  const audio = await fetch(audioUrl);
+  if (!audio.ok) throw new Error(`Falha ao baixar áudio (${audio.status})`);
+  const blob = await audio.blob();
+  const mime = blob.type || "audio/ogg";
+  const ext =
+    mime.includes("mp4") ? "mp4" :
+    mime.includes("mpeg") ? "mp3" :
+    mime.includes("wav") ? "wav" :
+    mime.includes("webm") ? "webm" : "ogg";
+
+  const form = new FormData();
+  form.append("model", "openai/gpt-4o-mini-transcribe");
+  form.append("file", blob, `audio.${ext}`);
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Transcrição falhou (${res.status}): ${t.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as { text?: string };
+  return (json.text ?? "").trim();
+}
+
+// ----- TTS ElevenLabs (retorna base64 MP3) -----
+
+export async function ttsElevenLabsBase64(params: {
+  apiKey: string;
+  voiceId: string;
+  text: string;
+}): Promise<string> {
+  const { apiKey, voiceId, text } = params;
+  const res = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`,
+    {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.4, use_speaker_boost: true },
+      }),
+    },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`ElevenLabs falhou (${res.status}): ${t.slice(0, 300)}`);
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  return `data:audio/mpeg;base64,${buf.toString("base64")}`;
+}
