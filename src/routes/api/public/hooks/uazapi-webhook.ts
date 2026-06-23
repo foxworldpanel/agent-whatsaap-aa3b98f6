@@ -45,6 +45,11 @@ function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audi
   return { text: m.text ?? m.content ?? "", kind: "texto" };
 }
 
+function extractMediaUrl(p: UazapiPayload): string | null {
+  const m = p.message ?? p.data ?? {};
+  return m.mediaUrl ?? null;
+}
+
 export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
   server: {
     handlers: {
@@ -71,7 +76,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         }
 
         const { text, kind } = extractContent(payload);
-        if (!text) return new Response("empty");
+        const mediaUrl = extractMediaUrl(payload);
+        if (!text && kind !== "audio") return new Response("empty");
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -157,6 +163,27 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .maybeSingle();
         if (!agent) return new Response("ok (no agent config)");
 
+        // Se for áudio e tivermos URL → transcreve com Whisper (Lovable AI)
+        let inboundText = text;
+        if (kind === "audio" && mediaUrl) {
+          try {
+            const { transcribeAudioUrl } = await import("@/lib/ai.server");
+            const transcript = await transcribeAudioUrl(mediaUrl);
+            if (transcript) {
+              inboundText = transcript;
+              await supabaseAdmin
+                .from("messages")
+                .update({ body: transcript, audio_url: mediaUrl })
+                .eq("conversation_id", conv.id)
+                .eq("sender", "cliente")
+                .order("created_at", { ascending: false })
+                .limit(1);
+            }
+          } catch (e) {
+            console.error("transcribe failed", e);
+          }
+        }
+
         const { data: history } = await supabaseAdmin
           .from("messages")
           .select("sender, body")
@@ -172,13 +199,37 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           history: (history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>,
         });
 
-        const { uazapiSendText } = await import("@/lib/uazapi.server");
+        // Se cliente mandou áudio e agente está com áudio ligado + ElevenLabs configurado → responde com áudio
+        const respondWithAudio =
+          kind === "audio" &&
+          (agent as { audio_enabled?: boolean }).audio_enabled === true &&
+          !!integ.elevenlabs_api_key &&
+          !!integ.elevenlabs_voice_id;
+
+        const { uazapiSendText, uazapiSendAudio } = await import("@/lib/uazapi.server");
+        let replyKind: "texto" | "audio" = "texto";
+        let audioDataUri: string | null = null;
         try {
-          await uazapiSendText(
-            { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
-            phone,
-            reply,
-          );
+          if (respondWithAudio) {
+            const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+            audioDataUri = await ttsElevenLabsBase64({
+              apiKey: integ.elevenlabs_api_key!,
+              voiceId: integ.elevenlabs_voice_id!,
+              text: reply,
+            });
+            await uazapiSendAudio(
+              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+              phone,
+              audioDataUri,
+            );
+            replyKind = "audio";
+          } else {
+            await uazapiSendText(
+              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+              phone,
+              reply,
+            );
+          }
         } catch (e) {
           return new Response(`uazapi send failed: ${(e as Error).message}`, { status: 502 });
         }
@@ -188,9 +239,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           user_id: userId,
           conversation_id: conv.id,
           sender: "agente",
-          kind: "texto",
+          kind: replyKind,
           body: reply,
+          audio_url: audioDataUri,
         });
+        // silencia o lint sobre inboundText (mantido para futura passagem ao Claude)
+        void inboundText;
         await supabaseAdmin
           .from("conversations")
           .update({
