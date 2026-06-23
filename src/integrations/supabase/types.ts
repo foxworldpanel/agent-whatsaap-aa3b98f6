@@ -14,7 +14,313 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agent_config: {
+        Row: {
+          agent_name: string
+          audio_enabled: boolean
+          base_instruction: string
+          main_offer: string
+          panel_link: string | null
+          script_ativo: string
+          script_frio: string
+          script_inativo: string
+          tone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_name?: string
+          audio_enabled?: boolean
+          base_instruction?: string
+          main_offer?: string
+          panel_link?: string | null
+          script_ativo?: string
+          script_frio?: string
+          script_inativo?: string
+          tone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_name?: string
+          audio_enabled?: boolean
+          base_instruction?: string
+          main_offer?: string
+          panel_link?: string | null
+          script_ativo?: string
+          script_frio?: string
+          script_inativo?: string
+          tone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      campaign_logs: {
+        Row: {
+          campaign_id: string | null
+          contact_id: string | null
+          contact_name: string
+          created_at: string
+          id: string
+          message_preview: string
+          status: Database["public"]["Enums"]["log_status"]
+          user_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          contact_id?: string | null
+          contact_name: string
+          created_at?: string
+          id?: string
+          message_preview: string
+          status: Database["public"]["Enums"]["log_status"]
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          contact_id?: string | null
+          contact_name?: string
+          created_at?: string
+          id?: string
+          message_preview?: string
+          status?: Database["public"]["Enums"]["log_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_logs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          created_at: string
+          daily_volume: number
+          end_time: string
+          id: string
+          interval_minutes: number
+          start_time: string
+          state: Database["public"]["Enums"]["campaign_state"]
+          target_profile: Database["public"]["Enums"]["contact_profile"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_volume?: number
+          end_time?: string
+          id?: string
+          interval_minutes?: number
+          start_time?: string
+          state?: Database["public"]["Enums"]["campaign_state"]
+          target_profile: Database["public"]["Enums"]["contact_profile"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_volume?: number
+          end_time?: string
+          id?: string
+          interval_minutes?: number
+          start_time?: string
+          state?: Database["public"]["Enums"]["campaign_state"]
+          target_profile?: Database["public"]["Enums"]["contact_profile"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      contacts: {
+        Row: {
+          created_at: string
+          follow_up_count: number
+          id: string
+          last_interaction_at: string | null
+          nome: string
+          perfil: Database["public"]["Enums"]["contact_profile"]
+          status: Database["public"]["Enums"]["contact_status"]
+          telefone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          follow_up_count?: number
+          id?: string
+          last_interaction_at?: string | null
+          nome: string
+          perfil?: Database["public"]["Enums"]["contact_profile"]
+          status?: Database["public"]["Enums"]["contact_status"]
+          telefone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          follow_up_count?: number
+          id?: string
+          last_interaction_at?: string | null
+          nome?: string
+          perfil?: Database["public"]["Enums"]["contact_profile"]
+          status?: Database["public"]["Enums"]["contact_status"]
+          telefone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          last_message_at: string | null
+          last_message_preview: string | null
+          status: Database["public"]["Enums"]["conversation_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          status?: Database["public"]["Enums"]["conversation_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          status?: Database["public"]["Enums"]["conversation_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations: {
+        Row: {
+          anthropic_api_key: string | null
+          elevenlabs_api_key: string | null
+          elevenlabs_voice_id: string | null
+          evolution_api_key: string | null
+          evolution_instance: string | null
+          evolution_url: string | null
+          openai_api_key: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          anthropic_api_key?: string | null
+          elevenlabs_api_key?: string | null
+          elevenlabs_voice_id?: string | null
+          evolution_api_key?: string | null
+          evolution_instance?: string | null
+          evolution_url?: string | null
+          openai_api_key?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          anthropic_api_key?: string | null
+          elevenlabs_api_key?: string | null
+          elevenlabs_voice_id?: string | null
+          evolution_api_key?: string | null
+          evolution_instance?: string | null
+          evolution_url?: string | null
+          openai_api_key?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          audio_url: string | null
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["message_kind"]
+          sender: Database["public"]["Enums"]["message_sender"]
+          user_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["message_kind"]
+          sender: Database["public"]["Enums"]["message_sender"]
+          user_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["message_kind"]
+          sender?: Database["public"]["Enums"]["message_sender"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +329,18 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      campaign_state: "parado" | "rodando" | "pausado"
+      contact_profile: "ativo" | "frio" | "inativo"
+      contact_status:
+        | "nao_abordado"
+        | "em_conversa"
+        | "convertido"
+        | "sem_resposta"
+        | "bloqueado"
+      conversation_status: "agente_respondendo" | "aguardando" | "convertido"
+      log_status: "enviado" | "respondido" | "falha"
+      message_kind: "texto" | "audio"
+      message_sender: "agente" | "cliente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +467,20 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      campaign_state: ["parado", "rodando", "pausado"],
+      contact_profile: ["ativo", "frio", "inativo"],
+      contact_status: [
+        "nao_abordado",
+        "em_conversa",
+        "convertido",
+        "sem_resposta",
+        "bloqueado",
+      ],
+      conversation_status: ["agente_respondendo", "aguardando", "convertido"],
+      log_status: ["enviado", "respondido", "falha"],
+      message_kind: ["texto", "audio"],
+      message_sender: ["agente", "cliente"],
+    },
   },
 } as const
