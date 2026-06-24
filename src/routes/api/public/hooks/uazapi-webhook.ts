@@ -334,9 +334,6 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             .eq("id", conv.id);
         }
 
-        // "Modo Disparos": número de envio em massa, não responde inbound automaticamente.
-        const _disparosMode = disparosMode; // suprime warning quando desabilitado
-        void _disparosMode;
 
         // Transcreve áudio antes de salvar (para o histórico já ir certo pro Claude)
         let inboundBody = text;
