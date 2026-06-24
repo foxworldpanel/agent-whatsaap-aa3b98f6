@@ -12,6 +12,12 @@ import {
   deleteNumber,
   updateNumberToggles,
 } from "@/lib/numbers.functions";
+import {
+  listWelcomeFunnels,
+  createWelcomeFunnel,
+  updateWelcomeFunnel,
+  deleteWelcomeFunnel,
+} from "@/lib/welcome-funnels.functions";
 
 export const Route = createFileRoute("/_authenticated/numeros")({
   ssr: false,
@@ -27,33 +33,24 @@ type Num = {
   meta_ads_enabled: boolean;
   disparos_mode: boolean;
   last_connected_at: string | null;
-  welcome_funnel: WelcomeFunnel | null;
 };
 
-type WelcomeFunnel = {
-  enabled?: boolean;
-  delay_seconds?: number;
-  trigger_keywords?: string;
-  steps?: {
-    welcome_text?: { enabled?: boolean; text?: string };
-    audio?: { enabled?: boolean; url?: string };
-    panel_text?: { enabled?: boolean; text?: string };
-    video?: { enabled?: boolean; url?: string };
-    services_text?: { enabled?: boolean; text?: string };
-  };
+type FunnelSteps = {
+  welcome_text?: { enabled?: boolean; text?: string };
+  audio?: { enabled?: boolean; url?: string };
+  panel_text?: { enabled?: boolean; text?: string };
+  video?: { enabled?: boolean; url?: string };
+  services_text?: { enabled?: boolean; text?: string };
 };
 
-const DEFAULT_FUNNEL: WelcomeFunnel = {
-  enabled: false,
-  delay_seconds: 3,
-  trigger_keywords: "interesse, divulgar, música, anúncio",
-  steps: {
-    welcome_text: { enabled: true, text: "Oi! Tudo bem? 😊 Bem-vindo(a)! Já te mando umas infos." },
-    audio: { enabled: false, url: "" },
-    panel_text: { enabled: true, text: "Esse é o nosso painel: https://mindsmmpanel.com" },
-    video: { enabled: false, url: "" },
-    services_text: { enabled: true, text: "Trabalhamos com seguidores, curtidas, visualizações e muito mais. Me diz o que você precisa!" },
-  },
+type Funnel = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  delay_seconds: number;
+  trigger_keywords: string;
+  steps: FunnelSteps | null;
+  sort_order: number;
 };
 
 function StatusDot({ status }: { status: string }) {
@@ -127,7 +124,7 @@ function NumerosPage() {
   });
 
   const toggleMut = useMutation({
-    mutationFn: (input: { id: string; meta_ads_enabled?: boolean; disparos_mode?: boolean; nome?: string; welcome_funnel?: WelcomeFunnel }) =>
+    mutationFn: (input: { id: string; meta_ads_enabled?: boolean; disparos_mode?: boolean; nome?: string }) =>
       updateFn({ data: input }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
   });
@@ -271,10 +268,7 @@ function NumerosPage() {
               />
             </div>
 
-            <WelcomeFunnelSection
-              funnel={n.welcome_funnel ?? DEFAULT_FUNNEL}
-              onSave={(welcome_funnel) => toggleMut.mutate({ id: n.id, welcome_funnel })}
-            />
+            <WelcomeFunnelsSection whatsappNumberId={n.id} />
           </div>
         ))}
       </div>
