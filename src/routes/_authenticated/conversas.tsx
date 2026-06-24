@@ -198,11 +198,14 @@ function Conversas() {
                       <p className="truncate text-xs text-neutral-500">
                         {c.last_message_preview ?? ""}
                       </p>
-                      {c.contact?.source === "meta_ads" && (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <TempBadge t={c.contact?.temperatura} size="xs" />
+                        {c.contact?.source === "meta_ads" && (
                         <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
                           {sourceLabel.meta_ads}
                         </span>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -262,6 +265,7 @@ function Conversas() {
                           · {sourceLabel[active.contact.source] ?? active.contact.source}
                         </span>
                       )}
+                      <TempBadge t={active.contact?.temperatura} />
                     </>
                   )}
                 </p>
