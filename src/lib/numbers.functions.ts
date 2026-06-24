@@ -138,7 +138,11 @@ export const updateNumberToggles = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      meta_ads_enabled?: boolean;
+      disparos_mode?: boolean;
+      nome?: string;
+    } = {};
     if (data.meta_ads_enabled !== undefined) patch.meta_ads_enabled = data.meta_ads_enabled;
     if (data.disparos_mode !== undefined) patch.disparos_mode = data.disparos_mode;
     if (data.nome !== undefined) patch.nome = data.nome;
