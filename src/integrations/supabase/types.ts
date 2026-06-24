@@ -238,12 +238,88 @@ export type Database = {
           },
         ]
       }
+      free_trials: {
+        Row: {
+          contact_id: string | null
+          conversation_id: string | null
+          criado_em: string
+          id: string
+          last_checked_at: string | null
+          link_enviado: string
+          notified_completed: boolean
+          order_id: string | null
+          quantidade: number
+          raw_response: Json | null
+          servico: string | null
+          status: string
+          telefone: string
+          updated_at: string
+          upsell_offered: boolean
+          user_id: string
+        }
+        Insert: {
+          contact_id?: string | null
+          conversation_id?: string | null
+          criado_em?: string
+          id?: string
+          last_checked_at?: string | null
+          link_enviado: string
+          notified_completed?: boolean
+          order_id?: string | null
+          quantidade?: number
+          raw_response?: Json | null
+          servico?: string | null
+          status?: string
+          telefone: string
+          updated_at?: string
+          upsell_offered?: boolean
+          user_id: string
+        }
+        Update: {
+          contact_id?: string | null
+          conversation_id?: string | null
+          criado_em?: string
+          id?: string
+          last_checked_at?: string | null
+          link_enviado?: string
+          notified_completed?: boolean
+          order_id?: string | null
+          quantidade?: number
+          raw_response?: Json | null
+          servico?: string | null
+          status?: string
+          telefone?: string
+          updated_at?: string
+          upsell_offered?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "free_trials_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "free_trials_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrations: {
         Row: {
           anthropic_api_key: string | null
           elevenlabs_api_key: string | null
           elevenlabs_voice_id: string | null
+          free_trial_enabled: boolean
           openai_api_key: string | null
+          smm_api_key: string | null
+          smm_panel_url: string | null
+          smm_service_id: string | null
           uazapi_admin_token: string | null
           uazapi_token: string | null
           uazapi_url: string | null
@@ -254,7 +330,11 @@ export type Database = {
           anthropic_api_key?: string | null
           elevenlabs_api_key?: string | null
           elevenlabs_voice_id?: string | null
+          free_trial_enabled?: boolean
           openai_api_key?: string | null
+          smm_api_key?: string | null
+          smm_panel_url?: string | null
+          smm_service_id?: string | null
           uazapi_admin_token?: string | null
           uazapi_token?: string | null
           uazapi_url?: string | null
@@ -265,7 +345,11 @@ export type Database = {
           anthropic_api_key?: string | null
           elevenlabs_api_key?: string | null
           elevenlabs_voice_id?: string | null
+          free_trial_enabled?: boolean
           openai_api_key?: string | null
+          smm_api_key?: string | null
+          smm_panel_url?: string | null
+          smm_service_id?: string | null
           uazapi_admin_token?: string | null
           uazapi_token?: string | null
           uazapi_url?: string | null

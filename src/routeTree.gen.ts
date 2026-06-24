@@ -17,6 +17,7 @@ import { Route as AuthenticatedConversasRouteImport } from './routes/_authentica
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
 import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
 import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
+import { Route as ApiPublicHooksSmmPollRouteImport } from './routes/api/public/hooks/smm-poll'
 import { Route as ApiPublicHooksCampaignDispatcherRouteImport } from './routes/api/public/hooks/campaign-dispatcher'
 
 const AuthRoute = AuthRouteImport.update({
@@ -59,6 +60,11 @@ const ApiPublicHooksUazapiWebhookRoute =
     path: '/api/public/hooks/uazapi-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksSmmPollRoute = ApiPublicHooksSmmPollRouteImport.update({
+  id: '/api/public/hooks/smm-poll',
+  path: '/api/public/hooks/smm-poll',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksCampaignDispatcherRoute =
   ApiPublicHooksCampaignDispatcherRouteImport.update({
     id: '/api/public/hooks/campaign-dispatcher',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
+  '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/disparos': typeof AuthenticatedDisparosRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
+  '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
 export interface FileRoutesById {
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/_authenticated/disparos': typeof AuthenticatedDisparosRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
+  '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
 export interface FileRouteTypes {
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/conversas'
     | '/disparos'
     | '/api/public/hooks/campaign-dispatcher'
+    | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/disparos'
     | '/'
     | '/api/public/hooks/campaign-dispatcher'
+    | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
   id:
     | '__root__'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/_authenticated/disparos'
     | '/_authenticated/'
     | '/api/public/hooks/campaign-dispatcher'
+    | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
   fileRoutesById: FileRoutesById
 }
@@ -136,6 +148,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicHooksCampaignDispatcherRoute: typeof ApiPublicHooksCampaignDispatcherRoute
+  ApiPublicHooksSmmPollRoute: typeof ApiPublicHooksSmmPollRoute
   ApiPublicHooksUazapiWebhookRoute: typeof ApiPublicHooksUazapiWebhookRoute
 }
 
@@ -197,6 +210,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksUazapiWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/smm-poll': {
+      id: '/api/public/hooks/smm-poll'
+      path: '/api/public/hooks/smm-poll'
+      fullPath: '/api/public/hooks/smm-poll'
+      preLoaderRoute: typeof ApiPublicHooksSmmPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/campaign-dispatcher': {
       id: '/api/public/hooks/campaign-dispatcher'
       path: '/api/public/hooks/campaign-dispatcher'
@@ -230,18 +250,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicHooksCampaignDispatcherRoute: ApiPublicHooksCampaignDispatcherRoute,
+  ApiPublicHooksSmmPollRoute: ApiPublicHooksSmmPollRoute,
   ApiPublicHooksUazapiWebhookRoute: ApiPublicHooksUazapiWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

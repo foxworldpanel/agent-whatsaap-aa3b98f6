@@ -170,7 +170,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const { data: integ, error: intErr } = await supabaseAdmin
           .from("integrations")
           .select(
-            "user_id, uazapi_url, uazapi_token, anthropic_api_key, elevenlabs_api_key, elevenlabs_voice_id",
+            "user_id, uazapi_url, uazapi_token, anthropic_api_key, elevenlabs_api_key, elevenlabs_voice_id, smm_api_key, smm_service_id, smm_panel_url, free_trial_enabled",
           )
           .eq("uazapi_token", instanceToken)
           .maybeSingle();
@@ -286,6 +286,91 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             .update({ status: "aguardando" })
             .eq("id", conv.id);
           return new Response("ok (stop → blocked)");
+        }
+
+        // ===== TESTE GRÁTIS: detecta link IG/YT na mensagem do cliente =====
+        if (integ.free_trial_enabled && integ.smm_api_key && integ.smm_service_id) {
+          const { detectSocialLink, smmAddOrder } = await import("@/lib/smm.server");
+          const link = detectSocialLink(inboundBody);
+          if (link) {
+            const { data: existingTrial } = await supabaseAdmin
+              .from("free_trials")
+              .select("id, status, order_id")
+              .eq("user_id", userId)
+              .eq("telefone", phone)
+              .maybeSingle();
+
+            const { uazapiSendText } = await import("@/lib/uazapi.server");
+            const creds = {
+              uazapi_url: integ.uazapi_url ?? "",
+              uazapi_token: integ.uazapi_token ?? "",
+            };
+
+            let replyText: string;
+
+            if (existingTrial) {
+              replyText =
+                "Você já usou seu teste grátis! Mas tenho pacotes a partir de R$5 😊";
+            } else {
+              try {
+                const result = await smmAddOrder(
+                  {
+                    url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
+                    key: integ.smm_api_key,
+                  },
+                  { service: integ.smm_service_id, link: link.url, quantity: 100 },
+                );
+                if (!result.order) {
+                  throw new Error(result.error ?? "sem order id");
+                }
+                await supabaseAdmin.from("free_trials").insert({
+                  user_id: userId,
+                  contact_id: contact.id,
+                  conversation_id: conv.id,
+                  telefone: phone,
+                  link_enviado: link.url,
+                  order_id: String(result.order),
+                  servico: integ.smm_service_id,
+                  quantidade: 100,
+                  status: "pending",
+                  raw_response: result.raw as never,
+                });
+                replyText =
+                  "Recebi! Já processando suas visualizações... te aviso quando entregar ✅";
+              } catch (e) {
+                console.error("smm add failed", e);
+                replyText =
+                  "Tive um probleminha aqui pra processar seu teste agora 😅 já tô resolvendo!";
+              }
+            }
+
+            try {
+              await uazapiSendText(creds, phone, replyText);
+            } catch (e) {
+              console.error("uazapi send (trial) failed", e);
+            }
+            const nowT = new Date().toISOString();
+            await supabaseAdmin.from("messages").insert({
+              user_id: userId,
+              conversation_id: conv.id,
+              sender: "agente",
+              kind: "texto",
+              body: replyText,
+            });
+            await supabaseAdmin
+              .from("conversations")
+              .update({
+                last_message_preview: replyText.slice(0, 120),
+                last_message_at: nowT,
+                status: "aguardando",
+              })
+              .eq("id", conv.id);
+            await supabaseAdmin
+              .from("contacts")
+              .update({ last_interaction_at: nowT, status: "em_conversa" })
+              .eq("id", contact.id);
+            return new Response("ok (free trial)");
+          }
         }
 
         if (!integ.anthropic_api_key) return new Response("ok (no claude key)");
