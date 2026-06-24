@@ -35,6 +35,7 @@ type Conv = {
     source_ref?: string | null;
     source_url?: string | null;
     source_headline?: string | null;
+    photo_url?: string | null;
   } | null;
 };
 
@@ -97,7 +98,7 @@ function Conversas() {
   const convsQ = useQuery({
     queryKey: ["conversations"],
     queryFn: () => fetchConvs(),
-    refetchInterval: 5000,
+    refetchInterval: 2000,
     refetchIntervalInBackground: true,
   });
   const conversations = (convsQ.data ?? []) as unknown as Conv[];
@@ -116,7 +117,7 @@ function Conversas() {
     queryKey: ["messages", activeId],
     queryFn: () => fetchMsgs({ data: { conversationId: activeId! } }),
     enabled: !!activeId,
-    refetchInterval: activeId ? 5000 : false,
+    refetchInterval: activeId ? 2000 : false,
     refetchIntervalInBackground: true,
   });
 
