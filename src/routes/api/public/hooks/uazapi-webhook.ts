@@ -173,6 +173,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             "user_id, uazapi_url, uazapi_token, anthropic_api_key, elevenlabs_api_key, elevenlabs_voice_id, smm_api_key, smm_service_id, smm_panel_url, free_trial_enabled",
           )
           .eq("uazapi_token", instanceToken)
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .limit(1)
           .maybeSingle();
         if (intErr) return new Response(intErr.message, { status: 500 });
         if (!integ) return new Response("instance not registered", { status: 404 });
