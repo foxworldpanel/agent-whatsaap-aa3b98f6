@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage } from "@/lib/whatsapp.functions";
+import { setConversationAgentEnabled } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/conversas")({
   ssr: false,
@@ -23,6 +24,7 @@ type Conv = {
   status: "agente_respondendo" | "aguardando" | "convertido";
   last_message_preview: string | null;
   last_message_at: string | null;
+  agent_enabled: boolean;
   contact: {
     id: string;
     nome: string;
@@ -69,6 +71,7 @@ function Conversas() {
   const fetchConvs = useServerFn(listConversations);
   const fetchMsgs = useServerFn(listMessages);
   const sendFn = useServerFn(sendManualMessage);
+  const toggleConvAgent = useServerFn(setConversationAgentEnabled);
 
   const convsQ = useQuery({ queryKey: ["conversations"], queryFn: () => fetchConvs() });
   const conversations = (convsQ.data ?? []) as unknown as Conv[];
@@ -97,6 +100,12 @@ function Conversas() {
       qc.invalidateQueries({ queryKey: ["messages", activeId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: (enabled: boolean) =>
+      toggleConvAgent({ data: { conversationId: activeId!, enabled } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
   });
 
   // Realtime: refresh on insert/update
@@ -237,9 +246,37 @@ function Conversas() {
                 </p>
               </div>
             </div>
-            <button className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50">
-              <Bot className="h-3.5 w-3.5" /> Intervir manualmente
-            </button>
+            <div className="flex items-center gap-2">
+              {active && (
+                <button
+                  type="button"
+                  onClick={() => toggleMut.mutate(!active.agent_enabled)}
+                  disabled={toggleMut.isPending}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    active.agent_enabled
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      : "border-neutral-200 bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                  }`}
+                  title="Liga ou desliga o agente IA apenas para este contato"
+                >
+                  <span
+                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition ${
+                      active.agent_enabled ? "bg-emerald-500" : "bg-neutral-400"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition ${
+                        active.agent_enabled ? "translate-x-3.5" : "translate-x-0.5"
+                      }`}
+                    />
+                  </span>
+                  Agente {active.agent_enabled ? "ativo" : "desligado"}
+                </button>
+              )}
+              <button className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50">
+                <Bot className="h-3.5 w-3.5" /> Intervir manualmente
+              </button>
+            </div>
           </header>
 
           <div className="flex-1 space-y-2 overflow-y-auto px-6 py-5">

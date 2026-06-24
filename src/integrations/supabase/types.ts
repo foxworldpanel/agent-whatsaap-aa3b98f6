@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       agent_config: {
         Row: {
+          agent_enabled: boolean
           agent_name: string
           audio_enabled: boolean
           base_instruction: string
@@ -29,6 +30,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agent_enabled?: boolean
           agent_name?: string
           audio_enabled?: boolean
           base_instruction?: string
@@ -42,6 +44,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agent_enabled?: boolean
           agent_name?: string
           audio_enabled?: boolean
           base_instruction?: string
@@ -205,6 +208,7 @@ export type Database = {
       }
       conversations: {
         Row: {
+          agent_enabled: boolean
           contact_id: string
           created_at: string
           id: string
@@ -215,6 +219,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agent_enabled?: boolean
           contact_id: string
           created_at?: string
           id?: string
@@ -225,6 +230,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agent_enabled?: boolean
           contact_id?: string
           created_at?: string
           id?: string

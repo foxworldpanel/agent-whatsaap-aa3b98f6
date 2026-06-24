@@ -3,6 +3,9 @@ import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap,
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ThemeToggle } from "./ThemeToggle";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getAgentConfig, setAgentGlobalEnabled } from "@/lib/agent.functions";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -17,6 +20,15 @@ const nav = [
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const fetchAgent = useServerFn(getAgentConfig);
+  const toggleGlobal = useServerFn(setAgentGlobalEnabled);
+  const agentQ = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchAgent() });
+  const enabled = (agentQ.data as { agent_enabled?: boolean } | null | undefined)?.agent_enabled !== false;
+  const toggleMut = useMutation({
+    mutationFn: (next: boolean) => toggleGlobal({ data: { enabled: next } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent_config"] }),
+  });
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -65,13 +77,41 @@ export function AppShell() {
             className="rounded-lg border border-border/50 p-3 text-xs"
             style={{ background: "var(--gradient-card)" }}
           >
-            <p className="font-medium text-foreground">Status do Agente</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-medium text-foreground">Status do Agente</p>
+              <button
+                type="button"
+                onClick={() => toggleMut.mutate(!enabled)}
+                disabled={toggleMut.isPending || agentQ.isLoading}
+                aria-pressed={enabled}
+                className={cn(
+                  "relative inline-flex h-5 w-9 items-center rounded-full transition",
+                  enabled ? "bg-success" : "bg-muted",
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-4 w-4 transform rounded-full bg-white shadow transition",
+                    enabled ? "translate-x-4" : "translate-x-0.5",
+                  )}
+                />
+              </button>
+            </div>
             <div className="mt-2 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                {enabled && (
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75" />
+                )}
+                <span
+                  className={cn(
+                    "relative inline-flex h-2 w-2 rounded-full",
+                    enabled ? "bg-success" : "bg-muted-foreground",
+                  )}
+                />
               </span>
-              <span className="text-muted-foreground">Online · 3 conversas</span>
+              <span className="text-muted-foreground">
+                {enabled ? "Online · respondendo" : "Desligado · não responde"}
+              </span>
             </div>
           </div>
           <ThemeToggle />
