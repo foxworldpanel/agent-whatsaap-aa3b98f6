@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTesteGratisRouteImport } from './routes/_authenticated/teste-gratis'
+import { Route as AuthenticatedNumerosRouteImport } from './routes/_authenticated/numeros'
 import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticated/disparos'
 import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
@@ -42,6 +43,11 @@ const AuthenticatedTesteGratisRoute =
     path: '/teste-gratis',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedNumerosRoute = AuthenticatedNumerosRouteImport.update({
+  id: '/numeros',
+  path: '/numeros',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDisparosRoute = AuthenticatedDisparosRouteImport.update({
   id: '/disparos',
   path: '/disparos',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
+  '/numeros': typeof AuthenticatedNumerosRoute
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
+  '/numeros': typeof AuthenticatedNumerosRoute
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/_authenticated/contatos': typeof AuthenticatedContatosRoute
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
   '/_authenticated/disparos': typeof AuthenticatedDisparosRoute
+  '/_authenticated/numeros': typeof AuthenticatedNumerosRoute
   '/_authenticated/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/contatos'
     | '/conversas'
     | '/disparos'
+    | '/numeros'
     | '/teste-gratis'
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/contatos'
     | '/conversas'
     | '/disparos'
+    | '/numeros'
     | '/teste-gratis'
     | '/'
     | '/api/public/hooks/campaign-dispatcher'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contatos'
     | '/_authenticated/conversas'
     | '/_authenticated/disparos'
+    | '/_authenticated/numeros'
     | '/_authenticated/teste-gratis'
     | '/_authenticated/'
     | '/api/public/hooks/campaign-dispatcher'
@@ -206,6 +218,13 @@ declare module '@tanstack/react-router' {
       path: '/teste-gratis'
       fullPath: '/teste-gratis'
       preLoaderRoute: typeof AuthenticatedTesteGratisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/numeros': {
+      id: '/_authenticated/numeros'
+      path: '/numeros'
+      fullPath: '/numeros'
+      preLoaderRoute: typeof AuthenticatedNumerosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/disparos': {
@@ -273,6 +292,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedContatosRoute: typeof AuthenticatedContatosRoute
   AuthenticatedConversasRoute: typeof AuthenticatedConversasRoute
   AuthenticatedDisparosRoute: typeof AuthenticatedDisparosRoute
+  AuthenticatedNumerosRoute: typeof AuthenticatedNumerosRoute
   AuthenticatedTesteGratisRoute: typeof AuthenticatedTesteGratisRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
@@ -283,6 +303,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedContatosRoute: AuthenticatedContatosRoute,
   AuthenticatedConversasRoute: AuthenticatedConversasRoute,
   AuthenticatedDisparosRoute: AuthenticatedDisparosRoute,
+  AuthenticatedNumerosRoute: AuthenticatedNumerosRoute,
   AuthenticatedTesteGratisRoute: AuthenticatedTesteGratisRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
