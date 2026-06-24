@@ -6,6 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage } from "@/lib/whatsapp.functions";
 import { setConversationAgentEnabled } from "@/lib/agent.functions";
+import { listNumbers } from "@/lib/numbers.functions";
 
 export const Route = createFileRoute("/_authenticated/conversas")({
   ssr: false,
@@ -25,6 +26,7 @@ type Conv = {
   last_message_preview: string | null;
   last_message_at: string | null;
   agent_enabled: boolean;
+  whatsapp_number_id: string | null;
   contact: {
     id: string;
     nome: string;
@@ -94,10 +96,19 @@ function Conversas() {
   const fetchMsgs = useServerFn(listMessages);
   const sendFn = useServerFn(sendManualMessage);
   const toggleConvAgent = useServerFn(setConversationAgentEnabled);
+  const fetchNumbers = useServerFn(listNumbers);
+
+  const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
+
+  const numbersQ = useQuery({
+    queryKey: ["whatsapp_numbers"],
+    queryFn: () => fetchNumbers(),
+  });
+  const numbers = (numbersQ.data ?? []) as Array<{ id: string; nome: string; status: string }>;
 
   const convsQ = useQuery({
-    queryKey: ["conversations"],
-    queryFn: () => fetchConvs(),
+    queryKey: ["conversations", filterNumberId],
+    queryFn: () => fetchConvs({ data: { numberId: filterNumberId } }),
     refetchInterval: 2000,
     refetchIntervalInBackground: true,
   });
@@ -156,9 +167,31 @@ function Conversas() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <p className="text-sm text-muted-foreground">Histórico</p>
-        <h1 className="text-3xl font-bold tracking-tight">Conversas</h1>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted-foreground">Histórico</p>
+          <h1 className="text-3xl font-bold tracking-tight">Conversas</h1>
+        </div>
+        {numbers.length > 0 && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-neutral-600">Número:</label>
+            <select
+              value={filterNumberId ?? ""}
+              onChange={(e) => {
+                setFilterNumberId(e.target.value || null);
+                setActiveId(null);
+              }}
+              className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm"
+            >
+              <option value="">Todos os números</option>
+              {numbers.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.nome} {n.status === "conectado" ? "🟢" : "⚪"}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </header>
 
       <div className="grid h-[calc(100vh-200px)] grid-cols-1 overflow-hidden rounded-xl border border-border shadow-sm md:grid-cols-[360px_1fr]">
