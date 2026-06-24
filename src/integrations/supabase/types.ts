@@ -158,6 +158,8 @@ export type Database = {
           source_url: string | null
           status: Database["public"]["Enums"]["contact_status"]
           telefone: string
+          temperatura: Database["public"]["Enums"]["contact_temperatura"]
+          temperatura_updated_at: string | null
           updated_at: string
           user_id: string
         }
@@ -175,6 +177,8 @@ export type Database = {
           source_url?: string | null
           status?: Database["public"]["Enums"]["contact_status"]
           telefone: string
+          temperatura?: Database["public"]["Enums"]["contact_temperatura"]
+          temperatura_updated_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -192,6 +196,8 @@ export type Database = {
           source_url?: string | null
           status?: Database["public"]["Enums"]["contact_status"]
           telefone?: string
+          temperatura?: Database["public"]["Enums"]["contact_temperatura"]
+          temperatura_updated_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -436,6 +442,7 @@ export type Database = {
         | "convertido"
         | "sem_resposta"
         | "bloqueado"
+      contact_temperatura: "quente" | "morno" | "frio" | "bloqueado"
       conversation_status: "agente_respondendo" | "aguardando" | "convertido"
       log_status: "enviado" | "respondido" | "falha"
       message_kind: "texto" | "audio"
@@ -576,6 +583,7 @@ export const Constants = {
         "sem_resposta",
         "bloqueado",
       ],
+      contact_temperatura: ["quente", "morno", "frio", "bloqueado"],
       conversation_status: ["agente_respondendo", "aguardando", "convertido"],
       log_status: ["enviado", "respondido", "falha"],
       message_kind: ["texto", "audio"],
