@@ -436,3 +436,210 @@ function QrModal({ qr, onClose, onRefresh }: { qr: string | null; onClose: () =>
     </div>
   );
 }
+function WelcomeFunnelSection({
+  funnel,
+  onSave,
+}: {
+  funnel: WelcomeFunnel;
+  onSave: (f: WelcomeFunnel) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<WelcomeFunnel>(() => ({
+    ...DEFAULT_FUNNEL,
+    ...funnel,
+    steps: { ...DEFAULT_FUNNEL.steps, ...(funnel.steps ?? {}) },
+  }));
+
+  useEffect(() => {
+    setDraft({
+      ...DEFAULT_FUNNEL,
+      ...funnel,
+      steps: { ...DEFAULT_FUNNEL.steps, ...(funnel.steps ?? {}) },
+    });
+  }, [funnel]);
+
+  const updateStep = <K extends keyof NonNullable<WelcomeFunnel["steps"]>>(
+    key: K,
+    patch: Partial<NonNullable<NonNullable<WelcomeFunnel["steps"]>[K]>>,
+  ) => {
+    setDraft((d) => ({
+      ...d,
+      steps: {
+        ...(d.steps ?? {}),
+        [key]: { ...((d.steps ?? {})[key] ?? {}), ...patch },
+      },
+    }));
+  };
+
+  const steps = draft.steps ?? {};
+
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-neutral-50">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-violet-600" />
+          <span className="text-sm font-medium text-neutral-900">Funil de boas-vindas</span>
+          {draft.enabled && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+              Ativo
+            </span>
+          )}
+        </div>
+        <ChevronDown className={`h-4 w-4 text-neutral-400 transition ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="space-y-3 border-t border-border p-3">
+          <p className="text-xs text-neutral-500">
+            Enviado automaticamente na <strong>primeira mensagem</strong> de cada contato novo. Depois, o agente IA assume.
+          </p>
+
+          <div className="flex items-center justify-between gap-3 rounded-md bg-white p-3">
+            <div>
+              <p className="text-sm font-medium">Ativar funil</p>
+              <p className="text-xs text-neutral-500">Quando ligado, dispara a sequência abaixo no primeiro contato.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDraft((d) => ({ ...d, enabled: !d.enabled }))}
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition ${
+                draft.enabled ? "bg-emerald-500" : "bg-neutral-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+                  draft.enabled ? "translate-x-4" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-neutral-700">Delay entre mensagens (seg)</label>
+            <input
+              type="number"
+              min={0}
+              max={8}
+              value={draft.delay_seconds ?? 3}
+              onChange={(e) => setDraft((d) => ({ ...d, delay_seconds: Math.max(0, Math.min(8, Number(e.target.value) || 0)) }))}
+              className="w-20 rounded-md border border-border px-2 py-1 text-sm"
+            />
+          </div>
+
+          <FunnelStep
+            title="1. Texto de boas-vindas"
+            enabled={!!steps.welcome_text?.enabled}
+            onToggle={(v) => updateStep("welcome_text", { enabled: v })}
+          >
+            <textarea
+              value={steps.welcome_text?.text ?? ""}
+              onChange={(e) => updateStep("welcome_text", { text: e.target.value })}
+              rows={2}
+              className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+            />
+          </FunnelStep>
+
+          <FunnelStep
+            title="2. Áudio (URL)"
+            enabled={!!steps.audio?.enabled}
+            onToggle={(v) => updateStep("audio", { enabled: v })}
+          >
+            <input
+              value={steps.audio?.url ?? ""}
+              onChange={(e) => updateStep("audio", { url: e.target.value })}
+              placeholder="https://… .mp3 / .ogg"
+              className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+            />
+          </FunnelStep>
+
+          <FunnelStep
+            title="3. Texto com link do painel"
+            enabled={!!steps.panel_text?.enabled}
+            onToggle={(v) => updateStep("panel_text", { enabled: v })}
+          >
+            <textarea
+              value={steps.panel_text?.text ?? ""}
+              onChange={(e) => updateStep("panel_text", { text: e.target.value })}
+              rows={2}
+              className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+            />
+          </FunnelStep>
+
+          <FunnelStep
+            title="4. Vídeo (URL)"
+            enabled={!!steps.video?.enabled}
+            onToggle={(v) => updateStep("video", { enabled: v })}
+          >
+            <input
+              value={steps.video?.url ?? ""}
+              onChange={(e) => updateStep("video", { url: e.target.value })}
+              placeholder="https://… .mp4"
+              className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+            />
+          </FunnelStep>
+
+          <FunnelStep
+            title="5. Texto com tabela de serviços"
+            enabled={!!steps.services_text?.enabled}
+            onToggle={(v) => updateStep("services_text", { enabled: v })}
+          >
+            <textarea
+              value={steps.services_text?.text ?? ""}
+              onChange={(e) => updateStep("services_text", { text: e.target.value })}
+              rows={3}
+              className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+            />
+          </FunnelStep>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => onSave(draft)}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              Salvar funil
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FunnelStep({
+  title,
+  enabled,
+  onToggle,
+  children,
+}: {
+  title: string;
+  enabled: boolean;
+  onToggle: (v: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-white p-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-neutral-800">{title}</p>
+        <button
+          type="button"
+          onClick={() => onToggle(!enabled)}
+          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition ${
+            enabled ? "bg-emerald-500" : "bg-neutral-300"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+              enabled ? "translate-x-4" : "translate-x-0.5"
+            }`}
+          />
+        </button>
+      </div>
+      {enabled && <div className="mt-2">{children}</div>}
+    </div>
+  );
+}
