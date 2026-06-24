@@ -618,12 +618,13 @@ function FunnelEditor({
         />
       </FunnelStep>
 
-      <FunnelStep title="2. Áudio (URL)" enabled={!!steps.audio?.enabled} onToggle={(v) => updateStep("audio", { enabled: v })}>
-        <input
+      <FunnelStep title="2. Áudio (URL ou upload)" enabled={!!steps.audio?.enabled} onToggle={(v) => updateStep("audio", { enabled: v })}>
+        <MediaInput
           value={steps.audio?.url ?? ""}
-          onChange={(e) => updateStep("audio", { url: e.target.value })}
+          onChange={(url) => updateStep("audio", { url })}
+          accept="audio/mpeg,audio/mp3,audio/ogg,.mp3,.ogg"
           placeholder="https://… .mp3 / .ogg"
-          className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+          kind="áudio"
         />
       </FunnelStep>
 
@@ -636,12 +637,13 @@ function FunnelEditor({
         />
       </FunnelStep>
 
-      <FunnelStep title="4. Vídeo (URL)" enabled={!!steps.video?.enabled} onToggle={(v) => updateStep("video", { enabled: v })}>
-        <input
+      <FunnelStep title="4. Vídeo (URL ou upload)" enabled={!!steps.video?.enabled} onToggle={(v) => updateStep("video", { enabled: v })}>
+        <MediaInput
           value={steps.video?.url ?? ""}
-          onChange={(e) => updateStep("video", { url: e.target.value })}
+          onChange={(url) => updateStep("video", { url })}
+          accept="video/mp4,.mp4"
           placeholder="https://… .mp4"
-          className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+          kind="vídeo"
         />
       </FunnelStep>
 
