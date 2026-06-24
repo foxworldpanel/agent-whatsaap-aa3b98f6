@@ -18,6 +18,7 @@ import {
   updateWelcomeFunnel,
   deleteWelcomeFunnel,
 } from "@/lib/welcome-funnels.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/numeros")({
   ssr: false,
@@ -532,7 +533,7 @@ function FunnelEditor({
       updateFn({
         data: {
           id: draft.id,
-          name: draft.name,
+          name: draft.name?.trim() || "Novo funil",
           enabled: draft.enabled,
           delay_seconds: draft.delay_seconds,
           trigger_keywords: draft.trigger_keywords,
@@ -692,6 +693,11 @@ function FunnelEditor({
       </FunnelStep>
 
       <div className="flex justify-end">
+        {saveMut.isError && (
+          <p className="mr-3 self-center text-xs text-red-600">
+            Erro ao salvar: {(saveMut.error as Error)?.message ?? "tente novamente"}
+          </p>
+        )}
         <button
           type="button"
           onClick={() => saveMut.mutate()}
@@ -777,21 +783,35 @@ function MediaInput({
   kind: string;
 }) {
   const [loading, setLoading] = useState(false);
-  const isDataUrl = value.startsWith("data:");
-  const onFile = (file: File) => {
+  const [error, setError] = useState<string | null>(null);
+  const isUploaded = !!value && !value.startsWith("data:") && value.includes("/storage/v1/");
+  const onFile = async (file: File) => {
+    setError(null);
     setLoading(true);
-    const reader = new FileReader();
-    reader.onload = () => {
-      onChange(String(reader.result ?? ""));
+    try {
+      const { data: userData, error: uerr } = await supabase.auth.getUser();
+      if (uerr || !userData.user) throw new Error("Sessão expirada");
+      const ext = file.name.split(".").pop() || "bin";
+      const path = `${userData.user.id}/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("funnel-media")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) throw upErr;
+      const { data: signed, error: sErr } = await supabase.storage
+        .from("funnel-media")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (sErr || !signed) throw sErr ?? new Error("Falha ao gerar URL");
+      onChange(signed.signedUrl);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
       setLoading(false);
-    };
-    reader.onerror = () => setLoading(false);
-    reader.readAsDataURL(file);
+    }
   };
   return (
     <div className="space-y-1.5">
       <input
-        value={isDataUrl ? "" : value}
+        value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
@@ -807,9 +827,10 @@ function MediaInput({
           className="text-xs"
         />
         {loading && <span className="text-xs text-neutral-500">Carregando…</span>}
-        {isDataUrl && !loading && (
+        {isUploaded && !loading && (
           <span className="text-xs text-emerald-600">{kind} carregado ✓</span>
         )}
+        {error && <span className="text-xs text-red-600">{error}</span>}
       </div>
     </div>
   );
