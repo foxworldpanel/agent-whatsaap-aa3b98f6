@@ -693,6 +693,11 @@ function FunnelEditor({
       </FunnelStep>
 
       <div className="flex justify-end">
+        {saveMut.isError && (
+          <p className="mr-3 self-center text-xs text-red-600">
+            Erro ao salvar: {(saveMut.error as Error)?.message ?? "tente novamente"}
+          </p>
+        )}
         <button
           type="button"
           onClick={() => saveMut.mutate()}
