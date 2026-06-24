@@ -53,6 +53,31 @@ export async function smmOrderStatus(
   return { status, error: raw.error as string | undefined, raw };
 }
 
+// Fetch the panel's full service catalogue (action=services).
+// Returns a compact array suitable to inject as context for the LLM.
+export async function smmFetchServices(creds: SmmCreds): Promise<Array<{
+  service: string;
+  name: string;
+  category: string;
+  rate: string;
+  min: string;
+  max: string;
+}>> {
+  const raw = (await smmPost(creds, { action: "services" })) as unknown;
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, 500).map((s) => {
+    const r = s as Record<string, unknown>;
+    return {
+      service: String(r.service ?? ""),
+      name: String(r.name ?? ""),
+      category: String(r.category ?? ""),
+      rate: String(r.rate ?? ""),
+      min: String(r.min ?? ""),
+      max: String(r.max ?? ""),
+    };
+  });
+}
+
 // Detects first Instagram or YouTube URL in a message.
 const URL_RE = /(https?:\/\/[^\s]+)/i;
 const IG_RE = /(instagram\.com|instagr\.am)\//i;

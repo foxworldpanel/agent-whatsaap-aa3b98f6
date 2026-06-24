@@ -32,6 +32,7 @@ export type Database = {
           script_frio: string
           script_inativo: string
           send_panel_on_price: boolean
+          services_realtime: boolean
           tone: string
           typing_indicator_enabled: boolean
           updated_at: string
@@ -54,6 +55,7 @@ export type Database = {
           script_frio?: string
           script_inativo?: string
           send_panel_on_price?: boolean
+          services_realtime?: boolean
           tone?: string
           typing_indicator_enabled?: boolean
           updated_at?: string
@@ -76,6 +78,7 @@ export type Database = {
           script_frio?: string
           script_inativo?: string
           send_panel_on_price?: boolean
+          services_realtime?: boolean
           tone?: string
           typing_indicator_enabled?: boolean
           updated_at?: string

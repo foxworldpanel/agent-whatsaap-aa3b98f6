@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Play, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2 } from "lucide-react";
+import { Bot, Save, Check, Play, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package } from "lucide-react";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/agente")({
@@ -47,6 +47,7 @@ const defaultConfig = {
   never_offer_first: true,
   send_panel_on_price: true,
   faqs: [] as Faq[],
+  services_realtime: false,
 };
 
 type Cfg = typeof defaultConfig;
@@ -268,6 +269,30 @@ function AgentePage() {
               ))}
             </div>
           </div>
+
+          <div className="border-t border-border pt-6">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Catálogo de Serviços</h2>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Quando ativo, antes de responder perguntas sobre preço o agente busca a lista atualizada de serviços no painel SMM.
+            </p>
+            <div className="mt-4 space-y-3">
+              <Field
+                label="API Key do painel SMM"
+                value={intFields?.smm_api_key ?? ""}
+                onChange={(v) => setIntFields({ ...(intFields ?? blankInt), smm_api_key: v })}
+              />
+              <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
+                <div>
+                  <p className="text-sm font-medium">Consultar preços em tempo real</p>
+                  <p className="text-xs text-muted-foreground">Busca os serviços na API antes de responder perguntas sobre preço.</p>
+                </div>
+                <Toggle on={cfg.services_realtime} onChange={(v) => setCfg({ ...cfg, services_realtime: v })} />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -310,12 +335,14 @@ type IntFields = {
   uazapi_url: string; uazapi_token: string; uazapi_admin_token: string;
   anthropic_api_key: string; elevenlabs_api_key: string; elevenlabs_voice_id: string;
   openai_api_key: string;
+  smm_api_key: string; smm_panel_url: string;
 };
 
 const blankInt: IntFields = {
   uazapi_url: "", uazapi_token: "", uazapi_admin_token: "",
   anthropic_api_key: "", elevenlabs_api_key: "", elevenlabs_voice_id: "",
   openai_api_key: "",
+  smm_api_key: "", smm_panel_url: "",
 };
 
 function IntegrationsPanel({

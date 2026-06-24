@@ -36,8 +36,9 @@ export async function generateAgentReply(params: {
   agent: AgentConfig;
   contact: Contact;
   history: Msg[];
+  servicesContext?: string | null;
 }): Promise<string> {
-  const { agent, contact, history } = params;
+  const { agent, contact, history, servicesContext } = params;
 
   const system = [
     `Você é ${agent.agent_name}, vendedora humana de um painel SMM.`,
@@ -69,6 +70,9 @@ export async function generateAgentReply(params: {
     `Perfil do contato: ${contact.perfil} (frio=nunca comprou, inativo=sumiu, ativo=cliente recorrente).`,
     `Script de referência para esse perfil (use como base, adapte naturalmente):\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}`,
     `Regras: mensagens curtas (máx 2 linhas), pareça humano, nunca diga que é IA, use emojis com moderação, faça uma pergunta sempre que possível.`,
+    servicesContext
+      ? `CATÁLOGO DE SERVIÇOS DO PAINEL (atualizado agora, use para responder preço e disponibilidade. Calcule o valor total quando o cliente informar a quantidade: total = (rate / 1000) * quantidade. Sempre direcione para o painel para finalizar o pedido: https://mindsmmpanel.com):\n${servicesContext}`
+      : "",
   ]
     .filter(Boolean)
     .join("\n\n");

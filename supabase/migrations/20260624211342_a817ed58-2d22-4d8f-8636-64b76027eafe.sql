@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_config ADD COLUMN IF NOT EXISTS services_realtime BOOLEAN NOT NULL DEFAULT false;
