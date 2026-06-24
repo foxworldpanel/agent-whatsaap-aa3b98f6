@@ -139,19 +139,14 @@ export const updateNumberToggles = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const patch: {
-      meta_ads_enabled?: boolean;
-      disparos_mode?: boolean;
-      nome?: string;
-      welcome_funnel?: Record<string, unknown>;
-    } = {};
+    const patch: Record<string, unknown> = {};
     if (data.meta_ads_enabled !== undefined) patch.meta_ads_enabled = data.meta_ads_enabled;
     if (data.disparos_mode !== undefined) patch.disparos_mode = data.disparos_mode;
     if (data.nome !== undefined) patch.nome = data.nome;
-    if (data.welcome_funnel !== undefined) (patch as Record<string, unknown>).welcome_funnel = data.welcome_funnel;
+    if (data.welcome_funnel !== undefined) patch.welcome_funnel = data.welcome_funnel;
     const { error } = await context.supabase
       .from("whatsapp_numbers")
-      .update(patch)
+      .update(patch as never)
       .eq("id", data.id)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
