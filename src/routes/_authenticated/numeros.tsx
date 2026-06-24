@@ -33,6 +33,7 @@ type Num = {
 type WelcomeFunnel = {
   enabled?: boolean;
   delay_seconds?: number;
+  trigger_keywords?: string;
   steps?: {
     welcome_text?: { enabled?: boolean; text?: string };
     audio?: { enabled?: boolean; url?: string };
@@ -45,6 +46,7 @@ type WelcomeFunnel = {
 const DEFAULT_FUNNEL: WelcomeFunnel = {
   enabled: false,
   delay_seconds: 3,
+  trigger_keywords: "interesse, divulgar, música, anúncio",
   steps: {
     welcome_text: { enabled: true, text: "Oi! Tudo bem? 😊 Bem-vindo(a)! Já te mando umas infos." },
     audio: { enabled: false, url: "" },
