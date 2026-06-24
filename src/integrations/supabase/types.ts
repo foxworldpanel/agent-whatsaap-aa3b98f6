@@ -448,7 +448,7 @@ export type Database = {
         | "convertido"
         | "sem_resposta"
         | "bloqueado"
-      contact_temperatura: "quente" | "morno" | "frio" | "bloqueado"
+      contact_temperatura: "quente" | "morno" | "frio" | "bloqueado" | "cliente"
       conversation_status: "agente_respondendo" | "aguardando" | "convertido"
       log_status: "enviado" | "respondido" | "falha"
       message_kind: "texto" | "audio"
@@ -589,7 +589,7 @@ export const Constants = {
         "sem_resposta",
         "bloqueado",
       ],
-      contact_temperatura: ["quente", "morno", "frio", "bloqueado"],
+      contact_temperatura: ["quente", "morno", "frio", "bloqueado", "cliente"],
       conversation_status: ["agente_respondendo", "aguardando", "convertido"],
       log_status: ["enviado", "respondido", "falha"],
       message_kind: ["texto", "audio"],

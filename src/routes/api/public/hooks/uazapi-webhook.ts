@@ -489,6 +489,15 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 .from("contacts")
                 .update({ temperatura, temperatura_updated_at: stamp, status: "bloqueado" })
                 .eq("id", contact.id);
+            } else if (temperatura === "cliente") {
+              await supabaseAdmin
+                .from("contacts")
+                .update({ temperatura, temperatura_updated_at: stamp, status: "convertido", perfil: "ativo" })
+                .eq("id", contact.id);
+              await supabaseAdmin
+                .from("conversations")
+                .update({ status: "convertido" })
+                .eq("id", conv.id);
             } else {
               await supabaseAdmin
                 .from("contacts")

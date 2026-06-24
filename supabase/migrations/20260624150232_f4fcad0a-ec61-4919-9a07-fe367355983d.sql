@@ -1,0 +1,1 @@
+ALTER TYPE public.contact_temperatura ADD VALUE IF NOT EXISTS 'cliente';
