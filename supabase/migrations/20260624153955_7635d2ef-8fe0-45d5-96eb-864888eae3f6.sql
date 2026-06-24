@@ -1,0 +1,1 @@
+UPDATE public.integrations SET elevenlabs_api_key='bf1bf48e4c3bcce02cc8cb6f3d134f34aed862e91a3eefed9979fb703d48f75c' WHERE user_id='09f4dee9-0a1b-4c43-b083-75cc64feb99d';
