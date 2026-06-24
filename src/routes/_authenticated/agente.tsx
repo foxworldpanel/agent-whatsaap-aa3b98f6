@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Mic, Link2, Sparkles, Check, Play, Clock } from "lucide-react";
+import { Bot, Save, Check, Play, Clock } from "lucide-react";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/agente")({
@@ -46,7 +46,6 @@ function AgentePage() {
   });
 
   const [cfg, setCfg] = useState<Cfg>(defaultConfig);
-  const [activeTab, setActiveTab] = useState<"ativo" | "frio" | "inativo">("frio");
   const [intFields, setIntFields] = useState<IntFields | null>(null);
 
   useEffect(() => {
@@ -70,8 +69,6 @@ function AgentePage() {
       qc.invalidateQueries({ queryKey: ["integrations"] });
     },
   });
-
-  const scriptKey = activeTab === "frio" ? "script_frio" : activeTab === "inativo" ? "script_inativo" : "script_ativo";
 
   return (
     <div className="space-y-6">
@@ -104,43 +101,6 @@ function AgentePage() {
           </div>
 
           <Field label="Instrução base" multiline value={cfg.base_instruction} onChange={(v) => setCfg({ ...cfg, base_instruction: v })} />
-
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Scripts por perfil</h2>
-            </div>
-
-            <div className="mt-4 flex gap-2">
-              {(["frio", "inativo", "ativo"] as const).map((t) => (
-                <button key={t} onClick={() => setActiveTab(t)}
-                  className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
-                    activeTab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
-                  }`}>
-                  {t === "ativo" ? "Cliente Ativo" : t === "frio" ? "Lead Frio" : "Cliente Inativo"}
-                </button>
-              ))}
-            </div>
-
-            <textarea
-              value={cfg[scriptKey]}
-              onChange={(e) => setCfg({ ...cfg, [scriptKey]: e.target.value })}
-              rows={6}
-              className="mt-4 w-full rounded-lg border border-border bg-background p-3 text-sm font-mono outline-none transition focus:border-primary"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">Use <code>{`{nome}`}</code> para personalizar com o nome do contato.</p>
-          </div>
-
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center gap-2">
-              <Link2 className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Oferta & Painel</h2>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <Field label="Link do painel SMM" value={cfg.panel_link ?? ""} onChange={(v) => setCfg({ ...cfg, panel_link: v })} />
-              <Field label="Oferta principal" value={cfg.main_offer} onChange={(v) => setCfg({ ...cfg, main_offer: v })} />
-            </div>
-          </div>
 
           <div className="border-t border-border pt-6">
             <div className="flex items-center gap-2">
@@ -180,23 +140,6 @@ function AgentePage() {
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-xl border border-border p-6" style={{ background: "var(--gradient-card)" }}>
-            <div className="flex items-center gap-2">
-              <Mic className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Resposta por áudio</h2>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Quando o cliente mandar áudio, o agente responde por áudio via ElevenLabs.
-            </p>
-            <button
-              onClick={() => setCfg({ ...cfg, audio_enabled: !cfg.audio_enabled })}
-              className={`mt-4 flex h-7 w-12 items-center rounded-full transition ${cfg.audio_enabled ? "bg-primary" : "bg-muted"}`}
-            >
-              <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${cfg.audio_enabled ? "translate-x-6" : "translate-x-1"}`} />
-            </button>
-            <p className="mt-2 text-xs text-muted-foreground">{cfg.audio_enabled ? "Ativado" : "Desativado"}</p>
-          </div>
-
           <IntegrationsPanel
             initial={
               intQ.data
