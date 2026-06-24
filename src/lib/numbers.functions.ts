@@ -148,7 +148,7 @@ export const updateNumberToggles = createServerFn({ method: "POST" })
     if (data.meta_ads_enabled !== undefined) patch.meta_ads_enabled = data.meta_ads_enabled;
     if (data.disparos_mode !== undefined) patch.disparos_mode = data.disparos_mode;
     if (data.nome !== undefined) patch.nome = data.nome;
-    if (data.welcome_funnel !== undefined) patch.welcome_funnel = data.welcome_funnel;
+    if (data.welcome_funnel !== undefined) (patch as Record<string, unknown>).welcome_funnel = data.welcome_funnel;
     const { error } = await context.supabase
       .from("whatsapp_numbers")
       .update(patch)
