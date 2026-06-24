@@ -602,9 +602,9 @@ function FunnelEditor({
         <input
           type="number"
           min={0}
-          max={8}
+          max={180}
           value={draft.delay_seconds}
-          onChange={(e) => setDraft((d) => ({ ...d, delay_seconds: Math.max(0, Math.min(8, Number(e.target.value) || 0)) }))}
+          onChange={(e) => setDraft((d) => ({ ...d, delay_seconds: Math.max(0, Math.min(180, Number(e.target.value) || 0)) }))}
           className="w-20 rounded-md border border-border px-2 py-1 text-sm"
         />
       </div>
