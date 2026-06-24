@@ -472,42 +472,60 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         // "Modo Disparos": número usado para abordagem ativa — não responde inbound.
         if (disparosMode) return new Response("ok (disparos mode: no auto-reply)");
 
-        // ===== Funil de boas-vindas (apenas quando a mensagem contém uma das palavras-chave gatilho, uma vez por contato) =====
-        if (welcomeFunnel && (welcomeFunnel as { enabled?: boolean }).enabled) {
+        // ===== Funis de boas-vindas (múltiplos por número; primeiro gatilho que casar dispara, uma vez por contato) =====
+        if (numberId) {
           try {
-            const f = welcomeFunnel as {
-              enabled?: boolean;
-              delay_seconds?: number;
-              trigger_keywords?: string;
-              steps?: {
+            const { data: funnels } = await supabaseAdmin
+              .from("welcome_funnels")
+              .select("id, name, enabled, delay_seconds, trigger_keywords, steps, sort_order")
+              .eq("user_id", userId)
+              .eq("whatsapp_number_id", numberId)
+              .eq("enabled", true)
+              .order("sort_order", { ascending: true });
+
+            const normalize = (s: string) =>
+              s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const haystack = normalize(inboundBody ?? "");
+
+            type FunnelRow = {
+              id: string;
+              name: string;
+              enabled: boolean;
+              delay_seconds: number;
+              trigger_keywords: string;
+              steps: {
                 welcome_text?: { enabled?: boolean; text?: string };
                 audio?: { enabled?: boolean; url?: string };
                 panel_text?: { enabled?: boolean; text?: string };
                 video?: { enabled?: boolean; url?: string };
                 services_text?: { enabled?: boolean; text?: string };
-              };
+              } | null;
             };
-            const normalize = (s: string) =>
-              s
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "");
-            const keywords = (f.trigger_keywords ?? "")
-              .split(/[,;\n]/)
-              .map((k) => normalize(k.trim()))
-              .filter(Boolean);
-            const haystack = normalize(inboundBody ?? "");
-            const matched = keywords.length > 0 && keywords.some((k) => haystack.includes(k));
-            if (!matched) throw new Error("__skip_funnel__");
 
-            // Só dispara uma vez por contato: se já existe qualquer mensagem do agente nesta conversa, ignora.
-            const { count: agentMsgCount } = await supabaseAdmin
-              .from("messages")
-              .select("id", { count: "exact", head: true })
-              .eq("conversation_id", conv.id)
-              .eq("sender", "agente");
-            if ((agentMsgCount ?? 0) > 0) throw new Error("__skip_funnel__");
+            let matchedFunnel: FunnelRow | null = null;
+            for (const row of (funnels ?? []) as FunnelRow[]) {
+              const keywords = (row.trigger_keywords ?? "")
+                .split(/[,;\n]/)
+                .map((k) => normalize(k.trim()))
+                .filter(Boolean);
+              if (keywords.length === 0) continue;
+              if (keywords.some((k) => haystack.includes(k))) {
+                matchedFunnel = row;
+                break;
+              }
+            }
+            if (!matchedFunnel) throw new Error("__skip_funnel__");
 
+            // Só dispara uma vez por contato (por funil)
+            const { data: prevRun } = await supabaseAdmin
+              .from("welcome_funnel_runs")
+              .select("funnel_id")
+              .eq("funnel_id", matchedFunnel.id)
+              .eq("contact_id", contact.id)
+              .maybeSingle();
+            if (prevRun) throw new Error("__skip_funnel__");
+
+            const f = matchedFunnel;
             const delayMs = Math.max(0, Math.min((f.delay_seconds ?? 3) * 1000, 8000));
             const creds = {
               uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "",
@@ -570,6 +588,11 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             }
             if (steps.length > 0) {
               const stamp = new Date().toISOString();
+              await supabaseAdmin.from("welcome_funnel_runs").insert({
+                funnel_id: f.id,
+                contact_id: contact.id,
+                user_id: userId,
+              });
               await supabaseAdmin
                 .from("conversations")
                 .update({
