@@ -1,0 +1,366 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { Phone, Plus, RefreshCw, Trash2, QrCode, X } from "lucide-react";
+import {
+  listNumbers,
+  createNumber,
+  connectNumber,
+  refreshNumberStatus,
+  disconnectNumber,
+  deleteNumber,
+  updateNumberToggles,
+} from "@/lib/numbers.functions";
+
+export const Route = createFileRoute("/_authenticated/numeros")({
+  ssr: false,
+  head: () => ({ meta: [{ title: "Números · ZapAgent" }] }),
+  component: NumerosPage,
+});
+
+type Num = {
+  id: string;
+  nome: string;
+  uazapi_url: string | null;
+  status: string;
+  meta_ads_enabled: boolean;
+  disparos_mode: boolean;
+  last_connected_at: string | null;
+};
+
+function StatusDot({ status }: { status: string }) {
+  const map: Record<string, { cls: string; label: string }> = {
+    conectado: { cls: "bg-emerald-500", label: "Conectado" },
+    connected: { cls: "bg-emerald-500", label: "Conectado" },
+    desconectado: { cls: "bg-neutral-400", label: "Desconectado" },
+    disconnected: { cls: "bg-neutral-400", label: "Desconectado" },
+    pendente: { cls: "bg-amber-500", label: "Pendente" },
+    connecting: { cls: "bg-amber-500", label: "Conectando" },
+  };
+  const m = map[status] ?? { cls: "bg-neutral-300", label: status || "—" };
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-neutral-600">
+      <span className={`h-2 w-2 rounded-full ${m.cls}`} />
+      {m.label}
+    </span>
+  );
+}
+
+function NumerosPage() {
+  const qc = useQueryClient();
+  const fetchList = useServerFn(listNumbers);
+  const createFn = useServerFn(createNumber);
+  const connectFn = useServerFn(connectNumber);
+  const refreshFn = useServerFn(refreshNumberStatus);
+  const disconnectFn = useServerFn(disconnectNumber);
+  const deleteFn = useServerFn(deleteNumber);
+  const updateFn = useServerFn(updateNumberToggles);
+
+  const numsQ = useQuery({
+    queryKey: ["whatsapp_numbers"],
+    queryFn: () => fetchList(),
+    refetchInterval: 5000,
+  });
+  const nums = (numsQ.data ?? []) as Num[];
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [qrFor, setQrFor] = useState<{ id: string; qr: string | null } | null>(null);
+
+  const createMut = useMutation({
+    mutationFn: (input: { nome: string; uazapi_url: string; uazapi_admin_token: string; meta_ads_enabled: boolean; disparos_mode: boolean }) =>
+      createFn({ data: input }),
+    onSuccess: async (res) => {
+      qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] });
+      setShowAdd(false);
+      // já tenta abrir o QR
+      const r = await connectFn({ data: { id: res.id } });
+      setQrFor({ id: res.id, qr: r.qrcode });
+    },
+  });
+
+  const connectMut = useMutation({
+    mutationFn: (id: string) => connectFn({ data: { id } }),
+    onSuccess: (r, id) => setQrFor({ id, qr: r.qrcode }),
+  });
+
+  const disconnectMut = useMutation({
+    mutationFn: (id: string) => disconnectFn({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
+  });
+
+  const refreshMut = useMutation({
+    mutationFn: (id: string) => refreshFn({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: (input: { id: string; meta_ads_enabled?: boolean; disparos_mode?: boolean }) =>
+      updateFn({ data: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
+  });
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted-foreground">Configurações</p>
+          <h1 className="text-3xl font-bold tracking-tight">Números</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Conecte um ou mais números de WhatsApp via Uazapi. Cada número tem suas próprias conversas e configurações de comportamento.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Plus className="h-4 w-4" /> Adicionar número
+        </button>
+      </header>
+
+      {numsQ.isLoading && <p className="text-sm text-neutral-500">Carregando…</p>}
+      {!numsQ.isLoading && nums.length === 0 && (
+        <div className="rounded-xl border border-dashed border-border bg-white p-10 text-center">
+          <Phone className="mx-auto h-8 w-8 text-neutral-400" />
+          <p className="mt-3 text-sm text-neutral-600">Nenhum número conectado ainda.</p>
+          <button
+            onClick={() => setShowAdd(true)}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" /> Adicionar primeiro número
+          </button>
+        </div>
+      )}
+
+      <div className="grid gap-3">
+        {nums.map((n) => (
+          <div key={n.id} className="rounded-xl border border-border bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <Phone className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-neutral-900">{n.nome}</h2>
+                  <div className="mt-0.5 flex items-center gap-3">
+                    <StatusDot status={n.status} />
+                    <span className="text-xs text-neutral-400">{n.uazapi_url}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => refreshMut.mutate(n.id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Atualizar
+                </button>
+                <button
+                  onClick={() => connectMut.mutate(n.id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                >
+                  <QrCode className="h-3.5 w-3.5" /> Conectar
+                </button>
+                {(n.status === "conectado" || n.status === "connected") && (
+                  <button
+                    onClick={() => disconnectMut.mutate(n.id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+                  >
+                    Desconectar
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    if (confirm(`Excluir o número "${n.nome}"? As conversas serão mantidas, mas o número será removido.`)) {
+                      deleteMut.mutate(n.id);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <Toggle
+                label="Receber leads Meta Ads"
+                help="Contatos que chegarem por este número serão marcados como leads de campanha."
+                checked={n.meta_ads_enabled}
+                onChange={(v) => toggleMut.mutate({ id: n.id, meta_ads_enabled: v })}
+              />
+              <Toggle
+                label="Modo Disparos"
+                help="Use este número para abordar contatos proativamente. O agente IA não responde inbound automaticamente."
+                checked={n.disparos_mode}
+                onChange={(v) => toggleMut.mutate({ id: n.id, disparos_mode: v })}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showAdd && (
+        <AddNumberModal
+          onClose={() => setShowAdd(false)}
+          onCreate={(input) => createMut.mutate(input)}
+          submitting={createMut.isPending}
+          error={createMut.error?.message ?? null}
+        />
+      )}
+
+      {qrFor && (
+        <QrModal
+          qr={qrFor.qr}
+          onClose={() => {
+            setQrFor(null);
+            qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] });
+          }}
+          onRefresh={() => refreshMut.mutate(qrFor.id)}
+        />
+      )}
+    </div>
+  );
+}
+
+function Toggle({
+  label,
+  help,
+  checked,
+  onChange,
+}: {
+  label: string;
+  help: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-neutral-50 p-3">
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition ${
+          checked ? "bg-emerald-500" : "bg-neutral-300"
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition ${
+            checked ? "translate-x-4" : "translate-x-0.5"
+          }`}
+        />
+      </button>
+      <div>
+        <p className="text-sm font-medium text-neutral-900">{label}</p>
+        <p className="text-xs text-neutral-500">{help}</p>
+      </div>
+    </label>
+  );
+}
+
+function AddNumberModal({
+  onClose,
+  onCreate,
+  submitting,
+  error,
+}: {
+  onClose: () => void;
+  onCreate: (input: { nome: string; uazapi_url: string; uazapi_admin_token: string; meta_ads_enabled: boolean; disparos_mode: boolean }) => void;
+  submitting: boolean;
+  error: string | null;
+}) {
+  const [nome, setNome] = useState("");
+  const [url, setUrl] = useState("https://free.uazapi.com");
+  const [admin, setAdmin] = useState("");
+  const [meta, setMeta] = useState(false);
+  const [disparos, setDisparos] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-lg">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-neutral-900">Adicionar número</h3>
+          <button onClick={onClose} className="rounded p-1 hover:bg-neutral-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-4 space-y-3">
+          <Field label="Nome" hint="Ex.: Campanha Meta, Disparos, Atendimento">
+            <input value={nome} onChange={(e) => setNome(e.target.value)} className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
+          </Field>
+          <Field label="URL da Uazapi" hint="Ex.: https://free.uazapi.com">
+            <input value={url} onChange={(e) => setUrl(e.target.value)} className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
+          </Field>
+          <Field label="Admin Token" hint="Token de administração da sua conta Uazapi (cria a instância)">
+            <input value={admin} onChange={(e) => setAdmin(e.target.value)} className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
+          </Field>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Toggle label="Receber leads Meta Ads" help="Marca contatos como meta_ads" checked={meta} onChange={setMeta} />
+            <Toggle label="Modo Disparos" help="Não responde inbound" checked={disparos} onChange={setDisparos} />
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-border px-3 py-2 text-sm">Cancelar</button>
+          <button
+            disabled={!nome || !url || !admin || submitting}
+            onClick={() =>
+              onCreate({ nome, uazapi_url: url, uazapi_admin_token: admin, meta_ads_enabled: meta, disparos_mode: disparos })
+            }
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {submitting ? "Criando…" : "Criar e mostrar QR"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-neutral-700">{label}</label>
+      {children}
+      {hint && <p className="mt-1 text-[11px] text-neutral-500">{hint}</p>}
+    </div>
+  );
+}
+
+function QrModal({ qr, onClose, onRefresh }: { qr: string | null; onClose: () => void; onRefresh: () => void }) {
+  // re-renderiza a cada 5s pra refletir o status
+  useEffect(() => {
+    const i = setInterval(onRefresh, 5000);
+    return () => clearInterval(i);
+  }, [onRefresh]);
+  const src = qr
+    ? qr.startsWith("data:") || qr.startsWith("http")
+      ? qr
+      : `data:image/png;base64,${qr}`
+    : null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-sm rounded-xl bg-white p-5 text-center shadow-lg">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-neutral-900">Escaneie no WhatsApp</h3>
+          <button onClick={onClose} className="rounded p-1 hover:bg-neutral-100">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-neutral-500">Abra o WhatsApp → Aparelhos conectados → Conectar um aparelho.</p>
+        {src ? (
+          <img src={src} alt="QR" className="mx-auto mt-4 h-64 w-64 rounded-lg border border-border object-contain" />
+        ) : (
+          <p className="mt-6 text-sm text-neutral-500">QR não disponível. Clique em "Atualizar" no número.</p>
+        )}
+        <button onClick={onClose} className="mt-5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+          Concluir
+        </button>
+      </div>
+    </div>
+  );
+}
