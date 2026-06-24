@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Bot } from "lucide-react";
+import { Send, Bot, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
-import { listConversations, listMessages, sendManualMessage } from "@/lib/whatsapp.functions";
+import { listConversations, listMessages, sendManualMessage, clearConversation } from "@/lib/whatsapp.functions";
 import { setConversationAgentEnabled } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 
@@ -97,6 +97,7 @@ function Conversas() {
   const sendFn = useServerFn(sendManualMessage);
   const toggleConvAgent = useServerFn(setConversationAgentEnabled);
   const fetchNumbers = useServerFn(listNumbers);
+  const clearFn = useServerFn(clearConversation);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -151,6 +152,14 @@ function Conversas() {
     mutationFn: (enabled: boolean) =>
       toggleConvAgent({ data: { conversationId: activeId!, enabled } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
+  });
+
+  const clearMut = useMutation({
+    mutationFn: () => clearFn({ data: { conversationId: activeId! } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["messages", activeId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
   });
 
   // Realtime: refresh on insert/update
@@ -365,6 +374,22 @@ function Conversas() {
               <button className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50">
                 <Bot className="h-3.5 w-3.5" /> Intervir manualmente
               </button>
+              {active && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!activeId || clearMut.isPending) return;
+                    if (confirm("Apagar todo o histórico desta conversa? O agente começará do zero na próxima mensagem.")) {
+                      clearMut.mutate();
+                    }
+                  }}
+                  disabled={clearMut.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+                  title="Apaga o histórico de mensagens e reseta o contexto do agente para este contato"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> {clearMut.isPending ? "Limpando…" : "Limpar conversa"}
+                </button>
+              )}
             </div>
           </header>
 
