@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Upload, Search, Filter, Plus, Trash2 } from "lucide-react";
+import { Upload, Search, Filter, Plus, Trash2, Flame, Thermometer, Snowflake, Ban } from "lucide-react";
 import { profileLabel, statusLabel, type ContactProfile, type ContactStatus } from "@/lib/mock-data";
 import { listContacts, importContacts, createContact, deleteContact } from "@/lib/contacts.functions";
 
@@ -26,6 +26,14 @@ const profileColor: Record<ContactProfile, string> = {
   inativo: "bg-warning/15 text-warning border-warning/30",
 };
 
+type Temperatura = "quente" | "morno" | "frio" | "bloqueado";
+const tempMeta: Record<Temperatura, { label: string; cls: string; Icon: typeof Flame }> = {
+  quente:    { label: "Quente",    cls: "bg-destructive/15 text-destructive border-destructive/30", Icon: Flame },
+  morno:     { label: "Morno",     cls: "bg-warning/15 text-warning border-warning/30",             Icon: Thermometer },
+  frio:      { label: "Frio",      cls: "bg-primary/15 text-primary border-primary/30",             Icon: Snowflake },
+  bloqueado: { label: "Bloqueado", cls: "bg-muted text-muted-foreground border-border",             Icon: Ban },
+};
+
 function Contatos() {
   const qc = useQueryClient();
   const list = useServerFn(listContacts);
@@ -37,6 +45,7 @@ function Contatos() {
   const [search, setSearch] = useState("");
   const [perfilFilter, setPerfilFilter] = useState<ContactProfile | "todos">("todos");
   const [statusFilter, setStatusFilter] = useState<ContactStatus | "todos">("todos");
+  const [tempFilter, setTempFilter] = useState<Temperatura | "todos">("todos");
   const [showAdd, setShowAdd] = useState(false);
 
   const { data: contacts = [], isLoading } = useQuery({
@@ -67,6 +76,7 @@ function Contatos() {
   const filtered = contacts.filter((c) => {
     if (perfilFilter !== "todos" && c.perfil !== perfilFilter) return false;
     if (statusFilter !== "todos" && c.status !== statusFilter) return false;
+    if (tempFilter !== "todos" && (c as { temperatura?: string }).temperatura !== tempFilter) return false;
     if (search && !c.nome.toLowerCase().includes(search.toLowerCase()) && !c.telefone.includes(search))
       return false;
     return true;
@@ -141,6 +151,29 @@ function Contatos() {
           options={[["todos", "Todos os perfis"], ...Object.entries(profileLabel)]} />
         <FilterSelect value={statusFilter} onChange={(v) => setStatusFilter(v as ContactStatus | "todos")}
           options={[["todos", "Todos os status"], ...Object.entries(statusLabel)]} />
+        <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1.5">
+          <button
+            onClick={() => setTempFilter("todos")}
+            className={`rounded-md px-2 py-1 text-xs font-medium ${tempFilter === "todos" ? "bg-muted" : "text-muted-foreground hover:bg-muted/50"}`}
+          >
+            Todas
+          </button>
+          {(Object.keys(tempMeta) as Temperatura[]).map((t) => {
+            const { Icon, label, cls } = tempMeta[t];
+            const active = tempFilter === t;
+            return (
+              <button
+                key={t}
+                onClick={() => setTempFilter(active ? "todos" : t)}
+                title={label}
+                className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition ${cls} ${active ? "ring-2 ring-offset-1 ring-offset-card" : "opacity-70 hover:opacity-100"}`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border" style={{ background: "var(--gradient-card)" }}>
@@ -150,6 +183,7 @@ function Contatos() {
               <th className="px-5 py-3 text-left font-medium">Nome</th>
               <th className="px-5 py-3 text-left font-medium">Telefone</th>
               <th className="px-5 py-3 text-left font-medium">Perfil</th>
+              <th className="px-5 py-3 text-left font-medium">Temperatura</th>
               <th className="px-5 py-3 text-left font-medium">Status</th>
               <th className="px-5 py-3 text-left font-medium">Última interação</th>
               <th className="px-5 py-3"></th>
@@ -164,6 +198,19 @@ function Contatos() {
                   <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs ${profileColor[c.perfil as ContactProfile]}`}>
                     {profileLabel[c.perfil as ContactProfile]}
                   </span>
+                </td>
+                <td className="px-5 py-3">
+                  {(() => {
+                    const t = ((c as { temperatura?: string }).temperatura ?? "frio") as Temperatura;
+                    const meta = tempMeta[t] ?? tempMeta.frio;
+                    const Icon = meta.Icon;
+                    return (
+                      <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${meta.cls}`}>
+                        <Icon className="h-3 w-3" />
+                        {meta.label}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="px-5 py-3">
                   <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs ${statusColor[c.status as ContactStatus]}`}>
@@ -185,10 +232,10 @@ function Contatos() {
               </tr>
             ))}
             {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">Nenhum contato encontrado</td></tr>
+              <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">Nenhum contato encontrado</td></tr>
             )}
             {isLoading && (
-              <tr><td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">Carregando…</td></tr>
+              <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground">Carregando…</td></tr>
             )}
           </tbody>
         </table>
