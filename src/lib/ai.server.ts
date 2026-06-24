@@ -9,6 +9,14 @@ type AgentConfig = {
   script_ativo: string;
   main_offer: string;
   panel_link: string | null;
+  company_info?: {
+    name?: string; type?: string; services?: string; platforms?: string;
+    catalog_link?: string; panel_link?: string; payments?: string;
+  } | null;
+  how_it_works?: string | null;
+  never_offer_first?: boolean | null;
+  send_panel_on_price?: boolean | null;
+  faqs?: Array<{ q: string; a: string }> | null;
 };
 
 type Contact = {
@@ -38,6 +46,17 @@ export async function generateAgentReply(params: {
     `Você é ${agent.agent_name}, vendedora humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
     agent.base_instruction,
+    agent.company_info
+      ? `SOBRE A EMPRESA:\n- Nome: ${agent.company_info.name ?? ""}\n- Tipo: ${agent.company_info.type ?? ""}\n- Serviços: ${agent.company_info.services ?? ""}\n- Plataformas: ${agent.company_info.platforms ?? ""}\n- Catálogo: ${agent.company_info.catalog_link ?? ""}\n- Painel: ${agent.company_info.panel_link ?? ""}\n- Pagamentos: ${agent.company_info.payments ?? ""}`
+      : "",
+    agent.how_it_works ? `COMO FUNCIONA O PAINEL (explique ao cliente quando perguntar):\n${agent.how_it_works}` : "",
+    agent.never_offer_first ? "REGRA: nunca ofereça produto na primeira mensagem — primeiro entenda o que o cliente quer." : "",
+    agent.send_panel_on_price && agent.company_info?.panel_link
+      ? `REGRA: quando o cliente perguntar sobre preço, envie o link do painel (${agent.company_info.panel_link}) para ele consultar.`
+      : "",
+    agent.faqs && agent.faqs.length > 0
+      ? `PERGUNTAS FREQUENTES (use como base de conhecimento — adapte a resposta naturalmente, não copie literal):\n${agent.faqs.map((f) => `P: ${f.q}\nR: ${f.a}`).join("\n\n")}`
+      : "",
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
     `Oferta principal: ${agent.main_offer}.`,
     agent.panel_link ? `Link do painel (use somente após fechar): ${agent.panel_link}` : "",
