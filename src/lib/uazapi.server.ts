@@ -69,3 +69,74 @@ export async function uazapiGetProfilePic(
     return null;
   }
 }
+
+// ---- Instance management ----
+
+export async function uazapiCreateInstance(opts: {
+  uazapi_url: string;
+  uazapi_admin_token: string;
+  name: string;
+}): Promise<{ token: string }> {
+  const base = opts.uazapi_url.replace(/\/+$/, "");
+  const res = await fetch(`${base}/instance/init`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      adminToken: opts.uazapi_admin_token,
+    },
+    body: JSON.stringify({ name: opts.name, systemName: "ZapAgent" }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Uazapi /instance/init falhou (${res.status}): ${t.slice(0, 300)}`);
+  }
+  const j = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const inst = (j.instance as Record<string, unknown> | undefined) ?? j;
+  const token = (inst.token as string | undefined) ?? (j.token as string | undefined);
+  if (!token) throw new Error("Uazapi não retornou token da instância");
+  return { token };
+}
+
+export async function uazapiConnect(creds: UazapiCreds): Promise<{ qrcode: string | null; status: string | null }> {
+  const base = creds.uazapi_url.replace(/\/+$/, "");
+  const res = await fetch(`${base}/instance/connect`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", token: creds.uazapi_token },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Uazapi /instance/connect falhou (${res.status}): ${t.slice(0, 300)}`);
+  }
+  const j = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const inst = (j.instance as Record<string, unknown> | undefined) ?? j;
+  const qrcode =
+    (inst.qrcode as string | undefined) ??
+    (j.qrcode as string | undefined) ??
+    (j.qr as string | undefined) ??
+    null;
+  const status = (inst.status as string | undefined) ?? (j.status as string | undefined) ?? null;
+  return { qrcode, status };
+}
+
+export async function uazapiStatus(creds: UazapiCreds): Promise<{ status: string | null }> {
+  const base = creds.uazapi_url.replace(/\/+$/, "");
+  const res = await fetch(`${base}/instance/status`, {
+    method: "GET",
+    headers: { token: creds.uazapi_token },
+  });
+  if (!res.ok) return { status: null };
+  const j = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const inst = (j.instance as Record<string, unknown> | undefined) ?? j;
+  const status = (inst.status as string | undefined) ?? (j.status as string | undefined) ?? null;
+  return { status };
+}
+
+export async function uazapiDisconnect(creds: UazapiCreds): Promise<void> {
+  const base = creds.uazapi_url.replace(/\/+$/, "");
+  await fetch(`${base}/instance/disconnect`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", token: creds.uazapi_token },
+    body: JSON.stringify({}),
+  }).catch(() => {});
+}
