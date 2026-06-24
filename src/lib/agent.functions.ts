@@ -63,7 +63,7 @@ export const saveIntegrations = createServerFn({ method: "POST" })
       smm_api_key: z.string().max(500).optional().nullable(),
       smm_service_id: z.string().max(50).optional().nullable(),
       smm_panel_url: z.string().max(500).optional().nullable(),
-      free_trial_enabled: z.boolean().optional().nullable(),
+      free_trial_enabled: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
