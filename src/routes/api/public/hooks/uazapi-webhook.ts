@@ -494,11 +494,11 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               delay_seconds: number;
               trigger_keywords: string;
               steps: {
-                welcome_text?: { enabled?: boolean; text?: string };
-                audio?: { enabled?: boolean; url?: string };
-                panel_text?: { enabled?: boolean; text?: string };
-                video?: { enabled?: boolean; url?: string };
-                services_text?: { enabled?: boolean; text?: string };
+                welcome_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
+                audio?: { enabled?: boolean; url?: string; delay_seconds?: number };
+                panel_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
+                video?: { enabled?: boolean; url?: string; delay_seconds?: number };
+                services_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
               } | null;
             };
 
@@ -526,7 +526,9 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             if (prevRun) throw new Error("__skip_funnel__");
 
             const f = matchedFunnel;
-            const delayMs = Math.max(0, Math.min((f.delay_seconds ?? 3) * 1000, 8000));
+            const defaultDelaySec = f.delay_seconds ?? 3;
+            const clampDelayMs = (sec: number | undefined) =>
+              Math.max(0, Math.min((sec ?? defaultDelaySec) * 1000, 60_000));
             const creds = {
               uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "",
               uazapi_token: integ.uazapi_token ?? instanceToken,
@@ -534,48 +536,66 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             const { uazapiSendText, uazapiSendMedia } = await import("@/lib/uazapi.server");
             const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-            const steps: Array<() => Promise<{ kind: "texto" | "audio" | "video"; body: string; audio_url?: string | null }>> = [];
+            const steps: Array<{
+              delayMs: number;
+              run: () => Promise<{ kind: "texto" | "audio" | "video"; body: string; audio_url?: string | null }>;
+            }> = [];
             const s = f.steps ?? {};
             if (s.welcome_text?.enabled && s.welcome_text.text) {
               const text = s.welcome_text.text;
-              steps.push(async () => {
-                await uazapiSendText(creds, phone, text);
-                return { kind: "texto", body: text };
+              steps.push({
+                delayMs: clampDelayMs(s.welcome_text.delay_seconds),
+                run: async () => {
+                  await uazapiSendText(creds, phone, text);
+                  return { kind: "texto", body: text };
+                },
               });
             }
             if (s.audio?.enabled && s.audio.url) {
               const url = s.audio.url;
-              steps.push(async () => {
-                await uazapiSendMedia(creds, phone, "audio", url);
-                return { kind: "audio", body: "[áudio]", audio_url: url };
+              steps.push({
+                delayMs: clampDelayMs(s.audio.delay_seconds),
+                run: async () => {
+                  await uazapiSendMedia(creds, phone, "audio", url);
+                  return { kind: "audio", body: "[áudio]", audio_url: url };
+                },
               });
             }
             if (s.panel_text?.enabled && s.panel_text.text) {
               const text = s.panel_text.text;
-              steps.push(async () => {
-                await uazapiSendText(creds, phone, text);
-                return { kind: "texto", body: text };
+              steps.push({
+                delayMs: clampDelayMs(s.panel_text.delay_seconds),
+                run: async () => {
+                  await uazapiSendText(creds, phone, text);
+                  return { kind: "texto", body: text };
+                },
               });
             }
             if (s.video?.enabled && s.video.url) {
               const url = s.video.url;
-              steps.push(async () => {
-                await uazapiSendMedia(creds, phone, "video", url);
-                return { kind: "texto", body: "[vídeo]" };
+              steps.push({
+                delayMs: clampDelayMs(s.video.delay_seconds),
+                run: async () => {
+                  await uazapiSendMedia(creds, phone, "video", url);
+                  return { kind: "texto", body: "[vídeo]" };
+                },
               });
             }
             if (s.services_text?.enabled && s.services_text.text) {
               const text = s.services_text.text;
-              steps.push(async () => {
-                await uazapiSendText(creds, phone, text);
-                return { kind: "texto", body: text };
+              steps.push({
+                delayMs: clampDelayMs(s.services_text.delay_seconds),
+                run: async () => {
+                  await uazapiSendText(creds, phone, text);
+                  return { kind: "texto", body: text };
+                },
               });
             }
 
             let lastBody = "";
             for (let i = 0; i < steps.length; i++) {
-              if (i > 0 && delayMs > 0) await sleep(delayMs);
-              const r = await steps[i]();
+              if (steps[i].delayMs > 0) await sleep(steps[i].delayMs);
+              const r = await steps[i].run();
               lastBody = r.body;
               await supabaseAdmin.from("messages").insert({
                 user_id: userId,
