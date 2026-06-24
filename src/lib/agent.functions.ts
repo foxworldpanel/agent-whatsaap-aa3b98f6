@@ -60,6 +60,10 @@ export const saveIntegrations = createServerFn({ method: "POST" })
       elevenlabs_api_key: z.string().max(500).optional().nullable(),
       elevenlabs_voice_id: z.string().max(200).optional().nullable(),
       openai_api_key: z.string().max(500).optional().nullable(),
+      smm_api_key: z.string().max(500).optional().nullable(),
+      smm_service_id: z.string().max(50).optional().nullable(),
+      smm_panel_url: z.string().max(500).optional().nullable(),
+      free_trial_enabled: z.boolean().optional().nullable(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
