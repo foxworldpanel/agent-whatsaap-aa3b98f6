@@ -497,13 +497,13 @@ function WelcomeFunnelSection({
       {open && (
         <div className="space-y-3 border-t border-border p-3">
           <p className="text-xs text-neutral-500">
-            Enviado automaticamente na <strong>primeira mensagem</strong> de cada contato novo. Depois, o agente IA assume.
+            Disparado quando a mensagem do cliente contém uma das <strong>palavras-chave gatilho</strong> abaixo. Acontece apenas uma vez por contato; depois, o agente IA assume.
           </p>
 
           <div className="flex items-center justify-between gap-3 rounded-md bg-white p-3">
             <div>
               <p className="text-sm font-medium">Ativar funil</p>
-              <p className="text-xs text-neutral-500">Quando ligado, dispara a sequência abaixo no primeiro contato.</p>
+              <p className="text-xs text-neutral-500">Quando ligado, dispara a sequência abaixo ao detectar uma palavra-chave.</p>
             </div>
             <button
               type="button"
@@ -518,6 +518,19 @@ function WelcomeFunnelSection({
                 }`}
               />
             </button>
+          </div>
+
+          <div className="rounded-md bg-white p-3">
+            <label className="text-xs font-medium text-neutral-700">Gatilho do funil (palavras-chave)</label>
+            <input
+              value={draft.trigger_keywords ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, trigger_keywords: e.target.value }))}
+              placeholder="interesse, divulgar, música, anúncio"
+              className="mt-1 w-full rounded-md border border-border px-2 py-1.5 text-sm"
+            />
+            <p className="mt-1 text-[11px] text-neutral-500">
+              Separe por vírgula. O funil só dispara se a mensagem do cliente contiver uma dessas palavras. Mensagens genéricas como "oi" caem direto no agente IA.
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
