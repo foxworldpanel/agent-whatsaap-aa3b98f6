@@ -167,41 +167,68 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        const { data: integ, error: intErr } = await supabaseAdmin
-          .from("integrations")
-          .select(
-            "user_id, uazapi_url, uazapi_token, anthropic_api_key, elevenlabs_api_key, elevenlabs_voice_id, smm_api_key, smm_service_id, smm_panel_url, free_trial_enabled",
-          )
+        // Resolve o número pelo token — primeiro em whatsapp_numbers (novo),
+        // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
+        const { data: number } = await supabaseAdmin
+          .from("whatsapp_numbers")
+          .select("id, user_id, uazapi_url, meta_ads_enabled, disparos_mode")
           .eq("uazapi_token", instanceToken)
           .order("updated_at", { ascending: false, nullsFirst: false })
           .limit(1)
           .maybeSingle();
-        if (intErr) return new Response(intErr.message, { status: 500 });
-        if (!integ) return new Response("instance not registered", { status: 404 });
 
-        const userId = integ.user_id;
+        let userId: string;
+        let numberId: string | null = null;
+        let numberUazapiUrl: string | null = null;
+        let metaAdsEnabled = false;
+        let disparosMode = false;
+
+        if (number) {
+          userId = number.user_id;
+          numberId = number.id;
+          numberUazapiUrl = number.uazapi_url;
+          metaAdsEnabled = !!number.meta_ads_enabled;
+          disparosMode = !!number.disparos_mode;
+        } else {
+          const { data: integ, error: intErr } = await supabaseAdmin
+            .from("integrations")
+            .select("user_id, uazapi_url")
+            .eq("uazapi_token", instanceToken)
+            .order("updated_at", { ascending: false, nullsFirst: false })
+            .limit(1)
+            .maybeSingle();
+          if (intErr) return new Response(intErr.message, { status: 500 });
+          if (!integ) return new Response("instance not registered", { status: 404 });
+          userId = integ.user_id;
+          numberUazapiUrl = integ.uazapi_url;
+        }
 
         let { data: contact } = await supabaseAdmin
           .from("contacts")
-          .select("id, nome, perfil, status, source, source_ref, photo_url")
+          .select("id, nome, perfil, status, source, source_ref, photo_url, whatsapp_number_id")
           .eq("user_id", userId)
           .eq("telefone", phone)
           .maybeSingle();
 
         const leadSource = extractLeadSource(payload);
+        // Toggle "Receber leads Meta Ads": força marcar contatos novos como meta_ads
+        const effectiveSource = metaAdsEnabled
+          ? {
+              source: "meta_ads",
+              source_ref: leadSource?.source_ref ?? null,
+              source_url: leadSource?.source_url ?? null,
+              source_headline: leadSource?.source_headline ?? null,
+              source_data: leadSource?.source_data ?? null,
+            }
+          : leadSource;
 
         if (!contact) {
           let photoUrl: string | null = null;
           try {
             const { uazapiGetProfilePic } = await import("@/lib/uazapi.server");
-            const { data: integUrl } = await supabaseAdmin
-              .from("integrations")
-              .select("uazapi_url")
-              .eq("user_id", userId)
-              .maybeSingle();
-            if (integUrl?.uazapi_url) {
+            if (numberUazapiUrl) {
               photoUrl = await uazapiGetProfilePic(
-                { uazapi_url: integUrl.uazapi_url, uazapi_token: instanceToken },
+                { uazapi_url: numberUazapiUrl, uazapi_token: instanceToken },
                 phone,
               );
             }
@@ -214,42 +241,44 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               telefone: phone,
               perfil: "frio",
               status: "em_conversa",
-              source: leadSource?.source ?? "organico",
-              source_ref: leadSource?.source_ref ?? null,
-              source_url: leadSource?.source_url ?? null,
-              source_headline: leadSource?.source_headline ?? null,
-              source_data: (leadSource?.source_data ?? null) as never,
+              source: effectiveSource?.source ?? "organico",
+              source_ref: effectiveSource?.source_ref ?? null,
+              source_url: effectiveSource?.source_url ?? null,
+              source_headline: effectiveSource?.source_headline ?? null,
+              source_data: (effectiveSource?.source_data ?? null) as never,
               photo_url: photoUrl,
+              whatsapp_number_id: numberId,
             })
-            .select("id, nome, perfil, status, source, source_ref, photo_url")
+            .select("id, nome, perfil, status, source, source_ref, photo_url, whatsapp_number_id")
             .single();
           if (inserted.error) return new Response(inserted.error.message, { status: 500 });
           contact = inserted.data;
         } else {
-          if (leadSource && (contact.source === "organico" || !contact.source_ref)) {
+          if (effectiveSource && (contact.source === "organico" || !contact.source_ref)) {
           // Atualiza origem se chegou ref e ainda não havia
           await supabaseAdmin
             .from("contacts")
             .update({
-              source: leadSource.source,
-              source_ref: leadSource.source_ref,
-              source_url: leadSource.source_url,
-              source_headline: leadSource.source_headline,
-              source_data: leadSource.source_data as never,
+              source: effectiveSource.source,
+              source_ref: effectiveSource.source_ref,
+              source_url: effectiveSource.source_url,
+              source_headline: effectiveSource.source_headline,
+              source_data: effectiveSource.source_data as never,
             })
             .eq("id", contact.id);
+          }
+          if (!contact.whatsapp_number_id && numberId) {
+            await supabaseAdmin
+              .from("contacts")
+              .update({ whatsapp_number_id: numberId })
+              .eq("id", contact.id);
           }
           if (!contact.photo_url) {
             try {
               const { uazapiGetProfilePic } = await import("@/lib/uazapi.server");
-              const { data: integUrl } = await supabaseAdmin
-                .from("integrations")
-                .select("uazapi_url")
-                .eq("user_id", userId)
-                .maybeSingle();
-              if (integUrl?.uazapi_url) {
+              if (numberUazapiUrl) {
                 const photoUrl = await uazapiGetProfilePic(
-                  { uazapi_url: integUrl.uazapi_url, uazapi_token: instanceToken },
+                  { uazapi_url: numberUazapiUrl, uazapi_token: instanceToken },
                   phone,
                 );
                 if (photoUrl) {
@@ -269,7 +298,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         let { data: conv } = await supabaseAdmin
           .from("conversations")
-          .select("id, agent_enabled")
+          .select("id, agent_enabled, whatsapp_number_id")
           .eq("user_id", userId)
           .eq("contact_id", contact.id)
           .maybeSingle();
@@ -281,12 +310,22 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               user_id: userId,
               contact_id: contact.id,
               status: "agente_respondendo",
+              whatsapp_number_id: numberId,
             })
-            .select("id, agent_enabled")
+            .select("id, agent_enabled, whatsapp_number_id")
             .single();
           if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
           conv = insertedConv.data;
+        } else if (!conv.whatsapp_number_id && numberId) {
+          await supabaseAdmin
+            .from("conversations")
+            .update({ whatsapp_number_id: numberId })
+            .eq("id", conv.id);
         }
+
+        // "Modo Disparos": número de envio em massa, não responde inbound automaticamente.
+        const _disparosMode = disparosMode; // suprime warning quando desabilitado
+        void _disparosMode;
 
         // Transcreve áudio antes de salvar (para o histórico já ir certo pro Claude)
         let inboundBody = text;
