@@ -528,7 +528,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             const f = matchedFunnel;
             const defaultDelaySec = f.delay_seconds ?? 3;
             const clampDelayMs = (sec: number | undefined) =>
-              Math.max(0, Math.min((sec ?? defaultDelaySec) * 1000, 60_000));
+              Math.max(0, Math.min((sec ?? defaultDelaySec) * 1000, 180_000));
             const creds = {
               uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "",
               uazapi_token: integ.uazapi_token ?? instanceToken,
