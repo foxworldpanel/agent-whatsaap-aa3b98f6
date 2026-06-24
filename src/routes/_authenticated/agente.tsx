@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Play, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package } from "lucide-react";
+import { Bot, Save, Check, Play, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/agente")({
@@ -100,6 +101,21 @@ function AgentePage() {
     },
   });
 
+  const reloadMut = useMutation({
+    mutationFn: async () => {
+      await saveCfg({ data: cfg });
+      if (intFields) await saveInt({ data: intFields });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agent_config"] });
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+      toast.success("Agente atualizado! As próximas conversas usarão as novas configurações.");
+    },
+    onError: (e) => {
+      toast.error(`Falha ao salvar: ${(e as Error).message}`);
+    },
+  });
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -115,6 +131,14 @@ function AgentePage() {
         >
           {saveMut.isSuccess && !saveMut.isPending ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
           {saveMut.isPending ? "Salvando…" : saveMut.isSuccess ? "Salvo!" : "Salvar configurações"}
+        </button>
+        <button
+          onClick={() => reloadMut.mutate()}
+          disabled={reloadMut.isPending}
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-accent disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${reloadMut.isPending ? "animate-spin" : ""}`} />
+          {reloadMut.isPending ? "Recarregando…" : "Salvar e Recarregar Agente"}
         </button>
       </header>
 
