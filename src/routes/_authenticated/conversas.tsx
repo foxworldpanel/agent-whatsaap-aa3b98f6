@@ -30,6 +30,7 @@ type Conv = {
     nome: string;
     telefone: string;
     perfil: "frio" | "inativo" | "ativo";
+    temperatura?: "quente" | "morno" | "frio" | "cliente" | "bloqueado" | null;
     source?: string | null;
     source_ref?: string | null;
     source_url?: string | null;
@@ -43,6 +44,26 @@ const sourceLabel: Record<string, string> = {
   importado: "Importado",
   manual: "Manual",
 };
+
+type TempKey = "quente" | "morno" | "frio" | "cliente" | "bloqueado";
+const tempTag: Record<TempKey, { label: string; emoji: string; cls: string }> = {
+  quente:    { label: "Quente",    emoji: "🔥", cls: "bg-red-100 text-red-700 border-red-200" },
+  morno:     { label: "Morno",     emoji: "🌤", cls: "bg-orange-100 text-orange-700 border-orange-200" },
+  frio:      { label: "Frio",      emoji: "❄️", cls: "bg-blue-100 text-blue-700 border-blue-200" },
+  cliente:   { label: "Cliente",   emoji: "✅", cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  bloqueado: { label: "Bloqueado", emoji: "🚫", cls: "bg-neutral-200 text-neutral-600 border-neutral-300" },
+};
+function TempBadge({ t, size = "sm" }: { t?: string | null; size?: "sm" | "xs" }) {
+  if (!t || !(t in tempTag)) return null;
+  const meta = tempTag[t as TempKey];
+  const pad = size === "xs" ? "px-1.5 py-0 text-[10px]" : "px-2 py-0.5 text-[11px]";
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full border font-medium ${pad} ${meta.cls}`}>
+      <span>{meta.emoji}</span>
+      {meta.label}
+    </span>
+  );
+}
 
 function formatTime(iso: string | null): string {
   if (!iso) return "";
