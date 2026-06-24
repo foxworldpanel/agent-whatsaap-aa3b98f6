@@ -20,13 +20,18 @@ export type Database = {
           agent_name: string
           audio_enabled: boolean
           base_instruction: string
+          company_info: Json
+          faqs: Json
+          how_it_works: string
           main_offer: string
+          never_offer_first: boolean
           panel_link: string | null
           response_delay_max_sec: number
           response_delay_min_sec: number
           script_ativo: string
           script_frio: string
           script_inativo: string
+          send_panel_on_price: boolean
           tone: string
           typing_indicator_enabled: boolean
           updated_at: string
@@ -37,13 +42,18 @@ export type Database = {
           agent_name?: string
           audio_enabled?: boolean
           base_instruction?: string
+          company_info?: Json
+          faqs?: Json
+          how_it_works?: string
           main_offer?: string
+          never_offer_first?: boolean
           panel_link?: string | null
           response_delay_max_sec?: number
           response_delay_min_sec?: number
           script_ativo?: string
           script_frio?: string
           script_inativo?: string
+          send_panel_on_price?: boolean
           tone?: string
           typing_indicator_enabled?: boolean
           updated_at?: string
@@ -54,13 +64,18 @@ export type Database = {
           agent_name?: string
           audio_enabled?: boolean
           base_instruction?: string
+          company_info?: Json
+          faqs?: Json
+          how_it_works?: string
           main_offer?: string
+          never_offer_first?: boolean
           panel_link?: string | null
           response_delay_max_sec?: number
           response_delay_min_sec?: number
           script_ativo?: string
           script_frio?: string
           script_inativo?: string
+          send_panel_on_price?: boolean
           tone?: string
           typing_indicator_enabled?: boolean
           updated_at?: string
