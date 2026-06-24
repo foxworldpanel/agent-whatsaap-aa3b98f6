@@ -200,7 +200,7 @@ function Conversas() {
           <div className="border-b border-border px-4 py-3">
             <h2 className="text-base font-semibold text-neutral-800">Conversas</h2>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {convsQ.isLoading && (
               <p className="p-4 text-sm text-neutral-500">Carregando…</p>
             )}
