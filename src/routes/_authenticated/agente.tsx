@@ -44,6 +44,7 @@ function AgentePage() {
 
   const [cfg, setCfg] = useState<Cfg>(defaultConfig);
   const [activeTab, setActiveTab] = useState<"ativo" | "frio" | "inativo">("frio");
+  const [intFields, setIntFields] = useState<IntFields | null>(null);
 
   useEffect(() => {
     if (cfgQ.data) {
@@ -57,8 +58,14 @@ function AgentePage() {
   }, [cfgQ.data]);
 
   const saveMut = useMutation({
-    mutationFn: () => saveCfg({ data: cfg }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent_config"] }),
+    mutationFn: async () => {
+      await saveCfg({ data: cfg });
+      if (intFields) await saveInt({ data: intFields });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agent_config"] });
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+    },
   });
 
   const scriptKey = activeTab === "frio" ? "script_frio" : activeTab === "inativo" ? "script_inativo" : "script_ativo";
@@ -159,6 +166,7 @@ function AgentePage() {
                   ) as Partial<IntFields>)
                 : null
             }
+            onChange={setIntFields}
             onSave={async (v) => {
               await saveInt({ data: v });
               qc.invalidateQueries({ queryKey: ["integrations"] });
@@ -186,10 +194,11 @@ const blankInt: IntFields = {
 };
 
 function IntegrationsPanel({
-  initial, onSave, onPreviewVoice, previewing, previewError,
+  initial, onSave, onChange, onPreviewVoice, previewing, previewError,
 }: {
   initial: Partial<IntFields> | null;
   onSave: (v: IntFields) => Promise<void>;
+  onChange?: (v: IntFields) => void;
   onPreviewVoice: () => void;
   previewing: boolean;
   previewError: string | null;
@@ -199,8 +208,14 @@ function IntegrationsPanel({
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (initial) setV({ ...blankInt, ...Object.fromEntries(Object.entries(initial).map(([k, val]) => [k, val ?? ""])) as IntFields });
+    if (initial) {
+      const next = { ...blankInt, ...Object.fromEntries(Object.entries(initial).map(([k, val]) => [k, val ?? ""])) as IntFields };
+      setV(next);
+      onChange?.(next);
+    }
   }, [initial]);
+
+  useEffect(() => { onChange?.(v); }, [v]);
 
   const groups: Array<{ title: string; status: boolean; fields: Array<[keyof IntFields, string, boolean?]> }> = [
     { title: "Uazapi", status: !!v.uazapi_url && !!v.uazapi_token, fields: [
