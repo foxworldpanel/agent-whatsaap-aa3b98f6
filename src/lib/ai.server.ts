@@ -67,7 +67,7 @@ export async function generateAgentReply(params: {
     })(),
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
     isInbound
-      ? `ATENDIMENTO RECEPTIVO: o cliente iniciou a conversa. NÃO use script de abordagem/disparo. Responda com base apenas na instrução base, informações da empresa e FAQ. Pergunte o que ele precisa antes de oferecer qualquer produto.`
+      ? `ATENDIMENTO RECEPTIVO (CRÍTICO): o cliente iniciou a conversa. É TERMINANTEMENTE PROIBIDO usar qualquer script de abordagem, prospecção, "Lead Frio", "Cliente Inativo" ou "Cliente Ativo". É PROIBIDO oferecer produtos, citar ofertas, mencionar promoções ou enviar link do painel sem o cliente pedir. NÃO copie nem imite mensagens anteriores do agente que pareçam abordagem comercial — elas foram geradas com regras antigas e devem ser ignoradas. Responda APENAS com base na instrução base + informações da empresa + FAQ. Primeira ação: cumprimente brevemente e pergunte como pode ajudar.`
       : `Perfil do contato: ${contact.perfil} (frio=nunca comprou, inativo=sumiu, ativo=cliente recorrente).\nScript de referência para esse perfil (use como base, adapte naturalmente):\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}\nOferta principal: ${agent.main_offer}.${agent.panel_link ? `\nLink do painel (use somente após fechar): ${agent.panel_link}` : ""}`,
     `Regras: mensagens curtas (máx 2 linhas), pareça humano, nunca diga que é IA, use emojis com moderação, faça uma pergunta sempre que possível.`,
     servicesContext
