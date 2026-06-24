@@ -48,6 +48,22 @@ function formatTime(iso: string | null): string {
   return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  "#7C3AED", "#2563EB", "#059669", "#DB2777", "#D97706", "#0891B2", "#9333EA", "#DC2626",
+];
+function avatarColor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
 function Conversas() {
   const qc = useQueryClient();
   const fetchConvs = useServerFn(listConversations);
@@ -101,143 +117,162 @@ function Conversas() {
   }, [qc, activeId]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <header>
         <p className="text-sm text-muted-foreground">Histórico</p>
         <h1 className="text-3xl font-bold tracking-tight">Conversas</h1>
       </header>
 
-      <div
-        className="grid h-[calc(100vh-220px)] grid-cols-1 overflow-hidden rounded-xl border border-border md:grid-cols-[320px_1fr]"
-        style={{ background: "var(--gradient-card)" }}
-      >
-        <aside className="border-r border-border overflow-y-auto">
-          {convsQ.isLoading && (
-            <p className="p-4 text-sm text-muted-foreground">Carregando…</p>
-          )}
-          {!convsQ.isLoading && conversations.length === 0 && (
-            <p className="p-4 text-sm text-muted-foreground">
-              Nenhuma conversa ainda. Quando um contato responder no WhatsApp, ela aparece aqui.
-            </p>
-          )}
-          {conversations.map((c) => {
-            const sel = c.id === activeId;
-            return (
-              <button
-                key={c.id}
-                onClick={() => setActiveId(c.id)}
-                className={`flex w-full flex-col gap-1 border-b border-border px-4 py-3 text-left transition ${
-                  sel ? "bg-primary/10" : "hover:bg-muted/30"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{c.contact?.nome ?? "—"}</span>
-                  <span className="text-xs text-muted-foreground">{formatTime(c.last_message_at)}</span>
-                </div>
-                <p className="truncate text-xs text-muted-foreground">
-                  {c.last_message_preview ?? ""}
-                </p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      c.status === "convertido"
-                        ? "bg-success"
-                        : c.status === "agente_respondendo"
-                        ? "bg-primary"
-                        : "bg-warning"
-                    }`}
-                  />
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {c.status === "convertido"
-                      ? "Convertido"
-                      : c.status === "agente_respondendo"
-                      ? "Agente respondendo"
-                      : "Aguardando"}
-                  </span>
-                  {c.contact?.source && (
-                    <span
-                      className={`ml-auto rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                        c.contact.source === "meta_ads"
-                          ? "bg-primary/15 text-primary"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {sourceLabel[c.contact.source] ?? c.contact.source}
-                    </span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
+      <div className="grid h-[calc(100vh-200px)] grid-cols-1 overflow-hidden rounded-xl border border-border shadow-sm md:grid-cols-[360px_1fr]">
+        {/* === LISTA (lado esquerdo, fundo branco) === */}
+        <aside className="flex flex-col border-r border-border bg-white">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-base font-semibold text-neutral-800">Conversas</h2>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {convsQ.isLoading && (
+              <p className="p-4 text-sm text-neutral-500">Carregando…</p>
+            )}
+            {!convsQ.isLoading && conversations.length === 0 && (
+              <p className="p-4 text-sm text-neutral-500">
+                Nenhuma conversa ainda. Quando um contato responder no WhatsApp, ela aparece aqui.
+              </p>
+            )}
+            {conversations.map((c) => {
+              const sel = c.id === activeId;
+              const name = c.contact?.nome ?? "—";
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveId(c.id)}
+                  className={`flex w-full items-center gap-3 border-b border-neutral-100 px-3 py-3 text-left transition ${
+                    sel ? "bg-primary/10" : "hover:bg-neutral-50"
+                  }`}
+                >
+                  <div
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                    style={{ background: avatarColor(c.contact?.id ?? c.id) }}
+                  >
+                    {initials(name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium text-neutral-900">
+                        {name}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-neutral-500">
+                        {formatTime(c.last_message_at)}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center justify-between gap-2">
+                      <p className="truncate text-xs text-neutral-500">
+                        {c.last_message_preview ?? ""}
+                      </p>
+                      {c.contact?.source === "meta_ads" && (
+                        <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          {sourceLabel.meta_ads}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </aside>
 
-        <section className="flex flex-col bg-background/40">
-          <header className="flex items-center justify-between border-b border-border px-6 py-4">
-            <div>
-              <h2 className="font-semibold">{active?.contact?.nome ?? "Selecione uma conversa"}</h2>
-              <p className="text-xs text-muted-foreground">
-                {active?.contact ? profileLabel[active.contact.perfil] : ""}
-                {active?.contact?.source && (
-                  <>
-                    {" · "}
-                    <span className={active.contact.source === "meta_ads" ? "text-primary" : ""}>
-                      Origem: {sourceLabel[active.contact.source] ?? active.contact.source}
-                    </span>
-                    {active.contact.source_headline && (
-                      <span className="text-muted-foreground"> — “{active.contact.source_headline}”</span>
-                    )}
-                    {active.contact.source_url && (
-                      <>
-                        {" · "}
-                        <a
-                          href={active.contact.source_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline hover:text-primary"
-                        >
-                          anúncio
-                        </a>
-                      </>
-                    )}
-                  </>
-                )}
-              </p>
+        {/* === CONVERSA (lado direito, fundo WhatsApp) === */}
+        <section
+          className="flex flex-col"
+          style={{ backgroundColor: "#ECE5DD" }}
+        >
+          <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3">
+            <div className="flex items-center gap-3">
+              {active?.contact ? (
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+                  style={{ background: avatarColor(active.contact.id) }}
+                >
+                  {initials(active.contact.nome)}
+                </div>
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-neutral-200" />
+              )}
+              <div>
+                <h2 className="text-sm font-semibold text-neutral-900">
+                  {active?.contact?.nome ?? "Selecione uma conversa"}
+                </h2>
+                <p className="text-[11px] flex items-center gap-1.5">
+                  {active && (
+                    <>
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          active.status === "convertido"
+                            ? "bg-emerald-500"
+                            : active.status === "agente_respondendo"
+                            ? "bg-emerald-500"
+                            : "bg-amber-500"
+                        }`}
+                      />
+                      <span
+                        className={
+                          active.status === "agente_respondendo" || active.status === "convertido"
+                            ? "text-emerald-600 font-medium"
+                            : "text-amber-600 font-medium"
+                        }
+                      >
+                        {active.status === "convertido"
+                          ? "Convertido"
+                          : active.status === "agente_respondendo"
+                          ? "Agente respondendo"
+                          : "Aguardando"}
+                      </span>
+                      {active.contact?.source && (
+                        <span className="text-neutral-500">
+                          · {sourceLabel[active.contact.source] ?? active.contact.source}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
-            <button className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium transition hover:bg-muted">
+            <button className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50">
               <Bot className="h-3.5 w-3.5" /> Intervir manualmente
             </button>
           </header>
 
-          <div className="flex-1 space-y-3 overflow-y-auto px-6 py-5">
+          <div className="flex-1 space-y-2 overflow-y-auto px-6 py-5">
             {!active && (
-              <p className="text-sm text-muted-foreground">Nada selecionado.</p>
+              <p className="text-sm text-neutral-500">Nada selecionado.</p>
             )}
-            {(msgsQ.data ?? []).map((m) => (
-              <div
-                key={m.id}
-                className={`flex ${m.sender === "agente" ? "justify-end" : "justify-start"}`}
-              >
+            {(msgsQ.data ?? []).map((m) => {
+              const mine = m.sender === "agente";
+              return (
                 <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
-                    m.sender === "agente"
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-muted text-foreground rounded-bl-sm"
-                  }`}
+                  key={m.id}
+                  className={`flex ${mine ? "justify-end" : "justify-start"}`}
                 >
-                  <p className="whitespace-pre-wrap">{m.body}</p>
-                  <p
-                    className={`mt-1 text-[10px] ${
-                      m.sender === "agente" ? "text-primary-foreground/70" : "text-muted-foreground"
+                  <div
+                    className={`max-w-[75%] rounded-lg px-3 py-2 text-sm shadow-sm ${
+                      mine ? "rounded-br-sm" : "rounded-bl-sm"
                     }`}
+                    style={{
+                      backgroundColor: mine ? "#DCF8C6" : "#FFFFFF",
+                      color: "#111827",
+                    }}
                   >
-                    {formatTime(m.created_at)}
-                  </p>
+                    <p className="whitespace-pre-wrap leading-snug">{m.body}</p>
+                    <p className="mt-1 text-right text-[10px] text-neutral-500">
+                      {formatTime(m.created_at)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="border-t border-border bg-background/60 p-4">
+          <div className="border-t border-neutral-200 bg-white p-3">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -251,13 +286,12 @@ function Conversas() {
                 onChange={(e) => setText(e.target.value)}
                 disabled={!activeId || sendMut.isPending}
                 placeholder="Digite uma mensagem para enviar manualmente…"
-                className="flex-1 rounded-lg border border-border bg-card px-4 py-2.5 text-sm outline-none transition focus:border-primary disabled:opacity-60"
+                className="flex-1 rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-primary focus:bg-white disabled:opacity-60"
               />
               <button
                 type="submit"
                 disabled={!activeId || !text.trim() || sendMut.isPending}
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
-                style={{ background: "var(--gradient-primary)" }}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:scale-105 disabled:opacity-50"
               >
                 <Send className="h-4 w-4" />
               </button>
