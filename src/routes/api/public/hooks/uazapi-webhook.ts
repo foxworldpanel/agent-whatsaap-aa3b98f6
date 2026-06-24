@@ -523,14 +523,22 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         };
         const minSec = Math.max(0, a.response_delay_min_sec ?? 30);
         const maxSec = Math.max(minSec, a.response_delay_max_sec ?? 180);
-        const delayMs = (Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec) * 1000;
+        const rawDelayMs = (Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec) * 1000;
+        // Cloudflare Worker encerra a request por volta de 30s; mantemos margem
+        // para a chamada do Claude + envio via Uazapi caberem na janela.
+        const MAX_DELAY_MS = 20000;
+        const delayMs = Math.min(rawDelayMs, MAX_DELAY_MS);
         const typingOn = a.typing_indicator_enabled !== false;
         if (typingOn && delayMs > 0) {
-          await uazapiSendTyping(
-            { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
-            phone,
-            delayMs,
-          );
+          try {
+            await uazapiSendTyping(
+              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+              phone,
+              delayMs,
+            );
+          } catch (e) {
+            console.error("uazapi typing failed", e);
+          }
         }
         if (delayMs > 0) {
           await new Promise((r) => setTimeout(r, delayMs));
