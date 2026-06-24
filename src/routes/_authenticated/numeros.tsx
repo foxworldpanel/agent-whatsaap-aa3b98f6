@@ -533,7 +533,7 @@ function FunnelEditor({
       updateFn({
         data: {
           id: draft.id,
-          name: draft.name,
+          name: draft.name?.trim() || "Novo funil",
           enabled: draft.enabled,
           delay_seconds: draft.delay_seconds,
           trigger_keywords: draft.trigger_keywords,
