@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Send, Bot } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -99,6 +99,7 @@ function Conversas() {
   const fetchNumbers = useServerFn(listNumbers);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const numbersQ = useQuery({
     queryKey: ["whatsapp_numbers"],
@@ -131,6 +132,10 @@ function Conversas() {
     refetchInterval: activeId ? 2000 : false,
     refetchIntervalInBackground: true,
   });
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [activeId, msgsQ.data?.length]);
 
   const [text, setText] = useState("");
   const sendMut = useMutation({
@@ -166,7 +171,7 @@ function Conversas() {
   }, [qc, activeId]);
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-[calc(100dvh-4rem)] min-h-0 flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">Histórico</p>
@@ -194,13 +199,13 @@ function Conversas() {
         )}
       </header>
 
-      <div className="grid h-[calc(100vh-200px)] grid-cols-1 overflow-hidden rounded-xl border border-border shadow-sm md:grid-cols-[360px_1fr]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-border shadow-sm md:grid-cols-[360px_minmax(0,1fr)]">
         {/* === LISTA (lado esquerdo, fundo branco) === */}
-        <aside className="flex flex-col border-r border-border bg-white">
+        <aside className="min-h-0 overflow-hidden border-r border-border bg-white md:flex md:flex-col">
           <div className="border-b border-border px-4 py-3">
             <h2 className="text-base font-semibold text-neutral-800">Conversas</h2>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="max-h-56 overflow-y-auto md:max-h-none md:min-h-0 md:flex-1">
             {convsQ.isLoading && (
               <p className="p-4 text-sm text-neutral-500">Carregando…</p>
             )}
@@ -267,7 +272,7 @@ function Conversas() {
 
         {/* === CONVERSA (lado direito, fundo WhatsApp) === */}
         <section
-          className="flex flex-col"
+          className="min-h-0 overflow-hidden flex flex-col"
           style={{ backgroundColor: "#ECE5DD" }}
         >
           <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3">
@@ -363,7 +368,7 @@ function Conversas() {
             </div>
           </header>
 
-          <div className="flex-1 space-y-2 overflow-y-auto px-6 py-5">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-6 py-5">
             {!active && (
               <p className="text-sm text-neutral-500">Nada selecionado.</p>
             )}
@@ -391,6 +396,7 @@ function Conversas() {
                 </div>
               );
             })}
+            <div ref={messagesEndRef} />
           </div>
 
           <div className="border-t border-neutral-200 bg-white p-3">
