@@ -62,7 +62,7 @@ export async function generateAgentReply(params: {
     (() => {
       const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
       return Array.isArray(faqs) && faqs.length > 0
-        ? `PERGUNTAS FREQUENTES (use como base de conhecimento — adapte a resposta naturalmente, não copie literal):\n${faqs.map((f) => `P: ${f.q}\nR: ${f.a}`).join("\n\n")}`
+        ? `BASE DE CONHECIMENTO INTERNO (FAQ — NÃO É SCRIPT DE RESPOSTA):\n${faqs.map((f) => `- ${f.q} → ${f.a}`).join("\n")}\n\nUse essas informações apenas como conhecimento interno. NUNCA copie ou reproduza o texto do FAQ nas respostas. Responda de forma natural, curta e humana, como se soubesse a informação de cabeça. Máximo 2 linhas por mensagem. Varie as respostas — nunca repita a mesma frase duas vezes seguidas. Se o cliente disse SIM, avance na conversa, não repita a explicação anterior.`
         : "";
     })(),
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
