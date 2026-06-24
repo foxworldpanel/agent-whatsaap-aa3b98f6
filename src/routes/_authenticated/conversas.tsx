@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage } from "@/lib/whatsapp.functions";
+import { setConversationAgentEnabled } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/conversas")({
   ssr: false,
@@ -23,6 +24,7 @@ type Conv = {
   status: "agente_respondendo" | "aguardando" | "convertido";
   last_message_preview: string | null;
   last_message_at: string | null;
+  agent_enabled: boolean;
   contact: {
     id: string;
     nome: string;
@@ -69,6 +71,7 @@ function Conversas() {
   const fetchConvs = useServerFn(listConversations);
   const fetchMsgs = useServerFn(listMessages);
   const sendFn = useServerFn(sendManualMessage);
+  const toggleConvAgent = useServerFn(setConversationAgentEnabled);
 
   const convsQ = useQuery({ queryKey: ["conversations"], queryFn: () => fetchConvs() });
   const conversations = (convsQ.data ?? []) as unknown as Conv[];
@@ -97,6 +100,12 @@ function Conversas() {
       qc.invalidateQueries({ queryKey: ["messages", activeId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: (enabled: boolean) =>
+      toggleConvAgent({ data: { conversationId: activeId!, enabled } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
   });
 
   // Realtime: refresh on insert/update
