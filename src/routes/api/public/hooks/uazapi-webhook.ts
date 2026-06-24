@@ -171,7 +171,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
         const { data: number } = await supabaseAdmin
           .from("whatsapp_numbers")
-          .select("id, user_id, uazapi_url, meta_ads_enabled, disparos_mode")
+          .select("id, user_id, uazapi_url, meta_ads_enabled, disparos_mode, welcome_funnel")
           .eq("uazapi_token", instanceToken)
           .order("updated_at", { ascending: false, nullsFirst: false })
           .limit(1)
@@ -182,6 +182,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         let numberUazapiUrl: string | null = null;
         let metaAdsEnabled = false;
         let disparosMode = false;
+        let welcomeFunnel: Record<string, unknown> | null = null;
 
         if (number) {
           userId = number.user_id;
@@ -189,6 +190,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           numberUazapiUrl = number.uazapi_url;
           metaAdsEnabled = !!number.meta_ads_enabled;
           disparosMode = !!number.disparos_mode;
+          welcomeFunnel = (number.welcome_funnel as Record<string, unknown> | null) ?? null;
         } else {
           const { data: integLegacy, error: intErr } = await supabaseAdmin
             .from("integrations")
@@ -313,6 +315,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .eq("user_id", userId)
           .eq("contact_id", contact.id)
           .maybeSingle();
+
+        const isFirstContact = !conv;
 
         if (!conv) {
           const insertedConv = await supabaseAdmin
