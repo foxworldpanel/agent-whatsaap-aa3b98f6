@@ -38,6 +38,7 @@ export async function generateAgentReply(params: {
     `Você é ${agent.agent_name}, vendedora humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
     agent.base_instruction,
+    `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
     `Oferta principal: ${agent.main_offer}.`,
     agent.panel_link ? `Link do painel (use somente após fechar): ${agent.panel_link}` : "",
     `Perfil do contato: ${contact.perfil} (frio=nunca comprou, inativo=sumiu, ativo=cliente recorrente).`,
@@ -149,7 +150,7 @@ export async function ttsElevenLabsBase64(params: {
 
 // ----- Lead scoring (classificação automática via Lovable AI Gateway) -----
 
-export type LeadTemperatura = "quente" | "morno" | "frio" | "bloqueado";
+export type LeadTemperatura = "quente" | "morno" | "frio" | "cliente" | "bloqueado";
 
 export async function classifyLeadTemperature(params: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
@@ -163,10 +164,11 @@ export async function classifyLeadTemperature(params: {
   if (!transcript.trim()) return null;
 
   const system =
-    'Você classifica leads de vendas no WhatsApp. Responda APENAS com um JSON {"temperatura":"quente"|"morno"|"frio"|"bloqueado"}. Critérios: ' +
+    'Você classifica leads de vendas no WhatsApp. Responda APENAS com um JSON {"temperatura":"quente"|"morno"|"frio"|"cliente"|"bloqueado"}. Critérios: ' +
     'quente = perguntou preço, pediu link, disse que quer comprar, perguntou como pagar. ' +
     'morno = demonstrou interesse mas tem dúvidas, pediu mais informações, perguntou se funciona. ' +
     'frio = respostas curtas/monossilábicas, pouco engajamento, não perguntou nada. ' +
+    'cliente = confirmou compra/pagamento, enviou comprovante, mencionou PIX feito, disse "paguei"/"fechei", confirmou pedido. ' +
     'bloqueado = pediu para parar, disse que não tem interesse, xingou.';
 
   try {
@@ -189,7 +191,7 @@ export async function classifyLeadTemperature(params: {
     const raw = json.choices?.[0]?.message?.content ?? "";
     const parsed = JSON.parse(raw) as { temperatura?: string };
     const t = (parsed.temperatura ?? "").toLowerCase();
-    if (t === "quente" || t === "morno" || t === "frio" || t === "bloqueado") return t;
+    if (t === "quente" || t === "morno" || t === "frio" || t === "cliente" || t === "bloqueado") return t;
     return null;
   } catch {
     return null;
