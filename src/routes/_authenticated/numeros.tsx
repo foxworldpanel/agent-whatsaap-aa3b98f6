@@ -703,3 +703,55 @@ function FunnelStep({
     </div>
   );
 }
+
+function MediaInput({
+  value,
+  onChange,
+  accept,
+  placeholder,
+  kind,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  accept: string;
+  placeholder: string;
+  kind: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const isDataUrl = value.startsWith("data:");
+  const onFile = (file: File) => {
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      onChange(String(reader.result ?? ""));
+      setLoading(false);
+    };
+    reader.onerror = () => setLoading(false);
+    reader.readAsDataURL(file);
+  };
+  return (
+    <div className="space-y-1.5">
+      <input
+        value={isDataUrl ? "" : value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+      />
+      <div className="flex items-center gap-2">
+        <input
+          type="file"
+          accept={accept}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onFile(f);
+          }}
+          className="text-xs"
+        />
+        {loading && <span className="text-xs text-neutral-500">Carregando…</span>}
+        {isDataUrl && !loading && (
+          <span className="text-xs text-emerald-600">{kind} carregado ✓</span>
+        )}
+      </div>
+    </div>
+  );
+}
