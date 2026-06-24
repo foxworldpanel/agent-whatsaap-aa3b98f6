@@ -126,3 +126,39 @@ export const sendManualMessage = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+// Clear conversation history and reset agent context for that contact.
+export const clearConversation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: conv, error: convErr } = await supabaseAdmin
+      .from("conversations")
+      .select("id, user_id")
+      .eq("id", data.conversationId)
+      .in("user_id", userIds)
+      .maybeSingle();
+    if (convErr) throw new Error(convErr.message);
+    if (!conv) throw new Error("Conversa não encontrada");
+
+    const { error: delErr } = await supabaseAdmin
+      .from("messages")
+      .delete()
+      .eq("conversation_id", data.conversationId);
+    if (delErr) throw new Error(delErr.message);
+
+    const { error: updErr } = await supabaseAdmin
+      .from("conversations")
+      .update({
+        last_message_preview: null,
+        last_message_at: null,
+        status: "aguardando",
+      })
+      .eq("id", data.conversationId);
+    if (updErr) throw new Error(updErr.message);
+
+    return { ok: true };
+  });
