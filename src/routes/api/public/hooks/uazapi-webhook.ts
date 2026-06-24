@@ -183,7 +183,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         let { data: contact } = await supabaseAdmin
           .from("contacts")
-          .select("id, nome, perfil, status, source, source_ref")
+          .select("id, nome, perfil, status, source, source_ref, photo_url")
           .eq("user_id", userId)
           .eq("telefone", phone)
           .maybeSingle();
@@ -221,11 +221,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               source_data: (leadSource?.source_data ?? null) as never,
               photo_url: photoUrl,
             })
-            .select("id, nome, perfil, status, source, source_ref")
+            .select("id, nome, perfil, status, source, source_ref, photo_url")
             .single();
           if (inserted.error) return new Response(inserted.error.message, { status: 500 });
           contact = inserted.data;
-        } else if (leadSource && (contact.source === "organico" || !contact.source_ref)) {
+        } else {
+          if (leadSource && (contact.source === "organico" || !contact.source_ref)) {
           // Atualiza origem se chegou ref e ainda não havia
           await supabaseAdmin
             .from("contacts")
@@ -237,6 +238,29 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               source_data: leadSource.source_data as never,
             })
             .eq("id", contact.id);
+          }
+          if (!contact.photo_url) {
+            try {
+              const { uazapiGetProfilePic } = await import("@/lib/uazapi.server");
+              const { data: integUrl } = await supabaseAdmin
+                .from("integrations")
+                .select("uazapi_url")
+                .eq("user_id", userId)
+                .maybeSingle();
+              if (integUrl?.uazapi_url) {
+                const photoUrl = await uazapiGetProfilePic(
+                  { uazapi_url: integUrl.uazapi_url, uazapi_token: instanceToken },
+                  phone,
+                );
+                if (photoUrl) {
+                  await supabaseAdmin
+                    .from("contacts")
+                    .update({ photo_url: photoUrl })
+                    .eq("id", contact.id);
+                }
+              }
+            } catch {}
+          }
         }
 
         if (contact.status === "bloqueado") {
