@@ -60,6 +60,21 @@ export async function uazapiSendAudio(
   });
 }
 
+export async function uazapiSendMedia(
+  creds: UazapiCreds,
+  to: string,
+  type: "video" | "image" | "document" | "audio",
+  fileUrlOrBase64: string,
+  caption?: string,
+): Promise<void> {
+  await uazapiPost(creds, "/send/media", {
+    number: normalizePhone(to),
+    type,
+    file: fileUrlOrBase64,
+    ...(caption ? { text: caption } : {}),
+  });
+}
+
 export async function uazapiGetProfilePic(
   creds: UazapiCreds,
   phone: string,
