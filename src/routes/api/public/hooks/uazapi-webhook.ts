@@ -190,7 +190,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           metaAdsEnabled = !!number.meta_ads_enabled;
           disparosMode = !!number.disparos_mode;
         } else {
-          const { data: integ, error: intErr } = await supabaseAdmin
+          const { data: integLegacy, error: intErr } = await supabaseAdmin
             .from("integrations")
             .select("user_id, uazapi_url")
             .eq("uazapi_token", instanceToken)
@@ -198,10 +198,21 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             .limit(1)
             .maybeSingle();
           if (intErr) return new Response(intErr.message, { status: 500 });
-          if (!integ) return new Response("instance not registered", { status: 404 });
-          userId = integ.user_id;
-          numberUazapiUrl = integ.uazapi_url;
+          if (!integLegacy) return new Response("instance not registered", { status: 404 });
+          userId = integLegacy.user_id;
+          numberUazapiUrl = integLegacy.uazapi_url;
         }
+
+        // Carrega config completa do dono do número (chaves de API, SMM, teste grátis)
+        const { data: integ, error: intLoadErr } = await supabaseAdmin
+          .from("integrations")
+          .select(
+            "user_id, uazapi_url, uazapi_token, anthropic_api_key, elevenlabs_api_key, elevenlabs_voice_id, smm_api_key, smm_service_id, smm_panel_url, free_trial_enabled",
+          )
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (intLoadErr) return new Response(intLoadErr.message, { status: 500 });
+        if (!integ) return new Response("integration missing for user", { status: 404 });
 
         let { data: contact } = await supabaseAdmin
           .from("contacts")
