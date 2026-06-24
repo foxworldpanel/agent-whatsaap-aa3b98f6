@@ -41,3 +41,31 @@ export async function uazapiSendAudio(
     file: audioUrlOrBase64,
   });
 }
+
+export async function uazapiGetProfilePic(
+  creds: UazapiCreds,
+  phone: string,
+): Promise<string | null> {
+  try {
+    const base = creds.uazapi_url.replace(/\/+$/, "");
+    const res = await fetch(`${base}/chat/GetNameAndImageURL`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        token: creds.uazapi_token,
+      },
+      body: JSON.stringify({ number: normalizePhone(phone), preview: false }),
+    });
+    if (!res.ok) return null;
+    const j = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!j) return null;
+    const url =
+      (j.image as string | undefined) ??
+      (j.imageUrl as string | undefined) ??
+      (j.profilePictureUrl as string | undefined) ??
+      (j.url as string | undefined);
+    return typeof url === "string" && url.startsWith("http") ? url : null;
+  } catch {
+    return null;
+  }
+}

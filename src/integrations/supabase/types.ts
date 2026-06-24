@@ -154,6 +154,7 @@ export type Database = {
           last_interaction_at: string | null
           nome: string
           perfil: Database["public"]["Enums"]["contact_profile"]
+          photo_url: string | null
           source: string
           source_data: Json | null
           source_headline: string | null
@@ -173,6 +174,7 @@ export type Database = {
           last_interaction_at?: string | null
           nome: string
           perfil?: Database["public"]["Enums"]["contact_profile"]
+          photo_url?: string | null
           source?: string
           source_data?: Json | null
           source_headline?: string | null
@@ -192,6 +194,7 @@ export type Database = {
           last_interaction_at?: string | null
           nome?: string
           perfil?: Database["public"]["Enums"]["contact_profile"]
+          photo_url?: string | null
           source?: string
           source_data?: Json | null
           source_headline?: string | null

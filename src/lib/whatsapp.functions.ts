@@ -32,7 +32,7 @@ export const listConversations = createServerFn({ method: "GET" })
     const { data, error } = await supabaseAdmin
       .from("conversations")
       .select(
-        "id, status, last_message_preview, last_message_at, agent_enabled, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline)",
+        "id, status, last_message_preview, last_message_at, agent_enabled, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline, photo_url)",
       )
       .in("user_id", userIds)
       .order("last_message_at", { ascending: false, nullsFirst: false });

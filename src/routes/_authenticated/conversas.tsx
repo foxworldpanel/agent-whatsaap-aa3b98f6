@@ -35,6 +35,7 @@ type Conv = {
     source_ref?: string | null;
     source_url?: string | null;
     source_headline?: string | null;
+    photo_url?: string | null;
   } | null;
 };
 
@@ -97,7 +98,7 @@ function Conversas() {
   const convsQ = useQuery({
     queryKey: ["conversations"],
     queryFn: () => fetchConvs(),
-    refetchInterval: 5000,
+    refetchInterval: 2000,
     refetchIntervalInBackground: true,
   });
   const conversations = (convsQ.data ?? []) as unknown as Conv[];
@@ -116,7 +117,7 @@ function Conversas() {
     queryKey: ["messages", activeId],
     queryFn: () => fetchMsgs({ data: { conversationId: activeId! } }),
     enabled: !!activeId,
-    refetchInterval: activeId ? 5000 : false,
+    refetchInterval: activeId ? 2000 : false,
     refetchIntervalInBackground: true,
   });
 
@@ -178,6 +179,7 @@ function Conversas() {
             {conversations.map((c) => {
               const sel = c.id === activeId;
               const name = c.contact?.nome ?? "—";
+              const photo = c.contact?.photo_url;
               return (
                 <button
                   key={c.id}
@@ -186,12 +188,21 @@ function Conversas() {
                     sel ? "bg-primary/10" : "hover:bg-neutral-50"
                   }`}
                 >
-                  <div
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                    style={{ background: avatarColor(c.contact?.id ?? c.id) }}
-                  >
-                    {initials(name)}
-                  </div>
+                  {photo ? (
+                    <img
+                      src={photo}
+                      alt={name}
+                      className="h-12 w-12 shrink-0 rounded-full object-cover"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    />
+                  ) : (
+                    <div
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                      style={{ background: avatarColor(c.contact?.id ?? c.id) }}
+                    >
+                      {initials(name)}
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium text-neutral-900">
@@ -229,12 +240,20 @@ function Conversas() {
           <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3">
             <div className="flex items-center gap-3">
               {active?.contact ? (
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-                  style={{ background: avatarColor(active.contact.id) }}
-                >
-                  {initials(active.contact.nome)}
-                </div>
+                active.contact.photo_url ? (
+                  <img
+                    src={active.contact.photo_url}
+                    alt={active.contact.nome}
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
+                    style={{ background: avatarColor(active.contact.id) }}
+                  >
+                    {initials(active.contact.nome)}
+                  </div>
+                )
               ) : (
                 <div className="h-10 w-10 rounded-full bg-neutral-200" />
               )}
