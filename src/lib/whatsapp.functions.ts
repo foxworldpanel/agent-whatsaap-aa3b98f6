@@ -9,7 +9,7 @@ export const listConversations = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("conversations")
       .select(
-        "id, status, last_message_preview, last_message_at, agent_enabled, contact:contacts(id, nome, telefone, perfil, source, source_ref, source_url, source_headline)",
+        "id, status, last_message_preview, last_message_at, agent_enabled, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline)",
       )
       .eq("user_id", context.userId)
       .order("last_message_at", { ascending: false, nullsFirst: false });
