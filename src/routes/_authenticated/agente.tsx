@@ -73,7 +73,7 @@ function AgentePage() {
 
   useEffect(() => {
     if (cfgQ.data) {
-      const d = cfgQ.data as Partial<Cfg> & { company_info?: unknown; faqs?: unknown };
+      const d = cfgQ.data as unknown as Partial<Cfg> & { company_info?: unknown; faqs?: unknown };
       const ci = (d.company_info && typeof d.company_info === "object")
         ? { ...defaultCompany, ...(d.company_info as Partial<CompanyInfo>) }
         : defaultCompany;
