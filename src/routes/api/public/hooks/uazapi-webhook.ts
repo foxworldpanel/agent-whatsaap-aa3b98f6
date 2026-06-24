@@ -476,12 +476,18 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           ];
           const temperatura = await classifyLeadTemperature({ history: fullHistory });
           if (temperatura) {
-            const patch: Record<string, unknown> = {
-              temperatura,
-              temperatura_updated_at: new Date().toISOString(),
-            };
-            if (temperatura === "bloqueado") patch.status = "bloqueado";
-            await supabaseAdmin.from("contacts").update(patch).eq("id", contact.id);
+            const stamp = new Date().toISOString();
+            if (temperatura === "bloqueado") {
+              await supabaseAdmin
+                .from("contacts")
+                .update({ temperatura, temperatura_updated_at: stamp, status: "bloqueado" })
+                .eq("id", contact.id);
+            } else {
+              await supabaseAdmin
+                .from("contacts")
+                .update({ temperatura, temperatura_updated_at: stamp })
+                .eq("id", contact.id);
+            }
           }
         } catch (e) {
           console.error("lead scoring failed", e);
