@@ -474,12 +474,13 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         // "Modo Disparos": número usado para abordagem ativa — não responde inbound.
         if (disparosMode) return new Response("ok (disparos mode: no auto-reply)");
 
-        // ===== Funil de boas-vindas (apenas na PRIMEIRA mensagem do contato) =====
-        if (isFirstContact && welcomeFunnel && (welcomeFunnel as { enabled?: boolean }).enabled) {
+        // ===== Funil de boas-vindas (apenas quando a mensagem contém uma das palavras-chave gatilho, uma vez por contato) =====
+        if (welcomeFunnel && (welcomeFunnel as { enabled?: boolean }).enabled) {
           try {
             const f = welcomeFunnel as {
               enabled?: boolean;
               delay_seconds?: number;
+              trigger_keywords?: string;
               steps?: {
                 welcome_text?: { enabled?: boolean; text?: string };
                 audio?: { enabled?: boolean; url?: string };
@@ -488,6 +489,27 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 services_text?: { enabled?: boolean; text?: string };
               };
             };
+            const normalize = (s: string) =>
+              s
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+            const keywords = (f.trigger_keywords ?? "")
+              .split(/[,;\n]/)
+              .map((k) => normalize(k.trim()))
+              .filter(Boolean);
+            const haystack = normalize(inboundBody ?? "");
+            const matched = keywords.length > 0 && keywords.some((k) => haystack.includes(k));
+            if (!matched) throw new Error("__skip_funnel__");
+
+            // Só dispara uma vez por contato: se já existe qualquer mensagem do agente nesta conversa, ignora.
+            const { count: agentMsgCount } = await supabaseAdmin
+              .from("messages")
+              .select("id", { count: "exact", head: true })
+              .eq("conversation_id", conv.id)
+              .eq("sender", "agente");
+            if ((agentMsgCount ?? 0) > 0) throw new Error("__skip_funnel__");
+
             const delayMs = Math.max(0, Math.min((f.delay_seconds ?? 3) * 1000, 8000));
             const creds = {
               uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "",
@@ -565,7 +587,9 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               return new Response("ok (welcome funnel)");
             }
           } catch (e) {
-            console.error("welcome funnel failed", e);
+            if ((e as Error)?.message !== "__skip_funnel__") {
+              console.error("welcome funnel failed", e);
+            }
           }
         }
 
