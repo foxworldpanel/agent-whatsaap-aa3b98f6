@@ -26,18 +26,23 @@ async function getSharedUazapiUserIds(context: { supabase: any; userId: string }
 // List conversations with contact info
 export const listConversations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) =>
+    z.object({ numberId: z.string().uuid().nullable().optional() }).optional().parse(d),
+  )
+  .handler(async ({ data, context }) => {
     const userIds = await getSharedUazapiUserIds(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin
+    let q = supabaseAdmin
       .from("conversations")
       .select(
-        "id, status, last_message_preview, last_message_at, agent_enabled, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline, photo_url)",
+        "id, status, last_message_preview, last_message_at, agent_enabled, whatsapp_number_id, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline, photo_url)",
       )
       .in("user_id", userIds)
       .order("last_message_at", { ascending: false, nullsFirst: false });
+    if (data?.numberId) q = q.eq("whatsapp_number_id", data.numberId);
+    const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return rows ?? [];
   });
 
 export const listMessages = createServerFn({ method: "POST" })
