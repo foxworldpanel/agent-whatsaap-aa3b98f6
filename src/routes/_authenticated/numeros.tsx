@@ -18,6 +18,7 @@ import {
   updateWelcomeFunnel,
   deleteWelcomeFunnel,
 } from "@/lib/welcome-funnels.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/numeros")({
   ssr: false,
