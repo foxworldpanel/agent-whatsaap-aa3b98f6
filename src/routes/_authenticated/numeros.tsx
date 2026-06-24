@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Phone, Plus, RefreshCw, Trash2, QrCode, X, Pencil, Check } from "lucide-react";
+import { Phone, Plus, RefreshCw, Trash2, QrCode, X, Pencil, Check, Sparkles, ChevronDown } from "lucide-react";
 import {
   listNumbers,
   createNumber,
@@ -27,6 +27,31 @@ type Num = {
   meta_ads_enabled: boolean;
   disparos_mode: boolean;
   last_connected_at: string | null;
+  welcome_funnel: WelcomeFunnel | null;
+};
+
+type WelcomeFunnel = {
+  enabled?: boolean;
+  delay_seconds?: number;
+  steps?: {
+    welcome_text?: { enabled?: boolean; text?: string };
+    audio?: { enabled?: boolean; url?: string };
+    panel_text?: { enabled?: boolean; text?: string };
+    video?: { enabled?: boolean; url?: string };
+    services_text?: { enabled?: boolean; text?: string };
+  };
+};
+
+const DEFAULT_FUNNEL: WelcomeFunnel = {
+  enabled: false,
+  delay_seconds: 3,
+  steps: {
+    welcome_text: { enabled: true, text: "Oi! Tudo bem? 😊 Bem-vindo(a)! Já te mando umas infos." },
+    audio: { enabled: false, url: "" },
+    panel_text: { enabled: true, text: "Esse é o nosso painel: https://mindsmmpanel.com" },
+    video: { enabled: false, url: "" },
+    services_text: { enabled: true, text: "Trabalhamos com seguidores, curtidas, visualizações e muito mais. Me diz o que você precisa!" },
+  },
 };
 
 function StatusDot({ status }: { status: string }) {
@@ -100,7 +125,7 @@ function NumerosPage() {
   });
 
   const toggleMut = useMutation({
-    mutationFn: (input: { id: string; meta_ads_enabled?: boolean; disparos_mode?: boolean; nome?: string }) =>
+    mutationFn: (input: { id: string; meta_ads_enabled?: boolean; disparos_mode?: boolean; nome?: string; welcome_funnel?: WelcomeFunnel }) =>
       updateFn({ data: input }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
   });
@@ -243,6 +268,11 @@ function NumerosPage() {
                 onChange={(v) => toggleMut.mutate({ id: n.id, disparos_mode: v })}
               />
             </div>
+
+            <WelcomeFunnelSection
+              funnel={n.welcome_funnel ?? DEFAULT_FUNNEL}
+              onSave={(welcome_funnel) => toggleMut.mutate({ id: n.id, welcome_funnel })}
+            />
           </div>
         ))}
       </div>
