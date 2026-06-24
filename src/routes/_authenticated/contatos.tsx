@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Upload, Search, Filter, Plus, Trash2, Flame, Thermometer, Snowflake, Ban } from "lucide-react";
+import { Upload, Search, Filter, Plus, Trash2, Flame, Thermometer, Snowflake, Ban, CheckCircle2 } from "lucide-react";
 import { profileLabel, statusLabel, type ContactProfile, type ContactStatus } from "@/lib/mock-data";
 import { listContacts, importContacts, createContact, deleteContact } from "@/lib/contacts.functions";
 
@@ -26,11 +26,12 @@ const profileColor: Record<ContactProfile, string> = {
   inativo: "bg-warning/15 text-warning border-warning/30",
 };
 
-type Temperatura = "quente" | "morno" | "frio" | "bloqueado";
+type Temperatura = "quente" | "morno" | "frio" | "cliente" | "bloqueado";
 const tempMeta: Record<Temperatura, { label: string; cls: string; Icon: typeof Flame }> = {
   quente:    { label: "Quente",    cls: "bg-destructive/15 text-destructive border-destructive/30", Icon: Flame },
   morno:     { label: "Morno",     cls: "bg-warning/15 text-warning border-warning/30",             Icon: Thermometer },
   frio:      { label: "Frio",      cls: "bg-primary/15 text-primary border-primary/30",             Icon: Snowflake },
+  cliente:   { label: "Cliente",   cls: "bg-success/15 text-success border-success/30",             Icon: CheckCircle2 },
   bloqueado: { label: "Bloqueado", cls: "bg-muted text-muted-foreground border-border",             Icon: Ban },
 };
 
