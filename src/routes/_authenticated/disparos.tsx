@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2 } from "lucide-react";
+import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listCampaigns,
@@ -11,6 +11,8 @@ import {
   deleteCampaign,
   listCampaignLogs,
 } from "@/lib/campaigns.functions";
+import { getAgentConfig, saveAgentConfig } from "@/lib/agent.functions";
+import { listNumbers } from "@/lib/numbers.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
@@ -32,11 +34,14 @@ function Disparos() {
   const updateC = useServerFn(updateCampaignState);
   const delC = useServerFn(deleteCampaign);
   const listL = useServerFn(listCampaignLogs);
+  const listN = useServerFn(listNumbers);
 
   const [showAdd, setShowAdd] = useState(false);
 
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: () => listC() });
   const { data: logs = [] } = useQuery({ queryKey: ["campaign_logs"], queryFn: () => listL() });
+  const { data: numbers = [] } = useQuery({ queryKey: ["whatsapp_numbers"], queryFn: () => listN() });
+  const disparosActive = numbers.some((n: { disparos_mode?: boolean }) => n.disparos_mode);
 
   useEffect(() => {
     const ch = supabase
@@ -85,6 +90,8 @@ function Disparos() {
           <Plus className="h-4 w-4" /> Nova campanha
         </button>
       </header>
+
+      <ScriptsSection enabled={disparosActive} />
 
       {showAdd && (
         <AddForm
