@@ -299,3 +299,103 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
+
+type ScriptKey = "script_frio" | "script_inativo" | "script_ativo";
+const scriptTabs: Array<{ id: ScriptKey; label: string }> = [
+  { id: "script_frio", label: "Lead Frio" },
+  { id: "script_inativo", label: "Cliente Inativo" },
+  { id: "script_ativo", label: "Cliente Ativo" },
+];
+
+function ScriptsSection({ enabled }: { enabled: boolean }) {
+  const qc = useQueryClient();
+  const fetchCfg = useServerFn(getAgentConfig);
+  const saveCfg = useServerFn(saveAgentConfig);
+  const cfgQ = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
+
+  const [tab, setTab] = useState<ScriptKey>("script_frio");
+  const [scripts, setScripts] = useState<Record<ScriptKey, string>>({
+    script_frio: "",
+    script_inativo: "",
+    script_ativo: "",
+  });
+
+  useEffect(() => {
+    if (cfgQ.data) {
+      const d = cfgQ.data as Partial<Record<ScriptKey, string>>;
+      setScripts({
+        script_frio: d.script_frio ?? "",
+        script_inativo: d.script_inativo ?? "",
+        script_ativo: d.script_ativo ?? "",
+      });
+    }
+  }, [cfgQ.data]);
+
+  const saveMut = useMutation({
+    mutationFn: async () => {
+      const base = (cfgQ.data ?? {}) as Record<string, unknown>;
+      await saveCfg({ data: { ...base, ...scripts } as never });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent_config"] }),
+  });
+
+  return (
+    <section
+      className="rounded-xl border border-border p-5"
+      style={{ background: "var(--gradient-card)" }}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h2 className="font-semibold">Script de abordagem</h2>
+        </div>
+        {enabled && (
+          <button
+            onClick={() => saveMut.mutate()}
+            disabled={saveMut.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            {saveMut.isSuccess && !saveMut.isPending ? <Check className="h-3.5 w-3.5" /> : null}
+            {saveMut.isPending ? "Salvando…" : saveMut.isSuccess ? "Salvo!" : "Salvar scripts"}
+          </button>
+        )}
+      </div>
+
+      {!enabled ? (
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>Ative o Modo Disparos em pelo menos um número para configurar scripts.</p>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 flex gap-2">
+            {scriptTabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                  tab === t.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <textarea
+            value={scripts[tab]}
+            onChange={(e) => setScripts({ ...scripts, [tab]: e.target.value })}
+            rows={6}
+            className="mt-4 w-full rounded-lg border border-border bg-background p-3 text-sm font-mono outline-none transition focus:border-primary"
+            placeholder="Escreva o script de abordagem…"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Use <code>{`{nome}`}</code> para personalizar com o nome do contato.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
