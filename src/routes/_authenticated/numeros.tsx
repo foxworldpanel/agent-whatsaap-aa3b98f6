@@ -36,11 +36,11 @@ type Num = {
 };
 
 type FunnelSteps = {
-  welcome_text?: { enabled?: boolean; text?: string };
-  audio?: { enabled?: boolean; url?: string };
-  panel_text?: { enabled?: boolean; text?: string };
-  video?: { enabled?: boolean; url?: string };
-  services_text?: { enabled?: boolean; text?: string };
+  welcome_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
+  audio?: { enabled?: boolean; url?: string; delay_seconds?: number };
+  panel_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
+  video?: { enabled?: boolean; url?: string; delay_seconds?: number };
+  services_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
 };
 
 type Funnel = {
@@ -609,7 +609,14 @@ function FunnelEditor({
         />
       </div>
 
-      <FunnelStep title="1. Texto de boas-vindas" enabled={!!steps.welcome_text?.enabled} onToggle={(v) => updateStep("welcome_text", { enabled: v })}>
+      <FunnelStep
+        title="1. Texto de boas-vindas"
+        enabled={!!steps.welcome_text?.enabled}
+        onToggle={(v) => updateStep("welcome_text", { enabled: v })}
+        delay={steps.welcome_text?.delay_seconds ?? draft.delay_seconds}
+        onDelay={(v) => updateStep("welcome_text", { delay_seconds: v })}
+        delayHint="Tempo entre o gatilho do cliente e esta mensagem"
+      >
         <textarea
           value={steps.welcome_text?.text ?? ""}
           onChange={(e) => updateStep("welcome_text", { text: e.target.value })}
@@ -618,7 +625,14 @@ function FunnelEditor({
         />
       </FunnelStep>
 
-      <FunnelStep title="2. Áudio (URL ou upload)" enabled={!!steps.audio?.enabled} onToggle={(v) => updateStep("audio", { enabled: v })}>
+      <FunnelStep
+        title="2. Áudio (URL ou upload)"
+        enabled={!!steps.audio?.enabled}
+        onToggle={(v) => updateStep("audio", { enabled: v })}
+        delay={steps.audio?.delay_seconds ?? draft.delay_seconds}
+        onDelay={(v) => updateStep("audio", { delay_seconds: v })}
+        delayHint="Tempo entre a mensagem anterior e este áudio"
+      >
         <MediaInput
           value={steps.audio?.url ?? ""}
           onChange={(url) => updateStep("audio", { url })}
@@ -628,7 +642,14 @@ function FunnelEditor({
         />
       </FunnelStep>
 
-      <FunnelStep title="3. Texto com link do painel" enabled={!!steps.panel_text?.enabled} onToggle={(v) => updateStep("panel_text", { enabled: v })}>
+      <FunnelStep
+        title="3. Texto com link do painel"
+        enabled={!!steps.panel_text?.enabled}
+        onToggle={(v) => updateStep("panel_text", { enabled: v })}
+        delay={steps.panel_text?.delay_seconds ?? draft.delay_seconds}
+        onDelay={(v) => updateStep("panel_text", { delay_seconds: v })}
+        delayHint="Tempo entre a mensagem anterior e este texto"
+      >
         <textarea
           value={steps.panel_text?.text ?? ""}
           onChange={(e) => updateStep("panel_text", { text: e.target.value })}
@@ -637,7 +658,14 @@ function FunnelEditor({
         />
       </FunnelStep>
 
-      <FunnelStep title="4. Vídeo (URL ou upload)" enabled={!!steps.video?.enabled} onToggle={(v) => updateStep("video", { enabled: v })}>
+      <FunnelStep
+        title="4. Vídeo (URL ou upload)"
+        enabled={!!steps.video?.enabled}
+        onToggle={(v) => updateStep("video", { enabled: v })}
+        delay={steps.video?.delay_seconds ?? draft.delay_seconds}
+        onDelay={(v) => updateStep("video", { delay_seconds: v })}
+        delayHint="Tempo entre a mensagem anterior e este vídeo"
+      >
         <MediaInput
           value={steps.video?.url ?? ""}
           onChange={(url) => updateStep("video", { url })}
@@ -647,7 +675,14 @@ function FunnelEditor({
         />
       </FunnelStep>
 
-      <FunnelStep title="5. Texto com tabela de serviços" enabled={!!steps.services_text?.enabled} onToggle={(v) => updateStep("services_text", { enabled: v })}>
+      <FunnelStep
+        title="5. Texto com tabela de serviços"
+        enabled={!!steps.services_text?.enabled}
+        onToggle={(v) => updateStep("services_text", { enabled: v })}
+        delay={steps.services_text?.delay_seconds ?? draft.delay_seconds}
+        onDelay={(v) => updateStep("services_text", { delay_seconds: v })}
+        delayHint="Tempo entre a mensagem anterior e este texto"
+      >
         <textarea
           value={steps.services_text?.text ?? ""}
           onChange={(e) => updateStep("services_text", { text: e.target.value })}
@@ -674,11 +709,17 @@ function FunnelStep({
   title,
   enabled,
   onToggle,
+  delay,
+  onDelay,
+  delayHint,
   children,
 }: {
   title: string;
   enabled: boolean;
   onToggle: (v: boolean) => void;
+  delay?: number;
+  onDelay?: (v: number) => void;
+  delayHint?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -699,7 +740,25 @@ function FunnelStep({
           />
         </button>
       </div>
-      {enabled && <div className="mt-2">{children}</div>}
+      {enabled && (
+        <div className="mt-2 space-y-2">
+          {onDelay && (
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-medium text-neutral-600">Aguardar antes (seg)</label>
+              <input
+                type="number"
+                min={0}
+                max={60}
+                value={delay ?? 3}
+                onChange={(e) => onDelay(Math.max(0, Math.min(60, Number(e.target.value) || 0)))}
+                className="w-20 rounded-md border border-border px-2 py-1 text-sm"
+              />
+              {delayHint && <span className="text-[11px] text-neutral-500">{delayHint}</span>}
+            </div>
+          )}
+          {children}
+        </div>
+      )}
     </div>
   );
 }
