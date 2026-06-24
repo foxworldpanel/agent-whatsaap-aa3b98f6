@@ -1,0 +1,4 @@
+ALTER TABLE public.agent_config
+  ADD COLUMN IF NOT EXISTS response_delay_min_sec INTEGER NOT NULL DEFAULT 30,
+  ADD COLUMN IF NOT EXISTS response_delay_max_sec INTEGER NOT NULL DEFAULT 180,
+  ADD COLUMN IF NOT EXISTS typing_indicator_enabled BOOLEAN NOT NULL DEFAULT true;
