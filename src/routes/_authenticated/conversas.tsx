@@ -94,7 +94,12 @@ function Conversas() {
   const sendFn = useServerFn(sendManualMessage);
   const toggleConvAgent = useServerFn(setConversationAgentEnabled);
 
-  const convsQ = useQuery({ queryKey: ["conversations"], queryFn: () => fetchConvs() });
+  const convsQ = useQuery({
+    queryKey: ["conversations"],
+    queryFn: () => fetchConvs(),
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+  });
   const conversations = (convsQ.data ?? []) as unknown as Conv[];
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -111,6 +116,8 @@ function Conversas() {
     queryKey: ["messages", activeId],
     queryFn: () => fetchMsgs({ data: { conversationId: activeId! } }),
     enabled: !!activeId,
+    refetchInterval: activeId ? 5000 : false,
+    refetchIntervalInBackground: true,
   });
 
   const [text, setText] = useState("");

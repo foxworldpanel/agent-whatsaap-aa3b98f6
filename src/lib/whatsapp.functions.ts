@@ -2,16 +2,39 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+async function getSharedUazapiUserIds(context: { supabase: any; userId: string }) {
+  const { data: ownIntegration, error } = await context.supabase
+    .from("integrations")
+    .select("uazapi_token")
+    .eq("user_id", context.userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  const token = ownIntegration?.uazapi_token;
+  if (!token) return [context.userId];
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: sharedRows, error: sharedError } = await supabaseAdmin
+    .from("integrations")
+    .select("user_id")
+    .eq("uazapi_token", token);
+  if (sharedError) throw new Error(sharedError.message);
+
+  return Array.from(new Set([context.userId, ...(sharedRows ?? []).map((row) => row.user_id)]));
+}
+
 // List conversations with contact info
 export const listConversations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
       .from("conversations")
       .select(
         "id, status, last_message_preview, last_message_at, agent_enabled, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline)",
       )
-      .eq("user_id", context.userId)
+      .in("user_id", userIds)
       .order("last_message_at", { ascending: false, nullsFirst: false });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -21,10 +44,12 @@ export const listMessages = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
       .from("messages")
       .select("id, sender, kind, body, audio_url, created_at")
-      .eq("user_id", context.userId)
+      .in("user_id", userIds)
       .eq("conversation_id", data.conversationId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
@@ -42,20 +67,22 @@ export const sendManualMessage = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: conv, error: convErr } = await supabase
+    const { data: conv, error: convErr } = await supabaseAdmin
       .from("conversations")
-      .select("id, contact:contacts(telefone)")
+      .select("id, user_id, contact:contacts(telefone)")
       .eq("id", data.conversationId)
-      .eq("user_id", userId)
+      .in("user_id", userIds)
       .maybeSingle();
     if (convErr) throw new Error(convErr.message);
     if (!conv?.contact) throw new Error("Conversa não encontrada");
 
-    const { data: integ, error: intErr } = await supabase
+    const { data: integ, error: intErr } = await supabaseAdmin
       .from("integrations")
       .select("uazapi_url, uazapi_token")
-      .eq("user_id", userId)
+      .eq("user_id", conv.user_id)
       .maybeSingle();
     if (intErr) throw new Error(intErr.message);
     if (!integ?.uazapi_url || !integ.uazapi_token) {
@@ -74,8 +101,8 @@ export const sendManualMessage = createServerFn({ method: "POST" })
     );
 
     const now = new Date().toISOString();
-    const { error: msgErr } = await supabase.from("messages").insert({
-      user_id: userId,
+    const { error: msgErr } = await supabaseAdmin.from("messages").insert({
+      user_id: conv.user_id,
       conversation_id: data.conversationId,
       sender: "agente",
       kind: "texto",
@@ -83,7 +110,7 @@ export const sendManualMessage = createServerFn({ method: "POST" })
     });
     if (msgErr) throw new Error(msgErr.message);
 
-    await supabase
+    await supabaseAdmin
       .from("conversations")
       .update({
         last_message_preview: data.text.slice(0, 120),
