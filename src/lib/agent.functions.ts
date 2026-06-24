@@ -28,6 +28,9 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
       main_offer: z.string().min(1).max(200),
       audio_enabled: z.boolean(),
       agent_enabled: z.boolean().optional(),
+      response_delay_min_sec: z.number().int().min(0).max(600).optional(),
+      response_delay_max_sec: z.number().int().min(0).max(600).optional(),
+      typing_indicator_enabled: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {

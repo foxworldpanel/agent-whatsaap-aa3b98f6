@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Mic, Link2, Sparkles, Check, Play } from "lucide-react";
+import { Bot, Save, Mic, Link2, Sparkles, Check, Play, Clock } from "lucide-react";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/agente")({
@@ -21,6 +21,9 @@ const defaultConfig = {
   panel_link: "https://painel.smm.com/u/123",
   main_offer: "500 views por R$5",
   audio_enabled: true,
+  response_delay_min_sec: 30,
+  response_delay_max_sec: 180,
+  typing_indicator_enabled: true,
 };
 
 type Cfg = typeof defaultConfig;
@@ -136,6 +139,42 @@ function AgentePage() {
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <Field label="Link do painel SMM" value={cfg.panel_link ?? ""} onChange={(v) => setCfg({ ...cfg, panel_link: v })} />
               <Field label="Oferta principal" value={cfg.main_offer} onChange={(v) => setCfg({ ...cfg, main_offer: v })} />
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Comportamento humano</h2>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Antes de responder, o agente espera um tempo aleatório entre o mínimo e o máximo. Opcionalmente envia "digitando…" no WhatsApp durante a espera.
+            </p>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <Field
+                label="Delay mínimo (segundos)"
+                type="number"
+                value={String(cfg.response_delay_min_sec)}
+                onChange={(v) => setCfg({ ...cfg, response_delay_min_sec: Math.max(0, parseInt(v || "0", 10) || 0) })}
+              />
+              <Field
+                label="Delay máximo (segundos)"
+                type="number"
+                value={String(cfg.response_delay_max_sec)}
+                onChange={(v) => setCfg({ ...cfg, response_delay_max_sec: Math.max(0, parseInt(v || "0", 10) || 0) })}
+              />
+            </div>
+            <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
+              <div>
+                <p className="text-sm font-medium">Mostrar "digitando…"</p>
+                <p className="text-xs text-muted-foreground">Envia o status de digitando via Uazapi durante o delay.</p>
+              </div>
+              <button
+                onClick={() => setCfg({ ...cfg, typing_indicator_enabled: !cfg.typing_indicator_enabled })}
+                className={`flex h-7 w-12 items-center rounded-full transition ${cfg.typing_indicator_enabled ? "bg-primary" : "bg-muted"}`}
+              >
+                <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${cfg.typing_indicator_enabled ? "translate-x-6" : "translate-x-1"}`} />
+              </button>
             </div>
           </div>
         </div>
@@ -290,8 +329,8 @@ function IntegrationsPanel({
 }
 
 function Field({
-  label, value, onChange, multiline,
-}: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean }) {
+  label, value, onChange, multiline, type,
+}: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean; type?: string }) {
   const cls = "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary";
   return (
     <label className="block">
@@ -299,7 +338,7 @@ function Field({
       {multiline ? (
         <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={3} className={cls} />
       ) : (
-        <input value={value} onChange={(e) => onChange(e.target.value)} className={cls} />
+        <input type={type ?? "text"} value={value} onChange={(e) => onChange(e.target.value)} className={cls} />
       )}
     </label>
   );

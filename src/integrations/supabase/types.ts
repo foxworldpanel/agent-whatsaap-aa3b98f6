@@ -22,10 +22,13 @@ export type Database = {
           base_instruction: string
           main_offer: string
           panel_link: string | null
+          response_delay_max_sec: number
+          response_delay_min_sec: number
           script_ativo: string
           script_frio: string
           script_inativo: string
           tone: string
+          typing_indicator_enabled: boolean
           updated_at: string
           user_id: string
         }
@@ -36,10 +39,13 @@ export type Database = {
           base_instruction?: string
           main_offer?: string
           panel_link?: string | null
+          response_delay_max_sec?: number
+          response_delay_min_sec?: number
           script_ativo?: string
           script_frio?: string
           script_inativo?: string
           tone?: string
+          typing_indicator_enabled?: boolean
           updated_at?: string
           user_id: string
         }
@@ -50,10 +56,13 @@ export type Database = {
           base_instruction?: string
           main_offer?: string
           panel_link?: string | null
+          response_delay_max_sec?: number
+          response_delay_min_sec?: number
           script_ativo?: string
           script_frio?: string
           script_inativo?: string
           tone?: string
+          typing_indicator_enabled?: boolean
           updated_at?: string
           user_id?: string
         }

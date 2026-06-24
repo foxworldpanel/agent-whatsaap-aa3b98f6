@@ -30,6 +30,24 @@ export async function uazapiSendText(creds: UazapiCreds, to: string, text: strin
   await uazapiPost(creds, "/send/text", { number: normalizePhone(to), text });
 }
 
+// Sends "typing..." (composing) presence to a chat for ~`durationMs` ms.
+// Uses Uazapi /message/presence endpoint. Failures are swallowed (best-effort).
+export async function uazapiSendTyping(
+  creds: UazapiCreds,
+  to: string,
+  durationMs: number,
+): Promise<void> {
+  try {
+    await uazapiPost(creds, "/message/presence", {
+      number: normalizePhone(to),
+      presence: "composing",
+      delay: Math.max(1000, Math.min(durationMs, 60_000)),
+    });
+  } catch {
+    // ignore — presence is best-effort
+  }
+}
+
 export async function uazapiSendAudio(
   creds: UazapiCreds,
   to: string,
