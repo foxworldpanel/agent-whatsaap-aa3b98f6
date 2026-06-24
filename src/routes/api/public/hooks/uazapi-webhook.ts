@@ -469,6 +469,9 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         if (!integ.anthropic_api_key) return new Response("ok (no claude key)");
 
+        // "Modo Disparos": número usado para abordagem ativa — não responde inbound.
+        if (disparosMode) return new Response("ok (disparos mode: no auto-reply)");
+
         const { data: agent } = await supabaseAdmin
           .from("agent_config")
           .select("*")
