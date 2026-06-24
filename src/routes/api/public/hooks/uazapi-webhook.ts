@@ -227,7 +227,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         let { data: conv } = await supabaseAdmin
           .from("conversations")
-          .select("id")
+          .select("id, agent_enabled")
           .eq("user_id", userId)
           .eq("contact_id", contact.id)
           .maybeSingle();
@@ -240,7 +240,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               contact_id: contact.id,
               status: "agente_respondendo",
             })
-            .select("id")
+            .select("id, agent_enabled")
             .single();
           if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
           conv = insertedConv.data;
@@ -386,6 +386,13 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .eq("user_id", userId)
           .maybeSingle();
         if (!agent) return new Response("ok (no agent config)");
+
+        // Global + per-conversation kill switch
+        const globalEnabled = (agent as { agent_enabled?: boolean }).agent_enabled !== false;
+        const convEnabled = conv.agent_enabled !== false;
+        if (!globalEnabled || !convEnabled) {
+          return new Response("ok (agent disabled)");
+        }
 
         const { data: history } = await supabaseAdmin
           .from("messages")
