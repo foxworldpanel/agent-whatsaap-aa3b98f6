@@ -1,0 +1,1 @@
+ALTER TABLE public.conversations ALTER COLUMN agent_enabled SET DEFAULT false; UPDATE public.conversations SET agent_enabled = false WHERE agent_enabled = true;
