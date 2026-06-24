@@ -27,12 +27,12 @@ function pickScript(cfg: AgentConfig, perfil: Contact["perfil"]): string {
 }
 
 export async function generateAgentReply(params: {
-  anthropicApiKey: string;
+  anthropicApiKey?: string | null;
   agent: AgentConfig;
   contact: Contact;
   history: Msg[];
 }): Promise<string> {
-  const { anthropicApiKey, agent, contact, history } = params;
+  const { agent, contact, history } = params;
 
   const system = [
     `Você é ${agent.agent_name}, vendedora humana de um painel SMM.`,
@@ -53,34 +53,33 @@ export async function generateAgentReply(params: {
     content: m.body,
   }));
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const key = process.env.LOVABLE_API_KEY;
+  if (!key) throw new Error("LOVABLE_API_KEY ausente");
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": anthropicApiKey,
-      "anthropic-version": "2023-06-01",
+      Authorization: `Bearer ${key}`,
     },
     body: JSON.stringify({
-      model: "claude-3-5-sonnet-20241022",
-      max_tokens: 400,
-      system,
-      messages,
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: system },
+        ...messages,
+      ],
     }),
   });
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Claude falhou (${res.status}): ${body.slice(0, 300)}`);
+    throw new Error(`AI Gateway falhou (${res.status}): ${body.slice(0, 300)}`);
   }
 
   const json = (await res.json()) as {
-    content?: Array<{ type: string; text?: string }>;
+    choices?: Array<{ message?: { content?: string } }>;
   };
-  const text = (json.content ?? [])
-    .filter((c) => c.type === "text" && c.text)
-    .map((c) => c.text!)
-    .join("\n")
-    .trim();
+  const text = (json.choices?.[0]?.message?.content ?? "").trim();
   return text || "…";
 }
 
