@@ -527,6 +527,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             contact: { nome: contact.nome, perfil: contact.perfil },
             history: (history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>,
             servicesContext,
+            isInbound: true,
           });
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
         } catch (e) {

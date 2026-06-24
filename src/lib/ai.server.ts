@@ -37,11 +37,12 @@ export async function generateAgentReply(params: {
   contact: Contact;
   history: Msg[];
   servicesContext?: string | null;
+  isInbound?: boolean;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext } = params;
+  const { agent, contact, history, servicesContext, isInbound = true } = params;
 
   const system = [
-    `Você é ${agent.agent_name}, vendedora humana de um painel SMM.`,
+    `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
     agent.base_instruction,
     (() => {
@@ -65,10 +66,9 @@ export async function generateAgentReply(params: {
         : "";
     })(),
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
-    `Oferta principal: ${agent.main_offer}.`,
-    agent.panel_link ? `Link do painel (use somente após fechar): ${agent.panel_link}` : "",
-    `Perfil do contato: ${contact.perfil} (frio=nunca comprou, inativo=sumiu, ativo=cliente recorrente).`,
-    `Script de referência para esse perfil (use como base, adapte naturalmente):\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}`,
+    isInbound
+      ? `ATENDIMENTO RECEPTIVO: o cliente iniciou a conversa. NÃO use script de abordagem/disparo. Responda com base apenas na instrução base, informações da empresa e FAQ. Pergunte o que ele precisa antes de oferecer qualquer produto.`
+      : `Perfil do contato: ${contact.perfil} (frio=nunca comprou, inativo=sumiu, ativo=cliente recorrente).\nScript de referência para esse perfil (use como base, adapte naturalmente):\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}\nOferta principal: ${agent.main_offer}.${agent.panel_link ? `\nLink do painel (use somente após fechar): ${agent.panel_link}` : ""}`,
     `Regras: mensagens curtas (máx 2 linhas), pareça humano, nunca diga que é IA, use emojis com moderação, faça uma pergunta sempre que possível.`,
     servicesContext
       ? `CATÁLOGO DE SERVIÇOS DO PAINEL (atualizado agora, use para responder preço e disponibilidade. Calcule o valor total quando o cliente informar a quantidade: total = (rate / 1000) * quantidade. Sempre direcione para o painel para finalizar o pedido: https://mindsmmpanel.com):\n${servicesContext}`
