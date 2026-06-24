@@ -31,6 +31,22 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
       response_delay_min_sec: z.number().int().min(0).max(600).optional(),
       response_delay_max_sec: z.number().int().min(0).max(600).optional(),
       typing_indicator_enabled: z.boolean().optional(),
+      company_info: z.object({
+        name: z.string().max(200),
+        type: z.string().max(500),
+        services: z.string().max(1000),
+        platforms: z.string().max(500),
+        catalog_link: z.string().max(500),
+        panel_link: z.string().max(500),
+        payments: z.string().max(500),
+      }).optional(),
+      how_it_works: z.string().max(4000).optional(),
+      never_offer_first: z.boolean().optional(),
+      send_panel_on_price: z.boolean().optional(),
+      faqs: z.array(z.object({
+        q: z.string().min(1).max(500),
+        a: z.string().min(1).max(2000),
+      })).max(100).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {

@@ -9,6 +9,11 @@ type AgentConfig = {
   script_ativo: string;
   main_offer: string;
   panel_link: string | null;
+  company_info?: unknown;
+  how_it_works?: string | null;
+  never_offer_first?: boolean | null;
+  send_panel_on_price?: boolean | null;
+  faqs?: unknown;
 };
 
 type Contact = {
@@ -38,6 +43,26 @@ export async function generateAgentReply(params: {
     `Você é ${agent.agent_name}, vendedora humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
     agent.base_instruction,
+    (() => {
+      const ci = agent.company_info as Record<string, string> | null | undefined;
+      return ci && typeof ci === "object"
+        ? `SOBRE A EMPRESA:\n- Nome: ${ci.name ?? ""}\n- Tipo: ${ci.type ?? ""}\n- Serviços: ${ci.services ?? ""}\n- Plataformas: ${ci.platforms ?? ""}\n- Catálogo: ${ci.catalog_link ?? ""}\n- Painel: ${ci.panel_link ?? ""}\n- Pagamentos: ${ci.payments ?? ""}`
+        : "";
+    })(),
+    agent.how_it_works ? `COMO FUNCIONA O PAINEL (explique ao cliente quando perguntar):\n${agent.how_it_works}` : "",
+    agent.never_offer_first ? "REGRA: nunca ofereça produto na primeira mensagem — primeiro entenda o que o cliente quer." : "",
+    (() => {
+      const ci = agent.company_info as Record<string, string> | null | undefined;
+      return agent.send_panel_on_price && ci?.panel_link
+        ? `REGRA: quando o cliente perguntar sobre preço, envie o link do painel (${ci.panel_link}) para ele consultar.`
+        : "";
+    })(),
+    (() => {
+      const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
+      return Array.isArray(faqs) && faqs.length > 0
+        ? `PERGUNTAS FREQUENTES (use como base de conhecimento — adapte a resposta naturalmente, não copie literal):\n${faqs.map((f) => `P: ${f.q}\nR: ${f.a}`).join("\n\n")}`
+        : "";
+    })(),
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
     `Oferta principal: ${agent.main_offer}.`,
     agent.panel_link ? `Link do painel (use somente após fechar): ${agent.panel_link}` : "",

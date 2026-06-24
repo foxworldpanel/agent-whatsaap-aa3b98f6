@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Play, Clock } from "lucide-react";
+import { Bot, Save, Check, Play, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2 } from "lucide-react";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/agente")({
@@ -11,19 +11,42 @@ export const Route = createFileRoute("/_authenticated/agente")({
   component: AgentePage,
 });
 
+type CompanyInfo = {
+  name: string; type: string; services: string; platforms: string;
+  catalog_link: string; panel_link: string; payments: string;
+};
+type Faq = { q: string; a: string };
+
+const defaultCompany: CompanyInfo = {
+  name: "Mind",
+  type: "Plataforma SMM automatizada, 100% online",
+  services: "Seguidores, curtidas, visualizações, plays, comentários, avaliações, ouvintes, inscritos, likes",
+  platforms: "YouTube, Instagram, TikTok, Spotify, Kwai",
+  catalog_link: "https://mindsmmpanel.com/smmpanel/services",
+  panel_link: "https://mindsmmpanel.com",
+  payments: "PIX (crédito automático) e Criptomoeda (Heleket)",
+};
+
 const defaultConfig = {
   agent_name: "Júlia",
   tone: "Amigável e informal",
-  base_instruction: "Você é a Júlia, vendedora do painel SMM. Aborde clientes como humano, mensagens curtas (máx 2 linhas), usa emojis com moderação. Nunca oferece produto na primeira mensagem.",
-  script_frio: "Oi {nome}! Tudo bem? 😊\n\nVi seu canal e curti o conteúdo! Tenho uma promo testando — 500 views por R$5 só pra dar aquele empurrão. Topa?",
-  script_inativo: "Oi {nome}! Sumiu hein 😄 Tudo bem?\n\nTenho uma oferta especial pra te trazer de volta — 500 views por R$5. Topa testar?",
-  script_ativo: "Oi {nome}! Suas views foram entregues certinho? 😊\n\nTenho um pacote de 2.000 views por R$18 pra você turbinar mais. Quer?",
-  panel_link: "https://painel.smm.com/u/123",
-  main_offer: "500 views por R$5",
+  base_instruction:
+    "Você é a Júlia, atendente da Mind, plataforma SMM online. Seja humana, simpática e direta. Mensagens curtas (máx 2 linhas por vez). Use emojis com moderação. Nunca ofereça produto na primeira mensagem. A empresa não tem sede física, atende apenas online. Nunca revele quem é o dono da empresa. Se perguntarem onde fica a empresa, diga que é 100% online.",
+  script_frio: "Oi {nome}! Tudo bem? 😊",
+  script_inativo: "Oi {nome}! Sumiu hein 😄 Tudo bem?",
+  script_ativo: "Oi {nome}! Tudo certo com o último pedido? 😊",
+  panel_link: "https://mindsmmpanel.com",
+  main_offer: "Painel SMM com PIX automático",
   audio_enabled: true,
-  response_delay_min_sec: 30,
-  response_delay_max_sec: 180,
+  response_delay_min_sec: 45,
+  response_delay_max_sec: 120,
   typing_indicator_enabled: true,
+  company_info: defaultCompany,
+  how_it_works:
+    "1. Criar cadastro no painel\n2. Acessar menu 'Depositar' e adicionar saldo via PIX ou Cripto\n3. Escolher a rede social no menu\n4. Selecionar categoria e serviço\n5. Inserir link ou usuário (perfil deve estar público)\n6. O pedido é processado automaticamente, sem necessidade de senha ou login da conta",
+  never_offer_first: true,
+  send_panel_on_price: true,
+  faqs: [] as Faq[],
 };
 
 type Cfg = typeof defaultConfig;
@@ -50,11 +73,17 @@ function AgentePage() {
 
   useEffect(() => {
     if (cfgQ.data) {
-      const d = cfgQ.data as Partial<Cfg>;
+      const d = cfgQ.data as unknown as Partial<Cfg> & { company_info?: unknown; faqs?: unknown };
+      const ci = (d.company_info && typeof d.company_info === "object")
+        ? { ...defaultCompany, ...(d.company_info as Partial<CompanyInfo>) }
+        : defaultCompany;
+      const fq = Array.isArray(d.faqs) ? (d.faqs as Faq[]) : [];
       setCfg({
         ...defaultConfig,
         ...d,
         panel_link: d.panel_link ?? "",
+        company_info: ci,
+        faqs: fq,
       });
     }
   }, [cfgQ.data]);
@@ -104,8 +133,42 @@ function AgentePage() {
 
           <div className="border-t border-border pt-6">
             <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Sobre a empresa</h2>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <Field label="Nome" value={cfg.company_info.name} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, name: v } })} />
+              <Field label="Tipo" value={cfg.company_info.type} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, type: v } })} />
+              <Field label="Plataformas" value={cfg.company_info.platforms} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, platforms: v } })} />
+              <Field label="Pagamentos" value={cfg.company_info.payments} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, payments: v } })} />
+              <Field label="Link do catálogo" value={cfg.company_info.catalog_link} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, catalog_link: v } })} />
+              <Field label="Link do painel" value={cfg.company_info.panel_link} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, panel_link: v } })} />
+            </div>
+            <div className="mt-4">
+              <Field label="Serviços oferecidos" multiline value={cfg.company_info.services} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, services: v } })} />
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <div className="flex items-center gap-2">
+              <ListOrdered className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Como funciona o painel</h2>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">O agente explica esses passos ao cliente quando perguntarem.</p>
+            <div className="mt-3">
+              <textarea
+                value={cfg.how_it_works}
+                onChange={(e) => setCfg({ ...cfg, how_it_works: e.target.value })}
+                rows={8}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Comportamento humano</h2>
+              <h2 className="font-semibold">Comportamento</h2>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
               Antes de responder, o agente espera um tempo aleatório entre o mínimo e o máximo. Opcionalmente envia "digitando…" no WhatsApp durante a espera.
@@ -129,12 +192,80 @@ function AgentePage() {
                 <p className="text-sm font-medium">Mostrar "digitando…"</p>
                 <p className="text-xs text-muted-foreground">Envia o status de digitando via Uazapi durante o delay.</p>
               </div>
+              <Toggle on={cfg.typing_indicator_enabled} onChange={(v) => setCfg({ ...cfg, typing_indicator_enabled: v })} />
+            </div>
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
+              <div>
+                <p className="text-sm font-medium">Nunca oferecer produto na primeira mensagem</p>
+                <p className="text-xs text-muted-foreground">Primeiro entende o que o cliente quer, depois oferece.</p>
+              </div>
+              <Toggle on={cfg.never_offer_first} onChange={(v) => setCfg({ ...cfg, never_offer_first: v })} />
+            </div>
+            <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
+              <div>
+                <p className="text-sm font-medium">Enviar link do painel quando perguntar sobre preço</p>
+                <p className="text-xs text-muted-foreground">Manda o link do painel para o cliente consultar valores.</p>
+              </div>
+              <Toggle on={cfg.send_panel_on_price} onChange={(v) => setCfg({ ...cfg, send_panel_on_price: v })} />
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="h-5 w-5 text-primary" />
+                <h2 className="font-semibold">Perguntas frequentes</h2>
+              </div>
               <button
-                onClick={() => setCfg({ ...cfg, typing_indicator_enabled: !cfg.typing_indicator_enabled })}
-                className={`flex h-7 w-12 items-center rounded-full transition ${cfg.typing_indicator_enabled ? "bg-primary" : "bg-muted"}`}
+                type="button"
+                onClick={() => setCfg({ ...cfg, faqs: [...cfg.faqs, { q: "", a: "" }] })}
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:bg-muted"
               >
-                <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${cfg.typing_indicator_enabled ? "translate-x-6" : "translate-x-1"}`} />
+                <Plus className="h-3 w-3" /> Adicionar
               </button>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">O agente usa essas respostas como base de conhecimento.</p>
+            <div className="mt-4 space-y-3">
+              {cfg.faqs.length === 0 && (
+                <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                  Nenhuma pergunta cadastrada. Clique em "Adicionar" para criar.
+                </p>
+              )}
+              {cfg.faqs.map((f, i) => (
+                <div key={i} className="rounded-lg border border-border bg-background/40 p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <input
+                      value={f.q}
+                      onChange={(e) => {
+                        const next = [...cfg.faqs];
+                        next[i] = { ...next[i], q: e.target.value };
+                        setCfg({ ...cfg, faqs: next });
+                      }}
+                      placeholder="Pergunta"
+                      className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setCfg({ ...cfg, faqs: cfg.faqs.filter((_, j) => j !== i) })}
+                      className="rounded-md border border-border bg-background p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Remover"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <textarea
+                    value={f.a}
+                    onChange={(e) => {
+                      const next = [...cfg.faqs];
+                      next[i] = { ...next[i], a: e.target.value };
+                      setCfg({ ...cfg, faqs: next });
+                    }}
+                    placeholder="Resposta"
+                    rows={3}
+                    className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+                  />
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -160,6 +291,18 @@ function AgentePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!on)}
+      className={`flex h-7 w-12 items-center rounded-full transition ${on ? "bg-primary" : "bg-muted"}`}
+    >
+      <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${on ? "translate-x-6" : "translate-x-1"}`} />
+    </button>
   );
 }
 
