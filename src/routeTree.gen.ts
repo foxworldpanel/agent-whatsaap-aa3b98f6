@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedTesteGratisRouteImport } from './routes/_authenticated/teste-gratis'
 import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticated/disparos'
 import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
@@ -34,6 +35,12 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedTesteGratisRoute =
+  AuthenticatedTesteGratisRouteImport.update({
+    id: '/teste-gratis',
+    path: '/teste-gratis',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDisparosRoute = AuthenticatedDisparosRouteImport.update({
   id: '/disparos',
   path: '/disparos',
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
+  '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
@@ -89,6 +97,7 @@ export interface FileRoutesByTo {
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
   '/disparos': typeof AuthenticatedDisparosRoute
+  '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
@@ -102,6 +111,7 @@ export interface FileRoutesById {
   '/_authenticated/contatos': typeof AuthenticatedContatosRoute
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
   '/_authenticated/disparos': typeof AuthenticatedDisparosRoute
+  '/_authenticated/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/contatos'
     | '/conversas'
     | '/disparos'
+    | '/teste-gratis'
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/contatos'
     | '/conversas'
     | '/disparos'
+    | '/teste-gratis'
     | '/'
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contatos'
     | '/_authenticated/conversas'
     | '/_authenticated/disparos'
+    | '/_authenticated/teste-gratis'
     | '/_authenticated/'
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
@@ -173,6 +186,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/teste-gratis': {
+      id: '/_authenticated/teste-gratis'
+      path: '/teste-gratis'
+      fullPath: '/teste-gratis'
+      preLoaderRoute: typeof AuthenticatedTesteGratisRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/disparos': {
@@ -232,6 +252,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedContatosRoute: typeof AuthenticatedContatosRoute
   AuthenticatedConversasRoute: typeof AuthenticatedConversasRoute
   AuthenticatedDisparosRoute: typeof AuthenticatedDisparosRoute
+  AuthenticatedTesteGratisRoute: typeof AuthenticatedTesteGratisRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
@@ -240,6 +261,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedContatosRoute: AuthenticatedContatosRoute,
   AuthenticatedConversasRoute: AuthenticatedConversasRoute,
   AuthenticatedDisparosRoute: AuthenticatedDisparosRoute,
+  AuthenticatedTesteGratisRoute: AuthenticatedTesteGratisRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
@@ -256,13 +278,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
