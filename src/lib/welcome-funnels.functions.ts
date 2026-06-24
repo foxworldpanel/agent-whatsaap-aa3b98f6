@@ -7,6 +7,7 @@ const stepSchema = z
     enabled: z.boolean().optional(),
     text: z.string().optional(),
     url: z.string().optional(),
+    delay_seconds: z.number().int().min(0).max(180).optional(),
   })
   .partial();
 
@@ -74,7 +75,7 @@ export const updateWelcomeFunnel = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         name: z.string().min(1).max(80).optional(),
         enabled: z.boolean().optional(),
-        delay_seconds: z.number().int().min(0).max(8).optional(),
+        delay_seconds: z.number().int().min(0).max(180).optional(),
         trigger_keywords: z.string().max(500).optional(),
         steps: stepsSchema.optional(),
       })
