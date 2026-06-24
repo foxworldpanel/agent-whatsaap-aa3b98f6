@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "Users manage their own free trials" ON public.free_trials;
+CREATE POLICY "Users manage their own free trials" ON public.free_trials FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
