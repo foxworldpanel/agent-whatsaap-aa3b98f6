@@ -7,7 +7,7 @@ export const listNumbers = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("whatsapp_numbers")
-      .select("id, nome, uazapi_url, status, meta_ads_enabled, disparos_mode, last_connected_at, created_at, welcome_funnel")
+      .select("id, nome, uazapi_url, status, meta_ads_enabled, disparos_mode, last_connected_at, created_at")
       .eq("user_id", context.userId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
@@ -135,7 +135,6 @@ export const updateNumberToggles = createServerFn({ method: "POST" })
       meta_ads_enabled: z.boolean().optional(),
       disparos_mode: z.boolean().optional(),
       nome: z.string().min(1).max(80).optional(),
-      welcome_funnel: z.record(z.string(), z.unknown()).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -143,7 +142,6 @@ export const updateNumberToggles = createServerFn({ method: "POST" })
     if (data.meta_ads_enabled !== undefined) patch.meta_ads_enabled = data.meta_ads_enabled;
     if (data.disparos_mode !== undefined) patch.disparos_mode = data.disparos_mode;
     if (data.nome !== undefined) patch.nome = data.nome;
-    if (data.welcome_funnel !== undefined) patch.welcome_funnel = data.welcome_funnel;
     const { error } = await context.supabase
       .from("whatsapp_numbers")
       .update(patch as never)
