@@ -329,8 +329,8 @@ function IntegrationsPanel({
 }
 
 function Field({
-  label, value, onChange, multiline,
-}: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean }) {
+  label, value, onChange, multiline, type,
+}: { label: string; value: string; onChange: (v: string) => void; multiline?: boolean; type?: string }) {
   const cls = "w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary";
   return (
     <label className="block">
@@ -338,7 +338,7 @@ function Field({
       {multiline ? (
         <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={3} className={cls} />
       ) : (
-        <input value={value} onChange={(e) => onChange(e.target.value)} className={cls} />
+        <input type={type ?? "text"} value={value} onChange={(e) => onChange(e.target.value)} className={cls} />
       )}
     </label>
   );
