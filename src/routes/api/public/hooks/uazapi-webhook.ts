@@ -474,6 +474,101 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         // "Modo Disparos": número usado para abordagem ativa — não responde inbound.
         if (disparosMode) return new Response("ok (disparos mode: no auto-reply)");
 
+        // ===== Funil de boas-vindas (apenas na PRIMEIRA mensagem do contato) =====
+        if (isFirstContact && welcomeFunnel && (welcomeFunnel as { enabled?: boolean }).enabled) {
+          try {
+            const f = welcomeFunnel as {
+              enabled?: boolean;
+              delay_seconds?: number;
+              steps?: {
+                welcome_text?: { enabled?: boolean; text?: string };
+                audio?: { enabled?: boolean; url?: string };
+                panel_text?: { enabled?: boolean; text?: string };
+                video?: { enabled?: boolean; url?: string };
+                services_text?: { enabled?: boolean; text?: string };
+              };
+            };
+            const delayMs = Math.max(0, Math.min((f.delay_seconds ?? 3) * 1000, 8000));
+            const creds = {
+              uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "",
+              uazapi_token: integ.uazapi_token ?? instanceToken,
+            };
+            const { uazapiSendText, uazapiSendMedia } = await import("@/lib/uazapi.server");
+            const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+            const steps: Array<() => Promise<{ kind: "texto" | "audio" | "video"; body: string; audio_url?: string | null }>> = [];
+            const s = f.steps ?? {};
+            if (s.welcome_text?.enabled && s.welcome_text.text) {
+              const text = s.welcome_text.text;
+              steps.push(async () => {
+                await uazapiSendText(creds, phone, text);
+                return { kind: "texto", body: text };
+              });
+            }
+            if (s.audio?.enabled && s.audio.url) {
+              const url = s.audio.url;
+              steps.push(async () => {
+                await uazapiSendMedia(creds, phone, "audio", url);
+                return { kind: "audio", body: "[áudio]", audio_url: url };
+              });
+            }
+            if (s.panel_text?.enabled && s.panel_text.text) {
+              const text = s.panel_text.text;
+              steps.push(async () => {
+                await uazapiSendText(creds, phone, text);
+                return { kind: "texto", body: text };
+              });
+            }
+            if (s.video?.enabled && s.video.url) {
+              const url = s.video.url;
+              steps.push(async () => {
+                await uazapiSendMedia(creds, phone, "video", url);
+                return { kind: "texto", body: "[vídeo]" };
+              });
+            }
+            if (s.services_text?.enabled && s.services_text.text) {
+              const text = s.services_text.text;
+              steps.push(async () => {
+                await uazapiSendText(creds, phone, text);
+                return { kind: "texto", body: text };
+              });
+            }
+
+            let lastBody = "";
+            for (let i = 0; i < steps.length; i++) {
+              if (i > 0 && delayMs > 0) await sleep(delayMs);
+              const r = await steps[i]();
+              lastBody = r.body;
+              await supabaseAdmin.from("messages").insert({
+                user_id: userId,
+                conversation_id: conv.id,
+                sender: "agente",
+                kind: r.kind === "video" ? "texto" : r.kind,
+                body: r.body,
+                audio_url: r.audio_url ?? null,
+              });
+            }
+            if (steps.length > 0) {
+              const stamp = new Date().toISOString();
+              await supabaseAdmin
+                .from("conversations")
+                .update({
+                  last_message_preview: lastBody.slice(0, 120),
+                  last_message_at: stamp,
+                  status: "aguardando",
+                })
+                .eq("id", conv.id);
+              await supabaseAdmin
+                .from("contacts")
+                .update({ last_interaction_at: stamp, status: "em_conversa" })
+                .eq("id", contact.id);
+              return new Response("ok (welcome funnel)");
+            }
+          } catch (e) {
+            console.error("welcome funnel failed", e);
+          }
+        }
+
         const { data: agent } = await supabaseAdmin
           .from("agent_config")
           .select("*")
