@@ -497,6 +497,7 @@ export type Database = {
           uazapi_url: string | null
           updated_at: string
           user_id: string
+          welcome_funnel: Json
         }
         Insert: {
           created_at?: string
@@ -511,6 +512,7 @@ export type Database = {
           uazapi_url?: string | null
           updated_at?: string
           user_id: string
+          welcome_funnel?: Json
         }
         Update: {
           created_at?: string
@@ -525,6 +527,7 @@ export type Database = {
           uazapi_url?: string | null
           updated_at?: string
           user_id?: string
+          welcome_funnel?: Json
         }
         Relationships: []
       }
