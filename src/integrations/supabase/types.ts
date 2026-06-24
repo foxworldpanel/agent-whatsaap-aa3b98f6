@@ -166,6 +166,7 @@ export type Database = {
           temperatura_updated_at: string | null
           updated_at: string
           user_id: string
+          whatsapp_number_id: string | null
         }
         Insert: {
           created_at?: string
@@ -186,6 +187,7 @@ export type Database = {
           temperatura_updated_at?: string | null
           updated_at?: string
           user_id: string
+          whatsapp_number_id?: string | null
         }
         Update: {
           created_at?: string
@@ -206,8 +208,17 @@ export type Database = {
           temperatura_updated_at?: string | null
           updated_at?: string
           user_id?: string
+          whatsapp_number_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_whatsapp_number_id_fkey"
+            columns: ["whatsapp_number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversations: {
         Row: {
@@ -220,6 +231,7 @@ export type Database = {
           status: Database["public"]["Enums"]["conversation_status"]
           updated_at: string
           user_id: string
+          whatsapp_number_id: string | null
         }
         Insert: {
           agent_enabled?: boolean
@@ -231,6 +243,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["conversation_status"]
           updated_at?: string
           user_id: string
+          whatsapp_number_id?: string | null
         }
         Update: {
           agent_enabled?: boolean
@@ -242,6 +255,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["conversation_status"]
           updated_at?: string
           user_id?: string
+          whatsapp_number_id?: string | null
         }
         Relationships: [
           {
@@ -249,6 +263,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_whatsapp_number_id_fkey"
+            columns: ["whatsapp_number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
             referencedColumns: ["id"]
           },
         ]
@@ -432,6 +453,51 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      whatsapp_numbers: {
+        Row: {
+          created_at: string
+          disparos_mode: boolean
+          id: string
+          last_connected_at: string | null
+          meta_ads_enabled: boolean
+          nome: string
+          status: string
+          uazapi_admin_token: string | null
+          uazapi_token: string | null
+          uazapi_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          disparos_mode?: boolean
+          id?: string
+          last_connected_at?: string | null
+          meta_ads_enabled?: boolean
+          nome: string
+          status?: string
+          uazapi_admin_token?: string | null
+          uazapi_token?: string | null
+          uazapi_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          disparos_mode?: boolean
+          id?: string
+          last_connected_at?: string | null
+          meta_ads_enabled?: boolean
+          nome?: string
+          status?: string
+          uazapi_admin_token?: string | null
+          uazapi_token?: string | null
+          uazapi_url?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
