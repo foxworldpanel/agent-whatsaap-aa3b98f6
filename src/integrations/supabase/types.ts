@@ -483,6 +483,92 @@ export type Database = {
         }
         Relationships: []
       }
+      welcome_funnel_runs: {
+        Row: {
+          contact_id: string
+          fired_at: string
+          funnel_id: string
+          user_id: string
+        }
+        Insert: {
+          contact_id: string
+          fired_at?: string
+          funnel_id: string
+          user_id: string
+        }
+        Update: {
+          contact_id?: string
+          fired_at?: string
+          funnel_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welcome_funnel_runs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welcome_funnel_runs_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "welcome_funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welcome_funnels: {
+        Row: {
+          created_at: string
+          delay_seconds: number
+          enabled: boolean
+          id: string
+          name: string
+          sort_order: number
+          steps: Json
+          trigger_keywords: string
+          updated_at: string
+          user_id: string
+          whatsapp_number_id: string
+        }
+        Insert: {
+          created_at?: string
+          delay_seconds?: number
+          enabled?: boolean
+          id?: string
+          name?: string
+          sort_order?: number
+          steps?: Json
+          trigger_keywords?: string
+          updated_at?: string
+          user_id: string
+          whatsapp_number_id: string
+        }
+        Update: {
+          created_at?: string
+          delay_seconds?: number
+          enabled?: boolean
+          id?: string
+          name?: string
+          sort_order?: number
+          steps?: Json
+          trigger_keywords?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp_number_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welcome_funnels_whatsapp_number_id_fkey"
+            columns: ["whatsapp_number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_numbers: {
         Row: {
           created_at: string
