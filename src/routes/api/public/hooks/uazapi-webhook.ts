@@ -279,7 +279,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         if (isStopRequest(inboundBody)) {
           await supabaseAdmin
             .from("contacts")
-            .update({ status: "bloqueado", last_interaction_at: now })
+            .update({
+              status: "bloqueado",
+              temperatura: "bloqueado",
+              temperatura_updated_at: now,
+              last_interaction_at: now,
+            })
             .eq("id", contact.id);
           await supabaseAdmin
             .from("conversations")
@@ -460,6 +465,33 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .from("contacts")
           .update({ last_interaction_at: nowReply, status: "em_conversa" })
           .eq("id", contact.id);
+
+        // ===== Lead scoring automático (Quente/Morno/Frio/Bloqueado) =====
+        try {
+          const { classifyLeadTemperature } = await import("@/lib/ai.server");
+          const fullHistory = [
+            ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
+            { sender: "cliente" as const, body: inboundBody },
+            { sender: "agente" as const, body: reply },
+          ];
+          const temperatura = await classifyLeadTemperature({ history: fullHistory });
+          if (temperatura) {
+            const stamp = new Date().toISOString();
+            if (temperatura === "bloqueado") {
+              await supabaseAdmin
+                .from("contacts")
+                .update({ temperatura, temperatura_updated_at: stamp, status: "bloqueado" })
+                .eq("id", contact.id);
+            } else {
+              await supabaseAdmin
+                .from("contacts")
+                .update({ temperatura, temperatura_updated_at: stamp })
+                .eq("id", contact.id);
+            }
+          }
+        } catch (e) {
+          console.error("lead scoring failed", e);
+        }
 
         return new Response("ok");
       },

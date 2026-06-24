@@ -9,7 +9,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     startOfDay.setHours(0, 0, 0, 0);
     const startIso = startOfDay.toISOString();
 
-    const [contactsRes, activeConvRes, sentTodayRes, recvTodayRes, convertedRes, recentLogsRes, sourcesRes] =
+    const [contactsRes, activeConvRes, sentTodayRes, recvTodayRes, convertedRes, recentLogsRes, sourcesRes, tempTodayRes] =
       await Promise.all([
         sb.from("contacts").select("id", { count: "exact", head: true }),
         sb
@@ -38,6 +38,10 @@ export const getDashboardStats = createServerFn({ method: "GET" })
         sb
           .from("contacts")
           .select("source, status"),
+        sb
+          .from("contacts")
+          .select("temperatura")
+          .gte("temperatura_updated_at", startIso),
       ]);
 
     const totalContacts = contactsRes.count ?? 0;
@@ -60,6 +64,12 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       .map(([source, v]) => ({ source, ...v }))
       .sort((a, b) => b.total - a.total);
 
+    const tempToday = { quente: 0, morno: 0, frio: 0, bloqueado: 0 };
+    for (const row of tempTodayRes.data ?? []) {
+      const t = (row as { temperatura?: keyof typeof tempToday }).temperatura;
+      if (t && t in tempToday) tempToday[t] += 1;
+    }
+
     return {
       totalContacts,
       activeConversations,
@@ -69,5 +79,6 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       responseRate,
       recentLogs: recentLogsRes.data ?? [],
       leadsBySource,
+      tempToday,
     };
   });

@@ -146,3 +146,52 @@ export async function ttsElevenLabsBase64(params: {
   const buf = Buffer.from(await res.arrayBuffer());
   return `data:audio/mpeg;base64,${buf.toString("base64")}`;
 }
+
+// ----- Lead scoring (classificação automática via Lovable AI Gateway) -----
+
+export type LeadTemperatura = "quente" | "morno" | "frio" | "bloqueado";
+
+export async function classifyLeadTemperature(params: {
+  history: Array<{ sender: "agente" | "cliente"; body: string }>;
+}): Promise<LeadTemperatura | null> {
+  const key = process.env.LOVABLE_API_KEY;
+  if (!key) return null;
+  const transcript = params.history
+    .slice(-12)
+    .map((m) => `${m.sender === "cliente" ? "CLIENTE" : "AGENTE"}: ${m.body}`)
+    .join("\n");
+  if (!transcript.trim()) return null;
+
+  const system =
+    'Você classifica leads de vendas no WhatsApp. Responda APENAS com um JSON {"temperatura":"quente"|"morno"|"frio"|"bloqueado"}. Critérios: ' +
+    'quente = perguntou preço, pediu link, disse que quer comprar, perguntou como pagar. ' +
+    'morno = demonstrou interesse mas tem dúvidas, pediu mais informações, perguntou se funciona. ' +
+    'frio = respostas curtas/monossilábicas, pouco engajamento, não perguntou nada. ' +
+    'bloqueado = pediu para parar, disse que não tem interesse, xingou.';
+
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: `Histórico:\n${transcript}\n\nClassifique.` },
+        ],
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const raw = json.choices?.[0]?.message?.content ?? "";
+    const parsed = JSON.parse(raw) as { temperatura?: string };
+    const t = (parsed.temperatura ?? "").toLowerCase();
+    if (t === "quente" || t === "morno" || t === "frio" || t === "bloqueado") return t;
+    return null;
+  } catch {
+    return null;
+  }
+}

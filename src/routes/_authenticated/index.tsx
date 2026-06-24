@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, MessagesSquare, TrendingUp, CheckCircle2, Send, Activity, Megaphone } from "lucide-react";
+import { Users, MessagesSquare, TrendingUp, CheckCircle2, Send, Activity, Megaphone, Flame, Thermometer, Snowflake } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getDashboardStats } from "@/lib/dashboard.functions";
@@ -67,6 +67,28 @@ function Index() {
             </div>
           );
         })}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        {([
+          { label: "Quentes hoje", value: data?.tempToday?.quente ?? 0, Icon: Flame,       color: "text-destructive", bg: "bg-destructive/10" },
+          { label: "Mornos hoje",  value: data?.tempToday?.morno  ?? 0, Icon: Thermometer, color: "text-warning",     bg: "bg-warning/10" },
+          { label: "Frios hoje",   value: data?.tempToday?.frio   ?? 0, Icon: Snowflake,   color: "text-primary",     bg: "bg-primary/10" },
+        ] as const).map((t) => (
+          <div
+            key={t.label}
+            className="flex items-center gap-4 rounded-xl border border-border p-5"
+            style={{ background: "var(--gradient-card)", boxShadow: "var(--shadow-card)" }}
+          >
+            <div className={`grid h-12 w-12 place-items-center rounded-lg ${t.bg}`}>
+              <t.Icon className={`h-6 w-6 ${t.color}`} />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t.label}</p>
+              <p className="mt-1 text-2xl font-bold">{isLoading ? "—" : t.value}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
