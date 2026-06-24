@@ -27,12 +27,42 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
       panel_link: z.string().max(500).optional().nullable(),
       main_offer: z.string().min(1).max(200),
       audio_enabled: z.boolean(),
+      agent_enabled: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("agent_config")
       .upsert({ user_id: context.userId, ...data }, { onConflict: "user_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Toggle global agent on/off (sidebar switch)
+export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ enabled: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("agent_config")
+      .update({ agent_enabled: data.enabled })
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Toggle agent on/off for a single conversation
+export const setConversationAgentEnabled = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ conversationId: z.string().uuid(), enabled: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("conversations")
+      .update({ agent_enabled: data.enabled })
+      .eq("id", data.conversationId)
+      .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
