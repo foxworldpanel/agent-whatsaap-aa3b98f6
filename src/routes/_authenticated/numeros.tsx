@@ -748,9 +748,9 @@ function FunnelStep({
               <input
                 type="number"
                 min={0}
-                max={60}
+                max={180}
                 value={delay ?? 3}
-                onChange={(e) => onDelay(Math.max(0, Math.min(60, Number(e.target.value) || 0)))}
+                onChange={(e) => onDelay(Math.max(0, Math.min(180, Number(e.target.value) || 0)))}
                 className="w-20 rounded-md border border-border px-2 py-1 text-sm"
               />
               {delayHint && <span className="text-[11px] text-neutral-500">{delayHint}</span>}
