@@ -191,6 +191,21 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const leadSource = extractLeadSource(payload);
 
         if (!contact) {
+          let photoUrl: string | null = null;
+          try {
+            const { uazapiGetProfilePic } = await import("@/lib/uazapi.server");
+            const { data: integUrl } = await supabaseAdmin
+              .from("integrations")
+              .select("uazapi_url")
+              .eq("user_id", userId)
+              .maybeSingle();
+            if (integUrl?.uazapi_url) {
+              photoUrl = await uazapiGetProfilePic(
+                { uazapi_url: integUrl.uazapi_url, uazapi_token: instanceToken },
+                phone,
+              );
+            }
+          } catch {}
           const inserted = await supabaseAdmin
             .from("contacts")
             .insert({
@@ -204,6 +219,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               source_url: leadSource?.source_url ?? null,
               source_headline: leadSource?.source_headline ?? null,
               source_data: (leadSource?.source_data ?? null) as never,
+              photo_url: photoUrl,
             })
             .select("id, nome, perfil, status, source, source_ref")
             .single();
