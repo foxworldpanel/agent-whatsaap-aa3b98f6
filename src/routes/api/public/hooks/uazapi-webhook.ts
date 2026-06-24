@@ -513,7 +513,29 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           !!integ.elevenlabs_api_key &&
           !!integ.elevenlabs_voice_id;
 
-        const { uazapiSendText, uazapiSendAudio } = await import("@/lib/uazapi.server");
+        const { uazapiSendText, uazapiSendAudio, uazapiSendTyping } = await import("@/lib/uazapi.server");
+
+        // Human-like behavior: random delay between min and max, optional typing indicator.
+        const a = agent as {
+          response_delay_min_sec?: number;
+          response_delay_max_sec?: number;
+          typing_indicator_enabled?: boolean;
+        };
+        const minSec = Math.max(0, a.response_delay_min_sec ?? 30);
+        const maxSec = Math.max(minSec, a.response_delay_max_sec ?? 180);
+        const delayMs = (Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec) * 1000;
+        const typingOn = a.typing_indicator_enabled !== false;
+        if (typingOn && delayMs > 0) {
+          await uazapiSendTyping(
+            { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+            phone,
+            delayMs,
+          );
+        }
+        if (delayMs > 0) {
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
+
         let replyKind: "texto" | "audio" = "texto";
         let audioDataUri: string | null = null;
         try {
