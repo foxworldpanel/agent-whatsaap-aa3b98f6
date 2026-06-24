@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Phone, Plus, RefreshCw, Trash2, QrCode, X } from "lucide-react";
+import { Phone, Plus, RefreshCw, Trash2, QrCode, X, Pencil, Check } from "lucide-react";
 import {
   listNumbers,
   createNumber,
@@ -100,10 +100,13 @@ function NumerosPage() {
   });
 
   const toggleMut = useMutation({
-    mutationFn: (input: { id: string; meta_ads_enabled?: boolean; disparos_mode?: boolean }) =>
+    mutationFn: (input: { id: string; meta_ads_enabled?: boolean; disparos_mode?: boolean; nome?: string }) =>
       updateFn({ data: input }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
   });
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
   return (
     <div className="space-y-6">
@@ -146,7 +149,46 @@ function NumerosPage() {
                   <Phone className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-semibold text-neutral-900">{n.nome}</h2>
+                  {editingId === n.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const nome = editingName.trim();
+                        if (nome && nome !== n.nome) toggleMut.mutate({ id: n.id, nome });
+                        setEditingId(null);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <input
+                        autoFocus
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onBlur={() => setEditingId(null)}
+                        className="rounded-md border border-border px-2 py-1 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        onMouseDown={(e) => e.preventDefault()}
+                        className="rounded p-1 text-emerald-600 hover:bg-emerald-50"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <h2 className="text-base font-semibold text-neutral-900">{n.nome}</h2>
+                      <button
+                        onClick={() => {
+                          setEditingId(n.id);
+                          setEditingName(n.nome);
+                        }}
+                        title="Renomear"
+                        className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                   <div className="mt-0.5 flex items-center gap-3">
                     <StatusDot status={n.status} />
                     <span className="text-xs text-neutral-400">{n.uazapi_url}</span>
