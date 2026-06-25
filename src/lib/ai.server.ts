@@ -163,60 +163,37 @@ export async function generateAgentReply(params: {
 
 // ----- Transcrição (Whisper via Lovable AI Gateway, sem chave do usuário) -----
 
-export async function transcribeAudioUrl(audioUrl: string): Promise<string> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY ausente");
+export async function transcribeAudioUrl(audioUrl: string, openaiApiKey?: string): Promise<string> {
+  const key = openaiApiKey || process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY ausente (configure em Configurações → Whisper)");
 
   const audio = await fetch(audioUrl);
   if (!audio.ok) throw new Error(`Falha ao baixar áudio (${audio.status})`);
-  const buf = new Uint8Array(await audio.arrayBuffer());
-  const headerMime = (audio.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
-  // WhatsApp/uazapi envia OGG/Opus, que o OpenAI transcribe rejeita.
-  // Usamos Gemini via chat completions, que aceita áudio nativo (ogg, mp3, wav, m4a, webm).
-  const mime =
-    headerMime && headerMime.startsWith("audio/")
-      ? headerMime
-      : audioUrl.toLowerCase().includes(".mp3")
-        ? "audio/mpeg"
-        : audioUrl.toLowerCase().includes(".wav")
-          ? "audio/wav"
-          : audioUrl.toLowerCase().includes(".m4a") || audioUrl.toLowerCase().includes(".mp4")
-            ? "audio/mp4"
-            : "audio/ogg";
+  const blob = await audio.blob();
+  const headerMime = (blob.type || "").split(";")[0].trim().toLowerCase();
+  // whisper-1 aceita OGG/Opus nativamente (WhatsApp manda audio/ogg).
+  const ext =
+    headerMime.includes("mpeg") ? "mp3" :
+    headerMime.includes("mp4") || headerMime.includes("m4a") ? "m4a" :
+    headerMime.includes("wav") ? "wav" :
+    headerMime.includes("webm") ? "webm" :
+    headerMime.includes("flac") ? "flac" : "ogg";
 
-  // base64 sem usar Buffer (compat Worker)
-  let bin = "";
-  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-  const b64 = btoa(bin);
+  const form = new FormData();
+  form.append("model", "whisper-1");
+  form.append("file", blob, `audio.${ext}`);
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Transcreva o áudio em português literalmente. Retorne apenas a transcrição, sem comentários, sem prefixos, sem aspas.",
-            },
-            {
-              type: "input_audio",
-              input_audio: { data: b64, format: mime.replace("audio/", "").replace("mpeg", "mp3").replace("mp4", "m4a") },
-            },
-          ],
-        },
-      ],
-    }),
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`Transcrição falhou (${res.status}): ${t.slice(0, 300)}`);
+    throw new Error(`Whisper falhou (${res.status}): ${t.slice(0, 300)}`);
   }
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return (json.choices?.[0]?.message?.content ?? "").trim();
+  const json = (await res.json()) as { text?: string };
+  return (json.text ?? "").trim();
 }
 
 // ----- TTS ElevenLabs (retorna base64 MP3) -----
