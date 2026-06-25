@@ -666,6 +666,17 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .maybeSingle();
         const funnelAlreadySent = !!priorFunnelRun;
 
+        // Load knowledge base examples (text + extracted from images) for this user.
+        const { data: kbRows } = await supabaseAdmin
+          .from("knowledge_base")
+          .select("context, content")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        const knowledgeExamples = (kbRows ?? [])
+          .filter((r) => (r.content ?? "").trim().length > 0)
+          .map((r) => ({ context: r.context, content: r.content as string }));
+
         // Real-time SMM catalogue: if enabled and the inbound message mentions
         // price / service keywords, fetch services from the panel and pass
         // them as context to the LLM.
@@ -702,6 +713,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             servicesContext,
             isInbound: true,
             funnelAlreadySent,
+            knowledgeExamples,
           });
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
         } catch (e) {

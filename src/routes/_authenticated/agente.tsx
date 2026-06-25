@@ -2,9 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw } from "lucide-react";
+import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw, BookOpen, ImageIcon, MessageSquare, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations } from "@/lib/agent.functions";
+import { listKnowledge, addTextExample, addImageExample, deleteKnowledge } from "@/lib/knowledge-base.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/agente")({
   ssr: false,
@@ -317,6 +319,198 @@ function AgentePage() {
               </div>
             </div>
           </div>
+        </div>
+
+        <KnowledgeBaseSection />
+      </div>
+    </div>
+  );
+}
+
+type KbRow = {
+  id: string;
+  kind: "image" | "text";
+  context: string | null;
+  content: string;
+  image_url: string | null;
+  created_at: string;
+};
+
+function KnowledgeBaseSection() {
+  const qc = useQueryClient();
+  const fetchList = useServerFn(listKnowledge);
+  const addText = useServerFn(addTextExample);
+  const addImg = useServerFn(addImageExample);
+  const del = useServerFn(deleteKnowledge);
+
+  const listQ = useQuery({ queryKey: ["knowledge_base"], queryFn: () => fetchList() });
+  const rows = (listQ.data ?? []) as KbRow[];
+
+  const [tab, setTab] = useState<"image" | "text">("image");
+  const [textCtx, setTextCtx] = useState("");
+  const [textBody, setTextBody] = useState("");
+  const [imgCtx, setImgCtx] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["knowledge_base"] });
+
+  const addTextMut = useMutation({
+    mutationFn: () => addText({ data: { context: textCtx.trim() || null, content: textBody.trim() } }),
+    onSuccess: () => {
+      setTextCtx("");
+      setTextBody("");
+      invalidate();
+      toast.success("Exemplo adicionado");
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const delMut = useMutation({
+    mutationFn: (id: string) => del({ data: { id } }),
+    onSuccess: invalidate,
+  });
+
+  const onPickImage = async (file: File) => {
+    setUploadError(null);
+    setUploading(true);
+    try {
+      if (rows.length >= 50) throw new Error("Limite de 50 exemplos atingido.");
+      const { data: u, error: uerr } = await supabase.auth.getUser();
+      if (uerr || !u.user) throw new Error("Sessão expirada");
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${u.user.id}/knowledge/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("funnel-media")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) throw upErr;
+      const { data: signed, error: sErr } = await supabase.storage
+        .from("funnel-media")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (sErr || !signed) throw sErr ?? new Error("Falha ao gerar URL");
+      await addImg({ data: { context: imgCtx.trim() || null, image_url: signed.signedUrl } });
+      setImgCtx("");
+      invalidate();
+      toast.success("Imagem analisada e exemplo salvo");
+    } catch (e) {
+      setUploadError((e as Error).message);
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border p-6 space-y-5" style={{ background: "var(--gradient-card)" }}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-primary" />
+          <h2 className="font-semibold">Base de Conhecimento</h2>
+        </div>
+        <span className="text-xs text-muted-foreground">{rows.length}/50 exemplos</span>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Adicione exemplos reais de atendimento. O agente aprende o estilo, tom e abordagem desses exemplos e replica nas respostas.
+      </p>
+
+      <div className="inline-flex rounded-lg border border-border bg-background p-1 text-xs">
+        <button
+          type="button"
+          onClick={() => setTab("image")}
+          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition ${tab === "image" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <ImageIcon className="h-3.5 w-3.5" /> Imagens
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("text")}
+          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition ${tab === "text" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <MessageSquare className="h-3.5 w-3.5" /> Texto
+        </button>
+      </div>
+
+      {tab === "image" ? (
+        <div className="space-y-3">
+          <Field
+            label="Contexto (o que esse exemplo ensina)"
+            value={imgCtx}
+            onChange={setImgCtx}
+          />
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-border bg-background px-4 py-2.5 text-sm hover:bg-muted">
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {uploading ? "Analisando imagem…" : "Adicionar exemplo (JPG/PNG)"}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              className="hidden"
+              disabled={uploading}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onPickImage(f);
+                e.currentTarget.value = "";
+              }}
+            />
+          </label>
+          {uploadError && <p className="text-xs text-destructive">{uploadError}</p>}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <Field label="Contexto" value={textCtx} onChange={setTextCtx} />
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Conversa (formato: Cliente: ... / Júlia: ...)
+            </span>
+            <textarea
+              value={textBody}
+              onChange={(e) => setTextBody(e.target.value)}
+              rows={6}
+              placeholder={"Cliente: Tudo BR né?\nJúlia: Sim, trabalhamos com serviço 100% BR"}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-mono outline-none focus:border-primary"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => addTextMut.mutate()}
+            disabled={addTextMut.isPending || !textBody.trim()}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground transition disabled:opacity-60"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Plus className="h-4 w-4" /> {addTextMut.isPending ? "Salvando…" : "Adicionar exemplo"}
+          </button>
+        </div>
+      )}
+
+      <div className="border-t border-border pt-4 space-y-3">
+        <h3 className="text-sm font-semibold">Exemplos cadastrados</h3>
+        {listQ.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+        {!listQ.isLoading && rows.length === 0 && (
+          <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            Nenhum exemplo cadastrado ainda.
+          </p>
+        )}
+        <div className="space-y-2">
+          {rows.filter((r) => r.kind === tab).map((r) => (
+            <div key={r.id} className="rounded-lg border border-border bg-background/40 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  {r.context && <p className="text-xs font-semibold">{r.context}</p>}
+                  {r.kind === "image" && r.image_url && (
+                    <img src={r.image_url} alt="" className="max-h-40 rounded border border-border" />
+                  )}
+                  <pre className="whitespace-pre-wrap break-words text-xs text-muted-foreground font-mono">{r.content}</pre>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => delMut.mutate(r.id)}
+                  className="rounded-md border border-border bg-background p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Remover"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
