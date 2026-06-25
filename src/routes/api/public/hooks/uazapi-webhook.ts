@@ -793,7 +793,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           replyParts.length === 1 &&
           !hasHardContent(reply);
 
-        const { uazapiSendText, uazapiSendAudio, uazapiSendTyping } = await import("@/lib/uazapi.server");
+        const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording } = await import("@/lib/uazapi.server");
 
         // Human-like behavior: random delay between min and max, optional typing indicator.
         const a = agent as {
@@ -811,7 +811,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const typingOn = a.typing_indicator_enabled !== false;
         if (typingOn && delayMs > 0) {
           try {
-            await uazapiSendTyping(
+            const presenceFn = respondWithAudio ? uazapiSendRecording : uazapiSendTyping;
+            await presenceFn(
               { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
               phone,
               delayMs,
@@ -828,6 +829,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         let audioDataUri: string | null = null;
         try {
           if (respondWithAudio) {
+            // Mantém o "gravando áudio" durante a geração do TTS + envio.
+            await uazapiSendRecording(
+              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+              phone,
+              15000,
+            );
             const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
             audioDataUri = await ttsElevenLabsBase64({
               apiKey: integ.elevenlabs_api_key!,
