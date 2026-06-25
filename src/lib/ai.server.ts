@@ -93,33 +93,47 @@ export async function generateAgentReply(params: {
     content: m.body,
   }));
 
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY ausente");
+  const anthropicKey = params.anthropicApiKey || process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY ausente");
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  // Garante alternância user/assistant começando com user (exigência da Anthropic)
+  const cleaned: Array<{ role: "user" | "assistant"; content: string }> = [];
+  for (const m of messages) {
+    const role = m.role as "user" | "assistant";
+    if (cleaned.length === 0 && role !== "user") continue;
+    const last = cleaned[cleaned.length - 1];
+    if (last && last.role === role) {
+      last.content += "\n" + m.content;
+    } else {
+      cleaned.push({ role, content: m.content });
+    }
+  }
+  if (cleaned.length === 0) cleaned.push({ role: "user", content: "(início da conversa)" });
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      Authorization: `Bearer ${key}`,
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: system },
-        ...messages,
-      ],
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 512,
+      system,
+      messages: cleaned,
     }),
   });
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`AI Gateway falhou (${res.status}): ${body.slice(0, 300)}`);
+    throw new Error(`Claude falhou (${res.status}): ${body.slice(0, 300)}`);
   }
 
   const json = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
+    content?: Array<{ type: string; text?: string }>;
   };
-  const text = (json.choices?.[0]?.message?.content ?? "").trim();
+  const text = (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
   return text || "…";
 }
 
