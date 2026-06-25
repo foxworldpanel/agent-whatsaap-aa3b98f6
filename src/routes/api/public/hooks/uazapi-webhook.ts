@@ -765,11 +765,30 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           reply = FALLBACK_REPLY;
         }
 
-        // Quando o cliente manda áudio, o agente deve responder também em áudio.
+        // Divide a resposta em partes quando o agente usa "===SPLIT===" (link separado).
+        const replyParts = reply
+          .split(/===SPLIT===/i)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+
+        // Detecta conteúdo "duro" (link, preço, lista, passo a passo) que NUNCA deve sair em áudio.
+        const hasHardContent = (txt: string): boolean => {
+          if (/https?:\/\//i.test(txt)) return true;
+          if (/\b[\w-]+\.(com|com\.br|net|io|app|co)\b/i.test(txt)) return true;
+          if (/R\$\s?\d|\d+[.,]\d{2}/.test(txt)) return true;
+          if (/(^|\n)\s*(?:[-*•]|\d+[\.\)])\s+/m.test(txt)) return true;
+          if (/(passo\s*\d|primeiro,|segundo,|terceiro,)/i.test(txt)) return true;
+          return false;
+        };
+
+        // Quando o cliente manda áudio, o agente deve responder também em áudio —
+        // a menos que a resposta tenha conteúdo que precisa ser lido (link/preço/lista).
         const respondWithAudio =
           kind === "audio" &&
           !!integ.elevenlabs_api_key &&
-          !!integ.elevenlabs_voice_id;
+          !!integ.elevenlabs_voice_id &&
+          replyParts.length === 1 &&
+          !hasHardContent(reply);
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping } = await import("@/lib/uazapi.server");
 
@@ -819,25 +838,43 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             );
             replyKind = "audio";
           } else {
-            await uazapiSendText(
-              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
-              phone,
-              reply,
-            );
+            for (let i = 0; i < replyParts.length; i += 1) {
+              await uazapiSendText(
+                { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+                phone,
+                replyParts[i],
+              );
+              if (i < replyParts.length - 1) {
+                await new Promise((r) => setTimeout(r, 1200));
+              }
+            }
           }
         } catch (e) {
           return new Response(`uazapi send failed: ${(e as Error).message}`, { status: 502 });
         }
 
         const nowReply = new Date().toISOString();
-        await supabaseAdmin.from("messages").insert({
-          user_id: userId,
-          conversation_id: conv.id,
-          sender: "agente",
-          kind: replyKind,
-          body: reply,
-          audio_url: audioDataUri,
-        });
+        if (replyKind === "audio") {
+          await supabaseAdmin.from("messages").insert({
+            user_id: userId,
+            conversation_id: conv.id,
+            sender: "agente",
+            kind: "audio",
+            body: reply,
+            audio_url: audioDataUri,
+          });
+        } else {
+          await supabaseAdmin.from("messages").insert(
+            replyParts.map((part) => ({
+              user_id: userId,
+              conversation_id: conv.id,
+              sender: "agente",
+              kind: "texto",
+              body: part,
+              audio_url: null,
+            })),
+          );
+        }
         await supabaseAdmin
           .from("conversations")
           .update({
