@@ -421,6 +421,39 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_base: {
+        Row: {
+          content: string
+          context: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          kind: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          context?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          kind: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          context?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          kind?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           audio_url: string | null
