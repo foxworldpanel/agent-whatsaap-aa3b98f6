@@ -742,16 +742,23 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         let reply: string;
         try {
+          const aiHistory = ((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>).filter(
+            (m) => !/não consigo ouvir áudio por aqui/i.test(m.body ?? ""),
+          );
+          if (kind === "audio" && inboundBody === "[áudio recebido]") {
+            reply = "Não consegui entender bem esse áudio. Pode mandar de novo?";
+          } else {
           reply = await generateAgentReply({
             anthropicApiKey: integ.anthropic_api_key,
             agent,
             contact: { nome: contact.nome, perfil: contact.perfil },
-            history: (history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>,
+            history: aiHistory,
             servicesContext,
             isInbound: true,
             funnelAlreadySent,
             knowledgeExamples,
           });
+          }
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
         } catch (e) {
           console.error("claude failed", e);
