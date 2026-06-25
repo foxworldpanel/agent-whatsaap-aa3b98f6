@@ -75,6 +75,48 @@ export async function uazapiSendMedia(
   });
 }
 
+export async function uazapiDownloadMedia(
+  creds: UazapiCreds,
+  messageId: string,
+): Promise<{ fileURL: string | null; mimetype: string | null; transcription: string | null }> {
+  const base = creds.uazapi_url.replace(/\/+$/, "");
+  const res = await fetch(`${base}/message/download`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      token: creds.uazapi_token,
+    },
+    body: JSON.stringify({ id: messageId, transcribe: true }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Uazapi /message/download falhou (${res.status}): ${t.slice(0, 300)}`);
+  }
+  const j = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  const fileURL =
+    (j.fileURL as string | undefined) ??
+    (j.fileUrl as string | undefined) ??
+    (j.url as string | undefined) ??
+    (j.mediaUrl as string | undefined) ??
+    (j.link as string | undefined) ??
+    null;
+  const mimetype =
+    (j.mimetype as string | undefined) ??
+    (j.mimeType as string | undefined) ??
+    (j.type as string | undefined) ??
+    null;
+  const transcription =
+    (j.transcription as string | undefined) ??
+    (j.transcript as string | undefined) ??
+    (j.text as string | undefined) ??
+    null;
+  return {
+    fileURL: fileURL && /^https?:\/\//i.test(fileURL) ? fileURL : null,
+    mimetype,
+    transcription: transcription?.trim() || null,
+  };
+}
+
 export async function uazapiGetProfilePic(
   creds: UazapiCreds,
   phone: string,
