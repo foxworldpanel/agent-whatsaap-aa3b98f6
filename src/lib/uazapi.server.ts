@@ -48,6 +48,23 @@ export async function uazapiSendTyping(
   }
 }
 
+// Sends "recording audio" presence to a chat for ~`durationMs` ms.
+export async function uazapiSendRecording(
+  creds: UazapiCreds,
+  to: string,
+  durationMs: number,
+): Promise<void> {
+  try {
+    await uazapiPost(creds, "/message/presence", {
+      number: normalizePhone(to),
+      presence: "recording",
+      delay: Math.max(1000, Math.min(durationMs, 60_000)),
+    });
+  } catch {
+    // ignore — presence is best-effort
+  }
+}
+
 export async function uazapiSendAudio(
   creds: UazapiCreds,
   to: string,
