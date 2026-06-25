@@ -70,7 +70,7 @@ export async function generateAgentReply(params: {
     (() => {
       const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
       return Array.isArray(faqs) && faqs.length > 0
-        ? `BASE DE CONHECIMENTO INTERNO (FAQ — NÃO É SCRIPT DE RESPOSTA):\n${faqs.map((f) => `- ${f.q} → ${f.a}`).join("\n")}\n\nUse essas informações apenas como conhecimento interno. NUNCA copie ou reproduza o texto do FAQ nas respostas. Responda de forma natural, curta e humana, como se soubesse a informação de cabeça. Máximo 2 linhas por mensagem. Varie as respostas — nunca repita a mesma frase duas vezes seguidas. Se o cliente disse SIM, avance na conversa, não repita a explicação anterior.`
+        ? `FAQ INTERNO — APENAS PARA VOCÊ ENTENDER COMO A MIND FUNCIONA. NÃO é fonte de resposta.\n${faqs.map((f) => `- ${f.q} → ${f.a}`).join("\n")}\n\nRegras OBRIGATÓRIAS sobre o FAQ:\n1. USE este FAQ SOMENTE quando o cliente perguntar especificamente sobre o funcionamento da plataforma MIND (como cadastrar, como funciona o painel, o que é serviço, como pagar, etc.).\n2. NUNCA use o FAQ para responder perguntas que não são sobre o funcionamento da MIND. Exemplos do que NÃO responder com FAQ: "qual seu nome?", "tudo bem?", "oi", "você é robô?", saudações, conversas pessoais — nessas, responda naturalmente sem mencionar a plataforma.\n3. NUNCA copie o texto literal do FAQ. Reformule com suas palavras, curto e humano (máx 2 linhas).\n4. Se o cliente disse SIM, avance — não repita explicação anterior.`
         : "";
     })(),
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
