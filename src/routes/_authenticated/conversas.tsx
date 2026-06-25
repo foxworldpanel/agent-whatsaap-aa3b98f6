@@ -399,6 +399,7 @@ function Conversas() {
             )}
             {(msgsQ.data ?? []).map((m) => {
               const mine = m.sender === "agente";
+              const hasAudio = m.kind === "audio" && !!m.audio_url;
               return (
                 <div
                   key={m.id}
@@ -413,7 +414,17 @@ function Conversas() {
                       color: "#111827",
                     }}
                   >
-                    <p className="whitespace-pre-wrap leading-snug">{m.body}</p>
+                    {hasAudio && (
+                      <audio
+                        controls
+                        preload="metadata"
+                        src={m.audio_url}
+                        className="mb-2 w-64 max-w-full"
+                      />
+                    )}
+                    <p className="whitespace-pre-wrap leading-snug">
+                      {hasAudio && m.body === "[áudio recebido]" ? "Áudio recebido" : m.body}
+                    </p>
                     <p className="mt-1 text-right text-[10px] text-neutral-500">
                       {formatTime(m.created_at)}
                     </p>
