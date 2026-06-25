@@ -657,6 +657,15 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         const { generateAgentReply } = await import("@/lib/ai.server");
 
+        // Check if a welcome funnel has already been delivered for this contact.
+        const { data: priorFunnelRun } = await supabaseAdmin
+          .from("welcome_funnel_runs")
+          .select("id")
+          .eq("contact_id", contact.id)
+          .limit(1)
+          .maybeSingle();
+        const funnelAlreadySent = !!priorFunnelRun;
+
         // Real-time SMM catalogue: if enabled and the inbound message mentions
         // price / service keywords, fetch services from the panel and pass
         // them as context to the LLM.
@@ -692,6 +701,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             history: (history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>,
             servicesContext,
             isInbound: true,
+            funnelAlreadySent,
           });
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
         } catch (e) {
