@@ -208,25 +208,28 @@ export type LeadTemperatura = "quente" | "morno" | "frio" | "cliente" | "bloquea
 // ----- Vision: extrai transcrição de uma conversa a partir de uma imagem (print) -----
 
 export async function extractConversationFromImage(imageUrl: string): Promise<string> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY ausente");
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error("ANTHROPIC_API_KEY ausente");
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const img = await fetch(imageUrl);
+  if (!img.ok) throw new Error(`Falha ao baixar imagem (${img.status})`);
+  const mediaType = img.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
+  const b64 = Buffer.from(await img.arrayBuffer()).toString("base64");
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 1024,
+      system:
+        'Você recebe um print de uma conversa do WhatsApp e deve transcrever as mensagens. Identifique quem é o cliente e quem é o atendente. Formate cada linha como "Cliente: ..." ou "Atendente: ...", uma mensagem por linha, na ordem em que aparecem. Não invente nada — só transcreva o que estiver visível.',
       messages: [
-        {
-          role: "system",
-          content:
-            'Você recebe um print de uma conversa do WhatsApp e deve transcrever as mensagens. Identifique quem é o cliente e quem é o atendente. Formate cada linha como "Cliente: ..." ou "Atendente: ...", uma mensagem por linha, na ordem em que aparecem. Não invente nada — só transcreva o que estiver visível.',
-        },
         {
           role: "user",
           content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } },
             { type: "text", text: "Transcreva a conversa deste print." },
-            { type: "image_url", image_url: { url: imageUrl } },
           ],
         },
       ],
@@ -234,16 +237,16 @@ export async function extractConversationFromImage(imageUrl: string): Promise<st
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`Vision falhou (${res.status}): ${t.slice(0, 300)}`);
+    throw new Error(`Claude Vision falhou (${res.status}): ${t.slice(0, 300)}`);
   }
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return (json.choices?.[0]?.message?.content ?? "").trim();
+  const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+  return (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
 }
 
 export async function classifyLeadTemperature(params: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
 }): Promise<LeadTemperatura | null> {
-  const key = process.env.LOVABLE_API_KEY;
+  const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
   const transcript = params.history
     .slice(-12)
@@ -260,24 +263,22 @@ export async function classifyLeadTemperature(params: {
     'bloqueado = pediu para parar, disse que não tem interesse, xingou.';
 
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: `Histórico:\n${transcript}\n\nClassifique.` },
-        ],
-        response_format: { type: "json_object" },
+        model: "claude-3-5-haiku-20241022",
+        max_tokens: 64,
+        system,
+        messages: [{ role: "user", content: `Histórico:\n${transcript}\n\nResponda apenas com o JSON.` }],
       }),
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const raw = json.choices?.[0]?.message?.content ?? "";
-    const parsed = JSON.parse(raw) as { temperatura?: string };
+    const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+    const raw = json.content?.find((c) => c.type === "text")?.text ?? "";
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const parsed = JSON.parse(match[0]) as { temperatura?: string };
     const t = (parsed.temperatura ?? "").toLowerCase();
     if (t === "quente" || t === "morno" || t === "frio" || t === "cliente" || t === "bloqueado") return t;
     return null;
