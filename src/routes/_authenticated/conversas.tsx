@@ -418,7 +418,7 @@ function Conversas() {
                       <audio
                         controls
                         preload="metadata"
-                        src={m.audio_url}
+                        src={m.audio_url ?? undefined}
                         className="mb-2 w-64 max-w-full"
                       />
                     )}
