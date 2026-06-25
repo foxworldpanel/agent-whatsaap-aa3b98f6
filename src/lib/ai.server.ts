@@ -38,8 +38,9 @@ export async function generateAgentReply(params: {
   history: Msg[];
   servicesContext?: string | null;
   isInbound?: boolean;
+  funnelAlreadySent?: boolean;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false } = params;
 
   const system = [
     `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
@@ -66,6 +67,9 @@ export async function generateAgentReply(params: {
         : "";
     })(),
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
+    funnelAlreadySent
+      ? `FUNIL DE BOAS-VINDAS JÁ ENVIADO (CRÍTICO): o cliente já recebeu o vídeo, a explicação de como funciona a plataforma e a tabela de preços. NÃO repita essas informações. Seu objetivo agora é fechar a venda.\n\nFluxo após o funil:\n- Cliente demonstrou interesse → pergunte qual serviço/plataforma quer\n- Cliente escolheu a plataforma → pergunte a quantidade ou orçamento\n- Cliente confirmou → envie o link do painel e instrua a fazer o cadastro\n- Cliente tem dúvida → responda de forma curta e objetiva\n- Cliente disse SIM para qualquer coisa → avance para o próximo passo, nunca repita o passo anterior\n\nNunca reexplique como a plataforma funciona se o funil já foi disparado nessa conversa. Seja direto e focado em converter.`
+      : "",
     isInbound
       ? `ATENDIMENTO RECEPTIVO (CRÍTICO): o cliente iniciou a conversa. É TERMINANTEMENTE PROIBIDO usar qualquer script de abordagem, prospecção, "Lead Frio", "Cliente Inativo" ou "Cliente Ativo". É PROIBIDO oferecer produtos, citar ofertas, mencionar promoções ou enviar link do painel sem o cliente pedir. NÃO copie nem imite mensagens anteriores do agente que pareçam abordagem comercial — elas foram geradas com regras antigas e devem ser ignoradas. Responda APENAS com base na instrução base + informações da empresa + FAQ. Primeira ação: cumprimente brevemente e pergunte como pode ajudar.`
       : `Perfil do contato: ${contact.perfil} (frio=nunca comprou, inativo=sumiu, ativo=cliente recorrente).\nScript de referência para esse perfil (use como base, adapte naturalmente):\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}\nOferta principal: ${agent.main_offer}.${agent.panel_link ? `\nLink do painel (use somente após fechar): ${agent.panel_link}` : ""}`,
