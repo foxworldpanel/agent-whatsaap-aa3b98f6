@@ -12,6 +12,9 @@ type UazapiPayload = {
   message?: {
     chatid?: string;
     sender?: string;
+    messageid?: string;
+    messageId?: string;
+    id?: string;
     fromMe?: boolean;
     messageType?: string;
     type?: string;
@@ -55,6 +58,11 @@ function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audi
 function extractMediaUrl(p: UazapiPayload): string | null {
   const m = p.message ?? p.data ?? {};
   return m.mediaUrl ?? null;
+}
+
+function extractMessageId(p: UazapiPayload): string | null {
+  const m = p.message ?? p.data ?? {};
+  return m.messageid ?? m.messageId ?? m.id ?? null;
 }
 
 type LeadSource = {
@@ -171,7 +179,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         }
 
         const { text, kind } = extractContent(payload);
-        const mediaUrl = extractMediaUrl(payload);
+        let mediaUrl = extractMediaUrl(payload);
+        const messageId = extractMessageId(payload);
         if (!text && kind !== "audio") return new Response("empty");
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -348,7 +357,20 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         // Transcreve áudio antes de salvar (para o histórico já ir certo pro Claude)
         let inboundBody = text;
-        if (kind === "audio" && mediaUrl) {
+        if (kind === "audio" && !mediaUrl && messageId) {
+          try {
+            const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
+            const downloaded = await uazapiDownloadMedia(
+              { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken },
+              messageId,
+            );
+            if (downloaded.fileURL) mediaUrl = downloaded.fileURL;
+            if (downloaded.transcription) inboundBody = downloaded.transcription;
+          } catch (e) {
+            console.error("uazapi media download failed", e);
+          }
+        }
+        if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
             const { transcribeAudioUrl } = await import("@/lib/ai.server");
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
@@ -736,7 +758,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           reply = FALLBACK_REPLY;
         }
 
-        // Áudios recebidos já retornam antes para intervenção humana; respostas automáticas seguem em texto.
+        // Quando o cliente manda áudio, o agente deve responder também em áudio.
         const respondWithAudio =
           kind === "audio" &&
           !!integ.elevenlabs_api_key &&
