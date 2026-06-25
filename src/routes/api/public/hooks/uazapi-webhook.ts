@@ -216,7 +216,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const { data: integ, error: intLoadErr } = await supabaseAdmin
           .from("integrations")
           .select(
-            "user_id, uazapi_url, uazapi_token, anthropic_api_key, elevenlabs_api_key, elevenlabs_voice_id, smm_api_key, smm_service_id, smm_panel_url, free_trial_enabled",
+            "user_id, uazapi_url, uazapi_token, anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id, smm_api_key, smm_service_id, smm_panel_url, free_trial_enabled",
           )
           .eq("user_id", userId)
           .maybeSingle();
@@ -351,7 +351,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         if (kind === "audio" && mediaUrl) {
           try {
             const { transcribeAudioUrl } = await import("@/lib/ai.server");
-            const transcript = await transcribeAudioUrl(mediaUrl);
+            const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
           } catch (e) {
             console.error("transcribe failed", e);
