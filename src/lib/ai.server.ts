@@ -23,6 +23,14 @@ type Contact = {
 
 type Msg = { sender: "agente" | "cliente"; body: string };
 
+function getLatestClientMessage(history: Msg[]): string {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const msg = history[i];
+    if (msg.sender === "cliente" && msg.body?.trim()) return msg.body.trim();
+  }
+  return "";
+}
+
 function pickScript(cfg: AgentConfig, perfil: Contact["perfil"]): string {
   return perfil === "ativo"
     ? cfg.script_ativo
@@ -42,12 +50,16 @@ export async function generateAgentReply(params: {
   knowledgeExamples?: Array<{ context?: string | null; content: string }>;
 }): Promise<string> {
   const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [] } = params;
+  const latestClientMessage = getLatestClientMessage(history);
 
   const system = [
-    `Você é ${agent.agent_name}, atendente humana de um painel SMM. Quando o cliente perguntar seu nome, responda "${agent.agent_name}".`,
+    `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
+    `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
+    `PRIORIDADE ABSOLUTA PARA PERGUNTAS DIRETAS: se a última mensagem do cliente contém uma pergunta direta (nome, preço, serviço específico, prazo, cadastro, pagamento, link ou qualquer dúvida objetiva), responda essa pergunta imediatamente. NUNCA ignore uma pergunta direta e NUNCA troque por explicação genérica da MIND/plataforma. Se o cliente perguntou seu nome, responda exatamente: "Meu nome é Júlia! 😊 E aí, posso te ajudar com algo?"`,
+    `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
     agent.base_instruction,
-    `REGRA #1 (ACIMA DE TUDO): SEMPRE responda exatamente o que o cliente perguntou na ÚLTIMA mensagem. Leia a última mensagem do cliente, entenda o que ele quer saber, e responda ISSO. NUNCA mude de assunto, NUNCA solte explicação genérica sobre a plataforma se o cliente não perguntou. Se perguntou seu nome → diga o nome. Se perguntou preço → fale de preço. Se cumprimentou → cumprimente de volta. A resposta precisa fazer sentido para a pergunta atual.`,
+    `REGRA #1 (ACIMA DE TUDO): SEMPRE responda exatamente o que o cliente perguntou na ÚLTIMA mensagem. Leia a última mensagem do cliente, entenda o que ele quer saber, e responda ISSO. NUNCA mude de assunto, NUNCA solte explicação genérica sobre a plataforma se o cliente não perguntou. Se perguntou preço → fale de preço. Se cumprimentou → cumprimente de volta. A resposta precisa fazer sentido para a pergunta atual.`,
     knowledgeExamples.length > 0
       ? `==== BASE DE CONHECIMENTO (REFERÊNCIA DE ESTILO) ====\nExemplos reais de atendimentos do dono do negócio. Use APENAS como referência de TOM, TAMANHO e VOCABULÁRIO — NÃO como respostas prontas.\n\nRegras de uso:\n1. NUNCA copie o conteúdo de um exemplo se ele não responder à pergunta atual do cliente.\n2. NUNCA solte um trecho de exemplo "porque parece encaixar" — só use se a pergunta atual realmente bate com a do exemplo.\n3. Se nenhum exemplo se aplica, IGNORE os exemplos e responda a pergunta com suas próprias palavras, mantendo o tom geral.\n4. A pergunta atual do cliente sempre vence sobre qualquer exemplo.\n\nEXEMPLOS:\n${knowledgeExamples
           .map((ex, i) => `--- Exemplo ${i + 1}${ex.context ? ` — contexto: ${ex.context}` : ""} ---\n${ex.content}`)
@@ -112,6 +124,14 @@ export async function generateAgentReply(params: {
     }
   }
   if (cleaned.length === 0) cleaned.push({ role: "user", content: "(início da conversa)" });
+
+  console.info("[agent-ai] Claude payload", {
+    historyCount: history.length,
+    claudeMessagesCount: cleaned.length,
+    firstRole: cleaned[0]?.role,
+    lastRole: cleaned[cleaned.length - 1]?.role,
+    latestClientMessageLength: latestClientMessage.length,
+  });
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
