@@ -794,6 +794,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           !hasHardContent(reply);
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording } = await import("@/lib/uazapi.server");
+        const sendCreds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+        const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
         // Human-like behavior: random delay between min and max, optional typing indicator.
         const a = agent as {
@@ -809,53 +811,51 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const MAX_DELAY_MS = 20000;
         const delayMs = Math.min(rawDelayMs, MAX_DELAY_MS);
         const typingOn = a.typing_indicator_enabled !== false;
-        if (typingOn && delayMs > 0) {
-          try {
-            const presenceFn = respondWithAudio ? uazapiSendRecording : uazapiSendTyping;
-            await presenceFn(
-              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
-              phone,
-              delayMs,
-            );
-          } catch (e) {
-            console.error("uazapi typing failed", e);
-          }
-        }
         if (delayMs > 0) {
-          await new Promise((r) => setTimeout(r, delayMs));
+          const presencePromise = typingOn
+            ? (respondWithAudio
+                ? uazapiSendRecording(sendCreds, phone, delayMs)
+                : uazapiSendTyping(sendCreds, phone, delayMs)
+              ).catch((e) => {
+                console.error(respondWithAudio ? "uazapi recording failed" : "uazapi typing failed", e);
+              })
+            : Promise.resolve();
+          await Promise.all([presencePromise, sleep(delayMs)]);
         }
 
         let replyKind: "texto" | "audio" = "texto";
         let audioDataUri: string | null = null;
         try {
           if (respondWithAudio) {
-            // Mantém o "gravando áudio" durante a geração do TTS + envio.
-            await uazapiSendRecording(
-              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
-              phone,
-              15000,
-            );
             const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
-            audioDataUri = await ttsElevenLabsBase64({
-              apiKey: integ.elevenlabs_api_key!,
-              voiceId: integ.elevenlabs_voice_id!,
-              text: reply,
-            });
-            await uazapiSendAudio(
-              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
-              phone,
-              audioDataUri,
-            );
+            // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
+            const [generatedAudio] = await Promise.all([
+              ttsElevenLabsBase64({
+                apiKey: integ.elevenlabs_api_key!,
+                voiceId: integ.elevenlabs_voice_id!,
+                text: reply,
+              }),
+              uazapiSendRecording(sendCreds, phone, 15000).catch((e) => {
+                console.error("uazapi recording failed", e);
+              }),
+            ]);
+            audioDataUri = generatedAudio;
+            await Promise.all([
+              uazapiSendAudio(sendCreds, phone, audioDataUri),
+              uazapiSendRecording(sendCreds, phone, 8000).catch((e) => {
+                console.error("uazapi recording failed", e);
+              }),
+            ]);
             replyKind = "audio";
           } else {
             for (let i = 0; i < replyParts.length; i += 1) {
               await uazapiSendText(
-                { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+                sendCreds,
                 phone,
                 replyParts[i],
               );
               if (i < replyParts.length - 1) {
-                await new Promise((r) => setTimeout(r, 1200));
+                await sleep(1200);
               }
             }
           }
