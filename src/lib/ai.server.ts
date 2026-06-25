@@ -39,8 +39,9 @@ export async function generateAgentReply(params: {
   servicesContext?: string | null;
   isInbound?: boolean;
   funnelAlreadySent?: boolean;
+  knowledgeExamples?: Array<{ context?: string | null; content: string }>;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [] } = params;
 
   const system = [
     `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
@@ -70,6 +71,11 @@ export async function generateAgentReply(params: {
     `ESTILO DE ATENDIMENTO (vendedor experiente de painel SMM). Exemplos reais de como responder:\n- Cliente: "Tudo BR né?" → Você: "Sim, trabalhamos com serviço 100% BR"\n- Cliente: "Tem desconto?" → Você: "Dependendo da quantidade consigo aplicar um desconto sim"\n- Cliente: "Comentários é no máximo 250?" → Você: [consulta o catálogo e responde o limite correto]\n\nRegras de ouro:\n- Respostas curtas, 1 a 2 linhas no máximo\n- Linguagem informal, como um vendedor humano no WhatsApp\n- Quando o cliente reclamar de algo, defenda a empresa com educação e explique tecnicamente\n- Quando o cliente perguntar quantidade/limite, consulte o catálogo e responda o valor exato\n- Quando o cliente pedir desconto, diga que depende da quantidade — nunca negue logo de cara\n- Nunca repita o que já foi dito na conversa\n- Avance sempre para fechar o pedido: cadastro → saldo → escolher serviço → link`,
     funnelAlreadySent
       ? `FUNIL DE BOAS-VINDAS JÁ ENVIADO (CRÍTICO): o cliente já recebeu o vídeo, a explicação de como funciona a plataforma e a tabela de preços. NÃO repita essas informações. Seu objetivo agora é fechar a venda.\n\nFluxo após o funil:\n- Cliente demonstrou interesse → pergunte qual serviço/plataforma quer\n- Cliente escolheu a plataforma → pergunte a quantidade ou orçamento\n- Cliente confirmou → envie o link do painel e instrua a fazer o cadastro\n- Cliente tem dúvida → responda de forma curta e objetiva\n- Cliente disse SIM para qualquer coisa → avance para o próximo passo, nunca repita o passo anterior\n\nNunca reexplique como a plataforma funciona se o funil já foi disparado nessa conversa. Seja direto e focado em converter.`
+      : "",
+    knowledgeExamples.length > 0
+      ? `BASE DE CONHECIMENTO — EXEMPLOS REAIS DE ATENDIMENTO:\nAqui estão exemplos reais de como você deve atender. Aprenda o estilo, tom e abordagem desses exemplos e replique nas suas respostas.\n\n${knowledgeExamples
+          .map((ex, i) => `Exemplo ${i + 1}${ex.context ? ` (${ex.context})` : ""}:\n${ex.content}`)
+          .join("\n\n")}`
       : "",
     isInbound
       ? `ATENDIMENTO RECEPTIVO (CRÍTICO): o cliente iniciou a conversa. É TERMINANTEMENTE PROIBIDO usar qualquer script de abordagem, prospecção, "Lead Frio", "Cliente Inativo" ou "Cliente Ativo". É PROIBIDO oferecer produtos, citar ofertas, mencionar promoções ou enviar link do painel sem o cliente pedir. NÃO copie nem imite mensagens anteriores do agente que pareçam abordagem comercial — elas foram geradas com regras antigas e devem ser ignoradas. Responda APENAS com base na instrução base + informações da empresa + FAQ. Primeira ação: cumprimente brevemente e pergunte como pode ajudar.`
