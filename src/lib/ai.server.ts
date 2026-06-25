@@ -44,11 +44,12 @@ export async function generateAgentReply(params: {
   const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [] } = params;
 
   const system = [
-    `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
+    `Você é ${agent.agent_name}, atendente humana de um painel SMM. Quando o cliente perguntar seu nome, responda "${agent.agent_name}".`,
     `Tom de voz: ${agent.tone}.`,
     agent.base_instruction,
+    `REGRA #1 (ACIMA DE TUDO): SEMPRE responda exatamente o que o cliente perguntou na ÚLTIMA mensagem. Leia a última mensagem do cliente, entenda o que ele quer saber, e responda ISSO. NUNCA mude de assunto, NUNCA solte explicação genérica sobre a plataforma se o cliente não perguntou. Se perguntou seu nome → diga o nome. Se perguntou preço → fale de preço. Se cumprimentou → cumprimente de volta. A resposta precisa fazer sentido para a pergunta atual.`,
     knowledgeExamples.length > 0
-      ? `==== BASE DE CONHECIMENTO (FONTE PRINCIPAL DE ESTILO) ====\nExemplos REAIS de atendimentos do dono do negócio. São a VERDADE sobre como responder. Quando houver um exemplo aplicável, copie o tom, o tamanho, a abordagem e o vocabulário — esses exemplos têm prioridade sobre qualquer outra regra de estilo deste prompt.\n\nComo usar:\n1. Antes de responder, procure entre os exemplos abaixo um caso parecido com a mensagem atual do cliente.\n2. Se encontrar, responda no MESMO estilo (mesmo tamanho, tom, palavras-chave). Adapte ao contexto, NUNCA copie literalmente.\n3. Se não encontrar exemplo direto, mantenha o tom geral (informalidade, tamanho, emojis) que aparece nos exemplos.\n\nEXEMPLOS:\n${knowledgeExamples
+      ? `==== BASE DE CONHECIMENTO (REFERÊNCIA DE ESTILO) ====\nExemplos reais de atendimentos do dono do negócio. Use APENAS como referência de TOM, TAMANHO e VOCABULÁRIO — NÃO como respostas prontas.\n\nRegras de uso:\n1. NUNCA copie o conteúdo de um exemplo se ele não responder à pergunta atual do cliente.\n2. NUNCA solte um trecho de exemplo "porque parece encaixar" — só use se a pergunta atual realmente bate com a do exemplo.\n3. Se nenhum exemplo se aplica, IGNORE os exemplos e responda a pergunta com suas próprias palavras, mantendo o tom geral.\n4. A pergunta atual do cliente sempre vence sobre qualquer exemplo.\n\nEXEMPLOS:\n${knowledgeExamples
           .map((ex, i) => `--- Exemplo ${i + 1}${ex.context ? ` — contexto: ${ex.context}` : ""} ---\n${ex.content}`)
           .join("\n\n")}\n==== FIM DA BASE DE CONHECIMENTO ====`
       : "",
