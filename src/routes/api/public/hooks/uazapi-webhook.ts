@@ -134,6 +134,15 @@ function isStopRequest(text: string): boolean {
   return STOP_PATTERNS.some((re) => re.test(text));
 }
 
+function normalizeText(text: string): string {
+  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function isDirectClientQuestion(text: string): boolean {
+  const t = normalizeText(text ?? "");
+  return /\?/.test(t) || /\b(qual|quais|quem|quanto|como|quando|onde|preco|valor|custa|servico|prazo|link|cadastro|pagamento|pix|seu nome|sua nome|voce se chama|te chama)\b/.test(t);
+}
+
 const FALLBACK_REPLY = "Deixa eu verificar aqui pra você 😊";
 
 export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
@@ -473,7 +482,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         if (disparosMode) return new Response("ok (disparos mode: no auto-reply)");
 
         // ===== Funis de boas-vindas (múltiplos por número; primeiro gatilho que casar dispara, uma vez por contato) =====
-        if (numberId) {
+        if (numberId && !isDirectClientQuestion(inboundBody)) {
           try {
             const { data: funnels } = await supabaseAdmin
               .from("welcome_funnels")
@@ -483,9 +492,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               .eq("enabled", true)
               .order("sort_order", { ascending: true });
 
-            const normalize = (s: string) =>
-              s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            const haystack = normalize(inboundBody ?? "");
+            const haystack = normalizeText(inboundBody ?? "");
 
             type FunnelRow = {
               id: string;
@@ -506,7 +513,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             for (const row of (funnels ?? []) as FunnelRow[]) {
               const keywords = (row.trigger_keywords ?? "")
                 .split(/[,;\n]/)
-                .map((k) => normalize(k.trim()))
+                .map((k) => normalizeText(k.trim()))
                 .filter(Boolean);
               if (keywords.length === 0) continue;
               if (keywords.some((k) => haystack.includes(k))) {
