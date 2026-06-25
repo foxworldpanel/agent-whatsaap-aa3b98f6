@@ -746,12 +746,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           reply = FALLBACK_REPLY;
         }
 
-        // Se cliente mandou áudio e agente está com áudio ligado + ElevenLabs configurado → responde com áudio
-        const respondWithAudio =
-          kind === "audio" &&
-          (agent as { audio_enabled?: boolean }).audio_enabled === true &&
-          !!integ.elevenlabs_api_key &&
-          !!integ.elevenlabs_voice_id;
+        // Áudios recebidos já retornam antes para intervenção humana; respostas automáticas seguem em texto.
+        const respondWithAudio = false;
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping } = await import("@/lib/uazapi.server");
 
