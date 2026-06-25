@@ -191,6 +191,41 @@ export async function ttsElevenLabsBase64(params: {
 
 export type LeadTemperatura = "quente" | "morno" | "frio" | "cliente" | "bloqueado";
 
+// ----- Vision: extrai transcrição de uma conversa a partir de uma imagem (print) -----
+
+export async function extractConversationFromImage(imageUrl: string): Promise<string> {
+  const key = process.env.LOVABLE_API_KEY;
+  if (!key) throw new Error("LOVABLE_API_KEY ausente");
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        {
+          role: "system",
+          content:
+            'Você recebe um print de uma conversa do WhatsApp e deve transcrever as mensagens. Identifique quem é o cliente e quem é o atendente. Formate cada linha como "Cliente: ..." ou "Atendente: ...", uma mensagem por linha, na ordem em que aparecem. Não invente nada — só transcreva o que estiver visível.',
+        },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Transcreva a conversa deste print." },
+            { type: "image_url", image_url: { url: imageUrl } },
+          ],
+        },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Vision falhou (${res.status}): ${t.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  return (json.choices?.[0]?.message?.content ?? "").trim();
+}
+
 export async function classifyLeadTemperature(params: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
 }): Promise<LeadTemperatura | null> {
