@@ -743,7 +743,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         let reply: string;
         try {
           const aiHistory = ((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>).filter(
-            (m) => !/não consigo ouvir áudio por aqui/i.test(m.body ?? ""),
+            (m) =>
+              !/não consigo ouvir áudio por aqui/i.test(m.body ?? "") &&
+              !/não consigo mandar áudio/i.test(m.body ?? "") &&
+              !/respondendo (?:certinho )?por texto/i.test(m.body ?? ""),
           );
           if (kind === "audio" && inboundBody === "[áudio recebido]") {
             reply = "Não consegui entender bem esse áudio. Pode mandar de novo?";
