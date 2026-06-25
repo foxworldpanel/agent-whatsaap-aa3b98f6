@@ -169,29 +169,54 @@ export async function transcribeAudioUrl(audioUrl: string): Promise<string> {
 
   const audio = await fetch(audioUrl);
   if (!audio.ok) throw new Error(`Falha ao baixar áudio (${audio.status})`);
-  const blob = await audio.blob();
-  const mime = blob.type || "audio/ogg";
-  const ext =
-    mime.includes("mp4") ? "mp4" :
-    mime.includes("mpeg") ? "mp3" :
-    mime.includes("wav") ? "wav" :
-    mime.includes("webm") ? "webm" : "ogg";
+  const buf = new Uint8Array(await audio.arrayBuffer());
+  const headerMime = (audio.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  // WhatsApp/uazapi envia OGG/Opus, que o OpenAI transcribe rejeita.
+  // Usamos Gemini via chat completions, que aceita áudio nativo (ogg, mp3, wav, m4a, webm).
+  const mime =
+    headerMime && headerMime.startsWith("audio/")
+      ? headerMime
+      : audioUrl.toLowerCase().includes(".mp3")
+        ? "audio/mpeg"
+        : audioUrl.toLowerCase().includes(".wav")
+          ? "audio/wav"
+          : audioUrl.toLowerCase().includes(".m4a") || audioUrl.toLowerCase().includes(".mp4")
+            ? "audio/mp4"
+            : "audio/ogg";
 
-  const form = new FormData();
-  form.append("model", "openai/gpt-4o-mini-transcribe");
-  form.append("file", blob, `audio.${ext}`);
+  // base64 sem usar Buffer (compat Worker)
+  let bin = "";
+  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+  const b64 = btoa(bin);
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}` },
-    body: form,
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Transcreva o áudio em português literalmente. Retorne apenas a transcrição, sem comentários, sem prefixos, sem aspas.",
+            },
+            {
+              type: "input_audio",
+              input_audio: { data: b64, format: mime.replace("audio/", "").replace("mpeg", "mp3").replace("mp4", "m4a") },
+            },
+          ],
+        },
+      ],
+    }),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
     throw new Error(`Transcrição falhou (${res.status}): ${t.slice(0, 300)}`);
   }
-  const json = (await res.json()) as { text?: string };
-  return (json.text ?? "").trim();
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  return (json.choices?.[0]?.message?.content ?? "").trim();
 }
 
 // ----- TTS ElevenLabs (retorna base64 MP3) -----
