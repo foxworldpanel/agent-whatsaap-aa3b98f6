@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Play, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw } from "lucide-react";
+import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
+import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/agente")({
   ssr: false,
@@ -62,16 +62,16 @@ function AgentePage() {
 
   const cfgQ = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
   const intQ = useQuery({ queryKey: ["integrations"], queryFn: () => fetchInt() });
-  const preview = useServerFn(previewVoice);
-  const previewMut = useMutation({
-    mutationFn: () => preview({ data: {} }),
-    onSuccess: ({ audio }) => {
-      new Audio(audio).play().catch(() => {});
-    },
-  });
 
   const [cfg, setCfg] = useState<Cfg>(defaultConfig);
   const [intFields, setIntFields] = useState<IntFields | null>(null);
+
+  useEffect(() => {
+    if (intQ.data) {
+      const d = intQ.data as Partial<IntFields>;
+      setIntFields({ ...blankInt, ...Object.fromEntries(Object.entries(d).map(([k, v]) => [k, v ?? ""])) as IntFields });
+    }
+  }, [intQ.data]);
 
   useEffect(() => {
     if (cfgQ.data) {
@@ -142,8 +142,8 @@ function AgentePage() {
         </button>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6 rounded-xl border border-border p-6" style={{ background: "var(--gradient-card)" }}>
+      <div className="space-y-6">
+        <div className="space-y-6 rounded-xl border border-border p-6" style={{ background: "var(--gradient-card)" }}>
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
             <h2 className="font-semibold">Personalidade</h2>
@@ -318,26 +318,6 @@ function AgentePage() {
             </div>
           </div>
         </div>
-
-        <div className="space-y-6">
-          <IntegrationsPanel
-            initial={
-              intQ.data
-                ? (Object.fromEntries(
-                    Object.entries(intQ.data).map(([k, v]) => [k, v ?? ""]),
-                  ) as Partial<IntFields>)
-                : null
-            }
-            onChange={setIntFields}
-            onSave={async (v) => {
-              await saveInt({ data: v });
-              qc.invalidateQueries({ queryKey: ["integrations"] });
-            }}
-            onPreviewVoice={() => previewMut.mutate()}
-            previewing={previewMut.isPending}
-            previewError={previewMut.error ? (previewMut.error as Error).message : null}
-          />
-        </div>
       </div>
     </div>
   );
@@ -368,102 +348,6 @@ const blankInt: IntFields = {
   openai_api_key: "",
   smm_api_key: "", smm_panel_url: "",
 };
-
-function IntegrationsPanel({
-  initial, onSave, onChange, onPreviewVoice, previewing, previewError,
-}: {
-  initial: Partial<IntFields> | null;
-  onSave: (v: IntFields) => Promise<void>;
-  onChange?: (v: IntFields) => void;
-  onPreviewVoice: () => void;
-  previewing: boolean;
-  previewError: string | null;
-}) {
-  const [v, setV] = useState<IntFields>(blankInt);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (initial) {
-      const next = { ...blankInt, ...Object.fromEntries(Object.entries(initial).map(([k, val]) => [k, val ?? ""])) as IntFields };
-      setV(next);
-      onChange?.(next);
-    }
-  }, [initial]);
-
-  useEffect(() => { onChange?.(v); }, [v]);
-
-  const groups: Array<{ title: string; status: boolean; fields: Array<[keyof IntFields, string, boolean?]> }> = [
-    { title: "Uazapi", status: !!v.uazapi_url && !!v.uazapi_token, fields: [
-      ["uazapi_url", "URL (ex: https://free.uazapi.com)"],
-      ["uazapi_token", "Token da instância", true],
-      ["uazapi_admin_token", "Admin Token (opcional)", true],
-    ] },
-    { title: "Claude (Anthropic)", status: !!v.anthropic_api_key, fields: [["anthropic_api_key", "API Key", true]] },
-    { title: "ElevenLabs", status: !!v.elevenlabs_api_key, fields: [["elevenlabs_api_key", "API Key", true], ["elevenlabs_voice_id", "Voice ID"]] },
-    { title: "Whisper (OpenAI)", status: !!v.openai_api_key, fields: [["openai_api_key", "API Key", true]] },
-  ];
-
-  return (
-    <>
-      {groups.map((g) => (
-        <div key={g.title} className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm">{g.title}</h3>
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs ${
-              g.status ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
-            }`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${g.status ? "bg-success" : "bg-muted-foreground"}`} />
-              {g.status ? "conectado" : "desconectado"}
-            </span>
-          </div>
-          <div className="mt-3 space-y-2">
-            {g.fields.map(([key, label, secret]) => (
-              <input
-                key={key}
-                value={v[key]}
-                onChange={(e) => setV({ ...v, [key]: e.target.value })}
-                placeholder={label}
-                type={secret ? "password" : "text"}
-                className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none transition focus:border-primary"
-              />
-            ))}
-          </div>
-          {g.title === "ElevenLabs" && (
-            <div className="mt-3 space-y-1">
-              <button
-                type="button"
-                onClick={onPreviewVoice}
-                disabled={previewing || !v.elevenlabs_api_key || !v.elevenlabs_voice_id}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-muted disabled:opacity-50"
-              >
-                <Play className="h-3 w-3" />
-                {previewing ? "Gerando…" : "Testar voz"}
-              </button>
-              {previewError && (
-                <p className="text-xs text-destructive">{previewError}</p>
-              )}
-              <p className="text-[10px] text-muted-foreground">
-                Salve antes de testar — usa a chave e voz salvas no servidor.
-              </p>
-            </div>
-          )}
-        </div>
-      ))}
-      <button
-        onClick={async () => {
-          setSaving(true); setSaved(false);
-          try { await onSave(v); setSaved(true); } finally { setSaving(false); }
-        }}
-        disabled={saving}
-        className="w-full rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
-        style={{ background: "var(--gradient-primary)" }}
-      >
-        {saving ? "Salvando…" : saved ? "Integrações salvas ✓" : "Salvar integrações"}
-      </button>
-    </>
-  );
-}
 
 function Field({
   label, value, onChange, multiline, type,

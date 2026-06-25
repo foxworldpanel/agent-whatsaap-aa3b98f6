@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Settings, Save, Check, Gift } from "lucide-react";
-import { getIntegrations, saveIntegrations } from "@/lib/agent.functions";
+import { Settings, Save, Check, Gift, Play } from "lucide-react";
+import { getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   ssr: false,
@@ -16,6 +16,18 @@ type SmmCfg = {
   smm_api_key: string;
   smm_service_id: string;
   free_trial_enabled: boolean;
+};
+
+type IntFields = {
+  uazapi_url: string; uazapi_token: string; uazapi_admin_token: string;
+  anthropic_api_key: string; elevenlabs_api_key: string; elevenlabs_voice_id: string;
+  openai_api_key: string;
+};
+
+const blankInt: IntFields = {
+  uazapi_url: "", uazapi_token: "", uazapi_admin_token: "",
+  anthropic_api_key: "", elevenlabs_api_key: "", elevenlabs_voice_id: "",
+  openai_api_key: "",
 };
 
 const blank: SmmCfg = {
@@ -32,23 +44,46 @@ function ConfiguracoesPage() {
   const intQ = useQuery({ queryKey: ["integrations"], queryFn: () => fetchInt() });
 
   const [cfg, setCfg] = useState<SmmCfg>(blank);
+  const [intFields, setIntFields] = useState<IntFields>(blankInt);
+  const preview = useServerFn(previewVoice);
+  const previewMut = useMutation({
+    mutationFn: () => preview({ data: {} }),
+    onSuccess: ({ audio }) => { new Audio(audio).play().catch(() => {}); },
+  });
 
   useEffect(() => {
     if (intQ.data) {
-      const d = intQ.data as Partial<SmmCfg>;
+      const d = intQ.data as Partial<SmmCfg & IntFields>;
       setCfg({
         smm_panel_url: d.smm_panel_url ?? blank.smm_panel_url,
         smm_api_key: d.smm_api_key ?? "",
         smm_service_id: d.smm_service_id ?? "",
         free_trial_enabled: !!d.free_trial_enabled,
       });
+      setIntFields({
+        ...blankInt,
+        ...Object.fromEntries(
+          (Object.keys(blankInt) as (keyof IntFields)[]).map((k) => [k, (d as any)[k] ?? ""]),
+        ) as IntFields,
+      });
     }
   }, [intQ.data]);
 
   const saveMut = useMutation({
-    mutationFn: () => saveInt({ data: { ...(intQ.data ?? {}), ...cfg } as any }),
+    mutationFn: () => saveInt({ data: { ...(intQ.data ?? {}), ...intFields, ...cfg } as any }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
   });
+
+  const intGroups: Array<{ title: string; status: boolean; fields: Array<[keyof IntFields, string, boolean?]> }> = [
+    { title: "Uazapi", status: !!intFields.uazapi_url && !!intFields.uazapi_token, fields: [
+      ["uazapi_url", "URL (ex: https://free.uazapi.com)"],
+      ["uazapi_token", "Token da instância", true],
+      ["uazapi_admin_token", "Admin Token (opcional)", true],
+    ] },
+    { title: "Claude (Anthropic)", status: !!intFields.anthropic_api_key, fields: [["anthropic_api_key", "API Key", true]] },
+    { title: "ElevenLabs", status: !!intFields.elevenlabs_api_key, fields: [["elevenlabs_api_key", "API Key", true], ["elevenlabs_voice_id", "Voice ID"]] },
+    { title: "Whisper (OpenAI)", status: !!intFields.openai_api_key, fields: [["openai_api_key", "API Key", true]] },
+  ];
 
   return (
     <div className="space-y-6">
@@ -113,6 +148,53 @@ function ConfiguracoesPage() {
             {cfg.free_trial_enabled ? "Ativado — envia testes grátis automaticamente" : "Desativado"}
           </p>
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {intGroups.map((g) => (
+          <div key={g.title} className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-sm">{g.title}</h3>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs ${
+                g.status ? "bg-success/20 text-success" : "bg-muted text-muted-foreground"
+              }`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${g.status ? "bg-success" : "bg-muted-foreground"}`} />
+                {g.status ? "conectado" : "desconectado"}
+              </span>
+            </div>
+            <div className="mt-3 space-y-2">
+              {g.fields.map(([key, label, secret]) => (
+                <input
+                  key={key}
+                  value={intFields[key]}
+                  onChange={(e) => setIntFields({ ...intFields, [key]: e.target.value })}
+                  placeholder={label}
+                  type={secret ? "password" : "text"}
+                  className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none transition focus:border-primary"
+                />
+              ))}
+            </div>
+            {g.title === "ElevenLabs" && (
+              <div className="mt-3 space-y-1">
+                <button
+                  type="button"
+                  onClick={() => previewMut.mutate()}
+                  disabled={previewMut.isPending || !intFields.elevenlabs_api_key || !intFields.elevenlabs_voice_id}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium transition hover:bg-muted disabled:opacity-50"
+                >
+                  <Play className="h-3 w-3" />
+                  {previewMut.isPending ? "Gerando…" : "Testar voz"}
+                </button>
+                {previewMut.error && (
+                  <p className="text-xs text-destructive">{(previewMut.error as Error).message}</p>
+                )}
+                <p className="text-[10px] text-muted-foreground">
+                  Salve antes de testar — usa a chave e voz salvas no servidor.
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
