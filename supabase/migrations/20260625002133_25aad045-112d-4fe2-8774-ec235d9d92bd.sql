@@ -1,0 +1,1 @@
+UPDATE public.conversations SET last_message_at = NULL, status = 'aguardando' WHERE id IN ('ccc7d286-0536-4168-9114-711dbe34ce59','9efe8ffa-f6fa-4bff-af05-6feeaf7ecb05');
