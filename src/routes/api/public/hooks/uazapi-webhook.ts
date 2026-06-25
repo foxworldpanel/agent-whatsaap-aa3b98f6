@@ -652,8 +652,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .from("messages")
           .select("sender, body")
           .eq("conversation_id", conv.id)
-          .order("created_at", { ascending: true })
-          .limit(30);
+          .order("created_at", { ascending: true });
+
+        console.info("[agent-webhook] Loaded full conversation history for Claude", {
+          conversationId: conv.id,
+          messagesCount: history?.length ?? 0,
+        });
 
         const { generateAgentReply } = await import("@/lib/ai.server");
 
