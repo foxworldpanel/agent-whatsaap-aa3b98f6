@@ -2,9 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Play, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw } from "lucide-react";
+import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
+import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations } from "@/lib/agent.functions";
 
 export const Route = createFileRoute("/_authenticated/agente")({
   ssr: false,
@@ -62,16 +62,16 @@ function AgentePage() {
 
   const cfgQ = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
   const intQ = useQuery({ queryKey: ["integrations"], queryFn: () => fetchInt() });
-  const preview = useServerFn(previewVoice);
-  const previewMut = useMutation({
-    mutationFn: () => preview({ data: {} }),
-    onSuccess: ({ audio }) => {
-      new Audio(audio).play().catch(() => {});
-    },
-  });
 
   const [cfg, setCfg] = useState<Cfg>(defaultConfig);
   const [intFields, setIntFields] = useState<IntFields | null>(null);
+
+  useEffect(() => {
+    if (intQ.data) {
+      const d = intQ.data as Partial<IntFields>;
+      setIntFields({ ...blankInt, ...Object.fromEntries(Object.entries(d).map(([k, v]) => [k, v ?? ""])) as IntFields });
+    }
+  }, [intQ.data]);
 
   useEffect(() => {
     if (cfgQ.data) {
@@ -142,8 +142,8 @@ function AgentePage() {
         </button>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6 rounded-xl border border-border p-6" style={{ background: "var(--gradient-card)" }}>
+      <div className="space-y-6">
+        <div className="space-y-6 rounded-xl border border-border p-6" style={{ background: "var(--gradient-card)" }}>
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-primary" />
             <h2 className="font-semibold">Personalidade</h2>
@@ -317,26 +317,6 @@ function AgentePage() {
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="space-y-6">
-          <IntegrationsPanel
-            initial={
-              intQ.data
-                ? (Object.fromEntries(
-                    Object.entries(intQ.data).map(([k, v]) => [k, v ?? ""]),
-                  ) as Partial<IntFields>)
-                : null
-            }
-            onChange={setIntFields}
-            onSave={async (v) => {
-              await saveInt({ data: v });
-              qc.invalidateQueries({ queryKey: ["integrations"] });
-            }}
-            onPreviewVoice={() => previewMut.mutate()}
-            previewing={previewMut.isPending}
-            previewError={previewMut.error ? (previewMut.error as Error).message : null}
-          />
         </div>
       </div>
     </div>
