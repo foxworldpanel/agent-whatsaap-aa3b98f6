@@ -376,19 +376,9 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           })
           .eq("id", conv.id);
 
-        // Áudio recebido precisa ficar disponível para o humano ouvir/analisar.
-        // Não deixe o agente responder automaticamente a voice notes, mesmo se conseguir transcrever.
-        if (kind === "audio") {
-          await supabaseAdmin
-            .from("conversations")
-            .update({ status: "aguardando" })
-            .eq("id", conv.id);
-          await supabaseAdmin
-            .from("contacts")
-            .update({ last_interaction_at: now, status: "em_conversa" })
-            .eq("id", contact.id);
-          return new Response("ok (audio received: waiting human)");
-        }
+        // Áudio recebido: já foi transcrito acima; o agente segue o fluxo
+        // normal e, mais adiante, responderá por áudio (TTS) se houver
+        // credenciais ElevenLabs configuradas.
 
         if (isStopRequest(inboundBody)) {
           await supabaseAdmin
@@ -747,7 +737,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         }
 
         // Áudios recebidos já retornam antes para intervenção humana; respostas automáticas seguem em texto.
-        const respondWithAudio = false;
+        const respondWithAudio =
+          kind === "audio" &&
+          !!integ.elevenlabs_api_key &&
+          !!integ.elevenlabs_voice_id;
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping } = await import("@/lib/uazapi.server");
 
