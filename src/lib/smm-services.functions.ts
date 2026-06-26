@@ -15,7 +15,7 @@ export const syncSmmServices = createServerFn({ method: "POST" })
       .maybeSingle();
     if (ie) throw new Error(ie.message);
     const key = integ?.smm_api_key?.trim();
-    const url = (integ?.smm_panel_url?.trim() || "https://mindsmmpanel.com/smmpanel/api/v2");
+    const url = (integ?.smm_panel_url?.trim() || "https://mindsmmpanel.com/smmpanel/api/v1");
     if (!key) {
       const msg = "API Key do painel SMM não configurada";
       await context.supabase.from("integrations").update({
