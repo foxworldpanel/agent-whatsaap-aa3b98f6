@@ -461,6 +461,27 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           const { detectSocialLink, normalizeSocialLink, smmAddOrder } = await import("@/lib/smm.server");
           const link = detectSocialLink(inboundBody);
           if (link) {
+            // Instagram views só funcionam em Reel/vídeo, nunca em foto (/p/)
+            if (link.platform === "instagram") {
+              const path = (() => { try { return new URL(link.url).pathname.toLowerCase(); } catch { return link.url.toLowerCase(); } })();
+              const isVideo = /\/(reel|reels|tv)\//.test(path);
+              const isPhoto = /\/p\//.test(path) && !isVideo;
+              if (isPhoto) {
+                const { uazapiSendText } = await import("@/lib/uazapi.server");
+                const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+                const msg = "Esse link é de uma foto, views só funcionam em Reel ou vídeo. Me manda o link de um Reel do seu perfil!";
+                try { await uazapiSendText(creds, phone, msg); } catch (e) { console.error("uazapi send (trial photo) failed", e); }
+                await supabaseAdmin.from("messages").insert({
+                  user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: msg,
+                });
+                await supabaseAdmin.from("conversations").update({
+                  last_message_preview: msg.slice(0, 120),
+                  last_message_at: new Date().toISOString(),
+                  status: "aguardando",
+                }).eq("id", conv.id);
+                return new Response("ok (trial blocked: instagram photo)");
+              }
+            }
             // Resolve service: prefer per-platform free_test_services, fall back to legacy smm_service_id
             const platformKeywords: Record<string, string[]> = {
               instagram: ["instagram", "insta"],
@@ -512,16 +533,35 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 ? "Esse perfil já recebeu um teste anteriormente. Que tal aproveitar e fazer um pedido completo?"
                 : "Você já usou seu teste grátis. Posso te montar um pacote completo a partir de R$5?";
             } else {
+              const smmCreds = {
+                url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v2",
+                key: integ.smm_api_key,
+              };
+              const tryOrder = async () => smmAddOrder(smmCreds, { service: serviceId, link: link.url, quantity: qty });
+              let result: Awaited<ReturnType<typeof tryOrder>> | null = null;
+              let lastErr: string | null = null;
               try {
-                const result = await smmAddOrder(
-                  {
-                    url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v2",
-                    key: integ.smm_api_key,
-                  },
-                  { service: serviceId, link: link.url, quantity: qty },
-                );
-                if (!result.order) {
-                  throw new Error(result.error ?? "sem order id");
+                result = await tryOrder();
+                if (!result.order) lastErr = result.error ?? "sem order id";
+              } catch (e) {
+                lastErr = e instanceof Error ? e.message : String(e);
+              }
+              // Retry once after 30s for transient SMM API errors
+              const errLow = (lastErr ?? "").toLowerCase();
+              const isTransient = lastErr && !/(invalid|private|privado|not found|already|duplicate|min|max|link|url)/i.test(errLow);
+              if (lastErr && isTransient) {
+                console.warn("[free-trial] transient SMM error, retrying in 30s:", lastErr);
+                await new Promise((r) => setTimeout(r, 30000));
+                try {
+                  result = await tryOrder();
+                  lastErr = result.order ? null : (result.error ?? "sem order id");
+                } catch (e) {
+                  lastErr = e instanceof Error ? e.message : String(e);
+                }
+              }
+              try {
+                if (lastErr || !result?.order) {
+                  throw new Error(lastErr ?? "sem order id");
                 }
                 await supabaseAdmin.from("free_trials").insert({
                   user_id: userId,
@@ -539,9 +579,27 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 replyText =
                   `Recebi! Já liberei ${qty} ${matched?.category?.toLowerCase().includes("view") || matched?.category?.toLowerCase().includes("visual") ? "views" : "unidades"} grátis no seu link, costuma chegar em poucos minutos ✅`;
               } catch (e) {
-                console.error("[free-trial] smm add failed", e, { serviceId, qty, url: link.url });
-                replyText =
-                  "Tive um probleminha aqui pra processar seu teste agora 😅 já tô resolvendo!";
+                const raw = e instanceof Error ? e.message : String(e);
+                console.error("[free-trial] smm add failed", { error: raw, serviceId, qty, url: link.url, platform: link.platform });
+                const low = raw.toLowerCase();
+                if (/private|privado|not.*public/.test(low)) {
+                  replyText = "Seu perfil precisa estar público pra receber as views. Deixa público e me manda o link de novo!";
+                } else if (/already|duplicate|exists/.test(low)) {
+                  replyText = "Esse perfil já recebeu um teste anteriormente. Quer que eu monte um pacote completo a partir de R$5?";
+                } else if (/invalid|not found|link|url/.test(low)) {
+                  const tip = link.platform === "instagram"
+                    ? "Me manda o link de um Reel ou vídeo do seu Instagram."
+                    : link.platform === "youtube"
+                      ? "Me manda o link do vídeo do YouTube."
+                      : link.platform === "tiktok"
+                        ? "Me manda o link do vídeo do TikTok."
+                        : "Me manda o link da música do Spotify.";
+                  replyText = `Esse link não funcionou aqui. ${tip}`;
+                } else if (/min|minimum|quantidade/.test(low)) {
+                  replyText = "A quantidade do teste não bate com o mínimo do serviço. Já tô ajustando aqui!";
+                } else {
+                  replyText = "Tive uma instabilidade no painel agora 😅 me manda o link de novo em 1 minutinho que processo na hora.";
+                }
               }
             }
 
