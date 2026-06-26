@@ -347,7 +347,7 @@ function KnowledgeBaseSection() {
   const listQ = useQuery({ queryKey: ["knowledge_base"], queryFn: () => fetchList() });
   const rows = (listQ.data ?? []) as KbRow[];
 
-  const [tab, setTab] = useState<"image" | "text">("image");
+  const [tab, setTab] = useState<"image" | "text" | "panel">("image");
   const [textCtx, setTextCtx] = useState("");
   const [textBody, setTextBody] = useState("");
   const [imgCtx, setImgCtx] = useState("");
@@ -429,9 +429,18 @@ function KnowledgeBaseSection() {
         >
           <MessageSquare className="h-3.5 w-3.5" /> Texto
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("panel")}
+          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 transition ${tab === "panel" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+        >
+          <Monitor className="h-3.5 w-3.5" /> Guia do Painel
+        </button>
       </div>
 
-      {tab === "image" ? (
+      {tab === "panel" ? (
+        <PanelGuideSection />
+      ) : tab === "image" ? (
         <div className="space-y-3">
           <Field
             label="Contexto (o que esse exemplo ensina)"
