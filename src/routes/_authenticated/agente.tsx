@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw, BookOpen, ImageIcon, MessageSquare, Loader2, Monitor } from "lucide-react";
+import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw, BookOpen, ImageIcon, MessageSquare, Loader2, Monitor, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations } from "@/lib/agent.functions";
 import { listKnowledge, addTextExample, addImageExample, deleteKnowledge } from "@/lib/knowledge-base.functions";
 import { listPanelGuide, addPanelScreen, updatePanelScreen, deletePanelScreen } from "@/lib/panel-guide.functions";
+import { listForbiddenRules, saveForbiddenRules, seedDefaultForbiddenRules } from "@/lib/forbidden-rules.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/agente")({
@@ -370,6 +371,7 @@ function AgentePage() {
         </div>
 
         <KnowledgeBaseSection />
+        <ForbiddenRulesSection />
       </div>
     </div>
   );
@@ -855,5 +857,125 @@ function Field({
         <input type={type ?? "text"} value={value} onChange={(e) => onChange(e.target.value)} className={cls} />
       )}
     </label>
+  );
+}
+
+type ForbiddenRule = { id?: string; rule: string; deflection: string; enabled: boolean };
+
+function ForbiddenRulesSection() {
+  const qc = useQueryClient();
+  const fetchList = useServerFn(listForbiddenRules);
+  const saveList = useServerFn(saveForbiddenRules);
+  const seedFn = useServerFn(seedDefaultForbiddenRules);
+
+  const listQ = useQuery({ queryKey: ["forbidden_rules"], queryFn: () => fetchList() });
+  const [rules, setRules] = useState<ForbiddenRule[]>([]);
+  const [seeded, setSeeded] = useState(false);
+
+  useEffect(() => {
+    if (!listQ.data) return;
+    const rows = listQ.data as Array<{ id: string; rule: string; deflection: string | null; enabled: boolean }>;
+    if (rows.length === 0 && !seeded) {
+      setSeeded(true);
+      seedFn().then(() => qc.invalidateQueries({ queryKey: ["forbidden_rules"] })).catch(() => {});
+      return;
+    }
+    setRules(rows.map((r) => ({ id: r.id, rule: r.rule, deflection: r.deflection ?? "", enabled: r.enabled })));
+  }, [listQ.data, seeded, seedFn, qc]);
+
+  const saveMut = useMutation({
+    mutationFn: () => saveList({ data: { rules: rules.map((r) => ({ rule: r.rule, deflection: r.deflection || null, enabled: r.enabled })) } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["forbidden_rules"] });
+      toast.success("Regras proibidas salvas");
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const update = (i: number, patch: Partial<ForbiddenRule>) => {
+    const next = [...rules];
+    next[i] = { ...next[i], ...patch };
+    setRules(next);
+  };
+
+  return (
+    <div
+      className="rounded-xl border-2 border-destructive/60 p-6 space-y-4"
+      style={{ background: "linear-gradient(180deg, rgba(239,68,68,0.08), rgba(239,68,68,0.02))" }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-5 w-5 text-destructive" />
+          <div>
+            <h2 className="font-semibold text-destructive">Regras Proibidas</h2>
+            <p className="text-xs text-muted-foreground">
+              O agente NUNCA pode quebrar essas regras. Se o cliente insistir, ele desvia com naturalidade.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-none gap-2">
+          <button
+            type="button"
+            onClick={() => setRules([...rules, { rule: "", deflection: "", enabled: true }])}
+            className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-background px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+          >
+            <Plus className="h-3.5 w-3.5" /> Adicionar regra
+          </button>
+          <button
+            type="button"
+            onClick={() => saveMut.mutate()}
+            disabled={saveMut.isPending}
+            className="inline-flex items-center gap-1 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60"
+          >
+            <Save className="h-3.5 w-3.5" /> {saveMut.isPending ? "Salvando…" : "Salvar regras"}
+          </button>
+        </div>
+      </div>
+
+      {listQ.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+
+      <div className="space-y-2">
+        {rules.map((r, i) => (
+          <div key={i} className="rounded-lg border border-destructive/30 bg-background/60 p-3 space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="mt-2 text-base">🚫</span>
+              <input
+                value={r.rule}
+                onChange={(e) => update(i, { rule: e.target.value })}
+                placeholder="Descrição da proibição"
+                className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium outline-none focus:border-destructive"
+              />
+              <button
+                type="button"
+                onClick={() => update(i, { enabled: !r.enabled })}
+                className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase ${r.enabled ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border bg-background text-muted-foreground"}`}
+              >
+                {r.enabled ? "Ativa" : "Desativada"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setRules(rules.filter((_, j) => j !== i))}
+                className="rounded-md border border-border bg-background p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Remover"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <textarea
+              value={r.deflection}
+              onChange={(e) => update(i, { deflection: e.target.value })}
+              placeholder="Como desviar (opcional)"
+              rows={2}
+              className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-destructive"
+            />
+          </div>
+        ))}
+        {!listQ.isLoading && rules.length === 0 && (
+          <p className="rounded-md border border-dashed border-destructive/40 p-4 text-center text-xs text-muted-foreground">
+            Nenhuma regra cadastrada. Clique em "Adicionar regra".
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

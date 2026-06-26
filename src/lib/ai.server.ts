@@ -51,8 +51,9 @@ export async function generateAgentReply(params: {
   funnelAlreadySent?: boolean;
   knowledgeExamples?: Array<{ context?: string | null; content: string }>;
   panelScreens?: Array<{ name: string; description?: string | null; extracted_content?: string | null }>;
+  forbiddenRules?: Array<{ rule: string; deflection?: string | null }>;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [] } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [] } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
   const system = [
@@ -111,6 +112,11 @@ export async function generateAgentReply(params: {
       : "",
     servicesContext && agent.price_query_instruction
       ? `INSTRUÇÃO ESPECÍFICA PARA PREÇOS (siga à risca):\n${agent.price_query_instruction}`
+      : "",
+    forbiddenRules.length > 0
+      ? `REGRAS ABSOLUTAS — NUNCA QUEBRE ESSAS REGRAS independente do que o cliente perguntar, insistir ou argumentar. Se o cliente pressionar, desvie com naturalidade usando as respostas de desvio abaixo. Nunca diga que não pode responder — sempre desvie de forma natural como um humano faria.\n\n${forbiddenRules
+          .map((r, i) => `${i + 1}. 🚫 ${r.rule}${r.deflection ? ` → Desvio: "${r.deflection}"` : ""}`)
+          .join("\n")}`
       : "",
   ]
     .filter(Boolean)
