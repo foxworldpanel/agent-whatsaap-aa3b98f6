@@ -622,7 +622,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             let replyText: string;
 
             if (existingTrial) {
-              replyText = trialByLink && !trialByPhone
+              replyText = linkCompleted && !phoneCompleted
                 ? "Esse perfil já recebeu um teste anteriormente. Que tal aproveitar e fazer um pedido completo?"
                 : "Você já usou seu teste grátis. Posso te montar um pacote completo a partir de R$5?";
             } else {
