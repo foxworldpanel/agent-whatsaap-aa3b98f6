@@ -63,13 +63,21 @@ export async function smmAddOrder(
 export async function smmOrderStatus(
   creds: SmmCreds,
   orderId: string | number,
-): Promise<{ status?: string; error?: string; raw: unknown }> {
+): Promise<{ status?: string; start_count?: number; quantity?: number; error?: string; raw: unknown }> {
   const raw = (await smmPost(creds, {
     action: "status",
     order: String(orderId),
   })) as Record<string, unknown>;
   const status = (raw.status as string | undefined)?.toLowerCase();
-  return { status, error: raw.error as string | undefined, raw };
+  const start_count = raw.start_count !== undefined ? Number(raw.start_count) : undefined;
+  const quantity = raw.quantity !== undefined ? Number(raw.quantity) : undefined;
+  return {
+    status,
+    start_count: Number.isFinite(start_count) ? start_count : undefined,
+    quantity: Number.isFinite(quantity) ? quantity : undefined,
+    error: raw.error as string | undefined,
+    raw,
+  };
 }
 
 // Fetch the panel's full service catalogue (action=services).
