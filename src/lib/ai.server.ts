@@ -48,8 +48,9 @@ export async function generateAgentReply(params: {
   isInbound?: boolean;
   funnelAlreadySent?: boolean;
   knowledgeExamples?: Array<{ context?: string | null; content: string }>;
+  panelScreens?: Array<{ name: string; description?: string | null; extracted_content?: string | null }>;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [] } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [] } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
   const system = [
@@ -64,6 +65,11 @@ export async function generateAgentReply(params: {
       ? `==== BASE DE CONHECIMENTO (REFERÊNCIA DE ESTILO) ====\nExemplos reais de atendimentos do dono do negócio. Use APENAS como referência de TOM, TAMANHO e VOCABULÁRIO — NÃO como respostas prontas.\n\nRegras de uso:\n1. NUNCA copie o conteúdo de um exemplo se ele não responder à pergunta atual do cliente.\n2. NUNCA solte um trecho de exemplo "porque parece encaixar" — só use se a pergunta atual realmente bate com a do exemplo.\n3. Se nenhum exemplo se aplica, IGNORE os exemplos e responda a pergunta com suas próprias palavras, mantendo o tom geral.\n4. A pergunta atual do cliente sempre vence sobre qualquer exemplo.\n\nEXEMPLOS:\n${knowledgeExamples
           .map((ex, i) => `--- Exemplo ${i + 1}${ex.context ? ` — contexto: ${ex.context}` : ""} ---\n${ex.content}`)
           .join("\n\n")}\n==== FIM DA BASE DE CONHECIMENTO ====`
+      : "",
+    panelScreens.length > 0
+      ? `==== GUIA DO PAINEL MIND SMM ====\nEstas são as telas do painel Mind SMM. Use esse conhecimento para guiar o cliente passo a passo dentro do painel quando ele tiver dúvida. Descreva exatamente onde clicar e o que fazer em cada etapa. Use linguagem simples e curta no WhatsApp — não despeje a descrição inteira, traduza para instruções diretas.\n\n${panelScreens
+          .map((s, i) => `--- Tela ${i + 1}: ${s.name} ---${s.description ? `\nObservação: ${s.description}` : ""}${s.extracted_content ? `\n${s.extracted_content}` : ""}`)
+          .join("\n\n")}\n==== FIM DO GUIA DO PAINEL ====`
       : "",
     (() => {
       const ci = agent.company_info as Record<string, string> | null | undefined;
