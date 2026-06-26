@@ -741,6 +741,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         // price / service keywords, fetch services from the panel and pass
         // them as context to the LLM.
         let servicesContext: string | null = null;
+        let servicesFetchFailed = false;
         const a0 = agent as { services_realtime?: boolean };
         if (a0.services_realtime && integ.smm_api_key) {
           try {
@@ -749,15 +750,18 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v2",
               key: integ.smm_api_key,
             });
+            console.log("Serviços carregados:", services.length);
             if (services.length > 0) {
               servicesContext = services
                 .slice(0, 200)
                 .map((s) => `#${s.service} [${s.category}] ${s.name} — R$ ${s.rate}/1000 (min ${s.min}, max ${s.max})`)
                 .join("\n");
-              console.info("[smm] services loaded", { count: services.length });
+            } else {
+              servicesFetchFailed = true;
             }
           } catch (e) {
             console.error("smm services fetch failed", e);
+            servicesFetchFailed = true;
           }
         }
 
@@ -769,7 +773,9 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               !/não consigo mandar áudio/i.test(m.body ?? "") &&
               !/respondendo (?:certinho )?por texto/i.test(m.body ?? ""),
           );
-          if (kind === "audio" && inboundBody === "[áudio recebido]") {
+          if (servicesFetchFailed) {
+            reply = "Deixa eu verificar os valores e te retorno em instantes!";
+          } else if (kind === "audio" && inboundBody === "[áudio recebido]") {
             reply = "Não consegui entender bem esse áudio. Pode mandar de novo?";
           } else {
           reply = await generateAgentReply({
