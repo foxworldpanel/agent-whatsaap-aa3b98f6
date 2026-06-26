@@ -48,8 +48,9 @@ export async function generateAgentReply(params: {
   isInbound?: boolean;
   funnelAlreadySent?: boolean;
   knowledgeExamples?: Array<{ context?: string | null; content: string }>;
+  panelScreens?: Array<{ name: string; description?: string | null; extracted_content?: string | null }>;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [] } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [] } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
   const system = [
@@ -64,6 +65,11 @@ export async function generateAgentReply(params: {
       ? `==== BASE DE CONHECIMENTO (REFERÊNCIA DE ESTILO) ====\nExemplos reais de atendimentos do dono do negócio. Use APENAS como referência de TOM, TAMANHO e VOCABULÁRIO — NÃO como respostas prontas.\n\nRegras de uso:\n1. NUNCA copie o conteúdo de um exemplo se ele não responder à pergunta atual do cliente.\n2. NUNCA solte um trecho de exemplo "porque parece encaixar" — só use se a pergunta atual realmente bate com a do exemplo.\n3. Se nenhum exemplo se aplica, IGNORE os exemplos e responda a pergunta com suas próprias palavras, mantendo o tom geral.\n4. A pergunta atual do cliente sempre vence sobre qualquer exemplo.\n\nEXEMPLOS:\n${knowledgeExamples
           .map((ex, i) => `--- Exemplo ${i + 1}${ex.context ? ` — contexto: ${ex.context}` : ""} ---\n${ex.content}`)
           .join("\n\n")}\n==== FIM DA BASE DE CONHECIMENTO ====`
+      : "",
+    panelScreens.length > 0
+      ? `==== GUIA DO PAINEL MIND SMM ====\nEstas são as telas do painel Mind SMM. Use esse conhecimento para guiar o cliente passo a passo dentro do painel quando ele tiver dúvida. Descreva exatamente onde clicar e o que fazer em cada etapa. Use linguagem simples e curta no WhatsApp — não despeje a descrição inteira, traduza para instruções diretas.\n\n${panelScreens
+          .map((s, i) => `--- Tela ${i + 1}: ${s.name} ---${s.description ? `\nObservação: ${s.description}` : ""}${s.extracted_content ? `\n${s.extracted_content}` : ""}`)
+          .join("\n\n")}\n==== FIM DO GUIA DO PAINEL ====`
       : "",
     (() => {
       const ci = agent.company_info as Record<string, string> | null | undefined;
@@ -257,6 +263,49 @@ export async function extractConversationFromImage(imageUrl: string): Promise<st
           content: [
             { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } },
             { type: "text", text: "Transcreva a conversa deste print." },
+          ],
+        },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Claude Vision falhou (${res.status}): ${t.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+  return (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
+}
+
+// ----- Vision: descreve uma tela do painel (botões, campos, fluxo) -----
+export async function describePanelScreen(params: {
+  imageUrl: string;
+  name: string;
+  description?: string | null;
+}): Promise<string> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error("ANTHROPIC_API_KEY ausente");
+
+  const img = await fetch(params.imageUrl);
+  if (!img.ok) throw new Error(`Falha ao baixar imagem (${img.status})`);
+  const mediaType = img.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
+  const b64 = Buffer.from(await img.arrayBuffer()).toString("base64");
+
+  const userText = `Esta é uma tela do painel Mind SMM chamada "${params.name}".${
+    params.description ? ` Contexto do dono: ${params.description}.` : ""
+  }\n\nDescreva minuciosamente o que aparece na tela: todos os botões (com o texto exato), campos de formulário, menus, abas, links, valores, mensagens visíveis e a ordem visual dos elementos. Inclua um passo a passo claro de como o usuário deve agir nessa tela (onde clicar primeiro, o que preencher, qual botão final). Seja específico — outra IA vai usar essa descrição para guiar clientes sem ver a imagem.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 1500,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } },
+            { type: "text", text: userText },
           ],
         },
       ],

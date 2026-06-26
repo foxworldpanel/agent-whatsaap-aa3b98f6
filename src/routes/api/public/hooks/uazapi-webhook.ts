@@ -714,6 +714,19 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .filter((r) => (r.content ?? "").trim().length > 0)
           .map((r) => ({ context: r.context, content: r.content as string }));
 
+        // Load Panel Guide screens (Mind SMM) so the agent can step the customer through.
+        const { data: pgRows } = await supabaseAdmin
+          .from("panel_guide")
+          .select("name, description, extracted_content")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        const panelScreens = (pgRows ?? []).map((r) => ({
+          name: r.name as string,
+          description: r.description as string | null,
+          extracted_content: r.extracted_content as string | null,
+        }));
+
         // Real-time SMM catalogue: if enabled and the inbound message mentions
         // price / service keywords, fetch services from the panel and pass
         // them as context to the LLM.
@@ -760,6 +773,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             isInbound: true,
             funnelAlreadySent,
             knowledgeExamples,
+            panelScreens,
           });
           }
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
