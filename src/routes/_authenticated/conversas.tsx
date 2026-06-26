@@ -196,14 +196,9 @@ function Conversas() {
     },
   });
 
-  // Auto-poll every 30s
-  useEffect(() => {
-    // Sem polling: Realtime do Supabase entrega INSERT/UPDATE em messages
-    // e conversations. O botão "Sincronizar" continua disponível para
-    // backfill manual de mensagens antigas via API do Uazapi.
-    return;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId]);
+  // Sem polling: Realtime do Supabase entrega INSERT/UPDATE em messages e
+  // conversations em tempo real. O botão "Sincronizar" continua disponível
+  // para backfill manual via API do Uazapi.
 
   // Realtime: refresh on insert/update + reconexão automática a cada 5s
   useEffect(() => {
