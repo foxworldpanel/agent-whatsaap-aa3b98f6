@@ -367,3 +367,82 @@ export async function uazapiListChats(creds: UazapiCreds): Promise<UazapiChatSum
   }
   return out;
 }
+
+export type UazapiMessageRow = {
+  external_id: string;
+  chat_phone: string;
+  from_me: boolean;
+  text: string | null;
+  type: string | null;
+  timestamp: string; // ISO
+};
+
+export async function uazapiListMessages(
+  creds: UazapiCreds,
+  chatPhone: string,
+  limit = 30,
+): Promise<UazapiMessageRow[]> {
+  const base = creds.uazapi_url.replace(/\/+$/, "");
+  const phone = normalizePhone(chatPhone);
+  const res = await fetch(`${base}/message/find`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", token: creds.uazapi_token },
+    body: JSON.stringify({
+      operator: "AND",
+      sort: "-messageTimestamp",
+      limit,
+      wa_chatid: `${phone}@s.whatsapp.net`,
+    }),
+  });
+  if (!res.ok) return [];
+  const j = (await res.json().catch(() => null)) as unknown;
+  const raw: unknown[] = Array.isArray(j)
+    ? j
+    : Array.isArray((j as { messages?: unknown[] })?.messages)
+      ? ((j as { messages: unknown[] }).messages)
+      : Array.isArray((j as { data?: unknown[] })?.data)
+        ? ((j as { data: unknown[] }).data)
+        : [];
+  const out: UazapiMessageRow[] = [];
+  for (const item of raw) {
+    const r = item as Record<string, unknown>;
+    const id =
+      (r.messageid as string | undefined) ??
+      (r.id as string | undefined) ??
+      (r.key_id as string | undefined) ??
+      (r.wa_messageid as string | undefined);
+    if (!id) continue;
+    const ts =
+      (r.messageTimestamp as number | undefined) ??
+      (r.timestamp as number | undefined) ??
+      (r.t as number | undefined);
+    const chatid =
+      (r.wa_chatid as string | undefined) ??
+      (r.chatid as string | undefined) ??
+      `${phone}@s.whatsapp.net`;
+    const fromMe =
+      (r.fromMe as boolean | undefined) ??
+      (r.fromme as boolean | undefined) ??
+      (r.from_me as boolean | undefined) ??
+      false;
+    const text =
+      (r.text as string | undefined) ??
+      (r.body as string | undefined) ??
+      (r.content as string | undefined) ??
+      (r.message as string | undefined) ??
+      null;
+    const type =
+      (r.messageType as string | undefined) ??
+      (r.type as string | undefined) ??
+      null;
+    out.push({
+      external_id: id,
+      chat_phone: normalizePhone(chatid.split("@")[0] ?? phone),
+      from_me: !!fromMe,
+      text: text ? String(text) : null,
+      type,
+      timestamp: ts ? new Date(ts > 1e12 ? ts : ts * 1000).toISOString() : new Date().toISOString(),
+    });
+  }
+  return out;
+}

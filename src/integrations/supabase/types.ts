@@ -684,6 +684,7 @@ export type Database = {
           body: string
           conversation_id: string
           created_at: string
+          external_id: string | null
           id: string
           kind: Database["public"]["Enums"]["message_kind"]
           sender: Database["public"]["Enums"]["message_sender"]
@@ -694,6 +695,7 @@ export type Database = {
           body: string
           conversation_id: string
           created_at?: string
+          external_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["message_kind"]
           sender: Database["public"]["Enums"]["message_sender"]
@@ -704,6 +706,7 @@ export type Database = {
           body?: string
           conversation_id?: string
           created_at?: string
+          external_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["message_kind"]
           sender?: Database["public"]["Enums"]["message_sender"]

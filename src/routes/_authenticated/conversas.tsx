@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Bot, Trash2 } from "lucide-react";
+import { Send, Bot, Trash2, RefreshCw } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage, clearConversation } from "@/lib/whatsapp.functions";
 import { setConversationAgentEnabled } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
+import { syncWhatsappMessages } from "@/lib/sync.functions";
 
 export const Route = createFileRoute("/_authenticated/conversas")({
   ssr: false,
@@ -99,9 +100,12 @@ function Conversas() {
   const toggleConvAgent = useServerFn(setConversationAgentEnabled);
   const fetchNumbers = useServerFn(listNumbers);
   const clearFn = useServerFn(clearConversation);
+  const syncFn = useServerFn(syncWhatsappMessages);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const [syncStatus, setSyncStatus] = useState<"live" | "syncing" | "error">("live");
 
   const numbersQ = useQuery({
     queryKey: ["whatsapp_numbers"],
@@ -175,6 +179,32 @@ function Conversas() {
     },
   });
 
+  const syncMut = useMutation({
+    mutationFn: () => syncFn(),
+    onMutate: () => setSyncStatus("syncing"),
+    onSuccess: (res: any) => {
+      setLastSyncAt(new Date());
+      setSyncStatus("live");
+      if (res?.inserted > 0) {
+        toast.success(`${res.inserted} nova(s) mensagem(ns) sincronizada(s)`);
+        qc.invalidateQueries({ queryKey: ["messages", activeId] });
+        qc.invalidateQueries({ queryKey: ["conversations"] });
+      }
+    },
+    onError: () => {
+      setSyncStatus("error");
+    },
+  });
+
+  // Auto-poll every 30s
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!syncMut.isPending) syncMut.mutate();
+    }, 30_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
   // Realtime: refresh on insert/update
   useEffect(() => {
     const ch = supabase
@@ -199,7 +229,42 @@ function Conversas() {
           <p className="text-sm text-muted-foreground">Histórico</p>
           <h1 className="text-3xl font-bold tracking-tight">Conversas</h1>
         </div>
-        {numbers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-xs">
+            <span
+              className={`relative inline-flex h-2 w-2 rounded-full ${
+                syncStatus === "error"
+                  ? "bg-red-500"
+                  : syncStatus === "syncing"
+                  ? "bg-amber-500"
+                  : "bg-emerald-500"
+              }`}
+            >
+              {syncStatus === "live" && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              )}
+            </span>
+            <span className="text-neutral-600">
+              {syncStatus === "error"
+                ? "Reconectando…"
+                : syncStatus === "syncing"
+                ? "Sincronizando…"
+                : lastSyncAt
+                ? `Atualizado às ${lastSyncAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+                : "Em tempo real"}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => syncMut.mutate()}
+            disabled={syncMut.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
+            title="Busca mensagens recentes da Uazapi (inclui mensagens enviadas pelo celular)"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${syncMut.isPending ? "animate-spin" : ""}`} />
+            {syncMut.isPending ? "Sincronizando…" : "Sincronizar"}
+          </button>
+          {numbers.length > 0 && (
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-neutral-600">Número:</label>
             <select
@@ -218,7 +283,8 @@ function Conversas() {
               ))}
             </select>
           </div>
-        )}
+          )}
+        </div>
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-border shadow-sm md:grid-cols-[360px_minmax(0,1fr)]">
