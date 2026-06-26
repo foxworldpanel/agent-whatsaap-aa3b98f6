@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw, BookOpen, ImageIcon, MessageSquare, Loader2, Monitor, ShieldAlert, ChevronDown } from "lucide-react";
+import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw, BookOpen, ImageIcon, MessageSquare, Loader2, Monitor, ShieldAlert, ChevronDown, Stethoscope, X, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations } from "@/lib/agent.functions";
+import { runAgentDiagnostics } from "@/lib/agent-diagnostics.functions";
 import { listKnowledge, addTextExample, addImageExample, deleteKnowledge } from "@/lib/knowledge-base.functions";
 import { listPanelGuide, addPanelScreen, updatePanelScreen, deletePanelScreen } from "@/lib/panel-guide.functions";
 import { listForbiddenRules, saveForbiddenRules, seedDefaultForbiddenRules } from "@/lib/forbidden-rules.functions";
@@ -166,6 +167,14 @@ function AgentePage() {
     },
   });
 
+  const diagFn = useServerFn(runAgentDiagnostics);
+  const [diagOpen, setDiagOpen] = useState(false);
+  const diagMut = useMutation({
+    mutationFn: () => diagFn({ data: {} as never }),
+    onError: (e) => toast.error(`Diagnóstico falhou: ${(e as Error).message}`),
+  });
+  const openDiagnostics = () => { setDiagOpen(true); diagMut.mutate(); };
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -190,7 +199,23 @@ function AgentePage() {
           <RefreshCw className={`h-4 w-4 ${reloadMut.isPending ? "animate-spin" : ""}`} />
           {reloadMut.isPending ? "Recarregando…" : "Salvar e Recarregar Agente"}
         </button>
+        <button
+          onClick={openDiagnostics}
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-accent"
+        >
+          <Stethoscope className="h-4 w-4" />
+          Diagnóstico do Agente
+        </button>
       </header>
+
+      {diagOpen && (
+        <DiagnosticsModal
+          onClose={() => setDiagOpen(false)}
+          loading={diagMut.isPending}
+          data={diagMut.data}
+          onRetry={() => diagMut.mutate()}
+        />
+      )}
 
       <div className="space-y-6">
         <CollapsibleCard icon={<Bot className="h-5 w-5 text-primary" />} title="Personalidade">
