@@ -129,7 +129,16 @@ export const importExtractedContacts = createServerFn({ method: "POST" })
     }
 
     if (toInsert.length) {
-      const { error } = await context.supabase.from("contacts").insert(toInsert as never);
+      // Deduplicate by phone in case the batch contains duplicates
+      const uniqueByPhone = Array.from(
+        new Map(toInsert.map((c) => [c.telefone, c])).values(),
+      );
+      const { error } = await context.supabase
+        .from("contacts")
+        .upsert(uniqueByPhone as never, {
+          onConflict: "user_id,telefone",
+          ignoreDuplicates: false,
+        });
       if (error) throw new Error(error.message);
     }
 
