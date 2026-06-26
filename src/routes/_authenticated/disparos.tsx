@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check } from "lucide-react";
+import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listCampaigns,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/campaigns.functions";
 import { getAgentConfig, saveAgentConfig } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
+import { listAutoCampaigns, updateAutoCampaign } from "@/lib/auto-campaigns.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
@@ -92,6 +93,8 @@ function Disparos() {
       </header>
 
       <ScriptsSection enabled={disparosActive} />
+
+      <AutoCampaignsSection />
 
       {showAdd && (
         <AddForm
