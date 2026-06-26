@@ -109,6 +109,9 @@ export async function generateAgentReply(params: {
     servicesContext
       ? `CATÁLOGO DE SERVIÇOS DO PAINEL (atualizado agora, use para responder preço e disponibilidade. Calcule o valor total quando o cliente informar a quantidade: total = (rate / 1000) * quantidade. Sempre direcione para o painel para finalizar o pedido: https://mindsmmpanel.com):\n${servicesContext}`
       : "",
+    servicesContext && agent.price_query_instruction
+      ? `INSTRUÇÃO ESPECÍFICA PARA PREÇOS (siga à risca):\n${agent.price_query_instruction}`
+      : "",
   ]
     .filter(Boolean)
     .join("\n\n");
