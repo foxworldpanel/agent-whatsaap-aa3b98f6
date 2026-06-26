@@ -421,15 +421,23 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         // ===== TESTE GRÁTIS: detecta link IG/YT na mensagem do cliente =====
         if (integ.free_trial_enabled && integ.smm_api_key && integ.smm_service_id) {
-          const { detectSocialLink, smmAddOrder } = await import("@/lib/smm.server");
+          const { detectSocialLink, normalizeSocialLink, smmAddOrder } = await import("@/lib/smm.server");
           const link = detectSocialLink(inboundBody);
           if (link) {
-            const { data: existingTrial } = await supabaseAdmin
+            const linkNorm = normalizeSocialLink(link.url);
+            const { data: trialByPhone } = await supabaseAdmin
               .from("free_trials")
-              .select("id, status, order_id")
+              .select("id")
               .eq("user_id", userId)
               .eq("telefone", phone)
               .maybeSingle();
+            const { data: trialByLink } = await supabaseAdmin
+              .from("free_trials")
+              .select("id, telefone")
+              .eq("user_id", userId)
+              .eq("link_normalized", linkNorm)
+              .maybeSingle();
+            const existingTrial = trialByPhone || trialByLink;
 
             const { uazapiSendText } = await import("@/lib/uazapi.server");
             const creds = {
@@ -440,8 +448,9 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             let replyText: string;
 
             if (existingTrial) {
-              replyText =
-                "Você já usou seu teste grátis! Mas tenho pacotes a partir de R$5 😊";
+              replyText = trialByLink && !trialByPhone
+                ? "Esse perfil já recebeu um teste anteriormente. Que tal aproveitar e fazer um pedido completo?"
+                : "Você já usou seu teste grátis. Posso te montar um pacote completo a partir de R$5?";
             } else {
               try {
                 const result = await smmAddOrder(
@@ -460,6 +469,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                   conversation_id: conv.id,
                   telefone: phone,
                   link_enviado: link.url,
+                  link_normalized: linkNorm,
                   order_id: String(result.order),
                   servico: integ.smm_service_id,
                   quantidade: 100,
@@ -737,6 +747,18 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .filter((r) => r.enabled !== false)
           .map((r) => ({ rule: r.rule as string, deflection: (r.deflection as string | null) ?? null }));
 
+        // Free-test services available for proactive offer when the agent detects hesitation.
+        let freeTestServices: Array<{ service_id: string; service_name: string; category: string; quantity: number }> = [];
+        if (integ.free_trial_enabled) {
+          const { data: ftsRows } = await supabaseAdmin
+            .from("free_test_services")
+            .select("service_id, service_name, category, quantity")
+            .eq("user_id", userId)
+            .eq("enabled", true)
+            .limit(50);
+          freeTestServices = (ftsRows ?? []) as typeof freeTestServices;
+        }
+
         // Real-time SMM catalogue: if enabled and the inbound message mentions
         // price / service keywords, fetch services from the panel and pass
         // them as context to the LLM.
@@ -789,6 +811,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             knowledgeExamples,
             panelScreens,
             forbiddenRules,
+            freeTestServices,
           });
           }
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;

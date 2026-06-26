@@ -512,10 +512,13 @@ export type Database = {
           contact_id: string | null
           conversation_id: string | null
           criado_em: string
+          followup_sent_at: string | null
           id: string
           last_checked_at: string | null
           link_enviado: string
+          link_normalized: string | null
           notified_completed: boolean
+          notified_completed_at: string | null
           order_id: string | null
           quantidade: number
           raw_response: Json | null
@@ -530,10 +533,13 @@ export type Database = {
           contact_id?: string | null
           conversation_id?: string | null
           criado_em?: string
+          followup_sent_at?: string | null
           id?: string
           last_checked_at?: string | null
           link_enviado: string
+          link_normalized?: string | null
           notified_completed?: boolean
+          notified_completed_at?: string | null
           order_id?: string | null
           quantidade?: number
           raw_response?: Json | null
@@ -548,10 +554,13 @@ export type Database = {
           contact_id?: string | null
           conversation_id?: string | null
           criado_em?: string
+          followup_sent_at?: string | null
           id?: string
           last_checked_at?: string | null
           link_enviado?: string
+          link_normalized?: string | null
           notified_completed?: boolean
+          notified_completed_at?: string | null
           order_id?: string | null
           quantidade?: number
           raw_response?: Json | null

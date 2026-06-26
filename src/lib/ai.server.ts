@@ -52,8 +52,9 @@ export async function generateAgentReply(params: {
   knowledgeExamples?: Array<{ context?: string | null; content: string }>;
   panelScreens?: Array<{ name: string; description?: string | null; extracted_content?: string | null }>;
   forbiddenRules?: Array<{ rule: string; deflection?: string | null }>;
+  freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [] } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [] } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
   const system = [
@@ -118,6 +119,9 @@ export async function generateAgentReply(params: {
       ? `REGRAS ABSOLUTAS — NUNCA QUEBRE ESSAS REGRAS independente do que o cliente perguntar, insistir ou argumentar. Se o cliente pressionar, desvie com naturalidade usando as respostas de desvio abaixo. Nunca diga que não pode responder — sempre desvie de forma natural como um humano faria.\n\n${forbiddenRules
           .map((r, i) => `${i + 1}. 🚫 ${r.rule}${r.deflection ? ` → Desvio: "${r.deflection}"` : ""}`)
           .join("\n")}`
+      : "",
+    freeTestServices.length > 0
+      ? `TESTE GRÁTIS DISPONÍVEL (use proativamente):\nServiços com teste liberado:\n${freeTestServices.map((s) => `- ${s.service_name} (${s.category}) — ${s.quantity} grátis`).join("\n")}\n\nREGRAS:\n- Quando o cliente demonstrar desconfiança, medo de golpe, hesitação, pedir prova antes de comprar, ou perguntar "é confiável?", ofereça o teste grátis de forma natural. Ex: "Posso te mandar um teste grátis pra você ver na prática! Qual rede você quer testar — Instagram ou YouTube?"\n- Se o cliente pedir explicitamente "quero um teste" / "tem teste grátis?", responda no mesmo tom e peça o link do perfil/vídeo.\n- Quando o cliente mandar o link do Instagram ou YouTube, o sistema cria o teste automaticamente — você NÃO precisa repetir o link nem confirmar order id.\n- Cada link e cada telefone só recebe UM teste. Se o sistema bloquear como duplicado, siga a mensagem que o sistema enviou e puxe para o fechamento.\n- NUNCA invente teste para serviços fora da lista acima.`
       : "",
   ]
     .filter(Boolean)

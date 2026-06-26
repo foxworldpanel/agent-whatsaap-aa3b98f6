@@ -130,3 +130,15 @@ export function detectSocialLink(text: string): { url: string; platform: "instag
   }
   return null;
 }
+
+// Normalize a social link for dedup purposes: lowercased host+path, no query/hash, no trailing slash.
+export function normalizeSocialLink(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    const host = u.host.toLowerCase().replace(/^www\./, "");
+    const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+    return `${host}${path}`;
+  } catch {
+    return url.trim().toLowerCase().split("?")[0].replace(/\/+$/, "");
+  }
+}
