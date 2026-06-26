@@ -85,12 +85,13 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ enabled: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const { data: saved, error } = await context.supabase
       .from("agent_config")
-      .update({ agent_enabled: data.enabled })
-      .eq("user_id", context.userId);
+      .upsert({ user_id: context.userId, agent_enabled: data.enabled }, { onConflict: "user_id" })
+      .select("agent_enabled")
+      .single();
     if (error) throw new Error(error.message);
-    return { ok: true };
+    return { ok: true, agent_enabled: saved.agent_enabled };
   });
 
 // Toggle agent on/off for a single conversation
