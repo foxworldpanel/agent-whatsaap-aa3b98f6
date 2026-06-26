@@ -229,7 +229,42 @@ function Conversas() {
           <p className="text-sm text-muted-foreground">Histórico</p>
           <h1 className="text-3xl font-bold tracking-tight">Conversas</h1>
         </div>
-        {numbers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-white px-3 py-1.5 text-xs">
+            <span
+              className={`relative inline-flex h-2 w-2 rounded-full ${
+                syncStatus === "error"
+                  ? "bg-red-500"
+                  : syncStatus === "syncing"
+                  ? "bg-amber-500"
+                  : "bg-emerald-500"
+              }`}
+            >
+              {syncStatus === "live" && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              )}
+            </span>
+            <span className="text-neutral-600">
+              {syncStatus === "error"
+                ? "Reconectando…"
+                : syncStatus === "syncing"
+                ? "Sincronizando…"
+                : lastSyncAt
+                ? `Atualizado às ${lastSyncAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+                : "Em tempo real"}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => syncMut.mutate()}
+            disabled={syncMut.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
+            title="Busca mensagens recentes da Uazapi (inclui mensagens enviadas pelo celular)"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${syncMut.isPending ? "animate-spin" : ""}`} />
+            {syncMut.isPending ? "Sincronizando…" : "Sincronizar"}
+          </button>
+          {numbers.length > 0 && (
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-neutral-600">Número:</label>
             <select
@@ -248,7 +283,8 @@ function Conversas() {
               ))}
             </select>
           </div>
-        )}
+          )}
+        </div>
       </header>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-border shadow-sm md:grid-cols-[360px_minmax(0,1fr)]">
