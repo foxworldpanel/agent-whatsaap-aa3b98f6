@@ -30,39 +30,50 @@ export async function uazapiSendText(creds: UazapiCreds, to: string, text: strin
   await uazapiPost(creds, "/send/text", { number: normalizePhone(to), text });
 }
 
-// Sends "typing..." (composing) presence to a chat for ~`durationMs` ms.
-// Uses Uazapi /message/presence endpoint. Failures are swallowed (best-effort).
-export async function uazapiSendTyping(
+// Presence helpers — use Uazapi /chat/presence (the endpoint available on
+// mindsmmglobal.uazapi.com). Failures are swallowed (best-effort).
+async function uazapiSendPresence(
   creds: UazapiCreds,
   to: string,
-  durationMs: number,
+  presence: "composing" | "recording" | "paused" | "available",
+  durationMs?: number,
 ): Promise<void> {
   try {
-    await uazapiPost(creds, "/message/presence", {
+    const body: Record<string, unknown> = {
       number: normalizePhone(to),
-      presence: "composing",
-      delay: Math.max(1000, Math.min(durationMs, 60_000)),
-    });
+      phone: normalizePhone(to),
+      presence,
+    };
+    if (durationMs && presence !== "paused" && presence !== "available") {
+      body.delay = Math.max(1000, Math.min(durationMs, 60_000));
+    }
+    await uazapiPost(creds, "/chat/presence", body);
   } catch {
     // ignore — presence is best-effort
   }
 }
 
-// Sends "recording audio" presence to a chat for ~`durationMs` ms.
+export async function uazapiSendTyping(
+  creds: UazapiCreds,
+  to: string,
+  durationMs: number,
+): Promise<void> {
+  await uazapiSendPresence(creds, to, "composing", durationMs);
+}
+
 export async function uazapiSendRecording(
   creds: UazapiCreds,
   to: string,
   durationMs: number,
 ): Promise<void> {
-  try {
-    await uazapiPost(creds, "/message/presence", {
-      number: normalizePhone(to),
-      presence: "recording",
-      delay: Math.max(1000, Math.min(durationMs, 60_000)),
-    });
-  } catch {
-    // ignore — presence is best-effort
-  }
+  await uazapiSendPresence(creds, to, "recording", durationMs);
+}
+
+export async function uazapiClearPresence(
+  creds: UazapiCreds,
+  to: string,
+): Promise<void> {
+  await uazapiSendPresence(creds, to, "paused");
 }
 
 export async function uazapiSendAudio(
