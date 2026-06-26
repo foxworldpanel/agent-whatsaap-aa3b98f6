@@ -63,9 +63,9 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
           .map((m) => ({
             user_id: conv.user_id,
             conversation_id: conv.id,
-            sender: m.from_me ? "agente" : "cliente",
-            kind: m.type === "audio" || m.type === "audioMessage" ? "audio" : "texto",
-            body: m.text,
+            sender: (m.from_me ? "agente" : "cliente") as "agente" | "cliente",
+            kind: (m.type === "audio" || m.type === "audioMessage" ? "audio" : "texto") as "audio" | "texto",
+            body: m.text ?? "",
             external_id: m.external_id,
             created_at: m.timestamp,
           }));
