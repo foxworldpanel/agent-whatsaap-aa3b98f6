@@ -776,7 +776,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             if (services.length > 0) {
               servicesContext = services
                 .slice(0, 200)
-                .map((s) => `#${s.service} [${s.category}] ${s.name} — R$ ${s.rate}/1000 (min ${s.min}, max ${s.max})`)
+                .map(
+                  (s) =>
+                    `ID: ${s.service} | Nome: ${s.name} | Categoria: ${s.category} | Preço por 1000: R$${s.rate} | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`,
+                )
                 .join("\n");
             } else {
               servicesFetchFailed = true;
