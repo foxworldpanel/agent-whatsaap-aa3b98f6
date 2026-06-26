@@ -201,6 +201,26 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           }
         }
 
+        // Trava anti-duplicata: evita reenviar para o mesmo número um texto
+        // idêntico ao último enviado pelo agente nos últimos 5 segundos.
+        const wasRecentlySent = async (conversationId: string, body: string): Promise<boolean> => {
+          const fiveSecAgo = new Date(Date.now() - 5000).toISOString();
+          const { data } = await supabaseAdmin
+            .from("messages")
+            .select("id")
+            .eq("conversation_id", conversationId)
+            .eq("sender", "agente")
+            .eq("body", body)
+            .gte("created_at", fiveSecAgo)
+            .limit(1)
+            .maybeSingle();
+          if (data) {
+            console.log(`Mensagem duplicada bloqueada: ${messageId ?? "(sem id)"} → "${body.slice(0, 60)}"`);
+            return true;
+          }
+          return false;
+        };
+
         // Resolve o número pelo token — primeiro em whatsapp_numbers (novo),
         // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
         const { data: number } = await supabaseAdmin
