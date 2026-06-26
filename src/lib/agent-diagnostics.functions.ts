@@ -31,7 +31,7 @@ export const runAgentDiagnostics = createServerFn({ method: "POST" })
       try {
         const { smmFetchServices } = await import("@/lib/smm.server");
         const list = await smmFetchServices({
-          url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v2",
+          url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
           key: integ.smm_api_key,
         });
         servicesCount = list.length;

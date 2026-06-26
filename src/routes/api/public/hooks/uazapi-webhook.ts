@@ -538,7 +538,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 : "Você já usou seu teste grátis. Posso te montar um pacote completo a partir de R$5?";
             } else {
               const smmCreds = {
-                url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v2",
+                url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
                 key: integ.smm_api_key,
               };
               const tryOrder = async () => smmAddOrder(smmCreds, { service: serviceId, link: link.url, quantity: qty });
@@ -883,7 +883,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           try {
             const { smmFetchServices } = await import("@/lib/smm.server");
             const services = await smmFetchServices({
-              url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v2",
+              url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
               key: integ.smm_api_key,
             });
             console.log("Serviços carregados:", services.length);

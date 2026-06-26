@@ -1,0 +1,1 @@
+UPDATE public.integrations SET smm_panel_url = 'https://mindsmmpanel.com/smmpanel/api/v1' WHERE smm_panel_url LIKE '%/api/v2%' OR smm_panel_url IS NULL OR smm_panel_url = '';

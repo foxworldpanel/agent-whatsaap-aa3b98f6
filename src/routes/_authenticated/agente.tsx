@@ -509,7 +509,7 @@ function AgentePage() {
               <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
                 <div>
                   <p className="text-sm font-medium">Consultar preços automaticamente</p>
-                  <p className="text-xs text-muted-foreground">Busca em https://mindsmmpanel.com/smmpanel/api/v2?action=services&key={"{API_KEY}"} antes de responder.</p>
+                  <p className="text-xs text-muted-foreground">Busca em https://mindsmmpanel.com/smmpanel/api/v1?action=services&key={"{API_KEY}"} antes de responder.</p>
                 </div>
                 <Toggle on={cfg.services_realtime} onChange={(v) => setCfg({ ...cfg, services_realtime: v })} />
               </div>
