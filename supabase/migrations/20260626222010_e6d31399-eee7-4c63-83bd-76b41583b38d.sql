@@ -1,0 +1,1 @@
+ALTER TABLE public.free_trials ADD COLUMN IF NOT EXISTS start_count integer, ADD COLUMN IF NOT EXISTS views_atuais integer;
