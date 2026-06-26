@@ -523,11 +523,13 @@ export type Database = {
           quantidade: number
           raw_response: Json | null
           servico: string | null
+          start_count: number | null
           status: string
           telefone: string
           updated_at: string
           upsell_offered: boolean
           user_id: string
+          views_atuais: number | null
         }
         Insert: {
           contact_id?: string | null
@@ -544,11 +546,13 @@ export type Database = {
           quantidade?: number
           raw_response?: Json | null
           servico?: string | null
+          start_count?: number | null
           status?: string
           telefone: string
           updated_at?: string
           upsell_offered?: boolean
           user_id: string
+          views_atuais?: number | null
         }
         Update: {
           contact_id?: string | null
@@ -565,11 +569,13 @@ export type Database = {
           quantidade?: number
           raw_response?: Json | null
           servico?: string | null
+          start_count?: number | null
           status?: string
           telefone?: string
           updated_at?: string
           upsell_offered?: boolean
           user_id?: string
+          views_atuais?: number | null
         }
         Relationships: [
           {
