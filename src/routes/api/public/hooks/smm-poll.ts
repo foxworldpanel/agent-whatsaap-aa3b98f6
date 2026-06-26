@@ -76,8 +76,8 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
                 startCount !== null && qty !== null ? startCount + qty : null;
               const msg =
                 startCount !== null && viewsAtuais !== null
-                  ? `Seu teste foi entregue! Seu Reel tinha ${startCount} views, agora está com ${viewsAtuais} views! Sentiu a diferença?`
-                  : "Seu teste foi entregue! Dá uma olhada no seu perfil e me conta o que achou!";
+                  ? `Seu teste foi entregue! Seu Reel tinha ${startCount} views, agora está com ${viewsAtuais} views! Sentiu a diferença? 🚀`
+                  : "Seu teste foi entregue! Dá uma olhada no seu perfil e me conta o que achou! 🚀";
               try {
                 await uazapiSendText(
                   {
@@ -167,7 +167,7 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
             }
           }
           const followMsg =
-            "Quer continuar crescendo? Posso montar um pacote completo pra você";
+            "Quer continuar crescendo? É só criar sua conta em www.mindsmmpanel.com, adicionar saldo via PIX e escolher a quantidade que quiser!";
           try {
             await uazapiSendText(
               { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
