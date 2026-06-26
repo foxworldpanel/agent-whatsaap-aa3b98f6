@@ -109,24 +109,22 @@ export async function smmFetchServices(creds: SmmCreds): Promise<Array<{
   });
 }
 
-// Detects first Instagram or YouTube URL in a message.
-const URL_RE = /(https?:\/\/[^\s]+)/i;
+// Detects first Instagram, YouTube, TikTok or Spotify URL in a message.
 const IG_RE = /(instagram\.com|instagr\.am)\//i;
 const YT_RE = /(youtube\.com|youtu\.be)\//i;
+const TT_RE = /(tiktok\.com|vm\.tiktok\.com)\//i;
+const SP_RE = /(open\.spotify\.com|spotify\.link)\//i;
 
-export function detectSocialLink(text: string): { url: string; platform: "instagram" | "youtube" } | null {
+export type SocialPlatform = "instagram" | "youtube" | "tiktok" | "spotify";
+
+export function detectSocialLink(text: string): { url: string; platform: SocialPlatform } | null {
   if (!text) return null;
-  // try multiple URLs in the text
   const matches = text.match(/https?:\/\/[^\s]+/gi) ?? [];
   for (const u of matches) {
     if (IG_RE.test(u)) return { url: u, platform: "instagram" };
     if (YT_RE.test(u)) return { url: u, platform: "youtube" };
-  }
-  const single = URL_RE.exec(text);
-  if (single) {
-    const u = single[1];
-    if (IG_RE.test(u)) return { url: u, platform: "instagram" };
-    if (YT_RE.test(u)) return { url: u, platform: "youtube" };
+    if (TT_RE.test(u)) return { url: u, platform: "tiktok" };
+    if (SP_RE.test(u)) return { url: u, platform: "spotify" };
   }
   return null;
 }
