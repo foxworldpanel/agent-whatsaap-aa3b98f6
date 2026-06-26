@@ -799,24 +799,26 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .map((s) => s.trim())
           .filter((s) => s.length > 0);
 
-        // Detecta conteúdo "duro" (link, preço, lista, passo a passo) que NUNCA deve sair em áudio.
+        // Conteúdo "duro" que NÃO deve virar áudio (link explícito, preço, lista).
+        // Mantemos a checagem por PARTE — o agente costuma colocar o link sozinho
+        // depois de "===SPLIT===", então a parte falada continua áudio.
         const hasHardContent = (txt: string): boolean => {
           if (/https?:\/\//i.test(txt)) return true;
           if (/\b[\w-]+\.(com|com\.br|net|io|app|co)\b/i.test(txt)) return true;
           if (/R\$\s?\d|\d+[.,]\d{2}/.test(txt)) return true;
           if (/(^|\n)\s*(?:[-*•]|\d+[\.\)])\s+/m.test(txt)) return true;
-          if (/(passo\s*\d|primeiro,|segundo,|terceiro,)/i.test(txt)) return true;
           return false;
         };
 
-        // Quando o cliente manda áudio, o agente deve responder também em áudio —
-        // a menos que a resposta tenha conteúdo que precisa ser lido (link/preço/lista).
+        // Quando o cliente manda áudio, respondemos por áudio sempre que houver
+        // ElevenLabs configurado e a PRIMEIRA parte da resposta for falável.
+        // As demais partes (geralmente o link após "===SPLIT===") seguem como texto.
         const respondWithAudio =
           kind === "audio" &&
           !!integ.elevenlabs_api_key &&
           !!integ.elevenlabs_voice_id &&
-          replyParts.length === 1 &&
-          !hasHardContent(reply);
+          replyParts.length > 0 &&
+          !hasHardContent(replyParts[0]);
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
         const sendCreds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
@@ -858,7 +860,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               ttsElevenLabsBase64({
                 apiKey: integ.elevenlabs_api_key!,
                 voiceId: integ.elevenlabs_voice_id!,
-                text: reply,
+                text: replyParts[0],
               }),
               uazapiSendRecording(sendCreds, phone, 15000).catch((e) => {
                 console.error("uazapi recording failed", e);
@@ -872,6 +874,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               }),
             ]);
             replyKind = "audio";
+            // Envia partes adicionais (ex.: link após ===SPLIT===) como texto.
+            for (let i = 1; i < replyParts.length; i += 1) {
+              await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
+              await sleep(1200);
+              await uazapiSendText(sendCreds, phone, replyParts[i]);
+            }
           } else {
             for (let i = 0; i < replyParts.length; i += 1) {
               await uazapiSendText(
@@ -893,14 +901,34 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         const nowReply = new Date().toISOString();
         if (replyKind === "audio") {
-          await supabaseAdmin.from("messages").insert({
-            user_id: userId,
-            conversation_id: conv.id,
-            sender: "agente",
-            kind: "audio",
-            body: reply,
-            audio_url: audioDataUri,
-          });
+          const rows: Array<{
+            user_id: string;
+            conversation_id: string;
+            sender: "agente";
+            kind: "audio" | "texto";
+            body: string;
+            audio_url: string | null;
+          }> = [
+            {
+              user_id: userId,
+              conversation_id: conv.id,
+              sender: "agente",
+              kind: "audio",
+              body: replyParts[0],
+              audio_url: audioDataUri,
+            },
+          ];
+          for (let i = 1; i < replyParts.length; i += 1) {
+            rows.push({
+              user_id: userId,
+              conversation_id: conv.id,
+              sender: "agente",
+              kind: "texto",
+              body: replyParts[i],
+              audio_url: null,
+            });
+          }
+          await supabaseAdmin.from("messages").insert(rows);
         } else {
           await supabaseAdmin.from("messages").insert(
             replyParts.map((part) => ({
