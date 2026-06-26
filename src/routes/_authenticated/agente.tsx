@@ -1140,39 +1140,31 @@ function ForbiddenRulesSection() {
   };
 
   return (
-    <div
-      className="rounded-xl border-2 border-destructive/60 p-6 space-y-4"
-      style={{ background: "linear-gradient(180deg, rgba(239,68,68,0.08), rgba(239,68,68,0.02))" }}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-destructive" />
-          <div>
-            <h2 className="font-semibold text-destructive">Regras Proibidas</h2>
-            <p className="text-xs text-muted-foreground">
-              O agente NUNCA pode quebrar essas regras. Se o cliente insistir, ele desvia com naturalidade.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-none gap-2">
+    <CollapsibleCard
+      variant="danger"
+      icon={<ShieldAlert className="h-5 w-5 text-destructive" />}
+      title="Regras Proibidas"
+      subtitle="O agente NUNCA pode quebrar essas regras. Se o cliente insistir, ele desvia com naturalidade."
+      headerRight={
+        <>
           <button
             type="button"
-            onClick={() => setRules([...rules, { rule: "", deflection: "", enabled: true }])}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRules([...rules, { rule: "", deflection: "", enabled: true }]); }}
             className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-background px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
           >
-            <Plus className="h-3.5 w-3.5" /> Adicionar regra
+            <Plus className="h-3.5 w-3.5" /> Adicionar
           </button>
           <button
             type="button"
-            onClick={() => saveMut.mutate()}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); saveMut.mutate(); }}
             disabled={saveMut.isPending}
             className="inline-flex items-center gap-1 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60"
           >
-            <Save className="h-3.5 w-3.5" /> {saveMut.isPending ? "Salvando…" : "Salvar regras"}
+            <Save className="h-3.5 w-3.5" /> {saveMut.isPending ? "Salvando…" : "Salvar"}
           </button>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {listQ.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
 
       <div className="space-y-2">
@@ -1217,6 +1209,6 @@ function ForbiddenRulesSection() {
           </p>
         )}
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }
