@@ -727,6 +727,16 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           extracted_content: r.extracted_content as string | null,
         }));
 
+        // Load forbidden rules so the agent always deflects without breaking them.
+        const { data: frRows } = await supabaseAdmin
+          .from("forbidden_rules")
+          .select("rule, deflection, enabled")
+          .eq("user_id", userId)
+          .order("position", { ascending: true });
+        const forbiddenRules = (frRows ?? [])
+          .filter((r) => r.enabled !== false)
+          .map((r) => ({ rule: r.rule as string, deflection: (r.deflection as string | null) ?? null }));
+
         // Real-time SMM catalogue: if enabled and the inbound message mentions
         // price / service keywords, fetch services from the panel and pass
         // them as context to the LLM.
@@ -774,6 +784,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             funnelAlreadySent,
             knowledgeExamples,
             panelScreens,
+            forbiddenRules,
           });
           }
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
