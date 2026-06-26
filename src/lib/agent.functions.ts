@@ -48,6 +48,7 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
         a: z.string().min(1).max(20000),
       })).max(500).optional(),
       services_realtime: z.boolean().optional(),
+      price_query_instruction: z.string().max(20000).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
