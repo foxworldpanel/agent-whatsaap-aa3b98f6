@@ -391,6 +391,50 @@ export type Database = {
           },
         ]
       }
+      extraction_logs: {
+        Row: {
+          already_existed: number
+          created_at: string
+          error: string | null
+          id: string
+          new_imported: number
+          status: string
+          total_found: number
+          user_id: string
+          whatsapp_number_id: string | null
+        }
+        Insert: {
+          already_existed?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          new_imported?: number
+          status?: string
+          total_found?: number
+          user_id: string
+          whatsapp_number_id?: string | null
+        }
+        Update: {
+          already_existed?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          new_imported?: number
+          status?: string
+          total_found?: number
+          user_id?: string
+          whatsapp_number_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extraction_logs_whatsapp_number_id_fkey"
+            columns: ["whatsapp_number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       free_trials: {
         Row: {
           contact_id: string | null
