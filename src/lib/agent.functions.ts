@@ -20,7 +20,7 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
     z.object({
       agent_name: z.string().min(1).max(80),
       tone: z.string().min(1).max(120),
-      base_instruction: z.string().min(1).max(4000),
+      base_instruction: z.string().min(1).max(20000),
       script_frio: z.string().min(1).max(2000),
       script_inativo: z.string().min(1).max(2000),
       script_ativo: z.string().min(1).max(2000),
@@ -40,7 +40,7 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
         panel_link: z.string().max(500),
         payments: z.string().max(500),
       }).optional(),
-      how_it_works: z.string().max(4000).optional(),
+      how_it_works: z.string().max(20000).optional(),
       never_offer_first: z.boolean().optional(),
       send_panel_on_price: z.boolean().optional(),
       faqs: z.array(z.object({
