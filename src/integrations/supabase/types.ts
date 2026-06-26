@@ -26,6 +26,7 @@ export type Database = {
           main_offer: string
           never_offer_first: boolean
           panel_link: string | null
+          price_query_instruction: string
           response_delay_max_sec: number
           response_delay_min_sec: number
           script_ativo: string
@@ -49,6 +50,7 @@ export type Database = {
           main_offer?: string
           never_offer_first?: boolean
           panel_link?: string | null
+          price_query_instruction?: string
           response_delay_max_sec?: number
           response_delay_min_sec?: number
           script_ativo?: string
@@ -72,6 +74,7 @@ export type Database = {
           main_offer?: string
           never_offer_first?: boolean
           panel_link?: string | null
+          price_query_instruction?: string
           response_delay_max_sec?: number
           response_delay_min_sec?: number
           script_ativo?: string
