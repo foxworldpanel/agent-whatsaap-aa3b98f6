@@ -462,7 +462,86 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         // ===== TESTE GRÁTIS: detecta link IG/YT na mensagem do cliente =====
         if (integ.free_trial_enabled && integ.smm_api_key) {
-          const { detectSocialLink, normalizeSocialLink, smmAddOrder } = await import("@/lib/smm.server");
+          const { detectSocialLink, normalizeSocialLink, smmAddOrder, smmOrderStatus } = await import("@/lib/smm.server");
+
+          // ----- Reclamação de teste não entregue -----
+          const complaintRe = /\b(n[aã]o\s+(chegou|recebi|veio|funcionou|entrou|caiu)|cad[eê]\s+(as?\s+)?views?|sem\s+views?|nada\s+chegou|n[aã]o\s+vi\s+nada|nao\s+apareceu|n[aã]o\s+apareceu|teste\s+n[aã]o)/i;
+          if (complaintRe.test(inboundBody)) {
+            const smmCreds = {
+              url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
+              key: integ.smm_api_key,
+            };
+            const { uazapiSendText } = await import("@/lib/uazapi.server");
+            const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+            const { data: lastTrial } = await supabaseAdmin
+              .from("free_trials")
+              .select("id, order_id, link_enviado, link_normalized, servico, quantidade, status")
+              .eq("user_id", userId)
+              .eq("telefone", phone)
+              .order("criado_em", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            let replyText: string | null = null;
+
+            if (lastTrial?.order_id) {
+              try {
+                const st = await smmOrderStatus(smmCreds, lastTrial.order_id);
+                const status = (st.status ?? lastTrial.status ?? "").toLowerCase();
+                console.log(`[free-trial:complaint] phone=${phone} order=${lastTrial.order_id} status=${status}`);
+                if (status === "completed") {
+                  replyText = "Aqui mostra que foi entregue! Às vezes demora alguns minutos pra atualizar no Instagram. Dá uma olhada agora no Reel";
+                } else if (status === "pending" || status === "processing" || status === "in_progress") {
+                  replyText = "Ainda está processando, já vai chegar! Normalmente leva alguns minutos";
+                } else if (status === "canceled" || status === "cancelled" || status === "partial" || status === "failed") {
+                  // Reenvia automaticamente o pedido com o mesmo link
+                  try {
+                    const res = await smmAddOrder(smmCreds, {
+                      service: lastTrial.servico ?? integ.smm_service_id ?? "",
+                      link: lastTrial.link_enviado!,
+                      quantity: lastTrial.quantidade ?? 100,
+                    });
+                    if (res.order) {
+                      await supabaseAdmin.from("free_trials").insert({
+                        user_id: userId,
+                        contact_id: contact.id,
+                        conversation_id: conv.id,
+                        telefone: phone,
+                        link_enviado: lastTrial.link_enviado,
+                        link_normalized: lastTrial.link_normalized,
+                        order_id: String(res.order),
+                        servico: lastTrial.servico,
+                        quantidade: lastTrial.quantidade ?? 100,
+                        status: "pending",
+                        raw_response: res.raw as never,
+                      });
+                      replyText = "Tive um problema no envio anterior, já reenviei pra você!";
+                    }
+                  } catch (e) {
+                    console.error("[free-trial:complaint] resend failed", e);
+                  }
+                }
+              } catch (e) {
+                console.error("[free-trial:complaint] status check failed", e);
+              }
+            }
+
+            if (replyText) {
+              try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (complaint) failed", e); }
+              const nowC = new Date().toISOString();
+              await supabaseAdmin.from("messages").insert({
+                user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: replyText,
+              });
+              await supabaseAdmin.from("conversations").update({
+                last_message_preview: replyText.slice(0, 120),
+                last_message_at: nowC,
+                status: "aguardando",
+              }).eq("id", conv.id);
+              return new Response("ok (free trial complaint)");
+            }
+            // Sem pedido encontrado ou status indefinido → deixa o agente normal responder
+          }
+
           const link = detectSocialLink(inboundBody);
           if (link) {
             // Trava de segurança: teste grátis sempre processa APENAS o telefone
@@ -516,17 +595,23 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             const linkNorm = normalizeSocialLink(link.url);
             const { data: trialByPhone } = await supabaseAdmin
               .from("free_trials")
-              .select("id")
+              .select("id, status")
               .eq("user_id", userId)
               .eq("telefone", phone)
+              .order("criado_em", { ascending: false })
               .maybeSingle();
             const { data: trialByLink } = await supabaseAdmin
               .from("free_trials")
-              .select("id, telefone")
+              .select("id, telefone, status")
               .eq("user_id", userId)
               .eq("link_normalized", linkNorm)
+              .order("criado_em", { ascending: false })
               .maybeSingle();
-            const existingTrial = trialByPhone || trialByLink;
+            // Só bloqueia reenvio se o teste anterior foi concluído com sucesso (Completed).
+            // Pedidos canceled/partial/failed liberam novo envio.
+            const phoneCompleted = trialByPhone?.status === "completed" ? trialByPhone : null;
+            const linkCompleted = trialByLink?.status === "completed" ? trialByLink : null;
+            const existingTrial = phoneCompleted || linkCompleted;
 
             const { uazapiSendText } = await import("@/lib/uazapi.server");
             const creds = {
@@ -537,7 +622,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             let replyText: string;
 
             if (existingTrial) {
-              replyText = trialByLink && !trialByPhone
+              replyText = linkCompleted && !phoneCompleted
                 ? "Esse perfil já recebeu um teste anteriormente. Que tal aproveitar e fazer um pedido completo?"
                 : "Você já usou seu teste grátis. Posso te montar um pacote completo a partir de R$5?";
             } else {
