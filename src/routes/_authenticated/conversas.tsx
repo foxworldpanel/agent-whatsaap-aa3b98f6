@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Send, Bot, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage, clearConversation } from "@/lib/whatsapp.functions";
 import { setConversationAgentEnabled } from "@/lib/agent.functions";
@@ -151,7 +152,19 @@ function Conversas() {
   const toggleMut = useMutation({
     mutationFn: (enabled: boolean) =>
       toggleConvAgent({ data: { conversationId: activeId!, enabled } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
+    onMutate: async (enabled: boolean) => {
+      await qc.cancelQueries({ queryKey: ["conversations"] });
+      const previous = qc.getQueriesData({ queryKey: ["conversations"] });
+      qc.setQueriesData<Conv[]>({ queryKey: ["conversations"] }, (old) =>
+        old?.map((c) => (c.id === activeId ? { ...c, agent_enabled: enabled } : c)) ?? old,
+      );
+      return { previous };
+    },
+    onError: (err, _enabled, ctx) => {
+      ctx?.previous?.forEach(([key, data]) => qc.setQueryData(key, data));
+      toast.error((err as Error).message || "Falha ao alternar o agente");
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["conversations"] }),
   });
 
   const clearMut = useMutation({
