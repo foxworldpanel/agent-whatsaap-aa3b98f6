@@ -420,10 +420,33 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         }
 
         // ===== TESTE GRÁTIS: detecta link IG/YT na mensagem do cliente =====
-        if (integ.free_trial_enabled && integ.smm_api_key && integ.smm_service_id) {
+        if (integ.free_trial_enabled && integ.smm_api_key) {
           const { detectSocialLink, normalizeSocialLink, smmAddOrder } = await import("@/lib/smm.server");
           const link = detectSocialLink(inboundBody);
           if (link) {
+            // Resolve service: prefer per-platform free_test_services, fall back to legacy smm_service_id
+            const platformKeywords: Record<string, string[]> = {
+              instagram: ["instagram", "insta"],
+              youtube: ["youtube", "yt", "short"],
+              tiktok: ["tiktok", "tik tok"],
+              spotify: ["spotify"],
+            };
+            const kws = platformKeywords[link.platform] ?? [link.platform];
+            const { data: ftsRows } = await supabaseAdmin
+              .from("free_test_services")
+              .select("service_id, service_name, category, quantity")
+              .eq("user_id", userId)
+              .eq("enabled", true);
+            const matched = (ftsRows ?? []).find((r) => {
+              const hay = `${r.category ?? ""} ${r.service_name ?? ""}`.toLowerCase();
+              return kws.some((k) => hay.includes(k));
+            });
+            const serviceId = matched?.service_id ?? integ.smm_service_id ?? "";
+            const qty = matched?.quantity ?? 100;
+            if (!serviceId) {
+              console.warn("[free-trial] no service configured for platform", link.platform);
+              return new Response("ok (no trial service for platform)");
+            }
             const linkNorm = normalizeSocialLink(link.url);
             const { data: trialByPhone } = await supabaseAdmin
               .from("free_trials")
@@ -455,10 +478,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               try {
                 const result = await smmAddOrder(
                   {
-                    url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
+                    url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v2",
                     key: integ.smm_api_key,
                   },
-                  { service: integ.smm_service_id, link: link.url, quantity: 100 },
+                  { service: serviceId, link: link.url, quantity: qty },
                 );
                 if (!result.order) {
                   throw new Error(result.error ?? "sem order id");
@@ -471,15 +494,15 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                   link_enviado: link.url,
                   link_normalized: linkNorm,
                   order_id: String(result.order),
-                  servico: integ.smm_service_id,
-                  quantidade: 100,
+                  servico: serviceId,
+                  quantidade: qty,
                   status: "pending",
                   raw_response: result.raw as never,
                 });
                 replyText =
-                  "Recebi! Já processando suas visualizações... te aviso quando entregar ✅";
+                  `Recebi! Já liberei ${qty} ${matched?.category?.toLowerCase().includes("view") || matched?.category?.toLowerCase().includes("visual") ? "views" : "unidades"} grátis no seu link, costuma chegar em poucos minutos ✅`;
               } catch (e) {
-                console.error("smm add failed", e);
+                console.error("[free-trial] smm add failed", e, { serviceId, qty, url: link.url });
                 replyText =
                   "Tive um probleminha aqui pra processar seu teste agora 😅 já tô resolvendo!";
               }
