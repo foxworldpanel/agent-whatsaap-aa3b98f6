@@ -6,6 +6,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getAgentConfig, setAgentGlobalEnabled } from "@/lib/agent.functions";
+import { toast } from "sonner";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -28,7 +29,17 @@ export function AppShell() {
   const enabled = (agentQ.data as { agent_enabled?: boolean } | null | undefined)?.agent_enabled !== false;
   const toggleMut = useMutation({
     mutationFn: (next: boolean) => toggleGlobal({ data: { enabled: next } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent_config"] }),
+    onMutate: async (next: boolean) => {
+      await qc.cancelQueries({ queryKey: ["agent_config"] });
+      const previous = qc.getQueryData(["agent_config"]);
+      qc.setQueryData(["agent_config"], (old: unknown) => ({ ...((old as object | null) ?? {}), agent_enabled: next }));
+      return { previous };
+    },
+    onError: (err, _next, ctx) => {
+      qc.setQueryData(["agent_config"], ctx?.previous);
+      toast.error((err as Error).message || "Falha ao alterar o status do agente");
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["agent_config"] }),
   });
 
   async function handleSignOut() {

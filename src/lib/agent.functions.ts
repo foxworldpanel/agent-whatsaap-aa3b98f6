@@ -2,6 +2,27 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+async function getSharedUazapiUserIds(context: { supabase: any; userId: string }) {
+  const { data: ownIntegration, error } = await context.supabase
+    .from("integrations")
+    .select("uazapi_token")
+    .eq("user_id", context.userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+
+  const token = ownIntegration?.uazapi_token;
+  if (!token) return [context.userId];
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: sharedRows, error: sharedError } = await supabaseAdmin
+    .from("integrations")
+    .select("user_id")
+    .eq("uazapi_token", token);
+  if (sharedError) throw new Error(sharedError.message);
+
+  return Array.from(new Set([context.userId, ...(sharedRows ?? []).map((row) => row.user_id)]));
+}
+
 export const getAgentConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -64,12 +85,13 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ enabled: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const { data: saved, error } = await context.supabase
       .from("agent_config")
-      .update({ agent_enabled: data.enabled })
-      .eq("user_id", context.userId);
+      .upsert({ user_id: context.userId, agent_enabled: data.enabled }, { onConflict: "user_id" })
+      .select("agent_enabled")
+      .single();
     if (error) throw new Error(error.message);
-    return { ok: true };
+    return { ok: true, agent_enabled: saved.agent_enabled };
   });
 
 // Toggle agent on/off for a single conversation
@@ -79,13 +101,18 @@ export const setConversationAgentEnabled = createServerFn({ method: "POST" })
     z.object({ conversationId: z.string().uuid(), enabled: z.boolean() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: updated, error } = await supabaseAdmin
       .from("conversations")
       .update({ agent_enabled: data.enabled })
       .eq("id", data.conversationId)
-      .eq("user_id", context.userId);
+      .in("user_id", userIds)
+      .select("id, agent_enabled")
+      .maybeSingle();
     if (error) throw new Error(error.message);
-    return { ok: true };
+    if (!updated) throw new Error("Conversa não encontrada ou sem permissão para alterar.");
+    return { ok: true, agent_enabled: updated.agent_enabled };
   });
 
 export const getIntegrations = createServerFn({ method: "GET" })
