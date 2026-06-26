@@ -6,12 +6,21 @@ export type SmmCreds = {
 };
 
 async function smmPost(creds: SmmCreds, payload: Record<string, unknown>): Promise<unknown> {
+  // MIND SMM Panel (PerfectPanel-compatible) expects application/x-www-form-urlencoded,
+  // not JSON. Sending JSON results in empty/null responses or "no order id".
+  const form = new URLSearchParams();
+  form.set("key", creds.key);
+  for (const [k, v] of Object.entries(payload)) {
+    if (v === undefined || v === null) continue;
+    form.set(k, String(v));
+  }
   const res = await fetch(creds.url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ key: creds.key, ...payload }),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form.toString(),
   });
   const text = await res.text();
+  console.log("[smmPost]", payload.action, "→ status", res.status, "body:", text.slice(0, 500));
   let json: unknown;
   try {
     json = JSON.parse(text);
