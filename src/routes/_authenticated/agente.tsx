@@ -52,6 +52,8 @@ const defaultConfig = {
   send_panel_on_price: true,
   faqs: [] as Faq[],
   services_realtime: false,
+  price_query_instruction:
+    "Quando o cliente perguntar preço, quantidade mínima ou máxima de qualquer serviço:\n- Consulte a lista de serviços atualizada que foi passada como contexto\n- Encontre o serviço mais relevante para o que o cliente pediu\n- Responda DIRETAMENTE com o preço — nunca mande o link da tabela de serviços\n- Calcule o valor total para a quantidade pedida\n- Se a quantidade pedida for menor que o mínimo, avise e informe o mínimo com o valor\n\nExemplos de como responder:\nCliente: Quanto custa 1000 plays Spotify? → Júlia: 1000 plays Brasil sai R$15 😊 Quer fechar?\nCliente: Posso comprar 100 plays? → Júlia: O mínimo pra plays é 500, que sai R$7,50. Quer começar com esse pacote?\nCliente: Quanto fica 5000 seguidores Instagram HQ? → Júlia: 5000 seguidores HQ Brasil fica R$150. Posso fechar pra você?\n\nNUNCA mande o link mindsmmpanel.com/services quando o cliente perguntar preço. Você tem os valores — responda diretamente.",
 };
 
 type Cfg = typeof defaultConfig;
@@ -331,6 +333,37 @@ function AgentePage() {
                   <p className="text-xs text-muted-foreground">Busca os serviços na API antes de responder perguntas sobre preço.</p>
                 </div>
                 <Toggle on={cfg.services_realtime} onChange={(v) => setCfg({ ...cfg, services_realtime: v })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <div className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              <h2 className="font-semibold">Consulta de Preços em Tempo Real</h2>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Card separado da instrução base. Quando o toggle estiver ativo, sempre que o cliente perguntar preço ou quantidade, o sistema busca a lista de serviços na API antes de responder e injeta a instrução abaixo no Claude.
+            </p>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
+                <div>
+                  <p className="text-sm font-medium">Consultar preços automaticamente</p>
+                  <p className="text-xs text-muted-foreground">Busca em https://mindsmmpanel.com/smmpanel/api/v2?action=services&key={"{API_KEY}"} antes de responder.</p>
+                </div>
+                <Toggle on={cfg.services_realtime} onChange={(v) => setCfg({ ...cfg, services_realtime: v })} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Instrução de preço para o Claude <span className="text-muted-foreground/60">({(cfg.price_query_instruction ?? "").length}/20000)</span>
+                </label>
+                <textarea
+                  value={cfg.price_query_instruction ?? ""}
+                  onChange={(e) => setCfg({ ...cfg, price_query_instruction: e.target.value })}
+                  rows={14}
+                  maxLength={20000}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary font-mono"
+                />
               </div>
             </div>
           </div>

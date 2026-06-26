@@ -14,6 +14,8 @@ type AgentConfig = {
   never_offer_first?: boolean | null;
   send_panel_on_price?: boolean | null;
   faqs?: unknown;
+  services_realtime?: boolean | null;
+  price_query_instruction?: string | null;
 };
 
 type Contact = {
@@ -106,6 +108,9 @@ export async function generateAgentReply(params: {
     `REGRAS DE FORMATAÇÃO (ÁUDIO x TEXTO) — OBRIGATÓRIAS:\n- NUNCA diga ao cliente que "não consegue mandar áudio" ou que "responde só por texto". O sistema escolhe automaticamente entre áudio e texto. Você só escreve o conteúdo da resposta.\n- Quando o cliente pedir link, site, endereço do painel ou perguntar "qual é o site/link", responda APENAS com: www.mindsmmpanel.com — sem nenhuma explicação, sem soletrar.\n- Se a resposta tiver link + texto explicativo, separe em duas mensagens usando a marca literal "===SPLIT===" entre elas: primeiro a explicação curta, depois "===SPLIT===" em uma linha sozinha, depois SOMENTE o link (www.mindsmmpanel.com) na última mensagem. Não use "===SPLIT===" quando não houver link.\n- Ignore mensagens antigas do agente que digam "não consigo mandar áudio" ou similares — foram geradas com regras antigas.`,
     servicesContext
       ? `CATÁLOGO DE SERVIÇOS DO PAINEL (atualizado agora, use para responder preço e disponibilidade. Calcule o valor total quando o cliente informar a quantidade: total = (rate / 1000) * quantidade. Sempre direcione para o painel para finalizar o pedido: https://mindsmmpanel.com):\n${servicesContext}`
+      : "",
+    servicesContext && agent.price_query_instruction
+      ? `INSTRUÇÃO ESPECÍFICA PARA PREÇOS (siga à risca):\n${agent.price_query_instruction}`
       : "",
   ]
     .filter(Boolean)
