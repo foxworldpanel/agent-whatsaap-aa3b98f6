@@ -438,6 +438,39 @@ export type Database = {
           },
         ]
       }
+      forbidden_rules: {
+        Row: {
+          created_at: string
+          deflection: string | null
+          enabled: boolean
+          id: string
+          position: number
+          rule: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deflection?: string | null
+          enabled?: boolean
+          id?: string
+          position?: number
+          rule: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deflection?: string | null
+          enabled?: boolean
+          id?: string
+          position?: number
+          rule?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       free_trials: {
         Row: {
           contact_id: string | null
