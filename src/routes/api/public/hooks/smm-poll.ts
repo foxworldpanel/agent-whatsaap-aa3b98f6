@@ -20,6 +20,7 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
           .not("order_id", "is", null)
           .limit(100);
         if (error) return new Response(error.message, { status: 500 });
+        console.log(`[smm-poll] Verificando status dos testes pendentes: ${trials?.length ?? 0}`);
         if (!trials || trials.length === 0) return new Response("no pending");
 
         const userIds = Array.from(new Set(trials.map((t) => t.user_id)));

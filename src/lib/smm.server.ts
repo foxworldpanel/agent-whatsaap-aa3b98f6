@@ -53,10 +53,21 @@ export async function smmOrderStatus(
   creds: SmmCreds,
   orderId: string | number,
 ): Promise<{ status?: string; error?: string; raw: unknown }> {
-  const raw = (await smmPost(creds, { action: "status", order: orderId })) as Record<
-    string,
-    unknown
-  >;
+  // MIND SMM Panel rejeita POST JSON para `status` ("API is Disable for this user...").
+  // O endpoint correto é GET com query params em /api/v1.
+  const sep = creds.url.includes("?") ? "&" : "?";
+  const getUrl = `${creds.url}${sep}action=status&order=${encodeURIComponent(String(orderId))}&key=${encodeURIComponent(creds.key)}`;
+  let raw: Record<string, unknown> = {};
+  try {
+    const res = await fetch(getUrl, { method: "GET" });
+    const text = await res.text();
+    console.log("[smmOrderStatus] GET order=", orderId, "status=", res.status, "body=", text.slice(0, 300));
+    try { raw = JSON.parse(text) as Record<string, unknown>; } catch {
+      raw = { error: `Resposta não-JSON (${res.status}): ${text.slice(0, 200)}` };
+    }
+  } catch (e) {
+    raw = { error: e instanceof Error ? e.message : String(e) };
+  }
   const status = (raw.status as string | undefined)?.toLowerCase();
   return { status, error: raw.error as string | undefined, raw };
 }
