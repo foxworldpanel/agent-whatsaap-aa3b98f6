@@ -86,6 +86,93 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_campaign_runs: {
+        Row: {
+          auto_campaign_id: string
+          campaign_key: string
+          contact_id: string
+          error: string | null
+          id: string
+          sent_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          auto_campaign_id: string
+          campaign_key: string
+          contact_id: string
+          error?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          auto_campaign_id?: string
+          campaign_key?: string
+          contact_id?: string
+          error?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_campaign_runs_auto_campaign_id_fkey"
+            columns: ["auto_campaign_id"]
+            isOneToOne: false
+            referencedRelation: "auto_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_campaign_runs_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_campaigns: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          key: string
+          message_template: string
+          name: string
+          trigger_hours: number
+          trigger_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          key: string
+          message_template: string
+          name: string
+          trigger_hours?: number
+          trigger_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          key?: string
+          message_template?: string
+          name?: string
+          trigger_hours?: number
+          trigger_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       campaign_logs: {
         Row: {
           campaign_id: string | null
@@ -179,6 +266,7 @@ export type Database = {
           follow_up_count: number
           id: string
           last_interaction_at: string | null
+          last_purchase_at: string | null
           nome: string
           perfil: Database["public"]["Enums"]["contact_profile"]
           photo_url: string | null
@@ -200,6 +288,7 @@ export type Database = {
           follow_up_count?: number
           id?: string
           last_interaction_at?: string | null
+          last_purchase_at?: string | null
           nome: string
           perfil?: Database["public"]["Enums"]["contact_profile"]
           photo_url?: string | null
@@ -221,6 +310,7 @@ export type Database = {
           follow_up_count?: number
           id?: string
           last_interaction_at?: string | null
+          last_purchase_at?: string | null
           nome?: string
           perfil?: Database["public"]["Enums"]["contact_profile"]
           photo_url?: string | null
