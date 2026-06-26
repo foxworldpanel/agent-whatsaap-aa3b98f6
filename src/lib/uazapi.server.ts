@@ -232,3 +232,75 @@ export async function uazapiDisconnect(creds: UazapiCreds): Promise<void> {
     body: JSON.stringify({}),
   }).catch(() => {});
 }
+
+// ---- Chat extraction ----
+
+export type UazapiChatSummary = {
+  phone: string;
+  name: string | null;
+  last_message: string | null;
+  last_message_at: string | null; // ISO
+  message_count: number | null;
+  image_url: string | null;
+};
+
+export async function uazapiListChats(creds: UazapiCreds): Promise<UazapiChatSummary[]> {
+  const base = creds.uazapi_url.replace(/\/+$/, "");
+  // Uazapi /chat/find returns all chats when body is empty filter
+  const res = await fetch(`${base}/chat/find`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", token: creds.uazapi_token },
+    body: JSON.stringify({ operator: "AND", sort: "-wa_lastMsgTimestamp" }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Uazapi /chat/find falhou (${res.status}): ${t.slice(0, 300)}`);
+  }
+  const j = (await res.json().catch(() => null)) as unknown;
+  const raw: unknown[] = Array.isArray(j)
+    ? j
+    : Array.isArray((j as { chats?: unknown[] })?.chats)
+      ? ((j as { chats: unknown[] }).chats)
+      : Array.isArray((j as { data?: unknown[] })?.data)
+        ? ((j as { data: unknown[] }).data)
+        : [];
+
+  const out: UazapiChatSummary[] = [];
+  for (const item of raw) {
+    const r = item as Record<string, unknown>;
+    const id = (r.wa_chatid as string | undefined) ?? (r.id as string | undefined) ?? (r.chatid as string | undefined) ?? "";
+    if (!id || id.includes("@g.us") || id.includes("broadcast") || id.includes("status")) continue;
+    const phone = normalizePhone(id.split("@")[0] ?? "");
+    if (!phone || phone.length < 8) continue;
+    const ts =
+      (r.wa_lastMsgTimestamp as number | undefined) ??
+      (r.lastMessageTimestamp as number | undefined) ??
+      (r.t as number | undefined);
+    out.push({
+      phone,
+      name:
+        (r.wa_name as string | undefined) ??
+        (r.lead_name as string | undefined) ??
+        (r.name as string | undefined) ??
+        (r.pushname as string | undefined) ??
+        null,
+      last_message:
+        (r.wa_lastMessageText as string | undefined) ??
+        (r.lastMessage as string | undefined) ??
+        (r.lastMessageText as string | undefined) ??
+        null,
+      last_message_at: ts ? new Date(ts > 1e12 ? ts : ts * 1000).toISOString() : null,
+      message_count:
+        (r.wa_messagesCount as number | undefined) ??
+        (r.messagesCount as number | undefined) ??
+        (r.totalMessages as number | undefined) ??
+        null,
+      image_url:
+        (r.image as string | undefined) ??
+        (r.imagePreview as string | undefined) ??
+        (r.profilePictureUrl as string | undefined) ??
+        null,
+    });
+  }
+  return out;
+}
