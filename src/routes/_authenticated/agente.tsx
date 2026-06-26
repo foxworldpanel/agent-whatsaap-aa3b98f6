@@ -160,7 +160,18 @@ function AgentePage() {
             <Field label="Tom de voz" value={cfg.tone} onChange={(v) => setCfg({ ...cfg, tone: v })} />
           </div>
 
-          <Field label="Instrução base" multiline value={cfg.base_instruction} onChange={(v) => setCfg({ ...cfg, base_instruction: v })} />
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Instrução base <span className="text-muted-foreground/60">({cfg.base_instruction.length}/20000)</span>
+            </label>
+            <textarea
+              value={cfg.base_instruction}
+              onChange={(e) => setCfg({ ...cfg, base_instruction: e.target.value })}
+              rows={16}
+              maxLength={20000}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary font-mono"
+            />
+          </div>
 
           <div className="border-t border-border pt-6">
             <div className="flex items-center gap-2">
