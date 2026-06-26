@@ -942,9 +942,14 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         let replyKind: "texto" | "audio" = "texto";
         let audioDataUri: string | null = null;
+        const skippedIdx = new Set<number>();
         try {
           if (respondWithAudio) {
             const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+            if (await wasRecentlySent(conv.id, replyParts[0])) {
+              skippedIdx.add(0);
+              replyKind = "audio";
+            } else {
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
             const [generatedAudio] = await Promise.all([
               ttsElevenLabsBase64({
@@ -964,14 +969,23 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               }),
             ]);
             replyKind = "audio";
+            }
             // Envia partes adicionais (ex.: link após ===SPLIT===) como texto.
             for (let i = 1; i < replyParts.length; i += 1) {
+              if (await wasRecentlySent(conv.id, replyParts[i])) {
+                skippedIdx.add(i);
+                continue;
+              }
               await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
               await sleep(1200);
               await uazapiSendText(sendCreds, phone, replyParts[i]);
             }
           } else {
             for (let i = 0; i < replyParts.length; i += 1) {
+              if (await wasRecentlySent(conv.id, replyParts[i])) {
+                skippedIdx.add(i);
+                continue;
+              }
               await uazapiSendText(
                 sendCreds,
                 phone,
@@ -999,16 +1013,19 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             body: string;
             audio_url: string | null;
           }> = [
-            {
+          ];
+          if (!skippedIdx.has(0)) {
+            rows.push({
               user_id: userId,
               conversation_id: conv.id,
               sender: "agente",
               kind: "audio",
               body: replyParts[0],
               audio_url: audioDataUri,
-            },
-          ];
+            });
+          }
           for (let i = 1; i < replyParts.length; i += 1) {
+            if (skippedIdx.has(i)) continue;
             rows.push({
               user_id: userId,
               conversation_id: conv.id,
@@ -1018,18 +1035,20 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               audio_url: null,
             });
           }
-          await supabaseAdmin.from("messages").insert(rows);
+          if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
         } else {
-          await supabaseAdmin.from("messages").insert(
-            replyParts.map((part) => ({
+          const rows = replyParts
+            .map((part, i) => ({ part, i }))
+            .filter(({ i }) => !skippedIdx.has(i))
+            .map(({ part }) => ({
               user_id: userId,
               conversation_id: conv.id,
-              sender: "agente",
-              kind: "texto",
+              sender: "agente" as const,
+              kind: "texto" as const,
               body: part,
               audio_url: null,
-            })),
-          );
+            }));
+          if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
         }
         await supabaseAdmin
           .from("conversations")
