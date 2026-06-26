@@ -461,6 +461,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           const { detectSocialLink, normalizeSocialLink, smmAddOrder } = await import("@/lib/smm.server");
           const link = detectSocialLink(inboundBody);
           if (link) {
+            // Trava de segurança: teste grátis sempre processa APENAS o telefone
+            // que enviou o link no webhook atual. Nenhum loop / forEach sobre
+            // outros contatos. Log explícito para auditoria.
+            console.log(`[free-trial] Processando teste grátis para: ${phone} (contact_id=${contact.id})`);
             // Instagram views só funcionam em Reel/vídeo, nunca em foto (/p/)
             if (link.platform === "instagram") {
               const path = (() => { try { return new URL(link.url).pathname.toLowerCase(); } catch { return link.url.toLowerCase(); } })();
@@ -542,22 +546,14 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               let lastErr: string | null = null;
               try {
                 result = await tryOrder();
+                console.log(
+                  `[free-trial] Resposta API teste grátis (telefone=${phone}):`,
+                  JSON.stringify(result.raw),
+                );
                 if (!result.order) lastErr = result.error ?? "sem order id";
               } catch (e) {
                 lastErr = e instanceof Error ? e.message : String(e);
-              }
-              // Retry once after 30s for transient SMM API errors
-              const errLow = (lastErr ?? "").toLowerCase();
-              const isTransient = lastErr && !/(invalid|private|privado|not found|already|duplicate|min|max|link|url)/i.test(errLow);
-              if (lastErr && isTransient) {
-                console.warn("[free-trial] transient SMM error, retrying in 30s:", lastErr);
-                await new Promise((r) => setTimeout(r, 30000));
-                try {
-                  result = await tryOrder();
-                  lastErr = result.order ? null : (result.error ?? "sem order id");
-                } catch (e) {
-                  lastErr = e instanceof Error ? e.message : String(e);
-                }
+                console.error(`[free-trial] Erro API teste grátis (telefone=${phone}):`, lastErr);
               }
               try {
                 if (lastErr || !result?.order) {
@@ -598,7 +594,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 } else if (/min|minimum|quantidade/.test(low)) {
                   replyText = "A quantidade do teste não bate com o mínimo do serviço. Já tô ajustando aqui!";
                 } else {
-                  replyText = "Tive uma instabilidade no painel agora 😅 me manda o link de novo em 1 minutinho que processo na hora.";
+                  replyText = "Me manda o link de novo que processo agora!";
                 }
               }
             }
