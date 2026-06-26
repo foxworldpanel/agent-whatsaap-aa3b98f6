@@ -41,6 +41,70 @@ function pickScript(cfg: AgentConfig, perfil: Contact["perfil"]): string {
     : cfg.script_frio;
 }
 
+type BuildPromptParams = {
+  agent: AgentConfig;
+  contact: Contact;
+  history: Msg[];
+  servicesContext?: string | null;
+  isInbound?: boolean;
+  funnelAlreadySent?: boolean;
+  knowledgeExamples?: Array<{ context?: string | null; content: string }>;
+  panelScreens?: Array<{ name: string; description?: string | null; extracted_content?: string | null }>;
+  forbiddenRules?: Array<{ rule: string; deflection?: string | null }>;
+  freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
+};
+
+export function buildSystemPrompt(params: BuildPromptParams): string {
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [] } = params;
+  const latestClientMessage = getLatestClientMessage(history);
+  const system = [
+    `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
+    `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
+    `PRIORIDADE ABSOLUTA PARA PERGUNTAS DIRETAS: se a última mensagem do cliente contém uma pergunta direta (nome, preço, serviço específico, prazo, cadastro, pagamento, link ou qualquer dúvida objetiva), responda essa pergunta imediatamente. NUNCA ignore uma pergunta direta e NUNCA troque por explicação genérica da MIND/plataforma. Se o cliente perguntou seu nome, responda algo curto e natural como: "Meu nome é Júlia, e o seu?" ou "Sou a Júlia, como posso te ajudar?" — sem emoji.`,
+    `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
+    `Tom de voz: ${agent.tone}.`,
+    agent.base_instruction,
+    `REGRA #1 (ACIMA DE TUDO): SEMPRE responda exatamente o que o cliente perguntou na ÚLTIMA mensagem.`,
+    knowledgeExamples.length > 0
+      ? `==== BASE DE CONHECIMENTO (${knowledgeExamples.length} exemplos) ====\n${knowledgeExamples.map((ex, i) => `--- Exemplo ${i + 1}${ex.context ? ` — ${ex.context}` : ""} ---\n${ex.content}`).join("\n\n")}\n==== FIM ====`
+      : "",
+    panelScreens.length > 0
+      ? `==== GUIA DO PAINEL (${panelScreens.length} telas) ====\n${panelScreens.map((s, i) => `--- Tela ${i + 1}: ${s.name} ---${s.description ? `\n${s.description}` : ""}${s.extracted_content ? `\n${s.extracted_content}` : ""}`).join("\n\n")}\n==== FIM ====`
+      : "",
+    (() => {
+      const ci = agent.company_info as Record<string, string> | null | undefined;
+      return ci && typeof ci === "object"
+        ? `SOBRE A EMPRESA:\n- Nome: ${ci.name ?? ""}\n- Tipo: ${ci.type ?? ""}\n- Serviços: ${ci.services ?? ""}\n- Plataformas: ${ci.platforms ?? ""}\n- Catálogo: ${ci.catalog_link ?? ""}\n- Painel: ${ci.panel_link ?? ""}\n- Pagamentos: ${ci.payments ?? ""}`
+        : "";
+    })(),
+    agent.how_it_works ? `COMO FUNCIONA O PAINEL:\n${agent.how_it_works}` : "",
+    (() => {
+      const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
+      return Array.isArray(faqs) && faqs.length > 0
+        ? `FAQ (${faqs.length}):\n${faqs.map((f) => `- ${f.q} → ${f.a}`).join("\n")}`
+        : "";
+    })(),
+    servicesContext
+      ? `CATÁLOGO DE SERVIÇOS DO PAINEL (atualizado agora). Formato:\nID: <id> | Nome: <nome> | Categoria: <cat> | Preço por 1000: R$<rate> | MÍNIMO: <min> | MÁXIMO: <max>\n\n${servicesContext}\n\nREGRAS DE PREÇO: SEMPRE consulte MÍNIMO antes de informar quantidade. Se cliente pedir abaixo do MÍNIMO, ofereça o MÍNIMO.`
+      : "",
+    servicesContext && agent.price_query_instruction
+      ? `INSTRUÇÃO ESPECÍFICA PARA PREÇOS:\n${agent.price_query_instruction}`
+      : "",
+    forbiddenRules.length > 0
+      ? `REGRAS ABSOLUTAS PROIBIDAS (${forbiddenRules.length}):\n${forbiddenRules.map((r, i) => `${i + 1}. 🚫 ${r.rule}${r.deflection ? ` → Desvio: "${r.deflection}"` : ""}`).join("\n")}`
+      : "",
+    freeTestServices.length > 0
+      ? `TESTE GRÁTIS DISPONÍVEL (${freeTestServices.length} serviços):\n${freeTestServices.map((s) => `- ${s.service_name} (${s.category}) — ${s.quantity} grátis`).join("\n")}`
+      : "",
+    `Perfil do contato: ${contact.perfil}.${isInbound ? " Atendimento receptivo." : ""}${funnelAlreadySent ? " Funil de boas-vindas já enviado." : ""}`,
+    `TAMANHO DAS MENSAGENS: máximo 1 frase por mensagem; use "===SPLIT===" para separar mensagens.`,
+    `REGRA DE EMOJI: sem emoji por padrão.`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  return system;
+}
+
 export async function generateAgentReply(params: {
   anthropicApiKey?: string | null;
   agent: AgentConfig;

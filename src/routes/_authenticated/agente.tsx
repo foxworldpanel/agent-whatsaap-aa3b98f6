@@ -2,9 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw, BookOpen, ImageIcon, MessageSquare, Loader2, Monitor, ShieldAlert, ChevronDown } from "lucide-react";
+import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw, BookOpen, ImageIcon, MessageSquare, Loader2, Monitor, ShieldAlert, ChevronDown, Stethoscope, X, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations } from "@/lib/agent.functions";
+import { runAgentDiagnostics } from "@/lib/agent-diagnostics.functions";
 import { listKnowledge, addTextExample, addImageExample, deleteKnowledge } from "@/lib/knowledge-base.functions";
 import { listPanelGuide, addPanelScreen, updatePanelScreen, deletePanelScreen } from "@/lib/panel-guide.functions";
 import { listForbiddenRules, saveForbiddenRules, seedDefaultForbiddenRules } from "@/lib/forbidden-rules.functions";
@@ -59,6 +60,123 @@ const defaultConfig = {
 };
 
 type Cfg = typeof defaultConfig;
+
+type DiagSection = { ok: boolean; detail: string; preview?: Array<{ service: string; name: string; rate: string; min: string; max: string }> };
+type DiagData = {
+  sections: Record<string, DiagSection>;
+  integrations: Array<{ name: string; ok: boolean; detail: string }>;
+  fullPrompt: string;
+};
+
+function StatusRow({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-md border border-border bg-background/60 px-3 py-2 text-sm">
+      <div className="flex items-center gap-2">
+        <span className={ok ? "text-green-500" : "text-destructive"}>{ok ? "✅" : "❌"}</span>
+        <span className="font-medium">{label}</span>
+      </div>
+      <span className="text-xs text-muted-foreground">{detail}</span>
+    </div>
+  );
+}
+
+function DiagnosticsModal({
+  onClose, loading, data, onRetry,
+}: { onClose: () => void; loading: boolean; data: DiagData | undefined; onRetry: () => void }) {
+  const [showPrompt, setShowPrompt] = useState(false);
+  const labels: Record<string, string> = {
+    base_instruction: "Instrução base",
+    company_info: "Sobre a empresa",
+    faqs: "FAQ",
+    forbidden_rules: "Regras proibidas",
+    services_catalog: "Catálogo de serviços",
+    knowledge_base: "Base de conhecimento",
+    panel_guide: "Guia do painel",
+    free_tests: "Testes grátis",
+    response_delay: "Delay configurado",
+    language_rules: "Regras de linguagem",
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-xl border border-border bg-card shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center justify-between border-b border-border px-5 py-3">
+          <div className="flex items-center gap-2">
+            <Stethoscope className="h-5 w-5 text-primary" />
+            <h2 className="font-semibold">Diagnóstico do Agente</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={onRetry} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-accent">
+              <RefreshCw className={`inline h-3 w-3 ${loading ? "animate-spin" : ""}`} /> Atualizar
+            </button>
+            <button onClick={onClose} className="rounded-md p-1 hover:bg-accent"><X className="h-4 w-4" /></button>
+          </div>
+        </header>
+        <div className="max-h-[calc(90vh-3.5rem)] overflow-y-auto p-5 space-y-5">
+          {loading && !data && <p className="text-sm text-muted-foreground">Carregando diagnóstico…</p>}
+          {data && (
+            <>
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Prompt enviado ao Claude</h3>
+                <div className="space-y-1.5">
+                  {Object.entries(data.sections).map(([key, s]) => (
+                    <StatusRow key={key} label={labels[key] ?? key} ok={s.ok} detail={s.detail} />
+                  ))}
+                </div>
+                {data.sections.services_catalog?.preview && data.sections.services_catalog.preview.length > 0 && (
+                  <div className="mt-3 rounded-md border border-border bg-background/60 p-3 text-xs">
+                    <p className="mb-1.5 font-semibold text-muted-foreground">Exemplo dos 3 primeiros serviços:</p>
+                    {data.sections.services_catalog.preview.map((s) => (
+                      <p key={s.service} className="font-mono">
+                        ID: {s.service} | {s.name} | R${s.rate}/1000 | MÍN: {s.min} | MÁX: {s.max}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Status das integrações</h3>
+                <div className="space-y-1.5">
+                  {data.integrations.map((i) => (
+                    <StatusRow key={i.name} label={i.name} ok={i.ok} detail={i.detail} />
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <button
+                  onClick={() => setShowPrompt((v) => !v)}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-accent"
+                >
+                  {showPrompt ? "Ocultar" : "Ver prompt completo"}
+                </button>
+                {showPrompt && (
+                  <div className="mt-2 space-y-2">
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(data.fullPrompt); toast.success("Prompt copiado"); }}
+                      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+                    >
+                      <Copy className="h-3 w-3" /> Copiar
+                    </button>
+                    <textarea
+                      readOnly
+                      value={data.fullPrompt}
+                      rows={20}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono"
+                    />
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CollapsibleCard({
   icon, title, subtitle, defaultOpen = false, headerRight, children, variant = "default",
@@ -166,6 +284,14 @@ function AgentePage() {
     },
   });
 
+  const diagFn = useServerFn(runAgentDiagnostics);
+  const [diagOpen, setDiagOpen] = useState(false);
+  const diagMut = useMutation({
+    mutationFn: () => diagFn({ data: {} as never }),
+    onError: (e) => toast.error(`Diagnóstico falhou: ${(e as Error).message}`),
+  });
+  const openDiagnostics = () => { setDiagOpen(true); diagMut.mutate(); };
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -190,7 +316,23 @@ function AgentePage() {
           <RefreshCw className={`h-4 w-4 ${reloadMut.isPending ? "animate-spin" : ""}`} />
           {reloadMut.isPending ? "Recarregando…" : "Salvar e Recarregar Agente"}
         </button>
+        <button
+          onClick={openDiagnostics}
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-accent"
+        >
+          <Stethoscope className="h-4 w-4" />
+          Diagnóstico do Agente
+        </button>
       </header>
+
+      {diagOpen && (
+        <DiagnosticsModal
+          onClose={() => setDiagOpen(false)}
+          loading={diagMut.isPending}
+          data={diagMut.data}
+          onRetry={() => diagMut.mutate()}
+        />
+      )}
 
       <div className="space-y-6">
         <CollapsibleCard icon={<Bot className="h-5 w-5 text-primary" />} title="Personalidade">
