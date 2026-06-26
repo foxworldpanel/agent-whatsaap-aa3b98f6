@@ -102,6 +102,9 @@ function AgentePage() {
       qc.invalidateQueries({ queryKey: ["agent_config"] });
       qc.invalidateQueries({ queryKey: ["integrations"] });
     },
+    onError: (e) => {
+      toast.error(`Falha ao salvar: ${(e as Error).message}`);
+    },
   });
 
   const reloadMut = useMutation({
