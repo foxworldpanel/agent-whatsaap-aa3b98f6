@@ -185,6 +185,42 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+        // ===== Idempotência por messageId =====
+        // Uazapi às vezes dispara o mesmo evento mais de uma vez. Se já
+        // gravamos uma mensagem do cliente com esse external_id, ignora.
+        if (messageId) {
+          const { data: dupInbound } = await supabaseAdmin
+            .from("messages")
+            .select("id")
+            .eq("external_id", messageId)
+            .limit(1)
+            .maybeSingle();
+          if (dupInbound) {
+            console.log(`Mensagem duplicada bloqueada: ${messageId}`);
+            return new Response("ok (duplicate messageId)");
+          }
+        }
+
+        // Trava anti-duplicata: evita reenviar para o mesmo número um texto
+        // idêntico ao último enviado pelo agente nos últimos 5 segundos.
+        const wasRecentlySent = async (conversationId: string, body: string): Promise<boolean> => {
+          const fiveSecAgo = new Date(Date.now() - 5000).toISOString();
+          const { data } = await supabaseAdmin
+            .from("messages")
+            .select("id")
+            .eq("conversation_id", conversationId)
+            .eq("sender", "agente")
+            .eq("body", body)
+            .gte("created_at", fiveSecAgo)
+            .limit(1)
+            .maybeSingle();
+          if (data) {
+            console.log(`Mensagem duplicada bloqueada: ${messageId ?? "(sem id)"} → "${body.slice(0, 60)}"`);
+            return true;
+          }
+          return false;
+        };
+
         // Resolve o número pelo token — primeiro em whatsapp_numbers (novo),
         // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
         const { data: number } = await supabaseAdmin
@@ -388,6 +424,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           kind,
           body: inboundBody,
           audio_url: kind === "audio" ? mediaUrl : null,
+          external_id: messageId,
         });
         await supabaseAdmin
           .from("conversations")
@@ -905,9 +942,14 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         let replyKind: "texto" | "audio" = "texto";
         let audioDataUri: string | null = null;
+        const skippedIdx = new Set<number>();
         try {
           if (respondWithAudio) {
             const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+            if (await wasRecentlySent(conv.id, replyParts[0])) {
+              skippedIdx.add(0);
+              replyKind = "audio";
+            } else {
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
             const [generatedAudio] = await Promise.all([
               ttsElevenLabsBase64({
@@ -927,14 +969,23 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               }),
             ]);
             replyKind = "audio";
+            }
             // Envia partes adicionais (ex.: link após ===SPLIT===) como texto.
             for (let i = 1; i < replyParts.length; i += 1) {
+              if (await wasRecentlySent(conv.id, replyParts[i])) {
+                skippedIdx.add(i);
+                continue;
+              }
               await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
               await sleep(1200);
               await uazapiSendText(sendCreds, phone, replyParts[i]);
             }
           } else {
             for (let i = 0; i < replyParts.length; i += 1) {
+              if (await wasRecentlySent(conv.id, replyParts[i])) {
+                skippedIdx.add(i);
+                continue;
+              }
               await uazapiSendText(
                 sendCreds,
                 phone,
@@ -962,16 +1013,19 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             body: string;
             audio_url: string | null;
           }> = [
-            {
+          ];
+          if (!skippedIdx.has(0)) {
+            rows.push({
               user_id: userId,
               conversation_id: conv.id,
               sender: "agente",
               kind: "audio",
               body: replyParts[0],
               audio_url: audioDataUri,
-            },
-          ];
+            });
+          }
           for (let i = 1; i < replyParts.length; i += 1) {
+            if (skippedIdx.has(i)) continue;
             rows.push({
               user_id: userId,
               conversation_id: conv.id,
@@ -981,18 +1035,20 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               audio_url: null,
             });
           }
-          await supabaseAdmin.from("messages").insert(rows);
+          if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
         } else {
-          await supabaseAdmin.from("messages").insert(
-            replyParts.map((part) => ({
+          const rows = replyParts
+            .map((part, i) => ({ part, i }))
+            .filter(({ i }) => !skippedIdx.has(i))
+            .map(({ part }) => ({
               user_id: userId,
               conversation_id: conv.id,
-              sender: "agente",
-              kind: "texto",
+              sender: "agente" as const,
+              kind: "texto" as const,
               body: part,
               audio_url: null,
-            })),
-          );
+            }));
+          if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
         }
         await supabaseAdmin
           .from("conversations")
