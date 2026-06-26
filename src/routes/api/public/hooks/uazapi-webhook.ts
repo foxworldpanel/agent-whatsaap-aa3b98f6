@@ -747,6 +747,18 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .filter((r) => r.enabled !== false)
           .map((r) => ({ rule: r.rule as string, deflection: (r.deflection as string | null) ?? null }));
 
+        // Free-test services available for proactive offer when the agent detects hesitation.
+        let freeTestServices: Array<{ service_id: string; service_name: string; category: string; quantity: number }> = [];
+        if (integ.free_trial_enabled) {
+          const { data: ftsRows } = await supabaseAdmin
+            .from("free_test_services")
+            .select("service_id, service_name, category, quantity")
+            .eq("user_id", userId)
+            .eq("enabled", true)
+            .limit(50);
+          freeTestServices = (ftsRows ?? []) as typeof freeTestServices;
+        }
+
         // Real-time SMM catalogue: if enabled and the inbound message mentions
         // price / service keywords, fetch services from the panel and pass
         // them as context to the LLM.
@@ -799,6 +811,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             knowledgeExamples,
             panelScreens,
             forbiddenRules,
+            freeTestServices,
           });
           }
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
