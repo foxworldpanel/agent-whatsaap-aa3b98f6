@@ -947,27 +947,22 @@ function SmmServicesSection() {
       : { tone: "idle" as const, text: "Nenhuma sincronização ainda. Clique em Sincronizar agora." };
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Package className="h-5 w-5 text-primary" />
-          <div>
-            <h2 className="font-semibold">Serviços Carregados</h2>
-            <p className="text-xs text-muted-foreground">
-              Catálogo do painel SMM em tempo real. Marque os serviços que podem ser usados como teste grátis.
-            </p>
-          </div>
-        </div>
+    <CollapsibleCard
+      icon={<Package className="h-5 w-5 text-primary" />}
+      title="Serviços Carregados"
+      subtitle="Catálogo do painel SMM em tempo real. Marque os serviços que podem ser usados como teste grátis."
+      headerRight={
         <button
           type="button"
-          onClick={() => syncMut.mutate()}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); syncMut.mutate(); }}
           disabled={syncMut.isPending}
           className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
           {syncMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Sincronizar agora
+          Sincronizar
         </button>
-      </div>
+      }
+    >
 
       <div className={`rounded-md border px-3 py-2 text-xs ${
         status.tone === "ok" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" :
@@ -1072,7 +1067,7 @@ function SmmServicesSection() {
           Configure a API Key do painel SMM em <strong>Configurações</strong> para listar os serviços.
         </p>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }
 
