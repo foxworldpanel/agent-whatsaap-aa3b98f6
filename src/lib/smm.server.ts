@@ -6,18 +6,17 @@ export type SmmCreds = {
 };
 
 async function smmPost(creds: SmmCreds, payload: Record<string, unknown>): Promise<unknown> {
-  // MIND SMM Panel (PerfectPanel-compatible) expects application/x-www-form-urlencoded,
-  // not JSON. Sending JSON results in empty/null responses or "no order id".
-  const form = new URLSearchParams();
-  form.set("key", creds.key);
-  for (const [k, v] of Object.entries(payload)) {
-    if (v === undefined || v === null) continue;
-    form.set(k, String(v));
-  }
+  // MIND SMM Panel: POST JSON conforme docs oficiais
+  // (https://mindsmmpanel.com/smmpanel/api). Endpoint correto: /smmpanel/api/v1.
+  const body = JSON.stringify({ key: creds.key, ...payload });
   const res = await fetch(creds.url, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: form.toString(),
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "User-Agent": "Mozilla/5.0 (compatible; LovableAgent/1.0)",
+    },
+    body,
   });
   const text = await res.text();
   console.log("[smmPost]", payload.action, "→ status", res.status, "body:", text.slice(0, 500));
