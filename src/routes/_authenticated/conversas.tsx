@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Bot, Trash2 } from "lucide-react";
+import { Send, Bot, Trash2, RefreshCw } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage, clearConversation } from "@/lib/whatsapp.functions";
 import { setConversationAgentEnabled } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
+import { syncWhatsappMessages } from "@/lib/sync.functions";
 
 export const Route = createFileRoute("/_authenticated/conversas")({
   ssr: false,
@@ -99,9 +100,12 @@ function Conversas() {
   const toggleConvAgent = useServerFn(setConversationAgentEnabled);
   const fetchNumbers = useServerFn(listNumbers);
   const clearFn = useServerFn(clearConversation);
+  const syncFn = useServerFn(syncWhatsappMessages);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
+  const [syncStatus, setSyncStatus] = useState<"live" | "syncing" | "error">("live");
 
   const numbersQ = useQuery({
     queryKey: ["whatsapp_numbers"],
@@ -174,6 +178,32 @@ function Conversas() {
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
+
+  const syncMut = useMutation({
+    mutationFn: () => syncFn(),
+    onMutate: () => setSyncStatus("syncing"),
+    onSuccess: (res: any) => {
+      setLastSyncAt(new Date());
+      setSyncStatus("live");
+      if (res?.inserted > 0) {
+        toast.success(`${res.inserted} nova(s) mensagem(ns) sincronizada(s)`);
+        qc.invalidateQueries({ queryKey: ["messages", activeId] });
+        qc.invalidateQueries({ queryKey: ["conversations"] });
+      }
+    },
+    onError: () => {
+      setSyncStatus("error");
+    },
+  });
+
+  // Auto-poll every 30s
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!syncMut.isPending) syncMut.mutate();
+    }, 30_000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
   // Realtime: refresh on insert/update
   useEffect(() => {
