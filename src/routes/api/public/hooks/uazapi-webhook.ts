@@ -185,6 +185,22 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+        // ===== Idempotência por messageId =====
+        // Uazapi às vezes dispara o mesmo evento mais de uma vez. Se já
+        // gravamos uma mensagem do cliente com esse external_id, ignora.
+        if (messageId) {
+          const { data: dupInbound } = await supabaseAdmin
+            .from("messages")
+            .select("id")
+            .eq("external_id", messageId)
+            .limit(1)
+            .maybeSingle();
+          if (dupInbound) {
+            console.log(`Mensagem duplicada bloqueada: ${messageId}`);
+            return new Response("ok (duplicate messageId)");
+          }
+        }
+
         // Resolve o número pelo token — primeiro em whatsapp_numbers (novo),
         // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
         const { data: number } = await supabaseAdmin
