@@ -807,7 +807,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           replyParts.length === 1 &&
           !hasHardContent(reply);
 
-        const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording } = await import("@/lib/uazapi.server");
+        const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
         const sendCreds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
         const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -869,11 +869,14 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 replyParts[i],
               );
               if (i < replyParts.length - 1) {
+                await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
                 await sleep(1200);
               }
             }
           }
+          await uazapiClearPresence(sendCreds, phone).catch(() => {});
         } catch (e) {
+          await uazapiClearPresence(sendCreds, phone).catch(() => {});
           return new Response(`uazapi send failed: ${(e as Error).message}`, { status: 502 });
         }
 
