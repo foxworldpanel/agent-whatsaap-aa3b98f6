@@ -468,17 +468,12 @@ function KnowledgeBaseSection() {
   };
 
   return (
-    <div className="rounded-xl border border-border p-6 space-y-5" style={{ background: "var(--gradient-card)" }}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold">Base de Conhecimento</h2>
-        </div>
-        <span className="text-xs text-muted-foreground">{rows.length}/50 exemplos</span>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Adicione exemplos reais de atendimento. O agente aprende o estilo, tom e abordagem desses exemplos e replica nas respostas.
-      </p>
+    <CollapsibleCard
+      icon={<BookOpen className="h-5 w-5 text-primary" />}
+      title="Base de Conhecimento"
+      subtitle="Adicione exemplos reais de atendimento. O agente aprende o estilo e replica nas respostas."
+      headerRight={<span className="text-xs text-muted-foreground">{rows.length}/50</span>}
+    >
 
       <div className="inline-flex rounded-lg border border-border bg-background p-1 text-xs">
         <button
@@ -591,7 +586,7 @@ function KnowledgeBaseSection() {
         </div>
       </div>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }
 
