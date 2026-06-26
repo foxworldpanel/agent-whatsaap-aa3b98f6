@@ -60,6 +60,46 @@ const defaultConfig = {
 
 type Cfg = typeof defaultConfig;
 
+function CollapsibleCard({
+  icon, title, subtitle, defaultOpen = false, headerRight, children, variant = "default",
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  defaultOpen?: boolean;
+  headerRight?: React.ReactNode;
+  children: React.ReactNode;
+  variant?: "default" | "danger";
+}) {
+  const isDanger = variant === "danger";
+  return (
+    <details
+      open={defaultOpen}
+      className={`group rounded-xl p-6 ${isDanger ? "border-2 border-destructive/60" : "border border-border"}`}
+      style={{
+        background: isDanger
+          ? "linear-gradient(180deg, rgba(239,68,68,0.08), rgba(239,68,68,0.02))"
+          : "var(--gradient-card)",
+      }}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          {icon}
+          <div className="min-w-0">
+            <h2 className={`font-semibold ${isDanger ? "text-destructive" : ""}`}>{title}</h2>
+            {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
+        </div>
+        <div className="flex flex-none items-center gap-2">
+          {headerRight}
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </div>
+      </summary>
+      <div className="mt-5 space-y-4">{children}</div>
+    </details>
+  );
+}
+
 function AgentePage() {
   const qc = useQueryClient();
   const fetchCfg = useServerFn(getAgentConfig);
