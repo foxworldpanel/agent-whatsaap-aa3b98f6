@@ -14,6 +14,8 @@ type AgentConfig = {
   never_offer_first?: boolean | null;
   send_panel_on_price?: boolean | null;
   faqs?: unknown;
+  services_realtime?: boolean | null;
+  price_query_instruction?: string | null;
 };
 
 type Contact = {
