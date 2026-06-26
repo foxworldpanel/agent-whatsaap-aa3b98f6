@@ -70,7 +70,7 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
 
             if (status === "completed" && !trial.notified_completed) {
               const msg =
-                "🎉 Pronto! Suas 100 visualizações gratuitas foram entregues! Vai lá conferir no seu vídeo 😊\n\nGostou? Imagina com 1.000 views — tenho um pacote por só R$5! Quer aproveitar? 🚀";
+                "Oi! Seu teste foi entregue ✅ Dá uma olhada no seu perfil e me conta o que achou!";
               try {
                 await uazapiSendText(
                   {
@@ -89,6 +89,7 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
                   status: "completed",
                   last_checked_at: checkedAt,
                   notified_completed: true,
+                  notified_completed_at: checkedAt,
                   upsell_offered: true,
                   raw_response: res.raw as never,
                 })
@@ -123,6 +124,71 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
             processed++;
           } catch (e) {
             console.error("smm status failed", e);
+          }
+        }
+
+        // ====== 10-minute follow-up after entrega ======
+        const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const { data: pendingFollowups } = await supabaseAdmin
+          .from("free_trials")
+          .select("id, user_id, telefone, conversation_id, notified_completed_at")
+          .eq("notified_completed", true)
+          .is("followup_sent_at", null)
+          .not("notified_completed_at", "is", null)
+          .lte("notified_completed_at", tenMinAgo)
+          .limit(50);
+        for (const t of pendingFollowups ?? []) {
+          const integ = integByUser.get(t.user_id);
+          if (!integ) continue;
+          // Skip if cliente já respondeu após a notificação de entrega
+          if (t.conversation_id) {
+            const { data: replied } = await supabaseAdmin
+              .from("messages")
+              .select("id")
+              .eq("conversation_id", t.conversation_id)
+              .eq("sender", "cliente")
+              .gt("created_at", t.notified_completed_at!)
+              .limit(1);
+            if (replied && replied.length > 0) {
+              await supabaseAdmin
+                .from("free_trials")
+                .update({ followup_sent_at: new Date().toISOString() })
+                .eq("id", t.id);
+              continue;
+            }
+          }
+          const followMsg =
+            "Conseguiu ver o resultado? Posso montar um pacote completo pra você 😊";
+          try {
+            await uazapiSendText(
+              { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+              t.telefone,
+              followMsg,
+            );
+          } catch (e) {
+            console.error("uazapi followup send failed", e);
+          }
+          const sentAt = new Date().toISOString();
+          await supabaseAdmin
+            .from("free_trials")
+            .update({ followup_sent_at: sentAt })
+            .eq("id", t.id);
+          if (t.conversation_id) {
+            await supabaseAdmin.from("messages").insert({
+              user_id: t.user_id,
+              conversation_id: t.conversation_id,
+              sender: "agente",
+              kind: "texto",
+              body: followMsg,
+            });
+            await supabaseAdmin
+              .from("conversations")
+              .update({
+                last_message_preview: followMsg.slice(0, 120),
+                last_message_at: sentAt,
+                status: "aguardando",
+              })
+              .eq("id", t.conversation_id);
           }
         }
 
