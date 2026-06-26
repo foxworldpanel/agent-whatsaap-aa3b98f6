@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw, BookOpen, ImageIcon, MessageSquare, Loader2, Monitor, ShieldAlert } from "lucide-react";
+import { Bot, Save, Check, Clock, Building2, ListOrdered, HelpCircle, Plus, Trash2, Package, RefreshCw, BookOpen, ImageIcon, MessageSquare, Loader2, Monitor, ShieldAlert, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations } from "@/lib/agent.functions";
 import { listKnowledge, addTextExample, addImageExample, deleteKnowledge } from "@/lib/knowledge-base.functions";
@@ -59,6 +59,46 @@ const defaultConfig = {
 };
 
 type Cfg = typeof defaultConfig;
+
+function CollapsibleCard({
+  icon, title, subtitle, defaultOpen = false, headerRight, children, variant = "default",
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  defaultOpen?: boolean;
+  headerRight?: React.ReactNode;
+  children: React.ReactNode;
+  variant?: "default" | "danger";
+}) {
+  const isDanger = variant === "danger";
+  return (
+    <details
+      open={defaultOpen}
+      className={`group rounded-xl p-6 ${isDanger ? "border-2 border-destructive/60" : "border border-border"}`}
+      style={{
+        background: isDanger
+          ? "linear-gradient(180deg, rgba(239,68,68,0.08), rgba(239,68,68,0.02))"
+          : "var(--gradient-card)",
+      }}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          {icon}
+          <div className="min-w-0">
+            <h2 className={`font-semibold ${isDanger ? "text-destructive" : ""}`}>{title}</h2>
+            {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
+        </div>
+        <div className="flex flex-none items-center gap-2">
+          {headerRight}
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+        </div>
+      </summary>
+      <div className="mt-5 space-y-4">{children}</div>
+    </details>
+  );
+}
 
 function AgentePage() {
   const qc = useQueryClient();
@@ -153,12 +193,7 @@ function AgentePage() {
       </header>
 
       <div className="space-y-6">
-        <div className="space-y-6 rounded-xl border border-border p-6" style={{ background: "var(--gradient-card)" }}>
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary" />
-            <h2 className="font-semibold">Personalidade</h2>
-          </div>
-
+        <CollapsibleCard icon={<Bot className="h-5 w-5 text-primary" />} title="Personalidade">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Nome do agente" value={cfg.agent_name} onChange={(v) => setCfg({ ...cfg, agent_name: v })} />
             <Field label="Tom de voz" value={cfg.tone} onChange={(v) => setCfg({ ...cfg, tone: v })} />
@@ -176,50 +211,38 @@ function AgentePage() {
               className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary font-mono"
             />
           </div>
+        </CollapsibleCard>
 
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Sobre a empresa</h2>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <CollapsibleCard icon={<Building2 className="h-5 w-5 text-primary" />} title="Sobre a empresa">
+          <div className="grid gap-4 md:grid-cols-2">
               <Field label="Nome" value={cfg.company_info.name} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, name: v } })} />
               <Field label="Tipo" value={cfg.company_info.type} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, type: v } })} />
               <Field label="Plataformas" value={cfg.company_info.platforms} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, platforms: v } })} />
               <Field label="Pagamentos" value={cfg.company_info.payments} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, payments: v } })} />
               <Field label="Link do catálogo" value={cfg.company_info.catalog_link} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, catalog_link: v } })} />
               <Field label="Link do painel" value={cfg.company_info.panel_link} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, panel_link: v } })} />
-            </div>
-            <div className="mt-4">
-              <Field label="Serviços oferecidos" multiline value={cfg.company_info.services} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, services: v } })} />
-            </div>
           </div>
+          <div>
+              <Field label="Serviços oferecidos" multiline value={cfg.company_info.services} onChange={(v) => setCfg({ ...cfg, company_info: { ...cfg.company_info, services: v } })} />
+          </div>
+        </CollapsibleCard>
 
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center gap-2">
-              <ListOrdered className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Como funciona o painel</h2>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">O agente explica esses passos ao cliente quando perguntarem.</p>
-            <div className="mt-3">
+        <CollapsibleCard icon={<ListOrdered className="h-5 w-5 text-primary" />} title="Como funciona o painel" subtitle="O agente explica esses passos ao cliente quando perguntarem.">
+          <div>
               <textarea
                 value={cfg.how_it_works}
                 onChange={(e) => setCfg({ ...cfg, how_it_works: e.target.value })}
                 rows={8}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary font-mono"
               />
-            </div>
           </div>
+        </CollapsibleCard>
 
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Comportamento</h2>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
+        <CollapsibleCard icon={<Clock className="h-5 w-5 text-primary" />} title="Comportamento">
+          <p className="text-sm text-muted-foreground">
               Antes de responder, o agente espera um tempo aleatório entre o mínimo e o máximo. Opcionalmente envia "digitando…" no WhatsApp durante a espera.
             </p>
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2">
               <Field
                 label="Delay mínimo (segundos)"
                 type="number"
@@ -232,46 +255,45 @@ function AgentePage() {
                 value={String(cfg.response_delay_max_sec)}
                 onChange={(v) => setCfg({ ...cfg, response_delay_max_sec: Math.max(0, parseInt(v || "0", 10) || 0) })}
               />
-            </div>
-            <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
               <div>
                 <p className="text-sm font-medium">Mostrar "digitando…"</p>
                 <p className="text-xs text-muted-foreground">Envia o status de digitando via Uazapi durante o delay.</p>
               </div>
               <Toggle on={cfg.typing_indicator_enabled} onChange={(v) => setCfg({ ...cfg, typing_indicator_enabled: v })} />
-            </div>
-            <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
               <div>
                 <p className="text-sm font-medium">Nunca oferecer produto na primeira mensagem</p>
                 <p className="text-xs text-muted-foreground">Primeiro entende o que o cliente quer, depois oferece.</p>
               </div>
               <Toggle on={cfg.never_offer_first} onChange={(v) => setCfg({ ...cfg, never_offer_first: v })} />
-            </div>
-            <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
               <div>
                 <p className="text-sm font-medium">Enviar link do painel quando perguntar sobre preço</p>
                 <p className="text-xs text-muted-foreground">Manda o link do painel para o cliente consultar valores.</p>
               </div>
               <Toggle on={cfg.send_panel_on_price} onChange={(v) => setCfg({ ...cfg, send_panel_on_price: v })} />
-            </div>
           </div>
+        </CollapsibleCard>
 
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="h-5 w-5 text-primary" />
-                <h2 className="font-semibold">Perguntas frequentes</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCfg({ ...cfg, faqs: [...cfg.faqs, { q: "", a: "" }] })}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:bg-muted"
-              >
-                <Plus className="h-3 w-3" /> Adicionar
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">O agente usa essas respostas como base de conhecimento.</p>
-            <div className="mt-4 space-y-3">
+        <CollapsibleCard
+          icon={<HelpCircle className="h-5 w-5 text-primary" />}
+          title="Perguntas frequentes"
+          subtitle="O agente usa essas respostas como base de conhecimento."
+        >
+          <div>
+            <button
+              type="button"
+              onClick={() => setCfg({ ...cfg, faqs: [...cfg.faqs, { q: "", a: "" }] })}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:bg-muted"
+            >
+              <Plus className="h-3 w-3" /> Adicionar
+            </button>
+          </div>
+          <div className="space-y-3">
               {cfg.faqs.length === 0 && (
                 <p className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                   Nenhuma pergunta cadastrada. Clique em "Adicionar" para criar.
@@ -312,18 +334,15 @@ function AgentePage() {
                   />
                 </div>
               ))}
-            </div>
           </div>
+        </CollapsibleCard>
 
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Catálogo de Serviços</h2>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Quando ativo, antes de responder perguntas sobre preço o agente busca a lista atualizada de serviços no painel SMM.
-            </p>
-            <div className="mt-4 space-y-3">
+        <CollapsibleCard
+          icon={<Package className="h-5 w-5 text-primary" />}
+          title="Catálogo de Serviços"
+          subtitle="Quando ativo, antes de responder perguntas sobre preço o agente busca a lista atualizada de serviços no painel SMM."
+        >
+          <div className="space-y-3">
               <Field
                 label="API Key do painel SMM"
                 value={intFields?.smm_api_key ?? ""}
@@ -336,18 +355,15 @@ function AgentePage() {
                 </div>
                 <Toggle on={cfg.services_realtime} onChange={(v) => setCfg({ ...cfg, services_realtime: v })} />
               </div>
-            </div>
           </div>
+        </CollapsibleCard>
 
-          <div className="border-t border-border pt-6">
-            <div className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
-              <h2 className="font-semibold">Consulta de Preços em Tempo Real</h2>
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Card separado da instrução base. Quando o toggle estiver ativo, sempre que o cliente perguntar preço ou quantidade, o sistema busca a lista de serviços na API antes de responder e injeta a instrução abaixo no Claude.
-            </p>
-            <div className="mt-4 space-y-3">
+        <CollapsibleCard
+          icon={<Package className="h-5 w-5 text-primary" />}
+          title="Consulta de Preços em Tempo Real"
+          subtitle="Quando o toggle estiver ativo, o sistema busca a lista de serviços na API antes de responder."
+        >
+          <div className="space-y-3">
               <div className="flex items-center justify-between rounded-lg border border-border bg-background/40 p-3">
                 <div>
                   <p className="text-sm font-medium">Consultar preços automaticamente</p>
@@ -367,9 +383,8 @@ function AgentePage() {
                   className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary font-mono"
                 />
               </div>
-            </div>
           </div>
-        </div>
+        </CollapsibleCard>
 
         <KnowledgeBaseSection />
         <ForbiddenRulesSection />
@@ -453,17 +468,12 @@ function KnowledgeBaseSection() {
   };
 
   return (
-    <div className="rounded-xl border border-border p-6 space-y-5" style={{ background: "var(--gradient-card)" }}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold">Base de Conhecimento</h2>
-        </div>
-        <span className="text-xs text-muted-foreground">{rows.length}/50 exemplos</span>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Adicione exemplos reais de atendimento. O agente aprende o estilo, tom e abordagem desses exemplos e replica nas respostas.
-      </p>
+    <CollapsibleCard
+      icon={<BookOpen className="h-5 w-5 text-primary" />}
+      title="Base de Conhecimento"
+      subtitle="Adicione exemplos reais de atendimento. O agente aprende o estilo e replica nas respostas."
+      headerRight={<span className="text-xs text-muted-foreground">{rows.length}/50</span>}
+    >
 
       <div className="inline-flex rounded-lg border border-border bg-background p-1 text-xs">
         <button
@@ -576,7 +586,7 @@ function KnowledgeBaseSection() {
         </div>
       </div>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }
 
@@ -937,27 +947,22 @@ function SmmServicesSection() {
       : { tone: "idle" as const, text: "Nenhuma sincronização ainda. Clique em Sincronizar agora." };
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Package className="h-5 w-5 text-primary" />
-          <div>
-            <h2 className="font-semibold">Serviços Carregados</h2>
-            <p className="text-xs text-muted-foreground">
-              Catálogo do painel SMM em tempo real. Marque os serviços que podem ser usados como teste grátis.
-            </p>
-          </div>
-        </div>
+    <CollapsibleCard
+      icon={<Package className="h-5 w-5 text-primary" />}
+      title="Serviços Carregados"
+      subtitle="Catálogo do painel SMM em tempo real. Marque os serviços que podem ser usados como teste grátis."
+      headerRight={
         <button
           type="button"
-          onClick={() => syncMut.mutate()}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); syncMut.mutate(); }}
           disabled={syncMut.isPending}
           className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
         >
           {syncMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Sincronizar agora
+          Sincronizar
         </button>
-      </div>
+      }
+    >
 
       <div className={`rounded-md border px-3 py-2 text-xs ${
         status.tone === "ok" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" :
@@ -1062,7 +1067,7 @@ function SmmServicesSection() {
           Configure a API Key do painel SMM em <strong>Configurações</strong> para listar os serviços.
         </p>
       )}
-    </div>
+    </CollapsibleCard>
   );
 }
 
@@ -1135,39 +1140,31 @@ function ForbiddenRulesSection() {
   };
 
   return (
-    <div
-      className="rounded-xl border-2 border-destructive/60 p-6 space-y-4"
-      style={{ background: "linear-gradient(180deg, rgba(239,68,68,0.08), rgba(239,68,68,0.02))" }}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-destructive" />
-          <div>
-            <h2 className="font-semibold text-destructive">Regras Proibidas</h2>
-            <p className="text-xs text-muted-foreground">
-              O agente NUNCA pode quebrar essas regras. Se o cliente insistir, ele desvia com naturalidade.
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-none gap-2">
+    <CollapsibleCard
+      variant="danger"
+      icon={<ShieldAlert className="h-5 w-5 text-destructive" />}
+      title="Regras Proibidas"
+      subtitle="O agente NUNCA pode quebrar essas regras. Se o cliente insistir, ele desvia com naturalidade."
+      headerRight={
+        <>
           <button
             type="button"
-            onClick={() => setRules([...rules, { rule: "", deflection: "", enabled: true }])}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRules([...rules, { rule: "", deflection: "", enabled: true }]); }}
             className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-background px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
           >
-            <Plus className="h-3.5 w-3.5" /> Adicionar regra
+            <Plus className="h-3.5 w-3.5" /> Adicionar
           </button>
           <button
             type="button"
-            onClick={() => saveMut.mutate()}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); saveMut.mutate(); }}
             disabled={saveMut.isPending}
             className="inline-flex items-center gap-1 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60"
           >
-            <Save className="h-3.5 w-3.5" /> {saveMut.isPending ? "Salvando…" : "Salvar regras"}
+            <Save className="h-3.5 w-3.5" /> {saveMut.isPending ? "Salvando…" : "Salvar"}
           </button>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {listQ.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
 
       <div className="space-y-2">
@@ -1212,6 +1209,6 @@ function ForbiddenRulesSection() {
           </p>
         )}
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }
