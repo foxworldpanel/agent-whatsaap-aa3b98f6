@@ -170,7 +170,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         const msg = payload.message ?? payload.data;
         if (!msg) return new Response("no message");
-        if (msg.fromMe) return new Response("ignored: fromMe");
+        const outbound = msg.fromMe === true;
 
         const instanceToken = pickInstanceToken(payload);
         const phone = extractPhone(msg.chatid, msg.sender);
@@ -420,7 +420,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         await supabaseAdmin.from("messages").insert({
           user_id: userId,
           conversation_id: conv.id,
-          sender: "cliente",
+          sender: outbound ? "agente" : "cliente",
           kind,
           body: inboundBody,
           audio_url: kind === "audio" ? mediaUrl : null,
@@ -431,9 +431,13 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           .update({
             last_message_preview: inboundBody.slice(0, 120),
             last_message_at: now,
-            status: "agente_respondendo",
+            status: outbound ? "aguardando" : "agente_respondendo",
           })
           .eq("id", conv.id);
+
+        // Mensagem enviada pelo celular (fromMe): apenas espelha no painel
+        // e encerra — não roda IA, funil, stop, teste grátis, etc.
+        if (outbound) return new Response("ok (fromMe mirrored)");
 
         // Áudio recebido: já foi transcrito acima; o agente segue o fluxo
         // normal e, mais adiante, responderá por áudio (TTS) se houver
