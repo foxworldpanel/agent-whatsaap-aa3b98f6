@@ -877,7 +877,7 @@ function ForbiddenRulesSection() {
     const rows = listQ.data as Array<{ id: string; rule: string; deflection: string | null; enabled: boolean }>;
     if (rows.length === 0 && !seeded) {
       setSeeded(true);
-      seedFn({}).then(() => qc.invalidateQueries({ queryKey: ["forbidden_rules"] })).catch(() => {});
+      seedFn().then(() => qc.invalidateQueries({ queryKey: ["forbidden_rules"] })).catch(() => {});
       return;
     }
     setRules(rows.map((r) => ({ id: r.id, rule: r.rule, deflection: r.deflection ?? "", enabled: r.enabled })));
