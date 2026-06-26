@@ -26,6 +26,37 @@ async function uazapiPost(creds: UazapiCreds, path: string, body: unknown): Prom
   }
 }
 
+async function uazapiPostRaw(
+  creds: UazapiCreds,
+  path: string,
+  body: unknown,
+): Promise<{ ok: boolean; status: number; text: string }> {
+  const base = creds.uazapi_url.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", token: creds.uazapi_token },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text().catch(() => "");
+    return { ok: res.ok, status: res.status, text: text.slice(0, 200) };
+  } catch (err) {
+    return { ok: false, status: 0, text: String(err).slice(0, 200) };
+  }
+}
+
+// Cache do endpoint que funcionou para evitar re-tentar nas próximas chamadas.
+let presenceEndpointCache: { path: string; build: (phone: string, presence: string, delay?: number) => Record<string, unknown> } | null = null;
+
+const PRESENCE_VARIANTS: Array<{
+  path: string;
+  build: (phone: string, presence: string, delay?: number) => Record<string, unknown>;
+}> = [
+  { path: "/chat/presence", build: (phone, presence, delay) => ({ phone, presence, ...(delay ? { delay } : {}) }) },
+  { path: "/message/presence", build: (phone, presence, delay) => ({ number: phone, presence, ...(delay ? { delay } : {}) }) },
+  { path: "/chat/sendPresence", build: (phone, presence, delay) => ({ phone, status: presence, ...(delay ? { delay } : {}) }) },
+];
+
 export async function uazapiSendText(creds: UazapiCreds, to: string, text: string): Promise<void> {
   await uazapiPost(creds, "/send/text", { number: normalizePhone(to), text });
 }
@@ -38,19 +69,40 @@ async function uazapiSendPresence(
   presence: "composing" | "recording" | "paused" | "available",
   durationMs?: number,
 ): Promise<void> {
-  try {
-    const body: Record<string, unknown> = {
-      number: normalizePhone(to),
-      phone: normalizePhone(to),
-      presence,
-    };
-    if (durationMs && presence !== "paused" && presence !== "available") {
-      body.delay = Math.max(1000, Math.min(durationMs, 60_000));
-    }
-    await uazapiPost(creds, "/chat/presence", body);
-  } catch {
-    // ignore — presence is best-effort
+  const phone = normalizePhone(to);
+  const delay =
+    durationMs && presence !== "paused" && presence !== "available"
+      ? Math.max(1000, Math.min(durationMs, 60_000))
+      : undefined;
+
+  if (presenceEndpointCache) {
+    const body = presenceEndpointCache.build(phone, presence, delay);
+    const r = await uazapiPostRaw(creds, presenceEndpointCache.path, body);
+    if (r.ok) return;
+    console.warn("[uazapi-presence] endpoint cacheado falhou, refazendo descoberta", {
+      path: presenceEndpointCache.path,
+      status: r.status,
+      text: r.text,
+    });
+    presenceEndpointCache = null;
   }
+
+  for (const variant of PRESENCE_VARIANTS) {
+    const body = variant.build(phone, presence, delay);
+    const r = await uazapiPostRaw(creds, variant.path, body);
+    console.info("[uazapi-presence] tentativa", {
+      path: variant.path,
+      body,
+      status: r.status,
+      ok: r.ok,
+      text: r.text,
+    });
+    if (r.ok) {
+      presenceEndpointCache = variant;
+      return;
+    }
+  }
+  console.warn("[uazapi-presence] nenhuma variação retornou 200", { presence, phone });
 }
 
 export async function uazapiSendTyping(
