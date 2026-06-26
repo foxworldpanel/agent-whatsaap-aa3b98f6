@@ -404,6 +404,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           kind,
           body: inboundBody,
           audio_url: kind === "audio" ? mediaUrl : null,
+          external_id: messageId,
         });
         await supabaseAdmin
           .from("conversations")
