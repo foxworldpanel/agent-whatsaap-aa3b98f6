@@ -69,7 +69,7 @@ export const listAutoCampaigns = createServerFn({ method: "GET" })
   });
 
 function byDefaultOrder(a: { key: string }, b: { key: string }) {
-  const order = DEFAULT_AUTO_CAMPAIGNS.map((d) => d.key);
+  const order: string[] = DEFAULT_AUTO_CAMPAIGNS.map((d) => d.key);
   return order.indexOf(a.key) - order.indexOf(b.key);
 }
 
