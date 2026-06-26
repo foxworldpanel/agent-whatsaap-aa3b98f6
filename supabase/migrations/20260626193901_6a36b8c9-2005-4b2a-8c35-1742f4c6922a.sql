@@ -1,0 +1,2 @@
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS external_id text;
+CREATE UNIQUE INDEX IF NOT EXISTS messages_conv_external_id_uidx ON public.messages (conversation_id, external_id) WHERE external_id IS NOT NULL;
