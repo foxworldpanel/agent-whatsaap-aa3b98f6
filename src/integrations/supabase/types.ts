@@ -471,6 +471,42 @@ export type Database = {
         }
         Relationships: []
       }
+      free_test_services: {
+        Row: {
+          category: string
+          created_at: string
+          enabled: boolean
+          id: string
+          quantity: number
+          service_id: string
+          service_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          quantity?: number
+          service_id: string
+          service_name?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          quantity?: number
+          service_id?: string
+          service_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       free_trials: {
         Row: {
           contact_id: string | null
@@ -551,6 +587,9 @@ export type Database = {
           free_trial_enabled: boolean
           openai_api_key: string | null
           smm_api_key: string | null
+          smm_last_sync_at: string | null
+          smm_last_sync_count: number | null
+          smm_last_sync_error: string | null
           smm_panel_url: string | null
           smm_service_id: string | null
           uazapi_admin_token: string | null
@@ -566,6 +605,9 @@ export type Database = {
           free_trial_enabled?: boolean
           openai_api_key?: string | null
           smm_api_key?: string | null
+          smm_last_sync_at?: string | null
+          smm_last_sync_count?: number | null
+          smm_last_sync_error?: string | null
           smm_panel_url?: string | null
           smm_service_id?: string | null
           uazapi_admin_token?: string | null
@@ -581,6 +623,9 @@ export type Database = {
           free_trial_enabled?: boolean
           openai_api_key?: string | null
           smm_api_key?: string | null
+          smm_last_sync_at?: string | null
+          smm_last_sync_count?: number | null
+          smm_last_sync_error?: string | null
           smm_panel_url?: string | null
           smm_service_id?: string | null
           uazapi_admin_token?: string | null
