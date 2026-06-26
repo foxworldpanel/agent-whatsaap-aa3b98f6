@@ -2,9 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Upload, Search, Filter, Plus, Trash2, Flame, Thermometer, Snowflake, Ban, CheckCircle2 } from "lucide-react";
+import { Upload, Search, Filter, Plus, Trash2, Flame, Thermometer, Snowflake, Ban, CheckCircle2, Download, X, Loader2 } from "lucide-react";
 import { profileLabel, statusLabel, type ContactProfile, type ContactStatus } from "@/lib/mock-data";
 import { listContacts, importContacts, createContact, deleteContact } from "@/lib/contacts.functions";
+import { extractChatsFromNumber, importExtractedContacts } from "@/lib/extraction.functions";
+import { listNumbers } from "@/lib/numbers.functions";
+import { listWelcomeFunnels } from "@/lib/welcome-funnels.functions";
 
 export const Route = createFileRoute("/_authenticated/contatos")({
   ssr: false,
@@ -41,6 +44,10 @@ function Contatos() {
   const imp = useServerFn(importContacts);
   const create = useServerFn(createContact);
   const del = useServerFn(deleteContact);
+  const extract = useServerFn(extractChatsFromNumber);
+  const importExtract = useServerFn(importExtractedContacts);
+  const numbersList = useServerFn(listNumbers);
+  const funnelsList = useServerFn(listWelcomeFunnels);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [search, setSearch] = useState("");
@@ -48,6 +55,7 @@ function Contatos() {
   const [statusFilter, setStatusFilter] = useState<ContactStatus | "todos">("todos");
   const [tempFilter, setTempFilter] = useState<Temperatura | "todos">("todos");
   const [showAdd, setShowAdd] = useState(false);
+  const [showExtract, setShowExtract] = useState(false);
 
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ["contacts"],
@@ -111,6 +119,13 @@ function Contatos() {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => setShowExtract(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
+          >
+            <Download className="h-4 w-4" />
+            Extrair do WhatsApp
+          </button>
+          <button
             onClick={() => setShowAdd((s) => !s)}
             className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
           >
@@ -132,6 +147,17 @@ function Contatos() {
 
       {showAdd && (
         <AddForm onCancel={() => setShowAdd(false)} onSubmit={(v) => createMut.mutate(v)} pending={createMut.isPending} />
+      )}
+
+      {showExtract && (
+        <ExtractionPanel
+          onClose={() => setShowExtract(false)}
+          numbersList={numbersList}
+          funnelsList={funnelsList}
+          extract={extract}
+          importExtract={importExtract}
+          onImported={() => qc.invalidateQueries({ queryKey: ["contacts"] })}
+        />
       )}
 
       <p className="text-xs text-muted-foreground">
