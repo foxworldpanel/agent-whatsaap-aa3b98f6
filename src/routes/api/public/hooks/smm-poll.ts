@@ -70,8 +70,14 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
             const checkedAt = new Date().toISOString();
 
             if (status === "completed" && !trial.notified_completed) {
+              const startCount = res.start_count ?? null;
+              const qty = res.quantity ?? trial.quantidade ?? null;
+              const viewsAtuais =
+                startCount !== null && qty !== null ? startCount + qty : null;
               const msg =
-                "Oi! Seu teste foi entregue ✅ Dá uma olhada no seu perfil e me conta o que achou!";
+                startCount !== null && viewsAtuais !== null
+                  ? `Seu teste foi entregue! Seu Reel tinha ${startCount} views, agora está com ${viewsAtuais} views! Sentiu a diferença?`
+                  : "Seu teste foi entregue! Dá uma olhada no seu perfil e me conta o que achou!";
               try {
                 await uazapiSendText(
                   {
@@ -92,6 +98,8 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
                   notified_completed: true,
                   notified_completed_at: checkedAt,
                   upsell_offered: true,
+                  start_count: startCount,
+                  views_atuais: viewsAtuais,
                   raw_response: res.raw as never,
                 })
                 .eq("id", trial.id);
@@ -159,7 +167,7 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
             }
           }
           const followMsg =
-            "Conseguiu ver o resultado? Posso montar um pacote completo pra você 😊";
+            "Quer continuar crescendo? Posso montar um pacote completo pra você";
           try {
             await uazapiSendText(
               { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
