@@ -63,9 +63,40 @@ export async function smmFetchServices(creds: SmmCreds): Promise<Array<{
   min: string;
   max: string;
 }>> {
-  const raw = (await smmPost(creds, { action: "services" })) as unknown;
-  if (!Array.isArray(raw)) return [];
-  return raw.slice(0, 500).map((s) => {
+  // Try GET first (most SMM panels accept it for action=services), fall back to POST.
+  let raw: unknown = null;
+  let lastErr = "";
+  try {
+    const getUrl = `${creds.url}${creds.url.includes("?") ? "&" : "?"}action=services&key=${encodeURIComponent(creds.key)}`;
+    const res = await fetch(getUrl, { method: "GET" });
+    const text = await res.text();
+    console.log("[smmFetchServices] GET status:", res.status, "body:", text.slice(0, 300));
+    if (res.ok) {
+      try { raw = JSON.parse(text); } catch { lastErr = `Resposta não-JSON (GET ${res.status}): ${text.slice(0, 200)}`; }
+    } else {
+      lastErr = `GET ${res.status}: ${text.slice(0, 200)}`;
+    }
+  } catch (e) {
+    lastErr = `Falha de rede (GET): ${e instanceof Error ? e.message : String(e)}`;
+    console.log("[smmFetchServices] GET threw:", lastErr);
+  }
+  if (!Array.isArray(raw)) {
+    try {
+      raw = await smmPost(creds, { action: "services" });
+      console.log("[smmFetchServices] POST ok, items:", Array.isArray(raw) ? (raw as unknown[]).length : "not-array");
+    } catch (e) {
+      const postErr = e instanceof Error ? e.message : String(e);
+      console.log("[smmFetchServices] POST failed:", postErr);
+      throw new Error(lastErr || postErr);
+    }
+  }
+  if (!Array.isArray(raw)) {
+    // Panel returned an object — usually { error: "..." }
+    const obj = raw as Record<string, unknown> | null;
+    const apiErr = obj && typeof obj.error === "string" ? obj.error : null;
+    throw new Error(apiErr ? `API retornou erro: ${apiErr}` : (lastErr || "Resposta inesperada do painel SMM"));
+  }
+  return (raw as unknown[]).slice(0, 500).map((s) => {
     const r = s as Record<string, unknown>;
     return {
       service: String(r.service ?? ""),
