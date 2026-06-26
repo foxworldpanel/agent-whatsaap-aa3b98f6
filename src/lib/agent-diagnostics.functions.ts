@@ -67,10 +67,18 @@ export const runAgentDiagnostics = createServerFn({ method: "POST" })
     let elevenStatus: IntegrationStatus = { name: "ElevenLabs (voz)", ok: false, detail: "Não configurado" };
     if (integ?.elevenlabs_api_key) {
       try {
-        const r = await fetch("https://api.elevenlabs.io/v1/user", { headers: { "xi-api-key": integ.elevenlabs_api_key } });
-        elevenStatus = r.ok
-          ? { name: "ElevenLabs (voz)", ok: true, detail: integ.elevenlabs_voice_id ? "Conectado" : "Conectado (sem Voice ID)" }
-          : { name: "ElevenLabs (voz)", ok: false, detail: `HTTP ${r.status}` };
+        const apiKey = integ.elevenlabs_api_key.trim();
+        const r = await fetch("https://api.elevenlabs.io/v1/user", {
+          method: "GET",
+          headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+        });
+        if (r.status === 200) {
+          elevenStatus = { name: "ElevenLabs (voz)", ok: true, detail: integ.elevenlabs_voice_id ? "✅ ElevenLabs conectado" : "✅ Conectado (sem Voice ID)" };
+        } else if (r.status === 401) {
+          elevenStatus = { name: "ElevenLabs (voz)", ok: false, detail: "❌ API Key inválida" };
+        } else {
+          elevenStatus = { name: "ElevenLabs (voz)", ok: false, detail: `HTTP ${r.status}` };
+        }
       } catch (e) { elevenStatus = { name: "ElevenLabs (voz)", ok: false, detail: (e as Error).message }; }
     }
 
