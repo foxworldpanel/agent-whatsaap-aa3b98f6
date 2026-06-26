@@ -832,6 +832,240 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
   );
 }
 
+function SmmServicesSection() {
+  const qc = useQueryClient();
+  const syncFn = useServerFn(syncSmmServices);
+  const fetchInt = useServerFn(getIntegrations);
+  const listFts = useServerFn(listFreeTestServices);
+  const upsertFts = useServerFn(upsertFreeTestService);
+  const delFts = useServerFn(deleteFreeTestService);
+
+  const intQ = useQuery({ queryKey: ["integrations"], queryFn: () => fetchInt() });
+  const ftsQ = useQuery({ queryKey: ["free_test_services"], queryFn: () => listFts() });
+
+  const [services, setServices] = useState<ServiceRow[]>([]);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string>("");
+
+  type SyncResult = { ok: boolean; count: number; error: string | null; services: ServiceRow[] };
+  const syncMut = useMutation<SyncResult, Error, void>({
+    mutationFn: () => syncFn() as Promise<SyncResult>,
+    onSuccess: (res) => {
+      setServices(res.services ?? []);
+      qc.invalidateQueries({ queryKey: ["integrations"] });
+      if (res.ok) toast.success(`${res.count} serviços carregados`);
+      else toast.error(res.error ?? "Falha ao sincronizar");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // Auto-load on first open if API key configured and never synced.
+  useEffect(() => {
+    if (services.length > 0 || syncMut.isPending) return;
+    const d = intQ.data as { smm_api_key?: string | null } | null | undefined;
+    if (d?.smm_api_key) {
+      syncMut.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intQ.data]);
+
+  const integ = (intQ.data ?? {}) as {
+    smm_last_sync_at?: string | null;
+    smm_last_sync_count?: number | null;
+    smm_last_sync_error?: string | null;
+    smm_api_key?: string | null;
+  };
+  const fts = (ftsQ.data ?? []) as Array<{
+    id: string; service_id: string; service_name: string; category: string; quantity: number; enabled: boolean;
+  }>;
+  const ftsByService = new Map(fts.map((f) => [f.service_id, f]));
+
+  const categories = Array.from(new Set(services.map((s) => s.category).filter(Boolean))).sort();
+  const filtered = services.filter((s) => {
+    if (category && s.category !== category) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!s.name.toLowerCase().includes(q) && !s.category.toLowerCase().includes(q) && !s.service.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const formatSync = () => {
+    if (!integ.smm_last_sync_at) return "Nunca sincronizado";
+    const d = new Date(integ.smm_last_sync_at);
+    const hh = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const same = d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+    const dateStr = same ? "hoje" : d.toLocaleDateString("pt-BR");
+    return `${hh} de ${dateStr}`;
+  };
+
+  const toggleFreeTest = (s: ServiceRow, currentEnabled: boolean) => {
+    const existing = ftsByService.get(s.service);
+    upsertFts({
+      data: {
+        service_id: s.service,
+        service_name: s.name,
+        category: s.category,
+        quantity: existing?.quantity ?? 100,
+        enabled: !currentEnabled,
+      },
+    })
+      .then(() => qc.invalidateQueries({ queryKey: ["free_test_services"] }))
+      .catch((e: Error) => toast.error(e.message));
+  };
+
+  const setQuantity = (s: ServiceRow, qty: number) => {
+    const existing = ftsByService.get(s.service);
+    upsertFts({
+      data: {
+        service_id: s.service,
+        service_name: s.name,
+        category: s.category,
+        quantity: qty,
+        enabled: existing?.enabled ?? true,
+      },
+    })
+      .then(() => qc.invalidateQueries({ queryKey: ["free_test_services"] }))
+      .catch((e: Error) => toast.error(e.message));
+  };
+
+  const status = integ.smm_last_sync_error
+    ? { tone: "error" as const, text: `❌ Erro ao carregar serviços — ${integ.smm_last_sync_error}` }
+    : integ.smm_last_sync_at
+      ? { tone: "ok" as const, text: `✅ ${integ.smm_last_sync_count ?? 0} serviços carregados — ${formatSync()}` }
+      : { tone: "idle" as const, text: "Nenhuma sincronização ainda. Clique em Sincronizar agora." };
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Package className="h-5 w-5 text-primary" />
+          <div>
+            <h2 className="font-semibold">Serviços Carregados</h2>
+            <p className="text-xs text-muted-foreground">
+              Catálogo do painel SMM em tempo real. Marque os serviços que podem ser usados como teste grátis.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => syncMut.mutate()}
+          disabled={syncMut.isPending}
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+        >
+          {syncMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          Sincronizar agora
+        </button>
+      </div>
+
+      <div className={`rounded-md border px-3 py-2 text-xs ${
+        status.tone === "ok" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" :
+        status.tone === "error" ? "border-destructive/50 bg-destructive/10 text-destructive" :
+        "border-border bg-background/60 text-muted-foreground"
+      }`}>
+        {status.text}
+      </div>
+
+      {services.length > 0 && (
+        <>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_220px]">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nome, plataforma ou ID"
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary"
+            />
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-xs outline-none focus:border-primary"
+            >
+              <option value="">Todas as categorias ({categories.length})</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          <div className="max-h-[480px] overflow-auto rounded-md border border-border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted/80 backdrop-blur">
+                <tr className="text-left">
+                  <th className="px-2 py-2 font-medium">ID</th>
+                  <th className="px-2 py-2 font-medium">Nome</th>
+                  <th className="px-2 py-2 font-medium">Categoria</th>
+                  <th className="px-2 py-2 text-right font-medium">R$/1000</th>
+                  <th className="px-2 py-2 text-right font-medium">Mín</th>
+                  <th className="px-2 py-2 text-right font-medium">Máx</th>
+                  <th className="px-2 py-2 text-center font-medium">Teste grátis</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.slice(0, 500).map((s) => {
+                  const existing = ftsByService.get(s.service);
+                  const enabled = existing?.enabled ?? false;
+                  return (
+                    <tr key={s.service} className="border-t border-border hover:bg-background/60">
+                      <td className="px-2 py-1.5 font-mono text-[10px] text-muted-foreground">{s.service}</td>
+                      <td className="px-2 py-1.5">{s.name}</td>
+                      <td className="px-2 py-1.5 text-muted-foreground">{s.category}</td>
+                      <td className="px-2 py-1.5 text-right font-mono">{s.rate}</td>
+                      <td className="px-2 py-1.5 text-right font-mono">{s.min}</td>
+                      <td className="px-2 py-1.5 text-right font-mono">{s.max}</td>
+                      <td className="px-2 py-1.5">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Toggle on={enabled} onChange={() => toggleFreeTest(s, enabled)} />
+                          <input
+                            type="number"
+                            min={1}
+                            value={existing?.quantity ?? 100}
+                            onChange={(e) => setQuantity(s, Math.max(1, Number(e.target.value) || 1))}
+                            disabled={!enabled}
+                            className="w-20 rounded-md border border-border bg-background px-2 py-1 text-right text-xs outline-none focus:border-primary disabled:opacity-50"
+                          />
+                          {existing && (
+                            <button
+                              type="button"
+                              onClick={() => delFts({ data: { service_id: s.service } })
+                                .then(() => qc.invalidateQueries({ queryKey: ["free_test_services"] }))
+                                .catch((e: Error) => toast.error(e.message))}
+                              className="rounded-md p-1 text-muted-foreground hover:text-destructive"
+                              aria-label="Remover"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <p className="p-4 text-center text-xs text-muted-foreground">Nenhum serviço encontrado.</p>
+            )}
+            {filtered.length > 500 && (
+              <p className="p-2 text-center text-[10px] text-muted-foreground">Mostrando os primeiros 500 — refine o filtro.</p>
+            )}
+          </div>
+
+          {fts.filter((f) => f.enabled).length > 0 && (
+            <p className="text-[11px] text-muted-foreground">
+              {fts.filter((f) => f.enabled).length} serviço(s) ativos para teste grátis. O agente os oferece automaticamente conforme a plataforma do cliente.
+            </p>
+          )}
+        </>
+      )}
+
+      {!integ.smm_api_key && (
+        <p className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+          Configure a API Key do painel SMM em <strong>Configurações</strong> para listar os serviços.
+        </p>
+      )}
+    </div>
+  );
+}
+
 type IntFields = {
   uazapi_url: string; uazapi_token: string; uazapi_admin_token: string;
   anthropic_api_key: string; elevenlabs_api_key: string; elevenlabs_voice_id: string;
