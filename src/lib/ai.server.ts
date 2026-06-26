@@ -270,6 +270,49 @@ export async function extractConversationFromImage(imageUrl: string): Promise<st
   return (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
 }
 
+// ----- Vision: descreve uma tela do painel (botões, campos, fluxo) -----
+export async function describePanelScreen(params: {
+  imageUrl: string;
+  name: string;
+  description?: string | null;
+}): Promise<string> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error("ANTHROPIC_API_KEY ausente");
+
+  const img = await fetch(params.imageUrl);
+  if (!img.ok) throw new Error(`Falha ao baixar imagem (${img.status})`);
+  const mediaType = img.headers.get("content-type")?.split(";")[0]?.trim() || "image/jpeg";
+  const b64 = Buffer.from(await img.arrayBuffer()).toString("base64");
+
+  const userText = `Esta é uma tela do painel Mind SMM chamada "${params.name}".${
+    params.description ? ` Contexto do dono: ${params.description}.` : ""
+  }\n\nDescreva minuciosamente o que aparece na tela: todos os botões (com o texto exato), campos de formulário, menus, abas, links, valores, mensagens visíveis e a ordem visual dos elementos. Inclua um passo a passo claro de como o usuário deve agir nessa tela (onde clicar primeiro, o que preencher, qual botão final). Seja específico — outra IA vai usar essa descrição para guiar clientes sem ver a imagem.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 1500,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: { type: "base64", media_type: mediaType, data: b64 } },
+            { type: "text", text: userText },
+          ],
+        },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`Claude Vision falhou (${res.status}): ${t.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+  return (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
+}
+
 export async function classifyLeadTemperature(params: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
 }): Promise<LeadTemperatura | null> {
