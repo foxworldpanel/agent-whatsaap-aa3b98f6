@@ -743,23 +743,21 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         let servicesContext: string | null = null;
         const a0 = agent as { services_realtime?: boolean };
         if (a0.services_realtime && integ.smm_api_key) {
-          const PRICE_RE = /pre[cç]o|valor|quanto|custa|barato|caro|tabela|servi[cç]o|seguidor|curtid|visualiza|inscrit|ouvint|coment[aá]rio|plays?|likes?/i;
-          if (PRICE_RE.test(inboundBody ?? "")) {
-            try {
-              const { smmFetchServices } = await import("@/lib/smm.server");
-              const services = await smmFetchServices({
-                url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v2",
-                key: integ.smm_api_key,
-              });
-              if (services.length > 0) {
-                servicesContext = services
-                  .slice(0, 120)
-                  .map((s) => `#${s.service} [${s.category}] ${s.name} — R$ ${s.rate}/1000 (min ${s.min}, max ${s.max})`)
-                  .join("\n");
-              }
-            } catch (e) {
-              console.error("smm services fetch failed", e);
+          try {
+            const { smmFetchServices } = await import("@/lib/smm.server");
+            const services = await smmFetchServices({
+              url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v2",
+              key: integ.smm_api_key,
+            });
+            if (services.length > 0) {
+              servicesContext = services
+                .slice(0, 200)
+                .map((s) => `#${s.service} [${s.category}] ${s.name} — R$ ${s.rate}/1000 (min ${s.min}, max ${s.max})`)
+                .join("\n");
+              console.info("[smm] services loaded", { count: services.length });
             }
+          } catch (e) {
+            console.error("smm services fetch failed", e);
           }
         }
 
