@@ -198,29 +198,67 @@ function Conversas() {
 
   // Auto-poll every 30s
   useEffect(() => {
-    const id = setInterval(() => {
-      if (!syncMut.isPending) syncMut.mutate();
-    }, 30_000);
-    return () => clearInterval(id);
+    // Sem polling: Realtime do Supabase entrega INSERT/UPDATE em messages
+    // e conversations. O botão "Sincronizar" continua disponível para
+    // backfill manual de mensagens antigas via API do Uazapi.
+    return;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
-  // Realtime: refresh on insert/update
+  // Realtime: refresh on insert/update + reconexão automática a cada 5s
   useEffect(() => {
-    const ch = supabase
-      .channel("conv-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
-        qc.invalidateQueries({ queryKey: ["messages", activeId] });
-        qc.invalidateQueries({ queryKey: ["conversations"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => {
-        qc.invalidateQueries({ queryKey: ["conversations"] });
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      if (cancelled) return;
+      channel = supabase
+        .channel(`conv-rt-${Math.random().toString(36).slice(2)}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages" },
+          (payload) => {
+            const row = (payload.new ?? {}) as { conversation_id?: string };
+            qc.invalidateQueries({ queryKey: ["conversations"] });
+            qc.invalidateQueries({ queryKey: ["messages", row.conversation_id] });
+            // Auto-foca a conversa que recebeu a mensagem nova
+            if (row.conversation_id) setActiveId(row.conversation_id);
+            setSyncStatus("live");
+            setLastSyncAt(new Date());
+          },
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "conversations" },
+          () => qc.invalidateQueries({ queryKey: ["conversations"] }),
+        )
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            setSyncStatus("live");
+            setLastSyncAt(new Date());
+          } else if (
+            status === "CHANNEL_ERROR" ||
+            status === "TIMED_OUT" ||
+            status === "CLOSED"
+          ) {
+            setSyncStatus("error");
+            if (channel) supabase.removeChannel(channel);
+            channel = null;
+            if (!cancelled) {
+              retry = setTimeout(connect, 5000);
+            }
+          }
+        });
     };
-  }, [qc, activeId]);
+
+    connect();
+    return () => {
+      cancelled = true;
+      if (retry) clearTimeout(retry);
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [qc]);
 
   return (
     <div className="flex h-[calc(100dvh-4rem)] min-h-0 flex-col gap-4">
