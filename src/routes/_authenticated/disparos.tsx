@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check } from "lucide-react";
+import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listCampaigns,
@@ -13,6 +13,7 @@ import {
 } from "@/lib/campaigns.functions";
 import { getAgentConfig, saveAgentConfig } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
+import { listAutoCampaigns, updateAutoCampaign } from "@/lib/auto-campaigns.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
@@ -92,6 +93,8 @@ function Disparos() {
       </header>
 
       <ScriptsSection enabled={disparosActive} />
+
+      <AutoCampaignsSection />
 
       {showAdd && (
         <AddForm
@@ -298,6 +301,137 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </label>
   );
+}
+
+function AutoCampaignsSection() {
+  const qc = useQueryClient();
+  const listAC = useServerFn(listAutoCampaigns);
+  const updateAC = useServerFn(updateAutoCampaign);
+  const { data: items = [] } = useQuery({ queryKey: ["auto_campaigns"], queryFn: () => listAC() });
+
+  const updateMut = useMutation({
+    mutationFn: (input: { id: string; enabled?: boolean; message_template?: string; trigger_hours?: number }) =>
+      updateAC({ data: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["auto_campaigns"] }),
+  });
+
+  return (
+    <section
+      className="rounded-xl border border-border p-5"
+      style={{ background: "var(--gradient-card)" }}
+    >
+      <div className="flex items-center gap-2">
+        <Repeat className="h-5 w-5 text-primary" />
+        <h2 className="font-semibold">Régua de relacionamento automática</h2>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Follow-ups automáticos após compra, inatividade e teste grátis. Use <code>{`{nome}`}</code> para personalizar.
+      </p>
+      <div className="mt-4 space-y-3">
+        {items.map((c) => (
+          <AutoCampaignRow
+            key={c.id}
+            item={c}
+            onSave={(payload) => updateMut.mutate({ id: c.id, ...payload })}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+type AutoCampaignItem = {
+  id: string;
+  key: string;
+  name: string;
+  trigger_type: string;
+  trigger_hours: number;
+  message_template: string;
+  enabled: boolean;
+};
+
+function AutoCampaignRow({
+  item,
+  onSave,
+}: {
+  item: AutoCampaignItem;
+  onSave: (payload: { enabled?: boolean; message_template?: string; trigger_hours?: number }) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [msg, setMsg] = useState(item.message_template);
+  const [hours, setHours] = useState(item.trigger_hours);
+  useEffect(() => {
+    setMsg(item.message_template);
+    setHours(item.trigger_hours);
+  }, [item.message_template, item.trigger_hours]);
+
+  return (
+    <div className="rounded-lg border border-border bg-background/50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">{item.name}</h3>
+          <p className="text-xs text-muted-foreground">
+            Dispara {item.trigger_hours}h após {labelForTrigger(item.trigger_type)}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            {open ? "Fechar" : "Editar"}
+          </button>
+          <label className="inline-flex items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={item.enabled}
+              onChange={(e) => onSave({ enabled: e.target.checked })}
+              className="h-4 w-4"
+            />
+            <span className={item.enabled ? "text-success" : "text-muted-foreground"}>
+              {item.enabled ? "Ativa" : "Inativa"}
+            </span>
+          </label>
+        </div>
+      </div>
+      {open && (
+        <div className="mt-3 space-y-2">
+          <Field label="Disparar após (horas)">
+            <input
+              type="number"
+              min={1}
+              max={24 * 365}
+              value={hours}
+              onChange={(e) => setHours(Number(e.target.value))}
+              className="w-32 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+            />
+          </Field>
+          <Field label="Mensagem">
+            <textarea
+              value={msg}
+              onChange={(e) => setMsg(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+            />
+          </Field>
+          <button
+            onClick={() => onSave({ message_template: msg, trigger_hours: hours })}
+            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            Salvar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function labelForTrigger(t: string): string {
+  if (t === "after_purchase") return "a compra";
+  if (t === "inactive") return "última interação (inatividade)";
+  if (t === "after_free_trial") return "o teste grátis entregue";
+  return t;
 }
 
 type ScriptKey = "script_frio" | "script_inativo" | "script_ativo";
