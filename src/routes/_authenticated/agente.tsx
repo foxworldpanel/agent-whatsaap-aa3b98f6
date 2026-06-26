@@ -8,6 +8,7 @@ import { getAgentConfig, saveAgentConfig, getIntegrations, saveIntegrations } fr
 import { listKnowledge, addTextExample, addImageExample, deleteKnowledge } from "@/lib/knowledge-base.functions";
 import { listPanelGuide, addPanelScreen, updatePanelScreen, deletePanelScreen } from "@/lib/panel-guide.functions";
 import { listForbiddenRules, saveForbiddenRules, seedDefaultForbiddenRules } from "@/lib/forbidden-rules.functions";
+import { syncSmmServices, listFreeTestServices, upsertFreeTestService, deleteFreeTestService, type ServiceRow } from "@/lib/smm-services.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/agente")({
@@ -372,6 +373,7 @@ function AgentePage() {
 
         <KnowledgeBaseSection />
         <ForbiddenRulesSection />
+        <SmmServicesSection />
       </div>
     </div>
   );
