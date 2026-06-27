@@ -529,6 +529,27 @@ function Conversas() {
             {!active && (
               <p className="text-sm text-neutral-500">Nada selecionado.</p>
             )}
+            {active?.needs_review && (
+              <div className="mb-2 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm shadow-sm">
+                <div className="min-w-0">
+                  <p className="font-semibold text-red-700">
+                    Agente pausado automaticamente
+                  </p>
+                  <p className="mt-0.5 text-xs text-red-700/90">
+                    {active.internal_note ??
+                      `Motivo: ${active.review_reason ?? "conversa improdutiva detectada"}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => reactivateMut.mutate()}
+                  disabled={reactivateMut.isPending}
+                  className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  {reactivateMut.isPending ? "Reativando…" : "Reativar agente"}
+                </button>
+              </div>
+            )}
             {(msgsQ.data ?? []).map((m) => {
               const mine = m.sender === "agente";
               const hasAudio = m.kind === "audio" && !!m.audio_url;
