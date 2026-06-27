@@ -1114,13 +1114,45 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             });
             console.log("Serviços carregados:", services.length);
             if (services.length > 0) {
-              servicesContext = services
+              // Log dos serviços Spotify cru, para auditar mínimos/máximos.
+              const spotifyRaw = services.filter((s) =>
+                /spotify/i.test(`${s.name} ${s.category}`),
+              );
+              console.log("[catalogo] Spotify items:", JSON.stringify(spotifyRaw, null, 2));
+
+              const fmt = (s: typeof services[number]) =>
+                `ID: ${s.service} | Nome: ${s.name} | Categoria: ${s.category} | Preço por 1000: R$${s.rate} | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`;
+
+              const baseList = services
                 .slice(0, 200)
-                .map(
-                  (s) =>
-                    `ID: ${s.service} | Nome: ${s.name} | Categoria: ${s.category} | Preço por 1000: R$${s.rate} | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`,
-                )
+                .map(fmt)
                 .join("\n");
+
+              // Bloco destacado por plataforma — força o Claude a ler MÍNIMO/MÁXIMO reais
+              // antes de inventar quantidade.
+              const highlightBlocks: string[] = [];
+              const pushBlock = (label: string, regex: RegExp) => {
+                const items = services.filter((s) => regex.test(`${s.name} ${s.category}`));
+                if (items.length === 0) return;
+                const lines = items
+                  .slice(0, 20)
+                  .map(
+                    (s) =>
+                      `- ${s.name} | R$${s.rate} por 1000 | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`,
+                  )
+                  .join("\n");
+                highlightBlocks.push(`SERVIÇOS ${label} (use estes dados, não invente):\n${lines}`);
+              };
+              pushBlock("SPOTIFY", /spotify/i);
+              pushBlock("INSTAGRAM", /instagram/i);
+              pushBlock("YOUTUBE", /youtube/i);
+              pushBlock("TIKTOK", /tiktok/i);
+
+              servicesContext = [
+                baseList,
+                ...highlightBlocks,
+                "REGRA: SEMPRE consulte o campo MÍNIMO do catálogo acima antes de responder qualquer quantidade. NUNCA arredonde o mínimo. Se o catálogo diz MÍNIMO: 500, o mínimo é 500 — não 1000.",
+              ].join("\n\n");
             } else {
               servicesFetchFailed = true;
             }
