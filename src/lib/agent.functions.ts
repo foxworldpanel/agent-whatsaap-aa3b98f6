@@ -115,6 +115,52 @@ export const setConversationAgentEnabled = createServerFn({ method: "POST" })
     return { ok: true, agent_enabled: updated.agent_enabled };
   });
 
+// Reactivate a conversation that was auto-paused due to unproductive behavior.
+// Clears the review flag, re-enables the agent, and unblocks the contact.
+export const reactivateConversation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: conv, error: convErr } = await supabaseAdmin
+      .from("conversations")
+      .update({
+        agent_enabled: true,
+        needs_review: false,
+        review_reason: null,
+        auto_paused_at: null,
+        internal_note: null,
+        status: "aguardando",
+      })
+      .eq("id", data.conversationId)
+      .in("user_id", userIds)
+      .select("id, contact_id")
+      .maybeSingle();
+    if (convErr) throw new Error(convErr.message);
+    if (!conv) throw new Error("Conversa não encontrada.");
+    await supabaseAdmin
+      .from("contacts")
+      .update({ status: "em_conversa", temperatura: "frio", temperatura_updated_at: new Date().toISOString() })
+      .eq("id", conv.contact_id);
+    return { ok: true };
+  });
+
+// Counter for the sidebar badge ("conversas para revisar").
+export const countConversationsToReview = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { count, error } = await supabaseAdmin
+      .from("conversations")
+      .select("id", { count: "exact", head: true })
+      .in("user_id", userIds)
+      .eq("needs_review", true);
+    if (error) throw new Error(error.message);
+    return { count: count ?? 0 };
+  });
+
 export const getIntegrations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
