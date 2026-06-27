@@ -6,7 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage, clearConversation } from "@/lib/whatsapp.functions";
-import { setConversationAgentEnabled } from "@/lib/agent.functions";
+import { setConversationAgentEnabled, reactivateConversation } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { syncWhatsappMessages } from "@/lib/sync.functions";
 
@@ -29,6 +29,10 @@ type Conv = {
   last_message_at: string | null;
   agent_enabled: boolean;
   whatsapp_number_id: string | null;
+  needs_review?: boolean;
+  review_reason?: string | null;
+  auto_paused_at?: string | null;
+  internal_note?: string | null;
   contact: {
     id: string;
     nome: string;
@@ -101,6 +105,7 @@ function Conversas() {
   const fetchNumbers = useServerFn(listNumbers);
   const clearFn = useServerFn(clearConversation);
   const syncFn = useServerFn(syncWhatsappMessages);
+  const reactivateFn = useServerFn(reactivateConversation);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -177,6 +182,16 @@ function Conversas() {
       qc.invalidateQueries({ queryKey: ["messages", activeId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
+  });
+
+  const reactivateMut = useMutation({
+    mutationFn: () => reactivateFn({ data: { conversationId: activeId! } }),
+    onSuccess: () => {
+      toast.success("Agente reativado nesta conversa");
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["conversations_review_count"] });
+    },
+    onError: (e) => toast.error((e as Error).message || "Falha ao reativar"),
   });
 
   const syncMut = useMutation({
@@ -376,6 +391,11 @@ function Conversas() {
                         {c.last_message_preview ?? ""}
                       </p>
                       <div className="flex shrink-0 items-center gap-1">
+                        {c.needs_review && (
+                          <span className="shrink-0 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                            Revisar
+                          </span>
+                        )}
                         <TempBadge t={c.contact?.temperatura} size="xs" />
                         {c.contact?.source === "meta_ads" && (
                         <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
@@ -508,6 +528,27 @@ function Conversas() {
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-6 py-5">
             {!active && (
               <p className="text-sm text-neutral-500">Nada selecionado.</p>
+            )}
+            {active?.needs_review && (
+              <div className="mb-2 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm shadow-sm">
+                <div className="min-w-0">
+                  <p className="font-semibold text-red-700">
+                    Agente pausado automaticamente
+                  </p>
+                  <p className="mt-0.5 text-xs text-red-700/90">
+                    {active.internal_note ??
+                      `Motivo: ${active.review_reason ?? "conversa improdutiva detectada"}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => reactivateMut.mutate()}
+                  disabled={reactivateMut.isPending}
+                  className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  {reactivateMut.isPending ? "Reativando…" : "Reativar agente"}
+                </button>
+              </div>
             )}
             {(msgsQ.data ?? []).map((m) => {
               const mine = m.sender === "agente";

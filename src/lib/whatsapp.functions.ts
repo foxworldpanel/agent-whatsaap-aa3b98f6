@@ -35,7 +35,7 @@ export const listConversations = createServerFn({ method: "GET" })
     let q = supabaseAdmin
       .from("conversations")
       .select(
-        "id, status, last_message_preview, last_message_at, agent_enabled, whatsapp_number_id, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline, photo_url)",
+        "id, status, last_message_preview, last_message_at, agent_enabled, whatsapp_number_id, needs_review, review_reason, auto_paused_at, internal_note, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline, photo_url)",
       )
       .in("user_id", userIds)
       .order("last_message_at", { ascending: false, nullsFirst: false });
