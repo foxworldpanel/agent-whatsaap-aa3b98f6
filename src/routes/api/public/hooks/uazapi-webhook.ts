@@ -4,6 +4,29 @@ import { createFileRoute } from "@tanstack/react-router";
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
 // Eventos: messages (mensagens recebidas).
 
+// Trava anti-duplicata em memória (TTL 10s). Bloqueia reenvio do mesmo
+// texto para o mesmo telefone dentro da janela, mesmo que o webhook seja
+// chamado em paralelo antes da mensagem anterior ter sido persistida.
+const RECENT_SEND_TTL_MS = 10_000;
+const recentSendsMem = new Map<string, number>();
+function recentSendKey(phone: string, body: string): string {
+  return `sent:${phone}:${(body ?? "").slice(0, 20)}`;
+}
+function memWasRecentlySent(phone: string, body: string): boolean {
+  const key = recentSendKey(phone, body);
+  const expiry = recentSendsMem.get(key);
+  const now = Date.now();
+  if (expiry && expiry > now) return true;
+  // GC oportunista
+  if (recentSendsMem.size > 500) {
+    for (const [k, v] of recentSendsMem) if (v <= now) recentSendsMem.delete(k);
+  }
+  return false;
+}
+function memMarkSent(phone: string, body: string): void {
+  recentSendsMem.set(recentSendKey(phone, body), Date.now() + RECENT_SEND_TTL_MS);
+}
+
 type UazapiPayload = {
   event?: string;
   EventType?: string;
