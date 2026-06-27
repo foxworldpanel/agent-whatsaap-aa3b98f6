@@ -153,6 +153,70 @@ function isDirectClientQuestion(text: string): boolean {
 
 const FALLBACK_REPLY = "Deixa eu verificar aqui pra você 😊";
 
+// ===== Detecção de conversa improdutiva =====
+// Palavras relacionadas ao negócio (SMM / redes sociais / compra).
+const SMM_KEYWORDS = [
+  "view","views","like","likes","seguidor","seguidores","follower","followers","curtida","curtidas",
+  "inscrito","inscritos","play","plays","comentario","comentarios","comment","comments",
+  "instagram","insta","ig","tiktok","tik tok","youtube","yt","spotify","facebook","twitter","x ","kwai",
+  "reel","reels","video","videos","short","shorts","story","stories","perfil","conta","canal","musica","musicas","faixa",
+  "preco","valor","valores","custa","custo","quanto","quanta","pacote","pacotes","servico","servicos","catalogo","cardapio",
+  "comprar","compra","comprei","quero","gostaria","pix","pagamento","pagar","saldo","cadastro","cadastrar","login","painel","site",
+  "teste","gratis","trial","amostra","entrega","entregar","prazo","minimo","maximo","link","url",
+  "ola","oi","bom dia","boa tarde","boa noite","obrigado","obrigada","valeu","fechado","beleza","top",
+];
+const ONE_WORD_FILLER = new Set([
+  "ok","okay","oi","ola","hm","hmm","hum","rs","rsrs","kkk","kkkk","kkkkk","haha","hahaha",
+  "ah","ahh","aff","eita","sla","blz","ata","aham","uhum","sim","nao","não","tá","ta","ok!",
+]);
+const OFFENSIVE_RE = /\b(idiota|burro|burra|imbecil|otario|otaria|otário|otária|babaca|merda|porra|caralho|fdp|filho da puta|vai se foder|cuzao|cuzão|viado|viad[oa]|puta|puto|arrombad[oa]|desgracad[oa]|desgraçad[oa]|escroto|escrota|cretin[oa]|retardad[oa])\b/i;
+
+function isFillerSingleWord(body: string): boolean {
+  const t = normalizeText((body ?? "").trim());
+  if (!t) return false;
+  if (t.length > 8) return false;
+  if (/\s/.test(t)) return false;
+  return ONE_WORD_FILLER.has(t) || /^(k+|h+a+|r+s+)$/.test(t);
+}
+function isOnTopic(body: string): boolean {
+  const t = normalizeText(body ?? "");
+  if (!t.trim()) return false;
+  if (/\d/.test(t)) return true; // números (qtd / preço) costumam ser pertinentes
+  if (/https?:\/\/|\.com|\.br|@\w/i.test(body)) return true;
+  return SMM_KEYWORDS.some((k) => t.includes(k));
+}
+function detectUnproductive(
+  clientMsgs: Array<{ body: string; kind: string }>,
+  currentText: string,
+  currentKind: "texto" | "audio",
+): { reason: string } | null {
+  // 1) Ofensa / xingamento — bloqueio imediato.
+  if (OFFENSIVE_RE.test(currentText ?? "")) {
+    return { reason: "Mensagem ofensiva detectada" };
+  }
+  // Junta a mensagem atual ao histórico recente (mais antiga → mais nova).
+  const recent = [...clientMsgs.slice(-6), { body: currentText ?? "", kind: currentKind }];
+  // 2) Filler de uma palavra repetido (ok, oi, hm, kkk…) 4x+ seguidas.
+  const fillerStreak = recent.slice(-5).filter((m) => m.kind === "texto" && isFillerSingleWord(m.body)).length;
+  if (fillerStreak >= 4) {
+    return { reason: "Respostas curtas repetidas sem contexto" };
+  }
+  // 3) Spam de figurinhas / áudios curtos sem texto.
+  const last5 = recent.slice(-5);
+  const noisy = last5.filter(
+    (m) => m.kind === "sticker" || m.kind === "image" || (m.kind === "audio" && (m.body ?? "[áudio recebido]") === "[áudio recebido]"),
+  ).length;
+  if (last5.length >= 4 && noisy >= 4) {
+    return { reason: "Spam de figurinhas/áudios sem contexto" };
+  }
+  // 4) 3 mensagens seguidas de texto sem relação com SMM.
+  const last3Text = recent.filter((m) => m.kind === "texto" && (m.body ?? "").trim().length > 0).slice(-3);
+  if (last3Text.length >= 3 && last3Text.every((m) => !isOnTopic(m.body))) {
+    return { reason: "3 mensagens seguidas fora do contexto de SMM/compra" };
+  }
+  return null;
+}
+
 export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
   server: {
     handlers: {
