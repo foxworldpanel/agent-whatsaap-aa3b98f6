@@ -391,6 +391,11 @@ function Conversas() {
                         {c.last_message_preview ?? ""}
                       </p>
                       <div className="flex shrink-0 items-center gap-1">
+                        {c.needs_review && (
+                          <span className="shrink-0 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                            Revisar
+                          </span>
+                        )}
                         <TempBadge t={c.contact?.temperatura} size="xs" />
                         {c.contact?.source === "meta_ads" && (
                         <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
