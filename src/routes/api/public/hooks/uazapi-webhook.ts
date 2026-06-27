@@ -958,6 +958,56 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           return new Response("ok (agent disabled)");
         }
 
+        // Já marcada para revisão manual: não responde até reativação manual.
+        if ((conv as { needs_review?: boolean }).needs_review) {
+          return new Response("ok (needs review)");
+        }
+
+        // ===== Detecção de conversa improdutiva =====
+        try {
+          const { data: recentClient } = await supabaseAdmin
+            .from("messages")
+            .select("body, kind")
+            .eq("conversation_id", conv.id)
+            .eq("sender", "cliente")
+            .order("created_at", { ascending: false })
+            .limit(6);
+          const prior = ((recentClient ?? []) as Array<{ body: string; kind: string }>).reverse();
+          // A mensagem atual já foi inserida acima, então removemos a última
+          // ocorrência idêntica do histórico para evitar contagem dupla.
+          const priorWithoutCurrent =
+            prior.length > 0 &&
+            prior[prior.length - 1].kind === kind &&
+            (prior[prior.length - 1].body ?? "") === (inboundBody ?? "")
+              ? prior.slice(0, -1)
+              : prior;
+          const detected = detectUnproductive(priorWithoutCurrent, inboundBody, kind);
+          if (detected) {
+            const stamp = new Date().toISOString();
+            await supabaseAdmin
+              .from("conversations")
+              .update({
+                needs_review: true,
+                review_reason: detected.reason,
+                auto_paused_at: stamp,
+                internal_note: `Agente pausado automaticamente — ${detected.reason} em ${new Date(stamp).toLocaleString("pt-BR")}`,
+                status: "aguardando",
+              })
+              .eq("id", conv.id);
+            await supabaseAdmin
+              .from("contacts")
+              .update({
+                temperatura: "bloqueado",
+                temperatura_updated_at: stamp,
+              })
+              .eq("id", contact.id);
+            console.log(`[unproductive] conv=${conv.id} reason="${detected.reason}"`);
+            return new Response("ok (auto-paused: unproductive)");
+          }
+        } catch (e) {
+          console.error("[unproductive] detection failed", e);
+        }
+
         const { data: history } = await supabaseAdmin
           .from("messages")
           .select("sender, body")
