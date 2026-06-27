@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ThemeToggle } from "./ThemeToggle";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getAgentConfig, setAgentGlobalEnabled } from "@/lib/agent.functions";
+import { getAgentConfig, setAgentGlobalEnabled, countConversationsToReview } from "@/lib/agent.functions";
 import { toast } from "sonner";
 
 const nav = [
@@ -25,7 +25,14 @@ export function AppShell() {
   const qc = useQueryClient();
   const fetchAgent = useServerFn(getAgentConfig);
   const toggleGlobal = useServerFn(setAgentGlobalEnabled);
+  const fetchReviewCount = useServerFn(countConversationsToReview);
   const agentQ = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchAgent() });
+  const reviewQ = useQuery({
+    queryKey: ["conversations_review_count"],
+    queryFn: () => fetchReviewCount(),
+    refetchInterval: 10000,
+  });
+  const reviewCount = (reviewQ.data as { count?: number } | undefined)?.count ?? 0;
   const enabled = (agentQ.data as { agent_enabled?: boolean } | null | undefined)?.agent_enabled !== false;
   const toggleMut = useMutation({
     mutationFn: (next: boolean) => toggleGlobal({ data: { enabled: next } }),
@@ -79,7 +86,17 @@ export function AppShell() {
               >
                 <Icon className="h-4 w-4" />
                 {item.label}
-                {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+                {item.to === "/conversas" && reviewCount > 0 && (
+                  <span className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    {reviewCount > 99 ? "99+" : reviewCount}
+                  </span>
+                )}
+                {active && item.to !== "/conversas" && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+                {active && item.to === "/conversas" && reviewCount === 0 && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
               </Link>
             );
           })}
