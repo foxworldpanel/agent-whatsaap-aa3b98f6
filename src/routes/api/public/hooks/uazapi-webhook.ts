@@ -1226,10 +1226,11 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         try {
           if (respondWithAudio) {
             const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
-            if (await wasRecentlySent(conv.id, replyParts[0])) {
+            if (memWasRecentlySent(phone, replyParts[0]) || await wasRecentlySent(conv.id, replyParts[0])) {
               skippedIdx.add(0);
               replyKind = "audio";
             } else {
+            memMarkSent(phone, replyParts[0]);
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
             const [generatedAudio] = await Promise.all([
               ttsElevenLabsBase64({
@@ -1252,20 +1253,22 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             }
             // Envia partes adicionais (ex.: link após ===SPLIT===) como texto.
             for (let i = 1; i < replyParts.length; i += 1) {
-              if (await wasRecentlySent(conv.id, replyParts[i])) {
+              if (memWasRecentlySent(phone, replyParts[i]) || await wasRecentlySent(conv.id, replyParts[i])) {
                 skippedIdx.add(i);
                 continue;
               }
+              memMarkSent(phone, replyParts[i]);
               await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
               await sleep(1200);
               await uazapiSendText(sendCreds, phone, replyParts[i]);
             }
           } else {
             for (let i = 0; i < replyParts.length; i += 1) {
-              if (await wasRecentlySent(conv.id, replyParts[i])) {
+              if (memWasRecentlySent(phone, replyParts[i]) || await wasRecentlySent(conv.id, replyParts[i])) {
                 skippedIdx.add(i);
                 continue;
               }
+              memMarkSent(phone, replyParts[i]);
               await uazapiSendText(
                 sendCreds,
                 phone,
