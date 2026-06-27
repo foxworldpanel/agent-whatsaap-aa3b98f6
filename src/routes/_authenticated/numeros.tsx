@@ -812,7 +812,19 @@ function MediaInput({
     <div className="space-y-1.5">
       <input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v.startsWith("data:")) {
+            setError("Não cole o arquivo aqui — use o botão de upload abaixo");
+            return;
+          }
+          if (v.length > 2000) {
+            setError("URL muito longa");
+            return;
+          }
+          setError(null);
+          onChange(v);
+        }}
         placeholder={placeholder}
         className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
       />
