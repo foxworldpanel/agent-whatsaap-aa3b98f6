@@ -105,6 +105,7 @@ function Conversas() {
   const fetchNumbers = useServerFn(listNumbers);
   const clearFn = useServerFn(clearConversation);
   const syncFn = useServerFn(syncWhatsappMessages);
+  const reactivateFn = useServerFn(reactivateConversation);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -181,6 +182,16 @@ function Conversas() {
       qc.invalidateQueries({ queryKey: ["messages", activeId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
+  });
+
+  const reactivateMut = useMutation({
+    mutationFn: () => reactivateFn({ data: { conversationId: activeId! } }),
+    onSuccess: () => {
+      toast.success("Agente reativado nesta conversa");
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["conversations_review_count"] });
+    },
+    onError: (e) => toast.error((e as Error).message || "Falha ao reativar"),
   });
 
   const syncMut = useMutation({
