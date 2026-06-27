@@ -630,6 +630,36 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           }
 
           const link = detectSocialLink(inboundBody);
+          // ----- Pedido de teste grátis SEM link: verifica ANTES se já usou -----
+          if (!link) {
+            const trialIntentRe = /\b(teste\s*gr[aá]tis|amostra\s*gr[aá]tis|quero\s+(o\s+)?teste|posso\s+(fazer|ter|ganhar)\s+(um\s+)?teste|me\s+d[aá]\s+(um\s+)?teste|tem\s+teste|libera\s+(o\s+)?teste|free\s*trial)\b/i;
+            if (trialIntentRe.test(inboundBody)) {
+              const { data: completed } = await supabaseAdmin
+                .from("free_trials")
+                .select("id")
+                .eq("user_id", userId)
+                .eq("telefone", phone)
+                .eq("status", "completed")
+                .limit(1)
+                .maybeSingle();
+              if (completed) {
+                const { uazapiSendText } = await import("@/lib/uazapi.server");
+                const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+                const replyText = "Você já recebeu seu teste grátis! Que tal fazer um pedido completo? É só criar sua conta em mindsmmpanel.com";
+                try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (trial-used) failed", e); }
+                const nowT = new Date().toISOString();
+                await supabaseAdmin.from("messages").insert({
+                  user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: replyText,
+                });
+                await supabaseAdmin.from("conversations").update({
+                  last_message_preview: replyText.slice(0, 120),
+                  last_message_at: nowT,
+                  status: "aguardando",
+                }).eq("id", conv.id);
+                return new Response("ok (trial already used)");
+              }
+            }
+          }
           if (link) {
             // Trava de segurança: teste grátis sempre processa APENAS o telefone
             // que enviou o link no webhook atual. Nenhum loop / forEach sobre
