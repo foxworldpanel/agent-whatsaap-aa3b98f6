@@ -6,7 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage, clearConversation } from "@/lib/whatsapp.functions";
-import { setConversationAgentEnabled } from "@/lib/agent.functions";
+import { setConversationAgentEnabled, reactivateConversation } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { syncWhatsappMessages } from "@/lib/sync.functions";
 
@@ -29,6 +29,10 @@ type Conv = {
   last_message_at: string | null;
   agent_enabled: boolean;
   whatsapp_number_id: string | null;
+  needs_review?: boolean;
+  review_reason?: string | null;
+  auto_paused_at?: string | null;
+  internal_note?: string | null;
   contact: {
     id: string;
     nome: string;
