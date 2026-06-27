@@ -343,11 +343,15 @@ export type Database = {
       conversations: {
         Row: {
           agent_enabled: boolean
+          auto_paused_at: string | null
           contact_id: string
           created_at: string
           id: string
+          internal_note: string | null
           last_message_at: string | null
           last_message_preview: string | null
+          needs_review: boolean
+          review_reason: string | null
           status: Database["public"]["Enums"]["conversation_status"]
           updated_at: string
           user_id: string
@@ -355,11 +359,15 @@ export type Database = {
         }
         Insert: {
           agent_enabled?: boolean
+          auto_paused_at?: string | null
           contact_id: string
           created_at?: string
           id?: string
+          internal_note?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
+          needs_review?: boolean
+          review_reason?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
           updated_at?: string
           user_id: string
@@ -367,11 +375,15 @@ export type Database = {
         }
         Update: {
           agent_enabled?: boolean
+          auto_paused_at?: string | null
           contact_id?: string
           created_at?: string
           id?: string
+          internal_note?: string | null
           last_message_at?: string | null
           last_message_preview?: string | null
+          needs_review?: boolean
+          review_reason?: string | null
           status?: Database["public"]["Enums"]["conversation_status"]
           updated_at?: string
           user_id?: string
