@@ -4,6 +4,29 @@ import { createFileRoute } from "@tanstack/react-router";
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
 // Eventos: messages (mensagens recebidas).
 
+// Trava anti-duplicata em memória (TTL 10s). Bloqueia reenvio do mesmo
+// texto para o mesmo telefone dentro da janela, mesmo que o webhook seja
+// chamado em paralelo antes da mensagem anterior ter sido persistida.
+const RECENT_SEND_TTL_MS = 10_000;
+const recentSendsMem = new Map<string, number>();
+function recentSendKey(phone: string, body: string): string {
+  return `sent:${phone}:${(body ?? "").slice(0, 20)}`;
+}
+function memWasRecentlySent(phone: string, body: string): boolean {
+  const key = recentSendKey(phone, body);
+  const expiry = recentSendsMem.get(key);
+  const now = Date.now();
+  if (expiry && expiry > now) return true;
+  // GC oportunista
+  if (recentSendsMem.size > 500) {
+    for (const [k, v] of recentSendsMem) if (v <= now) recentSendsMem.delete(k);
+  }
+  return false;
+}
+function memMarkSent(phone: string, body: string): void {
+  recentSendsMem.set(recentSendKey(phone, body), Date.now() + RECENT_SEND_TTL_MS);
+}
+
 type UazapiPayload = {
   event?: string;
   EventType?: string;
@@ -1091,13 +1114,45 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             });
             console.log("Serviços carregados:", services.length);
             if (services.length > 0) {
-              servicesContext = services
+              // Log dos serviços Spotify cru, para auditar mínimos/máximos.
+              const spotifyRaw = services.filter((s) =>
+                /spotify/i.test(`${s.name} ${s.category}`),
+              );
+              console.log("[catalogo] Spotify items:", JSON.stringify(spotifyRaw, null, 2));
+
+              const fmt = (s: typeof services[number]) =>
+                `ID: ${s.service} | Nome: ${s.name} | Categoria: ${s.category} | Preço por 1000: R$${s.rate} | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`;
+
+              const baseList = services
                 .slice(0, 200)
-                .map(
-                  (s) =>
-                    `ID: ${s.service} | Nome: ${s.name} | Categoria: ${s.category} | Preço por 1000: R$${s.rate} | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`,
-                )
+                .map(fmt)
                 .join("\n");
+
+              // Bloco destacado por plataforma — força o Claude a ler MÍNIMO/MÁXIMO reais
+              // antes de inventar quantidade.
+              const highlightBlocks: string[] = [];
+              const pushBlock = (label: string, regex: RegExp) => {
+                const items = services.filter((s) => regex.test(`${s.name} ${s.category}`));
+                if (items.length === 0) return;
+                const lines = items
+                  .slice(0, 20)
+                  .map(
+                    (s) =>
+                      `- ${s.name} | R$${s.rate} por 1000 | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`,
+                  )
+                  .join("\n");
+                highlightBlocks.push(`SERVIÇOS ${label} (use estes dados, não invente):\n${lines}`);
+              };
+              pushBlock("SPOTIFY", /spotify/i);
+              pushBlock("INSTAGRAM", /instagram/i);
+              pushBlock("YOUTUBE", /youtube/i);
+              pushBlock("TIKTOK", /tiktok/i);
+
+              servicesContext = [
+                baseList,
+                ...highlightBlocks,
+                "REGRA: SEMPRE consulte o campo MÍNIMO do catálogo acima antes de responder qualquer quantidade. NUNCA arredonde o mínimo. Se o catálogo diz MÍNIMO: 500, o mínimo é 500 — não 1000.",
+              ].join("\n\n");
             } else {
               servicesFetchFailed = true;
             }
@@ -1203,10 +1258,11 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         try {
           if (respondWithAudio) {
             const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
-            if (await wasRecentlySent(conv.id, replyParts[0])) {
+            if (memWasRecentlySent(phone, replyParts[0]) || await wasRecentlySent(conv.id, replyParts[0])) {
               skippedIdx.add(0);
               replyKind = "audio";
             } else {
+            memMarkSent(phone, replyParts[0]);
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
             const [generatedAudio] = await Promise.all([
               ttsElevenLabsBase64({
@@ -1229,20 +1285,22 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             }
             // Envia partes adicionais (ex.: link após ===SPLIT===) como texto.
             for (let i = 1; i < replyParts.length; i += 1) {
-              if (await wasRecentlySent(conv.id, replyParts[i])) {
+              if (memWasRecentlySent(phone, replyParts[i]) || await wasRecentlySent(conv.id, replyParts[i])) {
                 skippedIdx.add(i);
                 continue;
               }
+              memMarkSent(phone, replyParts[i]);
               await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
               await sleep(1200);
               await uazapiSendText(sendCreds, phone, replyParts[i]);
             }
           } else {
             for (let i = 0; i < replyParts.length; i += 1) {
-              if (await wasRecentlySent(conv.id, replyParts[i])) {
+              if (memWasRecentlySent(phone, replyParts[i]) || await wasRecentlySent(conv.id, replyParts[i])) {
                 skippedIdx.add(i);
                 continue;
               }
+              memMarkSent(phone, replyParts[i]);
               await uazapiSendText(
                 sendCreds,
                 phone,
