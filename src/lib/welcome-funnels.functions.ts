@@ -6,6 +6,7 @@ const stepSchema = z
   .object({
     enabled: z.boolean().optional(),
     text: z.string().optional(),
+    caption: z.string().max(1024).optional(),
     url: z
       .string()
       .max(2000, "URL muito longa — faça upload do arquivo em vez de colar conteúdo")

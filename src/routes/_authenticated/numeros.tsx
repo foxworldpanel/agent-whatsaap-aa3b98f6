@@ -40,7 +40,7 @@ type FunnelSteps = {
   welcome_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
   audio?: { enabled?: boolean; url?: string; delay_seconds?: number };
   panel_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
-  video?: { enabled?: boolean; url?: string; delay_seconds?: number };
+  video?: { enabled?: boolean; url?: string; caption?: string; delay_seconds?: number };
   services_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
 };
 
@@ -673,6 +673,14 @@ function FunnelEditor({
           accept="video/mp4,.mp4"
           placeholder="https://… .mp4"
           kind="vídeo"
+        />
+        <textarea
+          value={steps.video?.caption ?? ""}
+          onChange={(e) => updateStep("video", { caption: e.target.value })}
+          rows={2}
+          maxLength={1024}
+          placeholder="Legenda do vídeo (opcional)"
+          className="mt-2 w-full rounded-md border border-border px-2 py-1.5 text-sm"
         />
       </FunnelStep>
 
