@@ -6,7 +6,13 @@ const stepSchema = z
   .object({
     enabled: z.boolean().optional(),
     text: z.string().optional(),
-    url: z.string().optional(),
+    url: z
+      .string()
+      .max(2000, "URL muito longa — faça upload do arquivo em vez de colar conteúdo")
+      .refine((v) => !v || !v.startsWith("data:"), {
+        message: "Não cole o arquivo aqui — use o botão de upload",
+      })
+      .optional(),
     delay_seconds: z.number().int().min(0).max(180).optional(),
   })
   .partial();
