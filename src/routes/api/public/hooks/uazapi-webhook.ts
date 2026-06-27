@@ -860,7 +860,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 welcome_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
                 audio?: { enabled?: boolean; url?: string; delay_seconds?: number };
                 panel_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
-                video?: { enabled?: boolean; url?: string; delay_seconds?: number };
+                video?: { enabled?: boolean; url?: string; caption?: string; delay_seconds?: number };
                 services_text?: { enabled?: boolean; text?: string; delay_seconds?: number };
               } | null;
             };
@@ -936,11 +936,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             }
             if (s.video?.enabled && s.video.url) {
               const url = s.video.url;
+              const caption = s.video.caption?.trim() || undefined;
               steps.push({
                 delayMs: clampDelayMs(s.video.delay_seconds),
                 run: async () => {
-                  await uazapiSendMedia(creds, phone, "video", url);
-                  return { kind: "texto", body: "[vídeo]" };
+                  await uazapiSendMedia(creds, phone, "video", url, caption);
+                  return { kind: "texto", body: caption ? `[vídeo] ${caption}` : "[vídeo]" };
                 },
               });
             }
