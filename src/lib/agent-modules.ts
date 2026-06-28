@@ -16,6 +16,21 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "tecnicas_vendas", title: "Técnicas de Vendas", emoji: "🎯" },
   { key: "objecoes", title: "Objeções", emoji: "🛡️" },
   { key: "upsell", title: "Upsell", emoji: "📈" },
+  { key: "teste_gratis", title: "Teste Grátis", emoji: "🎁" },
+  { key: "suporte", title: "Suporte", emoji: "🛠️" },
+  { key: "historico_refil", title: "Histórico e Refil", emoji: "📜" },
+  { key: "desconto_niveis", title: "Desconto e Níveis", emoji: "🏅" },
+  { key: "classificacao_contatos", title: "Classificação de Contatos", emoji: "🌡️" },
+  { key: "educacao", title: "Educação e Orientação", emoji: "🎓" },
+  { key: "regras_proibidas", title: "Regras Proibidas", emoji: "🚫" },
+  { key: "comportamento_humano", title: "Comportamento Humano", emoji: "🧠" },
+  { key: "texto_ou_audio", title: "Texto ou Áudio", emoji: "🎙️" },
+  { key: "disparo_ativo", title: "Disparo Ativo", emoji: "📣" },
+  { key: "avisos", title: "Avisos e Comunicados", emoji: "📢" },
+  { key: "encerramento", title: "Encerramento de Conversa", emoji: "🛑" },
+  { key: "silencio_cliente", title: "Silêncio do Cliente", emoji: "🤐" },
+  { key: "como_usar_painel", title: "Como Usar o Painel", emoji: "🧭" },
+  { key: "regras_gerais", title: "Regras Gerais Absolutas", emoji: "⚖️" },
 ];
 
 export const DEFAULT_MODULES: Record<string, string> = {
