@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Bot, Trash2, RefreshCw } from "lucide-react";
+import { Send, Bot, Trash2, RefreshCw, Ban, ShieldCheck } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage, clearConversation } from "@/lib/whatsapp.functions";
-import { setConversationAgentEnabled, reactivateConversation } from "@/lib/agent.functions";
+import { setConversationAgentEnabled, reactivateConversation, blockConversation } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { syncWhatsappMessages } from "@/lib/sync.functions";
 
@@ -106,6 +106,7 @@ function Conversas() {
   const clearFn = useServerFn(clearConversation);
   const syncFn = useServerFn(syncWhatsappMessages);
   const reactivateFn = useServerFn(reactivateConversation);
+  const blockFn = useServerFn(blockConversation);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -187,11 +188,21 @@ function Conversas() {
   const reactivateMut = useMutation({
     mutationFn: () => reactivateFn({ data: { conversationId: activeId! } }),
     onSuccess: () => {
-      toast.success("Agente reativado nesta conversa");
+      toast.success("Conversa desbloqueada");
       qc.invalidateQueries({ queryKey: ["conversations"] });
       qc.invalidateQueries({ queryKey: ["conversations_review_count"] });
     },
-    onError: (e) => toast.error((e as Error).message || "Falha ao reativar"),
+    onError: (e) => toast.error((e as Error).message || "Falha ao desbloquear"),
+  });
+
+  const blockMut = useMutation({
+    mutationFn: () => blockFn({ data: { conversationId: activeId! } }),
+    onSuccess: () => {
+      toast.success("Conversa bloqueada");
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["conversations_review_count"] });
+    },
+    onError: (e) => toast.error((e as Error).message || "Falha ao bloquear"),
   });
 
   const syncMut = useMutation({
@@ -521,6 +532,34 @@ function Conversas() {
                 >
                   <Trash2 className="h-3.5 w-3.5" /> {clearMut.isPending ? "Limpando…" : "Limpar conversa"}
                 </button>
+              )}
+              {active && (
+                active.needs_review ? (
+                  <button
+                    type="button"
+                    onClick={() => reactivateMut.mutate()}
+                    disabled={reactivateMut.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
+                    title="Desbloquear conversa e reativar o agente"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" /> {reactivateMut.isPending ? "Desbloqueando…" : "Desbloquear"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!activeId || blockMut.isPending) return;
+                      if (confirm("Bloquear esta conversa? O agente para de responder e o contato fica marcado como bloqueado.")) {
+                        blockMut.mutate();
+                      }
+                    }}
+                    disabled={blockMut.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
+                    title="Bloquear conversa — pausa o agente e marca o contato como bloqueado"
+                  >
+                    <Ban className="h-3.5 w-3.5" /> {blockMut.isPending ? "Bloqueando…" : "Bloquear"}
+                  </button>
+                )
               )}
             </div>
           </header>
