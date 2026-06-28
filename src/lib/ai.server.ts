@@ -251,7 +251,7 @@ export async function generateAgentReply(params: {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-5",
-      max_tokens: 512,
+      max_tokens: 800,
       system,
       messages: cleaned,
     }),
