@@ -1,0 +1,1 @@
+UPDATE conversations SET agent_enabled = true, needs_review = false, review_reason = null, auto_paused_at = null WHERE contact_id IN (SELECT id FROM contacts WHERE telefone = '5511970116430');
