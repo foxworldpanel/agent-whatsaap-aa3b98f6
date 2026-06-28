@@ -268,6 +268,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const { text, kind } = extractContent(payload);
         console.log('=== INÍCIO DO PROCESSAMENTO ===');
         console.log('Mensagem recebida:', { text, kind, phone: extractPhone(payload.message?.chatid, payload.message?.sender), messageId: extractMessageId(payload) });
+        try {
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          await logEvent({ phone: extractPhone(payload.message?.chatid, payload.message?.sender), type: "message_received", level: "info", summary: `📩 Mensagem recebida (${kind}): ${(text ?? "").slice(0, 80)}`, metadata: { kind, messageId: extractMessageId(payload) } });
+        } catch {}
         let mediaUrl = extractMediaUrl(payload);
         const messageId = extractMessageId(payload);
         if (!text && kind !== "audio") return new Response("empty");
