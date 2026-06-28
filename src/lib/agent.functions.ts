@@ -320,9 +320,25 @@ export const saveIntegrations = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    // Strip masked secret values so we don't overwrite real secrets when the
+    // UI re-submits the form with the placeholder from getIntegrations.
+    const SECRET_FIELDS = [
+      "uazapi_token",
+      "uazapi_admin_token",
+      "anthropic_api_key",
+      "elevenlabs_api_key",
+      "openai_api_key",
+      "smm_api_key",
+    ] as const;
+    const clean: Record<string, unknown> = { ...data };
+    for (const k of SECRET_FIELDS) {
+      const v = (clean as Record<string, unknown>)[k];
+      if (typeof v === "string" && /^•+$/.test(v)) delete clean[k];
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
       .from("integrations")
-      .upsert({ user_id: context.userId, ...data }, { onConflict: "user_id" });
+      .upsert({ user_id: context.userId, ...clean }, { onConflict: "user_id" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
