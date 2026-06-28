@@ -81,6 +81,24 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const saveAgentModules = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      modules: z.record(z.string(), z.string().max(20000)),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("agent_config")
+      .upsert(
+        { user_id: context.userId, modules: data.modules },
+        { onConflict: "user_id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // Toggle global agent on/off (sidebar switch)
 export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
