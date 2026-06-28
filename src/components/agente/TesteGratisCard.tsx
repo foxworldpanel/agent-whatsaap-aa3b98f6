@@ -16,9 +16,11 @@ import {
   syncSmmServices,
   listFreeTestServices,
   upsertFreeTestService,
+  listCatalogCache,
   type ServiceRow,
 } from "@/lib/smm-services.functions";
 import { listFreeTrials } from "@/lib/free-trials.functions";
+import { getAgentConfig, setCatalogFlags } from "@/lib/agent.functions";
 
 const STATUS_STYLE: Record<string, string> = {
   pending: "bg-warning/20 text-warning",
@@ -55,11 +57,40 @@ export function TesteGratisCard() {
   const listFts = useServerFn(listFreeTestServices);
   const upsertFts = useServerFn(upsertFreeTestService);
   const listTrialsFn = useServerFn(listFreeTrials);
+  const listCacheFn = useServerFn(listCatalogCache);
+  const getCfg = useServerFn(getAgentConfig);
+  const setFlags = useServerFn(setCatalogFlags);
+
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+
+  const { data: cfg } = useQuery({
+    queryKey: ["agent_config"],
+    queryFn: () => getCfg(),
+  });
+  const catalogInPrompt = (cfg as { catalog_in_prompt?: boolean } | undefined)?.catalog_in_prompt ?? true;
+  const catalogOnlyRelevant = (cfg as { catalog_only_relevant?: boolean } | undefined)?.catalog_only_relevant ?? true;
+
+  const flagsMut = useMutation({
+    mutationFn: (p: { catalog_in_prompt?: boolean; catalog_only_relevant?: boolean }) => setFlags({ data: p }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent_config"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const { data: ftsList = [] } = useQuery({
     queryKey: ["free_test_services"],
     queryFn: () => listFts(),
     enabled: open,
+  });
+  // Carrega catálogo em cache ao abrir
+  useQuery({
+    queryKey: ["catalog_cache"],
+    enabled: open,
+    queryFn: async () => {
+      const res = await listCacheFn();
+      setServices(res.services);
+      setLastSyncAt(res.last_sync_at);
+      return res;
+    },
   });
   const { data: trials = [] } = useQuery({
     queryKey: ["free-trials"],
@@ -105,6 +136,8 @@ export function TesteGratisCard() {
         return;
       }
       setServices(res.services);
+      setLastSyncAt(new Date().toISOString());
+      qc.invalidateQueries({ queryKey: ["catalog_cache"] });
       toast.success(`${res.count} serviços carregados`);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -159,8 +192,14 @@ export function TesteGratisCard() {
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={() => sync.mutate()} disabled={sync.isPending}>
               <RefreshCw className={`mr-2 h-4 w-4 ${sync.isPending ? "animate-spin" : ""}`} />
-              {sync.isPending ? "Sincronizando..." : "Sincronizar serviços"}
+              {sync.isPending ? "Sincronizando..." : "Sincronizar catálogo"}
             </Button>
+            {(lastSyncAt || services.length > 0) && (
+              <span className="text-xs text-muted-foreground">
+                Catálogo sincronizado: {services.length} serviços
+                {lastSyncAt ? ` — ${new Date(lastSyncAt).toLocaleString("pt-BR")}` : ""}
+              </span>
+            )}
             <div className="relative ml-auto w-64">
               <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -170,6 +209,30 @@ export function TesteGratisCard() {
                 className="pl-7 h-8"
               />
             </div>
+          </div>
+
+          {/* Toggles do catálogo */}
+          <div className="grid gap-3 rounded-md border border-border bg-background p-3 sm:grid-cols-2">
+            <label className="flex items-start justify-between gap-3">
+              <div className="text-xs">
+                <div className="font-medium text-foreground">Incluir catálogo no prompt</div>
+                <div className="text-muted-foreground">Passa os serviços ao Claude em cada mensagem.</div>
+              </div>
+              <Switch
+                checked={catalogInPrompt}
+                onCheckedChange={(v) => flagsMut.mutate({ catalog_in_prompt: v })}
+              />
+            </label>
+            <label className="flex items-start justify-between gap-3">
+              <div className="text-xs">
+                <div className="font-medium text-foreground">Incluir apenas serviços relevantes</div>
+                <div className="text-muted-foreground">Filtra pelo assunto detectado na conversa.</div>
+              </div>
+              <Switch
+                checked={catalogOnlyRelevant}
+                onCheckedChange={(v) => flagsMut.mutate({ catalog_only_relevant: v })}
+              />
+            </label>
           </div>
 
           {/* Services table */}
