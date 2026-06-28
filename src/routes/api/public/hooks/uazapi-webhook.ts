@@ -1452,6 +1452,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             } else {
             memMarkSent(phone, replyParts[0]);
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
+            const _ttsStart = Date.now();
             const [generatedAudio] = await Promise.all([
               ttsElevenLabsBase64({
                 apiKey: integ.elevenlabs_api_key!,
@@ -1463,6 +1464,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               }),
             ]);
             audioDataUri = generatedAudio;
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv.id, type: "elevenlabs_tts", level: "info", summary: `🔊 ElevenLabs gerou áudio (${Date.now() - _ttsStart}ms)`, response: replyParts[0], durationMs: Date.now() - _ttsStart });
+            } catch {}
             await Promise.all([
               uazapiSendAudio(sendCreds, phone, audioDataUri),
               uazapiSendRecording(sendCreds, phone, 8000).catch((e) => {
@@ -1503,6 +1508,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           await uazapiClearPresence(sendCreds, phone).catch(() => {});
         } catch (e) {
           await uazapiClearPresence(sendCreds, phone).catch(() => {});
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({ userId, phone, conversationId: conv.id, type: "send_failed", level: "error", summary: "Falha ao enviar mensagem via Uazapi", error: (e as Error)?.message ?? String(e) });
+          } catch {}
           return new Response(`uazapi send failed: ${(e as Error).message}`, { status: 502 });
         }
 
