@@ -313,12 +313,17 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         if (!payload) {
           return new Response("invalid json", { status: 400 });
         }
-        const bg = processWebhook(payload).catch((e) => {
-          console.error("webhook bg failed", e);
-        });
-        const wu = (request as unknown as { waitUntil?: (p: Promise<unknown>) => void }).waitUntil;
-        if (typeof wu === "function") wu.call(request, bg);
-        // Responde 200 imediatamente para o Uazapi não reenviar.
+        // IMPORTANTE: o runtime Cloudflare termina a execução assim que
+        // respondemos. `request.waitUntil` não existe nesse handler — sem
+        // executionCtx acessível, o trabalho em background era cortado e o
+        // agente parava de responder. Aguardamos a execução completa antes
+        // de devolver 200. O delay humanizado é limitado para caber dentro
+        // do timeout do Uazapi (~60s).
+        try {
+          await processWebhook(payload);
+        } catch (e) {
+          console.error("webhook processing failed", e);
+        }
         return new Response("ok");
       },
     },
