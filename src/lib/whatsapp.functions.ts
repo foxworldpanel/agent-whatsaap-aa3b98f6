@@ -3,7 +3,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 async function getSharedUazapiUserIds(context: { supabase: any; userId: string }) {
-  const { data: ownIntegration, error } = await context.supabase
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: ownIntegration, error } = await supabaseAdmin
     .from("integrations")
     .select("uazapi_token")
     .eq("user_id", context.userId)
@@ -13,7 +14,6 @@ async function getSharedUazapiUserIds(context: { supabase: any; userId: string }
   const token = ownIntegration?.uazapi_token;
   if (!token) return [context.userId];
 
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: sharedRows, error: sharedError } = await supabaseAdmin
     .from("integrations")
     .select("user_id")
