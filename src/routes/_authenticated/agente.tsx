@@ -129,6 +129,45 @@ function AgentePage() {
       <div className="flex flex-col gap-2">
         <TesteGratisCard />
         <Card className="p-4">
+          <div className="font-medium flex items-center gap-2 mb-1">
+            <span>⏱️</span> Comportamento humanizado
+          </div>
+          <p className="text-xs text-muted-foreground mb-3 max-w-xl">
+            Antes de responder, o agente espera um tempo aleatório entre o mínimo
+            e o máximo e envia "digitando..." (ou "gravando..." para áudio) durante
+            esse intervalo.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <Label htmlFor="delayMin" className="text-xs">Delay mínimo (s)</Label>
+              <Input
+                id="delayMin" type="number" min={0} max={600}
+                value={delayMin}
+                onChange={(e) => setDelayMin(Number(e.target.value) || 0)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="delayMax" className="text-xs">Delay máximo (s)</Label>
+              <Input
+                id="delayMax" type="number" min={0} max={600}
+                value={delayMax}
+                onChange={(e) => setDelayMax(Number(e.target.value) || 0)}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex items-center gap-2 pb-1">
+                <Switch checked={presenceOn} onCheckedChange={setPresenceOn} />
+                <Label className="text-xs">Mostrar status de presença</Label>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button size="sm" onClick={() => saveBehaviorMut.mutate()} disabled={saveBehaviorMut.isPending}>
+              {saveBehaviorMut.isPending ? "Salvando..." : "Salvar comportamento"}
+            </Button>
+          </div>
+        </Card>
+        <Card className="p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-medium flex items-center gap-2">
