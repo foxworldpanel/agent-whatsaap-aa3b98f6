@@ -1491,13 +1491,47 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         if (kind === "audio" && !respondWithAudio) {
           try {
             const { logEvent } = await import("@/lib/agent-logger.server");
+            if (!integ.elevenlabs_api_key) {
+              await logEvent({
+                userId,
+                phone,
+                conversationId: conv.id,
+                type: "elevenlabs_tts",
+                level: "error",
+                summary: "API Key do ElevenLabs não configurada — fallback para texto",
+              });
+            }
+            if (!integ.elevenlabs_voice_id) {
+              await logEvent({
+                userId,
+                phone,
+                conversationId: conv.id,
+                type: "elevenlabs_tts",
+                level: "error",
+                summary: "Voice ID do ElevenLabs não configurado — fallback para texto",
+              });
+            }
+            if (integ.elevenlabs_api_key && integ.elevenlabs_voice_id && replyParts.length === 0) {
+              await logEvent({
+                userId,
+                phone,
+                conversationId: conv.id,
+                type: "elevenlabs_tts",
+                level: "warn",
+                summary: "ElevenLabs OK mas resposta vazia (replyParts=0) — fallback para texto",
+              });
+            }
+          } catch {}
+        } else if (kind === "audio" && respondWithAudio) {
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
             await logEvent({
               userId,
               phone,
               conversationId: conv.id,
               type: "elevenlabs_tts",
-              level: "warn",
-              summary: `⚠️ Cliente mandou áudio mas respondendo texto (key=${!!integ.elevenlabs_api_key} voice=${!!integ.elevenlabs_voice_id} parts=${replyParts.length})`,
+              level: "info",
+              summary: `Chamando ElevenLabs com voice_id: ${integ.elevenlabs_voice_id}`,
             });
           } catch {}
         }
