@@ -1308,87 +1308,61 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           freeTestServices = (ftsRows ?? []) as typeof freeTestServices;
         }
 
-        // Real-time SMM catalogue: if enabled and the inbound message mentions
-        // price / service keywords, fetch services from the panel and pass
-        // them as context to the LLM.
+        // Catálogo SMM fixo (cache no Supabase). Sem chamada externa por mensagem.
+        // Toggles do agente controlam se é incluído no prompt e se é filtrado por assunto.
         let servicesContext: string | null = null;
-        let servicesFetchFailed = false;
-        const a0 = agent as { services_realtime?: boolean };
-        if (a0.services_realtime && integ.smm_api_key) {
+        const servicesFetchFailed = false;
+        const a0 = agent as { catalog_in_prompt?: boolean; catalog_only_relevant?: boolean };
+        const catalogInPrompt = a0.catalog_in_prompt !== false; // default true
+        const onlyRelevant = a0.catalog_only_relevant !== false; // default true
+        if (catalogInPrompt) {
           try {
-            const { smmFetchServices } = await import("@/lib/smm.server");
-            const services = await smmFetchServices({
-              url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
-              key: integ.smm_api_key,
-            });
-            console.log(
-              "Serviços carregados:",
-              services.length,
-              "Primeiro:",
-              services[0] ? JSON.stringify(services[0]) : "nenhum",
-            );
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: services.length > 0 ? "info" : "warn", summary: `💰 Serviços carregados: ${services.length}`, metadata: { count: services.length } });
-            } catch {}
-            if (services.length > 0) {
-              // Log dos serviços Spotify cru, para auditar mínimos/máximos.
-              const spotifyRaw = services.filter((s) =>
-                /spotify/i.test(`${s.name} ${s.category}`),
-              );
-              console.log("[catalogo] Spotify items:", JSON.stringify(spotifyRaw, null, 2));
-
-              const fmt = (s: typeof services[number]) =>
-                `ID: ${s.service} | Nome: ${s.name} | Categoria: ${s.category} | Preço por 1000: R$${s.rate} | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`;
-
+            const { data: cacheRows } = await supabaseAdmin
+              .from("catalog_cache")
+              .select("service_id, nome, categoria, preco_por_1000, minimo, maximo")
+              .eq("user_id", userId)
+              .limit(500);
+            const all = (cacheRows ?? []).map((r) => ({
+              service: r.service_id as string,
+              name: (r.nome as string) ?? "",
+              category: (r.categoria as string) ?? "",
+              rate: String(r.preco_por_1000 ?? 0),
+              min: String(r.minimo ?? 0),
+              max: String(r.maximo ?? 0),
+            }));
+            if (all.length > 0) {
+              const lowerText = (text ?? "").toLowerCase();
+              const platforms: Array<{ key: string; label: string; rx: RegExp }> = [
+                { key: "spotify", label: "SPOTIFY", rx: /spotify|playlist|ouvintes?|saves?/i },
+                { key: "instagram", label: "INSTAGRAM", rx: /instagram|insta|reels?|stories?/i },
+                { key: "youtube", label: "YOUTUBE", rx: /youtube|yt\b|inscritos?|view(s|er)?|monetiza|shorts?/i },
+                { key: "tiktok", label: "TIKTOK", rx: /tiktok|tt\b/i },
+                { key: "kwai", label: "KWAI", rx: /kwai/i },
+                { key: "facebook", label: "FACEBOOK", rx: /facebook|fb\b|\bface\b/i },
+              ];
+              const matched = platforms.filter((p) => p.rx.test(lowerText));
+              let services = all;
+              if (onlyRelevant && matched.length > 0) {
+                services = all.filter((s) =>
+                  matched.some((p) => new RegExp(p.key, "i").test(`${s.name} ${s.category}`)),
+                );
+              }
+              // Hard cap para o prompt não explodir
               const baseList = services
                 .slice(0, 200)
-                .map(fmt)
+                .map((s) => `ID: ${s.service} | Nome: ${s.name} | Categoria: ${s.category} | Preço por 1000: R$${s.rate} | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`)
                 .join("\n");
-
-              // Bloco destacado por plataforma — força o Claude a ler MÍNIMO/MÁXIMO reais
-              // antes de inventar quantidade.
-              const highlightBlocks: string[] = [];
-              const pushBlock = (label: string, regex: RegExp) => {
-                const items = services.filter((s) => regex.test(`${s.name} ${s.category}`));
-                if (items.length === 0) return;
-                const lines = items
-                  .slice(0, 20)
-                  .map(
-                    (s) =>
-                      `- ${s.name} | R$${s.rate} por 1000 | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`,
-                  )
-                  .join("\n");
-                highlightBlocks.push(`SERVIÇOS ${label} (use estes dados, não invente):\n${lines}`);
-              };
-              pushBlock("SPOTIFY", /spotify/i);
-              pushBlock("INSTAGRAM", /instagram/i);
-              pushBlock("YOUTUBE", /youtube/i);
-              pushBlock("TIKTOK", /tiktok/i);
-
-              servicesContext = [
-                baseList,
-                ...highlightBlocks,
-                "REGRA: SEMPRE consulte o campo MÍNIMO do catálogo acima antes de responder qualquer quantidade. NUNCA arredonde o mínimo. Se o catálogo diz MÍNIMO: 500, o mínimo é 500 — não 1000.",
-              ].join("\n\n");
+              servicesContext = `${baseList}\n\nREGRA: SEMPRE consulte o campo MÍNIMO do catálogo acima antes de responder qualquer quantidade. NUNCA arredonde o mínimo.`;
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: "info", summary: `💰 Catálogo cache: ${services.length}/${all.length}${matched.length > 0 ? ` (filtrado: ${matched.map((p) => p.label).join(",")})` : ""}`, metadata: { used: services.length, total: all.length, onlyRelevant, matched: matched.map((p) => p.key) } });
+              } catch {}
             } else {
-              servicesFetchFailed = true;
+              console.warn("[catalog_cache] vazio — usuário precisa sincronizar pelo painel do agente");
             }
           } catch (e) {
-            console.error("smm services fetch failed", e);
-            servicesFetchFailed = true;
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: "error", summary: "Falha ao buscar serviços SMM", error: (e as Error)?.message ?? String(e) });
-            } catch {}
+            console.error("catalog_cache load failed", e);
           }
-        } else {
-          console.warn(
-            "[smm] catálogo NÃO carregado — services_realtime:",
-            !!a0.services_realtime,
-            "| smm_api_key presente:",
-            !!integ.smm_api_key,
-          );
         }
 
         let reply: string;
