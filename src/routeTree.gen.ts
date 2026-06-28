@@ -18,6 +18,7 @@ import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
 import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
 import { Route as ApiPublicHooksSmmPollRouteImport } from './routes/api/public/hooks/smm-poll'
 import { Route as ApiPublicHooksCampaignDispatcherRouteImport } from './routes/api/public/hooks/campaign-dispatcher'
@@ -69,6 +70,11 @@ const AuthenticatedConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAgenteRoute = AuthenticatedAgenteRouteImport.update({
+  id: '/agente',
+  path: '/agente',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const ApiPublicHooksUazapiWebhookRoute =
   ApiPublicHooksUazapiWebhookRouteImport.update({
     id: '/api/public/hooks/uazapi-webhook',
@@ -96,6 +102,7 @@ const ApiPublicHooksAutoCampaignDispatcherRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
+  '/agente': typeof AuthenticatedAgenteRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
+  '/agente': typeof AuthenticatedAgenteRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/agente': typeof AuthenticatedAgenteRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contatos': typeof AuthenticatedContatosRoute
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/agente'
     | '/configuracoes'
     | '/contatos'
     | '/conversas'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/agente'
     | '/configuracoes'
     | '/contatos'
     | '/conversas'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/agente'
     | '/_authenticated/configuracoes'
     | '/_authenticated/contatos'
     | '/_authenticated/conversas'
@@ -257,6 +269,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/agente': {
+      id: '/_authenticated/agente'
+      path: '/agente'
+      fullPath: '/agente'
+      preLoaderRoute: typeof AuthenticatedAgenteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/hooks/uazapi-webhook': {
       id: '/api/public/hooks/uazapi-webhook'
       path: '/api/public/hooks/uazapi-webhook'
@@ -289,6 +308,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAgenteRoute: typeof AuthenticatedAgenteRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContatosRoute: typeof AuthenticatedContatosRoute
   AuthenticatedConversasRoute: typeof AuthenticatedConversasRoute
@@ -299,6 +319,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAgenteRoute: AuthenticatedAgenteRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContatosRoute: AuthenticatedContatosRoute,
   AuthenticatedConversasRoute: AuthenticatedConversasRoute,
