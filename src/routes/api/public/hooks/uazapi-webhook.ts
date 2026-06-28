@@ -259,7 +259,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         if (typeof wu === "function") wu.call(request, bg);
         // Responde 200 imediatamente para o Uazapi não reenviar.
         return new Response("ok");
-}
+      },
+    },
+  },
+});
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
@@ -1666,7 +1669,4 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         return new Response("ok");
-      },
-    },
-  },
-});
+}
