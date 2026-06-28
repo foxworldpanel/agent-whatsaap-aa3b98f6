@@ -1679,8 +1679,44 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .filter((u) => u.length > 3),
               ),
             );
-            // Sanitiza o texto para o TTS: troca R$ por palavras e remove TODOS os links.
-            const ttsText = replyParts[0]
+            // Detecta se o cliente pediu o link FALADO no áudio
+            // (ex.: está dirigindo, não consegue ver, peça por áudio).
+            const askedLinkBySpeech = /\b(fala(r)?\s+(por\s+)?(a|á)udio|me\s+fala|dirig(indo|ir)|estou\s+no\s+(carro|volante)|n[ãa]o\s+(consigo|posso)\s+(ver|ler|olhar|clicar)|sem\s+(ver|ler)|de\s+ouvido|ouvindo\s+apenas)\b/i.test(
+              inboundBody ?? "",
+            );
+            // Converte um link para forma falável (pt-BR) para o ElevenLabs.
+            const speakLink = (link: string): string => {
+              let s = link.trim().replace(/[.,;:!?)]+$/, "");
+              s = s.replace(/^https?:\/\//i, "");
+              s = s.replace(/^www\./i, "dáblio dáblio dáblio ponto ");
+              // Domínios conhecidos
+              s = s.replace(/mindsmmpanel\.com/gi, "mind s m m panel ponto com");
+              s = s.replace(/soundon\.global/gi, "sound on ponto global");
+              s = s.replace(/artists\.spotify\.com/gi, "artists ponto spotify ponto com");
+              // TLDs genéricos
+              s = s.replace(/\.com\b/gi, " ponto com");
+              s = s.replace(/\.com\.br\b/gi, " ponto com ponto bê érre");
+              s = s.replace(/\.br\b/gi, " ponto bê érre");
+              s = s.replace(/\.global\b/gi, " ponto global");
+              s = s.replace(/\.net\b/gi, " ponto net");
+              s = s.replace(/\.io\b/gi, " ponto i o");
+              s = s.replace(/\.app\b/gi, " ponto app");
+              s = s.replace(/\//g, " barra ");
+              s = s.replace(/-/g, " traço ");
+              s = s.replace(/_/g, " underline ");
+              return s.replace(/\s{2,}/g, " ").trim();
+            };
+            // Sanitiza o texto para o TTS: troca R$ por palavras.
+            // Por padrão remove TODOS os links; se o cliente pediu por áudio,
+            // substitui cada link pela forma falável antes de remover.
+            let baseForTts = replyParts[0];
+            if (askedLinkBySpeech && extractedUrls.length > 0) {
+              for (const url of extractedUrls) {
+                const spoken = speakLink(url);
+                baseForTts = baseForTts.split(url).join(spoken);
+              }
+            }
+            const ttsText = baseForTts
               // Valores em R$
               .replace(/R\$\s?(\d+),(\d+)/g, (_m, r, c) => `${r} reais e ${c} centavos`)
               .replace(/R\$\s?(\d+)/g, (_m, n) => `${n} reais`)
@@ -1702,12 +1738,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .replace(/\bBQ\b/g, "baixa qualidade")
               .replace(/\bSR\b/g, "sem reposição")
               .replace(/===SPLIT===/g, "")
-              // Links — remove tudo
+              // Links — remove o que ainda restar de URLs cruas.
               .replace(/https?:\/\/\S+/gi, "")
-              .replace(/www\.\S+/gi, "")
-              .replace(/\S+\.com\S*/gi, "")
-              .replace(/\S+\.global\S*/gi, "")
-              .replace(urlRegex, "")
+              .replace(/www\.(?![a-zà-ú])\S+/gi, "")
+              .replace(askedLinkBySpeech ? /(?!)/g : /\S+\.com\S*/gi, "")
+              .replace(askedLinkBySpeech ? /(?!)/g : /\S+\.global\S*/gi, "")
+              .replace(askedLinkBySpeech ? /(?!)/g : urlRegex, "")
               .replace(/\s+([.,!?])/g, "$1")
               .replace(/\s{2,}/g, " ")
               .trim();
@@ -1745,8 +1781,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }),
             ]);
             replyKind = "audio";
-            // Envia links extraídos como mensagens de texto separadas após o áudio.
-            for (const url of extractedUrls) {
+            // Envia links extraídos como mensagens de texto separadas após o áudio
+            // (a menos que o cliente tenha pedido o link FALADO).
+            for (const url of askedLinkBySpeech ? [] : extractedUrls) {
               if (memWasRecentlySent(phone, url) || await wasRecentlySent(conv.id, url)) continue;
               memMarkSent(phone, url);
               await uazapiSendTyping(sendCreds, phone, 1000).catch(() => {});
