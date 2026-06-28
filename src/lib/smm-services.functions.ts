@@ -8,7 +8,8 @@ import { z } from "zod";
 export const syncSmmServices = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: integ, error: ie } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: integ, error: ie } = await supabaseAdmin
       .from("integrations")
       .select("smm_api_key, smm_panel_url")
       .eq("user_id", context.userId)
@@ -18,7 +19,7 @@ export const syncSmmServices = createServerFn({ method: "POST" })
     const url = (integ?.smm_panel_url?.trim() || "https://mindsmmpanel.com/smmpanel/api/v1");
     if (!key) {
       const msg = "API Key do painel SMM não configurada";
-      await context.supabase.from("integrations").update({
+      await supabaseAdmin.from("integrations").update({
         smm_last_sync_at: new Date().toISOString(),
         smm_last_sync_count: 0,
         smm_last_sync_error: msg,
@@ -28,7 +29,7 @@ export const syncSmmServices = createServerFn({ method: "POST" })
     try {
       const { smmFetchServices } = await import("@/lib/smm.server");
       const list = await smmFetchServices({ url, key });
-      await context.supabase.from("integrations").update({
+      await supabaseAdmin.from("integrations").update({
         smm_last_sync_at: new Date().toISOString(),
         smm_last_sync_count: list.length,
         smm_last_sync_error: null,
@@ -36,7 +37,7 @@ export const syncSmmServices = createServerFn({ method: "POST" })
       return { ok: true, count: list.length, error: null, services: list };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      await context.supabase.from("integrations").update({
+      await supabaseAdmin.from("integrations").update({
         smm_last_sync_at: new Date().toISOString(),
         smm_last_sync_count: 0,
         smm_last_sync_error: msg,

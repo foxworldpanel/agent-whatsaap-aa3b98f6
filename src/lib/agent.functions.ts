@@ -3,7 +3,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 async function getSharedUazapiUserIds(context: { supabase: any; userId: string }) {
-  const { data: ownIntegration, error } = await context.supabase
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: ownIntegration, error } = await supabaseAdmin
     .from("integrations")
     .select("uazapi_token")
     .eq("user_id", context.userId)
@@ -13,7 +14,6 @@ async function getSharedUazapiUserIds(context: { supabase: any; userId: string }
   const token = ownIntegration?.uazapi_token;
   if (!token) return [context.userId];
 
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: sharedRows, error: sharedError } = await supabaseAdmin
     .from("integrations")
     .select("user_id")
@@ -280,13 +280,26 @@ export const countConversationsToReview = createServerFn({ method: "GET" })
 export const getIntegrations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
       .from("integrations")
       .select("*")
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return data;
+    if (!data) return null;
+    // Mask secret values before returning to the browser: expose only whether
+    // each credential is configured, never the raw token/key.
+    const mask = (v: unknown) => (typeof v === "string" && v.length > 0 ? "••••••" : null);
+    return {
+      ...data,
+      uazapi_token: mask(data.uazapi_token),
+      uazapi_admin_token: mask(data.uazapi_admin_token),
+      anthropic_api_key: mask(data.anthropic_api_key),
+      elevenlabs_api_key: mask(data.elevenlabs_api_key),
+      openai_api_key: mask(data.openai_api_key),
+      smm_api_key: mask(data.smm_api_key),
+    };
   });
 
 export const saveIntegrations = createServerFn({ method: "POST" })
@@ -307,9 +320,25 @@ export const saveIntegrations = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    // Strip masked secret values so we don't overwrite real secrets when the
+    // UI re-submits the form with the placeholder from getIntegrations.
+    const SECRET_FIELDS = [
+      "uazapi_token",
+      "uazapi_admin_token",
+      "anthropic_api_key",
+      "elevenlabs_api_key",
+      "openai_api_key",
+      "smm_api_key",
+    ] as const;
+    const clean: Record<string, unknown> = { ...data };
+    for (const k of SECRET_FIELDS) {
+      const v = (clean as Record<string, unknown>)[k];
+      if (typeof v === "string" && /^•+$/.test(v)) delete clean[k];
+    }
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
       .from("integrations")
-      .upsert({ user_id: context.userId, ...data }, { onConflict: "user_id" });
+      .upsert({ user_id: context.userId, ...clean }, { onConflict: "user_id" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -320,7 +349,8 @@ export const previewVoice = createServerFn({ method: "POST" })
     z.object({ text: z.string().min(1).max(500).optional() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: integ, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: integ, error } = await supabaseAdmin
       .from("integrations")
       .select("elevenlabs_api_key, elevenlabs_voice_id")
       .eq("user_id", context.userId)

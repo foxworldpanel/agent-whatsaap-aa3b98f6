@@ -10,7 +10,8 @@ export const extractChatsFromNumber = createServerFn({ method: "POST" })
     z.object({ whatsapp_number_id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: row, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
       .from("whatsapp_numbers")
       .select("uazapi_url, uazapi_token")
       .eq("id", data.whatsapp_number_id)

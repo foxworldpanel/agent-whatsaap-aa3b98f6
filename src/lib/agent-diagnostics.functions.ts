@@ -6,9 +6,10 @@ type IntegrationStatus = { name: string; ok: boolean; detail: string };
 export const runAgentDiagnostics = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: cfg } = await context.supabase
       .from("agent_config").select("*").eq("user_id", context.userId).maybeSingle();
-    const { data: integ } = await context.supabase
+    const { data: integ } = await supabaseAdmin
       .from("integrations").select("*").eq("user_id", context.userId).maybeSingle();
     const { data: kb } = await context.supabase
       .from("knowledge_base").select("context, content").eq("user_id", context.userId);
