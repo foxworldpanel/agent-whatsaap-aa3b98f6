@@ -1457,6 +1457,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           !!integ.elevenlabs_api_key &&
           !!integ.elevenlabs_voice_id &&
           replyParts.length > 0;
+        console.log("🎙️ Audio decision:", {
+          inputKind: kind,
+          clienteSendouAudio: kind === "audio",
+          hasElevenLabsKey: !!integ.elevenlabs_api_key,
+          hasVoiceId: !!integ.elevenlabs_voice_id,
+          replyPartsCount: replyParts.length,
+          firstPartPreview: replyParts[0]?.slice(0, 60),
+          respondWithAudio,
+        });
+        if (kind === "audio" && !respondWithAudio) {
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv.id,
+              type: "elevenlabs_tts",
+              level: "warn",
+              summary: `⚠️ Cliente mandou áudio mas respondendo texto (key=${!!integ.elevenlabs_api_key} voice=${!!integ.elevenlabs_voice_id} parts=${replyParts.length})`,
+            });
+          } catch {}
+        }
         // hasHardContent mantido apenas para referência — quando o cliente
         // mandou áudio, a resposta principal SEMPRE vai por áudio. Dados
         // específicos (preço/link) devem vir do Claude após ===SPLIT===.
