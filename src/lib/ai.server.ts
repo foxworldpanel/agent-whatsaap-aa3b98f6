@@ -89,6 +89,26 @@ function selectActiveModules(
   });
 }
 
+// Detecta o contexto principal da conversa com base na última mensagem
+// e nas últimas 3 mensagens do histórico. Usado para logar/observar qual
+// "categoria" o agente identificou e dimensionar custo de tokens.
+export function detectarContexto(mensagem: string, historico: Msg[]): string {
+  const trailing = historico.slice(-3).map((m) => m.body ?? "").join(" ");
+  const texto = `${mensagem} ${trailing}`.toLowerCase();
+  if (/spotify|plays|ouvintes|saves|playlist|m[uú]sica|can[çc][aã]o|streaming/i.test(texto)) return "spotify";
+  if (/youtube|shorts|inscritos|monetiz|horas|canal|v[ií]deo/i.test(texto)) return "youtube";
+  if (/instagram|reels|stories|curtidas|seguidores insta/i.test(texto)) return "instagram";
+  if (/tiktok|\btok\b/i.test(texto)) return "tiktok";
+  if (/facebook|\bfb\b/i.test(texto)) return "facebook";
+  if (/kwai/i.test(texto)) return "kwai";
+  if (/google|avalia[çc][aã]o|estrelas/i.test(texto)) return "google";
+  if (/pre[çc]o|valor|quanto|custa|cobr/i.test(texto)) return "preco";
+  if (/teste|gr[aá]tis|gratuito/i.test(texto)) return "teste";
+  if (/cadastro|painel|pix|pagamento|saldo/i.test(texto)) return "painel";
+  if (/pedido|entrega|status|cancelar|reembolso|refil/i.test(texto)) return "suporte";
+  return "geral";
+}
+
 type BuildPromptParams = {
   agent: AgentConfig;
   contact: Contact;
