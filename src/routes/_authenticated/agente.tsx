@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/collapsible";
 import { getAgentConfig, saveAgentModules } from "@/lib/agent.functions";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
+import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 
 export const Route = createFileRoute("/_authenticated/agente")({
   ssr: false,
@@ -83,6 +84,7 @@ function AgentePage() {
       </div>
 
       <div className="flex flex-col gap-2">
+        <TesteGratisCard />
         {MODULE_LIST.map((m) => {
           const open = openKey === m.key;
           const value = modules[m.key] ?? "";
