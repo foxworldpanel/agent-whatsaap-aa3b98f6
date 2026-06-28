@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Bot, Trash2, RefreshCw } from "lucide-react";
+import { Send, Bot, Trash2, RefreshCw, Ban, ShieldCheck } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage, clearConversation } from "@/lib/whatsapp.functions";
-import { setConversationAgentEnabled, reactivateConversation } from "@/lib/agent.functions";
+import { setConversationAgentEnabled, reactivateConversation, blockConversation } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { syncWhatsappMessages } from "@/lib/sync.functions";
 
@@ -106,6 +106,7 @@ function Conversas() {
   const clearFn = useServerFn(clearConversation);
   const syncFn = useServerFn(syncWhatsappMessages);
   const reactivateFn = useServerFn(reactivateConversation);
+  const blockFn = useServerFn(blockConversation);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -187,11 +188,21 @@ function Conversas() {
   const reactivateMut = useMutation({
     mutationFn: () => reactivateFn({ data: { conversationId: activeId! } }),
     onSuccess: () => {
-      toast.success("Agente reativado nesta conversa");
+      toast.success("Conversa desbloqueada");
       qc.invalidateQueries({ queryKey: ["conversations"] });
       qc.invalidateQueries({ queryKey: ["conversations_review_count"] });
     },
-    onError: (e) => toast.error((e as Error).message || "Falha ao reativar"),
+    onError: (e) => toast.error((e as Error).message || "Falha ao desbloquear"),
+  });
+
+  const blockMut = useMutation({
+    mutationFn: () => blockFn({ data: { conversationId: activeId! } }),
+    onSuccess: () => {
+      toast.success("Conversa bloqueada");
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["conversations_review_count"] });
+    },
+    onError: (e) => toast.error((e as Error).message || "Falha ao bloquear"),
   });
 
   const syncMut = useMutation({
