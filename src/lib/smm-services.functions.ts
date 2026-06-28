@@ -29,6 +29,27 @@ export const syncSmmServices = createServerFn({ method: "POST" })
     try {
       const { smmFetchServices } = await import("@/lib/smm.server");
       const list = await smmFetchServices({ url, key });
+      // Persiste no catálogo em cache (substitui o catálogo anterior do usuário)
+      try {
+        await supabaseAdmin.from("catalog_cache").delete().eq("user_id", context.userId);
+        if (list.length > 0) {
+          const rows = list.map((s) => ({
+            user_id: context.userId,
+            service_id: String(s.service),
+            nome: s.name ?? "",
+            categoria: s.category ?? "",
+            preco_por_1000: Number(s.rate) || 0,
+            minimo: parseInt(s.min, 10) || 0,
+            maximo: parseInt(s.max, 10) || 0,
+          }));
+          // Insere em lotes de 500 para evitar payloads gigantes
+          for (let i = 0; i < rows.length; i += 500) {
+            await supabaseAdmin.from("catalog_cache").insert(rows.slice(i, i + 500));
+          }
+        }
+      } catch (e) {
+        console.error("catalog_cache persist failed", e);
+      }
       await supabaseAdmin.from("integrations").update({
         smm_last_sync_at: new Date().toISOString(),
         smm_last_sync_count: list.length,
@@ -44,6 +65,37 @@ export const syncSmmServices = createServerFn({ method: "POST" })
       }).eq("user_id", context.userId);
       return { ok: false, count: 0, error: msg, services: [] as ServiceRow[] };
     }
+  });
+
+// Lista o catálogo em cache (já sincronizado) para o usuário atual.
+export const listCatalogCache = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("catalog_cache")
+      .select("service_id, nome, categoria, preco_por_1000, minimo, maximo")
+      .eq("user_id", context.userId)
+      .order("nome");
+    if (error) throw new Error(error.message);
+    const services: ServiceRow[] = (data ?? []).map((r) => ({
+      service: r.service_id,
+      name: r.nome,
+      category: r.categoria,
+      rate: String(r.preco_por_1000),
+      min: String(r.minimo),
+      max: String(r.maximo),
+    }));
+    // Pega meta da última sync
+    const { data: integ } = await context.supabase
+      .from("integrations")
+      .select("smm_last_sync_at, smm_last_sync_count")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    return {
+      services,
+      last_sync_at: integ?.smm_last_sync_at ?? null,
+      last_sync_count: integ?.smm_last_sync_count ?? services.length,
+    };
   });
 
 export type ServiceRow = {
