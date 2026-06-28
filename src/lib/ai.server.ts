@@ -117,13 +117,15 @@ export async function generateAgentReply(params: {
   panelScreens?: Array<{ name: string; description?: string | null; extracted_content?: string | null }>;
   forbiddenRules?: Array<{ rule: string; deflection?: string | null }>;
   freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
+  extraContext?: string | null;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [] } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], extraContext = null } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
   const system = [
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
+    extraContext ? extraContext : "",
     `PRIORIDADE ABSOLUTA PARA PERGUNTAS DIRETAS: se a última mensagem do cliente contém uma pergunta direta (nome, preço, serviço específico, prazo, cadastro, pagamento, link ou qualquer dúvida objetiva), responda essa pergunta imediatamente. NUNCA ignore uma pergunta direta e NUNCA troque por explicação genérica da MIND/plataforma. Se o cliente perguntou seu nome, responda algo curto e natural como: "Meu nome é Júlia, e o seu?" ou "Sou a Júlia, como posso te ajudar?" — sem emoji.`,
     `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
@@ -173,6 +175,7 @@ export async function generateAgentReply(params: {
         : "";
     })(),
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
+    `PEDIDO NÃO FUNCIONOU / NÃO RECEBEU / DEU PROBLEMA (regra absoluta):\n- Quando o cliente disser que comprou e não funcionou, não recebeu, está atrasado ou deu problema, NUNCA assuma o status do pedido. NUNCA diga que "está processando", "vai chegar", "deve estar a caminho" ou qualquer suposição.\n- 1ª resposta SEMPRE: "Me manda o ID do pedido que aparece no histórico do painel que eu verifico pra você!"\n- Quando o cliente mandar o ID (número), o sistema consulta o status real na API (?action=status&order={ID}&key={API_KEY}) e te devolve o status — responda com base nesse status real.\n- Se o sistema não conseguir consultar (erro/timeout/sem chave), redirecione: "Abre um ticket no menu Suporte do painel informando o ID do pedido que a equipe resolve!"\n- NUNCA invente status. NUNCA prometa prazo sem ter o status confirmado.`,
     knowledgeExamples.length === 0
       ? `ESTILO DE ATENDIMENTO (use enquanto não houver exemplos na base de conhecimento):\n- Respostas curtas, 1 a 2 linhas no máximo\n- Linguagem informal, como um vendedor humano no WhatsApp\n- Quando o cliente reclamar, defenda a empresa com educação e explique tecnicamente\n- Quando perguntar quantidade/limite, consulte o catálogo e responda o valor exato\n- Quando pedir desconto, diga que depende da quantidade — nunca negue logo de cara\n- Avance sempre para fechar: cadastro → saldo → escolher serviço → link`
       : `REGRAS DURAS (valem mesmo com base de conhecimento):\n- Nunca repita literalmente uma mensagem anterior da conversa.\n- Quando o cliente disser SIM, avance — não reexplique o passo anterior.\n- Quando perguntar quantidade/limite, consulte o catálogo e responda o valor exato.`,

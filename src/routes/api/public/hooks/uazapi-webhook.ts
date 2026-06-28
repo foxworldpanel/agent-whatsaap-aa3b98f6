@@ -273,9 +273,25 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
         // ===== Idempotência por messageId =====
-        // Uazapi às vezes dispara o mesmo evento mais de uma vez. Se já
-        // gravamos uma mensagem do cliente com esse external_id, ignora.
+        // Uazapi às vezes dispara o mesmo evento mais de uma vez. Trava
+        // definitiva: tenta inserir o messageId na tabela processed_messages
+        // (PK). Se o insert falhar por conflito → já foi processado, ignora.
         if (messageId) {
+          const { error: dupErr } = await supabaseAdmin
+            .from("processed_messages")
+            .insert({ message_id: messageId });
+          if (dupErr) {
+            // 23505 = unique_violation
+            const code = (dupErr as { code?: string }).code;
+            if (code === "23505" || /duplicate key/i.test(dupErr.message)) {
+              console.log(`Mensagem duplicada bloqueada (processed_messages): ${messageId}`);
+              return new Response("ok (duplicate messageId)");
+            }
+            // erro inesperado: loga e segue (não bloqueia o atendimento)
+            console.warn("processed_messages insert error:", dupErr.message);
+          }
+          // Fallback adicional: se já existe uma mensagem com esse external_id,
+          // também ignora (cobre runs anteriores à criação da tabela).
           const { data: dupInbound } = await supabaseAdmin
             .from("messages")
             .select("id")
@@ -1260,6 +1276,41 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           } else if (kind === "audio" && inboundBody === "[áudio recebido]") {
             reply = "Não consegui entender bem esse áudio. Pode mandar de novo?";
           } else {
+          // Consulta status real de pedido quando o cliente mandar um ID
+          // numérico depois do agente ter pedido o "ID do pedido", OU quando
+          // a mensagem atual reclama de problema com pedido + traz um número.
+          let orderStatusContext: string | null = null;
+          try {
+            const lastAgentMsg = [...(aiHistory ?? [])].reverse().find((m) => m.sender === "agente");
+            const agentAskedForId =
+              !!lastAgentMsg && /id\s+do\s+pedido/i.test(lastAgentMsg.body ?? "");
+            const complainRe = /(n[aã]o\s+funciono|n[aã]o\s+recebi|deu\s+problema|n[aã]o\s+chegou|n[aã]o\s+caiu|n[aã]o\s+veio|atrasad)/i;
+            const numMatch = (text ?? "").match(/\b(\d{4,})\b/);
+            const shouldLookup =
+              !!numMatch && (agentAskedForId || complainRe.test(text ?? ""));
+            if (shouldLookup && integ.smm_api_key && numMatch) {
+              const { smmOrderStatus } = await import("@/lib/smm.server");
+              const orderId = numMatch[1];
+              const st = await smmOrderStatus(
+                {
+                  url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
+                  key: integ.smm_api_key,
+                },
+                orderId,
+              );
+              if (st.error || !st.status) {
+                orderStatusContext = `STATUS DE PEDIDO (consulta falhou para ID ${orderId}): redirecione o cliente assim — "Abre um ticket no menu Suporte do painel informando o ID do pedido que a equipe resolve!". NUNCA invente status.`;
+              } else {
+                orderStatusContext = `STATUS REAL DO PEDIDO ${orderId} (consultado agora na API do painel): status="${st.status}"${st.start_count !== undefined ? `, start_count=${st.start_count}` : ""}${st.quantity !== undefined ? `, quantity=${st.quantity}` : ""}. Responda ao cliente com base nesse status real, de forma curta e humana. NUNCA invente. Se "completed"/"partial"/"in progress" → explique em 1 frase. Se "canceled"/"refunded" → oriente abrir ticket no Suporte do painel.`;
+              }
+            } else if ((agentAskedForId || complainRe.test(text ?? "")) && !integ.smm_api_key) {
+              orderStatusContext = `SEM CHAVE SMM PARA CONSULTAR STATUS DE PEDIDO. Se o cliente já mandou ID, redirecione: "Abre um ticket no menu Suporte do painel informando o ID do pedido que a equipe resolve!".`;
+            }
+          } catch (e) {
+            console.error("[order-status] lookup failed", e);
+            orderStatusContext = `STATUS DE PEDIDO indisponível agora. Redirecione: "Abre um ticket no menu Suporte do painel informando o ID do pedido que a equipe resolve!".`;
+          }
+
           reply = await generateAgentReply({
             anthropicApiKey: integ.anthropic_api_key,
             agent,
@@ -1272,6 +1323,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             panelScreens,
             forbiddenRules,
             freeTestServices,
+            extraContext: orderStatusContext,
           });
           }
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
