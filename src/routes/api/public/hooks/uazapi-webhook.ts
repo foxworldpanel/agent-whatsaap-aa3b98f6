@@ -1758,6 +1758,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        if (!(await isAutoReplyAllowed())) {
+          await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv.id,
+              type: "agent_disabled",
+              level: "info",
+              summary: "Resposta cancelada antes do envio porque o agente foi desativado",
+            });
+          } catch {}
+          return new Response("ok (agent disabled before send)");
+        }
+
         let replyKind: "texto" | "audio" = "texto";
         let audioDataUri: string | null = null;
         const skippedIdx = new Set<number>();
