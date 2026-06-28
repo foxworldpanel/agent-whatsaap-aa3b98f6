@@ -41,6 +41,54 @@ function pickScript(cfg: AgentConfig, perfil: Contact["perfil"]): string {
     : cfg.script_frio;
 }
 
+// Sempre carregados (essenciais ao comportamento do agente)
+const ESSENTIAL_MODULES = [
+  "identidade",
+  "regras_proibidas",
+  "regras_gerais",
+  "comportamento_humano",
+  "texto_ou_audio",
+  "fluxo_vendas",
+  "pagamentos",
+];
+
+// Mapa de gatilhos → módulos relevantes
+const MODULE_TRIGGERS: Array<{ rx: RegExp; modules: string[] }> = [
+  { rx: /spotify|playlist|ouvintes?|saves?|m[uú]sica|artista|soundon/i, modules: ["spotify", "musica_cliente"] },
+  { rx: /youtube|yt|inscritos?|view(s|er)?|monetiza|4000h|shorts?/i, modules: ["youtube"] },
+  { rx: /instagram|insta|\big\b|reels?|stories?|seguidor/i, modules: ["instagram"] },
+  { rx: /tiktok|tt\b/i, modules: ["tiktok"] },
+  { rx: /kwai/i, modules: ["kwai"] },
+  { rx: /facebook|fb\b|\bface\b/i, modules: ["facebook"] },
+  { rx: /google|seo|maps|gmb|avalia[çc][aã]o/i, modules: ["seo_google"] },
+  { rx: /pre[çc]o|valor|quanto custa|custa|tabela|or[çc]amento|cota[çc][aã]o|\br\$/i, modules: ["calculo_preco", "ancoragem_valor"] },
+  { rx: /desconto|barato|caro|promo/i, modules: ["desconto_niveis", "objecoes", "ancoragem_valor"] },
+  { rx: /pix|pagar|pagamento|boleto|cart[aã]o|cripto|usdt|d[oó]lar|exterior|estrangeir/i, modules: ["pagamentos", "estrangeiros"] },
+  { rx: /teste|gr[aá]tis|free|amostra/i, modules: ["teste_gratis"] },
+  { rx: /problema|n[aã]o funcionou|n[aã]o recebi|atras|suporte|ticket|reclama|refil/i, modules: ["suporte", "historico_refil", "inteligencia_emocional"] },
+  { rx: /painel|cadastr|conta|login|saldo|dep[oó]sito|adicionar fundos|como uso/i, modules: ["como_usar_painel", "guia_visual_painel", "educacao"] },
+  { rx: /n[aã]o quero|depois|talvez|caro demais|pensar/i, modules: ["objecoes", "fechamento_3", "follow_up"] },
+  { rx: /comprei|fechei|paguei|comprovante|pedido feito/i, modules: ["pos_venda", "upsell"] },
+  { rx: /sumiu|voltei|faz tempo|de novo/i, modules: ["reativacao_frio", "recuperacao_silencio"] },
+];
+
+function selectActiveModules(
+  mods: Record<string, string>,
+  enabled: Record<string, boolean>,
+  latestMessage: string,
+): Array<[string, string]> {
+  const wanted = new Set<string>(ESSENTIAL_MODULES);
+  const msg = latestMessage.toLowerCase();
+  for (const trig of MODULE_TRIGGERS) {
+    if (trig.rx.test(msg)) trig.modules.forEach((m) => wanted.add(m));
+  }
+  return Object.entries(mods).filter(([k, v]) => {
+    if (!v || !String(v).trim()) return false;
+    if (enabled[k] === false) return false;
+    return wanted.has(k);
+  });
+}
+
 type BuildPromptParams = {
   agent: AgentConfig;
   contact: Contact;
