@@ -1457,6 +1457,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           !!integ.elevenlabs_api_key &&
           !!integ.elevenlabs_voice_id &&
           replyParts.length > 0;
+        console.log("🎙️ Audio decision:", {
+          inputKind: kind,
+          clienteSendouAudio: kind === "audio",
+          hasElevenLabsKey: !!integ.elevenlabs_api_key,
+          hasVoiceId: !!integ.elevenlabs_voice_id,
+          replyPartsCount: replyParts.length,
+          firstPartPreview: replyParts[0]?.slice(0, 60),
+          respondWithAudio,
+        });
+        if (kind === "audio" && !respondWithAudio) {
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv.id,
+              type: "elevenlabs_tts",
+              level: "warn",
+              summary: `⚠️ Cliente mandou áudio mas respondendo texto (key=${!!integ.elevenlabs_api_key} voice=${!!integ.elevenlabs_voice_id} parts=${replyParts.length})`,
+            });
+          } catch {}
+        }
         // hasHardContent mantido apenas para referência — quando o cliente
         // mandou áudio, a resposta principal SEMPRE vai por áudio. Dados
         // específicos (preço/link) devem vir do Claude após ===SPLIT===.
@@ -1514,16 +1536,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             memMarkSent(phone, replyParts[0]);
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
             const _ttsStart = Date.now();
-            const [generatedAudio] = await Promise.all([
-              ttsElevenLabsBase64({
-                apiKey: integ.elevenlabs_api_key!,
-                voiceId: integ.elevenlabs_voice_id!,
-                text: replyParts[0],
-              }),
-              uazapiSendRecording(sendCreds, phone, 15000).catch((e) => {
-                console.error("uazapi recording failed", e);
-              }),
-            ]);
+            console.log("🔊 Gerando áudio via ElevenLabs...", { textLen: replyParts[0].length, voiceId: integ.elevenlabs_voice_id });
+            let generatedAudio: string;
+            try {
+              [generatedAudio] = await Promise.all([
+                ttsElevenLabsBase64({
+                  apiKey: integ.elevenlabs_api_key!,
+                  voiceId: integ.elevenlabs_voice_id!,
+                  text: replyParts[0],
+                }),
+                uazapiSendRecording(sendCreds, phone, 15000).catch((e) => {
+                  console.error("uazapi recording failed", e);
+                }),
+              ]) as [string, unknown];
+              console.log("✅ Áudio gerado com sucesso", { ms: Date.now() - _ttsStart, bytes: generatedAudio.length });
+            } catch (ttsErr) {
+              console.error("❌ Erro ElevenLabs:", ttsErr);
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({ userId, phone, conversationId: conv.id, type: "elevenlabs_tts", level: "error", summary: `❌ Erro ElevenLabs: ${(ttsErr as Error)?.message ?? String(ttsErr)}`, error: (ttsErr as Error)?.message ?? String(ttsErr) });
+              } catch {}
+              throw ttsErr;
+            }
             audioDataUri = generatedAudio;
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
