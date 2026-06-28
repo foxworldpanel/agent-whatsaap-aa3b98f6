@@ -86,15 +86,18 @@ export const saveAgentModules = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({
       modules: z.record(z.string(), z.string().max(20000)),
+      modules_enabled: z.record(z.string(), z.boolean()).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    const payload = {
+      user_id: context.userId,
+      modules: data.modules,
+      ...(data.modules_enabled ? { modules_enabled: data.modules_enabled } : {}),
+    };
     const { error } = await context.supabase
       .from("agent_config")
-      .upsert(
-        { user_id: context.userId, modules: data.modules },
-        { onConflict: "user_id" },
-      );
+      .upsert(payload, { onConflict: "user_id" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });

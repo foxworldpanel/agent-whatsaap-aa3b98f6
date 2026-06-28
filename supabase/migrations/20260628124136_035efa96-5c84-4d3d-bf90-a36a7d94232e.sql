@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_config ADD COLUMN IF NOT EXISTS modules_enabled jsonb NOT NULL DEFAULT '{}'::jsonb;
