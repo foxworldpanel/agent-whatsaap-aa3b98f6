@@ -10,7 +10,7 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
     const { uazapiListMessages } = await import("./uazapi.server");
 
     // Resolve shared users via same uazapi_token
-    const { data: ownInt } = await context.supabase
+    const { data: ownInt } = await supabaseAdmin
       .from("integrations")
       .select("uazapi_token, uazapi_url")
       .eq("user_id", context.userId)
