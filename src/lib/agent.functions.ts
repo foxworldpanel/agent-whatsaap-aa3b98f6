@@ -154,7 +154,11 @@ export const setCatalogFlags = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = { user_id: context.userId };
+    const patch: {
+      user_id: string;
+      catalog_in_prompt?: boolean;
+      catalog_only_relevant?: boolean;
+    } = { user_id: context.userId };
     if (typeof data.catalog_in_prompt === "boolean") patch.catalog_in_prompt = data.catalog_in_prompt;
     if (typeof data.catalog_only_relevant === "boolean") patch.catalog_only_relevant = data.catalog_only_relevant;
     const { error } = await context.supabase
