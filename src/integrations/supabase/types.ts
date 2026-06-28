@@ -20,6 +20,8 @@ export type Database = {
           agent_name: string
           audio_enabled: boolean
           base_instruction: string
+          catalog_in_prompt: boolean
+          catalog_only_relevant: boolean
           company_info: Json
           faqs: Json
           how_it_works: string
@@ -46,6 +48,8 @@ export type Database = {
           agent_name?: string
           audio_enabled?: boolean
           base_instruction?: string
+          catalog_in_prompt?: boolean
+          catalog_only_relevant?: boolean
           company_info?: Json
           faqs?: Json
           how_it_works?: string
@@ -72,6 +76,8 @@ export type Database = {
           agent_name?: string
           audio_enabled?: boolean
           base_instruction?: string
+          catalog_in_prompt?: boolean
+          catalog_only_relevant?: boolean
           company_info?: Json
           faqs?: Json
           how_it_works?: string
@@ -312,6 +318,45 @@ export type Database = {
           start_time?: string
           state?: Database["public"]["Enums"]["campaign_state"]
           target_profile?: Database["public"]["Enums"]["contact_profile"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      catalog_cache: {
+        Row: {
+          categoria: string
+          created_at: string
+          id: string
+          maximo: number
+          minimo: number
+          nome: string
+          preco_por_1000: number
+          service_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          id?: string
+          maximo?: number
+          minimo?: number
+          nome?: string
+          preco_por_1000?: number
+          service_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          id?: string
+          maximo?: number
+          minimo?: number
+          nome?: string
+          preco_por_1000?: number
+          service_id?: string
           updated_at?: string
           user_id?: string
         }
