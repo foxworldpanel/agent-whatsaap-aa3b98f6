@@ -96,6 +96,22 @@ function extractMediaUrl(p: UazapiPayload): string | null {
   return m.mediaUrl ?? null;
 }
 
+function extractAudioSeconds(p: UazapiPayload): number | null {
+  const m = (p.message ?? p.data ?? {}) as Record<string, unknown>;
+  const candidates: unknown[] = [
+    m.seconds,
+    m.duration,
+    m.audioSeconds,
+    (m.audioMessage as Record<string, unknown> | undefined)?.seconds,
+    (m.pttMessage as Record<string, unknown> | undefined)?.seconds,
+  ];
+  for (const c of candidates) {
+    const n = typeof c === "number" ? c : typeof c === "string" ? parseFloat(c) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
 function extractMessageId(p: UazapiPayload): string | null {
   const m = p.message ?? p.data ?? {};
   return m.messageid ?? m.messageId ?? m.id ?? null;
