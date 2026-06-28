@@ -127,13 +127,34 @@ export const setConversationAgentEnabled = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: updated, error } = await supabaseAdmin
       .from("conversations")
-      .update({ agent_enabled: data.enabled })
+      .update({
+        agent_enabled: data.enabled,
+        ...(data.enabled
+          ? {
+              needs_review: false,
+              review_reason: null,
+              auto_paused_at: null,
+              internal_note: null,
+              status: "aguardando",
+            }
+          : {}),
+      })
       .eq("id", data.conversationId)
       .in("user_id", userIds)
-      .select("id, agent_enabled")
+      .select("id, agent_enabled, contact_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!updated) throw new Error("Conversa não encontrada ou sem permissão para alterar.");
+    if (data.enabled && updated.contact_id) {
+      await supabaseAdmin
+        .from("contacts")
+        .update({
+          status: "em_conversa",
+          temperatura: "frio",
+          temperatura_updated_at: new Date().toISOString(),
+        })
+        .eq("id", updated.contact_id);
+    }
     return { ok: true, agent_enabled: updated.agent_enabled };
   });
 
@@ -194,7 +215,7 @@ export const blockConversation = createServerFn({ method: "POST" })
     if (!conv) throw new Error("Conversa não encontrada.");
     await supabaseAdmin
       .from("contacts")
-      .update({ temperatura: "bloqueado", temperatura_updated_at: new Date().toISOString() })
+      .update({ status: "bloqueado", temperatura: "bloqueado", temperatura_updated_at: new Date().toISOString() })
       .eq("id", conv.contact_id);
     return { ok: true };
   });
