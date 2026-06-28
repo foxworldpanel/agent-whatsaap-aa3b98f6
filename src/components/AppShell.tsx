@@ -48,9 +48,6 @@ export function AppShell() {
     refetchInterval: 15000,
   });
   const errorCount = errorCountQ.data ?? 0;
-  // Realtime: bump on new error log
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useQueryRealtimeErrorBump(qc);
   const enabled = (agentQ.data as { agent_enabled?: boolean } | null | undefined)?.agent_enabled !== false;
   const toggleMut = useMutation({
     mutationFn: (next: boolean) => toggleGlobal({ data: { enabled: next } }),
