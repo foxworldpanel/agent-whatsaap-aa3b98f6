@@ -848,6 +848,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
 
             if (replyText) {
+              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial complaint)");
               try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (complaint) failed", e); }
               const nowC = new Date().toISOString();
               await supabaseAdmin.from("messages").insert({
@@ -916,6 +917,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                       .maybeSingle();
                     if (completedThis) {
                       const replyText = `Você já recebeu seu teste grátis de ${platformMatch.label}! Posso te montar um pacote completo agora?`;
+                      if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial-used)");
                       try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (trial-used) failed", e); }
                       const nowT = new Date().toISOString();
                       await supabaseAdmin.from("messages").insert({
@@ -977,6 +979,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 const { uazapiSendText } = await import("@/lib/uazapi.server");
                 const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
                 const msg = "Esse link é de uma foto, views só funcionam em Reel ou vídeo. Me manda o link de um Reel do seu perfil!";
+                if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial photo)");
                 try { await uazapiSendText(creds, phone, msg); } catch (e) { console.error("uazapi send (trial photo) failed", e); }
                 await supabaseAdmin.from("messages").insert({
                   user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: msg,
@@ -1117,6 +1120,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
 
             try {
+              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial)");
               await uazapiSendText(creds, phone, replyText);
             } catch (e) {
               console.error("uazapi send (trial) failed", e);
