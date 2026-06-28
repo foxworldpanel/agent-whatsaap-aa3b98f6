@@ -33,9 +33,32 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
         const integByUser = new Map((integs ?? []).map((i) => [i.user_id, i]));
 
         let processed = 0;
+        // Helper: returns false if the conversation is paused (agent off, needs review)
+        // or the contact is blocked. Used to respect the per-conversation kill switch.
+        async function canSendTo(conversationId: string | null | undefined, telefone: string, userId: string) {
+          if (conversationId) {
+            const { data: conv } = await supabaseAdmin
+              .from("conversations")
+              .select("agent_enabled, needs_review")
+              .eq("id", conversationId)
+              .maybeSingle();
+            if (conv && (conv.agent_enabled === false || conv.needs_review === true)) return false;
+          }
+          const { data: ct } = await supabaseAdmin
+            .from("contacts")
+            .select("status")
+            .eq("user_id", userId)
+            .eq("telefone", telefone)
+            .maybeSingle();
+          if (ct?.status === "bloqueado") return false;
+          return true;
+        }
         for (const trial of trials) {
           const integ = integByUser.get(trial.user_id);
           if (!integ?.smm_api_key) continue;
+          if (!(await canSendTo(trial.conversation_id, trial.telefone, trial.user_id))) {
+            continue;
+          }
 
           // timeout check
           const createdAt = new Date(trial.criado_em).getTime();
@@ -149,6 +172,13 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
         for (const t of pendingFollowups ?? []) {
           const integ = integByUser.get(t.user_id);
           if (!integ) continue;
+          if (!(await canSendTo(t.conversation_id, t.telefone, t.user_id))) {
+            await supabaseAdmin
+              .from("free_trials")
+              .update({ followup_sent_at: new Date().toISOString() })
+              .eq("id", t.id);
+            continue;
+          }
           // Skip if cliente já respondeu após a notificação de entrega
           if (t.conversation_id) {
             const { data: replied } = await supabaseAdmin
