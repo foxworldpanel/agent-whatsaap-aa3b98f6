@@ -1465,14 +1465,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // Quando o cliente manda áudio, respondemos por áudio sempre que houver
         // ElevenLabs configurado e a PRIMEIRA parte da resposta for falável.
         // As demais partes (geralmente o link após "===SPLIT===") seguem como texto.
+        const isAudioMessage = kind === "audio";
         const respondWithAudio =
-          kind === "audio" &&
+          isAudioMessage &&
           !!integ.elevenlabs_api_key &&
           !!integ.elevenlabs_voice_id &&
           replyParts.length > 0;
+        console.log(`🎤 Mensagem original era áudio: ${isAudioMessage} → usando ElevenLabs: ${respondWithAudio}`);
         console.log("🎙️ Audio decision:", {
           inputKind: kind,
-          clienteSendouAudio: kind === "audio",
+          clienteSendouAudio: isAudioMessage,
           hasElevenLabsKey: !!integ.elevenlabs_api_key,
           hasVoiceId: !!integ.elevenlabs_voice_id,
           replyPartsCount: replyParts.length,
