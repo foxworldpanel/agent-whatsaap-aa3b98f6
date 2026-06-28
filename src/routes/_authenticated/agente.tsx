@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Collapsible,
   CollapsibleContent,
@@ -28,19 +29,26 @@ function AgentePage() {
   const { data: cfg } = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
 
   const [modules, setModules] = useState<Record<string, string>>({});
+  const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [openKey, setOpenKey] = useState<string | null>(MODULE_LIST[0]?.key ?? null);
 
   useEffect(() => {
     const stored = (cfg?.modules ?? {}) as Record<string, string>;
+    const storedEnabled = ((cfg as { modules_enabled?: Record<string, boolean> } | null | undefined)
+      ?.modules_enabled ?? {}) as Record<string, boolean>;
     const next: Record<string, string> = {};
+    const nextEnabled: Record<string, boolean> = {};
     for (const m of MODULE_LIST) {
       next[m.key] = stored[m.key] ?? DEFAULT_MODULES[m.key] ?? "";
+      nextEnabled[m.key] = storedEnabled[m.key] !== false;
     }
     setModules(next);
+    setEnabled(nextEnabled);
   }, [cfg]);
 
   const save = useMutation({
-    mutationFn: (data: Record<string, string>) => saveFn({ data: { modules: data } }),
+    mutationFn: (payload: { modules: Record<string, string>; modules_enabled: Record<string, boolean> }) =>
+      saveFn({ data: payload }),
     onSuccess: () => {
       toast.success("Módulos salvos");
       qc.invalidateQueries({ queryKey: ["agent_config"] });
@@ -48,9 +56,15 @@ function AgentePage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const doSave = () => save.mutate({ modules, modules_enabled: enabled });
+
   const totalChars = useMemo(
     () => Object.values(modules).reduce((s, v) => s + (v?.length ?? 0), 0),
     [modules],
+  );
+  const activeCount = useMemo(
+    () => MODULE_LIST.filter((m) => enabled[m.key] !== false).length,
+    [enabled],
   );
 
   return (
@@ -59,10 +73,10 @@ function AgentePage() {
         <div>
           <h1 className="text-2xl font-semibold">Agente IA</h1>
           <p className="text-sm text-muted-foreground">
-            15 módulos de conhecimento. {totalChars.toLocaleString("pt-BR")} caracteres.
+            {activeCount}/{MODULE_LIST.length} módulos ativos · {totalChars.toLocaleString("pt-BR")} caracteres.
           </p>
         </div>
-        <Button onClick={() => save.mutate(modules)} disabled={save.isPending}>
+        <Button onClick={doSave} disabled={save.isPending}>
           <Save className="mr-2 h-4 w-4" />
           {save.isPending ? "Salvando..." : "Salvar tudo"}
         </Button>
@@ -72,23 +86,42 @@ function AgentePage() {
         {MODULE_LIST.map((m) => {
           const open = openKey === m.key;
           const value = modules[m.key] ?? "";
+          const isOn = enabled[m.key] !== false;
           return (
-            <Card key={m.key} className="overflow-hidden">
+            <Card key={m.key} className={`overflow-hidden ${isOn ? "" : "opacity-60"}`}>
               <Collapsible open={open} onOpenChange={(o) => setOpenKey(o ? m.key : null)}>
-                <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/40">
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg">{m.emoji}</span>
-                    <div>
-                      <div className="font-medium">{m.title}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {value.length.toLocaleString("pt-BR")} caracteres
+                <div className="flex w-full items-center gap-3 px-4 py-3">
+                  <div
+                    className="flex items-center gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Switch
+                      checked={isOn}
+                      onCheckedChange={(v) =>
+                        setEnabled((prev) => ({ ...prev, [m.key]: v }))
+                      }
+                    />
+                  </div>
+                  <CollapsibleTrigger className="flex flex-1 items-center justify-between gap-3 text-left hover:bg-muted/40 rounded-md px-2 py-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{m.emoji}</span>
+                      <div>
+                        <div className="font-medium">
+                          {m.title}
+                          {!isOn && (
+                            <span className="ml-2 text-xs text-muted-foreground">(desligado)</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {value.length.toLocaleString("pt-BR")} caracteres
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <ChevronDown
-                    className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-                  />
-                </CollapsibleTrigger>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+                    />
+                  </CollapsibleTrigger>
+                </div>
                 <CollapsibleContent className="border-t bg-muted/10 p-4">
                   <Textarea
                     value={value}
@@ -102,7 +135,7 @@ function AgentePage() {
                   <div className="mt-2 flex justify-end">
                     <Button
                       size="sm"
-                      onClick={() => save.mutate(modules)}
+                      onClick={doSave}
                       disabled={save.isPending}
                     >
                       Salvar
