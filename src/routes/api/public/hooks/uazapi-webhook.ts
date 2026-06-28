@@ -1537,16 +1537,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
             const _ttsStart = Date.now();
             console.log("🔊 Gerando áudio via ElevenLabs...", { textLen: replyParts[0].length, voiceId: integ.elevenlabs_voice_id });
-            const [generatedAudio] = await Promise.all([
-              ttsElevenLabsBase64({
-                apiKey: integ.elevenlabs_api_key!,
-                voiceId: integ.elevenlabs_voice_id!,
-                text: replyParts[0],
-              }),
-              uazapiSendRecording(sendCreds, phone, 15000).catch((e) => {
-                console.error("uazapi recording failed", e);
-              }),
-            ]);
+            let generatedAudio: string;
+            try {
+              [generatedAudio] = await Promise.all([
+                ttsElevenLabsBase64({
+                  apiKey: integ.elevenlabs_api_key!,
+                  voiceId: integ.elevenlabs_voice_id!,
+                  text: replyParts[0],
+                }),
+                uazapiSendRecording(sendCreds, phone, 15000).catch((e) => {
+                  console.error("uazapi recording failed", e);
+                }),
+              ]) as [string, unknown];
+              console.log("✅ Áudio gerado com sucesso", { ms: Date.now() - _ttsStart, bytes: generatedAudio.length });
+            } catch (ttsErr) {
+              console.error("❌ Erro ElevenLabs:", ttsErr);
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({ userId, phone, conversationId: conv.id, type: "elevenlabs_tts", level: "error", summary: `❌ Erro ElevenLabs: ${(ttsErr as Error)?.message ?? String(ttsErr)}`, error: (ttsErr as Error)?.message ?? String(ttsErr) });
+              } catch {}
+              throw ttsErr;
+            }
             audioDataUri = generatedAudio;
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
