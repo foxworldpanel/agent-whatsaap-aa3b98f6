@@ -13,7 +13,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { getAgentConfig, saveAgentModules, setServicesRealtime } from "@/lib/agent.functions";
+import { getAgentConfig, saveAgentModules, setServicesRealtime, saveBehavior } from "@/lib/agent.functions";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
 import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 
@@ -28,6 +30,7 @@ function AgentePage() {
   const fetchCfg = useServerFn(getAgentConfig);
   const saveFn = useServerFn(saveAgentModules);
   const toggleRealtimeFn = useServerFn(setServicesRealtime);
+  const saveBehaviorFn = useServerFn(saveBehavior);
   const { data: cfg } = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
 
   const [modules, setModules] = useState<Record<string, string>>({});
@@ -69,6 +72,35 @@ function AgentePage() {
     onError: (e: Error) => toast.error(e.message),
   });
   const realtimeOn = (cfg as { services_realtime?: boolean } | null | undefined)?.services_realtime ?? false;
+
+  const cfgB = cfg as {
+    response_delay_min_sec?: number;
+    response_delay_max_sec?: number;
+    typing_indicator_enabled?: boolean;
+  } | null | undefined;
+  const [delayMin, setDelayMin] = useState<number>(30);
+  const [delayMax, setDelayMax] = useState<number>(120);
+  const [presenceOn, setPresenceOn] = useState<boolean>(true);
+  useEffect(() => {
+    setDelayMin(cfgB?.response_delay_min_sec ?? 30);
+    setDelayMax(cfgB?.response_delay_max_sec ?? 120);
+    setPresenceOn(cfgB?.typing_indicator_enabled !== false);
+  }, [cfg]);
+  const saveBehaviorMut = useMutation({
+    mutationFn: () =>
+      saveBehaviorFn({
+        data: {
+          response_delay_min_sec: delayMin,
+          response_delay_max_sec: delayMax,
+          typing_indicator_enabled: presenceOn,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Comportamento salvo");
+      qc.invalidateQueries({ queryKey: ["agent_config"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const totalChars = useMemo(
     () => Object.values(modules).reduce((s, v) => s + (v?.length ?? 0), 0),
