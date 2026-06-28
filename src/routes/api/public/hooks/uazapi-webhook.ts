@@ -1620,9 +1620,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // Cap absoluto: agora processamos o webhook de forma síncrona (não
         // dá pra usar waitUntil neste runtime), então o delay precisa caber
         // bem dentro do timeout do Uazapi (~60s) considerando ainda IA + TTS.
-        const HARD_CAP_SEC = respondWithAudio ? 5 : 25;
-        const baseMin = Math.max(0, Math.min(a.response_delay_min_sec ?? 8, HARD_CAP_SEC));
-        const baseMax = Math.max(baseMin, Math.min(a.response_delay_max_sec ?? 20, HARD_CAP_SEC));
+        // Cap absoluto: processamos o webhook de forma síncrona neste runtime
+        // (sem waitUntil), então qualquer sleep grande estoura o tempo de
+        // execução do Worker antes do envio — o Claude responde mas a
+        // mensagem nunca chega a sair. Mantemos caps baixos.
+        const HARD_CAP_SEC = respondWithAudio ? 5 : 8;
+        const baseMin = Math.max(0, Math.min(a.response_delay_min_sec ?? 2, HARD_CAP_SEC));
+        const baseMax = Math.max(baseMin, Math.min(a.response_delay_max_sec ?? 5, HARD_CAP_SEC));
         const minSec = baseMin;
         const maxSec = baseMax;
         const delaySegundos = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
