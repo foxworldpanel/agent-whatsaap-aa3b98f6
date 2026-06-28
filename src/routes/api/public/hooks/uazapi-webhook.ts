@@ -262,42 +262,22 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         console.log("📦 PAYLOAD_RAW:", rawBody.slice(0, 1000));
 
         // Persiste o RAW no banco AGUARDANDO o insert (sem fire-and-forget),
-        // resolvendo user_id via token para o log aparecer na UI (RLS por user_id).
+        // antes de resolver user_id/token. Isso garante que o payload bruto
+        // fica salvo mesmo se qualquer processamento abaixo quebrar.
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          let parsedForToken: UazapiPayload | null = null;
-          try { parsedForToken = JSON.parse(rawBody) as UazapiPayload; } catch {}
-          const token = parsedForToken ? pickInstanceToken(parsedForToken) : null;
-          const phoneForLog = parsedForToken
-            ? extractPhone(parsedForToken.message?.chatid, parsedForToken.message?.sender)
-            : null;
-          let userIdForLog: string | null = null;
-          if (token) {
-            const { data: num } = await supabaseAdmin
-              .from("whatsapp_numbers")
-              .select("user_id")
-              .eq("uazapi_token", token)
-              .maybeSingle();
-            if (num?.user_id) userIdForLog = num.user_id;
-            else {
-              const { data: integ } = await supabaseAdmin
-                .from("integrations")
-                .select("user_id")
-                .eq("uazapi_token", token)
-                .maybeSingle();
-              if (integ?.user_id) userIdForLog = integ.user_id;
-            }
-          }
-          await supabaseAdmin.from("agent_logs").insert({
-            user_id: userIdForLog,
-            phone: phoneForLog ?? "raw",
+          const { error: rawLogError } = await supabaseAdmin.from("agent_logs").insert({
+            user_id: null,
+            phone: "debug",
             type: "message_received",
             level: "info",
-            summary: `📦 PAYLOAD RAW: ${rawBody.slice(0, 400)}`,
-            metadata: { raw: rawBody.slice(0, 4000) } as never,
+            summary: `PAYLOAD: ${rawBody.slice(0, 800)}`,
+            metadata: { raw: rawBody.slice(0, 800) } as never,
+            created_at: new Date().toISOString(),
           });
+          if (rawLogError) console.error("PAYLOAD_RAW agent_logs insert failed:", rawLogError);
         } catch (e) {
-          console.error("raw payload log failed", e);
+          console.error("PAYLOAD_RAW agent_logs insert threw:", e);
         }
 
         let payload: UazapiPayload;
