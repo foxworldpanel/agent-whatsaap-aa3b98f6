@@ -280,13 +280,26 @@ export const countConversationsToReview = createServerFn({ method: "GET" })
 export const getIntegrations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
       .from("integrations")
       .select("*")
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return data;
+    if (!data) return null;
+    // Mask secret values before returning to the browser: expose only whether
+    // each credential is configured, never the raw token/key.
+    const mask = (v: unknown) => (typeof v === "string" && v.length > 0 ? "••••••" : null);
+    return {
+      ...data,
+      uazapi_token: mask(data.uazapi_token),
+      uazapi_admin_token: mask(data.uazapi_admin_token),
+      anthropic_api_key: mask(data.anthropic_api_key),
+      elevenlabs_api_key: mask(data.elevenlabs_api_key),
+      openai_api_key: mask(data.openai_api_key),
+      smm_api_key: mask(data.smm_api_key),
+    };
   });
 
 export const saveIntegrations = createServerFn({ method: "POST" })
