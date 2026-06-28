@@ -13,7 +13,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { getAgentConfig, saveAgentModules } from "@/lib/agent.functions";
+import { getAgentConfig, saveAgentModules, setServicesRealtime } from "@/lib/agent.functions";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
 import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 
@@ -27,6 +27,7 @@ function AgentePage() {
   const qc = useQueryClient();
   const fetchCfg = useServerFn(getAgentConfig);
   const saveFn = useServerFn(saveAgentModules);
+  const toggleRealtimeFn = useServerFn(setServicesRealtime);
   const { data: cfg } = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
 
   const [modules, setModules] = useState<Record<string, string>>({});
@@ -59,6 +60,16 @@ function AgentePage() {
 
   const doSave = () => save.mutate({ modules, modules_enabled: enabled });
 
+  const toggleRealtime = useMutation({
+    mutationFn: (enabled: boolean) => toggleRealtimeFn({ data: { enabled } }),
+    onSuccess: (_d, enabled) => {
+      toast.success(enabled ? "Consulta em tempo real ativada" : "Consulta em tempo real desativada");
+      qc.invalidateQueries({ queryKey: ["agent_config"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const realtimeOn = (cfg as { services_realtime?: boolean } | null | undefined)?.services_realtime ?? false;
+
   const totalChars = useMemo(
     () => Object.values(modules).reduce((s, v) => s + (v?.length ?? 0), 0),
     [modules],
@@ -85,6 +96,25 @@ function AgentePage() {
 
       <div className="flex flex-col gap-2">
         <TesteGratisCard />
+        <Card className="p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="font-medium flex items-center gap-2">
+                <span>💰</span> Consultar preços em tempo real
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 max-w-xl">
+                Quando ligado, o agente busca a lista de serviços e preços atualizada
+                no painel SMM antes de responder sobre preço. Requer API Key do painel
+                cadastrada em Configurações.
+              </p>
+            </div>
+            <Switch
+              checked={realtimeOn}
+              disabled={toggleRealtime.isPending}
+              onCheckedChange={(v) => toggleRealtime.mutate(v)}
+            />
+          </div>
+        </Card>
         {MODULE_LIST.map((m) => {
           const open = openKey === m.key;
           const value = modules[m.key] ?? "";
