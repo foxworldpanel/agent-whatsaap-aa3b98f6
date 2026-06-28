@@ -117,13 +117,15 @@ export async function generateAgentReply(params: {
   panelScreens?: Array<{ name: string; description?: string | null; extracted_content?: string | null }>;
   forbiddenRules?: Array<{ rule: string; deflection?: string | null }>;
   freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
+  extraContext?: string | null;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [] } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], extraContext = null } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
   const system = [
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
+    extraContext ? extraContext : "",
     `PRIORIDADE ABSOLUTA PARA PERGUNTAS DIRETAS: se a última mensagem do cliente contém uma pergunta direta (nome, preço, serviço específico, prazo, cadastro, pagamento, link ou qualquer dúvida objetiva), responda essa pergunta imediatamente. NUNCA ignore uma pergunta direta e NUNCA troque por explicação genérica da MIND/plataforma. Se o cliente perguntou seu nome, responda algo curto e natural como: "Meu nome é Júlia, e o seu?" ou "Sou a Júlia, como posso te ajudar?" — sem emoji.`,
     `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
