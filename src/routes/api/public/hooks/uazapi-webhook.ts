@@ -865,6 +865,34 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
           }
           if (link) {
+            // ===== Gate: só processa teste grátis automático se houver
+            // contexto explícito de pedido de teste ou medo/receio. Link
+            // solto nunca dispara teste — o agente deve perguntar primeiro
+            // "esse é seu vídeo? o que quer impulsionar?".
+            const trialIntentRx = /\b(teste\s*gr[aá]tis|amostra\s*gr[aá]tis|quero\s+(o\s+)?teste|posso\s+(fazer|ter|ganhar)\s+(um\s+)?teste|me\s+d[aá]\s+(um\s+)?teste|tem\s+teste|libera\s+(o\s+)?teste|free\s*trial|uma\s+amostra)\b/i;
+            const fearRx = /\b(golpe|fraude|confi[aá]vel|seguro|medo|receio|desconfi|enganaç|é\s+verdade|é\s+real|funciona\s+mesmo|prova|comprovaç)/i;
+            let trialContextActive = trialIntentRx.test(inboundBody) || fearRx.test(inboundBody);
+            if (!trialContextActive) {
+              const { data: recent } = await supabaseAdmin
+                .from("messages")
+                .select("sender, body")
+                .eq("conversation_id", conv.id)
+                .order("created_at", { ascending: false })
+                .limit(8);
+              for (const m of recent ?? []) {
+                const b = (m.body ?? "") as string;
+                if (m.sender === "cliente" && (trialIntentRx.test(b) || fearRx.test(b))) {
+                  trialContextActive = true; break;
+                }
+                if (m.sender === "agente" && /teste\s*gr[aá]tis|amostra\s*gr[aá]tis|mandar?\s+(um\s+)?teste/i.test(b)) {
+                  trialContextActive = true; break;
+                }
+              }
+            }
+            if (!trialContextActive) {
+              console.log(`[free-trial] Link recebido sem contexto de teste — deixando IA conduzir (phone=${phone})`);
+              // Não processa teste automático; fluxo segue para IA responder.
+            } else {
             // Trava de segurança: teste grátis sempre processa APENAS o telefone
             // que enviou o link no webhook atual. Nenhum loop / forEach sobre
             // outros contatos. Log explícito para auditoria.
@@ -1043,6 +1071,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .update({ last_interaction_at: nowT, status: "em_conversa" })
               .eq("id", contact.id);
             return new Response("ok (free trial)");
+            }
           }
         }
 
