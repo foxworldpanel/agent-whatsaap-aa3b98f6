@@ -1668,8 +1668,32 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             );
             // Sanitiza o texto para o TTS: troca R$ por palavras e remove TODOS os links.
             const ttsText = replyParts[0]
-              .replace(/R\$\s?(\d+),(\d+)/g, "$1 reais e $2 centavos")
-              .replace(/R\$\s?(\d+)/g, "$1 reais")
+              // Valores em R$
+              .replace(/R\$\s?(\d+),(\d+)/g, (_m, r, c) => `${r} reais e ${c} centavos`)
+              .replace(/R\$\s?(\d+)/g, (_m, n) => `${n} reais`)
+              // Horas (ex.: 1000h → 1000 horas)
+              .replace(/(\d+)\s?h\b/gi, (_m, n) => `${n} horas`)
+              // Milhares por extenso
+              .replace(/\b1000\b/g, "mil")
+              .replace(/\b2000\b/g, "dois mil")
+              .replace(/\b3000\b/g, "três mil")
+              .replace(/\b4000\b/g, "quatro mil")
+              .replace(/\b5000\b/g, "cinco mil")
+              .replace(/\b10000\b/g, "dez mil")
+              .replace(/\b50000\b/g, "cinquenta mil")
+              .replace(/\b100000\b/g, "cem mil")
+              .replace(/\b500000\b/g, "quinhentos mil")
+              // Siglas e abreviações comuns do nicho
+              .replace(/\bHQ\b/g, "alta qualidade")
+              .replace(/\bMQ\b/g, "média qualidade")
+              .replace(/\bBQ\b/g, "baixa qualidade")
+              .replace(/\bSR\b/g, "sem reposição")
+              .replace(/===SPLIT===/g, "")
+              // Links — remove tudo
+              .replace(/https?:\/\/\S+/gi, "")
+              .replace(/www\.\S+/gi, "")
+              .replace(/\S+\.com\S*/gi, "")
+              .replace(/\S+\.global\S*/gi, "")
               .replace(urlRegex, "")
               .replace(/\s+([.,!?])/g, "$1")
               .replace(/\s{2,}/g, " ")
