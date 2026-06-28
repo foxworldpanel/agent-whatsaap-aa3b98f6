@@ -168,8 +168,22 @@ export async function generateAgentReply(params: {
   extraContext?: string | null;
   inputKind?: "texto" | "audio";
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], extraContext = null, inputKind = "texto" } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices: freeTestServicesRaw = [], extraContext = null, inputKind = "texto" } = params;
   const latestClientMessage = getLatestClientMessage(history);
+
+  // GATE DUPLO para teste grátis:
+  // 1) Spotify NUNCA tem teste grátis — remove do catálogo proativo independente do que estiver salvo.
+  // 2) Só expõe o bloco "TESTE GRÁTIS DISPONÍVEL" se o cliente pediu explicitamente
+  //    (teste/grátis/gratuito/experimentar/testar/amostra) OU demonstrou desconfiança/medo
+  //    (confiável/confiavel/golpe/seguro/funciona mesmo/é real/prova).
+  const freeTestServices = freeTestServicesRaw.filter((s) => {
+    const blob = `${s.service_name} ${s.category}`.toLowerCase();
+    return !blob.includes("spotify");
+  });
+  const lastMsgLower = (latestClientMessage ?? "").toLowerCase();
+  const clientAskedForTrial = /\b(teste|testar|testa|gr[aá]tis|gratuito|gratuita|experimentar|amostra)\b/i.test(lastMsgLower);
+  const clientShowedDistrust = /(confi[aá]vel|golpe|seguro|funciona mesmo|é real|e real|tem prova|tem como provar|garantia)/i.test(lastMsgLower);
+  const exposeFreeTrialBlock = freeTestServices.length > 0 && (clientAskedForTrial || clientShowedDistrust);
 
   const system = [
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
@@ -255,9 +269,10 @@ export async function generateAgentReply(params: {
           .map((r, i) => `${i + 1}. 🚫 ${r.rule}${r.deflection ? ` → Desvio: "${r.deflection}"` : ""}`)
           .join("\n")}`
       : "",
-    freeTestServices.length > 0
+    exposeFreeTrialBlock
       ? `TESTE GRÁTIS DISPONÍVEL (use proativamente):\nServiços com teste liberado:\n${freeTestServices.map((s) => `- ${s.service_name} (${s.category}) — ${s.quantity} grátis`).join("\n")}\n\nREGRAS:\n- Quando o cliente demonstrar desconfiança, medo de golpe, hesitação, pedir prova antes de comprar, ou perguntar "é confiável?", ofereça o teste grátis de forma natural. Ex: "Posso te mandar um teste grátis pra você ver na prática! Qual rede você quer testar — Instagram, YouTube, TikTok ou Spotify?"\n- Se o cliente pedir explicitamente "quero um teste" / "tem teste grátis?", responda no mesmo tom e peça o link conforme a rede escolhida.\n- Quando o cliente mandar o link, o sistema cria o teste automaticamente — você NÃO precisa repetir o link nem confirmar order id.\n- Cada link e cada telefone só recebe UM teste. Se o sistema bloquear como duplicado, siga a mensagem que o sistema enviou e puxe para o fechamento.\n- NUNCA invente teste para serviços fora da lista acima.\n\nREGRA POR REDE (CRÍTICA — não confunda histórico):\n- O limite "1 teste por número" vale por REDE. Se o cliente já fez teste de Instagram, ele AINDA pode fazer teste de TikTok, YouTube, Spotify etc. — desde que a rede esteja na lista acima.\n- Se o cliente perguntar sobre teste de uma rede que NÃO está na lista acima (ex: Spotify quando só há Instagram/TikTok), responda honestamente: "Para [REDE] não temos teste grátis disponível no momento. Mas você pode começar com o mínimo pago — sai R$X — pra testar!" usando o cálculo real do catálogo.\n- NUNCA diga "você já recebeu seu teste" sem antes confirmar que foi da MESMA rede que ele está pedindo agora.\n\nTESTE PARA OUTRA PESSOA / OUTRO NÚMERO:\n- Se o cliente perguntar se um amigo/parente/outra pessoa pode receber teste de outro número, responda honestamente: "O teste grátis é um por número e por link. Cada pessoa pode receber o dela tranquilo!"\n- NUNCA assuma que o amigo já usou teste. Cada número é independente.\n\nQUAL LINK PEDIR (regra absoluta — siga ao pé da letra):\n- Views Instagram → SÓ funciona em vídeo. Peça assim: "Me manda o link de um Reel ou vídeo do seu Instagram". NUNCA diga "foto ou vídeo". NUNCA aceite link de foto — se vier foto, explique que views só rodam em Reel/vídeo e peça o link correto.\n- Views YouTube → peça o link do vídeo.\n- Plays Spotify → peça o link da música.\n- Views TikTok → peça o link do vídeo.\n- Seguidores (Instagram/TikTok/YouTube) → peça o link do perfil.\n- Curtidas → peça o link do post/vídeo específico.`
       : "",
+    `TESTE GRÁTIS — REGRAS DE OURO (ABSOLUTAS, valem SEMPRE):\n- NUNCA mencione, ofereça, sugira ou insinue teste grátis a menos que o cliente tenha perguntado explicitamente (palavras: teste, testar, grátis, gratuito, experimentar, amostra) OU demonstrado desconfiança/medo de golpe.\n- Spotify NUNCA tem teste grátis. Se o cliente pedir teste de Spotify, responda: "Para Spotify não temos teste grátis. Mas você pode começar com o mínimo pago pra testar — me diz quantos plays você quer?" e siga para preço.\n- Se a última mensagem do cliente é saudação, dúvida sobre preço, sobre cadastro, sobre prazo, sobre pagamento ou qualquer assunto que NÃO seja pedido de teste/desconfiança — NÃO fale de teste grátis. Responda só o que ele perguntou.`,
   ]
     .filter(Boolean)
     .join("\n\n");
