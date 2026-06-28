@@ -1225,6 +1225,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.welcome_text.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendText(creds, phone, text);
                   return { kind: "texto", body: text };
                 },
@@ -1235,6 +1236,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.audio.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendMedia(creds, phone, "audio", url);
                   return { kind: "audio", body: "[áudio]", audio_url: url };
                 },
@@ -1245,6 +1247,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.panel_text.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendText(creds, phone, text);
                   return { kind: "texto", body: text };
                 },
@@ -1256,6 +1259,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.video.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendMedia(creds, phone, "video", url, caption);
                   return { kind: "texto", body: caption ? `[vídeo] ${caption}` : "[vídeo]" };
                 },
@@ -1266,6 +1270,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.services_text.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendText(creds, phone, text);
                   return { kind: "texto", body: text };
                 },
