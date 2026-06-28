@@ -705,9 +705,58 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .eq("id", contact.id);
           await supabaseAdmin
             .from("conversations")
-            .update({ status: "aguardando" })
+            .update({
+              status: "aguardando",
+              agent_enabled: false,
+              needs_review: true,
+              review_reason: "Cliente pediu para parar",
+              auto_paused_at: now,
+            })
             .eq("id", conv.id);
           return new Response("ok (stop → blocked)");
+        }
+
+        const { data: agent } = await supabaseAdmin
+          .from("agent_config")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (!agent) {
+          await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
+          return new Response("ok (no agent config)");
+        }
+
+        // Guard absoluto: se o agente global, a conversa ou a revisão estiverem desligados,
+        // salva a mensagem recebida, mas bloqueia QUALQUER resposta automática abaixo
+        // (teste grátis, funil, IA, áudio, etc.).
+        const globalEnabled = (agent as { agent_enabled?: boolean }).agent_enabled !== false;
+        const convEnabled = conv.agent_enabled !== false;
+        const needsReview = (conv as { needs_review?: boolean }).needs_review === true;
+        if (!globalEnabled || !convEnabled || needsReview) {
+          await supabaseAdmin
+            .from("conversations")
+            .update({
+              status: "aguardando",
+              ...(!globalEnabled || needsReview ? { agent_enabled: false } : {}),
+            })
+            .eq("id", conv.id);
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv.id,
+              type: "agent_disabled",
+              level: "info",
+              summary: !globalEnabled
+                ? "Agente global desativado — resposta automática bloqueada"
+                : needsReview
+                  ? "Conversa em revisão — resposta automática bloqueada"
+                  : "Agente da conversa desativado — resposta automática bloqueada",
+              metadata: { globalEnabled, convEnabled, needsReview },
+            });
+          } catch {}
+          return new Response("ok (agent disabled)");
         }
 
         // ===== TESTE GRÁTIS: detecta link IG/YT na mensagem do cliente =====
@@ -1237,25 +1286,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               console.error("welcome funnel failed", e);
             }
           }
-        }
-
-        const { data: agent } = await supabaseAdmin
-          .from("agent_config")
-          .select("*")
-          .eq("user_id", userId)
-          .maybeSingle();
-        if (!agent) return new Response("ok (no agent config)");
-
-        // Global + per-conversation kill switch
-        const globalEnabled = (agent as { agent_enabled?: boolean }).agent_enabled !== false;
-        const convEnabled = conv.agent_enabled !== false;
-        if (!globalEnabled || !convEnabled) {
-          return new Response("ok (agent disabled)");
-        }
-
-        // Já marcada para revisão manual: não responde até reativação manual.
-        if ((conv as { needs_review?: boolean }).needs_review) {
-          return new Response("ok (needs review)");
         }
 
         // ===== Detecção de conversa improdutiva =====
