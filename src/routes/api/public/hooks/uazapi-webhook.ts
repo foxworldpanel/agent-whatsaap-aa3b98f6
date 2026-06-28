@@ -1227,7 +1227,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
               key: integ.smm_api_key,
             });
-            console.log("Serviços carregados:", services.length);
+            console.log(
+              "Serviços carregados:",
+              services.length,
+              "Primeiro:",
+              services[0] ? JSON.stringify(services[0]) : "nenhum",
+            );
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
               await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: services.length > 0 ? "info" : "warn", summary: `💰 Serviços carregados: ${services.length}`, metadata: { count: services.length } });
@@ -1338,7 +1343,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               } else {
                 orderStatusContext = `STATUS REAL DO PEDIDO ${orderId} (consultado agora na API do painel): status="${st.status}"${st.start_count !== undefined ? `, start_count=${st.start_count}` : ""}${st.quantity !== undefined ? `, quantity=${st.quantity}` : ""}. Responda ao cliente com base nesse status real, de forma curta e humana. NUNCA invente. Se "completed"/"partial"/"in progress" → explique em 1 frase. Se "canceled"/"refunded" → oriente abrir ticket no Suporte do painel.`;
               }
-            } else if ((agentAskedForId || complainRe.test(text ?? "")) && !integ.smm_api_key) {
+        } else if ((agentAskedForId || complainRe.test(text ?? "")) && !integ.smm_api_key) {
               orderStatusContext = `SEM CHAVE SMM PARA CONSULTAR STATUS DE PEDIDO. Se o cliente já mandou ID, redirecione: "Abre um ticket no menu Suporte do painel informando o ID do pedido que a equipe resolve!".`;
             }
           } catch (e) {
@@ -1378,7 +1383,12 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               summary: `🤖 Claude respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
               prompt: JSON.stringify({
                 contact: _claudeArgs.contact,
-                servicesCount: freeTestServices?.length ?? 0,
+              freeTestServicesCount: freeTestServices?.length ?? 0,
+              catalogServicesCount: servicesContext
+                ? (servicesContext.match(/\nID: /g)?.length ?? 0)
+                : 0,
+              servicesRealtimeEnabled: !!a0.services_realtime,
+              hasSmmApiKey: !!integ.smm_api_key,
                 examples: knowledgeExamples?.length ?? 0,
                 history: aiHistory?.slice(-6) ?? [],
                 extraContext: orderStatusContext ?? null,
