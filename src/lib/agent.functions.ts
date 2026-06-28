@@ -70,6 +70,7 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
       })).max(500).optional(),
       services_realtime: z.boolean().optional(),
       price_query_instruction: z.string().max(20000).optional(),
+      modules: z.record(z.string(), z.string().max(20000)).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
