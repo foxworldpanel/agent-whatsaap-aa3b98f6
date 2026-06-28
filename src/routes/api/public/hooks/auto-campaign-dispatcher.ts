@@ -31,6 +31,15 @@ export const Route = createFileRoute("/api/public/hooks/auto-campaign-dispatcher
               results.push({ campaign: camp.key, sent: 0, skipped: "uazapi nao configurado" });
               continue;
             }
+            const { data: agent } = await supabaseAdmin
+              .from("agent_config")
+              .select("agent_enabled")
+              .eq("user_id", camp.user_id)
+              .maybeSingle();
+            if (agent?.agent_enabled === false) {
+              results.push({ campaign: camp.key, sent: 0, skipped: "agente desativado" });
+              continue;
+            }
 
             const cutoff = new Date(Date.now() - camp.trigger_hours * 3600 * 1000).toISOString();
             const candidates = await pickCandidates(supabaseAdmin, camp, cutoff);

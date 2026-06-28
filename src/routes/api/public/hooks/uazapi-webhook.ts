@@ -705,9 +705,80 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .eq("id", contact.id);
           await supabaseAdmin
             .from("conversations")
-            .update({ status: "aguardando" })
+            .update({
+              status: "aguardando",
+              agent_enabled: false,
+              needs_review: true,
+              review_reason: "Cliente pediu para parar",
+              auto_paused_at: now,
+            })
             .eq("id", conv.id);
           return new Response("ok (stop → blocked)");
+        }
+
+        const { data: agent } = await supabaseAdmin
+          .from("agent_config")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (!agent) {
+          await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
+          return new Response("ok (no agent config)");
+        }
+
+        // Guard absoluto: se o agente global, a conversa ou a revisão estiverem desligados,
+        // salva a mensagem recebida, mas bloqueia QUALQUER resposta automática abaixo
+        // (teste grátis, funil, IA, áudio, etc.).
+        const globalEnabled = (agent as { agent_enabled?: boolean }).agent_enabled !== false;
+        const convEnabled = conv.agent_enabled !== false;
+        const needsReview = (conv as { needs_review?: boolean }).needs_review === true;
+        const isAutoReplyAllowed = async (): Promise<boolean> => {
+          const { data: latestAgent } = await supabaseAdmin
+            .from("agent_config")
+            .select("agent_enabled")
+            .eq("user_id", userId)
+            .maybeSingle();
+          if (latestAgent?.agent_enabled === false) return false;
+
+          const { data: latestConv } = await supabaseAdmin
+            .from("conversations")
+            .select("agent_enabled, needs_review")
+            .eq("id", conv.id)
+            .maybeSingle();
+          if (latestConv?.agent_enabled === false || latestConv?.needs_review === true) return false;
+
+          const { data: latestContact } = await supabaseAdmin
+            .from("contacts")
+            .select("status")
+            .eq("id", contact.id)
+            .maybeSingle();
+          return latestContact?.status !== "bloqueado";
+        };
+        if (!globalEnabled || !convEnabled || needsReview) {
+          await supabaseAdmin
+            .from("conversations")
+            .update({
+              status: "aguardando",
+              ...(!globalEnabled || needsReview ? { agent_enabled: false } : {}),
+            })
+            .eq("id", conv.id);
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv.id,
+              type: "agent_disabled",
+              level: "info",
+              summary: !globalEnabled
+                ? "Agente global desativado — resposta automática bloqueada"
+                : needsReview
+                  ? "Conversa em revisão — resposta automática bloqueada"
+                  : "Agente da conversa desativado — resposta automática bloqueada",
+              metadata: { globalEnabled, convEnabled, needsReview },
+            });
+          } catch {}
+          return new Response("ok (agent disabled)");
         }
 
         // ===== TESTE GRÁTIS: detecta link IG/YT na mensagem do cliente =====
@@ -777,6 +848,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
 
             if (replyText) {
+              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial complaint)");
               try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (complaint) failed", e); }
               const nowC = new Date().toISOString();
               await supabaseAdmin.from("messages").insert({
@@ -845,6 +917,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                       .maybeSingle();
                     if (completedThis) {
                       const replyText = `Você já recebeu seu teste grátis de ${platformMatch.label}! Posso te montar um pacote completo agora?`;
+                      if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial-used)");
                       try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (trial-used) failed", e); }
                       const nowT = new Date().toISOString();
                       await supabaseAdmin.from("messages").insert({
@@ -906,6 +979,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 const { uazapiSendText } = await import("@/lib/uazapi.server");
                 const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
                 const msg = "Esse link é de uma foto, views só funcionam em Reel ou vídeo. Me manda o link de um Reel do seu perfil!";
+                if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial photo)");
                 try { await uazapiSendText(creds, phone, msg); } catch (e) { console.error("uazapi send (trial photo) failed", e); }
                 await supabaseAdmin.from("messages").insert({
                   user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: msg,
@@ -1046,6 +1120,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
 
             try {
+              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial)");
               await uazapiSendText(creds, phone, replyText);
             } catch (e) {
               console.error("uazapi send (trial) failed", e);
@@ -1150,6 +1225,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.welcome_text.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendText(creds, phone, text);
                   return { kind: "texto", body: text };
                 },
@@ -1160,6 +1236,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.audio.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendMedia(creds, phone, "audio", url);
                   return { kind: "audio", body: "[áudio]", audio_url: url };
                 },
@@ -1170,6 +1247,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.panel_text.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendText(creds, phone, text);
                   return { kind: "texto", body: text };
                 },
@@ -1181,6 +1259,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.video.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendMedia(creds, phone, "video", url, caption);
                   return { kind: "texto", body: caption ? `[vídeo] ${caption}` : "[vídeo]" };
                 },
@@ -1191,6 +1270,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               steps.push({
                 delayMs: clampDelayMs(s.services_text.delay_seconds),
                 run: async () => {
+                  if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
                   await uazapiSendText(creds, phone, text);
                   return { kind: "texto", body: text };
                 },
@@ -1233,29 +1313,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               return new Response("ok (welcome funnel)");
             }
           } catch (e) {
+            if ((e as Error)?.message === "__auto_reply_disabled__") {
+              return new Response("ok (auto-reply disabled during welcome funnel)");
+            }
             if ((e as Error)?.message !== "__skip_funnel__") {
               console.error("welcome funnel failed", e);
             }
           }
-        }
-
-        const { data: agent } = await supabaseAdmin
-          .from("agent_config")
-          .select("*")
-          .eq("user_id", userId)
-          .maybeSingle();
-        if (!agent) return new Response("ok (no agent config)");
-
-        // Global + per-conversation kill switch
-        const globalEnabled = (agent as { agent_enabled?: boolean }).agent_enabled !== false;
-        const convEnabled = conv.agent_enabled !== false;
-        if (!globalEnabled || !convEnabled) {
-          return new Response("ok (agent disabled)");
-        }
-
-        // Já marcada para revisão manual: não responde até reativação manual.
-        if ((conv as { needs_review?: boolean }).needs_review) {
-          return new Response("ok (needs review)");
         }
 
         // ===== Detecção de conversa improdutiva =====
@@ -1692,6 +1756,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } else {
             await sleep(delayMs);
           }
+        }
+
+        if (!(await isAutoReplyAllowed())) {
+          await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv.id,
+              type: "agent_disabled",
+              level: "info",
+              summary: "Resposta cancelada antes do envio porque o agente foi desativado",
+            });
+          } catch {}
+          return new Response("ok (agent disabled before send)");
         }
 
         let replyKind: "texto" | "audio" = "texto";

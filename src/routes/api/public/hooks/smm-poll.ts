@@ -32,10 +32,17 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
           .in("user_id", userIds);
         const integByUser = new Map((integs ?? []).map((i) => [i.user_id, i]));
 
+        const { data: agents } = await supabaseAdmin
+          .from("agent_config")
+          .select("user_id, agent_enabled")
+          .in("user_id", userIds);
+        const agentEnabledByUser = new Map((agents ?? []).map((a) => [a.user_id, a.agent_enabled !== false]));
+
         let processed = 0;
         // Helper: returns false if the conversation is paused (agent off, needs review)
         // or the contact is blocked. Used to respect the per-conversation kill switch.
         async function canSendTo(conversationId: string | null | undefined, telefone: string, userId: string) {
+          if (agentEnabledByUser.get(userId) === false) return false;
           if (conversationId) {
             const { data: conv } = await supabaseAdmin
               .from("conversations")
