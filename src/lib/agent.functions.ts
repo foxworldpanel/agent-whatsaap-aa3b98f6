@@ -102,6 +102,21 @@ export const saveAgentModules = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Toggle "Consultar preços em tempo real"
+export const setServicesRealtime = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ enabled: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("agent_config")
+      .upsert(
+        { user_id: context.userId, services_realtime: data.enabled },
+        { onConflict: "user_id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true, services_realtime: data.enabled };
+  });
+
 // Toggle global agent on/off (sidebar switch)
 export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
