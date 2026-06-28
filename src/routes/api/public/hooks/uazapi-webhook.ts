@@ -1657,15 +1657,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
             const _ttsStart = Date.now();
             // Extrai links do texto para enviar separadamente como mensagem de texto.
-            const urlRegex = /(https?:\/\/\S+|www\.\S+|\b[a-z0-9-]+\.(?:com|com\.br|net|org|io|app|co|me|tv|gg)(?:\/\S*)?)/gi;
-            const extractedUrls = (replyParts[0].match(urlRegex) ?? []).map((u) => u.replace(/[.,;:!?)]+$/, ""));
-            // Sanitiza o texto para o TTS: troca R$ por palavras e remove links.
+            // Regex agressiva: pega http(s)://, www., e qualquer dominio.tld (com subdomínios e path).
+            const urlRegex = /(https?:\/\/\S+|www\.\S+|\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/\S*)?)/gi;
+            const extractedUrls = Array.from(
+              new Set(
+                (replyParts[0].match(urlRegex) ?? [])
+                  .map((u) => u.replace(/[.,;:!?)]+$/, ""))
+                  .filter((u) => u.length > 3),
+              ),
+            );
+            // Sanitiza o texto para o TTS: troca R$ por palavras e remove TODOS os links.
             const ttsText = replyParts[0]
               .replace(/R\$\s?(\d+),(\d+)/g, "$1 reais e $2 centavos")
               .replace(/R\$\s?(\d+)/g, "$1 reais")
-              .replace(/https?:\/\/\S+/g, "")
-              .replace(/www\.\S+/g, "")
-              .replace(/\b[a-z0-9-]+\.(?:com|com\.br|net|org|io|app|co|me|tv|gg)(?:\/\S*)?/gi, "")
+              .replace(urlRegex, "")
+              .replace(/\s+([.,!?])/g, "$1")
               .replace(/\s{2,}/g, " ")
               .trim();
             console.log("🔊 Gerando áudio via ElevenLabs...", { textLen: ttsText.length, voiceId: integ.elevenlabs_voice_id, urls: extractedUrls.length });
