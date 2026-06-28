@@ -1454,23 +1454,32 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           typing_indicator_enabled?: boolean;
         };
         const minSec = Math.max(0, a.response_delay_min_sec ?? 30);
-        const maxSec = Math.max(minSec, a.response_delay_max_sec ?? 180);
-        const rawDelayMs = (Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec) * 1000;
-        // Cloudflare Worker encerra a request por volta de 30s; mantemos margem
-        // para a chamada do Claude + envio via Uazapi caberem na janela.
-        const MAX_DELAY_MS = 20000;
-        const delayMs = Math.min(rawDelayMs, MAX_DELAY_MS);
+        const maxSec = Math.max(minSec, a.response_delay_max_sec ?? 120);
+        const delaySegundos = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
+        console.log('Delay sorteado:', delaySegundos, 'segundos');
+        const delayMs = delaySegundos * 1000;
         const typingOn = a.typing_indicator_enabled !== false;
         if (delayMs > 0) {
-          const presencePromise = typingOn
-            ? (respondWithAudio
-                ? uazapiSendRecording(sendCreds, phone, delayMs)
-                : uazapiSendTyping(sendCreds, phone, delayMs)
+          // Renova o status de presença a cada ~10s (Uazapi expira rápido)
+          // para que "digitando"/"gravando" fique visível durante todo o delay.
+          if (typingOn) {
+            const sendPresence = () =>
+              (respondWithAudio
+                ? uazapiSendRecording(sendCreds, phone, 12000)
+                : uazapiSendTyping(sendCreds, phone, 12000)
               ).catch((e) => {
                 console.error(respondWithAudio ? "uazapi recording failed" : "uazapi typing failed", e);
-              })
-            : Promise.resolve();
-          await Promise.all([presencePromise, sleep(delayMs)]);
+              });
+            const interval = setInterval(sendPresence, 10000);
+            await sendPresence();
+            try {
+              await sleep(delayMs);
+            } finally {
+              clearInterval(interval);
+            }
+          } else {
+            await sleep(delayMs);
+          }
         }
 
         let replyKind: "texto" | "audio" = "texto";

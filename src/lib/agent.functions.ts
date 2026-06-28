@@ -102,6 +102,33 @@ export const saveAgentModules = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const saveBehavior = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      response_delay_min_sec: z.number().int().min(0).max(600),
+      response_delay_max_sec: z.number().int().min(0).max(600),
+      typing_indicator_enabled: z.boolean(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const min = Math.min(data.response_delay_min_sec, data.response_delay_max_sec);
+    const max = Math.max(data.response_delay_min_sec, data.response_delay_max_sec);
+    const { error } = await context.supabase
+      .from("agent_config")
+      .upsert(
+        {
+          user_id: context.userId,
+          response_delay_min_sec: min,
+          response_delay_max_sec: max,
+          typing_indicator_enabled: data.typing_indicator_enabled,
+        },
+        { onConflict: "user_id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // Toggle "Consultar preços em tempo real"
 export const setServicesRealtime = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

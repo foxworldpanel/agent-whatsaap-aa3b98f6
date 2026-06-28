@@ -13,7 +13,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { getAgentConfig, saveAgentModules, setServicesRealtime } from "@/lib/agent.functions";
+import { getAgentConfig, saveAgentModules, setServicesRealtime, saveBehavior } from "@/lib/agent.functions";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
 import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 
@@ -28,6 +30,7 @@ function AgentePage() {
   const fetchCfg = useServerFn(getAgentConfig);
   const saveFn = useServerFn(saveAgentModules);
   const toggleRealtimeFn = useServerFn(setServicesRealtime);
+  const saveBehaviorFn = useServerFn(saveBehavior);
   const { data: cfg } = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
 
   const [modules, setModules] = useState<Record<string, string>>({});
@@ -70,6 +73,35 @@ function AgentePage() {
   });
   const realtimeOn = (cfg as { services_realtime?: boolean } | null | undefined)?.services_realtime ?? false;
 
+  const cfgB = cfg as {
+    response_delay_min_sec?: number;
+    response_delay_max_sec?: number;
+    typing_indicator_enabled?: boolean;
+  } | null | undefined;
+  const [delayMin, setDelayMin] = useState<number>(30);
+  const [delayMax, setDelayMax] = useState<number>(120);
+  const [presenceOn, setPresenceOn] = useState<boolean>(true);
+  useEffect(() => {
+    setDelayMin(cfgB?.response_delay_min_sec ?? 30);
+    setDelayMax(cfgB?.response_delay_max_sec ?? 120);
+    setPresenceOn(cfgB?.typing_indicator_enabled !== false);
+  }, [cfg]);
+  const saveBehaviorMut = useMutation({
+    mutationFn: () =>
+      saveBehaviorFn({
+        data: {
+          response_delay_min_sec: delayMin,
+          response_delay_max_sec: delayMax,
+          typing_indicator_enabled: presenceOn,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Comportamento salvo");
+      qc.invalidateQueries({ queryKey: ["agent_config"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const totalChars = useMemo(
     () => Object.values(modules).reduce((s, v) => s + (v?.length ?? 0), 0),
     [modules],
@@ -96,6 +128,45 @@ function AgentePage() {
 
       <div className="flex flex-col gap-2">
         <TesteGratisCard />
+        <Card className="p-4">
+          <div className="font-medium flex items-center gap-2 mb-1">
+            <span>⏱️</span> Comportamento humanizado
+          </div>
+          <p className="text-xs text-muted-foreground mb-3 max-w-xl">
+            Antes de responder, o agente espera um tempo aleatório entre o mínimo
+            e o máximo e envia "digitando..." (ou "gravando..." para áudio) durante
+            esse intervalo.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <Label htmlFor="delayMin" className="text-xs">Delay mínimo (s)</Label>
+              <Input
+                id="delayMin" type="number" min={0} max={600}
+                value={delayMin}
+                onChange={(e) => setDelayMin(Number(e.target.value) || 0)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="delayMax" className="text-xs">Delay máximo (s)</Label>
+              <Input
+                id="delayMax" type="number" min={0} max={600}
+                value={delayMax}
+                onChange={(e) => setDelayMax(Number(e.target.value) || 0)}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex items-center gap-2 pb-1">
+                <Switch checked={presenceOn} onCheckedChange={setPresenceOn} />
+                <Label className="text-xs">Mostrar status de presença</Label>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <Button size="sm" onClick={() => saveBehaviorMut.mutate()} disabled={saveBehaviorMut.isPending}>
+              {saveBehaviorMut.isPending ? "Salvando..." : "Salvar comportamento"}
+            </Button>
+          </div>
+        </Card>
         <Card className="p-4">
           <div className="flex items-start justify-between gap-4">
             <div>
