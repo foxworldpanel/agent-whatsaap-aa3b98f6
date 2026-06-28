@@ -266,6 +266,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         }
 
         const { text, kind } = extractContent(payload);
+        console.log('=== INÍCIO DO PROCESSAMENTO ===');
+        console.log('Mensagem recebida:', { text, kind, phone: extractPhone(payload.message?.chatid, payload.message?.sender), messageId: extractMessageId(payload) });
         let mediaUrl = extractMediaUrl(payload);
         const messageId = extractMessageId(payload);
         if (!text && kind !== "audio") return new Response("empty");
@@ -1311,7 +1313,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             orderStatusContext = `STATUS DE PEDIDO indisponível agora. Redirecione: "Abre um ticket no menu Suporte do painel informando o ID do pedido que a equipe resolve!".`;
           }
 
-          reply = await generateAgentReply({
+          console.log('Chamando Claude...');
+          const _claudeArgs = {
             anthropicApiKey: integ.anthropic_api_key,
             agent,
             contact: { nome: contact.nome, perfil: contact.perfil },
@@ -1324,7 +1327,14 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             forbiddenRules,
             freeTestServices,
             extraContext: orderStatusContext,
-          });
+          };
+          try {
+            const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
+            console.log('Prompt context:', { modules: _modulesCount, services: freeTestServices?.length ?? 0, examples: knowledgeExamples?.length ?? 0, historyLen: aiHistory?.length ?? 0, extraContext: orderStatusContext?.slice(0, 200) ?? '' });
+          } catch {}
+          reply = await generateAgentReply(_claudeArgs);
+          console.log('Resposta do Claude:', reply);
+          console.log('=== FIM DO PROCESSAMENTO ===');
           }
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
         } catch (e) {
