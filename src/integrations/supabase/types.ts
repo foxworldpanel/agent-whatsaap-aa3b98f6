@@ -24,6 +24,7 @@ export type Database = {
           faqs: Json
           how_it_works: string
           main_offer: string
+          modules: Json
           never_offer_first: boolean
           panel_link: string | null
           price_query_instruction: string
@@ -48,6 +49,7 @@ export type Database = {
           faqs?: Json
           how_it_works?: string
           main_offer?: string
+          modules?: Json
           never_offer_first?: boolean
           panel_link?: string | null
           price_query_instruction?: string
@@ -72,6 +74,7 @@ export type Database = {
           faqs?: Json
           how_it_works?: string
           main_offer?: string
+          modules?: Json
           never_offer_first?: boolean
           panel_link?: string | null
           price_query_instruction?: string

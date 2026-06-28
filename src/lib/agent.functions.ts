@@ -70,12 +70,31 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
       })).max(500).optional(),
       services_realtime: z.boolean().optional(),
       price_query_instruction: z.string().max(20000).optional(),
+      modules: z.record(z.string(), z.string().max(20000)).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("agent_config")
       .upsert({ user_id: context.userId, ...data }, { onConflict: "user_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const saveAgentModules = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      modules: z.record(z.string(), z.string().max(20000)),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("agent_config")
+      .upsert(
+        { user_id: context.userId, modules: data.modules },
+        { onConflict: "user_id" },
+      );
     if (error) throw new Error(error.message);
     return { ok: true };
   });
