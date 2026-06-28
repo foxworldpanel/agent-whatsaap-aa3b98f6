@@ -98,6 +98,10 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
               results.push({ campaign: camp.id, result: "agente não configurado" });
               continue;
             }
+            if (agent.agent_enabled === false) {
+              results.push({ campaign: camp.id, result: "agente desativado" });
+              continue;
+            }
 
             // próximo contato do perfil ainda não abordado
             const { data: contact } = await supabaseAdmin
