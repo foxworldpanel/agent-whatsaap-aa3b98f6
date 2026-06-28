@@ -22,21 +22,33 @@ function truncate(v: string | null | undefined, max = 20000): string | null {
 }
 
 export async function logEvent(input: LogEventInput): Promise<void> {
+  // Fire-and-forget: NUNCA bloqueia ou quebra o fluxo principal do webhook.
+  // Mesmo que o Supabase trave / dê timeout / retorne erro, o agente
+  // continua respondendo normalmente.
   try {
-    await supabaseAdmin.from("agent_logs").insert({
-      user_id: input.userId ?? null,
-      phone: input.phone ?? null,
-      conversation_id: input.conversationId ?? null,
-      type: input.type,
-      level: input.level ?? "info",
-      summary: input.summary.slice(0, 500),
-      prompt: truncate(input.prompt),
-      response: truncate(input.response),
-      error: truncate(input.error, 5000),
-      duration_ms: input.durationMs ?? null,
-      metadata: (input.metadata ?? null) as never,
-    });
+    const p = supabaseAdmin
+      .from("agent_logs")
+      .insert({
+        user_id: input.userId ?? null,
+        phone: input.phone ?? null,
+        conversation_id: input.conversationId ?? null,
+        type: input.type,
+        level: input.level ?? "info",
+        summary: input.summary.slice(0, 500),
+        prompt: truncate(input.prompt),
+        response: truncate(input.response),
+        error: truncate(input.error, 5000),
+        duration_ms: input.durationMs ?? null,
+        metadata: (input.metadata ?? null) as never,
+      })
+      .then(({ error }) => {
+        if (error) console.error("[agent-logger] insert failed", error);
+      }, (e) => {
+        console.error("[agent-logger] insert threw", e);
+      });
+    // Detach: não esperamos o insert resolver.
+    void p;
   } catch (e) {
-    console.error("[agent-logger] insert failed", e);
+    console.error("[agent-logger] build failed", e);
   }
 }
