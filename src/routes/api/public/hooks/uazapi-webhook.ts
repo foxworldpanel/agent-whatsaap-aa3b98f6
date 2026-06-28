@@ -1772,6 +1772,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 continue;
               }
               memMarkSent(phone, replyParts[i]);
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({ userId, phone, conversationId: conv.id, type: "send_text", level: "info", summary: `✉️ Enviando texto (${replyParts[i].length} chars, parte ${i + 1}/${replyParts.length})`, response: replyParts[i].slice(0, 200) });
+              } catch {}
               await uazapiSendText(
                 sendCreds,
                 phone,
