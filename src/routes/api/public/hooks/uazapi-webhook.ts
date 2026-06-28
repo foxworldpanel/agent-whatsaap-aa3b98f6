@@ -313,12 +313,17 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         if (!payload) {
           return new Response("invalid json", { status: 400 });
         }
-        const bg = processWebhook(payload).catch((e) => {
-          console.error("webhook bg failed", e);
-        });
-        const wu = (request as unknown as { waitUntil?: (p: Promise<unknown>) => void }).waitUntil;
-        if (typeof wu === "function") wu.call(request, bg);
-        // Responde 200 imediatamente para o Uazapi não reenviar.
+        // IMPORTANTE: o runtime Cloudflare termina a execução assim que
+        // respondemos. `request.waitUntil` não existe nesse handler — sem
+        // executionCtx acessível, o trabalho em background era cortado e o
+        // agente parava de responder. Aguardamos a execução completa antes
+        // de devolver 200. O delay humanizado é limitado para caber dentro
+        // do timeout do Uazapi (~60s).
+        try {
+          await processWebhook(payload);
+        } catch (e) {
+          console.error("webhook processing failed", e);
+        }
         return new Response("ok");
       },
     },
@@ -1612,10 +1617,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // tempo de execução do Worker antes do TTS rodar (ElevenLabs + envio
         // já levam vários segundos por si só). A presença "gravando" continua
         // sendo enviada durante a geração do áudio.
-        const baseMin = Math.max(0, a.response_delay_min_sec ?? 30);
-        const baseMax = Math.max(baseMin, a.response_delay_max_sec ?? 120);
-        const minSec = respondWithAudio ? Math.min(baseMin, 2) : baseMin;
-        const maxSec = respondWithAudio ? Math.min(baseMax, 5) : baseMax;
+        // Cap absoluto: agora processamos o webhook de forma síncrona (não
+        // dá pra usar waitUntil neste runtime), então o delay precisa caber
+        // bem dentro do timeout do Uazapi (~60s) considerando ainda IA + TTS.
+        const HARD_CAP_SEC = respondWithAudio ? 5 : 25;
+        const baseMin = Math.max(0, Math.min(a.response_delay_min_sec ?? 8, HARD_CAP_SEC));
+        const baseMax = Math.max(baseMin, Math.min(a.response_delay_max_sec ?? 20, HARD_CAP_SEC));
+        const minSec = baseMin;
+        const maxSec = baseMax;
         const delaySegundos = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
         console.log('Delay sorteado:', delaySegundos, 'segundos');
         const delayMs = delaySegundos * 1000;
