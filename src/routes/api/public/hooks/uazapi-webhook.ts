@@ -408,6 +408,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .maybeSingle();
         if (intLoadErr) return new Response(intLoadErr.message, { status: 500 });
         if (!integ) return new Response("integration missing for user", { status: 404 });
+        console.log(
+          `🔑 Config agente carregada: elevenlabs_key=${integ.elevenlabs_api_key ? "tem" : "não tem"} | voice_id=${integ.elevenlabs_voice_id ? "tem" : "não tem"} | user_id=${userId}`,
+        );
 
         let { data: contact } = await supabaseAdmin
           .from("contacts")
@@ -1428,7 +1431,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 examples: knowledgeExamples?.length ?? 0,
                 history: aiHistory?.slice(-6) ?? [],
                 extraContext: orderStatusContext ?? null,
-                agentIdentity: (agent as { identidade?: string }).identidade ?? null,
+                agentIdentity: (agent as { agent_name?: string }).agent_name ?? null,
+                hasBaseInstruction: !!(agent as { base_instruction?: string }).base_instruction,
+                modulesEnabledCount: Object.values(
+                  ((agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {}),
+                ).filter(Boolean).length,
               }, null, 2),
               response: reply ?? null,
               durationMs: _claudeMs,
