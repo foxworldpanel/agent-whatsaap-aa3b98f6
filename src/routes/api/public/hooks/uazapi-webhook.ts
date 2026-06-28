@@ -1550,8 +1550,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           response_delay_max_sec?: number;
           typing_indicator_enabled?: boolean;
         };
-        const minSec = Math.max(0, a.response_delay_min_sec ?? 30);
-        const maxSec = Math.max(minSec, a.response_delay_max_sec ?? 120);
+        // Para respostas de áudio, encurtamos o delay para evitar estourar o
+        // tempo de execução do Worker antes do TTS rodar (ElevenLabs + envio
+        // já levam vários segundos por si só). A presença "gravando" continua
+        // sendo enviada durante a geração do áudio.
+        const baseMin = Math.max(0, a.response_delay_min_sec ?? 30);
+        const baseMax = Math.max(baseMin, a.response_delay_max_sec ?? 120);
+        const minSec = respondWithAudio ? Math.min(baseMin, 2) : baseMin;
+        const maxSec = respondWithAudio ? Math.min(baseMax, 5) : baseMax;
         const delaySegundos = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
         console.log('Delay sorteado:', delaySegundos, 'segundos');
         const delayMs = delaySegundos * 1000;
