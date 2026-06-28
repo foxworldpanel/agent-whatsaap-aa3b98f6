@@ -908,6 +908,36 @@ export type Database = {
         }
         Relationships: []
       }
+      prompt_modules: {
+        Row: {
+          conteudo: string
+          created_at: string
+          enabled: boolean
+          id: string
+          modulo_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conteudo?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          modulo_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conteudo?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          modulo_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       welcome_funnel_runs: {
         Row: {
           contact_id: string
