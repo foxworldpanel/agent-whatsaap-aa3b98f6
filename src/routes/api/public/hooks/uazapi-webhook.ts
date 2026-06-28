@@ -1288,6 +1288,13 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: "error", summary: "Falha ao buscar serviços SMM", error: (e as Error)?.message ?? String(e) });
             } catch {}
           }
+        } else {
+          console.warn(
+            "[smm] catálogo NÃO carregado — services_realtime:",
+            !!a0.services_realtime,
+            "| smm_api_key presente:",
+            !!integ.smm_api_key,
+          );
         }
 
         let reply: string;
