@@ -349,7 +349,8 @@ export const previewVoice = createServerFn({ method: "POST" })
     z.object({ text: z.string().min(1).max(500).optional() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: integ, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: integ, error } = await supabaseAdmin
       .from("integrations")
       .select("elevenlabs_api_key, elevenlabs_voice_id")
       .eq("user_id", context.userId)
