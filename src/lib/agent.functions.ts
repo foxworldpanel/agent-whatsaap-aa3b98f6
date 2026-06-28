@@ -179,6 +179,24 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
       .select("agent_enabled")
       .single();
     if (error) throw new Error(error.message);
+    // Cascade to every conversation owned by this user (and shared uazapi peers)
+    // so the sidebar toggle is the single source of truth.
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const patch = data.enabled
+      ? {
+          agent_enabled: true,
+          needs_review: false,
+          review_reason: null,
+          auto_paused_at: null,
+          internal_note: null,
+        }
+      : { agent_enabled: false };
+    const { error: convErr } = await supabaseAdmin
+      .from("conversations")
+      .update(patch)
+      .in("user_id", userIds);
+    if (convErr) throw new Error(convErr.message);
     return { ok: true, agent_enabled: saved.agent_enabled };
   });
 
