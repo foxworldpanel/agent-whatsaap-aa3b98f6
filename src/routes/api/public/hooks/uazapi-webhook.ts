@@ -1071,6 +1071,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .update({ last_interaction_at: nowT, status: "em_conversa" })
               .eq("id", contact.id);
             return new Response("ok (free trial)");
+            }
           }
         }
 
