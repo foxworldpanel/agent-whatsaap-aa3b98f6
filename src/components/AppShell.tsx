@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap, LogOut, Phone } from "lucide-react";
+import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap, LogOut, Phone, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ThemeToggle } from "./ThemeToggle";
@@ -16,6 +16,7 @@ const nav = [
   { to: "/conversas", label: "Conversas", icon: MessagesSquare },
   { to: "/numeros", label: "Números", icon: Phone },
   { to: "/teste-gratis", label: "Teste Grátis", icon: Gift },
+  { to: "/logs", label: "Logs", icon: FileText },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 
@@ -33,6 +34,23 @@ export function AppShell() {
     refetchInterval: 10000,
   });
   const reviewCount = (reviewQ.data as { count?: number } | undefined)?.count ?? 0;
+  const errorCountQ = useQuery({
+    queryKey: ["agent_logs_error_count"],
+    queryFn: async () => {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from("agent_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("level", "error")
+        .gte("created_at", since);
+      return count ?? 0;
+    },
+    refetchInterval: 15000,
+  });
+  const errorCount = errorCountQ.data ?? 0;
+  // Realtime: bump on new error log
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useQueryRealtimeErrorBump(qc);
   const enabled = (agentQ.data as { agent_enabled?: boolean } | null | undefined)?.agent_enabled !== false;
   const toggleMut = useMutation({
     mutationFn: (next: boolean) => toggleGlobal({ data: { enabled: next } }),
@@ -89,6 +107,11 @@ export function AppShell() {
                 {item.to === "/conversas" && reviewCount > 0 && (
                   <span className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                     {reviewCount > 99 ? "99+" : reviewCount}
+                  </span>
+                )}
+                {item.to === "/logs" && errorCount > 0 && (
+                  <span className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    {errorCount > 99 ? "99+" : errorCount}
                   </span>
                 )}
                 {active && item.to !== "/conversas" && (
