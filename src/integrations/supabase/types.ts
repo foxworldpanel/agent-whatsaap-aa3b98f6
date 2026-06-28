@@ -95,6 +95,54 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_logs: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          id: string
+          level: string
+          metadata: Json | null
+          phone: string | null
+          prompt: string | null
+          response: string | null
+          summary: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          level?: string
+          metadata?: Json | null
+          phone?: string | null
+          prompt?: string | null
+          response?: string | null
+          summary: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          level?: string
+          metadata?: Json | null
+          phone?: string | null
+          prompt?: string | null
+          response?: string | null
+          summary?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       auto_campaign_runs: {
         Row: {
           auto_campaign_id: string
@@ -954,7 +1002,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_old_agent_logs: { Args: never; Returns: undefined }
     }
     Enums: {
       campaign_state: "parado" | "rodando" | "pausado"
