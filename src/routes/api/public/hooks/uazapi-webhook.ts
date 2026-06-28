@@ -634,29 +634,70 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           if (!link) {
             const trialIntentRe = /\b(teste\s*gr[aá]tis|amostra\s*gr[aá]tis|quero\s+(o\s+)?teste|posso\s+(fazer|ter|ganhar)\s+(um\s+)?teste|me\s+d[aá]\s+(um\s+)?teste|tem\s+teste|libera\s+(o\s+)?teste|free\s*trial)\b/i;
             if (trialIntentRe.test(inboundBody)) {
-              const { data: completed } = await supabaseAdmin
-                .from("free_trials")
-                .select("id")
-                .eq("user_id", userId)
-                .eq("telefone", phone)
-                .eq("status", "completed")
-                .limit(1)
-                .maybeSingle();
-              if (completed) {
-                const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
-                const replyText = "Você já recebeu seu teste grátis! Que tal fazer um pedido completo? É só criar sua conta em mindsmmpanel.com";
-                try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (trial-used) failed", e); }
-                const nowT = new Date().toISOString();
-                await supabaseAdmin.from("messages").insert({
-                  user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: replyText,
-                });
-                await supabaseAdmin.from("conversations").update({
-                  last_message_preview: replyText.slice(0, 120),
-                  last_message_at: nowT,
-                  status: "aguardando",
-                }).eq("id", conv.id);
-                return new Response("ok (trial already used)");
+              // Se o cliente está perguntando sobre teste para outra pessoa /
+              // outro número, deixa o agente IA responder honestamente — não bloqueia.
+              const friendRe = /\b(amig[oa]|colega|irm[aã]o|primo|parente|outr[oa]\s+(pessoa|n[uú]mero|whats|cel|celular|conta)|para\s+ele|para\s+ela|de\s+outro\s+n[uú]mero)\b/i;
+              if (friendRe.test(inboundBody)) {
+                // Deixa o fluxo seguir para a IA com contexto real.
+              } else {
+                // Detecta plataforma citada na mensagem
+                const txt = inboundBody.toLowerCase();
+                const platformMatch: { key: string; label: string } | null =
+                  /\binstagram|insta\b/.test(txt) ? { key: "instagram", label: "Instagram" } :
+                  /\btiktok|tik\s*tok\b/.test(txt) ? { key: "tiktok", label: "TikTok" } :
+                  /\byoutube|yt\b/.test(txt) ? { key: "youtube", label: "YouTube" } :
+                  /\bspotify\b/.test(txt) ? { key: "spotify", label: "Spotify" } :
+                  /\bkwai\b/.test(txt) ? { key: "kwai", label: "Kwai" } :
+                  /\bfacebook|\bfb\b/.test(txt) ? { key: "facebook", label: "Facebook" } :
+                  /\btwitter|\bx\b/.test(txt) ? { key: "twitter", label: "Twitter/X" } :
+                  null;
+
+                if (platformMatch) {
+                  // Busca serviços de teste ativos para essa plataforma
+                  const { data: ftsRows } = await supabaseAdmin
+                    .from("free_test_services")
+                    .select("service_id, service_name, category, enabled")
+                    .eq("user_id", userId)
+                    .eq("enabled", true);
+                  const platformServiceIds = (ftsRows ?? [])
+                    .filter((r) => `${r.service_name} ${r.category}`.toLowerCase().includes(platformMatch.key))
+                    .map((r) => String(r.service_id));
+
+                  const { uazapiSendText } = await import("@/lib/uazapi.server");
+                  const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+
+                  if (platformServiceIds.length === 0) {
+                    // Não há teste para essa plataforma — não bloqueia, deixa IA responder
+                    // (a IA tem o catálogo e oferece mínimo pago)
+                  } else {
+                    // Verifica se ESTE telefone já completou teste DESSA plataforma
+                    const { data: completedThis } = await supabaseAdmin
+                      .from("free_trials")
+                      .select("id, servico")
+                      .eq("user_id", userId)
+                      .eq("telefone", phone)
+                      .eq("status", "completed")
+                      .in("servico", platformServiceIds)
+                      .limit(1)
+                      .maybeSingle();
+                    if (completedThis) {
+                      const replyText = `Você já recebeu seu teste grátis de ${platformMatch.label}! Posso te montar um pacote completo agora?`;
+                      try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (trial-used) failed", e); }
+                      const nowT = new Date().toISOString();
+                      await supabaseAdmin.from("messages").insert({
+                        user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: replyText,
+                      });
+                      await supabaseAdmin.from("conversations").update({
+                        last_message_preview: replyText.slice(0, 120),
+                        last_message_at: nowT,
+                        status: "aguardando",
+                      }).eq("id", conv.id);
+                      return new Response("ok (trial already used for platform)");
+                    }
+                    // Não usou essa plataforma ainda → deixa IA seguir e pedir o link
+                  }
+                }
+                // Sem plataforma específica citada → deixa IA conduzir
               }
             }
           }
