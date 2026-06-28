@@ -1349,14 +1349,38 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
             console.log('Prompt context:', { modules: _modulesCount, services: freeTestServices?.length ?? 0, examples: knowledgeExamples?.length ?? 0, historyLen: aiHistory?.length ?? 0, extraContext: orderStatusContext?.slice(0, 200) ?? '' });
           } catch {}
+          const _claudeStart = Date.now();
           reply = await generateAgentReply(_claudeArgs);
+          const _claudeMs = Date.now() - _claudeStart;
           console.log('Resposta do Claude:', reply);
           console.log('=== FIM DO PROCESSAMENTO ===');
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId, phone, conversationId: conv?.id,
+              type: "claude_reply", level: "info",
+              summary: `🤖 Claude respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
+              prompt: JSON.stringify({
+                contact: _claudeArgs.contact,
+                servicesCount: freeTestServices?.length ?? 0,
+                examples: knowledgeExamples?.length ?? 0,
+                history: aiHistory?.slice(-6) ?? [],
+                extraContext: orderStatusContext ?? null,
+                agentIdentity: (agent as { identidade?: string }).identidade ?? null,
+              }, null, 2),
+              response: reply ?? null,
+              durationMs: _claudeMs,
+            });
+          } catch {}
           }
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
         } catch (e) {
           console.error("claude failed", e);
           reply = FALLBACK_REPLY;
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({ userId, phone, conversationId: conv?.id, type: "claude_reply", level: "error", summary: "Falha ao chamar Claude", error: (e as Error)?.message ?? String(e) });
+          } catch {}
         }
 
         // Divide a resposta em partes quando o agente usa "===SPLIT===" (link separado).
