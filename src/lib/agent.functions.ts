@@ -90,11 +90,11 @@ export const saveAgentModules = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const payload: Record<string, unknown> = {
+    const payload = {
       user_id: context.userId,
       modules: data.modules,
+      ...(data.modules_enabled ? { modules_enabled: data.modules_enabled } : {}),
     };
-    if (data.modules_enabled) payload.modules_enabled = data.modules_enabled;
     const { error } = await context.supabase
       .from("agent_config")
       .upsert(payload, { onConflict: "user_id" });
