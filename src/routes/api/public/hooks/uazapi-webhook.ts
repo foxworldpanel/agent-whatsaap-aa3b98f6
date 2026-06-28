@@ -732,6 +732,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const globalEnabled = (agent as { agent_enabled?: boolean }).agent_enabled !== false;
         const convEnabled = conv.agent_enabled !== false;
         const needsReview = (conv as { needs_review?: boolean }).needs_review === true;
+        const isAutoReplyAllowed = async (): Promise<boolean> => {
+          const { data: latestAgent } = await supabaseAdmin
+            .from("agent_config")
+            .select("agent_enabled")
+            .eq("user_id", userId)
+            .maybeSingle();
+          if (latestAgent?.agent_enabled === false) return false;
+
+          const { data: latestConv } = await supabaseAdmin
+            .from("conversations")
+            .select("agent_enabled, needs_review")
+            .eq("id", conv.id)
+            .maybeSingle();
+          if (latestConv?.agent_enabled === false || latestConv?.needs_review === true) return false;
+
+          const { data: latestContact } = await supabaseAdmin
+            .from("contacts")
+            .select("status")
+            .eq("id", contact.id)
+            .maybeSingle();
+          return latestContact?.status !== "bloqueado";
+        };
         if (!globalEnabled || !convEnabled || needsReview) {
           await supabaseAdmin
             .from("conversations")
