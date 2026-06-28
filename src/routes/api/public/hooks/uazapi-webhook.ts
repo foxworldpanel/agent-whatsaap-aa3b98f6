@@ -244,12 +244,27 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Lê o payload já no handler para devolver 400 cedo em JSON inválido,
+        // mas todo o processamento pesado roda em background via waitUntil.
         let payload: UazapiPayload;
         try {
           payload = (await request.json()) as UazapiPayload;
         } catch {
           return new Response("invalid json", { status: 400 });
         }
+        const bg = processWebhook(payload).catch((e) => {
+          console.error("webhook bg failed", e);
+        });
+        const wu = (request as unknown as { waitUntil?: (p: Promise<unknown>) => void }).waitUntil;
+        if (typeof wu === "function") wu.call(request, bg);
+        // Responde 200 imediatamente para o Uazapi não reenviar.
+        return new Response("ok");
+      },
+    },
+  },
+});
+
+async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         const event = (payload.event ?? payload.EventType ?? "").toLowerCase();
         // Aceita messages, messages.upsert, message etc.
