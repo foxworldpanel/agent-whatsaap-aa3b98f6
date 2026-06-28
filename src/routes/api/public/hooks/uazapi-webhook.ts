@@ -1456,8 +1456,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           kind === "audio" &&
           !!integ.elevenlabs_api_key &&
           !!integ.elevenlabs_voice_id &&
-          replyParts.length > 0 &&
-          !hasHardContent(replyParts[0]);
+          replyParts.length > 0;
+        // hasHardContent mantido apenas para referência — quando o cliente
+        // mandou áudio, a resposta principal SEMPRE vai por áudio. Dados
+        // específicos (preço/link) devem vir do Claude após ===SPLIT===.
+        void hasHardContent;
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
         const sendCreds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
