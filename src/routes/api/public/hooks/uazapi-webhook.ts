@@ -1536,6 +1536,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             memMarkSent(phone, replyParts[0]);
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
             const _ttsStart = Date.now();
+            console.log("🔊 Gerando áudio via ElevenLabs...", { textLen: replyParts[0].length, voiceId: integ.elevenlabs_voice_id });
             const [generatedAudio] = await Promise.all([
               ttsElevenLabsBase64({
                 apiKey: integ.elevenlabs_api_key!,
