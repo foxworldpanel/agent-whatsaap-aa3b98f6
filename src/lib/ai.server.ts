@@ -186,10 +186,7 @@ export async function generateAgentReply(params: {
       const mods = (agent as { modules?: Record<string, string> }).modules;
       const enabled = (agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {};
       if (!mods || typeof mods !== "object") return "";
-      const active = Object.entries(mods).filter(([k, v]) => {
-        if (!v || !String(v).trim()) return false;
-        return enabled[k] !== false; // default: enabled
-      });
+      const active = selectActiveModules(mods, enabled, latestClientMessage);
       if (active.length === 0) return "";
       return `==== BASE DE CONHECIMENTO MODULAR (use como instruções obrigatórias de comportamento e conteúdo) ====\n\n${active
         .map(([k, v]) => `--- MÓDULO: ${k} ---\n${v}`)
