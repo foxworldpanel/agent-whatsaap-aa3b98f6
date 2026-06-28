@@ -533,6 +533,34 @@ function Conversas() {
                   <Trash2 className="h-3.5 w-3.5" /> {clearMut.isPending ? "Limpando…" : "Limpar conversa"}
                 </button>
               )}
+              {active && (
+                active.needs_review ? (
+                  <button
+                    type="button"
+                    onClick={() => reactivateMut.mutate()}
+                    disabled={reactivateMut.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
+                    title="Desbloquear conversa e reativar o agente"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" /> {reactivateMut.isPending ? "Desbloqueando…" : "Desbloquear"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!activeId || blockMut.isPending) return;
+                      if (confirm("Bloquear esta conversa? O agente para de responder e o contato fica marcado como bloqueado.")) {
+                        blockMut.mutate();
+                      }
+                    }}
+                    disabled={blockMut.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
+                    title="Bloquear conversa — pausa o agente e marca o contato como bloqueado"
+                  >
+                    <Ban className="h-3.5 w-3.5" /> {blockMut.isPending ? "Bloqueando…" : "Bloquear"}
+                  </button>
+                )
+              )}
             </div>
           </header>
 
