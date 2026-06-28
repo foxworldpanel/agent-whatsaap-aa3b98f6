@@ -280,6 +280,16 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         const event = (payload.event ?? payload.EventType ?? "").toLowerCase();
+        // 🔬 RAW payload dump (primeiros 1000 chars) para diagnosticar o formato real do Uazapi.
+        try {
+          const raw = JSON.stringify(payload).slice(0, 1000);
+          console.log("📦 Payload RAW:", raw);
+          const phoneForLog = extractPhone(payload.message?.chatid, payload.message?.sender) ?? "unknown";
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          await logEvent({ phone: phoneForLog, type: "message_received", level: "info", summary: `📦 Payload RAW: ${raw.slice(0, 300)}`, metadata: { raw } });
+        } catch (e) {
+          console.error("raw payload log failed", e);
+        }
         // Aceita messages, messages.upsert, message etc.
         if (event && !event.includes("message")) return new Response("ignored");
 
