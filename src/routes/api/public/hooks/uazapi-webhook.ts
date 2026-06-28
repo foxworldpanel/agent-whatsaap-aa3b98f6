@@ -257,11 +257,52 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Lê o payload já no handler para devolver 400 cedo em JSON inválido,
-        // mas todo o processamento pesado roda em background via waitUntil.
+        // Lê o RAW body PRIMEIRO para garantir o dump mesmo se algo abaixo quebrar.
+        const rawBody = await request.text();
+        console.log("📦 PAYLOAD_RAW:", rawBody.slice(0, 1000));
+
+        // Persiste o RAW no banco AGUARDANDO o insert (sem fire-and-forget),
+        // resolvendo user_id via token para o log aparecer na UI (RLS por user_id).
+        try {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          let parsedForToken: UazapiPayload | null = null;
+          try { parsedForToken = JSON.parse(rawBody) as UazapiPayload; } catch {}
+          const token = parsedForToken ? pickInstanceToken(parsedForToken) : null;
+          const phoneForLog = parsedForToken
+            ? extractPhone(parsedForToken.message?.chatid, parsedForToken.message?.sender)
+            : null;
+          let userIdForLog: string | null = null;
+          if (token) {
+            const { data: num } = await supabaseAdmin
+              .from("whatsapp_numbers")
+              .select("user_id")
+              .eq("uazapi_token", token)
+              .maybeSingle();
+            if (num?.user_id) userIdForLog = num.user_id;
+            else {
+              const { data: integ } = await supabaseAdmin
+                .from("integrations")
+                .select("user_id")
+                .eq("uazapi_token", token)
+                .maybeSingle();
+              if (integ?.user_id) userIdForLog = integ.user_id;
+            }
+          }
+          await supabaseAdmin.from("agent_logs").insert({
+            user_id: userIdForLog,
+            phone: phoneForLog ?? "raw",
+            type: "message_received",
+            level: "info",
+            summary: `📦 PAYLOAD RAW: ${rawBody.slice(0, 400)}`,
+            metadata: { raw: rawBody.slice(0, 4000) } as never,
+          });
+        } catch (e) {
+          console.error("raw payload log failed", e);
+        }
+
         let payload: UazapiPayload;
         try {
-          payload = (await request.json()) as UazapiPayload;
+          payload = JSON.parse(rawBody) as UazapiPayload;
         } catch {
           return new Response("invalid json", { status: 400 });
         }
