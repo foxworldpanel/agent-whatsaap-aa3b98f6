@@ -118,14 +118,18 @@ export async function generateAgentReply(params: {
   forbiddenRules?: Array<{ rule: string; deflection?: string | null }>;
   freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
   extraContext?: string | null;
+  inputKind?: "texto" | "audio";
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], extraContext = null } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], extraContext = null, inputKind = "texto" } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
   const system = [
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
     extraContext ? extraContext : "",
+    inputKind === "audio"
+      ? `MODO ÁUDIO (CRÍTICO — o cliente enviou um áudio, então sua resposta vai virar ÁUDIO):\n- A PRIMEIRA parte da resposta (antes de qualquer ===SPLIT===) será FALADA por TTS. Escreva ela como uma resposta de áudio NATURAL, COMPLETA e EXPLICATIVA — entre 2 e 4 frases, 15 a 25 segundos de fala, como um vendedor humano explicando no WhatsApp. Pode usar conjunções ("e", "também", "porque"), pode juntar 2-3 informações relacionadas em fluxo natural. NÃO seja curto, NÃO seja seco, NÃO mande só "Sim!" ou "Posso sim".\n- A regra "1 frase por mensagem" NÃO se aplica à parte falada — ela vale só para texto.\n- Coloque em ===SPLIT=== (parte de texto, depois do áudio) APENAS dados específicos: preço com R$, link (www...), ID de pedido, lista de quantidades. Se não tiver dado específico, NÃO use ===SPLIT===.\n- NUNCA inverta: nunca áudio curto + texto longo. O áudio é a resposta principal; o texto só complementa com dado bruto.\n- NUNCA leia link ou preço em voz alta na parte falada — esses ficam só na parte de texto após ===SPLIT===.\n\nExemplo certo (cliente perguntou por áudio "como funciona monetização do YouTube"):\nSim! Pra monetizar o YouTube você precisa de 4000 horas de exibição e 1000 inscritos, e a gente tem os dois serviços disponíveis. As horas chegam gradualmente, de forma segura pro canal, e os inscritos também, é o caminho mais rápido pra destravar a monetização e começar a ganhar com os vídeos.\n===SPLIT===\n1000h = R$150 | 1000 inscritos = R$140`
+      : "",
     `PRIORIDADE ABSOLUTA PARA PERGUNTAS DIRETAS: se a última mensagem do cliente contém uma pergunta direta (nome, preço, serviço específico, prazo, cadastro, pagamento, link ou qualquer dúvida objetiva), responda essa pergunta imediatamente. NUNCA ignore uma pergunta direta e NUNCA troque por explicação genérica da MIND/plataforma. Se o cliente perguntou seu nome, responda algo curto e natural como: "Meu nome é Júlia, e o seu?" ou "Sou a Júlia, como posso te ajudar?" — sem emoji.`,
     `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
@@ -247,7 +251,7 @@ export async function generateAgentReply(params: {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-5",
-      max_tokens: 512,
+      max_tokens: 800,
       system,
       messages: cleaned,
     }),
