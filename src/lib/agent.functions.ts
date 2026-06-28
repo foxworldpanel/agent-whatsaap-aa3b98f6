@@ -144,6 +144,26 @@ export const setServicesRealtime = createServerFn({ method: "POST" })
     return { ok: true, services_realtime: data.enabled };
   });
 
+// Toggles do catálogo em cache
+export const setCatalogFlags = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      catalog_in_prompt: z.boolean().optional(),
+      catalog_only_relevant: z.boolean().optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: Record<string, unknown> = { user_id: context.userId };
+    if (typeof data.catalog_in_prompt === "boolean") patch.catalog_in_prompt = data.catalog_in_prompt;
+    if (typeof data.catalog_only_relevant === "boolean") patch.catalog_only_relevant = data.catalog_only_relevant;
+    const { error } = await context.supabase
+      .from("agent_config")
+      .upsert(patch, { onConflict: "user_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // Toggle global agent on/off (sidebar switch)
 export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
