@@ -604,7 +604,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         let { data: conv } = await supabaseAdmin
           .from("conversations")
-          .select("id, agent_enabled, whatsapp_number_id")
+          .select("id, agent_enabled, whatsapp_number_id, needs_review")
           .eq("user_id", userId)
           .eq("contact_id", contact.id)
           .maybeSingle();
@@ -620,7 +620,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               status: "agente_respondendo",
               whatsapp_number_id: numberId,
             })
-            .select("id, agent_enabled, whatsapp_number_id")
+            .select("id, agent_enabled, whatsapp_number_id, needs_review")
             .single();
           if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
           conv = insertedConv.data;
@@ -1285,6 +1285,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 needs_review: true,
                 review_reason: detected.reason,
                 auto_paused_at: stamp,
+                agent_enabled: false,
                 internal_note: `Agente pausado automaticamente — ${detected.reason} em ${new Date(stamp).toLocaleString("pt-BR")}`,
                 status: "aguardando",
               })
