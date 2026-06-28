@@ -273,9 +273,25 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
         // ===== Idempotência por messageId =====
-        // Uazapi às vezes dispara o mesmo evento mais de uma vez. Se já
-        // gravamos uma mensagem do cliente com esse external_id, ignora.
+        // Uazapi às vezes dispara o mesmo evento mais de uma vez. Trava
+        // definitiva: tenta inserir o messageId na tabela processed_messages
+        // (PK). Se o insert falhar por conflito → já foi processado, ignora.
         if (messageId) {
+          const { error: dupErr } = await supabaseAdmin
+            .from("processed_messages")
+            .insert({ message_id: messageId });
+          if (dupErr) {
+            // 23505 = unique_violation
+            const code = (dupErr as { code?: string }).code;
+            if (code === "23505" || /duplicate key/i.test(dupErr.message)) {
+              console.log(`Mensagem duplicada bloqueada (processed_messages): ${messageId}`);
+              return new Response("ok (duplicate messageId)");
+            }
+            // erro inesperado: loga e segue (não bloqueia o atendimento)
+            console.warn("processed_messages insert error:", dupErr.message);
+          }
+          // Fallback adicional: se já existe uma mensagem com esse external_id,
+          // também ignora (cobre runs anteriores à criação da tabela).
           const { data: dupInbound } = await supabaseAdmin
             .from("messages")
             .select("id")
