@@ -1313,6 +1313,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               return new Response("ok (welcome funnel)");
             }
           } catch (e) {
+            if ((e as Error)?.message === "__auto_reply_disabled__") {
+              return new Response("ok (auto-reply disabled during welcome funnel)");
+            }
             if ((e as Error)?.message !== "__skip_funnel__") {
               console.error("welcome funnel failed", e);
             }
