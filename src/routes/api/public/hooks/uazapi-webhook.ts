@@ -45,6 +45,10 @@ type UazapiPayload = {
     content?: string;
     senderName?: string;
     mediaUrl?: string;
+    mimetype?: string;
+    mediaType?: string;
+    audioMessage?: unknown;
+    pttMessage?: unknown;
     // Meta Ads / WhatsApp Cloud referral fields (vários formatos possíveis)
     referral?: Record<string, unknown>;
     ctwa_clid?: string;
@@ -71,8 +75,17 @@ function extractPhone(chatid?: string, sender?: string): string | null {
 
 function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" } {
   const m = p.message ?? p.data ?? {};
-  const type = (m.messageType ?? m.type ?? "").toLowerCase();
-  if (type.includes("audio") || type.includes("ptt")) {
+  const type = (m.messageType ?? m.type ?? m.mediaType ?? "").toLowerCase();
+  const mime = (m.mimetype ?? "").toLowerCase();
+  const isAudio =
+    type.includes("audio") ||
+    type.includes("ptt") ||
+    type.includes("voice") ||
+    mime.startsWith("audio/") ||
+    !!m.audioMessage ||
+    !!m.pttMessage;
+  console.log("🔎 extractContent type:", { type, mime, isAudio, hasAudioMessage: !!m.audioMessage, hasPttMessage: !!m.pttMessage });
+  if (isAudio) {
     return { text: m.text || "[áudio recebido]", kind: "audio" };
   }
   return { text: m.text ?? m.content ?? "", kind: "texto" };
