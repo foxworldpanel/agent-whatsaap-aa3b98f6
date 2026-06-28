@@ -287,6 +287,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             const code = (dupErr as { code?: string }).code;
             if (code === "23505" || /duplicate key/i.test(dupErr.message)) {
               console.log(`Mensagem duplicada bloqueada (processed_messages): ${messageId}`);
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({ phone, type: "duplicate_blocked", level: "warn", summary: `Mensagem duplicada bloqueada (${messageId})`, metadata: { messageId } });
+              } catch {}
               return new Response("ok (duplicate messageId)");
             }
             // erro inesperado: loga e segue (não bloqueia o atendimento)
@@ -514,10 +518,19 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
             const { transcribeAudioUrl } = await import("@/lib/ai.server");
+            const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv?.id, type: "whisper_transcribe", level: "info", summary: `📝 Whisper transcreveu áudio (${transcript?.length ?? 0} chars)`, response: transcript ?? null, durationMs: Date.now() - _ttStart });
+            } catch {}
           } catch (e) {
             console.error("transcribe failed", e);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv?.id, type: "whisper_transcribe", level: "error", summary: "Falha ao transcrever áudio (Whisper)", error: (e as Error)?.message ?? String(e) });
+            } catch {}
           }
         }
 
