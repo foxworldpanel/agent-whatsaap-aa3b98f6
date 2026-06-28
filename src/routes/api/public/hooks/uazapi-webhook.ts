@@ -261,14 +261,44 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const rawBody = await request.text();
         console.log("📦 PAYLOAD_RAW:", rawBody.slice(0, 1000));
 
+        let payload: UazapiPayload | null = null;
+        try {
+          payload = JSON.parse(rawBody) as UazapiPayload;
+        } catch {
+          payload = null;
+        }
+
         // Persiste o RAW no banco AGUARDANDO o insert (sem fire-and-forget),
-        // antes de resolver user_id/token. Isso garante que o payload bruto
-        // fica salvo mesmo se qualquer processamento abaixo quebrar.
+        // usando supabaseAdmin para bypassar RLS. Quando o token permite,
+        // grava também o user_id para aparecer na tela de Logs do dono.
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const msgForRawLog = payload?.message ?? payload?.data;
+          const tokenForRawLog = payload ? pickInstanceToken(payload) : null;
+          let userIdForRawLog: string | null = null;
+          if (tokenForRawLog) {
+            const { data: num } = await supabaseAdmin
+              .from("whatsapp_numbers")
+              .select("user_id")
+              .eq("uazapi_token", tokenForRawLog)
+              .order("updated_at", { ascending: false, nullsFirst: false })
+              .limit(1)
+              .maybeSingle();
+            userIdForRawLog = num?.user_id ?? null;
+            if (!userIdForRawLog) {
+              const { data: integ } = await supabaseAdmin
+                .from("integrations")
+                .select("user_id")
+                .eq("uazapi_token", tokenForRawLog)
+                .order("updated_at", { ascending: false, nullsFirst: false })
+                .limit(1)
+                .maybeSingle();
+              userIdForRawLog = integ?.user_id ?? null;
+            }
+          }
           const { error: rawLogError } = await supabaseAdmin.from("agent_logs").insert({
-            user_id: null,
-            phone: "debug",
+            user_id: userIdForRawLog,
+            phone: extractPhone(msgForRawLog?.chatid, msgForRawLog?.sender) ?? "debug",
             type: "message_received",
             level: "info",
             summary: `PAYLOAD: ${rawBody.slice(0, 800)}`,
@@ -280,10 +310,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           console.error("PAYLOAD_RAW agent_logs insert threw:", e);
         }
 
-        let payload: UazapiPayload;
-        try {
-          payload = JSON.parse(rawBody) as UazapiPayload;
-        } catch {
+        if (!payload) {
           return new Response("invalid json", { status: 400 });
         }
         const bg = processWebhook(payload).catch((e) => {
