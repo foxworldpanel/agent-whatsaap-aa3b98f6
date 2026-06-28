@@ -1431,7 +1431,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 examples: knowledgeExamples?.length ?? 0,
                 history: aiHistory?.slice(-6) ?? [],
                 extraContext: orderStatusContext ?? null,
-                agentIdentity: (agent as { identidade?: string }).identidade ?? null,
+                agentIdentity: (agent as { agent_name?: string }).agent_name ?? null,
+                hasBaseInstruction: !!(agent as { base_instruction?: string }).base_instruction,
+                modulesEnabledCount: Object.values(
+                  ((agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {}),
+                ).filter(Boolean).length,
               }, null, 2),
               response: reply ?? null,
               durationMs: _claudeMs,
