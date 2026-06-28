@@ -854,11 +854,19 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                   status: "pending",
                   raw_response: result.raw as never,
                 });
+                try {
+                  const { logEvent } = await import("@/lib/agent-logger.server");
+                  await logEvent({ userId, phone, conversationId: conv.id, type: "free_trial", level: "info", summary: `🎵 Teste grátis processado: ${qty} para ${link.platform} (order ${result.order})`, metadata: { serviceId, qty, link: link.url, platform: link.platform, order: result.order } });
+                } catch {}
                 replyText =
                   `Recebi! Já liberei ${qty} ${matched?.category?.toLowerCase().includes("view") || matched?.category?.toLowerCase().includes("visual") ? "views" : "unidades"} grátis no seu link, costuma chegar em poucos minutos ✅`;
               } catch (e) {
                 const raw = e instanceof Error ? e.message : String(e);
                 console.error("[free-trial] smm add failed", { error: raw, serviceId, qty, url: link.url, platform: link.platform });
+                try {
+                  const { logEvent } = await import("@/lib/agent-logger.server");
+                  await logEvent({ userId, phone, conversationId: conv.id, type: "free_trial", level: "error", summary: `Falha no teste grátis (${link.platform})`, error: raw, metadata: { serviceId, qty, link: link.url, platform: link.platform } });
+                } catch {}
                 const low = raw.toLowerCase();
                 if (/private|privado|not.*public/.test(low)) {
                   replyText = "Seu perfil precisa estar público pra receber as views. Deixa público e me manda o link de novo!";
