@@ -327,6 +327,9 @@ export async function generateAgentReply(params: {
     latestClientMessageLength: latestClientMessage.length,
   });
 
+  const contextoDetectado = detectarContexto(latestClientMessage, history);
+  console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(system.length / 4));
+
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
