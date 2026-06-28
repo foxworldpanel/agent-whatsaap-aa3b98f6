@@ -1195,6 +1195,19 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
         let reply: string;
         try {
+          // Log resumo do prompt montado (sempre do banco, sem cache)
+          const _mods = (agent as { modules?: Record<string, string> }).modules ?? {};
+          const _modsEnabled = (agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {};
+          const activeModulesCount = Object.entries(_mods).filter(
+            ([k, v]) => v && String(v).trim() && _modsEnabled[k] !== false,
+          ).length;
+          const loadedServicesCount = servicesContext
+            ? (servicesContext.match(/\nID: /g)?.length ?? 0)
+            : 0;
+          console.log(
+            `Prompt montado: ${activeModulesCount} módulos ativos | ${loadedServicesCount} serviços carregados | ${knowledgeExamples.length} exemplos na base`,
+          );
+
           const aiHistory = ((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>).filter(
             (m) =>
               !/não consigo ouvir áudio por aqui/i.test(m.body ?? "") &&
