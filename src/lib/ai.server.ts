@@ -257,7 +257,7 @@ export async function generateAgentReply(params: {
     .filter(Boolean)
     .join("\n\n");
 
-  const messages = history.slice(-10).map((m) => ({
+  const messages = history.slice(-8).map((m) => ({
     role: m.sender === "cliente" ? "user" : "assistant",
     content: m.body,
   }));
