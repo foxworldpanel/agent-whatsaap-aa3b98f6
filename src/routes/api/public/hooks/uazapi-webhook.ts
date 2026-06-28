@@ -1387,6 +1387,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             forbiddenRules,
             freeTestServices,
             extraContext: orderStatusContext,
+            inputKind: kind,
           };
           try {
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
