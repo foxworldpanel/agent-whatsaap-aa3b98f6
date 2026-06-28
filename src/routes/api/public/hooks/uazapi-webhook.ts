@@ -261,49 +261,56 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const rawBody = await request.text();
         console.log("📦 PAYLOAD_RAW:", rawBody.slice(0, 1000));
 
-        // Persiste o RAW no banco AGUARDANDO o insert (sem fire-and-forget),
-        // resolvendo user_id via token para o log aparecer na UI (RLS por user_id).
-        try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          let parsedForToken: UazapiPayload | null = null;
-          try { parsedForToken = JSON.parse(rawBody) as UazapiPayload; } catch {}
-          const token = parsedForToken ? pickInstanceToken(parsedForToken) : null;
-          const phoneForLog = parsedForToken
-            ? extractPhone(parsedForToken.message?.chatid, parsedForToken.message?.sender)
-            : null;
-          let userIdForLog: string | null = null;
-          if (token) {
-            const { data: num } = await supabaseAdmin
-              .from("whatsapp_numbers")
-              .select("user_id")
-              .eq("uazapi_token", token)
-              .maybeSingle();
-            if (num?.user_id) userIdForLog = num.user_id;
-            else {
-              const { data: integ } = await supabaseAdmin
-                .from("integrations")
-                .select("user_id")
-                .eq("uazapi_token", token)
-                .maybeSingle();
-              if (integ?.user_id) userIdForLog = integ.user_id;
-            }
-          }
-          await supabaseAdmin.from("agent_logs").insert({
-            user_id: userIdForLog,
-            phone: phoneForLog ?? "raw",
-            type: "message_received",
-            level: "info",
-            summary: `📦 PAYLOAD RAW: ${rawBody.slice(0, 400)}`,
-            metadata: { raw: rawBody.slice(0, 4000) } as never,
-          });
-        } catch (e) {
-          console.error("raw payload log failed", e);
-        }
-
-        let payload: UazapiPayload;
+        let payload: UazapiPayload | null = null;
         try {
           payload = JSON.parse(rawBody) as UazapiPayload;
         } catch {
+          payload = null;
+        }
+
+        // Persiste o RAW no banco AGUARDANDO o insert (sem fire-and-forget),
+        // usando supabaseAdmin para bypassar RLS. Quando o token permite,
+        // grava também o user_id para aparecer na tela de Logs do dono.
+        try {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const msgForRawLog = payload?.message ?? payload?.data;
+          const tokenForRawLog = payload ? pickInstanceToken(payload) : null;
+          let userIdForRawLog: string | null = null;
+          if (tokenForRawLog) {
+            const { data: num } = await supabaseAdmin
+              .from("whatsapp_numbers")
+              .select("user_id")
+              .eq("uazapi_token", tokenForRawLog)
+              .order("updated_at", { ascending: false, nullsFirst: false })
+              .limit(1)
+              .maybeSingle();
+            userIdForRawLog = num?.user_id ?? null;
+            if (!userIdForRawLog) {
+              const { data: integ } = await supabaseAdmin
+                .from("integrations")
+                .select("user_id")
+                .eq("uazapi_token", tokenForRawLog)
+                .order("updated_at", { ascending: false, nullsFirst: false })
+                .limit(1)
+                .maybeSingle();
+              userIdForRawLog = integ?.user_id ?? null;
+            }
+          }
+          const { error: rawLogError } = await supabaseAdmin.from("agent_logs").insert({
+            user_id: userIdForRawLog,
+            phone: extractPhone(msgForRawLog?.chatid, msgForRawLog?.sender) ?? "debug",
+            type: "message_received",
+            level: "info",
+            summary: `PAYLOAD: ${rawBody.slice(0, 800)}`,
+            metadata: { raw: rawBody.slice(0, 800) } as never,
+            created_at: new Date().toISOString(),
+          });
+          if (rawLogError) console.error("PAYLOAD_RAW agent_logs insert failed:", rawLogError);
+        } catch (e) {
+          console.error("PAYLOAD_RAW agent_logs insert threw:", e);
+        }
+
+        if (!payload) {
           return new Response("invalid json", { status: 400 });
         }
         const bg = processWebhook(payload).catch((e) => {
