@@ -37,6 +37,20 @@ export const Route = createFileRoute("/api/public/hooks/auto-campaign-dispatcher
 
             let sent = 0;
             for (const c of candidates) {
+              // Respeita kill switch por conversa e bloqueio do contato
+              const { data: conv } = await supabaseAdmin
+                .from("conversations")
+                .select("agent_enabled, needs_review")
+                .eq("user_id", camp.user_id)
+                .eq("contact_id", c.id)
+                .maybeSingle();
+              if (conv && (conv.agent_enabled === false || conv.needs_review === true)) continue;
+              const { data: ct } = await supabaseAdmin
+                .from("contacts")
+                .select("status")
+                .eq("id", c.id)
+                .maybeSingle();
+              if (ct?.status === "bloqueado") continue;
               const message = (camp.message_template as string).replace(/\{nome\}/gi, c.nome || "");
               let status: "sent" | "failed" = "sent";
               let errMsg: string | undefined;
