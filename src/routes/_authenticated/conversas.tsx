@@ -96,6 +96,16 @@ function avatarColor(seed: string): string {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
+function isConversationBlocked(conversation: Conv | null): boolean {
+  if (!conversation) return false;
+  return (
+    conversation.needs_review === true ||
+    conversation.contact?.temperatura === "bloqueado" ||
+    conversation.review_reason?.toLowerCase().includes("bloque") === true ||
+    conversation.internal_note?.toLowerCase().includes("bloque") === true
+  );
+}
+
 function Conversas() {
   const qc = useQueryClient();
   const fetchConvs = useServerFn(listConversations);
@@ -136,6 +146,7 @@ function Conversas() {
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
   );
+  const activeBlocked = isConversationBlocked(active);
 
   const msgsQ = useQuery({
     queryKey: ["messages", activeId],
@@ -166,7 +177,24 @@ function Conversas() {
       await qc.cancelQueries({ queryKey: ["conversations"] });
       const previous = qc.getQueriesData({ queryKey: ["conversations"] });
       qc.setQueriesData<Conv[]>({ queryKey: ["conversations"] }, (old) =>
-        old?.map((c) => (c.id === activeId ? { ...c, agent_enabled: enabled } : c)) ?? old,
+        old?.map((c) =>
+          c.id === activeId
+            ? {
+                ...c,
+                agent_enabled: enabled,
+                ...(enabled
+                  ? {
+                      needs_review: false,
+                      review_reason: null,
+                      auto_paused_at: null,
+                      internal_note: null,
+                      status: "aguardando" as const,
+                      contact: c.contact ? { ...c.contact, temperatura: "frio" as const } : c.contact,
+                    }
+                  : {}),
+              }
+            : c,
+        ) ?? old,
       );
       return { previous };
     },
@@ -189,6 +217,22 @@ function Conversas() {
     mutationFn: () => reactivateFn({ data: { conversationId: activeId! } }),
     onSuccess: () => {
       toast.success("Conversa desbloqueada");
+      qc.setQueriesData<Conv[]>({ queryKey: ["conversations"] }, (old) =>
+        old?.map((c) =>
+          c.id === activeId
+            ? {
+                ...c,
+                agent_enabled: true,
+                needs_review: false,
+                review_reason: null,
+                auto_paused_at: null,
+                internal_note: null,
+                status: "aguardando" as const,
+                contact: c.contact ? { ...c.contact, temperatura: "frio" as const } : c.contact,
+              }
+            : c,
+        ) ?? old,
+      );
       qc.invalidateQueries({ queryKey: ["conversations"] });
       qc.invalidateQueries({ queryKey: ["conversations_review_count"] });
     },
@@ -199,6 +243,21 @@ function Conversas() {
     mutationFn: () => blockFn({ data: { conversationId: activeId! } }),
     onSuccess: () => {
       toast.success("Conversa bloqueada");
+      qc.setQueriesData<Conv[]>({ queryKey: ["conversations"] }, (old) =>
+        old?.map((c) =>
+          c.id === activeId
+            ? {
+                ...c,
+                agent_enabled: false,
+                needs_review: true,
+                review_reason: "bloqueado manualmente",
+                auto_paused_at: new Date().toISOString(),
+                internal_note: "Conversa bloqueada manualmente pelo painel.",
+                contact: c.contact ? { ...c.contact, temperatura: "bloqueado" as const } : c.contact,
+              }
+            : c,
+        ) ?? old,
+      );
       qc.invalidateQueries({ queryKey: ["conversations"] });
       qc.invalidateQueries({ queryKey: ["conversations_review_count"] });
     },
@@ -491,27 +550,40 @@ function Conversas() {
               {active && (
                 <button
                   type="button"
-                  onClick={() => toggleMut.mutate(!active.agent_enabled)}
-                  disabled={toggleMut.isPending}
+                  onClick={() => {
+                    const shouldEnable = !active.agent_enabled || activeBlocked;
+                    if (shouldEnable) {
+                      reactivateMut.mutate();
+                    } else {
+                      toggleMut.mutate(false);
+                    }
+                  }}
+                  disabled={toggleMut.isPending || reactivateMut.isPending}
                   className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                    active.agent_enabled
+                    active.agent_enabled && !activeBlocked
                       ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      : activeBlocked
+                      ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
                       : "border-neutral-200 bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
                   }`}
-                  title="Liga ou desliga o agente IA apenas para este contato"
+                  title={activeBlocked ? "Desbloquear conversa e reativar o agente" : "Liga ou desliga o agente IA apenas para este contato"}
                 >
                   <span
                     className={`relative inline-flex h-4 w-7 items-center rounded-full transition ${
-                      active.agent_enabled ? "bg-emerald-500" : "bg-neutral-400"
+                      active.agent_enabled && !activeBlocked ? "bg-emerald-500" : activeBlocked ? "bg-red-500" : "bg-neutral-400"
                     }`}
                   >
                     <span
                       className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition ${
-                        active.agent_enabled ? "translate-x-3.5" : "translate-x-0.5"
+                        active.agent_enabled && !activeBlocked ? "translate-x-3.5" : "translate-x-0.5"
                       }`}
                     />
                   </span>
-                  Agente {active.agent_enabled ? "ativo" : "desligado"}
+                  {activeBlocked
+                    ? reactivateMut.isPending
+                      ? "Desbloqueando…"
+                      : "Desbloquear agente"
+                    : `Agente ${active.agent_enabled ? "ativo" : "desligado"}`}
                 </button>
               )}
               <button className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50">
@@ -534,7 +606,7 @@ function Conversas() {
                 </button>
               )}
               {active && (
-                active.needs_review ? (
+                activeBlocked ? (
                   <button
                     type="button"
                     onClick={() => reactivateMut.mutate()}
@@ -568,11 +640,11 @@ function Conversas() {
             {!active && (
               <p className="text-sm text-neutral-500">Nada selecionado.</p>
             )}
-            {active?.needs_review && (
+            {activeBlocked && active && (
               <div className="mb-2 flex flex-wrap items-start justify-between gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm shadow-sm">
                 <div className="min-w-0">
                   <p className="font-semibold text-red-700">
-                    Agente pausado automaticamente
+                    Conversa bloqueada
                   </p>
                   <p className="mt-0.5 text-xs text-red-700/90">
                     {active.internal_note ??
