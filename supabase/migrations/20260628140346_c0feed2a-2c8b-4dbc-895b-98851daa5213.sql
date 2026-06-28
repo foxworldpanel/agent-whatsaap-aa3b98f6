@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.cleanup_old_agent_logs() FROM PUBLIC, anon, authenticated;

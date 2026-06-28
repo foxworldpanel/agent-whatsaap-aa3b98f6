@@ -268,6 +268,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const { text, kind } = extractContent(payload);
         console.log('=== INÍCIO DO PROCESSAMENTO ===');
         console.log('Mensagem recebida:', { text, kind, phone: extractPhone(payload.message?.chatid, payload.message?.sender), messageId: extractMessageId(payload) });
+        try {
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          await logEvent({ phone: extractPhone(payload.message?.chatid, payload.message?.sender), type: "message_received", level: "info", summary: `📩 Mensagem recebida (${kind}): ${(text ?? "").slice(0, 80)}`, metadata: { kind, messageId: extractMessageId(payload) } });
+        } catch {}
         let mediaUrl = extractMediaUrl(payload);
         const messageId = extractMessageId(payload);
         if (!text && kind !== "audio") return new Response("empty");
@@ -287,6 +291,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             const code = (dupErr as { code?: string }).code;
             if (code === "23505" || /duplicate key/i.test(dupErr.message)) {
               console.log(`Mensagem duplicada bloqueada (processed_messages): ${messageId}`);
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({ phone, type: "duplicate_blocked", level: "warn", summary: `Mensagem duplicada bloqueada (${messageId})`, metadata: { messageId } });
+              } catch {}
               return new Response("ok (duplicate messageId)");
             }
             // erro inesperado: loga e segue (não bloqueia o atendimento)
@@ -514,10 +522,19 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
             const { transcribeAudioUrl } = await import("@/lib/ai.server");
+            const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv?.id, type: "whisper_transcribe", level: "info", summary: `📝 Whisper transcreveu áudio (${transcript?.length ?? 0} chars)`, response: transcript ?? null, durationMs: Date.now() - _ttStart });
+            } catch {}
           } catch (e) {
             console.error("transcribe failed", e);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv?.id, type: "whisper_transcribe", level: "error", summary: "Falha ao transcrever áudio (Whisper)", error: (e as Error)?.message ?? String(e) });
+            } catch {}
           }
         }
 
@@ -837,11 +854,19 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                   status: "pending",
                   raw_response: result.raw as never,
                 });
+                try {
+                  const { logEvent } = await import("@/lib/agent-logger.server");
+                  await logEvent({ userId, phone, conversationId: conv.id, type: "free_trial", level: "info", summary: `🎵 Teste grátis processado: ${qty} para ${link.platform} (order ${result.order})`, metadata: { serviceId, qty, link: link.url, platform: link.platform, order: result.order } });
+                } catch {}
                 replyText =
                   `Recebi! Já liberei ${qty} ${matched?.category?.toLowerCase().includes("view") || matched?.category?.toLowerCase().includes("visual") ? "views" : "unidades"} grátis no seu link, costuma chegar em poucos minutos ✅`;
               } catch (e) {
                 const raw = e instanceof Error ? e.message : String(e);
                 console.error("[free-trial] smm add failed", { error: raw, serviceId, qty, url: link.url, platform: link.platform });
+                try {
+                  const { logEvent } = await import("@/lib/agent-logger.server");
+                  await logEvent({ userId, phone, conversationId: conv.id, type: "free_trial", level: "error", summary: `Falha no teste grátis (${link.platform})`, error: raw, metadata: { serviceId, qty, link: link.url, platform: link.platform } });
+                } catch {}
                 const low = raw.toLowerCase();
                 if (/private|privado|not.*public/.test(low)) {
                   replyText = "Seu perfil precisa estar público pra receber as views. Deixa público e me manda o link de novo!";
@@ -1203,6 +1228,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               key: integ.smm_api_key,
             });
             console.log("Serviços carregados:", services.length);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: services.length > 0 ? "info" : "warn", summary: `💰 Serviços carregados: ${services.length}`, metadata: { count: services.length } });
+            } catch {}
             if (services.length > 0) {
               // Log dos serviços Spotify cru, para auditar mínimos/máximos.
               const spotifyRaw = services.filter((s) =>
@@ -1249,6 +1278,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           } catch (e) {
             console.error("smm services fetch failed", e);
             servicesFetchFailed = true;
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: "error", summary: "Falha ao buscar serviços SMM", error: (e as Error)?.message ?? String(e) });
+            } catch {}
           }
         }
 
@@ -1332,14 +1365,38 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
             console.log('Prompt context:', { modules: _modulesCount, services: freeTestServices?.length ?? 0, examples: knowledgeExamples?.length ?? 0, historyLen: aiHistory?.length ?? 0, extraContext: orderStatusContext?.slice(0, 200) ?? '' });
           } catch {}
+          const _claudeStart = Date.now();
           reply = await generateAgentReply(_claudeArgs);
+          const _claudeMs = Date.now() - _claudeStart;
           console.log('Resposta do Claude:', reply);
           console.log('=== FIM DO PROCESSAMENTO ===');
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId, phone, conversationId: conv?.id,
+              type: "claude_reply", level: "info",
+              summary: `🤖 Claude respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
+              prompt: JSON.stringify({
+                contact: _claudeArgs.contact,
+                servicesCount: freeTestServices?.length ?? 0,
+                examples: knowledgeExamples?.length ?? 0,
+                history: aiHistory?.slice(-6) ?? [],
+                extraContext: orderStatusContext ?? null,
+                agentIdentity: (agent as { identidade?: string }).identidade ?? null,
+              }, null, 2),
+              response: reply ?? null,
+              durationMs: _claudeMs,
+            });
+          } catch {}
           }
           if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
         } catch (e) {
           console.error("claude failed", e);
           reply = FALLBACK_REPLY;
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({ userId, phone, conversationId: conv?.id, type: "claude_reply", level: "error", summary: "Falha ao chamar Claude", error: (e as Error)?.message ?? String(e) });
+          } catch {}
         }
 
         // Divide a resposta em partes quando o agente usa "===SPLIT===" (link separado).
@@ -1411,6 +1468,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             } else {
             memMarkSent(phone, replyParts[0]);
             // Mantém o "gravando áudio" durante a geração do TTS e durante o envio.
+            const _ttsStart = Date.now();
             const [generatedAudio] = await Promise.all([
               ttsElevenLabsBase64({
                 apiKey: integ.elevenlabs_api_key!,
@@ -1422,6 +1480,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               }),
             ]);
             audioDataUri = generatedAudio;
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv.id, type: "elevenlabs_tts", level: "info", summary: `🔊 ElevenLabs gerou áudio (${Date.now() - _ttsStart}ms)`, response: replyParts[0], durationMs: Date.now() - _ttsStart });
+            } catch {}
             await Promise.all([
               uazapiSendAudio(sendCreds, phone, audioDataUri),
               uazapiSendRecording(sendCreds, phone, 8000).catch((e) => {
@@ -1462,6 +1524,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           await uazapiClearPresence(sendCreds, phone).catch(() => {});
         } catch (e) {
           await uazapiClearPresence(sendCreds, phone).catch(() => {});
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({ userId, phone, conversationId: conv.id, type: "send_failed", level: "error", summary: "Falha ao enviar mensagem via Uazapi", error: (e as Error)?.message ?? String(e) });
+          } catch {}
           return new Response(`uazapi send failed: ${(e as Error).message}`, { status: 502 });
         }
 
