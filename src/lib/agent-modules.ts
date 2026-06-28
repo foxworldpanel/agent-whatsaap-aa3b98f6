@@ -659,8 +659,8 @@ Instagram: "Agência cobra R$2.000/mês pra gerenciar perfil. Aqui você turbina
 YouTube: "Impulsionar vídeo no Google Ads custa R$200. Aqui 1000 views sai R$10"
 Faz o preço parecer ridiculamente barato antes de falar o valor.`,
 
-  fechamento_3: `Passo 1 — Resumo: "Então você quer {quantidade} {serviço} no {plataforma} por R${valor}, certo?"
-Passo 2 — Facilitar: "É só criar a conta em mindsmmpanel.com e fazer o PIX de R${valor}"
+  fechamento_3: `Passo 1 — Resumo: "Então você quer {quantidade} {serviço} no {plataforma} por R$\${valor}, certo?"
+Passo 2 — Facilitar: "É só criar a conta em mindsmmpanel.com e fazer o PIX de R$\${valor}"
 Passo 3 — Próximo passo claro: "Me chama quando estiver dentro do painel que te ajudo a fazer o pedido!"
 Nunca deixa o cliente sem saber o que fazer a seguir. Nunca fecha sem confirmar o resumo antes.`,
 
