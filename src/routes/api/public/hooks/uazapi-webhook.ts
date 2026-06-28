@@ -96,6 +96,22 @@ function extractMediaUrl(p: UazapiPayload): string | null {
   return m.mediaUrl ?? null;
 }
 
+function extractAudioSeconds(p: UazapiPayload): number | null {
+  const m = (p.message ?? p.data ?? {}) as Record<string, unknown>;
+  const candidates: unknown[] = [
+    m.seconds,
+    m.duration,
+    m.audioSeconds,
+    (m.audioMessage as Record<string, unknown> | undefined)?.seconds,
+    (m.pttMessage as Record<string, unknown> | undefined)?.seconds,
+  ];
+  for (const c of candidates) {
+    const n = typeof c === "number" ? c : typeof c === "string" ? parseFloat(c) : NaN;
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
 function extractMessageId(p: UazapiPayload): string | null {
   const m = p.message ?? p.data ?? {};
   return m.messageid ?? m.messageId ?? m.id ?? null;
@@ -366,6 +382,24 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         let mediaUrl = extractMediaUrl(payload);
         const messageId = extractMessageId(payload);
         if (!text && kind !== "audio") return new Response("empty");
+
+        // Áudios muito curtos (<1s) são ruído acidental — ignora sem responder
+        if (kind === "audio") {
+          const secs = extractAudioSeconds(payload);
+          if (secs !== null && secs < 1) {
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                phone: extractPhone(payload.message?.chatid, payload.message?.sender),
+                type: "audio_ignored_short",
+                level: "info",
+                summary: `🔇 Áudio curto ignorado (${secs.toFixed(2)}s < 1s)`,
+                metadata: { seconds: secs, messageId },
+              });
+            } catch {}
+            return new Response("ignored: short audio");
+          }
+        }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
