@@ -1,0 +1,1 @@
+UPDATE agent_config SET agent_enabled = true WHERE user_id IN ('09f4dee9-0a1b-4c43-b083-75cc64feb99d','f8da521a-e8db-4efe-8c9b-9bd69749c0a7');
