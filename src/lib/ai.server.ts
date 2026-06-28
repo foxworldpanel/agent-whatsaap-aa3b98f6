@@ -128,6 +128,19 @@ export async function generateAgentReply(params: {
     `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
     agent.base_instruction,
+    (() => {
+      const mods = (agent as { modules?: Record<string, string> }).modules;
+      const enabled = (agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {};
+      if (!mods || typeof mods !== "object") return "";
+      const active = Object.entries(mods).filter(([k, v]) => {
+        if (!v || !String(v).trim()) return false;
+        return enabled[k] !== false; // default: enabled
+      });
+      if (active.length === 0) return "";
+      return `==== BASE DE CONHECIMENTO MODULAR (use como instruções obrigatórias de comportamento e conteúdo) ====\n\n${active
+        .map(([k, v]) => `--- MÓDULO: ${k} ---\n${v}`)
+        .join("\n\n")}\n==== FIM DA BASE MODULAR ====`;
+    })(),
     `REGRA #1 (ACIMA DE TUDO): SEMPRE responda exatamente o que o cliente perguntou na ÚLTIMA mensagem. Leia a última mensagem do cliente, entenda o que ele quer saber, e responda ISSO. NUNCA mude de assunto, NUNCA solte explicação genérica sobre a plataforma se o cliente não perguntou. Se perguntou preço → fale de preço. Se cumprimentou → cumprimente de volta. A resposta precisa fazer sentido para a pergunta atual.`,
     knowledgeExamples.length > 0
       ? `==== BASE DE CONHECIMENTO (REFERÊNCIA DE ESTILO) ====\nExemplos reais de atendimentos do dono do negócio. Use APENAS como referência de TOM, TAMANHO e VOCABULÁRIO — NÃO como respostas prontas.\n\nRegras de uso:\n1. NUNCA copie o conteúdo de um exemplo se ele não responder à pergunta atual do cliente.\n2. NUNCA solte um trecho de exemplo "porque parece encaixar" — só use se a pergunta atual realmente bate com a do exemplo.\n3. Se nenhum exemplo se aplica, IGNORE os exemplos e responda a pergunta com suas próprias palavras, mantendo o tom geral.\n4. A pergunta atual do cliente sempre vence sobre qualquer exemplo.\n\nEXEMPLOS:\n${knowledgeExamples
