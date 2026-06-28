@@ -1463,8 +1463,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               catalogServicesCount: servicesContext
                 ? (servicesContext.match(/\nID: /g)?.length ?? 0)
                 : 0,
-              servicesRealtimeEnabled: !!a0.services_realtime,
-              hasSmmApiKey: !!integ.smm_api_key,
+              catalogInPrompt,
+              catalogOnlyRelevant: onlyRelevant,
                 examples: knowledgeExamples?.length ?? 0,
                 history: aiHistory?.slice(-6) ?? [],
                 extraContext: orderStatusContext ?? null,
