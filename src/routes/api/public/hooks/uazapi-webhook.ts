@@ -1228,6 +1228,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               key: integ.smm_api_key,
             });
             console.log("Serviços carregados:", services.length);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: services.length > 0 ? "info" : "warn", summary: `💰 Serviços carregados: ${services.length}`, metadata: { count: services.length } });
+            } catch {}
             if (services.length > 0) {
               // Log dos serviços Spotify cru, para auditar mínimos/máximos.
               const spotifyRaw = services.filter((s) =>
@@ -1274,6 +1278,10 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           } catch (e) {
             console.error("smm services fetch failed", e);
             servicesFetchFailed = true;
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: "error", summary: "Falha ao buscar serviços SMM", error: (e as Error)?.message ?? String(e) });
+            } catch {}
           }
         }
 
