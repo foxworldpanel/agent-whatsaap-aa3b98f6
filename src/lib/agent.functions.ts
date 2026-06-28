@@ -168,6 +168,37 @@ export const reactivateConversation = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Manually block a conversation: pauses the agent and flags it for review.
+export const blockConversation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ conversationId: z.string().uuid(), reason: z.string().max(200).optional() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: conv, error } = await supabaseAdmin
+      .from("conversations")
+      .update({
+        agent_enabled: false,
+        needs_review: true,
+        review_reason: data.reason ?? "bloqueado manualmente",
+        auto_paused_at: new Date().toISOString(),
+        internal_note: "Conversa bloqueada manualmente pelo painel.",
+      })
+      .eq("id", data.conversationId)
+      .in("user_id", userIds)
+      .select("id, contact_id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!conv) throw new Error("Conversa não encontrada.");
+    await supabaseAdmin
+      .from("contacts")
+      .update({ temperatura: "bloqueado", temperatura_updated_at: new Date().toISOString() })
+      .eq("id", conv.contact_id);
+    return { ok: true };
+  });
+
 // Counter for the sidebar badge ("conversas para revisar").
 export const countConversationsToReview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
