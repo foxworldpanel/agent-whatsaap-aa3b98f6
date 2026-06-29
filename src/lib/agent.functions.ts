@@ -136,8 +136,8 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
-      panel_screenshot_mobile_url: z.string().url().max(2000).nullable().optional(),
-      panel_screenshot_desktop_url: z.string().url().max(2000).nullable().optional(),
+      panel_screenshot_mobile_url: z.string().max(2000).nullable().optional(),
+      panel_screenshot_desktop_url: z.string().max(2000).nullable().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
