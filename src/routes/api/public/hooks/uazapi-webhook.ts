@@ -710,7 +710,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           user_id: userId,
           conversation_id: conv.id,
           sender: outbound ? "agente" : "cliente",
-          kind,
+          kind: dbKind,
           body: inboundBody,
           audio_url: kind === "audio" ? mediaUrl : null,
           external_id: messageId,
