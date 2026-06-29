@@ -13,11 +13,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { getAgentConfig, saveAgentModules, setServicesRealtime, saveBehavior } from "@/lib/agent.functions";
+import { getAgentConfig, saveAgentModules, setServicesRealtime, saveBehavior, savePanelScreenshots } from "@/lib/agent.functions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
 import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/agente")({
   ssr: false,
@@ -31,6 +32,7 @@ function AgentePage() {
   const saveFn = useServerFn(saveAgentModules);
   const toggleRealtimeFn = useServerFn(setServicesRealtime);
   const saveBehaviorFn = useServerFn(saveBehavior);
+  const savePanelShotsFn = useServerFn(savePanelScreenshots);
   const { data: cfg } = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
 
   const [modules, setModules] = useState<Record<string, string>>({});
@@ -226,6 +228,16 @@ function AgentePage() {
                   </CollapsibleTrigger>
                 </div>
                 <CollapsibleContent className="border-t bg-muted/10 p-4">
+                  {m.key === "guia_visual_painel" && (
+                    <PanelScreenshotsSlots
+                      mobileUrl={(cfg as { panel_screenshot_mobile_url?: string | null } | null | undefined)?.panel_screenshot_mobile_url ?? null}
+                      desktopUrl={(cfg as { panel_screenshot_desktop_url?: string | null } | null | undefined)?.panel_screenshot_desktop_url ?? null}
+                      onSaved={async (patch) => {
+                        await savePanelShotsFn({ data: patch });
+                        await qc.invalidateQueries({ queryKey: ["agent_config"] });
+                      }}
+                    />
+                  )}
                   <Textarea
                     value={value}
                     onChange={(e) =>
@@ -249,6 +261,110 @@ function AgentePage() {
             </Card>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function PanelScreenshotsSlots({
+  mobileUrl,
+  desktopUrl,
+  onSaved,
+}: {
+  mobileUrl: string | null;
+  desktopUrl: string | null;
+  onSaved: (patch: {
+    panel_screenshot_mobile_url?: string | null;
+    panel_screenshot_desktop_url?: string | null;
+  }) => Promise<void>;
+}) {
+  return (
+    <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <PanelShotSlot
+        label="📱 Painel no celular"
+        kind="mobile"
+        url={mobileUrl}
+        onSaved={(url) => onSaved({ panel_screenshot_mobile_url: url })}
+      />
+      <PanelShotSlot
+        label="🖥️ Painel no desktop"
+        kind="desktop"
+        url={desktopUrl}
+        onSaved={(url) => onSaved({ panel_screenshot_desktop_url: url })}
+      />
+    </div>
+  );
+}
+
+function PanelShotSlot({
+  label,
+  kind,
+  url,
+  onSaved,
+}: {
+  label: string;
+  kind: "mobile" | "desktop";
+  url: string | null;
+  onSaved: (url: string | null) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleFile(file: File) {
+    setBusy(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Sessão expirada.");
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `${uid}/${kind}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("panel-guide")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: signed, error: sErr } = await supabase.storage
+        .from("panel-guide")
+        .createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (sErr || !signed) throw sErr ?? new Error("Falha ao gerar URL.");
+      await onSaved(signed.signedUrl);
+      toast.success("Imagem salva");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="mb-2 text-sm font-medium">{label}</div>
+      {url ? (
+        <img src={url} alt={label} className="mb-2 max-h-48 w-full rounded object-contain" />
+      ) : (
+        <div className="mb-2 flex h-32 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+          Nenhuma imagem enviada
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <Input
+          type="file"
+          accept="image/*"
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleFile(f);
+            e.currentTarget.value = "";
+          }}
+        />
+        {url && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => onSaved(null)}
+          >
+            Remover
+          </Button>
+        )}
       </div>
     </div>
   );
