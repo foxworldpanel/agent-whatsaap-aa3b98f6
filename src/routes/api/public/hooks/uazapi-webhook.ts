@@ -49,6 +49,8 @@ type UazapiPayload = {
     mediaType?: string;
     audioMessage?: unknown;
     pttMessage?: unknown;
+    imageMessage?: unknown;
+    caption?: string;
     // Meta Ads / WhatsApp Cloud referral fields (vários formatos possíveis)
     referral?: Record<string, unknown>;
     ctwa_clid?: string;
