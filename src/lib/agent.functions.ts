@@ -23,6 +23,8 @@ async function getSharedUazapiUserIds(context: { supabase: any; userId: string }
   return Array.from(new Set([context.userId, ...(sharedRows ?? []).map((row) => row.user_id)]));
 }
 
+type PanelShot = { url: string; path?: string; label?: string };
+
 export const getAgentConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -36,17 +38,17 @@ export const getAgentConfig = createServerFn({ method: "GET" })
 
     // URLs assinadas do Storage expiram; mantemos o path permanente no banco
     // e geramos uma URL fresca sempre que a tela do agente abre.
-    const refreshSignedUrls = async (items: unknown): Promise<unknown> => {
-      if (!Array.isArray(items)) return items;
+    const refreshSignedUrls = async (items: unknown): Promise<PanelShot[]> => {
+      if (!Array.isArray(items)) return [];
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       return Promise.all(
         items.map(async (item) => {
           const shot = item as { url?: string; path?: string; label?: string };
-          if (!shot?.path) return shot;
+          if (!shot?.path) return { url: shot.url ?? "", label: shot.label };
           const { data: signed } = await supabaseAdmin.storage
             .from("panel-guide")
             .createSignedUrl(shot.path, 60 * 60 * 24 * 7);
-          return { ...shot, url: signed?.signedUrl ?? shot.url };
+          return { url: signed?.signedUrl ?? shot.url ?? "", path: shot.path, label: shot.label };
         }),
       );
     };
@@ -223,7 +225,7 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
           if (existing?.id) {
             await supabaseAdmin
               .from("panel_guide")
-              .update({ name, description, image_url: item.url, source_slot: slot })
+              .update({ name, description, image_url: item.url, source_slot: slot } as never)
               .eq("id", existing.id);
           } else {
             await supabaseAdmin.from("panel_guide").insert({
@@ -234,7 +236,7 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
               storage_path: storagePath,
               source_slot: slot,
               extracted_content: null,
-            });
+            } as never);
           }
         }
       }
