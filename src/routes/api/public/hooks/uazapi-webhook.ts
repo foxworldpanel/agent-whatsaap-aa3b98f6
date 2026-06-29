@@ -230,6 +230,29 @@ function isFillerSingleWord(body: string): boolean {
   if (/\s/.test(t)) return false;
   return ONE_WORD_FILLER.has(t) || /^(k+|h+a+|r+s+)$/.test(t);
 }
+// Frases típicas de lead morno — NUNCA pausa, é interesse real adiado.
+const WARM_LEAD_RE = /\b(vou pensar|vou ver|vou resolver|volto depois|te aviso|te falo|qualquer coisa|mais tarde|amanha|amanhã|semana que vem|depois eu vejo|deixa eu pensar|preciso pensar)\b/i;
+function isWarmLead(body: string): boolean {
+  return WARM_LEAD_RE.test(body ?? "");
+}
+// Mensagem completamente sem sentido (gibberish). Conservador: só marca quando
+// claramente não há palavra real — evita falsos positivos em conversa engajada.
+function isNonsense(body: string): boolean {
+  const raw = (body ?? "").trim();
+  if (!raw) return false;
+  if (raw.length < 3) return false;
+  const t = normalizeText(raw);
+  if (/\?/.test(raw)) return false;
+  if (SMM_KEYWORDS.some((k) => t.includes(k))) return false;
+  // Sem nenhuma letra (só símbolos/dígitos isolados) → nonsense.
+  if (!/[a-z]/i.test(t)) return true;
+  // Token único, longo, sem vogais (ex.: "sdfghj").
+  if (!/\s/.test(t) && t.length >= 5 && !/[aeiou]/i.test(t)) return true;
+  // String longa com pouquíssima diversidade ("aaaaaaa", "kkkkkkk").
+  const letters = t.replace(/[^a-z]/g, "");
+  if (letters.length >= 6 && new Set(letters).size <= 2) return true;
+  return false;
+}
 function isOnTopic(body: string): boolean {
   const t = normalizeText(body ?? "");
   if (!t.trim()) return false;
@@ -242,29 +265,32 @@ function detectUnproductive(
   currentText: string,
   currentKind: "texto" | "audio",
 ): { reason: string } | null {
-  // 1) Ofensa / xingamento — bloqueio imediato.
+  // 1) Ofensa / xingamento direto — bloqueio imediato.
   if (OFFENSIVE_RE.test(currentText ?? "")) {
     return { reason: "Mensagem ofensiva detectada" };
   }
+  // 2) Guarda de engajamento: qualquer pergunta, tema de SMM/preço/plataforma
+  // ou sinal de lead morno ("vou pensar", "volto depois") NUNCA pausa.
+  const currentBody = currentText ?? "";
+  if (
+    /\?/.test(currentBody) ||
+    isOnTopic(currentBody) ||
+    isWarmLead(currentBody)
+  ) {
+    return null;
+  }
   // Junta a mensagem atual ao histórico recente (mais antiga → mais nova).
-  const recent = [...clientMsgs.slice(-6), { body: currentText ?? "", kind: currentKind }];
-  // 2) Filler de uma palavra repetido (ok, oi, hm, kkk…) 4x+ seguidas.
-  const fillerStreak = recent.slice(-5).filter((m) => m.kind === "texto" && isFillerSingleWord(m.body)).length;
-  if (fillerStreak >= 4) {
-    return { reason: "Respostas curtas repetidas sem contexto" };
-  }
-  // 3) Spam de figurinhas / áudios curtos sem texto.
+  const recent = [...clientMsgs.slice(-6), { body: currentBody, kind: currentKind }];
+  // 3) 5+ figurinhas/imagens seguidas sem nenhum texto.
   const last5 = recent.slice(-5);
-  const noisy = last5.filter(
-    (m) => m.kind === "sticker" || m.kind === "image" || (m.kind === "audio" && (m.body ?? "[áudio recebido]") === "[áudio recebido]"),
-  ).length;
-  if (last5.length >= 4 && noisy >= 4) {
-    return { reason: "Spam de figurinhas/áudios sem contexto" };
+  const stickerStreak = last5.filter((m) => m.kind === "sticker" || m.kind === "image").length;
+  if (last5.length >= 5 && stickerStreak >= 5) {
+    return { reason: "5+ figurinhas/imagens seguidas sem texto" };
   }
-  // 4) 3 mensagens seguidas de texto sem relação com SMM.
+  // 4) 3 mensagens completamente sem sentido seguidas.
   const last3Text = recent.filter((m) => m.kind === "texto" && (m.body ?? "").trim().length > 0).slice(-3);
-  if (last3Text.length >= 3 && last3Text.every((m) => !isOnTopic(m.body))) {
-    return { reason: "3 mensagens seguidas fora do contexto de SMM/compra" };
+  if (last3Text.length >= 3 && last3Text.every((m) => isNonsense(m.body))) {
+    return { reason: "3 mensagens sem sentido seguidas" };
   }
   return null;
 }
