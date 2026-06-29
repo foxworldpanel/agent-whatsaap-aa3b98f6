@@ -1492,6 +1492,51 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             extracted_content: extracted,
           });
         }
+        const appendConfigScreens = async (
+          slot: "mobile" | "desktop",
+          rawItems: unknown,
+        ) => {
+          if (!Array.isArray(rawItems)) return;
+          for (const [index, item] of rawItems.entries()) {
+            const shot = item as { url?: string; path?: string; label?: string };
+            if (!shot.url && !shot.path) continue;
+            const name = shot.label?.trim() || `${slot === "mobile" ? "Celular" : "Desktop"} ${index + 1}`;
+            if (panelScreens.some((s) => s.name === name)) continue;
+            const description = slot === "mobile" ? "Print do painel aberto no celular" : "Print do painel aberto no desktop/PC";
+            let extracted: string | null = null;
+            if (shouldUsePanelGuide) {
+              try {
+                let imageUrl = shot.url ?? "";
+                if (shot.path) {
+                  const { data: signed } = await supabaseAdmin.storage
+                    .from("panel-guide")
+                    .createSignedUrl(shot.path, 60 * 60);
+                  if (signed?.signedUrl) imageUrl = signed.signedUrl;
+                }
+                if (imageUrl) {
+                  const { describePanelScreen } = await import("@/lib/ai.server");
+                  extracted = await describePanelScreen({ imageUrl, name, description });
+                  if (shot.path && extracted) {
+                    await supabaseAdmin.from("panel_guide").insert({
+                      user_id: userId,
+                      name,
+                      description,
+                      image_url: imageUrl,
+                      storage_path: shot.path,
+                      source_slot: slot,
+                      extracted_content: extracted,
+                    } as never);
+                  }
+                }
+              } catch (e) {
+                console.error("panel guide config screenshot analysis failed", e);
+              }
+            }
+            panelScreens.push({ name, description, extracted_content: extracted });
+          }
+        };
+        await appendConfigScreens("mobile", (agent as { panel_screenshots_mobile?: unknown }).panel_screenshots_mobile);
+        await appendConfigScreens("desktop", (agent as { panel_screenshots_desktop?: unknown }).panel_screenshots_desktop);
 
         // Load forbidden rules so the agent always deflects without breaking them.
         const { data: frRows } = await supabaseAdmin
