@@ -272,7 +272,7 @@ function AgentePage() {
   );
 }
 
-type PanelShot = { url: string; label?: string };
+type PanelShot = { url: string; path?: string; label?: string };
 type PanelShotsCfg = {
   panel_screenshot_mobile_url?: string | null;
   panel_screenshot_desktop_url?: string | null;
@@ -364,7 +364,7 @@ function PanelShotGroup({
           .from("panel-guide")
           .createSignedUrl(path, 60 * 60 * 24 * 365);
         if (sErr || !signed) throw sErr ?? new Error("Falha ao gerar URL.");
-        uploaded.push({ url: signed.signedUrl, label: file.name.replace(/\.[^.]+$/, "") });
+        uploaded.push({ url: signed.signedUrl, path, label: file.name.replace(/\.[^.]+$/, "") });
       }
       await onChange([...items, ...uploaded]);
       toast.success(`${uploaded.length} imagem(ns) adicionada(s)`);
