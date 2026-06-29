@@ -1441,17 +1441,102 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .map((r) => ({ context: r.context, content: r.content as string }));
 
         // Load Panel Guide screens (Mind SMM) so the agent can step the customer through.
+        // If the owner uploaded new screenshots through the Agent IA card, we analyze
+        // them with Claude Vision only when the customer asks something about the panel.
+        const shouldUsePanelGuide = /painel|cadastro|cadastrar|conta|login|entrar|saldo|dep[oó]sito|pix|pedido|servi[çc]o|menu|bot[aã]o|onde clic|como faço|como usar/i.test(inboundBody ?? "");
         const { data: pgRows } = await supabaseAdmin
           .from("panel_guide")
-          .select("name, description, extracted_content")
+          .select("id, name, description, image_url, extracted_content, storage_path")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(30);
-        const panelScreens = (pgRows ?? []).map((r) => ({
-          name: r.name as string,
-          description: r.description as string | null,
-          extracted_content: r.extracted_content as string | null,
-        }));
+        const panelScreens: Array<{ name: string; description: string | null; extracted_content: string | null }> = [];
+        for (const row of pgRows ?? []) {
+          const r = row as {
+            id: string;
+            name: string;
+            description: string | null;
+            image_url: string;
+            extracted_content: string | null;
+            storage_path?: string | null;
+          };
+          let extracted = r.extracted_content;
+          if (shouldUsePanelGuide && !extracted && r.image_url) {
+            try {
+              let imageUrl = r.image_url;
+              if (r.storage_path) {
+                const { data: signed } = await supabaseAdmin.storage
+                  .from("panel-guide")
+                  .createSignedUrl(r.storage_path, 60 * 60);
+                if (signed?.signedUrl) imageUrl = signed.signedUrl;
+              }
+              const { describePanelScreen } = await import("@/lib/ai.server");
+              extracted = await describePanelScreen({
+                imageUrl,
+                name: r.name,
+                description: r.description,
+              });
+              if (extracted) {
+                await supabaseAdmin
+                  .from("panel_guide")
+                  .update({ extracted_content: extracted } as never)
+                  .eq("id", r.id);
+              }
+            } catch (e) {
+              console.error("panel guide vision analysis failed", e);
+            }
+          }
+          panelScreens.push({
+            name: r.name,
+            description: r.description,
+            extracted_content: extracted,
+          });
+        }
+        const appendConfigScreens = async (
+          slot: "mobile" | "desktop",
+          rawItems: unknown,
+        ) => {
+          if (!Array.isArray(rawItems)) return;
+          for (const [index, item] of rawItems.entries()) {
+            const shot = item as { url?: string; path?: string; label?: string };
+            if (!shot.url && !shot.path) continue;
+            const name = shot.label?.trim() || `${slot === "mobile" ? "Celular" : "Desktop"} ${index + 1}`;
+            if (panelScreens.some((s) => s.name === name)) continue;
+            const description = slot === "mobile" ? "Print do painel aberto no celular" : "Print do painel aberto no desktop/PC";
+            let extracted: string | null = null;
+            if (shouldUsePanelGuide) {
+              try {
+                let imageUrl = shot.url ?? "";
+                if (shot.path) {
+                  const { data: signed } = await supabaseAdmin.storage
+                    .from("panel-guide")
+                    .createSignedUrl(shot.path, 60 * 60);
+                  if (signed?.signedUrl) imageUrl = signed.signedUrl;
+                }
+                if (imageUrl) {
+                  const { describePanelScreen } = await import("@/lib/ai.server");
+                  extracted = await describePanelScreen({ imageUrl, name, description });
+                  if (shot.path && extracted) {
+                    await supabaseAdmin.from("panel_guide").insert({
+                      user_id: userId,
+                      name,
+                      description,
+                      image_url: imageUrl,
+                      storage_path: shot.path,
+                      source_slot: slot,
+                      extracted_content: extracted,
+                    } as never);
+                  }
+                }
+              } catch (e) {
+                console.error("panel guide config screenshot analysis failed", e);
+              }
+            }
+            panelScreens.push({ name, description, extracted_content: extracted });
+          }
+        };
+        await appendConfigScreens("mobile", (agent as { panel_screenshots_mobile?: unknown }).panel_screenshots_mobile);
+        await appendConfigScreens("desktop", (agent as { panel_screenshots_desktop?: unknown }).panel_screenshots_desktop);
 
         // Load forbidden rules so the agent always deflects without breaking them.
         const { data: frRows } = await supabaseAdmin

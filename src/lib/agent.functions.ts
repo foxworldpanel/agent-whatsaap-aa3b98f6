@@ -23,6 +23,27 @@ async function getSharedUazapiUserIds(context: { supabase: any; userId: string }
   return Array.from(new Set([context.userId, ...(sharedRows ?? []).map((row) => row.user_id)]));
 }
 
+type PanelShot = { url: string; path?: string; label?: string };
+
+function extractPanelGuideStoragePath(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const markers = [
+      "/storage/v1/object/sign/panel-guide/",
+      "/storage/v1/object/public/panel-guide/",
+      "/storage/v1/object/authenticated/panel-guide/",
+    ];
+    for (const marker of markers) {
+      const idx = parsed.pathname.indexOf(marker);
+      if (idx >= 0) return decodeURIComponent(parsed.pathname.slice(idx + marker.length));
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export const getAgentConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -32,7 +53,31 @@ export const getAgentConfig = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return data;
+    if (!data) return data;
+
+    // URLs assinadas do Storage expiram; mantemos o path permanente no banco
+    // e geramos uma URL fresca sempre que a tela do agente abre.
+    const refreshSignedUrls = async (items: unknown): Promise<PanelShot[]> => {
+      if (!Array.isArray(items)) return [];
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      return Promise.all(
+        items.map(async (item) => {
+          const shot = item as { url?: string; path?: string; label?: string };
+          const path = shot.path ?? extractPanelGuideStoragePath(shot.url);
+          if (!path) return { url: shot.url ?? "", label: shot.label };
+          const { data: signed } = await supabaseAdmin.storage
+            .from("panel-guide")
+            .createSignedUrl(path, 60 * 60 * 24 * 7);
+          return { url: signed?.signedUrl ?? shot.url ?? "", path, label: shot.label };
+        }),
+      );
+    };
+
+    return {
+      ...data,
+      panel_screenshots_mobile: await refreshSignedUrls((data as { panel_screenshots_mobile?: unknown }).panel_screenshots_mobile),
+      panel_screenshots_desktop: await refreshSignedUrls((data as { panel_screenshots_desktop?: unknown }).panel_screenshots_desktop),
+    };
   });
 
 export const saveAgentConfig = createServerFn({ method: "POST" })
@@ -136,14 +181,14 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({
-      panel_screenshot_mobile_url: z.string().max(2000).nullable().optional(),
-      panel_screenshot_desktop_url: z.string().max(2000).nullable().optional(),
+      panel_screenshot_mobile_url: z.string().max(10000).nullable().optional(),
+      panel_screenshot_desktop_url: z.string().max(10000).nullable().optional(),
       panel_screenshots_mobile: z
-        .array(z.object({ url: z.string().max(2000), label: z.string().max(200).optional() }))
+        .array(z.object({ url: z.string().max(10000), path: z.string().max(1000).optional(), label: z.string().max(200).optional() }))
         .max(50)
         .optional(),
       panel_screenshots_desktop: z
-        .array(z.object({ url: z.string().max(2000), label: z.string().max(200).optional() }))
+        .array(z.object({ url: z.string().max(10000), path: z.string().max(1000).optional(), label: z.string().max(200).optional() }))
         .max(50)
         .optional(),
     }).parse(d),
@@ -163,6 +208,66 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .upsert(patch as any, { onConflict: "user_id" });
     if (error) throw new Error(error.message);
+
+    // Também sincroniza com a tabela `panel_guide`, que é a fonte usada pelo
+    // webhook no prompt do Claude. A análise visual fica sob demanda: se ainda
+    // não houver extracted_content, o webhook analisa quando o cliente pedir
+    // ajuda sobre o painel.
+    const syncSlot = async (
+      slot: "mobile" | "desktop",
+      items: Array<{ url: string; path?: string; label?: string }> | undefined,
+    ) => {
+      if (items === undefined) return;
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const normalizedItems = items.map((it) => ({
+        ...it,
+        path: it.path ?? extractPanelGuideStoragePath(it.url) ?? undefined,
+      }));
+      const paths = normalizedItems.map((it) => it.path).filter(Boolean) as string[];
+      if (paths.length > 0) {
+        await supabaseAdmin
+          .from("panel_guide")
+          .delete()
+          .eq("user_id", context.userId)
+          .eq("source_slot", slot)
+          .not("storage_path", "in", `(${paths.map((p) => `"${p.replaceAll('"', '\\"')}"`).join(",")})`);
+      } else {
+        await supabaseAdmin.from("panel_guide").delete().eq("user_id", context.userId).eq("source_slot", slot);
+      }
+
+      for (const [index, item] of normalizedItems.entries()) {
+        const storagePath = item.path ?? null;
+        const name = item.label?.trim() || `${slot === "mobile" ? "Celular" : "Desktop"} ${index + 1}`;
+        const description = slot === "mobile" ? "Print do painel aberto no celular" : "Print do painel aberto no desktop/PC";
+        if (storagePath) {
+          const { data: existing } = await supabaseAdmin
+            .from("panel_guide")
+            .select("id, extracted_content")
+            .eq("user_id", context.userId)
+            .eq("storage_path", storagePath)
+            .maybeSingle();
+          if (existing?.id) {
+            await supabaseAdmin
+              .from("panel_guide")
+              .update({ name, description, image_url: item.url, source_slot: slot } as never)
+              .eq("id", existing.id);
+          } else {
+            await supabaseAdmin.from("panel_guide").insert({
+              user_id: context.userId,
+              name,
+              description,
+              image_url: item.url,
+              storage_path: storagePath,
+              source_slot: slot,
+              extracted_content: null,
+            } as never);
+          }
+        }
+      }
+    };
+
+    await syncSlot("mobile", data.panel_screenshots_mobile);
+    await syncSlot("desktop", data.panel_screenshots_desktop);
     return { ok: true };
   });
 

@@ -859,6 +859,8 @@ export type Database = {
           id: string
           image_url: string
           name: string
+          source_slot: string | null
+          storage_path: string | null
           updated_at: string
           user_id: string
         }
@@ -869,6 +871,8 @@ export type Database = {
           id?: string
           image_url: string
           name: string
+          source_slot?: string | null
+          storage_path?: string | null
           updated_at?: string
           user_id: string
         }
@@ -879,6 +883,8 @@ export type Database = {
           id?: string
           image_url?: string
           name?: string
+          source_slot?: string | null
+          storage_path?: string | null
           updated_at?: string
           user_id?: string
         }

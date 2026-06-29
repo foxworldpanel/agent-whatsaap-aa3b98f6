@@ -33,7 +33,8 @@ function AgentePage() {
   const toggleRealtimeFn = useServerFn(setServicesRealtime);
   const saveBehaviorFn = useServerFn(saveBehavior);
   const savePanelShotsFn = useServerFn(savePanelScreenshots);
-  const { data: cfg } = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
+  const { data: cfgRaw } = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
+  const cfg = cfgRaw as AgentConfigUi | null | undefined;
 
   const [modules, setModules] = useState<Record<string, string>>({});
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
@@ -272,7 +273,15 @@ function AgentePage() {
   );
 }
 
-type PanelShot = { url: string; label?: string };
+type PanelShot = { url: string; path?: string; label?: string };
+type AgentConfigUi = PanelShotsCfg & {
+  modules?: Record<string, string>;
+  modules_enabled?: Record<string, boolean>;
+  services_realtime?: boolean;
+  response_delay_min_sec?: number;
+  response_delay_max_sec?: number;
+  typing_indicator_enabled?: boolean;
+};
 type PanelShotsCfg = {
   panel_screenshot_mobile_url?: string | null;
   panel_screenshot_desktop_url?: string | null;
@@ -364,7 +373,7 @@ function PanelShotGroup({
           .from("panel-guide")
           .createSignedUrl(path, 60 * 60 * 24 * 365);
         if (sErr || !signed) throw sErr ?? new Error("Falha ao gerar URL.");
-        uploaded.push({ url: signed.signedUrl, label: file.name.replace(/\.[^.]+$/, "") });
+        uploaded.push({ url: signed.signedUrl, path, label: file.name.replace(/\.[^.]+$/, "") });
       }
       await onChange([...items, ...uploaded]);
       toast.success(`${uploaded.length} imagem(ns) adicionada(s)`);
