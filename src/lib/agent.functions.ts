@@ -129,6 +129,30 @@ export const saveBehavior = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Save the two reference panel screenshots (mobile + desktop) used by the
+// "Guia Visual do Painel" module so the agent has visual context of where
+// each menu lives.
+export const savePanelScreenshots = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      panel_screenshot_mobile_url: z.string().url().max(2000).nullable().optional(),
+      panel_screenshot_desktop_url: z.string().url().max(2000).nullable().optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: Record<string, unknown> = { user_id: context.userId };
+    if (data.panel_screenshot_mobile_url !== undefined)
+      patch.panel_screenshot_mobile_url = data.panel_screenshot_mobile_url;
+    if (data.panel_screenshot_desktop_url !== undefined)
+      patch.panel_screenshot_desktop_url = data.panel_screenshot_desktop_url;
+    const { error } = await context.supabase
+      .from("agent_config")
+      .upsert(patch, { onConflict: "user_id" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 // Toggle "Consultar preços em tempo real"
 export const setServicesRealtime = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
