@@ -148,7 +148,8 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
       patch.panel_screenshot_desktop_url = data.panel_screenshot_desktop_url;
     const { error } = await context.supabase
       .from("agent_config")
-      .upsert(patch, { onConflict: "user_id" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .upsert(patch as any, { onConflict: "user_id" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
