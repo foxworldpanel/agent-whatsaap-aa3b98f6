@@ -230,8 +230,14 @@ function AgentePage() {
                 <CollapsibleContent className="border-t bg-muted/10 p-4">
                   {m.key === "guia_visual_painel" && (
                     <PanelScreenshotsSlots
-                      mobileUrl={(cfg as { panel_screenshot_mobile_url?: string | null } | null | undefined)?.panel_screenshot_mobile_url ?? null}
-                      desktopUrl={(cfg as { panel_screenshot_desktop_url?: string | null } | null | undefined)?.panel_screenshot_desktop_url ?? null}
+                      mobileList={normalizeShotList(
+                        (cfg as PanelShotsCfg | null | undefined)?.panel_screenshots_mobile,
+                        (cfg as PanelShotsCfg | null | undefined)?.panel_screenshot_mobile_url,
+                      )}
+                      desktopList={normalizeShotList(
+                        (cfg as PanelShotsCfg | null | undefined)?.panel_screenshots_desktop,
+                        (cfg as PanelShotsCfg | null | undefined)?.panel_screenshot_desktop_url,
+                      )}
                       onSaved={async (patch) => {
                         await savePanelShotsFn({ data: patch });
                         await qc.invalidateQueries({ queryKey: ["agent_config"] });
