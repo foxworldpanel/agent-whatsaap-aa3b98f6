@@ -187,8 +187,10 @@ export async function generateAgentReply(params: {
   freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
   extraContext?: string | null;
   inputKind?: "texto" | "audio";
+  imageBase64?: string | null;
+  imageMediaType?: string | null;
 }): Promise<string> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices: freeTestServicesRaw = [], extraContext = null, inputKind = "texto" } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices: freeTestServicesRaw = [], extraContext = null, inputKind = "texto", imageBase64 = null, imageMediaType = null } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
   // GATE DUPLO para teste grátis:
