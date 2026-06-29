@@ -332,6 +332,39 @@ export async function generateAgentReply(params: {
   const contextoDetectado = detectarContexto(latestClientMessage, history);
   console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(system.length / 4));
 
+  // Modelo dinâmico: Sonnet (com visão) quando há imagem; Haiku para texto/áudio.
+  const hasImage = !!imageBase64;
+  const model = hasImage ? "claude-sonnet-4-5" : "claude-haiku-4-5";
+  if (hasImage) console.info("[agent-ai] Usando Sonnet para análise de imagem");
+
+  // Quando há imagem, anexa a imagem como bloco na ÚLTIMA mensagem do user.
+  // Encontra ou cria a última msg user e converte content em array com image+text.
+  const finalMessages: Array<{ role: "user" | "assistant"; content: unknown }> = cleaned.map((m) => ({ ...m }));
+  if (hasImage) {
+    let lastUserIdx = -1;
+    for (let i = finalMessages.length - 1; i >= 0; i -= 1) {
+      if (finalMessages[i].role === "user") { lastUserIdx = i; break; }
+    }
+    const baseText = lastUserIdx >= 0 && typeof finalMessages[lastUserIdx].content === "string"
+      ? (finalMessages[lastUserIdx].content as string)
+      : "[imagem recebida]";
+    const imageBlock = {
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: imageMediaType || "image/jpeg",
+        data: imageBase64 as string,
+      },
+    };
+    const textBlock = {
+      type: "text" as const,
+      text: `Analise essa imagem no contexto da conversa: ${baseText}`,
+    };
+    const merged = { role: "user" as const, content: [imageBlock, textBlock] };
+    if (lastUserIdx >= 0) finalMessages[lastUserIdx] = merged;
+    else finalMessages.push(merged);
+  }
+
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -340,10 +373,10 @@ export async function generateAgentReply(params: {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5",
+      model,
       max_tokens: 800,
       system,
-      messages: cleaned,
+      messages: finalMessages,
     }),
   });
 
