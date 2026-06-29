@@ -407,6 +407,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const { text, kind } = extractContent(payload);
+        // Para o DB (enum message_kind = texto|audio) e fluxos legados,
+        // tratamos imagem como "texto". O flag `isImage` controla a chamada
+        // ao Claude Sonnet com visão.
+        const dbKind: "texto" | "audio" = kind === "audio" ? "audio" : "texto";
+        const isImage = kind === "image";
         console.log('=== INÍCIO DO PROCESSAMENTO ===');
         console.log('Mensagem recebida:', { text, kind, phone: extractPhone(payload.message?.chatid, payload.message?.sender), messageId: extractMessageId(payload) });
         try {
@@ -415,7 +420,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         } catch {}
         let mediaUrl = extractMediaUrl(payload);
         const messageId = extractMessageId(payload);
-        if (!text && kind !== "audio") return new Response("empty");
+        if (!text && kind !== "audio" && kind !== "image") return new Response("empty");
 
         // Áudios muito curtos (<1s) são ruído acidental — ignora sem responder
         if (kind === "audio") {
