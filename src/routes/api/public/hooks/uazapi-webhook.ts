@@ -75,7 +75,7 @@ function extractPhone(chatid?: string, sender?: string): string | null {
   return digits || null;
 }
 
-function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" } {
+function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" | "image" } {
   const m = p.message ?? p.data ?? {};
   const type = (m.messageType ?? m.type ?? m.mediaType ?? "").toLowerCase();
   const mime = (m.mimetype ?? "").toLowerCase();
@@ -89,6 +89,12 @@ function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audi
   console.log("🔎 extractContent type:", { type, mime, isAudio, hasAudioMessage: !!m.audioMessage, hasPttMessage: !!m.pttMessage });
   if (isAudio) {
     return { text: m.text || "[áudio recebido]", kind: "audio" };
+  }
+  const isImage =
+    type.includes("image") || type.includes("imagem") || mime.startsWith("image/") || !!m.imageMessage;
+  if (isImage) {
+    const caption = (m.caption ?? m.text ?? "").trim();
+    return { text: caption || "[imagem recebida]", kind: "image" };
   }
   return { text: m.text ?? m.content ?? "", kind: "texto" };
 }
