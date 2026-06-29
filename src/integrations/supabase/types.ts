@@ -32,6 +32,8 @@ export type Database = {
           panel_link: string | null
           panel_screenshot_desktop_url: string | null
           panel_screenshot_mobile_url: string | null
+          panel_screenshots_desktop: Json
+          panel_screenshots_mobile: Json
           price_query_instruction: string
           response_delay_max_sec: number
           response_delay_min_sec: number
@@ -62,6 +64,8 @@ export type Database = {
           panel_link?: string | null
           panel_screenshot_desktop_url?: string | null
           panel_screenshot_mobile_url?: string | null
+          panel_screenshots_desktop?: Json
+          panel_screenshots_mobile?: Json
           price_query_instruction?: string
           response_delay_max_sec?: number
           response_delay_min_sec?: number
@@ -92,6 +96,8 @@ export type Database = {
           panel_link?: string | null
           panel_screenshot_desktop_url?: string | null
           panel_screenshot_mobile_url?: string | null
+          panel_screenshots_desktop?: Json
+          panel_screenshots_mobile?: Json
           price_query_instruction?: string
           response_delay_max_sec?: number
           response_delay_min_sec?: number

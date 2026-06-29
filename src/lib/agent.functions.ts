@@ -138,6 +138,14 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
     z.object({
       panel_screenshot_mobile_url: z.string().max(2000).nullable().optional(),
       panel_screenshot_desktop_url: z.string().max(2000).nullable().optional(),
+      panel_screenshots_mobile: z
+        .array(z.object({ url: z.string().max(2000), label: z.string().max(200).optional() }))
+        .max(50)
+        .optional(),
+      panel_screenshots_desktop: z
+        .array(z.object({ url: z.string().max(2000), label: z.string().max(200).optional() }))
+        .max(50)
+        .optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -146,6 +154,10 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
       patch.panel_screenshot_mobile_url = data.panel_screenshot_mobile_url;
     if (data.panel_screenshot_desktop_url !== undefined)
       patch.panel_screenshot_desktop_url = data.panel_screenshot_desktop_url;
+    if (data.panel_screenshots_mobile !== undefined)
+      patch.panel_screenshots_mobile = data.panel_screenshots_mobile;
+    if (data.panel_screenshots_desktop !== undefined)
+      patch.panel_screenshots_desktop = data.panel_screenshots_desktop;
     const { error } = await context.supabase
       .from("agent_config")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

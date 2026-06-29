@@ -230,8 +230,14 @@ function AgentePage() {
                 <CollapsibleContent className="border-t bg-muted/10 p-4">
                   {m.key === "guia_visual_painel" && (
                     <PanelScreenshotsSlots
-                      mobileUrl={(cfg as { panel_screenshot_mobile_url?: string | null } | null | undefined)?.panel_screenshot_mobile_url ?? null}
-                      desktopUrl={(cfg as { panel_screenshot_desktop_url?: string | null } | null | undefined)?.panel_screenshot_desktop_url ?? null}
+                      mobileList={normalizeShotList(
+                        (cfg as PanelShotsCfg | null | undefined)?.panel_screenshots_mobile,
+                        (cfg as PanelShotsCfg | null | undefined)?.panel_screenshot_mobile_url,
+                      )}
+                      desktopList={normalizeShotList(
+                        (cfg as PanelShotsCfg | null | undefined)?.panel_screenshots_desktop,
+                        (cfg as PanelShotsCfg | null | undefined)?.panel_screenshot_desktop_url,
+                      )}
                       onSaved={async (patch) => {
                         await savePanelShotsFn({ data: patch });
                         await qc.invalidateQueries({ queryKey: ["agent_config"] });
@@ -266,67 +272,102 @@ function AgentePage() {
   );
 }
 
+type PanelShot = { url: string; label?: string };
+type PanelShotsCfg = {
+  panel_screenshot_mobile_url?: string | null;
+  panel_screenshot_desktop_url?: string | null;
+  panel_screenshots_mobile?: PanelShot[] | null;
+  panel_screenshots_desktop?: PanelShot[] | null;
+};
+
+function normalizeShotList(
+  list: PanelShot[] | null | undefined,
+  legacyUrl: string | null | undefined,
+): PanelShot[] {
+  if (Array.isArray(list) && list.length > 0) return list;
+  if (legacyUrl) return [{ url: legacyUrl }];
+  return [];
+}
+
+type SavePatch = {
+  panel_screenshots_mobile?: PanelShot[];
+  panel_screenshots_desktop?: PanelShot[];
+  panel_screenshot_mobile_url?: string | null;
+  panel_screenshot_desktop_url?: string | null;
+};
+
 function PanelScreenshotsSlots({
-  mobileUrl,
-  desktopUrl,
+  mobileList,
+  desktopList,
   onSaved,
 }: {
-  mobileUrl: string | null;
-  desktopUrl: string | null;
-  onSaved: (patch: {
-    panel_screenshot_mobile_url?: string | null;
-    panel_screenshot_desktop_url?: string | null;
-  }) => Promise<void>;
+  mobileList: PanelShot[];
+  desktopList: PanelShot[];
+  onSaved: (patch: SavePatch) => Promise<void>;
 }) {
   return (
     <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <PanelShotSlot
+      <PanelShotGroup
         label="📱 Painel no celular"
         kind="mobile"
-        url={mobileUrl}
-        onSaved={(url) => onSaved({ panel_screenshot_mobile_url: url })}
+        items={mobileList}
+        onChange={(next) =>
+          onSaved({
+            panel_screenshots_mobile: next,
+            panel_screenshot_mobile_url: next[0]?.url ?? null,
+          })
+        }
       />
-      <PanelShotSlot
+      <PanelShotGroup
         label="🖥️ Painel no desktop"
         kind="desktop"
-        url={desktopUrl}
-        onSaved={(url) => onSaved({ panel_screenshot_desktop_url: url })}
+        items={desktopList}
+        onChange={(next) =>
+          onSaved({
+            panel_screenshots_desktop: next,
+            panel_screenshot_desktop_url: next[0]?.url ?? null,
+          })
+        }
       />
     </div>
   );
 }
 
-function PanelShotSlot({
+function PanelShotGroup({
   label,
   kind,
-  url,
-  onSaved,
+  items,
+  onChange,
 }: {
   label: string;
   kind: "mobile" | "desktop";
-  url: string | null;
-  onSaved: (url: string | null) => Promise<void>;
+  items: PanelShot[];
+  onChange: (next: PanelShot[]) => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
 
-  async function handleFile(file: File) {
+  async function handleFiles(files: FileList) {
     setBusy(true);
     try {
       const { data: u } = await supabase.auth.getUser();
       const uid = u.user?.id;
       if (!uid) throw new Error("Sessão expirada.");
-      const ext = (file.name.split(".").pop() || "png").toLowerCase();
-      const path = `${uid}/${kind}-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("panel-guide")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (upErr) throw upErr;
-      const { data: signed, error: sErr } = await supabase.storage
-        .from("panel-guide")
-        .createSignedUrl(path, 60 * 60 * 24 * 365);
-      if (sErr || !signed) throw sErr ?? new Error("Falha ao gerar URL.");
-      await onSaved(signed.signedUrl);
-      toast.success("Imagem salva");
+      const uploaded: PanelShot[] = [];
+      for (const file of Array.from(files)) {
+        const ext = (file.name.split(".").pop() || "png").toLowerCase();
+        const path = `${uid}/${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("panel-guide")
+          .upload(path, file, { upsert: true, contentType: file.type });
+        if (upErr) throw upErr;
+        const { data: signed, error: sErr } = await supabase.storage
+          .from("panel-guide")
+          .createSignedUrl(path, 60 * 60 * 24 * 365);
+        if (sErr || !signed) throw sErr ?? new Error("Falha ao gerar URL.");
+        uploaded.push({ url: signed.signedUrl, label: file.name.replace(/\.[^.]+$/, "") });
+      }
+      await onChange([...items, ...uploaded]);
+      toast.success(`${uploaded.length} imagem(ns) adicionada(s)`);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -334,38 +375,65 @@ function PanelShotSlot({
     }
   }
 
+  async function remove(idx: number) {
+    const next = items.filter((_, i) => i !== idx);
+    await onChange(next);
+  }
+
+  async function updateLabel(idx: number, value: string) {
+    const next = items.map((it, i) => (i === idx ? { ...it, label: value } : it));
+    await onChange(next);
+  }
+
   return (
     <div className="rounded-md border bg-background p-3">
-      <div className="mb-2 text-sm font-medium">{label}</div>
-      {url ? (
-        <img src={url} alt={label} className="mb-2 max-h-48 w-full rounded object-contain" />
-      ) : (
-        <div className="mb-2 flex h-32 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="text-xs text-muted-foreground">{items.length} imagem(ns)</div>
+      </div>
+      {items.length === 0 ? (
+        <div className="mb-2 flex h-24 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
           Nenhuma imagem enviada
         </div>
+      ) : (
+        <div className="mb-2 grid grid-cols-2 gap-2">
+          {items.map((it, idx) => (
+            <div key={`${it.url}-${idx}`} className="rounded border bg-card p-2">
+              <img
+                src={it.url}
+                alt={it.label ?? `${label} ${idx + 1}`}
+                className="mb-1 h-28 w-full rounded object-contain"
+              />
+              <Input
+                value={it.label ?? ""}
+                placeholder="Ex.: tela de pedidos"
+                onChange={(e) => void updateLabel(idx, e.target.value)}
+                className="mb-1 h-7 text-xs"
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => void remove(idx)}
+                className="h-7 w-full text-xs"
+              >
+                Remover
+              </Button>
+            </div>
+          ))}
+        </div>
       )}
-      <div className="flex items-center gap-2">
-        <Input
-          type="file"
-          accept="image/*"
-          disabled={busy}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleFile(f);
-            e.currentTarget.value = "";
-          }}
-        />
-        {url && (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            onClick={() => onSaved(null)}
-          >
-            Remover
-          </Button>
-        )}
-      </div>
+      <Input
+        type="file"
+        accept="image/*"
+        multiple
+        disabled={busy}
+        onChange={(e) => {
+          const files = e.target.files;
+          if (files && files.length > 0) void handleFiles(files);
+          e.currentTarget.value = "";
+        }}
+      />
     </div>
   );
 }
