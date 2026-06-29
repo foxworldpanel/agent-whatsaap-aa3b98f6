@@ -49,6 +49,8 @@ type UazapiPayload = {
     mediaType?: string;
     audioMessage?: unknown;
     pttMessage?: unknown;
+    imageMessage?: unknown;
+    caption?: string;
     // Meta Ads / WhatsApp Cloud referral fields (vários formatos possíveis)
     referral?: Record<string, unknown>;
     ctwa_clid?: string;
@@ -73,7 +75,7 @@ function extractPhone(chatid?: string, sender?: string): string | null {
   return digits || null;
 }
 
-function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" } {
+function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" | "image" } {
   const m = p.message ?? p.data ?? {};
   const type = (m.messageType ?? m.type ?? m.mediaType ?? "").toLowerCase();
   const mime = (m.mimetype ?? "").toLowerCase();
@@ -87,6 +89,12 @@ function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audi
   console.log("🔎 extractContent type:", { type, mime, isAudio, hasAudioMessage: !!m.audioMessage, hasPttMessage: !!m.pttMessage });
   if (isAudio) {
     return { text: m.text || "[áudio recebido]", kind: "audio" };
+  }
+  const isImage =
+    type.includes("image") || type.includes("imagem") || mime.startsWith("image/") || !!m.imageMessage;
+  if (isImage) {
+    const caption = (m.caption ?? m.text ?? "").trim();
+    return { text: caption || "[imagem recebida]", kind: "image" };
   }
   return { text: m.text ?? m.content ?? "", kind: "texto" };
 }
@@ -399,6 +407,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const { text, kind } = extractContent(payload);
+        // Para o DB (enum message_kind = texto|audio) e fluxos legados,
+        // tratamos imagem como "texto". O flag `isImage` controla a chamada
+        // ao Claude Sonnet com visão.
+        const dbKind: "texto" | "audio" = kind === "audio" ? "audio" : "texto";
+        const isImage = kind === "image";
         console.log('=== INÍCIO DO PROCESSAMENTO ===');
         console.log('Mensagem recebida:', { text, kind, phone: extractPhone(payload.message?.chatid, payload.message?.sender), messageId: extractMessageId(payload) });
         try {
@@ -407,7 +420,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         } catch {}
         let mediaUrl = extractMediaUrl(payload);
         const messageId = extractMessageId(payload);
-        if (!text && kind !== "audio") return new Response("empty");
+        if (!text && kind !== "audio" && kind !== "image") return new Response("empty");
 
         // Áudios muito curtos (<1s) são ruído acidental — ignora sem responder
         if (kind === "audio") {
@@ -697,7 +710,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           user_id: userId,
           conversation_id: conv.id,
           sender: outbound ? "agente" : "cliente",
-          kind,
+          kind: dbKind,
           body: inboundBody,
           audio_url: kind === "audio" ? mediaUrl : null,
           external_id: messageId,
@@ -1366,7 +1379,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             (prior[prior.length - 1].body ?? "") === (inboundBody ?? "")
               ? prior.slice(0, -1)
               : prior;
-          const detected = detectUnproductive(priorWithoutCurrent, inboundBody, kind);
+          const detected = detectUnproductive(priorWithoutCurrent, inboundBody, dbKind);
           if (detected) {
             const stamp = new Date().toISOString();
             await supabaseAdmin
@@ -1581,6 +1594,36 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
 
           console.log('Chamando Claude...');
+          // Imagem: baixa e converte para base64 para enviar ao Sonnet (visão).
+          let _imageBase64: string | null = null;
+          let _imageMediaType: string | null = null;
+          if (isImage) {
+            try {
+              let imgUrl = mediaUrl;
+              let imgMime: string | null = null;
+              if (!imgUrl && messageId) {
+                const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
+                const dl = await uazapiDownloadMedia(
+                  { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken },
+                  messageId,
+                );
+                if (dl.fileURL) imgUrl = dl.fileURL;
+                if (dl.mimetype) imgMime = dl.mimetype;
+              }
+              if (imgUrl) {
+                const r = await fetch(imgUrl);
+                if (r.ok) {
+                  const headerMime = r.headers.get("content-type")?.split(";")[0]?.trim() || imgMime || "image/jpeg";
+                  const buf = Buffer.from(await r.arrayBuffer());
+                  _imageBase64 = buf.toString("base64");
+                  _imageMediaType = headerMime;
+                }
+              }
+              console.log(`🖼️ Imagem recebida — base64 ${_imageBase64 ? `${_imageBase64.length} chars` : "FALHOU"} | mime=${_imageMediaType}`);
+            } catch (e) {
+              console.error("image download/encode failed", e);
+            }
+          }
           const _claudeArgs = {
             anthropicApiKey: integ.anthropic_api_key,
             agent,
@@ -1594,7 +1637,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             forbiddenRules,
             freeTestServices,
             extraContext: orderStatusContext,
-            inputKind: kind,
+            inputKind: dbKind,
+            imageBase64: _imageBase64,
+            imageMediaType: _imageMediaType,
           };
           try {
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
