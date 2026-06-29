@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_config ADD COLUMN IF NOT EXISTS panel_screenshot_mobile_url TEXT, ADD COLUMN IF NOT EXISTS panel_screenshot_desktop_url TEXT;

@@ -30,6 +30,8 @@ export type Database = {
           modules_enabled: Json
           never_offer_first: boolean
           panel_link: string | null
+          panel_screenshot_desktop_url: string | null
+          panel_screenshot_mobile_url: string | null
           price_query_instruction: string
           response_delay_max_sec: number
           response_delay_min_sec: number
@@ -58,6 +60,8 @@ export type Database = {
           modules_enabled?: Json
           never_offer_first?: boolean
           panel_link?: string | null
+          panel_screenshot_desktop_url?: string | null
+          panel_screenshot_mobile_url?: string | null
           price_query_instruction?: string
           response_delay_max_sec?: number
           response_delay_min_sec?: number
@@ -86,6 +90,8 @@ export type Database = {
           modules_enabled?: Json
           never_offer_first?: boolean
           panel_link?: string | null
+          panel_screenshot_desktop_url?: string | null
+          panel_screenshot_mobile_url?: string | null
           price_query_instruction?: string
           response_delay_max_sec?: number
           response_delay_min_sec?: number
