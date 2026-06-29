@@ -1594,6 +1594,36 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
 
           console.log('Chamando Claude...');
+          // Imagem: baixa e converte para base64 para enviar ao Sonnet (visão).
+          let _imageBase64: string | null = null;
+          let _imageMediaType: string | null = null;
+          if (isImage) {
+            try {
+              let imgUrl = mediaUrl;
+              let imgMime: string | null = null;
+              if (!imgUrl && messageId) {
+                const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
+                const dl = await uazapiDownloadMedia(
+                  { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken },
+                  messageId,
+                );
+                if (dl.fileURL) imgUrl = dl.fileURL;
+                if (dl.mimetype) imgMime = dl.mimetype;
+              }
+              if (imgUrl) {
+                const r = await fetch(imgUrl);
+                if (r.ok) {
+                  const headerMime = r.headers.get("content-type")?.split(";")[0]?.trim() || imgMime || "image/jpeg";
+                  const buf = Buffer.from(await r.arrayBuffer());
+                  _imageBase64 = buf.toString("base64");
+                  _imageMediaType = headerMime;
+                }
+              }
+              console.log(`🖼️ Imagem recebida — base64 ${_imageBase64 ? `${_imageBase64.length} chars` : "FALHOU"} | mime=${_imageMediaType}`);
+            } catch (e) {
+              console.error("image download/encode failed", e);
+            }
+          }
           const _claudeArgs = {
             anthropicApiKey: integ.anthropic_api_key,
             agent,
@@ -1607,7 +1637,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             forbiddenRules,
             freeTestServices,
             extraContext: orderStatusContext,
-            inputKind: kind,
+            inputKind: dbKind,
+            imageBase64: _imageBase64,
+            imageMediaType: _imageMediaType,
           };
           try {
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
