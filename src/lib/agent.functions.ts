@@ -25,6 +25,25 @@ async function getSharedUazapiUserIds(context: { supabase: any; userId: string }
 
 type PanelShot = { url: string; path?: string; label?: string };
 
+function extractPanelGuideStoragePath(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const markers = [
+      "/storage/v1/object/sign/panel-guide/",
+      "/storage/v1/object/public/panel-guide/",
+      "/storage/v1/object/authenticated/panel-guide/",
+    ];
+    for (const marker of markers) {
+      const idx = parsed.pathname.indexOf(marker);
+      if (idx >= 0) return decodeURIComponent(parsed.pathname.slice(idx + marker.length));
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export const getAgentConfig = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -44,11 +63,12 @@ export const getAgentConfig = createServerFn({ method: "GET" })
       return Promise.all(
         items.map(async (item) => {
           const shot = item as { url?: string; path?: string; label?: string };
-          if (!shot?.path) return { url: shot.url ?? "", label: shot.label };
+          const path = shot.path ?? extractPanelGuideStoragePath(shot.url);
+          if (!path) return { url: shot.url ?? "", label: shot.label };
           const { data: signed } = await supabaseAdmin.storage
             .from("panel-guide")
-            .createSignedUrl(shot.path, 60 * 60 * 24 * 7);
-          return { url: signed?.signedUrl ?? shot.url ?? "", path: shot.path, label: shot.label };
+            .createSignedUrl(path, 60 * 60 * 24 * 7);
+          return { url: signed?.signedUrl ?? shot.url ?? "", path, label: shot.label };
         }),
       );
     };
@@ -199,7 +219,11 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
     ) => {
       if (items === undefined) return;
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const paths = items.map((it) => it.path).filter(Boolean) as string[];
+      const normalizedItems = items.map((it) => ({
+        ...it,
+        path: it.path ?? extractPanelGuideStoragePath(it.url) ?? undefined,
+      }));
+      const paths = normalizedItems.map((it) => it.path).filter(Boolean) as string[];
       if (paths.length > 0) {
         await supabaseAdmin
           .from("panel_guide")
@@ -211,7 +235,7 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
         await supabaseAdmin.from("panel_guide").delete().eq("user_id", context.userId).eq("source_slot", slot);
       }
 
-      for (const [index, item] of items.entries()) {
+      for (const [index, item] of normalizedItems.entries()) {
         const storagePath = item.path ?? null;
         const name = item.label?.trim() || `${slot === "mobile" ? "Celular" : "Desktop"} ${index + 1}`;
         const description = slot === "mobile" ? "Print do painel aberto no celular" : "Print do painel aberto no desktop/PC";
