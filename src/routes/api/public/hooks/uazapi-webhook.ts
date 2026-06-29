@@ -1379,7 +1379,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             (prior[prior.length - 1].body ?? "") === (inboundBody ?? "")
               ? prior.slice(0, -1)
               : prior;
-          const detected = detectUnproductive(priorWithoutCurrent, inboundBody, kind);
+          const detected = detectUnproductive(priorWithoutCurrent, inboundBody, dbKind);
           if (detected) {
             const stamp = new Date().toISOString();
             await supabaseAdmin
