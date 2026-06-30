@@ -593,7 +593,13 @@ type BlastCampaign = {
   state: "parado" | "rodando" | "pausado";
 };
 
-type CsvRow = { nome: string; telefone: string; instagram: string };
+type CsvRow = {
+  nome: string;
+  telefone: string;
+  instagram: string;
+  prioridade?: number;
+  ultima_interacao?: string;
+};
 
 function parseCsv(text: string): CsvRow[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -603,6 +609,8 @@ function parseCsv(text: string): CsvRow[] {
   const iNome = header.indexOf("nome");
   const iTel = header.indexOf("telefone");
   const iIg = header.indexOf("instagram");
+  const iPrio = header.indexOf("prioridade");
+  const iUlt = header.indexOf("ultima_interacao");
   const start = iNome >= 0 || iTel >= 0 ? 1 : 0;
   const rows: CsvRow[] = [];
   for (let i = start; i < lines.length; i++) {
@@ -610,7 +618,11 @@ function parseCsv(text: string): CsvRow[] {
     const nome = (iNome >= 0 ? cols[iNome] : cols[0]) ?? "";
     const telefone = (iTel >= 0 ? cols[iTel] : cols[1]) ?? "";
     const instagram = (iIg >= 0 ? cols[iIg] : cols[2]) ?? "";
-    if (nome && telefone) rows.push({ nome, telefone, instagram });
+    const prioRaw = iPrio >= 0 ? cols[iPrio] : "";
+    const ultRaw = iUlt >= 0 ? cols[iUlt] : "";
+    const prioridade = prioRaw && /^\d+$/.test(prioRaw) ? Number(prioRaw) : undefined;
+    const ultima_interacao = /^\d{4}-\d{2}-\d{2}$/.test(ultRaw) ? ultRaw : undefined;
+    if (nome && telefone) rows.push({ nome, telefone, instagram, prioridade, ultima_interacao });
   }
   return rows;
 }
@@ -912,8 +924,16 @@ function BlastCampaignCard({
       <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3">
         <h4 className="font-semibold text-sm">Importar lista de contatos</h4>
         <p className="text-xs text-muted-foreground">
-          CSV com colunas: <code>nome,telefone,instagram</code>
+          CSV com colunas obrigatórias: <code>nome,telefone,instagram</code>. Opcionais:{" "}
+          <code>prioridade</code> (número) e <code>ultima_interacao</code> (AAAA-MM-DD).
         </p>
+        <div className="rounded-md border border-primary/30 bg-primary/5 p-2 text-[11px] leading-snug text-foreground/80">
+          💡 <b>Dica:</b> contatos que comentaram ou curtiram seus posts recentemente têm muito mais
+          chance de responder. Se tiver essa informação, adicione uma coluna{" "}
+          <code>ultima_interacao</code> no CSV (formato <code>AAAA-MM-DD</code>) para priorizar
+          esses contatos no disparo. Você também pode preencher <code>prioridade</code> manualmente
+          (0 = normal, valores maiores disparam primeiro).
+        </div>
         <input
           type="file"
           accept=".csv,text/csv"
@@ -950,6 +970,8 @@ function BlastCampaignCard({
                     <th className="px-2 py-1 text-left">Nome</th>
                     <th className="px-2 py-1 text-left">Telefone</th>
                     <th className="px-2 py-1 text-left">Instagram</th>
+                    <th className="px-2 py-1 text-left">Prioridade</th>
+                    <th className="px-2 py-1 text-left">Última interação</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -958,6 +980,8 @@ function BlastCampaignCard({
                       <td className="px-2 py-1">{r.nome}</td>
                       <td className="px-2 py-1">{r.telefone}</td>
                       <td className="px-2 py-1">{r.instagram}</td>
+                      <td className="px-2 py-1">{r.prioridade ?? "—"}</td>
+                      <td className="px-2 py-1">{r.ultima_interacao ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -244,6 +244,7 @@ async function pickNext(
     .select("id, nome, telefone, instagram, status, last_sent_at")
     .eq("campaign_id", camp.id)
     .eq("status", "pendente")
+    .order("prioridade", { ascending: false })
     .order("created_at", { ascending: true })
     .limit(20);
 
