@@ -1,0 +1,1 @@
+ALTER TABLE public.blast_contacts ADD COLUMN IF NOT EXISTS last_variation_key text;

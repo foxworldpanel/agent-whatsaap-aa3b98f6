@@ -331,6 +331,7 @@ export type Database = {
           id: string
           instagram: string
           last_sent_at: string | null
+          last_variation_key: string | null
           nome: string
           origem: string | null
           prioridade: number
@@ -349,6 +350,7 @@ export type Database = {
           id?: string
           instagram?: string
           last_sent_at?: string | null
+          last_variation_key?: string | null
           nome: string
           origem?: string | null
           prioridade?: number
@@ -367,6 +369,7 @@ export type Database = {
           id?: string
           instagram?: string
           last_sent_at?: string | null
+          last_variation_key?: string | null
           nome?: string
           origem?: string | null
           prioridade?: number
