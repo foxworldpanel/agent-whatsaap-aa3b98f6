@@ -1007,8 +1007,8 @@ function NumbersCard() {
   const { data: numbers = [] } = useQuery({ queryKey: ["whatsapp_numbers"], queryFn: () => listN() });
 
   const toggleMut = useMutation({
-    mutationFn: ({ id, disparos_mode }: { id: string; disparos_mode: boolean }) =>
-      updT({ data: { id, disparos_mode } }),
+    mutationFn: (input: { id: string; disparos_mode?: boolean; warmup_enabled?: boolean; auto_pause_on_risk?: boolean }) =>
+      updT({ data: input }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
   });
 
@@ -1031,9 +1031,32 @@ function NumbersCard() {
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {numbers.map((n: { id: string; nome: string; status: string; disparos_mode?: boolean }) => {
+          {numbers.map((n: {
+            id: string;
+            nome: string;
+            status: string;
+            disparos_mode?: boolean;
+            warmup_started_at?: string | null;
+            warmup_enabled?: boolean | null;
+            auto_pause_on_risk?: boolean | null;
+            risk_level?: string | null;
+          }) => {
             const active = !!n.disparos_mode;
             const connected = n.status === "conectado";
+            const day = n.warmup_started_at
+              ? Math.floor((Date.now() - new Date(n.warmup_started_at).getTime()) / 86400000) + 1
+              : 0;
+            const todayLimit = !n.warmup_enabled
+              ? 200
+              : day <= 0
+                ? 50
+                : day === 1
+                  ? 50
+                  : day === 2
+                    ? 100
+                    : day === 3
+                      ? 150
+                      : 200;
             return (
               <div
                 key={n.id}
@@ -1061,11 +1084,88 @@ function NumbersCard() {
                 >
                   {active ? "Ativo para disparo" : "Ativar para disparo"}
                 </button>
+                {active && (
+                  <div className="mt-3 space-y-2 border-t border-border pt-3 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Aquecimento</span>
+                      <span className="font-medium">
+                        {n.warmup_enabled ? (day === 0 ? "ainda não iniciou" : `Dia ${day} — ${todayLimit}/dia`) : "desativado"}
+                      </span>
+                    </div>
+                    <label className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">Aquecimento progressivo</span>
+                      <input
+                        type="checkbox"
+                        checked={!!n.warmup_enabled}
+                        onChange={(e) => toggleMut.mutate({ id: n.id, warmup_enabled: e.target.checked })}
+                        className="h-4 w-4"
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">Pausar auto se houver risco</span>
+                      <input
+                        type="checkbox"
+                        checked={!!n.auto_pause_on_risk}
+                        onChange={(e) => toggleMut.mutate({ id: n.id, auto_pause_on_risk: e.target.checked })}
+                        className="h-4 w-4"
+                      />
+                    </label>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
     </section>
+  );
+}
+
+function NumberHealthCard({ numberId }: { numberId: string }) {
+  const healthFn = useServerFn(getNumberHealth);
+  const { data: health } = useQuery({
+    queryKey: ["number_health", numberId],
+    queryFn: () => healthFn({ data: { numberId } }),
+    refetchInterval: 60_000,
+  });
+  if (!health) return null;
+  const danger = health.risk_level === "danger";
+  const warning = health.risk_level === "warning";
+  return (
+    <div className="space-y-2">
+      {danger && (
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            ⚠️ Número com sinais de risco — recomendamos pausar o disparo por algumas horas.
+            {health.auto_pause_on_risk && " A pausa automática está ativada e será aplicada no próximo ciclo."}
+          </p>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-background/50 p-4 md:grid-cols-4">
+        <div>
+          <p className="text-xs text-muted-foreground">Saúde do número</p>
+          <p
+            className={`mt-1 text-sm font-semibold ${
+              danger ? "text-destructive" : warning ? "text-warning" : "text-success"
+            }`}
+          >
+            {danger ? "Crítica" : warning ? "Atenção" : "OK"}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Taxa de falha (24h)</p>
+          <p className="mt-1 text-sm font-semibold">{health.failRate}%</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Enviadas (24h)</p>
+          <p className="mt-1 text-sm font-semibold">{health.sent24h}</p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">Falhas (24h)</p>
+          <p className="mt-1 text-sm font-semibold">{health.failed24h}</p>
+        </div>
+      </div>
+    </div>
   );
 }
