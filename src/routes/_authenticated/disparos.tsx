@@ -1484,13 +1484,8 @@ function ContactListsSection() {
           />
           <OverviewStat icon={<Ban className="h-4 w-4" />} label="Sem resposta" value={semResposta} tone="warn" />
         </div>
-        <div className="h-px bg-border" />
-        <div className="grid gap-3 md:grid-cols-2">
-          <ChannelBreakdown title="Lista A — Meta Ads" tone="blue" icon={<Megaphone className="h-4 w-4" />} list={metaList} />
-          <ChannelBreakdown title="Lista B — Instagram" tone="pink" icon={<Instagram className="h-4 w-4" />} list={igList} />
-        </div>
         <p className="text-[11px] text-muted-foreground">
-          Compare os dois canais lado a lado: o de maior taxa de conversão é onde vale concentrar o investimento.
+          Veja os detalhes individuais de cada lista nos cards abaixo.
         </p>
       </div>
 
