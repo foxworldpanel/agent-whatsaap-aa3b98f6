@@ -924,8 +924,16 @@ function BlastCampaignCard({
       <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3">
         <h4 className="font-semibold text-sm">Importar lista de contatos</h4>
         <p className="text-xs text-muted-foreground">
-          CSV com colunas: <code>nome,telefone,instagram</code>
+          CSV com colunas obrigatórias: <code>nome,telefone,instagram</code>. Opcionais:{" "}
+          <code>prioridade</code> (número) e <code>ultima_interacao</code> (AAAA-MM-DD).
         </p>
+        <div className="rounded-md border border-primary/30 bg-primary/5 p-2 text-[11px] leading-snug text-foreground/80">
+          💡 <b>Dica:</b> contatos que comentaram ou curtiram seus posts recentemente têm muito mais
+          chance de responder. Se tiver essa informação, adicione uma coluna{" "}
+          <code>ultima_interacao</code> no CSV (formato <code>AAAA-MM-DD</code>) para priorizar
+          esses contatos no disparo. Você também pode preencher <code>prioridade</code> manualmente
+          (0 = normal, valores maiores disparam primeiro).
+        </div>
         <input
           type="file"
           accept=".csv,text/csv"
