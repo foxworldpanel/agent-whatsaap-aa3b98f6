@@ -125,6 +125,18 @@ function extractMessageId(p: UazapiPayload): string | null {
   return m.messageid ?? m.messageId ?? m.id ?? null;
 }
 
+// Fallback determinístico quando o payload não traz messageId.
+// Combina telefone + conteúdo + bucket de 10s para que reentregas
+// do mesmo evento caiam na mesma chave e sejam bloqueadas pelo PK.
+function buildFallbackMessageId(phone: string, content: string): string {
+  const bucket = Math.floor(Date.now() / 10000); // 10s
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    hash = ((hash << 5) - hash + content.charCodeAt(i)) | 0;
+  }
+  return `fb:${phone}:${bucket}:${(hash >>> 0).toString(36)}`;
+}
+
 type LeadSource = {
   source: string;
   source_ref: string | null;
@@ -419,7 +431,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           await logEvent({ phone: extractPhone(payload.message?.chatid, payload.message?.sender), type: "message_received", level: "info", summary: `📩 Mensagem recebida (${kind}): ${(text ?? "").slice(0, 80)}`, metadata: { kind, messageId: extractMessageId(payload) } });
         } catch {}
         let mediaUrl = extractMediaUrl(payload);
-        const messageId = extractMessageId(payload);
+        let messageId = extractMessageId(payload);
+        // Sem messageId real → cria chave determinística por phone+conteúdo+bucket
+        // para que reentregas do mesmo evento sejam bloqueadas mesmo assim.
+        if (!messageId) {
+          const contentSig = (text ?? "") + "|" + (mediaUrl ?? "") + "|" + kind;
+          messageId = buildFallbackMessageId(phone, contentSig);
+        }
         if (!text && kind !== "audio" && kind !== "image") return new Response("empty");
 
         // Áudios muito curtos (<1s) são ruído acidental — ignora sem responder
