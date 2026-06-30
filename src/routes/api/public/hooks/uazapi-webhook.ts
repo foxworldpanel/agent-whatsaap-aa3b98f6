@@ -260,13 +260,13 @@ function isConfirmationEmojiOnly(text: string): boolean {
 function isShortConfirmationText(text: string): boolean {
   const t = compactHumanText(text);
   if (!t || t.length > 24) return false;
-  return /^(ok|okay|blz|beleza|show|top|valeu|obrigado|obrigada|certo|ta bom|tudo bem|aham|uhum)$/i.test(t);
+  return /^(ok|okay|blz|beleza|show|top|valeu|obrigado|obrigada|certo|ta bom|tudo bem|aham|uhum|entendi|tranquilo|tmj|perfeito)$/i.test(t);
 }
 
 function isDeferredDecisionText(text: string): boolean {
   if (isDirectClientQuestion(text)) return false;
   const t = normalizeText(text ?? "");
-  return /\b(vou\s+(ver|analisar|olhar|pensar|decidir|avaliar)|vou\s+dar\s+uma\s+olhada|depois\s+(eu\s+)?(vejo|olho|decido|te\s+(chamo|falo|aviso))|te\s+(aviso|falo)|mais\s+tarde|amanha|preciso\s+(ver|pensar|analisar|avaliar)|deixa\s+eu\s+(ver|pensar|analisar|avaliar)|qualquer\s+coisa\s+(eu\s+)?(te\s+)?chamo)\b/i.test(t);
+  return /\b(vou\s+(ver|analisar|olhar|pensar|decidir|avaliar|comparar|pesquisar)|vou\s+dar\s+uma\s+(olhada|analisada|pensada)|vou\s+ver\s+(certinho|direitinho|com\s+calma)|vou\s+pensar\s+(melhor|com\s+calma)|depois\s+(eu\s+)?(vejo|olho|decido|resolvo|te\s+(chamo|falo|aviso))|deixo\s+pra\s+depois|te\s+(aviso|falo|chamo)|mais\s+tarde|amanha|preciso\s+(ver|pensar|analisar|avaliar|decidir)|deixa\s+eu\s+(ver|pensar|analisar|avaliar|decidir)|qualquer\s+coisa\s+(eu\s+)?(te\s+)?chamo)\b/i.test(t);
 }
 
 function waitingClosureAlreadySent(text: string): boolean {
@@ -284,6 +284,40 @@ function getMinimalReactionReply(kind: "texto" | "audio" | "image" | "sticker", 
   if (isConfirmationEmojiOnly(text) || isShortConfirmationText(text)) return null;
   if (isEmojiOnly(text)) return "😊";
   return undefined;
+}
+
+function isBareAcknowledgementPart(text: string): boolean {
+  const t = compactHumanText(text);
+  return /^(ta bom|certo|beleza|show|ok|okay|combinado|tranquilo|sem problemas|perfeito)$/i.test(t);
+}
+
+function collapseRedundantWaitingParts(parts: string[], inboundText: string): string[] {
+  if (parts.length <= 1) return parts;
+  const hasWaitingClosure = parts.some((part) => waitingClosureAlreadySent(part));
+  if (!hasWaitingClosure) return parts;
+
+  const onlyClosureOrAck = parts.every(
+    (part) => waitingClosureAlreadySent(part) || isBareAcknowledgementPart(part),
+  );
+
+  // Se o cliente disse que vai ver/analisar/decidir depois, a resposta deve ser
+  // uma única mensagem canônica — nunca "Tá bom" + "fico no aguardo" em split.
+  if (isDeferredDecisionText(inboundText) || onlyClosureOrAck) {
+    return ["Tá bom! Qualquer coisa me chama 😊"];
+  }
+
+  const out: string[] = [];
+  let emittedWaitingClosure = false;
+  for (const part of parts) {
+    const isWaiting = waitingClosureAlreadySent(part);
+    if (isWaiting) {
+      if (emittedWaitingClosure) continue;
+      emittedWaitingClosure = true;
+    }
+    if (emittedWaitingClosure && !isWaiting && isBareAcknowledgementPart(part)) continue;
+    out.push(part);
+  }
+  return out;
 }
 
 const FALLBACK_REPLY = "Deixa eu verificar aqui pra você 😊";
