@@ -6,33 +6,28 @@ function normalizePhone(raw: string): string {
   return raw.replace(/\D+/g, "");
 }
 
-type AnyClient = {
-  from: (t: string) => {
-    select: (...a: unknown[]) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }> & {
-      eq: (...a: unknown[]) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }> & {
-        order: (...a: unknown[]) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }>;
-      };
-    };
-    insert: (rows: unknown[]) => Promise<{ data: unknown; error: { message: string } | null }>;
-  };
+type SbCtx = { supabase: { from: (t: "contact_lists") => never } } & {
+  supabase: import("@supabase/supabase-js").SupabaseClient<import("@/integrations/supabase/types").Database>;
 };
 
-async function ensureLists(supabase: unknown, userId: string): Promise<Array<{ id: string; name: string; origem: string }>> {
-  const sb = supabase as AnyClient;
-  const { data: existing } = await supabase
-    ? (await (sb.from("contact_lists") as unknown as { select: (s: string) => { eq: (k: string, v: string) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }> } }).select("*").eq("user_id", userId))
-    : { data: [] as Array<{ id: string; name: string; origem: string }> };
-  const has = (origem: string) => (existing ?? []).some((l: { origem: string }) => l.origem === origem);
+async function ensureLists(ctx: SbCtx, userId: string) {
+  const { data: existing } = await ctx.supabase
+    .from("contact_lists")
+    .select("id, name, origem")
+    .eq("user_id", userId);
+  const rows = existing ?? [];
   const toInsert: Array<{ user_id: string; name: string; origem: "meta_ads" | "instagram" }> = [];
-  if (!has("meta_ads")) toInsert.push({ user_id: userId, name: "Lista A — Meta Ads", origem: "meta_ads" });
-  if (!has("instagram")) toInsert.push({ user_id: userId, name: "Lista B — Instagram", origem: "instagram" });
+  if (!rows.some((l) => l.origem === "meta_ads")) toInsert.push({ user_id: userId, name: "Lista A — Meta Ads", origem: "meta_ads" });
+  if (!rows.some((l) => l.origem === "instagram")) toInsert.push({ user_id: userId, name: "Lista B — Instagram", origem: "instagram" });
   if (toInsert.length > 0) {
-    await (sb.from("contact_lists") as unknown as { insert: (r: unknown[]) => Promise<unknown> }).insert(toInsert);
+    await ctx.supabase.from("contact_lists").insert(toInsert);
   }
-  const r = await (sb.from("contact_lists") as unknown as {
-    select: (s: string) => { eq: (k: string, v: string) => { order: (k: string, o: { ascending: boolean }) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }> } };
-  }).select("*").eq("user_id", userId).order("origem", { ascending: true });
-  return r.data ?? [];
+  const { data } = await ctx.supabase
+    .from("contact_lists")
+    .select("id, name, origem")
+    .eq("user_id", userId)
+    .order("origem", { ascending: true });
+  return data ?? [];
 }
 
 export const listContactLists = createServerFn({ method: "GET" })
