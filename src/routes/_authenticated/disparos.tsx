@@ -1486,9 +1486,10 @@ function ContactListsSection() {
                 {rows.length > 0 && (
                   <p className="text-xs text-muted-foreground">{rows.length} linhas no CSV — clique em Importar.</p>
                 )}
+                {rows.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   <button
-                    disabled={rows.length === 0 || importingFor === l.id}
+                    disabled={importingFor === l.id}
                     onClick={async () => {
                       setImportingFor(l.id);
                       try {
@@ -1513,6 +1514,7 @@ function ContactListsSection() {
                     <Plus className="h-3.5 w-3.5" /> {importingFor === l.id ? "Importando…" : "Importar"}
                   </button>
                 </div>
+                )}
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={async () => {
