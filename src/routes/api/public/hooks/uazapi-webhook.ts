@@ -1944,7 +1944,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             panelScreens,
             forbiddenRules,
             freeTestServices,
-            extraContext: orderStatusContext,
+            extraContext: (() => {
+              const persisted = ((conv as { contexto_extra?: string | null }).contexto_extra ?? "").trim();
+              const persistedBlock = persisted
+                ? `CONTEXTO PERSISTENTE DA CONVERSA (fatos já confirmados em mensagens/imagens anteriores — NUNCA pergunte de novo o que já está aqui; ex: se já consta "cliente tem cadastro/saldo", NÃO pergunte se tem cadastro):\n${persisted}`
+                : "";
+              return [persistedBlock, orderStatusContext ?? ""].filter(Boolean).join("\n\n") || null;
+            })(),
             inputKind: dbKind,
             imageBase64: _imageBase64,
             imageMediaType: _imageMediaType,
@@ -1957,6 +1963,37 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           reply = await generateAgentReply(_claudeArgs);
           const _claudeMs = Date.now() - _claudeStart;
           console.log('Resposta do Claude:', reply);
+          // Após análise de imagem pelo Sonnet, persiste fatos duráveis em
+          // conversations.contexto_extra para que o agente nunca esqueça o
+          // que viu no print (ex.: "cliente já tem cadastro com saldo").
+          if (isImage && reply && reply.trim()) {
+            try {
+              const { extractDurableContextFromImageReply } = await import("@/lib/ai.server");
+              const facts = await extractDurableContextFromImageReply({
+                imageReply: reply,
+                clientMessage: text ?? inboundBody ?? null,
+              });
+              if (facts) {
+                const prev = ((conv as { contexto_extra?: string | null }).contexto_extra ?? "").trim();
+                const existingLines = new Set(
+                  prev.split("\n").map((l) => l.trim().toLowerCase()).filter(Boolean),
+                );
+                const newLines = facts
+                  .split("\n")
+                  .map((l) => l.trim())
+                  .filter((l) => l && !existingLines.has(l.toLowerCase()));
+                if (newLines.length > 0) {
+                  const merged = [prev, ...newLines].filter(Boolean).join("\n").slice(-2000);
+                  await supabaseAdmin
+                    .from("conversations")
+                    .update({ contexto_extra: merged } as never)
+                    .eq("id", conv.id);
+                }
+              }
+            } catch (e) {
+              console.error("[contexto_extra] extraction failed", e);
+            }
+          }
           console.log('=== FIM DO PROCESSAMENTO ===');
           try {
             const { logEvent } = await import("@/lib/agent-logger.server");
