@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat, Eye, BarChart3, History, Zap, Megaphone, Instagram } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   listCampaigns,
   createCampaign,
@@ -1392,7 +1393,7 @@ function ContactListsSection() {
 
   const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
   const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
-  const [showImportFor, setShowImportFor] = useState<Record<string, boolean>>({});
+  const [importingFor, setImportingFor] = useState<string | null>(null);
 
   function parseCsv(text: string): CsvRow[] {
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -1429,7 +1430,6 @@ function ContactListsSection() {
           const sum = summary[l.id];
           const isMeta = l.origem === "meta_ads";
           const isActive = activeListIds.has(l.id);
-          const showImport = isMeta ? showImportFor[l.id] === true : true;
           return (
             <div key={l.id} className="rounded-xl border border-border p-5 space-y-3" style={{ background: "var(--gradient-card)" }}>
               <div className="flex items-start justify-between gap-2">
@@ -1461,18 +1461,9 @@ function ContactListsSection() {
               <div className="space-y-2">
                 {isMeta && (
                   <div className="rounded-lg border border-border bg-background/40 p-3 text-xs text-muted-foreground">
-                    Alimentada automaticamente pelos leads do Meta Ads.{" "}
-                    <button
-                      type="button"
-                      onClick={() => setShowImportFor((m) => ({ ...m, [l.id]: !m[l.id] }))}
-                      className="text-primary hover:underline"
-                    >
-                      {showImport ? "ocultar importação manual" : "ou importe manualmente"}
-                    </button>
+                    Alimentada automaticamente pelos leads do Meta Ads. Você também pode importar manualmente abaixo.
                   </div>
                 )}
-                {showImport && (
-                  <>
                 <label className="block text-xs text-muted-foreground">Importar CSV (nome, telefone, instagram)</label>
                 <input
                   type="file"
@@ -1481,7 +1472,14 @@ function ContactListsSection() {
                     const f = e.target.files?.[0];
                     if (!f) return;
                     const text = await f.text();
-                    setCsvByList((m) => ({ ...m, [l.id]: parseCsv(text) }));
+                    const parsed = parseCsv(text);
+                    setCsvByList((m) => ({ ...m, [l.id]: parsed }));
+                    if (parsed.length === 0) {
+                      toast.error("CSV vazio ou cabeçalho inválido. Use colunas: nome, telefone, instagram");
+                    } else {
+                      toast.success(`${parsed.length} linhas detectadas no CSV`);
+                    }
+                    e.target.value = "";
                   }}
                   className="block w-full text-xs"
                 />
@@ -1490,12 +1488,20 @@ function ContactListsSection() {
                 )}
                 <div className="flex flex-wrap gap-2">
                   <button
-                    disabled={rows.length === 0}
+                    disabled={rows.length === 0 || importingFor === l.id}
                     onClick={async () => {
-                      const res = await importFn({ data: { listId: l.id, rows } });
-                      setSummary((m) => ({ ...m, [l.id]: res as never }));
-                      setCsvByList((m) => ({ ...m, [l.id]: [] }));
-                      qc.invalidateQueries({ queryKey: ["contact_lists"] });
+                      setImportingFor(l.id);
+                      try {
+                        const res = await importFn({ data: { listId: l.id, rows } });
+                        setSummary((m) => ({ ...m, [l.id]: res as never }));
+                        setCsvByList((m) => ({ ...m, [l.id]: [] }));
+                        qc.invalidateQueries({ queryKey: ["contact_lists"] });
+                        toast.success(`${(res as { inserted: number }).inserted} contatos importados`);
+                      } catch (err) {
+                        toast.error(`Falha ao importar: ${(err as Error).message}`);
+                      } finally {
+                        setImportingFor(null);
+                      }
                     }}
                     className={
                       isMeta
@@ -1504,11 +1510,9 @@ function ContactListsSection() {
                     }
                     style={isMeta ? undefined : { background: "var(--gradient-primary)" }}
                   >
-                    <Plus className="h-3.5 w-3.5" /> Importar
+                    <Plus className="h-3.5 w-3.5" /> {importingFor === l.id ? "Importando…" : "Importar"}
                   </button>
                 </div>
-                  </>
-                )}
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={async () => {
