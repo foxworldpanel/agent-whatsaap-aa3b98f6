@@ -1632,3 +1632,58 @@ function Stat({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+
+function OverviewStat({
+  icon, label, value, hint, tone,
+}: {
+  icon: React.ReactNode; label: string; value: number; hint?: string;
+  tone?: "primary" | "success" | "info" | "warn";
+}) {
+  const toneCls =
+    tone === "primary" ? "text-primary"
+    : tone === "success" ? "text-emerald-500"
+    : tone === "info" ? "text-blue-500"
+    : tone === "warn" ? "text-amber-500"
+    : "text-foreground";
+  return (
+    <div className="rounded-lg border border-border bg-background/40 px-3 py-3">
+      <div className={`flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground`}>
+        <span className={toneCls}>{icon}</span>{label}
+      </div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <p className={`text-xl font-semibold ${toneCls}`}>{value}</p>
+        {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ChannelBreakdown({
+  title, tone, icon, list,
+}: {
+  title: string; tone: "blue" | "pink"; icon: React.ReactNode;
+  list?: { total: number; contatados: number; respondeu: number; convertido: number };
+}) {
+  const data = list ?? { total: 0, contatados: 0, respondeu: 0, convertido: 0 };
+  const semResp = Math.max(0, data.contatados - data.respondeu);
+  const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 : 0);
+  const badge = tone === "blue" ? "bg-blue-500/15 text-blue-500" : "bg-pink-500/15 text-pink-500";
+  return (
+    <div className="rounded-lg border border-border bg-background/40 p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <span className={`flex h-7 w-7 items-center justify-center rounded-md ${badge}`}>{icon}</span>
+        <h4 className="text-sm font-semibold">{title}</h4>
+      </div>
+      <div className="grid grid-cols-5 gap-2 text-center">
+        <Stat label="Total" value={data.total} />
+        <Stat label="Abord." value={data.contatados} />
+        <Stat label="Resp." value={data.respondeu} />
+        <Stat label="Conv." value={data.convertido} />
+        <Stat label="S/ resp." value={semResp} />
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Resposta: <b>{pct(data.respondeu, data.contatados)}%</b> · Conversão: <b>{pct(data.convertido, data.contatados)}%</b>
+      </p>
+    </div>
+  );
+}
