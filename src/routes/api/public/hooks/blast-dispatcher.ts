@@ -12,6 +12,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
       POST: async () => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
+        const { montarMensagemDisparo } = await import("@/lib/blast-variations");
 
         const { data: camps, error } = await supabaseAdmin
           .from("blast_campaigns")
@@ -141,7 +142,12 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               continue;
             }
 
-            const message = renderTemplate(next.template, next.contact);
+            // Sistema de variação inteligente: detecta horário (Brasil) e monta
+            // saudação + corpo, evitando repetir a última combinação enviada ao contato.
+            const pick = montarMensagemDisparo(next.contact.nome, next.contact.instagram, {
+              avoidKey: next.contact.last_variation_key,
+            });
+            const message = pick.text;
 
             let status: "sent" | "failed" = "sent";
             let errMsg: string | undefined;
@@ -170,7 +176,11 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                     : "enviado_d7";
               await supabaseAdmin
                 .from("blast_contacts")
-                .update({ status: newStatus, last_sent_at: new Date().toISOString() })
+                .update({
+                  status: newStatus,
+                  last_sent_at: new Date().toISOString(),
+                  last_variation_key: pick.key,
+                })
                 .eq("id", next.contact.id);
               await supabaseAdmin
                 .from("blast_campaigns")
@@ -233,6 +243,7 @@ type BlastContact = {
   instagram: string;
   status: string;
   last_sent_at: string | null;
+  last_variation_key: string | null;
 };
 
 async function pickNext(
@@ -254,15 +265,16 @@ async function pickNext(
       ? q.eq("contact_list_id", camp.contact_list_id)
       : q.eq("campaign_id", camp.id);
 
+  const SELECT = "id, nome, telefone, instagram, status, last_sent_at, last_variation_key";
   // 1) Pendentes (abertura)
   const { data: pend } = await (camp.contact_list_id
     ? admin
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .select(SELECT)
         .eq("contact_list_id", camp.contact_list_id)
     : admin
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .select(SELECT)
         .eq("campaign_id", camp.id))
     .eq("status", "pendente")
     .order("prioridade", { ascending: false })
@@ -280,11 +292,11 @@ async function pickNext(
   const { data: d3 } = await (camp.contact_list_id
     ? admin
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .select(SELECT)
         .eq("contact_list_id", camp.contact_list_id)
     : admin
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .select(SELECT)
         .eq("campaign_id", camp.id))
     .eq("status", "enviado_abertura")
     .lte("last_sent_at", d3Cutoff)
@@ -300,11 +312,11 @@ async function pickNext(
   const { data: d7 } = await (camp.contact_list_id
     ? admin
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .select(SELECT)
         .eq("contact_list_id", camp.contact_list_id)
     : admin
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .select(SELECT)
         .eq("campaign_id", camp.id))
     .eq("status", "enviado_d3")
     .lte("last_sent_at", d7Cutoff)

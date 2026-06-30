@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat, Eye, BarChart3, History, Zap, Megaphone, Instagram, Users, Ban } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SAUDACOES, CORPOS_MENSAGEM } from "@/lib/blast-variations";
 import {
   listCampaigns,
   createCampaign,
@@ -931,24 +932,10 @@ function BlastCampaignCard({
       </div>
 
       <div className="space-y-3">
-        <Field label="Primeira mensagem — enviada automaticamente pelo sistema">
-          <p className="-mt-1 mb-2 text-xs text-muted-foreground">
-            Essa mensagem é enviada automaticamente para cada contato da lista. Após o cliente responder, o agente Júlia assume a conversa.
-          </p>
-          <textarea
-            value={opening_message}
-            onChange={(e) => setOpening(e.target.value)}
-            rows={4}
-            className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
-          />
-          <PreviewButton template={opening_message} />
-        </Field>
+        <VariationInfoCard />
         <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
           Os follow-ups automáticos são gerenciados pela Régua de Relacionamento abaixo.
         </div>
-        <p className="text-xs text-muted-foreground">
-          Variáveis disponíveis: <code>{`{nome}`}</code> e <code>{`{instagram}`}</code>
-        </p>
         <button
           onClick={() => saveMut.mutate()}
           disabled={saveMut.isPending}
@@ -1920,6 +1907,60 @@ function ChannelBreakdown({
       <p className="text-[11px] text-muted-foreground">
         Resposta: <b>{pct(data.respondeu, data.contatados)}%</b> · Conversão: <b>{pct(data.convertido, data.contatados)}%</b>
       </p>
+    </div>
+  );
+}
+
+function VariationInfoCard() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+      <div className="flex items-start gap-2">
+        <Sparkles className="h-4 w-4 text-primary mt-0.5" />
+        <div className="flex-1">
+          <h4 className="text-sm font-semibold">Mensagem inteligente automática</h4>
+          <p className="text-xs text-muted-foreground mt-1">
+            O sistema vai variar automaticamente a saudação (manhã/tarde/noite, fuso Brasil)
+            e o texto de abordagem para cada contato, evitando padrões repetitivos. Cada
+            disparo gera uma combinação diferente — sem repetir a última usada no mesmo
+            contato em follow-ups.
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs font-medium text-primary hover:underline"
+      >
+        {open ? "Ocultar exemplos" : "Ver exemplos de variações"}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-3 max-h-80 overflow-y-auto rounded-md border border-border bg-background/60 p-3">
+          {(["manha", "tarde", "noite"] as const).map((p) => (
+            <div key={p}>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                {p === "manha" ? "Manhã (5h–12h)" : p === "tarde" ? "Tarde (12h–18h)" : "Noite (18h–5h)"}
+              </div>
+              <ul className="space-y-1">
+                {SAUDACOES[p].map((s, i) => (
+                  <li key={i} className="text-xs text-foreground/90">• {s}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Corpo da mensagem
+            </div>
+            <ul className="space-y-1">
+              {CORPOS_MENSAGEM.map((c, i) => (
+                <li key={i} className="text-xs text-foreground/90">
+                  • {c.replace("{instagram}", "perfil_exemplo")}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
