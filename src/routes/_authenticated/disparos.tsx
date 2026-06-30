@@ -25,6 +25,12 @@ import {
   testBlastCampaign,
   getNumberHealth,
 } from "@/lib/blast.functions";
+import {
+  listContactLists,
+  importContactsToList,
+  clearContactList,
+  exportContactList,
+} from "@/lib/contact-lists.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
@@ -130,6 +136,7 @@ function Disparos() {
         <div className="space-y-6">
           <ScriptsSection enabled={disparosActive} />
           <NumbersCard />
+          <ContactListsSection />
           <BlastSection />
 
           {showAdd && (
