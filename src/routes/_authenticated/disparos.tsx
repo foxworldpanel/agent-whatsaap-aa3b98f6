@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat } from "lucide-react";
+import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat, Eye, BarChart3, History, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listCampaigns,
@@ -49,6 +49,7 @@ function Disparos() {
   const listN = useServerFn(listNumbers);
 
   const [showAdd, setShowAdd] = useState(false);
+  const [activeTab, setActiveTab] = useState<"ativo" | "regua" | "historico">("ativo");
 
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: () => listC() });
   const { data: logs = [] } = useQuery({ queryKey: ["campaign_logs"], queryFn: () => listL() });
@@ -94,32 +95,52 @@ function Disparos() {
           <p className="text-sm text-muted-foreground">Campanhas</p>
           <h1 className="text-3xl font-bold tracking-tight">Disparos</h1>
         </div>
-        <button
-          onClick={() => setShowAdd((s) => !s)}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]"
-          style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
-        >
-          <Plus className="h-4 w-4" /> Nova campanha
-        </button>
+        {activeTab === "ativo" && (
+          <button
+            onClick={() => setShowAdd((s) => !s)}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]"
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
+          >
+            <Plus className="h-4 w-4" /> Nova campanha
+          </button>
+        )}
       </header>
 
-      <ScriptsSection enabled={disparosActive} />
+      <div className="flex gap-2 border-b border-border">
+        {[
+          { id: "ativo" as const, label: "Disparo Ativo", icon: Zap },
+          { id: "regua" as const, label: "Régua Automática", icon: Repeat },
+          { id: "historico" as const, label: "Histórico e Métricas", icon: History },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+              activeTab === t.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <t.icon className="h-4 w-4" /> {t.label}
+          </button>
+        ))}
+      </div>
 
-      <NumbersCard />
+      {activeTab === "ativo" && (
+        <div className="space-y-6">
+          <ScriptsSection enabled={disparosActive} />
+          <NumbersCard />
+          <BlastSection />
 
-      <BlastSection />
+          {showAdd && (
+            <AddForm
+              pending={createMut.isPending}
+              onCancel={() => setShowAdd(false)}
+              onSubmit={(v) => createMut.mutate(v)}
+            />
+          )}
 
-      <AutoCampaignsSection />
-
-      {showAdd && (
-        <AddForm
-          pending={createMut.isPending}
-          onCancel={() => setShowAdd(false)}
-          onSubmit={(v) => createMut.mutate(v)}
-        />
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-1">
           {campaigns.length === 0 && (
             <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -237,6 +258,12 @@ function Disparos() {
           </ul>
         </div>
       </div>
+        </div>
+      )}
+
+      {activeTab === "regua" && <AutoCampaignsSection />}
+
+      {activeTab === "historico" && <HistorySection />}
     </div>
   );
 }
@@ -429,6 +456,7 @@ function AutoCampaignRow({
               className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
             />
           </Field>
+          <PreviewButton template={msg} />
           <button
             onClick={() => onSave({ message_template: msg, trigger_hours: hours })}
             className="rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
@@ -540,6 +568,7 @@ function ScriptsSection({ enabled }: { enabled: boolean }) {
             className="mt-4 w-full rounded-lg border border-border bg-background p-3 text-sm font-mono outline-none transition focus:border-primary"
             placeholder="Escreva o script de abordagem…"
           />
+          <div className="mt-2"><PreviewButton template={scripts[tab]} /></div>
           <p className="mt-1 text-xs text-muted-foreground">
             Use <code>{`{nome}`}</code> para personalizar com o nome do contato.
           </p>
@@ -847,6 +876,7 @@ function BlastCampaignCard({
             rows={4}
             className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
           />
+          <PreviewButton template={opening_message} />
         </Field>
         <Field label="Follow-up Dia 3">
           <textarea
@@ -855,6 +885,7 @@ function BlastCampaignCard({
             rows={2}
             className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
           />
+          <PreviewButton template={followup_day3_message} />
         </Field>
         <Field label="Follow-up Dia 7">
           <textarea
@@ -863,6 +894,7 @@ function BlastCampaignCard({
             rows={2}
             className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
           />
+          <PreviewButton template={followup_day7_message} />
         </Field>
         <p className="text-xs text-muted-foreground">
           Variáveis disponíveis: <code>{`{nome}`}</code> e <code>{`{instagram}`}</code>
@@ -1167,5 +1199,193 @@ function NumberHealthCard({ numberId }: { numberId: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function renderPreview(template: string): string {
+  return (template ?? "")
+    .replace(/\{nome\}/gi, "João")
+    .replace(/\{instagram\}/gi, "@joaomusico");
+}
+
+function PreviewButton({ template, label = "Visualizar preview" }: { template: string; label?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
+      >
+        <Eye className="h-3.5 w-3.5" /> {label}
+      </button>
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-border bg-background p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-sm">Preview da mensagem</h3>
+              <button onClick={() => setOpen(false)} className="text-xs text-muted-foreground hover:text-foreground">Fechar</button>
+            </div>
+            <p className="text-[11px] text-muted-foreground mb-2">
+              Substituições: <code>{`{nome}`}</code> → João · <code>{`{instagram}`}</code> → @joaomusico
+            </p>
+            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-3 text-sm whitespace-pre-wrap">
+              {renderPreview(template) || <span className="text-muted-foreground italic">(vazio)</span>}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function HistorySection() {
+  const qc = useQueryClient();
+  const listL = useServerFn(listCampaignLogs);
+  const listBC = useServerFn(listBlastCampaigns);
+  const { data: logs = [] } = useQuery({ queryKey: ["campaign_logs"], queryFn: () => listL() });
+  const { data: blastCampaigns = [] } = useQuery({
+    queryKey: ["blast_campaigns"],
+    queryFn: () => listBC(),
+  });
+
+  const [campaignFilter, setCampaignFilter] = useState<string>("all");
+  const [periodDays, setPeriodDays] = useState<number>(7);
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("history_logs_rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_logs" }, () => {
+        qc.invalidateQueries({ queryKey: ["campaign_logs"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  const cutoff = Date.now() - periodDays * 86400000;
+  const filtered = logs.filter((l) => {
+    const ts = new Date(l.created_at).getTime();
+    if (ts < cutoff) return false;
+    if (campaignFilter !== "all" && (l as { campaign_id?: string }).campaign_id !== campaignFilter) return false;
+    return true;
+  });
+
+  // Build per-day reply rate
+  const byDay = new Map<string, { sent: number; replied: number }>();
+  for (const l of filtered) {
+    const d = new Date(l.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const row = byDay.get(key) ?? { sent: 0, replied: 0 };
+    if (l.status === "enviado" || l.status === "respondido") row.sent += 1;
+    if (l.status === "respondido") row.replied += 1;
+    byDay.set(key, row);
+  }
+  const days: Array<{ key: string; sent: number; replied: number; rate: number }> = [];
+  for (let i = periodDays - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const row = byDay.get(key) ?? { sent: 0, replied: 0 };
+    days.push({ key, sent: row.sent, replied: row.replied, rate: row.sent ? Math.round((row.replied / row.sent) * 100) : 0 });
+  }
+  const maxRate = Math.max(10, ...days.map((d) => d.rate));
+
+  return (
+    <section className="space-y-5">
+      <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+        <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+          <div>
+            <h2 className="font-semibold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary" /> Taxa de resposta por dia</h2>
+            <p className="text-xs text-muted-foreground">Mensagens entregues e respondidas no período</p>
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={campaignFilter}
+              onChange={(e) => setCampaignFilter(e.target.value)}
+              className="rounded-lg border border-border bg-background px-2 py-1 text-xs"
+            >
+              <option value="all">Todas as campanhas</option>
+              {blastCampaigns.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <select
+              value={periodDays}
+              onChange={(e) => setPeriodDays(Number(e.target.value))}
+              className="rounded-lg border border-border bg-background px-2 py-1 text-xs"
+            >
+              <option value={7}>Últimos 7 dias</option>
+              <option value={14}>Últimos 14 dias</option>
+              <option value={30}>Últimos 30 dias</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex items-end gap-1 h-40">
+          {days.map((d) => (
+            <div key={d.key} className="flex-1 flex flex-col items-center gap-1">
+              <div className="text-[10px] text-muted-foreground">{d.rate}%</div>
+              <div
+                className="w-full rounded-t bg-primary/70"
+                style={{ height: `${(d.rate / maxRate) * 100}%`, minHeight: d.rate > 0 ? "4px" : "1px" }}
+                title={`${d.sent} enviados · ${d.replied} respondidos`}
+              />
+              <div className="text-[10px] text-muted-foreground">{d.key.slice(5)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border" style={{ background: "var(--gradient-card)" }}>
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h2 className="font-semibold text-sm">Histórico de mensagens</h2>
+          <span className="text-xs text-muted-foreground">{filtered.length} registros</span>
+        </div>
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/30 sticky top-0">
+              <tr className="text-left text-xs text-muted-foreground">
+                <th className="px-4 py-2">Data</th>
+                <th className="px-4 py-2">Contato</th>
+                <th className="px-4 py-2">Mensagem enviada</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-muted-foreground text-sm">Nenhum registro no período.</td></tr>
+              )}
+              {filtered.map((l) => {
+                const d = new Date(l.created_at);
+                const data = d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+                const statusStyle =
+                  l.status === "respondido"
+                    ? "bg-primary/15 text-primary"
+                    : l.status === "enviado"
+                      ? "bg-success/15 text-success"
+                      : "bg-destructive/15 text-destructive";
+                const resultado = l.status === "respondido" ? "Convertido" : l.status === "enviado" ? "Sem resposta" : "Falhou";
+                return (
+                  <tr key={l.id} className="border-t border-border hover:bg-muted/20">
+                    <td className="px-4 py-2 text-xs tabular-nums whitespace-nowrap">{data}</td>
+                    <td className="px-4 py-2 text-xs">{l.contact_name}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground max-w-[360px] truncate">{l.message_preview}</td>
+                    <td className="px-4 py-2">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] ${statusStyle}`}>{l.status}</span>
+                    </td>
+                    <td className="px-4 py-2 text-xs">{resultado}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   );
 }
