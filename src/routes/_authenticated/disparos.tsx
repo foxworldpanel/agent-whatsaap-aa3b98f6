@@ -594,6 +594,7 @@ type BlastCampaign = {
   id: string;
   name: string;
   whatsapp_number_id: string | null;
+  contact_list_id: string | null;
   start_time: string;
   end_time: string;
   daily_limit: number;
