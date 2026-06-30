@@ -637,6 +637,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        // Marca blast_contacts como respondeu (interrompe sequência)
+        try {
+          await supabaseAdmin
+            .from("blast_contacts")
+            .update({ status: "respondeu", replied_at: new Date().toISOString() })
+            .eq("user_id", userId)
+            .eq("telefone", phone)
+            .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7", "pendente"]);
+        } catch {}
+
         if (contact.status === "bloqueado") {
           return new Response("ok (blocked)");
         }
