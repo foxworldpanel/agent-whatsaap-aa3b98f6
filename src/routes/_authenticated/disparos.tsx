@@ -1442,7 +1442,7 @@ function ContactListsSection() {
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listFn() });
 
   const { data: camps = [] } = useQuery({
-    queryKey: ["blast_campaigns"],
+    queryKey: ["blast_campaigns", "active-by-list"],
     queryFn: async () => {
       const { data } = await supabase
         .from("blast_campaigns")
