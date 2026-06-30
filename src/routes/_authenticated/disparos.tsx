@@ -1455,6 +1455,45 @@ function ContactListsSection() {
         <b> Lista B</b> é abastecida por CSV de Instagram. O sistema bloqueia números duplicados em qualquer lista
         ou já presentes em Contatos.
       </p>
+
+      {/* Visão Geral da Base — soma Lista A + Lista B, atualiza em tempo real */}
+      <div className="rounded-xl border border-border p-5 space-y-4" style={{ background: "var(--gradient-card)" }}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Visão Geral da Base</h3>
+          </div>
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tempo real</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <OverviewStat icon={<Users className="h-4 w-4" />} label="Total na base" value={overview.total} tone="primary" />
+          <OverviewStat icon={<Send className="h-4 w-4" />} label="Abordados" value={overview.contatados} />
+          <OverviewStat
+            icon={<MessageCircle className="h-4 w-4" />}
+            label="Responderam"
+            value={overview.respondeu}
+            hint={`${pct(overview.respondeu, overview.contatados)}%`}
+            tone="info"
+          />
+          <OverviewStat
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            label="Converteram"
+            value={overview.convertido}
+            hint={`${pct(overview.convertido, overview.contatados)}%`}
+            tone="success"
+          />
+          <OverviewStat icon={<Ban className="h-4 w-4" />} label="Sem resposta" value={semResposta} tone="warn" />
+        </div>
+        <div className="h-px bg-border" />
+        <div className="grid gap-3 md:grid-cols-2">
+          <ChannelBreakdown title="Lista A — Meta Ads" tone="blue" icon={<Megaphone className="h-4 w-4" />} list={metaList} />
+          <ChannelBreakdown title="Lista B — Instagram" tone="pink" icon={<Instagram className="h-4 w-4" />} list={igList} />
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Compare os dois canais lado a lado: o de maior taxa de conversão é onde vale concentrar o investimento.
+        </p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         {sortedLists.map((l) => {
           const rows = csvByList[l.id] ?? [];
