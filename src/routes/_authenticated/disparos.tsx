@@ -886,10 +886,10 @@ function BlastCampaignCard({
       </div>
 
       <div className="space-y-3">
-        <Field
-          label="Primeira mensagem — enviada automaticamente pelo sistema"
-          hint="Essa mensagem é enviada automaticamente para cada contato da lista. Após o cliente responder, o agente Júlia assume a conversa."
-        >
+        <Field label="Primeira mensagem — enviada automaticamente pelo sistema">
+          <p className="-mt-1 mb-2 text-xs text-muted-foreground">
+            Essa mensagem é enviada automaticamente para cada contato da lista. Após o cliente responder, o agente Júlia assume a conversa.
+          </p>
           <textarea
             value={opening_message}
             onChange={(e) => setOpening(e.target.value)}
