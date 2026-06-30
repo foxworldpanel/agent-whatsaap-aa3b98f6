@@ -691,6 +691,9 @@ function BlastCampaignCard({
   const testFn = useServerFn(testBlastCampaign);
 
   const [whatsapp_number_id, setNum] = useState<string>(camp.whatsapp_number_id ?? "");
+  const [contact_list_id, setListId] = useState<string>(camp.contact_list_id ?? "");
+  const listListsFn = useServerFn(listContactLists);
+  const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listListsFn() });
   const [start_time, setStart] = useState(camp.start_time.slice(0, 5));
   const [end_time, setEnd] = useState(camp.end_time.slice(0, 5));
   const [daily_limit, setLimit] = useState(camp.daily_limit);
@@ -722,6 +725,7 @@ function BlastCampaignCard({
         data: {
           id: camp.id,
           whatsapp_number_id: whatsapp_number_id || null,
+          contact_list_id: contact_list_id || null,
           start_time,
           end_time,
           daily_limit,
