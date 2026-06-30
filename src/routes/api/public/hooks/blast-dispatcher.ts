@@ -221,6 +221,7 @@ function renderTemplate(tpl: string, c: { nome: string; instagram: string }): st
 type Camp = {
   id: string;
   user_id: string;
+  contact_list_id?: string | null;
   opening_message: string;
   followup_day3_message: string;
   followup_day7_message: string;
@@ -238,8 +239,91 @@ async function pickNext(
   admin: Awaited<ReturnType<typeof getAdmin>>,
   camp: Camp,
 ): Promise<{ contact: BlastContact; stage: "opening" | "d3" | "d7"; template: string } | null> {
+  // Carrega origem da lista (Lista A = meta_ads, Lista B = instagram)
+  let listOrigem: "meta_ads" | "instagram" | null = null;
+  if (camp.contact_list_id) {
+    const { data: l } = await admin
+      .from("contact_lists")
+      .select("origem")
+      .eq("id", camp.contact_list_id)
+      .maybeSingle();
+    listOrigem = (l?.origem as "meta_ads" | "instagram" | null) ?? null;
+  }
+  const listFilter = (q: ReturnType<typeof admin.from>) =>
+    camp.contact_list_id
+      ? q.eq("contact_list_id", camp.contact_list_id)
+      : q.eq("campaign_id", camp.id);
+
   // 1) Pendentes (abertura)
-  const { data: pend } = await admin
+  const { data: pend } = await (camp.contact_list_id
+    ? admin
+        .from("blast_contacts")
+        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .eq("contact_list_id", camp.contact_list_id)
+    : admin
+        .from("blast_contacts")
+        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .eq("campaign_id", camp.id))
+    .eq("status", "pendente")
+    .order("prioridade", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(20);
+  void listFilter;
+
+  for (const c of pend ?? []) {
+    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id, listOrigem)) continue;
+    return { contact: c as BlastContact, stage: "opening", template: camp.opening_message };
+  }
+
+  // 2) Follow-up D3 (3 dias após abertura)
+  const d3Cutoff = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
+  const { data: d3 } = await (camp.contact_list_id
+    ? admin
+        .from("blast_contacts")
+        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .eq("contact_list_id", camp.contact_list_id)
+    : admin
+        .from("blast_contacts")
+        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .eq("campaign_id", camp.id))
+    .eq("status", "enviado_abertura")
+    .lte("last_sent_at", d3Cutoff)
+    .order("last_sent_at", { ascending: true })
+    .limit(20);
+  for (const c of d3 ?? []) {
+    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id, listOrigem)) continue;
+    return { contact: c as BlastContact, stage: "d3", template: camp.followup_day3_message };
+  }
+
+  // 3) Follow-up D7
+  const d7Cutoff = new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString();
+  const { data: d7 } = await (camp.contact_list_id
+    ? admin
+        .from("blast_contacts")
+        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .eq("contact_list_id", camp.contact_list_id)
+    : admin
+        .from("blast_contacts")
+        .select("id, nome, telefone, instagram, status, last_sent_at")
+        .eq("campaign_id", camp.id))
+    .eq("status", "enviado_d3")
+    .lte("last_sent_at", d7Cutoff)
+    .order("last_sent_at", { ascending: true })
+    .limit(20);
+  for (const c of d7 ?? []) {
+    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id, listOrigem)) continue;
+    return { contact: c as BlastContact, stage: "d7", template: camp.followup_day7_message };
+  }
+
+  return null;
+}
+
+const _legacyPickNext_removed = async (
+  admin: Awaited<ReturnType<typeof getAdmin>>,
+  camp: Camp,
+): Promise<null> => {
+  void admin; void camp;
+  const oldQ1 = await admin
     .from("blast_contacts")
     .select("id, nome, telefone, instagram, status, last_sent_at")
     .eq("campaign_id", camp.id)
@@ -247,50 +331,16 @@ async function pickNext(
     .order("prioridade", { ascending: false })
     .order("created_at", { ascending: true })
     .limit(20);
-
-  for (const c of pend ?? []) {
-    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id)) continue;
-    return { contact: c as BlastContact, stage: "opening", template: camp.opening_message };
-  }
-
-  // 2) Follow-up D3 (3 dias após abertura)
-  const d3Cutoff = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
-  const { data: d3 } = await admin
-    .from("blast_contacts")
-    .select("id, nome, telefone, instagram, status, last_sent_at")
-    .eq("campaign_id", camp.id)
-    .eq("status", "enviado_abertura")
-    .lte("last_sent_at", d3Cutoff)
-    .order("last_sent_at", { ascending: true })
-    .limit(20);
-  for (const c of d3 ?? []) {
-    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id)) continue;
-    return { contact: c as BlastContact, stage: "d3", template: camp.followup_day3_message };
-  }
-
-  // 3) Follow-up D7 (4 dias após D3 = 7 totais)
-  const d7Cutoff = new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString();
-  const { data: d7 } = await admin
-    .from("blast_contacts")
-    .select("id, nome, telefone, instagram, status, last_sent_at")
-    .eq("campaign_id", camp.id)
-    .eq("status", "enviado_d3")
-    .lte("last_sent_at", d7Cutoff)
-    .order("last_sent_at", { ascending: true })
-    .limit(20);
-  for (const c of d7 ?? []) {
-    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id)) continue;
-    return { contact: c as BlastContact, stage: "d7", template: camp.followup_day7_message };
-  }
-
+  void oldQ1;
   return null;
-}
+};
 
 async function shouldSkip(
   admin: Awaited<ReturnType<typeof getAdmin>>,
   userId: string,
   phone: string,
   blastContactId: string,
+  listOrigem: "meta_ads" | "instagram" | null = null,
 ): Promise<boolean> {
   const { data: ct } = await admin
     .from("contacts")
@@ -304,6 +354,34 @@ async function shouldSkip(
       .update({ status: "pulado", skip_reason: `contato ${ct.status}` })
       .eq("id", blastContactId);
     return true;
+  }
+  // Cross-list protection: ao disparar Lista B (instagram), pula se o número
+  // já está na Lista A (meta_ads) ou já respondeu/foi enviado em qualquer campanha.
+  if (listOrigem === "instagram") {
+    const { data: cross } = await admin
+      .from("blast_contacts")
+      .select("id, status, origem")
+      .eq("user_id", userId)
+      .eq("telefone", phone);
+    const rows = (cross ?? []) as Array<{ id: string; status: string; origem: string | null }>;
+    const inMeta = rows.some((r) => r.origem === "meta_ads");
+    if (inMeta) {
+      await admin
+        .from("blast_contacts")
+        .update({ status: "pulado", skip_reason: "já está na Lista Meta Ads" })
+        .eq("id", blastContactId);
+      return true;
+    }
+    const responded = rows.some(
+      (r) => r.id !== blastContactId && (r.status === "respondeu" || r.status === "convertido"),
+    );
+    if (responded) {
+      await admin
+        .from("blast_contacts")
+        .update({ status: "pulado", skip_reason: "já respondeu em outra campanha" })
+        .eq("id", blastContactId);
+      return true;
+    }
   }
   return false;
 }
