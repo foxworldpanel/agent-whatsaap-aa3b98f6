@@ -12,7 +12,7 @@ import {
   listCampaignLogs,
 } from "@/lib/campaigns.functions";
 import { getAgentConfig, saveAgentConfig } from "@/lib/agent.functions";
-import { listNumbers } from "@/lib/numbers.functions";
+import { listNumbers, updateNumberToggles } from "@/lib/numbers.functions";
 import { listAutoCampaigns, updateAutoCampaign } from "@/lib/auto-campaigns.functions";
 import {
   listBlastCampaigns,
@@ -102,6 +102,8 @@ function Disparos() {
       </header>
 
       <ScriptsSection enabled={disparosActive} />
+
+      <NumbersCard />
 
       <BlastSection />
 
