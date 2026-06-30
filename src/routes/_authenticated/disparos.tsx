@@ -941,81 +941,11 @@ function BlastCampaignCard({
       </div>
 
       <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3">
-        <h4 className="font-semibold text-sm">Importar lista de contatos</h4>
+        <h4 className="font-semibold text-sm">Contatos desta campanha</h4>
         <p className="text-xs text-muted-foreground">
-          CSV com colunas obrigatórias: <code>nome,telefone,instagram</code>. Opcionais:{" "}
-          <code>prioridade</code> (número) e <code>ultima_interacao</code> (AAAA-MM-DD).
+          A importação de contatos foi movida para a seção <b>Listas de Contatos</b> no topo da
+          página. Vincule esta campanha a uma lista no seletor acima.
         </p>
-        <div className="rounded-md border border-primary/30 bg-primary/5 p-2 text-[11px] leading-snug text-foreground/80">
-          💡 <b>Dica:</b> contatos que comentaram ou curtiram seus posts recentemente têm muito mais
-          chance de responder. Se tiver essa informação, adicione uma coluna{" "}
-          <code>ultima_interacao</code> no CSV (formato <code>AAAA-MM-DD</code>) para priorizar
-          esses contatos no disparo. Você também pode preencher <code>prioridade</code> manualmente
-          (0 = normal, valores maiores disparam primeiro).
-        </div>
-        <input
-          type="file"
-          accept=".csv,text/csv"
-          onChange={async (e) => {
-            const f = e.target.files?.[0];
-            if (!f) return;
-            const text = await f.text();
-            setCsvRows(parseCsv(text));
-            setCsvName(f.name);
-            setImportSummary(null);
-          }}
-          className="text-sm"
-        />
-        {importSummary && (
-          <div className="rounded-lg border border-success/40 bg-success/10 p-3 text-xs text-success">
-            <b>{importSummary.inserted}</b> contatos importados.{" "}
-            {(importSummary.removed.duplicates + importSummary.removed.invalid + importSummary.removed.blocked) > 0 && (
-              <span className="text-warning">
-                Removidos: {importSummary.removed.duplicates} duplicados, {importSummary.removed.invalid} inválidos,{" "}
-                {importSummary.removed.blocked} bloqueados/clientes.
-              </span>
-            )}
-          </div>
-        )}
-        {csvRows.length > 0 && (
-          <>
-            <p className="text-xs text-muted-foreground">
-              {csvName}: <b className="text-foreground">{csvRows.length}</b> contatos detectados (preview 10 primeiros)
-            </p>
-            <div className="max-h-48 overflow-y-auto rounded border border-border">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/30">
-                  <tr>
-                    <th className="px-2 py-1 text-left">Nome</th>
-                    <th className="px-2 py-1 text-left">Telefone</th>
-                    <th className="px-2 py-1 text-left">Instagram</th>
-                    <th className="px-2 py-1 text-left">Prioridade</th>
-                    <th className="px-2 py-1 text-left">Última interação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {csvRows.slice(0, 10).map((r, i) => (
-                    <tr key={i} className="border-t border-border">
-                      <td className="px-2 py-1">{r.nome}</td>
-                      <td className="px-2 py-1">{r.telefone}</td>
-                      <td className="px-2 py-1">{r.instagram}</td>
-                      <td className="px-2 py-1">{r.prioridade ?? "—"}</td>
-                      <td className="px-2 py-1">{r.ultima_interacao ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <button
-              onClick={() => importMut.mutate()}
-              disabled={importMut.isPending}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
-              style={{ background: "var(--gradient-primary)" }}
-            >
-              {importMut.isPending ? "Importando…" : "Confirmar importação"}
-            </button>
-          </>
-        )}
         {contacts.length > 0 && (
           <div className="flex items-center justify-between pt-2">
             <span className="text-xs text-muted-foreground">
