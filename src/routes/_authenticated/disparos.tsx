@@ -924,24 +924,9 @@ function BlastCampaignCard({
           />
           <PreviewButton template={opening_message} />
         </Field>
-        <Field label="Follow-up Dia 3">
-          <textarea
-            value={followup_day3_message}
-            onChange={(e) => setD3(e.target.value)}
-            rows={2}
-            className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
-          />
-          <PreviewButton template={followup_day3_message} />
-        </Field>
-        <Field label="Follow-up Dia 7">
-          <textarea
-            value={followup_day7_message}
-            onChange={(e) => setD7(e.target.value)}
-            rows={2}
-            className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
-          />
-          <PreviewButton template={followup_day7_message} />
-        </Field>
+        <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+          Os follow-ups automáticos são gerenciados pela Régua de Relacionamento abaixo.
+        </div>
         <p className="text-xs text-muted-foreground">
           Variáveis disponíveis: <code>{`{nome}`}</code> e <code>{`{instagram}`}</code>
         </p>
