@@ -874,6 +874,7 @@ function BlastCampaignCard({
             rows={4}
             className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
           />
+          <PreviewButton template={opening_message} />
         </Field>
         <Field label="Follow-up Dia 3">
           <textarea
@@ -882,6 +883,7 @@ function BlastCampaignCard({
             rows={2}
             className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
           />
+          <PreviewButton template={followup_day3_message} />
         </Field>
         <Field label="Follow-up Dia 7">
           <textarea
@@ -890,6 +892,7 @@ function BlastCampaignCard({
             rows={2}
             className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
           />
+          <PreviewButton template={followup_day7_message} />
         </Field>
         <p className="text-xs text-muted-foreground">
           Variáveis disponíveis: <code>{`{nome}`}</code> e <code>{`{instagram}`}</code>
