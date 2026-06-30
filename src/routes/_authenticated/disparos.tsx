@@ -544,3 +544,377 @@ function ScriptsSection({ enabled }: { enabled: boolean }) {
     </section>
   );
 }
+
+type BlastCampaign = {
+  id: string;
+  name: string;
+  whatsapp_number_id: string | null;
+  start_time: string;
+  end_time: string;
+  daily_limit: number;
+  delay_min_sec: number;
+  delay_max_sec: number;
+  opening_message: string;
+  followup_day3_message: string;
+  followup_day7_message: string;
+  state: "parado" | "rodando" | "pausado";
+};
+
+type CsvRow = { nome: string; telefone: string; instagram: string };
+
+function parseCsv(text: string): CsvRow[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  if (lines.length === 0) return [];
+  const delim = lines[0].includes(";") && !lines[0].includes(",") ? ";" : ",";
+  const header = lines[0].split(delim).map((h) => h.trim().toLowerCase());
+  const iNome = header.indexOf("nome");
+  const iTel = header.indexOf("telefone");
+  const iIg = header.indexOf("instagram");
+  const start = iNome >= 0 || iTel >= 0 ? 1 : 0;
+  const rows: CsvRow[] = [];
+  for (let i = start; i < lines.length; i++) {
+    const cols = lines[i].split(delim).map((c) => c.trim());
+    const nome = (iNome >= 0 ? cols[iNome] : cols[0]) ?? "";
+    const telefone = (iTel >= 0 ? cols[iTel] : cols[1]) ?? "";
+    const instagram = (iIg >= 0 ? cols[iIg] : cols[2]) ?? "";
+    if (nome && telefone) rows.push({ nome, telefone, instagram });
+  }
+  return rows;
+}
+
+function BlastSection() {
+  const qc = useQueryClient();
+  const listBC = useServerFn(listBlastCampaigns);
+  const listN = useServerFn(listNumbers);
+  const { data: blastCampaigns = [] } = useQuery({
+    queryKey: ["blast_campaigns"],
+    queryFn: () => listBC(),
+  });
+  const { data: numbers = [] } = useQuery({ queryKey: ["whatsapp_numbers"], queryFn: () => listN() });
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Send className="h-5 w-5 text-primary" />
+        <h2 className="font-semibold">Disparos Ativos</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Campanhas de outbound com follow-ups automáticos D3 e D7. Quando o lead responder, o agente Júlia
+        assume a conversa normalmente.
+      </p>
+      {blastCampaigns.map((c) => (
+        <BlastCampaignCard
+          key={c.id}
+          camp={c as BlastCampaign}
+          numbers={numbers as Array<{ id: string; nome: string }>}
+          onChanged={() => qc.invalidateQueries({ queryKey: ["blast_campaigns"] })}
+        />
+      ))}
+    </section>
+  );
+}
+
+function BlastCampaignCard({
+  camp,
+  numbers,
+  onChanged,
+}: {
+  camp: BlastCampaign;
+  numbers: Array<{ id: string; nome: string }>;
+  onChanged: () => void;
+}) {
+  const qc = useQueryClient();
+  const updateFn = useServerFn(updateBlastCampaign);
+  const stateFn = useServerFn(setBlastCampaignState);
+  const importFn = useServerFn(importBlastContacts);
+  const listContactsFn = useServerFn(listBlastContacts);
+  const reportFn = useServerFn(getBlastReport);
+  const clearFn = useServerFn(clearBlastContacts);
+
+  const [whatsapp_number_id, setNum] = useState<string>(camp.whatsapp_number_id ?? "");
+  const [start_time, setStart] = useState(camp.start_time.slice(0, 5));
+  const [end_time, setEnd] = useState(camp.end_time.slice(0, 5));
+  const [daily_limit, setLimit] = useState(camp.daily_limit);
+  const [delay_min_sec, setMin] = useState(camp.delay_min_sec);
+  const [delay_max_sec, setMax] = useState(camp.delay_max_sec);
+  const [opening_message, setOpening] = useState(camp.opening_message);
+  const [followup_day3_message, setD3] = useState(camp.followup_day3_message);
+  const [followup_day7_message, setD7] = useState(camp.followup_day7_message);
+  const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
+  const [csvName, setCsvName] = useState<string>("");
+
+  const { data: contacts = [] } = useQuery({
+    queryKey: ["blast_contacts", camp.id],
+    queryFn: () => listContactsFn({ data: { campaignId: camp.id } }),
+  });
+  const { data: report } = useQuery({
+    queryKey: ["blast_report", camp.id],
+    queryFn: () => reportFn({ data: { campaignId: camp.id } }),
+    refetchInterval: 15000,
+  });
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      updateFn({
+        data: {
+          id: camp.id,
+          whatsapp_number_id: whatsapp_number_id || null,
+          start_time,
+          end_time,
+          daily_limit,
+          delay_min_sec,
+          delay_max_sec,
+          opening_message,
+          followup_day3_message,
+          followup_day7_message,
+        },
+      }),
+    onSuccess: onChanged,
+  });
+  const stateMut = useMutation({
+    mutationFn: (state: "rodando" | "pausado" | "parado") =>
+      stateFn({ data: { id: camp.id, state } }),
+    onSuccess: onChanged,
+  });
+  const importMut = useMutation({
+    mutationFn: () => importFn({ data: { campaignId: camp.id, rows: csvRows } }),
+    onSuccess: () => {
+      setCsvRows([]);
+      setCsvName("");
+      qc.invalidateQueries({ queryKey: ["blast_contacts", camp.id] });
+      qc.invalidateQueries({ queryKey: ["blast_report", camp.id] });
+    },
+  });
+  const clearMut = useMutation({
+    mutationFn: () => clearFn({ data: { campaignId: camp.id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["blast_contacts", camp.id] });
+      qc.invalidateQueries({ queryKey: ["blast_report", camp.id] });
+    },
+  });
+
+  return (
+    <div className="rounded-xl border border-border p-5 space-y-5" style={{ background: "var(--gradient-card)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-lg">{camp.name}</h3>
+          <p className="text-xs text-muted-foreground">
+            Estado:{" "}
+            <span
+              className={
+                camp.state === "rodando"
+                  ? "text-success font-medium"
+                  : camp.state === "pausado"
+                    ? "text-warning font-medium"
+                    : "text-muted-foreground"
+              }
+            >
+              {camp.state}
+            </span>
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => stateMut.mutate("rodando")}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Play className="h-3.5 w-3.5" /> Iniciar
+          </button>
+          <button
+            onClick={() => stateMut.mutate("pausado")}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            <Pause className="h-3.5 w-3.5" /> Pausar
+          </button>
+          <button
+            onClick={() => stateMut.mutate("parado")}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            <Square className="h-3.5 w-3.5" /> Parar
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-6">
+        <Field label="Número">
+          <select
+            value={whatsapp_number_id}
+            onChange={(e) => setNum(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+          >
+            <option value="">Selecione…</option>
+            {numbers.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.nome}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Início">
+          <input
+            type="time"
+            value={start_time}
+            onChange={(e) => setStart(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+          />
+        </Field>
+        <Field label="Fim">
+          <input
+            type="time"
+            value={end_time}
+            onChange={(e) => setEnd(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+          />
+        </Field>
+        <Field label="Limite/dia">
+          <input
+            type="number"
+            value={daily_limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+          />
+        </Field>
+        <Field label="Delay min (s)">
+          <input
+            type="number"
+            value={delay_min_sec}
+            onChange={(e) => setMin(Number(e.target.value))}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+          />
+        </Field>
+        <Field label="Delay max (s)">
+          <input
+            type="number"
+            value={delay_max_sec}
+            onChange={(e) => setMax(Number(e.target.value))}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+          />
+        </Field>
+      </div>
+
+      <div className="space-y-3">
+        <Field label="Mensagem de abertura">
+          <textarea
+            value={opening_message}
+            onChange={(e) => setOpening(e.target.value)}
+            rows={4}
+            className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+          />
+        </Field>
+        <Field label="Follow-up Dia 3">
+          <textarea
+            value={followup_day3_message}
+            onChange={(e) => setD3(e.target.value)}
+            rows={2}
+            className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+          />
+        </Field>
+        <Field label="Follow-up Dia 7">
+          <textarea
+            value={followup_day7_message}
+            onChange={(e) => setD7(e.target.value)}
+            rows={2}
+            className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
+          />
+        </Field>
+        <p className="text-xs text-muted-foreground">
+          Variáveis disponíveis: <code>{`{nome}`}</code> e <code>{`{instagram}`}</code>
+        </p>
+        <button
+          onClick={() => saveMut.mutate()}
+          disabled={saveMut.isPending}
+          className="rounded-lg px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          style={{ background: "var(--gradient-primary)" }}
+        >
+          {saveMut.isPending ? "Salvando…" : "Salvar configurações"}
+        </button>
+      </div>
+
+      <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3">
+        <h4 className="font-semibold text-sm">Importar lista de contatos</h4>
+        <p className="text-xs text-muted-foreground">
+          CSV com colunas: <code>nome,telefone,instagram</code>
+        </p>
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            const text = await f.text();
+            setCsvRows(parseCsv(text));
+            setCsvName(f.name);
+          }}
+          className="text-sm"
+        />
+        {csvRows.length > 0 && (
+          <>
+            <p className="text-xs text-muted-foreground">
+              {csvName}: <b className="text-foreground">{csvRows.length}</b> contatos detectados (preview 10 primeiros)
+            </p>
+            <div className="max-h-48 overflow-y-auto rounded border border-border">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/30">
+                  <tr>
+                    <th className="px-2 py-1 text-left">Nome</th>
+                    <th className="px-2 py-1 text-left">Telefone</th>
+                    <th className="px-2 py-1 text-left">Instagram</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {csvRows.slice(0, 10).map((r, i) => (
+                    <tr key={i} className="border-t border-border">
+                      <td className="px-2 py-1">{r.nome}</td>
+                      <td className="px-2 py-1">{r.telefone}</td>
+                      <td className="px-2 py-1">{r.instagram}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button
+              onClick={() => importMut.mutate()}
+              disabled={importMut.isPending}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+              style={{ background: "var(--gradient-primary)" }}
+            >
+              {importMut.isPending ? "Importando…" : "Confirmar importação"}
+            </button>
+          </>
+        )}
+        {contacts.length > 0 && (
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-xs text-muted-foreground">
+              {contacts.length} contatos na fila desta campanha
+            </span>
+            <button
+              onClick={() => {
+                if (confirm("Remover todos os contatos desta campanha?")) clearMut.mutate();
+              }}
+              className="text-xs text-destructive hover:underline"
+            >
+              Limpar lista
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <ReportCard label="Total disparado" value={report?.sent ?? 0} />
+        <ReportCard label="Taxa de resposta" value={`${report?.replyRate ?? 0}%`} />
+        <ReportCard label="Convertidos" value={report?.converted ?? 0} />
+        <ReportCard label="Sem resposta" value={report?.noReply ?? 0} />
+      </div>
+    </div>
+  );
+}
+
+function ReportCard({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-lg border border-border bg-background/50 p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-xl font-bold mt-1">{value}</p>
+    </div>
+  );
+}
