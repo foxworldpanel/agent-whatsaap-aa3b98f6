@@ -20,34 +20,50 @@ export const createNumber = createServerFn({ method: "POST" })
     z.object({
       nome: z.string().min(1).max(80),
       uazapi_url: z.string().url().max(300),
-      uazapi_admin_token: z.string().min(4).max(300),
+      uazapi_admin_token: z.string().max(300).optional().default(""),
+      uazapi_token: z.string().max(300).optional().default(""),
       meta_ads_enabled: z.boolean().optional(),
       disparos_mode: z.boolean().optional(),
+    }).refine((v) => v.uazapi_admin_token.length >= 4 || v.uazapi_token.length >= 4, {
+      message: "Informe o Admin Token (para criar instância) ou o Instance Token (para vincular instância existente).",
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { uazapiCreateInstance } = await import("./uazapi.server");
-    const { token } = await uazapiCreateInstance({
-      uazapi_url: data.uazapi_url,
-      uazapi_admin_token: data.uazapi_admin_token,
-      name: data.nome,
-    });
+    let token = data.uazapi_token.trim();
+    let initialStatus = "desconectado";
+    if (token) {
+      // Vincular instância existente: valida com /instance/status
+      const { uazapiStatus } = await import("./uazapi.server");
+      const s = await uazapiStatus({ uazapi_url: data.uazapi_url, uazapi_token: token });
+      if (s.status == null) {
+        throw new Error("Não foi possível validar o Instance Token na Uazapi. Verifique o token e a URL.");
+      }
+      initialStatus = s.status === "connected" ? "conectado" : s.status === "disconnected" ? "desconectado" : s.status;
+    } else {
+      const { uazapiCreateInstance } = await import("./uazapi.server");
+      const r = await uazapiCreateInstance({
+        uazapi_url: data.uazapi_url,
+        uazapi_admin_token: data.uazapi_admin_token,
+        name: data.nome,
+      });
+      token = r.token;
+    }
     const { data: row, error } = await context.supabase
       .from("whatsapp_numbers")
       .insert({
         user_id: context.userId,
         nome: data.nome,
         uazapi_url: data.uazapi_url,
-        uazapi_admin_token: data.uazapi_admin_token,
+        uazapi_admin_token: data.uazapi_admin_token || null,
         uazapi_token: token,
-        status: "desconectado",
+        status: initialStatus,
         meta_ads_enabled: data.meta_ads_enabled ?? false,
         disparos_mode: data.disparos_mode ?? false,
       })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
-    return { id: row.id };
+    return { id: row.id, linked: !!data.uazapi_token };
   });
 
 export const connectNumber = createServerFn({ method: "POST" })
