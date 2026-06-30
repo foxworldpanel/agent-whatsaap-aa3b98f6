@@ -622,6 +622,7 @@ export type Database = {
           agent_enabled: boolean
           auto_paused_at: string | null
           contact_id: string
+          contexto_extra: string | null
           created_at: string
           funnel_status: Database["public"]["Enums"]["funnel_status"]
           id: string
@@ -639,6 +640,7 @@ export type Database = {
           agent_enabled?: boolean
           auto_paused_at?: string | null
           contact_id: string
+          contexto_extra?: string | null
           created_at?: string
           funnel_status?: Database["public"]["Enums"]["funnel_status"]
           id?: string
@@ -656,6 +658,7 @@ export type Database = {
           agent_enabled?: boolean
           auto_paused_at?: string | null
           contact_id?: string
+          contexto_extra?: string | null
           created_at?: string
           funnel_status?: Database["public"]["Enums"]["funnel_status"]
           id?: string
