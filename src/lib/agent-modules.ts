@@ -564,6 +564,16 @@ Dia 15 → Última tentativa`,
 
   avisos: `Campo editável no painel para avisos ativos.
 
+AVISO ATIVO — Spotify Brasil (DESATIVADO):
+O serviço de Plays + Ouvintes Brasil está temporariamente DESATIVADO para atualização.
+NUNCA ofereça, aceite pedido ou calcule preço de Plays Brasil enquanto este aviso estiver ativo.
+Quando o cliente pedir plays Brasil, responde exatamente neste tom:
+"No momento o serviço Brasil está em atualização, mas temos Global e EUA disponíveis com a mesma qualidade! O Global entrega de 300-1000 por dia e o EUA de 500-1000 por dia, ambos por R$15 o mil. Qual prefere?"
+
+Disponíveis no momento:
+- Plays + Ouvintes Global — R$15/mil, mín 500, entrega 300-1000/dia
+- Plays + Ouvintes EUA — R$15/mil, mín 1000, entrega 500-1000/dia
+
 Quando tiver aviso ativo sobre alguma plataforma:
 Cliente reclamar de demora no Spotify →
 "No momento o Spotify está com entrega um pouco mais lenta devido a uma atualização da plataforma. Seu pedido está na fila e será entregue em breve!"
