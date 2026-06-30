@@ -237,13 +237,16 @@ export async function uazapiCreateInstance(opts: {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      adminToken: opts.uazapi_admin_token,
+      admintoken: opts.uazapi_admin_token,
     },
     body: JSON.stringify({ name: opts.name, systemName: "ZapAgent" }),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`Uazapi /instance/init falhou (${res.status}): ${t.slice(0, 300)}`);
+    throw new Error(
+      `Uazapi /instance/init falhou (${res.status}): ${t.slice(0, 300)}. ` +
+      `Verifique se o Admin Token informado é válido para ${base}.`,
+    );
   }
   const j = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   const inst = (j.instance as Record<string, unknown> | undefined) ?? j;
