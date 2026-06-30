@@ -54,7 +54,7 @@ export const createNumber = createServerFn({ method: "POST" })
         user_id: context.userId,
         nome: data.nome,
         uazapi_url: data.uazapi_url,
-        uazapi_admin_token: data.uazapi_admin_token || null,
+        uazapi_admin_token: data.uazapi_admin_token || "",
         uazapi_token: token,
         status: initialStatus,
         meta_ads_enabled: data.meta_ads_enabled ?? false,
