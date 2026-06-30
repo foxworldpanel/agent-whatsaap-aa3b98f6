@@ -6,34 +6,39 @@ function normalizePhone(raw: string): string {
   return raw.replace(/\D+/g, "");
 }
 
-async function ensureLists(supabase: ReturnType<typeof getSb>, userId: string) {
+type AnyClient = {
+  from: (t: string) => {
+    select: (...a: unknown[]) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }> & {
+      eq: (...a: unknown[]) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }> & {
+        order: (...a: unknown[]) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }>;
+      };
+    };
+    insert: (rows: unknown[]) => Promise<{ data: unknown; error: { message: string } | null }>;
+  };
+};
+
+async function ensureLists(supabase: unknown, userId: string): Promise<Array<{ id: string; name: string; origem: string }>> {
+  const sb = supabase as AnyClient;
   const { data: existing } = await supabase
-    .from("contact_lists")
-    .select("*")
-    .eq("user_id", userId);
-  const has = (origem: string) => (existing ?? []).some((l) => l.origem === origem);
+    ? (await (sb.from("contact_lists") as unknown as { select: (s: string) => { eq: (k: string, v: string) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }> } }).select("*").eq("user_id", userId))
+    : { data: [] as Array<{ id: string; name: string; origem: string }> };
+  const has = (origem: string) => (existing ?? []).some((l: { origem: string }) => l.origem === origem);
   const toInsert: Array<{ user_id: string; name: string; origem: "meta_ads" | "instagram" }> = [];
   if (!has("meta_ads")) toInsert.push({ user_id: userId, name: "Lista A — Meta Ads", origem: "meta_ads" });
   if (!has("instagram")) toInsert.push({ user_id: userId, name: "Lista B — Instagram", origem: "instagram" });
   if (toInsert.length > 0) {
-    await supabase.from("contact_lists").insert(toInsert);
+    await (sb.from("contact_lists") as unknown as { insert: (r: unknown[]) => Promise<unknown> }).insert(toInsert);
   }
-  const { data } = await supabase
-    .from("contact_lists")
-    .select("*")
-    .eq("user_id", userId)
-    .order("origem", { ascending: true });
-  return data ?? [];
+  const r = await (sb.from("contact_lists") as unknown as {
+    select: (s: string) => { eq: (k: string, v: string) => { order: (k: string, o: { ascending: boolean }) => Promise<{ data: Array<{ id: string; name: string; origem: string }> | null }> } };
+  }).select("*").eq("user_id", userId).order("origem", { ascending: true });
+  return r.data ?? [];
 }
-
-type Sb = Parameters<typeof requireSupabaseAuth.middleware>[0] extends unknown ? unknown : never;
-function getSb(): Sb { return null as never; }
-void getSb;
 
 export const listContactLists = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const lists = await ensureLists(context.supabase as never, context.userId);
+    const lists = await ensureLists(context.supabase, context.userId);
     const out: Array<{
       id: string; name: string; origem: string; total: number;
       contatados: number; respondeu: number; convertido: number;
