@@ -135,6 +135,13 @@ export const importBlastContacts = createServerFn({ method: "POST" })
               nome: z.string().trim().min(1).max(120),
               telefone: z.string().trim().min(5).max(40),
               instagram: z.string().trim().max(80).optional().default(""),
+              prioridade: z.number().int().min(0).max(100000).optional(),
+              ultima_interacao: z
+                .string()
+                .trim()
+                .regex(/^\d{4}-\d{2}-\d{2}$/)
+                .optional()
+                .or(z.literal("")),
             }),
           )
           .min(1)
@@ -145,12 +152,26 @@ export const importBlastContacts = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     // 1) normalize & validate
     let invalid = 0;
+    const todayEpochDay = Math.floor(Date.now() / 86400000);
     const normalized = data.rows
-      .map((r) => ({
-        nome: r.nome,
-        telefone: normalizePhone(r.telefone),
-        instagram: (r.instagram ?? "").replace(/^@/, ""),
-      }))
+      .map((r) => {
+        const ult = r.ultima_interacao && r.ultima_interacao.length === 10 ? r.ultima_interacao : null;
+        // Prioridade automática: contatos com interação recente recebem score alto.
+        // Hoje = 1000; cada dia atrás reduz 10 pontos (mínimo 0). Manual sobrescreve.
+        let prioridade = r.prioridade ?? 0;
+        if (!r.prioridade && ult) {
+          const day = Math.floor(new Date(ult + "T00:00:00Z").getTime() / 86400000);
+          const diff = todayEpochDay - day;
+          prioridade = Math.max(0, 1000 - Math.max(0, diff) * 10);
+        }
+        return {
+          nome: r.nome,
+          telefone: normalizePhone(r.telefone),
+          instagram: (r.instagram ?? "").replace(/^@/, ""),
+          prioridade,
+          ultima_interacao: ult,
+        };
+      })
       .filter((r) => {
         const ok = r.telefone.length >= 10 && r.telefone.length <= 15;
         if (!ok) invalid += 1;
@@ -216,6 +237,8 @@ export const importBlastContacts = createServerFn({ method: "POST" })
       nome: r.nome,
       telefone: r.telefone,
       instagram: r.instagram,
+      prioridade: r.prioridade,
+      ultima_interacao: r.ultima_interacao,
       status: "pendente" as const,
     }));
     const { error, count } = await context.supabase
