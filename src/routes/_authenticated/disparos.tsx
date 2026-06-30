@@ -593,7 +593,13 @@ type BlastCampaign = {
   state: "parado" | "rodando" | "pausado";
 };
 
-type CsvRow = { nome: string; telefone: string; instagram: string };
+type CsvRow = {
+  nome: string;
+  telefone: string;
+  instagram: string;
+  prioridade?: number;
+  ultima_interacao?: string;
+};
 
 function parseCsv(text: string): CsvRow[] {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -603,6 +609,8 @@ function parseCsv(text: string): CsvRow[] {
   const iNome = header.indexOf("nome");
   const iTel = header.indexOf("telefone");
   const iIg = header.indexOf("instagram");
+  const iPrio = header.indexOf("prioridade");
+  const iUlt = header.indexOf("ultima_interacao");
   const start = iNome >= 0 || iTel >= 0 ? 1 : 0;
   const rows: CsvRow[] = [];
   for (let i = start; i < lines.length; i++) {
@@ -610,7 +618,11 @@ function parseCsv(text: string): CsvRow[] {
     const nome = (iNome >= 0 ? cols[iNome] : cols[0]) ?? "";
     const telefone = (iTel >= 0 ? cols[iTel] : cols[1]) ?? "";
     const instagram = (iIg >= 0 ? cols[iIg] : cols[2]) ?? "";
-    if (nome && telefone) rows.push({ nome, telefone, instagram });
+    const prioRaw = iPrio >= 0 ? cols[iPrio] : "";
+    const ultRaw = iUlt >= 0 ? cols[iUlt] : "";
+    const prioridade = prioRaw && /^\d+$/.test(prioRaw) ? Number(prioRaw) : undefined;
+    const ultima_interacao = /^\d{4}-\d{2}-\d{2}$/.test(ultRaw) ? ultRaw : undefined;
+    if (nome && telefone) rows.push({ nome, telefone, instagram, prioridade, ultima_interacao });
   }
   return rows;
 }
