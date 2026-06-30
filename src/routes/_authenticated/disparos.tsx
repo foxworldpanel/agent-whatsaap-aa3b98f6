@@ -14,6 +14,15 @@ import {
 import { getAgentConfig, saveAgentConfig } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { listAutoCampaigns, updateAutoCampaign } from "@/lib/auto-campaigns.functions";
+import {
+  listBlastCampaigns,
+  updateBlastCampaign,
+  setBlastCampaignState,
+  importBlastContacts,
+  listBlastContacts,
+  getBlastReport,
+  clearBlastContacts,
+} from "@/lib/blast.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
@@ -93,6 +102,8 @@ function Disparos() {
       </header>
 
       <ScriptsSection enabled={disparosActive} />
+
+      <BlastSection />
 
       <AutoCampaignsSection />
 
