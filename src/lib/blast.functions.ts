@@ -192,9 +192,10 @@ export const importBlastContacts = createServerFn({ method: "POST" })
         .select("telefone, status")
         .eq("user_id", context.userId)
         .in("telefone", uniq.map((r) => r.telefone));
+      const badStatuses = new Set(["bloqueado", "cliente", "convertido"]);
       const bad = new Set(
         (blockedRows ?? [])
-          .filter((r) => r.status === "bloqueado" || r.status === "cliente" || r.status === "convertido")
+          .filter((r) => badStatuses.has(r.status as string))
           .map((r) => r.telefone as string),
       );
       const filtered = uniq.filter((r) => {
