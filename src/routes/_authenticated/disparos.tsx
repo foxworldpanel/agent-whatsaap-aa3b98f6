@@ -524,7 +524,12 @@ function ScriptsSection({ enabled }: { enabled: boolean }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold">Script de abordagem</h2>
+          <div>
+            <h2 className="font-semibold">Script do agente por perfil — usado após o cliente responder</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Quando o cliente responder a primeira mensagem, o agente Júlia usa esse script como base dependendo do perfil do contato.
+            </p>
+          </div>
         </div>
         {enabled && (
           <button
@@ -881,7 +886,10 @@ function BlastCampaignCard({
       </div>
 
       <div className="space-y-3">
-        <Field label="Mensagem de abertura">
+        <Field label="Primeira mensagem — enviada automaticamente pelo sistema">
+          <p className="-mt-1 mb-2 text-xs text-muted-foreground">
+            Essa mensagem é enviada automaticamente para cada contato da lista. Após o cliente responder, o agente Júlia assume a conversa.
+          </p>
           <textarea
             value={opening_message}
             onChange={(e) => setOpening(e.target.value)}
