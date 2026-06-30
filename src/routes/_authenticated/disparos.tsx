@@ -456,6 +456,7 @@ function AutoCampaignRow({
               className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
             />
           </Field>
+          <PreviewButton template={msg} />
           <button
             onClick={() => onSave({ message_template: msg, trigger_hours: hours })}
             className="rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
