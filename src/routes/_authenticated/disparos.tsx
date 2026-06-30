@@ -640,10 +640,6 @@ function parseCsv(text: string): CsvRow[] {
 }
 
 function BlastSection() {
-  // placeholder
-  return _BlastSection();
-}
-function _BlastSection() {
   const qc = useQueryClient();
   const listBC = useServerFn(listBlastCampaigns);
   const listN = useServerFn(listNumbers);
