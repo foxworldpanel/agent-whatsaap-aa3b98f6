@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat, Eye, BarChart3, History, Zap, Megaphone, Instagram } from "lucide-react";
+import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat, Eye, BarChart3, History, Zap, Megaphone, Instagram, Users, Ban } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
@@ -1385,11 +1385,42 @@ function ContactListsSection() {
     camps.filter((c) => c.state === "rodando" && c.contact_list_id).map((c) => c.contact_list_id as string),
   );
 
+  // Realtime: refresh listas/contagens quando blast_contacts mudar
+  useEffect(() => {
+    const ch = supabase
+      .channel("blast_contacts_overview")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "blast_contacts" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["contact_lists"] });
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
   // Lista A (Meta Ads) à esquerda, Lista B (Instagram) à direita
   const sortedLists = [...lists].sort((a, b) => {
     if (a.origem === b.origem) return 0;
     return a.origem === "meta_ads" ? -1 : 1;
   });
+
+  // Visão geral agregada (Lista A + Lista B)
+  const overview = sortedLists.reduce(
+    (acc, l) => {
+      acc.total += l.total;
+      acc.contatados += l.contatados;
+      acc.respondeu += l.respondeu;
+      acc.convertido += l.convertido;
+      return acc;
+    },
+    { total: 0, contatados: 0, respondeu: 0, convertido: 0 },
+  );
+  const semResposta = Math.max(0, overview.contatados - overview.respondeu);
+  const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 : 0);
+  const metaList = sortedLists.find((l) => l.origem === "meta_ads");
+  const igList = sortedLists.find((l) => l.origem === "instagram");
 
   const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
   const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
@@ -1424,6 +1455,45 @@ function ContactListsSection() {
         <b> Lista B</b> é abastecida por CSV de Instagram. O sistema bloqueia números duplicados em qualquer lista
         ou já presentes em Contatos.
       </p>
+
+      {/* Visão Geral da Base — soma Lista A + Lista B, atualiza em tempo real */}
+      <div className="rounded-xl border border-border p-5 space-y-4" style={{ background: "var(--gradient-card)" }}>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Visão Geral da Base</h3>
+          </div>
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tempo real</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <OverviewStat icon={<Users className="h-4 w-4" />} label="Total na base" value={overview.total} tone="primary" />
+          <OverviewStat icon={<Send className="h-4 w-4" />} label="Abordados" value={overview.contatados} />
+          <OverviewStat
+            icon={<MessageCircle className="h-4 w-4" />}
+            label="Responderam"
+            value={overview.respondeu}
+            hint={`${pct(overview.respondeu, overview.contatados)}%`}
+            tone="info"
+          />
+          <OverviewStat
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            label="Converteram"
+            value={overview.convertido}
+            hint={`${pct(overview.convertido, overview.contatados)}%`}
+            tone="success"
+          />
+          <OverviewStat icon={<Ban className="h-4 w-4" />} label="Sem resposta" value={semResposta} tone="warn" />
+        </div>
+        <div className="h-px bg-border" />
+        <div className="grid gap-3 md:grid-cols-2">
+          <ChannelBreakdown title="Lista A — Meta Ads" tone="blue" icon={<Megaphone className="h-4 w-4" />} list={metaList} />
+          <ChannelBreakdown title="Lista B — Instagram" tone="pink" icon={<Instagram className="h-4 w-4" />} list={igList} />
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Compare os dois canais lado a lado: o de maior taxa de conversão é onde vale concentrar o investimento.
+        </p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         {sortedLists.map((l) => {
           const rows = csvByList[l.id] ?? [];
@@ -1559,6 +1629,61 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="rounded-lg border border-border bg-background/40 px-2 py-2">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function OverviewStat({
+  icon, label, value, hint, tone,
+}: {
+  icon: React.ReactNode; label: string; value: number; hint?: string;
+  tone?: "primary" | "success" | "info" | "warn";
+}) {
+  const toneCls =
+    tone === "primary" ? "text-primary"
+    : tone === "success" ? "text-emerald-500"
+    : tone === "info" ? "text-blue-500"
+    : tone === "warn" ? "text-amber-500"
+    : "text-foreground";
+  return (
+    <div className="rounded-lg border border-border bg-background/40 px-3 py-3">
+      <div className={`flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground`}>
+        <span className={toneCls}>{icon}</span>{label}
+      </div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <p className={`text-xl font-semibold ${toneCls}`}>{value}</p>
+        {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+      </div>
+    </div>
+  );
+}
+
+function ChannelBreakdown({
+  title, tone, icon, list,
+}: {
+  title: string; tone: "blue" | "pink"; icon: React.ReactNode;
+  list?: { total: number; contatados: number; respondeu: number; convertido: number };
+}) {
+  const data = list ?? { total: 0, contatados: 0, respondeu: 0, convertido: 0 };
+  const semResp = Math.max(0, data.contatados - data.respondeu);
+  const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 : 0);
+  const badge = tone === "blue" ? "bg-blue-500/15 text-blue-500" : "bg-pink-500/15 text-pink-500";
+  return (
+    <div className="rounded-lg border border-border bg-background/40 p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <span className={`flex h-7 w-7 items-center justify-center rounded-md ${badge}`}>{icon}</span>
+        <h4 className="text-sm font-semibold">{title}</h4>
+      </div>
+      <div className="grid grid-cols-5 gap-2 text-center">
+        <Stat label="Total" value={data.total} />
+        <Stat label="Abord." value={data.contatados} />
+        <Stat label="Resp." value={data.respondeu} />
+        <Stat label="Conv." value={data.convertido} />
+        <Stat label="S/ resp." value={semResp} />
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Resposta: <b>{pct(data.respondeu, data.contatados)}%</b> · Conversão: <b>{pct(data.convertido, data.contatados)}%</b>
+      </p>
     </div>
   );
 }
