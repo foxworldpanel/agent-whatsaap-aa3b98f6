@@ -250,7 +250,11 @@ function isEmojiOnly(text: string): boolean {
 }
 
 function isConfirmationEmojiOnly(text: string): boolean {
-  return /^[\s\uFE0F\u200D]*(?:👍|👌|✅|☑|✔|👏|🙏)+[\s\uFE0F\u200D]*$/u.test(text ?? "");
+  const rest = (text ?? "")
+    .trim()
+    .replace(/[\s\uFE0F\u200D\u{1F3FB}-\u{1F3FF}]/gu, "")
+    .replace(/[👍👌✅☑✔👏🙏]/gu, "");
+  return rest.length === 0 && (text ?? "").trim().length > 0;
 }
 
 function isShortConfirmationText(text: string): boolean {
