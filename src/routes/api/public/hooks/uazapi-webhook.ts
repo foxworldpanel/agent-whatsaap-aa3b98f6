@@ -1997,10 +1997,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         // Divide a resposta em partes quando o agente usa "===SPLIT===" (link separado).
-        const replyParts = reply
+        const replyParts = collapseRedundantWaitingParts(reply
           .split(/===SPLIT===/i)
           .map((s) => s.trim())
-          .filter((s) => s.length > 0);
+          .filter((s) => s.length > 0), inboundBody);
+
+        const replyForPreview = replyParts.join("\n");
 
         // Conteúdo "duro" que NÃO deve virar áudio (link explícito, preço, lista).
         // Mantemos a checagem por PARTE — o agente costuma colocar o link sozinho
@@ -2381,7 +2383,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         await supabaseAdmin
           .from("conversations")
           .update({
-            last_message_preview: reply.slice(0, 120),
+              last_message_preview: replyForPreview.slice(0, 120),
             last_message_at: nowReply,
             status: "aguardando",
           })
