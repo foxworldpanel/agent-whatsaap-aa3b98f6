@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat, Eye, BarChart3, History, Zap, Megaphone, Instagram, Users, Ban } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SAUDACOES, CORPOS_MENSAGEM } from "@/lib/blast-variations";
 import {
   listCampaigns,
   createCampaign,
@@ -931,24 +932,10 @@ function BlastCampaignCard({
       </div>
 
       <div className="space-y-3">
-        <Field label="Primeira mensagem — enviada automaticamente pelo sistema">
-          <p className="-mt-1 mb-2 text-xs text-muted-foreground">
-            Essa mensagem é enviada automaticamente para cada contato da lista. Após o cliente responder, o agente Júlia assume a conversa.
-          </p>
-          <textarea
-            value={opening_message}
-            onChange={(e) => setOpening(e.target.value)}
-            rows={4}
-            className="w-full rounded-lg border border-border bg-background p-3 text-sm outline-none focus:border-primary"
-          />
-          <PreviewButton template={opening_message} />
-        </Field>
+        <VariationInfoCard />
         <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
           Os follow-ups automáticos são gerenciados pela Régua de Relacionamento abaixo.
         </div>
-        <p className="text-xs text-muted-foreground">
-          Variáveis disponíveis: <code>{`{nome}`}</code> e <code>{`{instagram}`}</code>
-        </p>
         <button
           onClick={() => saveMut.mutate()}
           disabled={saveMut.isPending}
