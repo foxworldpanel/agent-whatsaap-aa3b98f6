@@ -720,6 +720,24 @@ function BlastCampaignCard({
     refetchInterval: 15000,
   });
 
+  // Realtime: refresca lista de contatos quando o dispatcher atualiza qualquer status
+  useEffect(() => {
+    const ch = supabase
+      .channel(`blast_contacts_rt_${camp.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "blast_contacts", filter: `campaign_id=eq.${camp.id}` },
+        () => {
+          qc.invalidateQueries({ queryKey: ["blast_contacts", camp.id] });
+          qc.invalidateQueries({ queryKey: ["blast_report", camp.id] });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [camp.id, qc]);
+
   const saveMut = useMutation({
     mutationFn: () =>
       updateFn({
@@ -992,6 +1010,229 @@ function BlastCampaignCard({
         <ReportCard label="Taxa de resposta" value={`${report?.replyRate ?? 0}%`} />
         <ReportCard label="Convertidos" value={report?.converted ?? 0} />
         <ReportCard label="Sem resposta" value={report?.noReply ?? 0} />
+      </div>
+
+      <CampaignProgressCard
+        contacts={contacts as BlastContactRow[]}
+        camp={camp}
+        effectiveLimit={effectiveLimitFromNumber()}
+      />
+
+      <ContactsRealtimeTable contacts={contacts as BlastContactRow[]} />
+    </div>
+  );
+}
+
+type BlastContactRow = {
+  id: string;
+  nome: string;
+  telefone: string;
+  instagram: string | null;
+  status: string;
+  last_sent_at: string | null;
+  replied_at: string | null;
+};
+
+function isSentStatus(s: string) {
+  return s === "enviado_abertura" || s === "enviado_d3" || s === "enviado_d7" || s === "respondeu" || s === "convertido";
+}
+
+function CampaignProgressCard({
+  contacts,
+  camp,
+  effectiveLimit,
+}: {
+  contacts: BlastContactRow[];
+  camp: BlastCampaign;
+  effectiveLimit: number;
+}) {
+  const total = contacts.length;
+  const sentTotal = contacts.filter((c) => isSentStatus(c.status)).length;
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const sentToday = contacts.filter(
+    (c) => c.last_sent_at && new Date(c.last_sent_at).getTime() >= startOfDay.getTime(),
+  ).length;
+  const pending = contacts.filter((c) => c.status === "pendente").length;
+  const remainingToday = Math.max(0, effectiveLimit - sentToday);
+  const pct = total > 0 ? Math.round((sentTotal / total) * 100) : 0;
+  const days = pending > 0 ? Math.max(1, Math.ceil(pending / Math.max(1, effectiveLimit))) : 0;
+
+  // próximo disparo estimado
+  const lastSent = contacts
+    .map((c) => (c.last_sent_at ? new Date(c.last_sent_at).getTime() : 0))
+    .reduce((a, b) => Math.max(a, b), 0);
+  const avgDelaySec = Math.round((camp.delay_min_sec + camp.delay_max_sec) / 2);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const nextEtaSec =
+    camp.state === "rodando" && lastSent > 0 && pending > 0
+      ? Math.max(0, Math.round((lastSent + avgDelaySec * 1000 - now) / 1000))
+      : null;
+
+  const stateBadge =
+    camp.state === "rodando"
+      ? { label: "Em andamento", cls: "bg-success/20 text-success" }
+      : camp.state === "pausado"
+        ? { label: "Pausado", cls: "bg-warning/20 text-warning" }
+        : { label: "Parado", cls: "bg-muted text-muted-foreground" };
+
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="font-semibold text-sm flex items-center gap-2">
+          🚀 Progresso da Campanha — {camp.name}
+        </h4>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs ${stateBadge.cls}`}>{stateBadge.label}</span>
+      </div>
+      <div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full bg-primary transition-all"
+            style={{ width: `${pct}%`, background: "var(--gradient-primary)" }}
+          />
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {sentTotal}/{total} ({pct}%)
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 text-xs">
+        <div className="rounded-md border border-border bg-background/60 p-2.5">
+          <p className="text-muted-foreground">✅ Enviados hoje</p>
+          <p className="text-base font-semibold">{sentToday}</p>
+        </div>
+        <div className="rounded-md border border-border bg-background/60 p-2.5">
+          <p className="text-muted-foreground">⏳ Faltam hoje</p>
+          <p className="text-base font-semibold">
+            {remainingToday} <span className="text-xs font-normal text-muted-foreground">(limite {effectiveLimit}/dia)</span>
+          </p>
+        </div>
+        <div className="rounded-md border border-border bg-background/60 p-2.5">
+          <p className="text-muted-foreground">📅 Total restante</p>
+          <p className="text-base font-semibold">{pending}</p>
+        </div>
+        <div className="rounded-md border border-border bg-background/60 p-2.5">
+          <p className="text-muted-foreground">⏱️ Próximo disparo em</p>
+          <p className="text-base font-semibold">
+            {camp.state !== "rodando"
+              ? "—"
+              : nextEtaSec === null
+                ? "aguardando"
+                : nextEtaSec > 0
+                  ? `${Math.floor(nextEtaSec / 60)}m ${nextEtaSec % 60}s`
+                  : "a qualquer momento"}
+          </p>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        📆 Previsão de conclusão: {pending === 0 ? "concluído" : `${days} dia${days > 1 ? "s" : ""}`}
+      </p>
+    </div>
+  );
+}
+
+type StatusFilter = "todos" | "aguardando" | "enviados" | "responderam" | "converteram" | "falhou";
+
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  pendente: { label: "⬜ Aguardando", cls: "bg-muted text-muted-foreground" },
+  na_fila: { label: "🟡 Na fila", cls: "bg-warning/20 text-warning" },
+  enviado_abertura: { label: "✅ Enviado", cls: "bg-success/20 text-success" },
+  enviado_d3: { label: "✅ Enviado D3", cls: "bg-success/20 text-success" },
+  enviado_d7: { label: "✅ Enviado D7", cls: "bg-success/20 text-success" },
+  respondeu: { label: "💬 Respondeu", cls: "bg-primary/20 text-primary" },
+  convertido: { label: "✅ Converteu", cls: "bg-purple-500/20 text-purple-400" },
+  falhou: { label: "❌ Falhou", cls: "bg-destructive/20 text-destructive" },
+  bloqueado: { label: "🚫 Bloqueado", cls: "bg-destructive/20 text-destructive" },
+  pulado: { label: "⏭️ Pulado", cls: "bg-muted/60 text-muted-foreground" },
+  duplicado: { label: "⏭️ Duplicado", cls: "bg-muted/60 text-muted-foreground" },
+};
+
+function matchesFilter(status: string, f: StatusFilter): boolean {
+  if (f === "todos") return true;
+  if (f === "aguardando") return status === "pendente" || status === "na_fila";
+  if (f === "enviados") return status === "enviado_abertura" || status === "enviado_d3" || status === "enviado_d7";
+  if (f === "responderam") return status === "respondeu";
+  if (f === "converteram") return status === "convertido";
+  if (f === "falhou") return status === "falhou" || status === "bloqueado";
+  return true;
+}
+
+function ContactsRealtimeTable({ contacts }: { contacts: BlastContactRow[] }) {
+  const [filter, setFilter] = useState<StatusFilter>("todos");
+  const filtered = contacts.filter((c) => matchesFilter(c.status, filter));
+  const filters: { id: StatusFilter; label: string }[] = [
+    { id: "todos", label: "Todos" },
+    { id: "aguardando", label: "Aguardando" },
+    { id: "enviados", label: "Enviados" },
+    { id: "responderam", label: "Responderam" },
+    { id: "converteram", label: "Converteram" },
+    { id: "falhou", label: "Falhou" },
+  ];
+
+  return (
+    <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="font-semibold text-sm">Contatos em tempo real</h4>
+        <div className="flex flex-wrap gap-1.5">
+          {filters.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`rounded-full px-2.5 py-1 text-xs transition ${
+                filter === f.id
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border bg-card text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="max-h-[420px] overflow-auto rounded-md border border-border">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40 text-muted-foreground sticky top-0">
+            <tr>
+              <th className="px-2 py-2 text-left font-medium">Nome</th>
+              <th className="px-2 py-2 text-left font-medium">Telefone</th>
+              <th className="px-2 py-2 text-left font-medium">Instagram</th>
+              <th className="px-2 py-2 text-left font-medium">Status</th>
+              <th className="px-2 py-2 text-left font-medium">Enviado em</th>
+              <th className="px-2 py-2 text-left font-medium">Respondeu</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-2 py-6 text-center text-muted-foreground">
+                  Nenhum contato neste filtro.
+                </td>
+              </tr>
+            )}
+            {filtered.map((c) => {
+              const meta = STATUS_META[c.status] ?? { label: c.status, cls: "bg-muted text-muted-foreground" };
+              return (
+                <tr key={c.id} className="border-t border-border hover:bg-muted/20">
+                  <td className="px-2 py-1.5">{c.nome}</td>
+                  <td className="px-2 py-1.5 tabular-nums">{c.telefone}</td>
+                  <td className="px-2 py-1.5">{c.instagram ? `@${c.instagram}` : "—"}</td>
+                  <td className="px-2 py-1.5">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 ${meta.cls}`}>{meta.label}</span>
+                  </td>
+                  <td className="px-2 py-1.5 tabular-nums text-muted-foreground">
+                    {c.last_sent_at ? new Date(c.last_sent_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                  </td>
+                  <td className="px-2 py-1.5 tabular-nums text-muted-foreground">
+                    {c.replied_at ? new Date(c.replied_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
