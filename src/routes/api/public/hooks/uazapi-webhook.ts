@@ -256,7 +256,7 @@ function isConfirmationEmojiOnly(text: string): boolean {
 function isShortConfirmationText(text: string): boolean {
   const t = compactHumanText(text);
   if (!t || t.length > 24) return false;
-  return /^(ok|okay|blz|beleza|show|top|valeu|obrigado|obrigada|sim|certo|fechado|combinado|pronto|feito|ta bom|tudo bem|aham|uhum)$/i.test(t);
+  return /^(ok|okay|blz|beleza|show|top|valeu|obrigado|obrigada|certo|ta bom|tudo bem|aham|uhum)$/i.test(t);
 }
 
 function isDeferredDecisionText(text: string): boolean {
