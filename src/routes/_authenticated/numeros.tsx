@@ -93,14 +93,16 @@ function NumerosPage() {
   const [qrFor, setQrFor] = useState<{ id: string; qr: string | null } | null>(null);
 
   const createMut = useMutation({
-    mutationFn: (input: { nome: string; uazapi_url: string; uazapi_admin_token: string; meta_ads_enabled: boolean; disparos_mode: boolean }) =>
+    mutationFn: (input: { nome: string; uazapi_url: string; uazapi_admin_token: string; uazapi_token: string; meta_ads_enabled: boolean; disparos_mode: boolean }) =>
       createFn({ data: input }),
-    onSuccess: async (res) => {
+    onSuccess: async (res: { id: string; linked?: boolean }) => {
       qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] });
       setShowAdd(false);
-      // já tenta abrir o QR
-      const r = await connectFn({ data: { id: res.id } });
-      setQrFor({ id: res.id, qr: r.qrcode });
+      // Só pede QR quando criamos nova instância; instâncias vinculadas já estão conectadas.
+      if (!res.linked) {
+        const r = await connectFn({ data: { id: res.id } });
+        setQrFor({ id: res.id, qr: r.qrcode });
+      }
     },
   });
 
@@ -338,13 +340,14 @@ function AddNumberModal({
   error,
 }: {
   onClose: () => void;
-  onCreate: (input: { nome: string; uazapi_url: string; uazapi_admin_token: string; meta_ads_enabled: boolean; disparos_mode: boolean }) => void;
+  onCreate: (input: { nome: string; uazapi_url: string; uazapi_admin_token: string; uazapi_token: string; meta_ads_enabled: boolean; disparos_mode: boolean }) => void;
   submitting: boolean;
   error: string | null;
 }) {
   const [nome, setNome] = useState("");
   const [url, setUrl] = useState("https://free.uazapi.com");
   const [admin, setAdmin] = useState("");
+  const [instanceToken, setInstanceToken] = useState("");
   const [meta, setMeta] = useState(false);
   const [disparos, setDisparos] = useState(false);
 
@@ -364,8 +367,11 @@ function AddNumberModal({
           <Field label="URL da Uazapi" hint="Ex.: https://free.uazapi.com">
             <input value={url} onChange={(e) => setUrl(e.target.value)} className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
           </Field>
-          <Field label="Admin Token" hint="Token de administração da sua conta Uazapi (cria a instância)">
+          <Field label="Admin Token (opcional)" hint="Use quando quiser criar uma nova instância. Deixe vazio se já tem uma instância criada na Uazapi.">
             <input value={admin} onChange={(e) => setAdmin(e.target.value)} className="w-full rounded-lg border border-border px-3 py-2 text-sm" />
+          </Field>
+          <Field label="Instance Token (opcional)" hint="Token da instância já existente na Uazapi. Se preenchido, apenas vincula — não cria nova.">
+            <input value={instanceToken} onChange={(e) => setInstanceToken(e.target.value)} placeholder="ex: 16c0bb07-b3e7-4070-..." className="w-full rounded-lg border border-border px-3 py-2 text-sm font-mono" />
           </Field>
           <div className="grid gap-2 sm:grid-cols-2">
             <Toggle label="Receber leads Meta Ads" help="Marca contatos como meta_ads" checked={meta} onChange={setMeta} />
@@ -376,13 +382,13 @@ function AddNumberModal({
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg border border-border px-3 py-2 text-sm">Cancelar</button>
           <button
-            disabled={!nome || !url || !admin || submitting}
+            disabled={!nome || !url || (!admin && !instanceToken) || submitting}
             onClick={() =>
-              onCreate({ nome, uazapi_url: url, uazapi_admin_token: admin, meta_ads_enabled: meta, disparos_mode: disparos })
+              onCreate({ nome, uazapi_url: url, uazapi_admin_token: admin, uazapi_token: instanceToken.trim(), meta_ads_enabled: meta, disparos_mode: disparos })
             }
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
-            {submitting ? "Criando…" : "Criar e mostrar QR"}
+            {submitting ? "Salvando…" : instanceToken ? "Vincular instância" : "Criar e mostrar QR"}
           </button>
         </div>
       </div>
