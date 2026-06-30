@@ -1944,7 +1944,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             panelScreens,
             forbiddenRules,
             freeTestServices,
-            extraContext: orderStatusContext,
+            extraContext: (() => {
+              const persisted = ((conv as { contexto_extra?: string | null }).contexto_extra ?? "").trim();
+              const persistedBlock = persisted
+                ? `CONTEXTO PERSISTENTE DA CONVERSA (fatos já confirmados em mensagens/imagens anteriores — NUNCA pergunte de novo o que já está aqui; ex: se já consta "cliente tem cadastro/saldo", NÃO pergunte se tem cadastro):\n${persisted}`
+                : "";
+              return [persistedBlock, orderStatusContext ?? ""].filter(Boolean).join("\n\n") || null;
+            })(),
             inputKind: dbKind,
             imageBase64: _imageBase64,
             imageMediaType: _imageMediaType,
