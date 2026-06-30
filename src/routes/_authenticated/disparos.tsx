@@ -624,7 +624,7 @@ function BlastCampaignCard({
   onChanged,
 }: {
   camp: BlastCampaign;
-  numbers: Array<{ id: string; nome: string }>;
+  numbers: Array<{ id: string; nome: string; warmup_started_at?: string | null; warmup_enabled?: boolean | null }>;
   onChanged: () => void;
 }) {
   const qc = useQueryClient();
@@ -634,6 +634,7 @@ function BlastCampaignCard({
   const listContactsFn = useServerFn(listBlastContacts);
   const reportFn = useServerFn(getBlastReport);
   const clearFn = useServerFn(clearBlastContacts);
+  const testFn = useServerFn(testBlastCampaign);
 
   const [whatsapp_number_id, setNum] = useState<string>(camp.whatsapp_number_id ?? "");
   const [start_time, setStart] = useState(camp.start_time.slice(0, 5));
@@ -646,6 +647,10 @@ function BlastCampaignCard({
   const [followup_day7_message, setD7] = useState(camp.followup_day7_message);
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [csvName, setCsvName] = useState<string>("");
+  const [testPhone, setTestPhone] = useState("");
+  const [importSummary, setImportSummary] = useState<
+    { inserted: number; removed: { duplicates: number; invalid: number; blocked: number } } | null
+  >(null);
 
   const { data: contacts = [] } = useQuery({
     queryKey: ["blast_contacts", camp.id],
@@ -682,12 +687,20 @@ function BlastCampaignCard({
   });
   const importMut = useMutation({
     mutationFn: () => importFn({ data: { campaignId: camp.id, rows: csvRows } }),
-    onSuccess: () => {
+    onSuccess: (res) => {
       setCsvRows([]);
       setCsvName("");
+      setImportSummary(res as never);
       qc.invalidateQueries({ queryKey: ["blast_contacts", camp.id] });
       qc.invalidateQueries({ queryKey: ["blast_report", camp.id] });
     },
+  });
+  const testMut = useMutation({
+    mutationFn: () => testFn({ data: { campaignId: camp.id, phone: testPhone } }),
+    onSuccess: () => {
+      alert("Mensagem de teste enviada com sucesso! Verifique o WhatsApp do número informado.");
+    },
+    onError: (e: Error) => alert(`Falhou: ${e.message}`),
   });
   const clearMut = useMutation({
     mutationFn: () => clearFn({ data: { campaignId: camp.id } }),
@@ -696,6 +709,33 @@ function BlastCampaignCard({
       qc.invalidateQueries({ queryKey: ["blast_report", camp.id] });
     },
   });
+
+  const selectedNumber = numbers.find((n) => n.id === whatsapp_number_id);
+  const pendingContacts = contacts.filter((c) => c.status === "pendente").length;
+
+  function effectiveLimitFromNumber(): number {
+    const cfg = Math.max(1, Math.min(daily_limit ?? 200, 200));
+    if (!selectedNumber?.warmup_enabled || !selectedNumber?.warmup_started_at) return cfg;
+    const day = Math.floor((Date.now() - new Date(selectedNumber.warmup_started_at).getTime()) / 86400000) + 1;
+    if (day === 1) return Math.min(50, cfg);
+    if (day === 2) return Math.min(100, cfg);
+    if (day === 3) return Math.min(150, cfg);
+    return Math.min(200, cfg);
+  }
+
+  function handleStart() {
+    if (pendingContacts >= 100) {
+      const limit = effectiveLimitFromNumber();
+      const days = Math.max(1, Math.ceil(pendingContacts / Math.max(1, limit)));
+      const ok = confirm(
+        `Você está prestes a disparar para ${pendingContacts} contatos.\n` +
+          `Isso será feito ao longo de ~${days} dia(s) respeitando o limite diário (${limit}/dia).\n\n` +
+          `Confirma o início?`,
+      );
+      if (!ok) return;
+    }
+    stateMut.mutate("rodando");
+  }
 
   return (
     <div className="rounded-xl border border-border p-5 space-y-5" style={{ background: "var(--gradient-card)" }}>
@@ -719,7 +759,7 @@ function BlastCampaignCard({
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => stateMut.mutate("rodando")}
+            onClick={handleStart}
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
             style={{ background: "var(--gradient-primary)" }}
           >
@@ -739,6 +779,8 @@ function BlastCampaignCard({
           </button>
         </div>
       </div>
+
+      {whatsapp_number_id && <NumberHealthCard numberId={whatsapp_number_id} />}
 
       <div className="grid gap-3 md:grid-cols-6">
         <Field label="Número">
