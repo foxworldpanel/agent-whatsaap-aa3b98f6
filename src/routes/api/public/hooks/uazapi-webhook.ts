@@ -1300,6 +1300,67 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // "Modo Disparos": número usado para abordagem ativa — não responde inbound.
         if (disparosMode) return new Response("ok (disparos mode: no auto-reply)");
 
+        // ===== Respostas mínimas: emoji/figurinha/reações e "vou ver depois" =====
+        // Roda antes de funil e Claude para não disparar fluxo automático em
+        // confirmações curtas, figurinhas ou adiamentos sem nova dúvida.
+        {
+          const minimalReactionReply = getMinimalReactionReply(kind, inboundBody);
+          const deferredDecision = isDeferredDecisionText(inboundBody);
+          if (minimalReactionReply !== undefined || deferredDecision) {
+            const { data: lastAgentMsg } = await supabaseAdmin
+              .from("messages")
+              .select("body")
+              .eq("conversation_id", conv.id)
+              .eq("sender", "agente")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            const lastAgentBody = ((lastAgentMsg as { body?: string } | null)?.body ?? "") as string;
+            let directReply: string | null = deferredDecision ? "Tá bom! Qualquer coisa me chama 😊" : minimalReactionReply ?? null;
+
+            if (deferredDecision && waitingClosureAlreadySent(lastAgentBody)) directReply = null;
+            if (!deferredDecision && directReply && minimalReactionAlreadySent(lastAgentBody)) directReply = null;
+
+            if (directReply) {
+              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before minimal reply)");
+              if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
+                const { uazapiSendText } = await import("@/lib/uazapi.server");
+                const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+                memMarkSent(phone, directReply);
+                await uazapiSendText(creds, phone, directReply);
+                const stamp = new Date().toISOString();
+                await supabaseAdmin.from("messages").insert({
+                  user_id: userId,
+                  conversation_id: conv.id,
+                  sender: "agente",
+                  kind: "texto",
+                  body: directReply,
+                });
+                await supabaseAdmin
+                  .from("conversations")
+                  .update({ last_message_preview: directReply.slice(0, 120), last_message_at: stamp, status: "aguardando" })
+                  .eq("id", conv.id);
+                await supabaseAdmin
+                  .from("contacts")
+                  .update({ last_interaction_at: stamp, status: "em_conversa" })
+                  .eq("id", contact.id);
+                try {
+                  const { logEvent } = await import("@/lib/agent-logger.server");
+                  await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: `Resposta mínima enviada: ${directReply}`, metadata: { kind, inboundBody, deferredDecision } });
+                } catch {}
+                return new Response("ok (minimal reply)");
+              }
+            }
+
+            await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: "Reação curta sem resposta automática", metadata: { kind, inboundBody, deferredDecision } });
+            } catch {}
+            return new Response("ok (short reaction ignored)");
+          }
+        }
+
         // ===== Funis de boas-vindas (múltiplos por número; primeiro gatilho que casar dispara, uma vez por contato) =====
         if (numberId && !isDirectClientQuestion(inboundBody)) {
           try {
@@ -1543,67 +1604,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         });
 
         const { generateAgentReply } = await import("@/lib/ai.server");
-
-        // ===== Respostas mínimas: emoji/figurinha/reações e "vou ver depois" =====
-        // Não chama Claude nesses casos para evitar resposta comercial desnecessária
-        // e para impedir sequências redundantes de "fico no aguardo".
-        {
-          const minimalReactionReply = getMinimalReactionReply(kind, inboundBody);
-          const deferredDecision = isDeferredDecisionText(inboundBody);
-          if (minimalReactionReply !== undefined || deferredDecision) {
-            const { data: lastAgentMsg } = await supabaseAdmin
-              .from("messages")
-              .select("body")
-              .eq("conversation_id", conv.id)
-              .eq("sender", "agente")
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            const lastAgentBody = ((lastAgentMsg as { body?: string } | null)?.body ?? "") as string;
-            let directReply: string | null = deferredDecision ? "Tá bom! Qualquer coisa me chama 😊" : minimalReactionReply ?? null;
-
-            if (deferredDecision && waitingClosureAlreadySent(lastAgentBody)) directReply = null;
-            if (!deferredDecision && directReply && minimalReactionAlreadySent(lastAgentBody)) directReply = null;
-
-            if (directReply) {
-              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before minimal reply)");
-              if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
-                const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
-                memMarkSent(phone, directReply);
-                await uazapiSendText(creds, phone, directReply);
-                const stamp = new Date().toISOString();
-                await supabaseAdmin.from("messages").insert({
-                  user_id: userId,
-                  conversation_id: conv.id,
-                  sender: "agente",
-                  kind: "texto",
-                  body: directReply,
-                });
-                await supabaseAdmin
-                  .from("conversations")
-                  .update({ last_message_preview: directReply.slice(0, 120), last_message_at: stamp, status: "aguardando" })
-                  .eq("id", conv.id);
-                await supabaseAdmin
-                  .from("contacts")
-                  .update({ last_interaction_at: stamp, status: "em_conversa" })
-                  .eq("id", contact.id);
-                try {
-                  const { logEvent } = await import("@/lib/agent-logger.server");
-                  await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: `Resposta mínima enviada: ${directReply}`, metadata: { kind, inboundBody, deferredDecision } });
-                } catch {}
-                return new Response("ok (minimal reply)");
-              }
-            }
-
-            await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: "Reação curta sem resposta automática", metadata: { kind, inboundBody, deferredDecision } });
-            } catch {}
-            return new Response("ok (short reaction ignored)");
-          }
-        }
 
         // Check if a welcome funnel has already been delivered for this contact.
         const { data: priorFunnelRun } = await supabaseAdmin
