@@ -321,10 +321,12 @@ export type Database = {
           instagram: string
           last_sent_at: string | null
           nome: string
+          prioridade: number
           replied_at: string | null
           skip_reason: string | null
           status: string
           telefone: string
+          ultima_interacao: string | null
           updated_at: string
           user_id: string
         }
@@ -335,10 +337,12 @@ export type Database = {
           instagram?: string
           last_sent_at?: string | null
           nome: string
+          prioridade?: number
           replied_at?: string | null
           skip_reason?: string | null
           status?: string
           telefone: string
+          ultima_interacao?: string | null
           updated_at?: string
           user_id: string
         }
@@ -349,10 +353,12 @@ export type Database = {
           instagram?: string
           last_sent_at?: string | null
           nome?: string
+          prioridade?: number
           replied_at?: string | null
           skip_reason?: string | null
           status?: string
           telefone?: string
+          ultima_interacao?: string | null
           updated_at?: string
           user_id?: string
         }
