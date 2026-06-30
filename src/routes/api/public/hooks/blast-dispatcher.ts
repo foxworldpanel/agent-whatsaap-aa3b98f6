@@ -76,8 +76,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 .select("uazapi_url, uazapi_token")
                 .eq("id", camp.whatsapp_number_id)
                 .maybeSingle();
-              url = num?.uazapi_url;
-              token = num?.uazapi_token;
+              url = num?.uazapi_url ?? undefined;
+              token = num?.uazapi_token ?? undefined;
             }
             if (!url || !token) {
               const { data: integ } = await supabaseAdmin
