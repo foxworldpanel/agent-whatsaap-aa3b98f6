@@ -76,11 +76,12 @@ export function TesteGratisCard() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const { data: ftsList = [] } = useQuery({
+  const { data: ftsListRaw } = useQuery({
     queryKey: ["free_test_services"],
     queryFn: () => listFts(),
     enabled: open,
   });
+  const ftsList = useMemo(() => ftsListRaw ?? [], [ftsListRaw]);
   // Carrega catálogo em cache ao abrir
   useQuery({
     queryKey: ["catalog_cache"],
@@ -92,12 +93,13 @@ export function TesteGratisCard() {
       return res;
     },
   });
-  const { data: trials = [] } = useQuery({
+  const { data: trialsRaw } = useQuery({
     queryKey: ["free-trials"],
     queryFn: () => listTrialsFn(),
     enabled: open,
     refetchInterval: open ? 30000 : false,
   });
+  const trials = useMemo(() => trialsRaw ?? [], [trialsRaw]);
 
   const ftsByService = useMemo(() => {
     const map: Record<string, { enabled: boolean; quantity: number; name: string; category: string }> = {};
