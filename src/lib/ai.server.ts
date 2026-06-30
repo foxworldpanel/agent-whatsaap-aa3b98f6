@@ -553,10 +553,6 @@ export async function describePanelScreen(params: {
   return (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
 }
 
-export async function classifyLeadTemperature(params: {
-  history: Array<{ sender: "agente" | "cliente"; body: string }>;
-}): Promise<LeadTemperatura | null>;
-
 // ----- Extrai fatos persistentes do que o Sonnet analisou em uma imagem -----
 // Retorna no máximo 2 linhas curtas (formato "- fato") com informações que devem
 // ser lembradas na conversa (ex: "cliente tem cadastro e saldo no painel").
@@ -594,7 +590,7 @@ export async function extractDurableContextFromImageReply(params: {
   }
 }
 
-export async function classifyLeadTemperatureImpl(params: {
+export async function classifyLeadTemperature(params: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
 }): Promise<LeadTemperatura | null> {
   const key = process.env.ANTHROPIC_API_KEY;
