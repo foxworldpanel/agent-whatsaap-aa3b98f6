@@ -970,6 +970,8 @@ function BlastCampaignCard({
                     <th className="px-2 py-1 text-left">Nome</th>
                     <th className="px-2 py-1 text-left">Telefone</th>
                     <th className="px-2 py-1 text-left">Instagram</th>
+                    <th className="px-2 py-1 text-left">Prioridade</th>
+                    <th className="px-2 py-1 text-left">Última interação</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -978,6 +980,8 @@ function BlastCampaignCard({
                       <td className="px-2 py-1">{r.nome}</td>
                       <td className="px-2 py-1">{r.telefone}</td>
                       <td className="px-2 py-1">{r.instagram}</td>
+                      <td className="px-2 py-1">{r.prioridade ?? "—"}</td>
+                      <td className="px-2 py-1">{r.ultima_interacao ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>
