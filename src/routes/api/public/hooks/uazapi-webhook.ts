@@ -50,6 +50,7 @@ type UazapiPayload = {
     audioMessage?: unknown;
     pttMessage?: unknown;
     imageMessage?: unknown;
+    stickerMessage?: unknown;
     caption?: string;
     // Meta Ads / WhatsApp Cloud referral fields (vários formatos possíveis)
     referral?: Record<string, unknown>;
@@ -75,7 +76,7 @@ function extractPhone(chatid?: string, sender?: string): string | null {
   return digits || null;
 }
 
-function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" | "image" } {
+function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" | "image" | "sticker" } {
   const m = p.message ?? p.data ?? {};
   const type = (m.messageType ?? m.type ?? m.mediaType ?? "").toLowerCase();
   const mime = (m.mimetype ?? "").toLowerCase();
@@ -89,6 +90,14 @@ function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audi
   console.log("🔎 extractContent type:", { type, mime, isAudio, hasAudioMessage: !!m.audioMessage, hasPttMessage: !!m.pttMessage });
   if (isAudio) {
     return { text: m.text || "[áudio recebido]", kind: "audio" };
+  }
+  const isSticker =
+    type.includes("sticker") ||
+    type.includes("figurinha") ||
+    !!m.stickerMessage;
+  if (isSticker) {
+    const caption = (m.caption ?? m.text ?? m.content ?? "").trim();
+    return { text: caption || "[figurinha recebida]", kind: "sticker" };
   }
   const isImage =
     type.includes("image") || type.includes("imagem") || mime.startsWith("image/") || !!m.imageMessage;
@@ -223,6 +232,60 @@ function isDirectClientQuestion(text: string): boolean {
   return /\?/.test(t) || /\b(qual|quais|quem|quanto|como|quando|onde|preco|valor|custa|servico|prazo|link|cadastro|pagamento|pix|seu nome|sua nome|voce se chama|te chama)\b/.test(t);
 }
 
+function compactHumanText(text: string): string {
+  return normalizeText(text ?? "")
+    .replace(/[^\p{Letter}\p{Number}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isEmojiOnly(text: string): boolean {
+  const raw = (text ?? "").trim();
+  if (!raw) return false;
+  const withoutEmoji = raw
+    .replace(/[\s\uFE0F\u200D]/g, "")
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/[\p{Regional_Indicator}]/gu, "");
+  return withoutEmoji.length === 0;
+}
+
+function isConfirmationEmojiOnly(text: string): boolean {
+  const rest = (text ?? "")
+    .trim()
+    .replace(/[\s\uFE0F\u200D\u{1F3FB}-\u{1F3FF}]/gu, "")
+    .replace(/[👍👌✅☑✔👏🙏]/gu, "");
+  return rest.length === 0 && (text ?? "").trim().length > 0;
+}
+
+function isShortConfirmationText(text: string): boolean {
+  const t = compactHumanText(text);
+  if (!t || t.length > 24) return false;
+  return /^(ok|okay|blz|beleza|show|top|valeu|obrigado|obrigada|certo|ta bom|tudo bem|aham|uhum)$/i.test(t);
+}
+
+function isDeferredDecisionText(text: string): boolean {
+  if (isDirectClientQuestion(text)) return false;
+  const t = normalizeText(text ?? "");
+  return /\b(vou\s+(ver|analisar|olhar|pensar|decidir|avaliar)|vou\s+dar\s+uma\s+olhada|depois\s+(eu\s+)?(vejo|olho|decido|te\s+(chamo|falo|aviso))|te\s+(aviso|falo)|mais\s+tarde|amanha|preciso\s+(ver|pensar|analisar|avaliar)|deixa\s+eu\s+(ver|pensar|analisar|avaliar)|qualquer\s+coisa\s+(eu\s+)?(te\s+)?chamo)\b/i.test(t);
+}
+
+function waitingClosureAlreadySent(text: string): boolean {
+  const t = normalizeText(text ?? "");
+  return /qualquer\s+coisa.*me\s+chama|me\s+chama.*qualquer\s+coisa|fico\s+no\s+aguardo|vou\s+ficar\s+no\s+aguardo|certo.*aguardo|quando\s+(decidir|escolher)|sem\s+pressa|te\s+aguardo|me\s+avisa/.test(t);
+}
+
+function minimalReactionAlreadySent(text: string): boolean {
+  const t = compactHumanText(text);
+  return isEmojiOnly(text) || t === "show" || t === "ok" || t === "beleza";
+}
+
+function getMinimalReactionReply(kind: "texto" | "audio" | "image" | "sticker", text: string): string | null | undefined {
+  if (kind === "sticker" && (text ?? "").trim() === "[figurinha recebida]") return "😊";
+  if (isConfirmationEmojiOnly(text) || isShortConfirmationText(text)) return null;
+  if (isEmojiOnly(text)) return "😊";
+  return undefined;
+}
+
 const FALLBACK_REPLY = "Deixa eu verificar aqui pra você 😊";
 
 // ===== Detecção de conversa improdutiva =====
@@ -283,7 +346,7 @@ function isOnTopic(body: string): boolean {
 function detectUnproductive(
   clientMsgs: Array<{ body: string; kind: string }>,
   currentText: string,
-  currentKind: "texto" | "audio",
+  currentKind: "texto" | "audio" | "image" | "sticker",
 ): { reason: string } | null {
   // 1) Ofensa / xingamento direto — bloqueio imediato.
   if (OFFENSIVE_RE.test(currentText ?? "")) {
@@ -1241,6 +1304,67 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // "Modo Disparos": número usado para abordagem ativa — não responde inbound.
         if (disparosMode) return new Response("ok (disparos mode: no auto-reply)");
 
+        // ===== Respostas mínimas: emoji/figurinha/reações e "vou ver depois" =====
+        // Roda antes de funil e Claude para não disparar fluxo automático em
+        // confirmações curtas, figurinhas ou adiamentos sem nova dúvida.
+        {
+          const minimalReactionReply = getMinimalReactionReply(kind, inboundBody);
+          const deferredDecision = isDeferredDecisionText(inboundBody);
+          if (minimalReactionReply !== undefined || deferredDecision) {
+            const { data: lastAgentMsg } = await supabaseAdmin
+              .from("messages")
+              .select("body")
+              .eq("conversation_id", conv.id)
+              .eq("sender", "agente")
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            const lastAgentBody = ((lastAgentMsg as { body?: string } | null)?.body ?? "") as string;
+            let directReply: string | null = deferredDecision ? "Tá bom! Qualquer coisa me chama 😊" : minimalReactionReply ?? null;
+
+            if (deferredDecision && waitingClosureAlreadySent(lastAgentBody)) directReply = null;
+            if (!deferredDecision && directReply && minimalReactionAlreadySent(lastAgentBody)) directReply = null;
+
+            if (directReply) {
+              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before minimal reply)");
+              if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
+                const { uazapiSendText } = await import("@/lib/uazapi.server");
+                const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+                memMarkSent(phone, directReply);
+                await uazapiSendText(creds, phone, directReply);
+                const stamp = new Date().toISOString();
+                await supabaseAdmin.from("messages").insert({
+                  user_id: userId,
+                  conversation_id: conv.id,
+                  sender: "agente",
+                  kind: "texto",
+                  body: directReply,
+                });
+                await supabaseAdmin
+                  .from("conversations")
+                  .update({ last_message_preview: directReply.slice(0, 120), last_message_at: stamp, status: "aguardando" })
+                  .eq("id", conv.id);
+                await supabaseAdmin
+                  .from("contacts")
+                  .update({ last_interaction_at: stamp, status: "em_conversa" })
+                  .eq("id", contact.id);
+                try {
+                  const { logEvent } = await import("@/lib/agent-logger.server");
+                  await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: `Resposta mínima enviada: ${directReply}`, metadata: { kind, inboundBody, deferredDecision } });
+                } catch {}
+                return new Response("ok (minimal reply)");
+              }
+            }
+
+            await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: "Reação curta sem resposta automática", metadata: { kind, inboundBody, deferredDecision } });
+            } catch {}
+            return new Response("ok (short reaction ignored)");
+          }
+        }
+
         // ===== Funis de boas-vindas (múltiplos por número; primeiro gatilho que casar dispara, uma vez por contato) =====
         if (numberId && !isDirectClientQuestion(inboundBody)) {
           try {
@@ -1443,7 +1567,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             (prior[prior.length - 1].body ?? "") === (inboundBody ?? "")
               ? prior.slice(0, -1)
               : prior;
-          const detected = detectUnproductive(priorWithoutCurrent, inboundBody, dbKind);
+          const currentUnproductiveKind = kind === "sticker" || kind === "image" ? kind : dbKind;
+          const detected = detectUnproductive(priorWithoutCurrent, inboundBody, currentUnproductiveKind);
           if (detected) {
             const stamp = new Date().toISOString();
             await supabaseAdmin
