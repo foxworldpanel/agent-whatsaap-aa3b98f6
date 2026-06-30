@@ -891,9 +891,21 @@ function BlastCampaignCard({
             const text = await f.text();
             setCsvRows(parseCsv(text));
             setCsvName(f.name);
+            setImportSummary(null);
           }}
           className="text-sm"
         />
+        {importSummary && (
+          <div className="rounded-lg border border-success/40 bg-success/10 p-3 text-xs text-success">
+            <b>{importSummary.inserted}</b> contatos importados.{" "}
+            {(importSummary.removed.duplicates + importSummary.removed.invalid + importSummary.removed.blocked) > 0 && (
+              <span className="text-warning">
+                Removidos: {importSummary.removed.duplicates} duplicados, {importSummary.removed.invalid} inválidos,{" "}
+                {importSummary.removed.blocked} bloqueados/clientes.
+              </span>
+            )}
+          </div>
+        )}
         {csvRows.length > 0 && (
           <>
             <p className="text-xs text-muted-foreground">
@@ -944,6 +956,29 @@ function BlastCampaignCard({
             </button>
           </div>
         )}
+      </div>
+
+      <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+        <h4 className="font-semibold text-sm">Testar com meu número</h4>
+        <p className="text-xs text-muted-foreground">
+          Envia apenas a mensagem de abertura (com <code>{`{nome}`}</code> = "Teste") para um número, sem contar no limite diário nem afetar a lista.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={testPhone}
+            onChange={(e) => setTestPhone(e.target.value)}
+            placeholder="5511999999999"
+            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+          />
+          <button
+            onClick={() => testMut.mutate()}
+            disabled={testMut.isPending || testPhone.trim().length < 8}
+            className="rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            {testMut.isPending ? "Enviando…" : "Enviar teste"}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
