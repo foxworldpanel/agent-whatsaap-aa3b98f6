@@ -756,6 +756,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // e encerra — não roda IA, funil, stop, teste grátis, etc.
         if (outbound) return new Response("ok (fromMe mirrored)");
 
+        // ===== Trava de funil em execução =====
+        // Se o funil de boas-vindas ainda está rodando para essa conversa,
+        // a mensagem do cliente já foi salva no histórico acima — não chama
+        // o Claude agora. Quando o funil terminar, a próxima mensagem do
+        // cliente é processada normalmente com todo o histórico.
+        {
+          const { data: convState } = await supabaseAdmin
+            .from("conversations")
+            .select("funnel_status")
+            .eq("id", conv.id)
+            .maybeSingle();
+          if ((convState as { funnel_status?: string } | null)?.funnel_status === "running") {
+            console.log("⏳ Funil ainda rodando — mensagem do cliente salva mas Claude não será chamado.");
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ userId, phone, conversationId: conv.id, type: "funnel_in_progress", level: "info", summary: "Mensagem ignorada pelo Claude — funil de boas-vindas em execução" });
+            } catch {}
+            return new Response("ok (funnel running)");
+          }
+        }
+
         // Áudio recebido: já foi transcrito acima; o agente segue o fluxo
         // normal e, mais adiante, responderá por áudio (TTS) se houver
         // credenciais ElevenLabs configuradas.
