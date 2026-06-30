@@ -243,7 +243,7 @@ function isEmojiOnly(text: string): boolean {
   const raw = (text ?? "").trim();
   if (!raw) return false;
   const withoutEmoji = raw
-    .replace(/[\s\uFE0F\u200D]/g, "")
+    .replace(/[\s\uFE0F\u200D\u{1F3FB}-\u{1F3FF}]/gu, "")
     .replace(/\p{Extended_Pictographic}/gu, "")
     .replace(/[\p{Regional_Indicator}]/gu, "");
   return withoutEmoji.length === 0;
