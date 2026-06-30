@@ -1910,3 +1910,57 @@ function ChannelBreakdown({
     </div>
   );
 }
+
+function VariationInfoCard() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
+      <div className="flex items-start gap-2">
+        <Sparkles className="h-4 w-4 text-primary mt-0.5" />
+        <div className="flex-1">
+          <h4 className="text-sm font-semibold">Mensagem inteligente automática</h4>
+          <p className="text-xs text-muted-foreground mt-1">
+            O sistema vai variar automaticamente a saudação (manhã/tarde/noite, fuso Brasil)
+            e o texto de abordagem para cada contato, evitando padrões repetitivos. Cada
+            disparo gera uma combinação diferente — sem repetir a última usada no mesmo
+            contato em follow-ups.
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs font-medium text-primary hover:underline"
+      >
+        {open ? "Ocultar exemplos" : "Ver exemplos de variações"}
+      </button>
+      {open && (
+        <div className="mt-2 space-y-3 max-h-80 overflow-y-auto rounded-md border border-border bg-background/60 p-3">
+          {(["manha", "tarde", "noite"] as const).map((p) => (
+            <div key={p}>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                {p === "manha" ? "Manhã (5h–12h)" : p === "tarde" ? "Tarde (12h–18h)" : "Noite (18h–5h)"}
+              </div>
+              <ul className="space-y-1">
+                {SAUDACOES[p].map((s, i) => (
+                  <li key={i} className="text-xs text-foreground/90">• {s}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Corpo da mensagem
+            </div>
+            <ul className="space-y-1">
+              {CORPOS_MENSAGEM.map((c, i) => (
+                <li key={i} className="text-xs text-foreground/90">
+                  • {c.replace("{instagram}", "perfil_exemplo")}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
