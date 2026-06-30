@@ -920,3 +920,73 @@ function ReportCard({ label, value }: { label: string; value: number | string })
     </div>
   );
 }
+
+function NumbersCard() {
+  const qc = useQueryClient();
+  const listN = useServerFn(listNumbers);
+  const updT = useServerFn(updateNumberToggles);
+  const { data: numbers = [] } = useQuery({ queryKey: ["whatsapp_numbers"], queryFn: () => listN() });
+
+  const toggleMut = useMutation({
+    mutationFn: ({ id, disparos_mode }: { id: string; disparos_mode: boolean }) =>
+      updT({ data: { id, disparos_mode } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
+  });
+
+  return (
+    <section
+      className="rounded-xl border border-border p-5"
+      style={{ background: "var(--gradient-card)" }}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">Números do ZapAgent</h2>
+          <p className="text-xs text-muted-foreground">
+            Ative o modo Disparo no número que será usado para campanhas. Apenas um número costuma ficar dedicado a disparos.
+          </p>
+        </div>
+      </div>
+      {numbers.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+          Nenhum número cadastrado. Adicione em <strong>Números</strong>.
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {numbers.map((n: { id: string; nome: string; status: string; disparos_mode?: boolean }) => {
+            const active = !!n.disparos_mode;
+            const connected = n.status === "conectado";
+            return (
+              <div
+                key={n.id}
+                className={`rounded-lg border p-4 transition-colors ${active ? "border-primary bg-primary/5" : "border-border bg-background/40"}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">{n.nome}</p>
+                    <p className="text-xs mt-0.5">
+                      <span className={connected ? "text-emerald-500" : "text-muted-foreground"}>
+                        ● {connected ? "Conectado" : n.status}
+                      </span>
+                    </p>
+                  </div>
+                  {active && (
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                      <Check className="h-3 w-3" /> Disparo
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => toggleMut.mutate({ id: n.id, disparos_mode: !active })}
+                  disabled={toggleMut.isPending}
+                  className={`mt-3 w-full rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${active ? "bg-primary text-primary-foreground" : "border border-border hover:bg-muted"}`}
+                >
+                  {active ? "Ativo para disparo" : "Ativar para disparo"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
