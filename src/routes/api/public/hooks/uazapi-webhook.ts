@@ -713,6 +713,46 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .single();
           if (inserted.error) return new Response(inserted.error.message, { status: 500 });
           contact = inserted.data;
+          // Se é lead Meta Ads, registra também na Lista A (Meta Ads) para histórico/anti-dup
+          if (effectiveSource?.source === "meta_ads") {
+            try {
+              const { data: listA } = await supabaseAdmin
+                .from("contact_lists")
+                .select("id")
+                .eq("user_id", userId)
+                .eq("origem", "meta_ads")
+                .maybeSingle();
+              let listAId = listA?.id;
+              if (!listAId) {
+                const ins = await supabaseAdmin
+                  .from("contact_lists")
+                  .insert({ user_id: userId, name: "Lista A — Meta Ads", origem: "meta_ads" })
+                  .select("id")
+                  .single();
+                listAId = ins.data?.id;
+              }
+              if (listAId) {
+                const { data: dup } = await supabaseAdmin
+                  .from("blast_contacts")
+                  .select("id")
+                  .eq("user_id", userId)
+                  .eq("telefone", phone)
+                  .maybeSingle();
+                if (!dup) {
+                  await supabaseAdmin.from("blast_contacts").insert({
+                    user_id: userId,
+                    contact_list_id: listAId,
+                    origem: "meta_ads",
+                    nome: msg.senderName ?? phone,
+                    telefone: phone,
+                    instagram: "",
+                    status: "respondeu",
+                    replied_at: new Date().toISOString(),
+                  });
+                }
+              }
+            } catch {}
+          }
         } else {
           if (effectiveSource && (contact.source === "organico" || !contact.source_ref)) {
           // Atualiza origem se chegou ref e ainda não havia
