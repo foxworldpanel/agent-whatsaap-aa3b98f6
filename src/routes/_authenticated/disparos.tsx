@@ -1385,11 +1385,42 @@ function ContactListsSection() {
     camps.filter((c) => c.state === "rodando" && c.contact_list_id).map((c) => c.contact_list_id as string),
   );
 
+  // Realtime: refresh listas/contagens quando blast_contacts mudar
+  useEffect(() => {
+    const ch = supabase
+      .channel("blast_contacts_overview")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "blast_contacts" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["contact_lists"] });
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
   // Lista A (Meta Ads) à esquerda, Lista B (Instagram) à direita
   const sortedLists = [...lists].sort((a, b) => {
     if (a.origem === b.origem) return 0;
     return a.origem === "meta_ads" ? -1 : 1;
   });
+
+  // Visão geral agregada (Lista A + Lista B)
+  const overview = sortedLists.reduce(
+    (acc, l) => {
+      acc.total += l.total;
+      acc.contatados += l.contatados;
+      acc.respondeu += l.respondeu;
+      acc.convertido += l.convertido;
+      return acc;
+    },
+    { total: 0, contatados: 0, respondeu: 0, convertido: 0 },
+  );
+  const semResposta = Math.max(0, overview.contatados - overview.respondeu);
+  const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 : 0);
+  const metaList = sortedLists.find((l) => l.origem === "meta_ads");
+  const igList = sortedLists.find((l) => l.origem === "instagram");
 
   const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
   const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
