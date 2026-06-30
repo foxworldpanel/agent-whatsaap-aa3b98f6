@@ -623,6 +623,7 @@ export type Database = {
           auto_paused_at: string | null
           contact_id: string
           created_at: string
+          funnel_status: Database["public"]["Enums"]["funnel_status"]
           id: string
           internal_note: string | null
           last_message_at: string | null
@@ -639,6 +640,7 @@ export type Database = {
           auto_paused_at?: string | null
           contact_id: string
           created_at?: string
+          funnel_status?: Database["public"]["Enums"]["funnel_status"]
           id?: string
           internal_note?: string | null
           last_message_at?: string | null
@@ -655,6 +657,7 @@ export type Database = {
           auto_paused_at?: string | null
           contact_id?: string
           created_at?: string
+          funnel_status?: Database["public"]["Enums"]["funnel_status"]
           id?: string
           internal_note?: string | null
           last_message_at?: string | null
@@ -1274,6 +1277,7 @@ export type Database = {
         | "bloqueado"
       contact_temperatura: "quente" | "morno" | "frio" | "bloqueado" | "cliente"
       conversation_status: "agente_respondendo" | "aguardando" | "convertido"
+      funnel_status: "not_started" | "running" | "completed"
       log_status: "enviado" | "respondido" | "falha"
       message_kind: "texto" | "audio"
       message_sender: "agente" | "cliente"
@@ -1415,6 +1419,7 @@ export const Constants = {
       ],
       contact_temperatura: ["quente", "morno", "frio", "bloqueado", "cliente"],
       conversation_status: ["agente_respondendo", "aguardando", "convertido"],
+      funnel_status: ["not_started", "running", "completed"],
       log_status: ["enviado", "respondido", "falha"],
       message_kind: ["texto", "audio"],
       message_sender: ["agente", "cliente"],
