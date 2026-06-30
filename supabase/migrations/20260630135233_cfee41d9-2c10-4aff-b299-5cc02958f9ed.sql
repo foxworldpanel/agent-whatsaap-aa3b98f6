@@ -1,0 +1,1 @@
+ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS funnel_status text NOT NULL DEFAULT 'not_started';
