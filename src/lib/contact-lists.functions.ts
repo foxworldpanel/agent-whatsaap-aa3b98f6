@@ -6,12 +6,9 @@ function normalizePhone(raw: string): string {
   return raw.replace(/\D+/g, "");
 }
 
-type SbCtx = { supabase: { from: (t: "contact_lists") => never } } & {
-  supabase: import("@supabase/supabase-js").SupabaseClient<import("@/integrations/supabase/types").Database>;
-};
-
-async function ensureLists(ctx: SbCtx, userId: string) {
-  const { data: existing } = await ctx.supabase
+async function ensureLists(supabase: never, userId: string) {
+  const sb = supabase as never as import("@supabase/supabase-js").SupabaseClient<import("@/integrations/supabase/types").Database>;
+  const { data: existing } = await sb
     .from("contact_lists")
     .select("id, name, origem")
     .eq("user_id", userId);
@@ -20,9 +17,9 @@ async function ensureLists(ctx: SbCtx, userId: string) {
   if (!rows.some((l) => l.origem === "meta_ads")) toInsert.push({ user_id: userId, name: "Lista A — Meta Ads", origem: "meta_ads" });
   if (!rows.some((l) => l.origem === "instagram")) toInsert.push({ user_id: userId, name: "Lista B — Instagram", origem: "instagram" });
   if (toInsert.length > 0) {
-    await ctx.supabase.from("contact_lists").insert(toInsert);
+    await sb.from("contact_lists").insert(toInsert);
   }
-  const { data } = await ctx.supabase
+  const { data } = await sb
     .from("contact_lists")
     .select("id, name, origem")
     .eq("user_id", userId)
@@ -33,7 +30,7 @@ async function ensureLists(ctx: SbCtx, userId: string) {
 export const listContactLists = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const lists = await ensureLists(context.supabase, context.userId);
+    const lists = await ensureLists(context.supabase as never, context.userId);
     const out: Array<{
       id: string; name: string; origem: string; total: number;
       contatados: number; respondeu: number; convertido: number;
