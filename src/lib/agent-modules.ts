@@ -96,6 +96,11 @@ TABELA YOUTUBE:
 🔴 Live Stream Global | R$20/1000 pessoas | Mín: 10 | Máx: 500k | 300-1000/hora | Rápido
 💬 Comentários USA | R$120/1000 | Mín: 10 | Máx: 500k | 300-1000/dia | Rápido
 ⏱️ Horas de Exibição Global | R$150/1000h | Mín: 1000h | Máx: 4000h | 50-100/dia | Lento
+🧑‍🤝‍🧑 Inscritos YouTube | R$140/1000 | Mín: 100 | Máx: 500k | Gradual | Médio
+
+NOMENCLATURA YOUTUBE (ABSOLUTA):
+- No YouTube NÃO existe "seguidores" — o termo correto é "inscritos".
+- Se o cliente pedir "seguidores do YouTube", NUNCA diga que não tem. Responda: "No YouTube o equivalente a seguidores são os inscritos! Temos inscritos disponíveis." e siga com quantidade/preço da tabela acima.
 
 MONETIZAÇÃO:
 Meta: 4000 horas de exibição + 1000 inscritos
