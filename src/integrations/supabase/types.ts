@@ -1216,48 +1216,63 @@ export type Database = {
       }
       whatsapp_numbers: {
         Row: {
+          auto_pause_on_risk: boolean
           created_at: string
           disparos_mode: boolean
           id: string
           last_connected_at: string | null
+          last_risk_check_at: string | null
           meta_ads_enabled: boolean
           nome: string
+          risk_level: string
           status: string
           uazapi_admin_token: string | null
           uazapi_token: string | null
           uazapi_url: string | null
           updated_at: string
           user_id: string
+          warmup_enabled: boolean
+          warmup_started_at: string | null
           welcome_funnel: Json
         }
         Insert: {
+          auto_pause_on_risk?: boolean
           created_at?: string
           disparos_mode?: boolean
           id?: string
           last_connected_at?: string | null
+          last_risk_check_at?: string | null
           meta_ads_enabled?: boolean
           nome: string
+          risk_level?: string
           status?: string
           uazapi_admin_token?: string | null
           uazapi_token?: string | null
           uazapi_url?: string | null
           updated_at?: string
           user_id: string
+          warmup_enabled?: boolean
+          warmup_started_at?: string | null
           welcome_funnel?: Json
         }
         Update: {
+          auto_pause_on_risk?: boolean
           created_at?: string
           disparos_mode?: boolean
           id?: string
           last_connected_at?: string | null
+          last_risk_check_at?: string | null
           meta_ads_enabled?: boolean
           nome?: string
+          risk_level?: string
           status?: string
           uazapi_admin_token?: string | null
           uazapi_token?: string | null
           uazapi_url?: string | null
           updated_at?: string
           user_id?: string
+          warmup_enabled?: boolean
+          warmup_started_at?: string | null
           welcome_funnel?: Json
         }
         Relationships: []

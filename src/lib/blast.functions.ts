@@ -100,6 +100,29 @@ function normalizePhone(raw: string): string {
   return raw.replace(/\D+/g, "");
 }
 
+function warmupLimitForDay(day: number, configured: number): number {
+  if (day <= 0) return Math.min(50, configured);
+  if (day === 1) return Math.min(50, configured);
+  if (day === 2) return Math.min(100, configured);
+  if (day === 3) return Math.min(150, configured);
+  return Math.min(200, configured);
+}
+
+export function effectiveDailyLimit(opts: {
+  warmup_enabled: boolean | null | undefined;
+  warmup_started_at: string | null | undefined;
+  daily_limit: number;
+}): { limit: number; day: number; warming: boolean } {
+  const cfg = Math.max(1, Math.min(opts.daily_limit ?? 200, 5000));
+  if (!opts.warmup_enabled || !opts.warmup_started_at) {
+    return { limit: Math.min(cfg, 200), day: 0, warming: false };
+  }
+  const started = new Date(opts.warmup_started_at).getTime();
+  const day = Math.floor((Date.now() - started) / 86400000) + 1;
+  const limit = warmupLimitForDay(day, cfg);
+  return { limit, day, warming: day < 4 };
+}
+
 export const importBlastContacts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -120,22 +143,201 @@ export const importBlastContacts = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const payload = data.rows
+    // 1) normalize & validate
+    let invalid = 0;
+    const normalized = data.rows
       .map((r) => ({
-        user_id: context.userId,
-        campaign_id: data.campaignId,
         nome: r.nome,
         telefone: normalizePhone(r.telefone),
         instagram: (r.instagram ?? "").replace(/^@/, ""),
-        status: "pendente" as const,
       }))
-      .filter((r) => r.telefone.length >= 10);
-    if (payload.length === 0) return { inserted: 0 };
+      .filter((r) => {
+        const ok = r.telefone.length >= 10 && r.telefone.length <= 15;
+        if (!ok) invalid += 1;
+        return ok;
+      });
+
+    // 2) dedup within the batch
+    let dupBatch = 0;
+    const seen = new Set<string>();
+    const uniq = normalized.filter((r) => {
+      if (seen.has(r.telefone)) { dupBatch += 1; return false; }
+      seen.add(r.telefone);
+      return true;
+    });
+
+    // 3) dedup against existing blast_contacts in same campaign
+    let dupExisting = 0;
+    if (uniq.length > 0) {
+      const { data: existing } = await context.supabase
+        .from("blast_contacts")
+        .select("telefone")
+        .eq("user_id", context.userId)
+        .eq("campaign_id", data.campaignId)
+        .in("telefone", uniq.map((r) => r.telefone));
+      const exSet = new Set((existing ?? []).map((r) => r.telefone as string));
+      const filtered = uniq.filter((r) => {
+        if (exSet.has(r.telefone)) { dupExisting += 1; return false; }
+        return true;
+      });
+      uniq.length = 0;
+      uniq.push(...filtered);
+    }
+
+    // 4) cross-check blocked / converted contacts
+    let blocked = 0;
+    if (uniq.length > 0) {
+      const { data: blockedRows } = await context.supabase
+        .from("contacts")
+        .select("telefone, status")
+        .eq("user_id", context.userId)
+        .in("telefone", uniq.map((r) => r.telefone));
+      const badStatuses = new Set(["bloqueado", "cliente", "convertido"]);
+      const bad = new Set(
+        (blockedRows ?? [])
+          .filter((r) => badStatuses.has(r.status as string))
+          .map((r) => r.telefone as string),
+      );
+      const filtered = uniq.filter((r) => {
+        if (bad.has(r.telefone)) { blocked += 1; return false; }
+        return true;
+      });
+      uniq.length = 0;
+      uniq.push(...filtered);
+    }
+
+    if (uniq.length === 0) {
+      return { inserted: 0, removed: { duplicates: dupBatch + dupExisting, invalid, blocked } };
+    }
+
+    const payload = uniq.map((r) => ({
+      user_id: context.userId,
+      campaign_id: data.campaignId,
+      nome: r.nome,
+      telefone: r.telefone,
+      instagram: r.instagram,
+      status: "pendente" as const,
+    }));
     const { error, count } = await context.supabase
       .from("blast_contacts")
       .insert(payload, { count: "exact" });
     if (error) throw new Error(error.message);
-    return { inserted: count ?? payload.length };
+    return {
+      inserted: count ?? payload.length,
+      removed: { duplicates: dupBatch + dupExisting, invalid, blocked },
+    };
+  });
+
+export const testBlastCampaign = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      campaignId: z.string().uuid(),
+      phone: z.string().trim().min(8).max(40),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const phone = normalizePhone(data.phone);
+    if (phone.length < 10 || phone.length > 15) throw new Error("Telefone inválido (use DDI+DDD+número, só dígitos).");
+
+    const { data: camp, error: campErr } = await context.supabase
+      .from("blast_campaigns")
+      .select("id, user_id, whatsapp_number_id, opening_message")
+      .eq("id", data.campaignId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (campErr) throw new Error(campErr.message);
+    if (!camp) throw new Error("Campanha não encontrada");
+
+    // Lookup credentials (number first, then integrations fallback) using admin client (server-only secrets)
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let url: string | undefined;
+    let token: string | undefined;
+    if (camp.whatsapp_number_id) {
+      const { data: num } = await supabaseAdmin
+        .from("whatsapp_numbers")
+        .select("uazapi_url, uazapi_token")
+        .eq("id", camp.whatsapp_number_id)
+        .maybeSingle();
+      url = num?.uazapi_url ?? undefined;
+      token = num?.uazapi_token ?? undefined;
+    }
+    if (!url || !token) {
+      const { data: integ } = await supabaseAdmin
+        .from("integrations")
+        .select("uazapi_url, uazapi_token")
+        .eq("user_id", context.userId)
+        .maybeSingle();
+      url = integ?.uazapi_url ?? undefined;
+      token = integ?.uazapi_token ?? undefined;
+    }
+    if (!url || !token) throw new Error("Uazapi não configurado para este número");
+
+    const message = (camp.opening_message ?? "")
+      .replace(/\{nome\}/gi, "Teste")
+      .replace(/\{instagram\}/gi, "teste");
+
+    const { uazapiSendText } = await import("@/lib/uazapi.server");
+    await uazapiSendText({ uazapi_url: url, uazapi_token: token }, phone, message);
+    return { ok: true, sentTo: phone };
+  });
+
+export const getNumberHealth = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ numberId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: num, error } = await context.supabase
+      .from("whatsapp_numbers")
+      .select("id, status, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, last_risk_check_at")
+      .eq("id", data.numberId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!num) throw new Error("Número não encontrado");
+
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const { data: camps } = await context.supabase
+      .from("blast_campaigns")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("whatsapp_number_id", data.numberId);
+    const campIds = (camps ?? []).map((c) => c.id);
+    let sent = 0;
+    let failed = 0;
+    if (campIds.length > 0) {
+      const { data: logs } = await context.supabase
+        .from("blast_logs")
+        .select("status")
+        .in("campaign_id", campIds)
+        .gte("created_at", since);
+      for (const l of logs ?? []) {
+        if (l.status === "sent") sent += 1;
+        else if (l.status === "failed") failed += 1;
+      }
+    }
+    const total = sent + failed;
+    const failRate = total > 0 ? Math.round((failed / total) * 1000) / 10 : 0;
+    let level: "ok" | "warning" | "danger" = "ok";
+    if (failRate >= 30) level = "danger";
+    else if (failRate >= 15) level = "warning";
+
+    // Persist risk level so the dispatcher can act on it
+    await context.supabase
+      .from("whatsapp_numbers")
+      .update({ risk_level: level, last_risk_check_at: new Date().toISOString() })
+      .eq("id", data.numberId)
+      .eq("user_id", context.userId);
+
+    return {
+      sent24h: sent,
+      failed24h: failed,
+      failRate,
+      risk_level: level,
+      auto_pause_on_risk: !!num.auto_pause_on_risk,
+      warmup_enabled: !!num.warmup_enabled,
+      warmup_started_at: num.warmup_started_at,
+      connection_status: num.status,
+    };
   });
 
 export const listBlastContacts = createServerFn({ method: "GET" })

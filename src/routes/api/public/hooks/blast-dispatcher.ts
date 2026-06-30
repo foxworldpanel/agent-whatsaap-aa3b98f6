@@ -30,6 +30,15 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               continue;
             }
 
+            // Distribuição natural: maior peso 10–12h e 18–20h, menor fora.
+            const hour = now.getHours();
+            const peakHour = (hour >= 10 && hour < 12) || (hour >= 18 && hour < 20);
+            const tickWeight = peakHour ? 1 : 1 / 3;
+            if (Math.random() > tickWeight) {
+              results.push({ campaign: camp.name, sent: 0, skipped: "distribuição natural" });
+              continue;
+            }
+
             // Delay aleatório entre disparos por campanha
             if (camp.last_dispatch_at) {
               const since = Date.now() - new Date(camp.last_dispatch_at).getTime();
@@ -42,7 +51,48 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               }
             }
 
-            // Limite diário
+            // Carregar dados do número (para aquecimento e risco)
+            type NumberRow = {
+              uazapi_url: string | null;
+              uazapi_token: string | null;
+              warmup_started_at: string | null;
+              warmup_enabled: boolean | null;
+              auto_pause_on_risk: boolean | null;
+              risk_level: string | null;
+            };
+            let numberRow: NumberRow | null = null;
+            if (camp.whatsapp_number_id) {
+              const { data: n } = await supabaseAdmin
+                .from("whatsapp_numbers")
+                .select("uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level")
+                .eq("id", camp.whatsapp_number_id)
+                .maybeSingle();
+              numberRow = (n as unknown as NumberRow | null) ?? null;
+            }
+
+            // Auto-pausa por risco
+            if (numberRow?.auto_pause_on_risk && numberRow.risk_level === "danger") {
+              await supabaseAdmin
+                .from("blast_campaigns")
+                .update({ state: "pausado" })
+                .eq("id", camp.id);
+              await supabaseAdmin.from("blast_logs").insert({
+                user_id: camp.user_id,
+                campaign_id: camp.id,
+                stage: "opening",
+                status: "failed",
+                error: "auto_paused_risk",
+              });
+              results.push({ campaign: camp.name, sent: 0, skipped: "auto-pausa por risco" });
+              continue;
+            }
+
+            // Limite diário (com aquecimento progressivo)
+            const effectiveLimit = computeEffectiveLimit(
+              numberRow?.warmup_enabled ?? true,
+              numberRow?.warmup_started_at ?? null,
+              camp.daily_limit,
+            );
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
             const { count: sentToday } = await supabaseAdmin
@@ -51,8 +101,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               .eq("campaign_id", camp.id)
               .eq("status", "sent")
               .gte("created_at", startOfDay.toISOString());
-            if ((sentToday ?? 0) >= camp.daily_limit) {
-              results.push({ campaign: camp.name, sent: 0, skipped: "limite diário" });
+            if ((sentToday ?? 0) >= effectiveLimit) {
+              results.push({ campaign: camp.name, sent: 0, skipped: `limite diário (${effectiveLimit})` });
               continue;
             }
 
@@ -68,17 +118,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             }
 
             // Credenciais: número da campanha ou fallback para integrations
-            let url: string | undefined;
-            let token: string | undefined;
-            if (camp.whatsapp_number_id) {
-              const { data: num } = await supabaseAdmin
-                .from("whatsapp_numbers")
-                .select("uazapi_url, uazapi_token")
-                .eq("id", camp.whatsapp_number_id)
-                .maybeSingle();
-              url = num?.uazapi_url ?? undefined;
-              token = num?.uazapi_token ?? undefined;
-            }
+            let url: string | undefined = numberRow?.uazapi_url ?? undefined;
+            let token: string | undefined = numberRow?.uazapi_token ?? undefined;
             if (!url || !token) {
               const { data: integ } = await supabaseAdmin
                 .from("integrations")
@@ -135,6 +176,13 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 .from("blast_campaigns")
                 .update({ last_dispatch_at: new Date().toISOString() })
                 .eq("id", camp.id);
+              // Primeiro envio do número → inicia aquecimento
+              if (camp.whatsapp_number_id && !numberRow?.warmup_started_at) {
+                await supabaseAdmin
+                  .from("whatsapp_numbers")
+                  .update({ warmup_started_at: new Date().toISOString() })
+                  .eq("id", camp.whatsapp_number_id);
+              }
               results.push({ campaign: camp.name, sent: 1 });
             } else {
               results.push({ campaign: camp.name, sent: 0, skipped: `falhou: ${errMsg}` });
@@ -149,6 +197,20 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
     },
   },
 });
+
+function computeEffectiveLimit(
+  warmupEnabled: boolean,
+  startedAt: string | null,
+  configured: number,
+): number {
+  const cfg = Math.max(1, Math.min(configured ?? 200, 5000));
+  if (!warmupEnabled || !startedAt) return Math.min(cfg, 200);
+  const day = Math.floor((Date.now() - new Date(startedAt).getTime()) / 86400000) + 1;
+  if (day === 1) return Math.min(50, cfg);
+  if (day === 2) return Math.min(100, cfg);
+  if (day === 3) return Math.min(150, cfg);
+  return Math.min(200, cfg);
+}
 
 function renderTemplate(tpl: string, c: { nome: string; instagram: string }): string {
   return (tpl ?? "")

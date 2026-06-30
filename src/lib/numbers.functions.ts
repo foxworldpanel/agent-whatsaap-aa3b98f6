@@ -7,7 +7,7 @@ export const listNumbers = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("whatsapp_numbers")
-      .select("id, nome, uazapi_url, status, meta_ads_enabled, disparos_mode, last_connected_at, created_at")
+      .select("id, nome, uazapi_url, status, meta_ads_enabled, disparos_mode, last_connected_at, created_at, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, last_risk_check_at")
       .eq("user_id", context.userId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
@@ -154,6 +154,8 @@ export const updateNumberToggles = createServerFn({ method: "POST" })
       meta_ads_enabled: z.boolean().optional(),
       disparos_mode: z.boolean().optional(),
       nome: z.string().min(1).max(80).optional(),
+      warmup_enabled: z.boolean().optional(),
+      auto_pause_on_risk: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -161,6 +163,8 @@ export const updateNumberToggles = createServerFn({ method: "POST" })
     if (data.meta_ads_enabled !== undefined) patch.meta_ads_enabled = data.meta_ads_enabled;
     if (data.disparos_mode !== undefined) patch.disparos_mode = data.disparos_mode;
     if (data.nome !== undefined) patch.nome = data.nome;
+    if (data.warmup_enabled !== undefined) patch.warmup_enabled = data.warmup_enabled;
+    if (data.auto_pause_on_risk !== undefined) patch.auto_pause_on_risk = data.auto_pause_on_risk;
     const { error } = await context.supabase
       .from("whatsapp_numbers")
       .update(patch as never)
