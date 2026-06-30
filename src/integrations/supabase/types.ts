@@ -250,6 +250,7 @@ export type Database = {
       }
       blast_campaigns: {
         Row: {
+          contact_list_id: string | null
           created_at: string
           daily_limit: number
           delay_max_sec: number
@@ -268,6 +269,7 @@ export type Database = {
           whatsapp_number_id: string | null
         }
         Insert: {
+          contact_list_id?: string | null
           created_at?: string
           daily_limit?: number
           delay_max_sec?: number
@@ -286,6 +288,7 @@ export type Database = {
           whatsapp_number_id?: string | null
         }
         Update: {
+          contact_list_id?: string | null
           created_at?: string
           daily_limit?: number
           delay_max_sec?: number
@@ -305,6 +308,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "blast_campaigns_contact_list_id_fkey"
+            columns: ["contact_list_id"]
+            isOneToOne: false
+            referencedRelation: "contact_lists"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "blast_campaigns_whatsapp_number_id_fkey"
             columns: ["whatsapp_number_id"]
             isOneToOne: false
@@ -315,12 +325,14 @@ export type Database = {
       }
       blast_contacts: {
         Row: {
-          campaign_id: string
+          campaign_id: string | null
+          contact_list_id: string | null
           created_at: string
           id: string
           instagram: string
           last_sent_at: string | null
           nome: string
+          origem: string | null
           prioridade: number
           replied_at: string | null
           skip_reason: string | null
@@ -331,12 +343,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          campaign_id: string
+          campaign_id?: string | null
+          contact_list_id?: string | null
           created_at?: string
           id?: string
           instagram?: string
           last_sent_at?: string | null
           nome: string
+          origem?: string | null
           prioridade?: number
           replied_at?: string | null
           skip_reason?: string | null
@@ -347,12 +361,14 @@ export type Database = {
           user_id: string
         }
         Update: {
-          campaign_id?: string
+          campaign_id?: string | null
+          contact_list_id?: string | null
           created_at?: string
           id?: string
           instagram?: string
           last_sent_at?: string | null
           nome?: string
+          origem?: string | null
           prioridade?: number
           replied_at?: string | null
           skip_reason?: string | null
@@ -368,6 +384,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "blast_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blast_contacts_contact_list_id_fkey"
+            columns: ["contact_list_id"]
+            isOneToOne: false
+            referencedRelation: "contact_lists"
             referencedColumns: ["id"]
           },
         ]
@@ -541,6 +564,36 @@ export type Database = {
           nome?: string
           preco_por_1000?: number
           service_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      contact_lists: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          origem: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          origem: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          origem?: string
           updated_at?: string
           user_id?: string
         }
