@@ -248,6 +248,172 @@ export type Database = {
         }
         Relationships: []
       }
+      blast_campaigns: {
+        Row: {
+          created_at: string
+          daily_limit: number
+          delay_max_sec: number
+          delay_min_sec: number
+          end_time: string
+          followup_day3_message: string
+          followup_day7_message: string
+          id: string
+          last_dispatch_at: string | null
+          name: string
+          opening_message: string
+          start_time: string
+          state: string
+          updated_at: string
+          user_id: string
+          whatsapp_number_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          daily_limit?: number
+          delay_max_sec?: number
+          delay_min_sec?: number
+          end_time?: string
+          followup_day3_message?: string
+          followup_day7_message?: string
+          id?: string
+          last_dispatch_at?: string | null
+          name: string
+          opening_message?: string
+          start_time?: string
+          state?: string
+          updated_at?: string
+          user_id: string
+          whatsapp_number_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          daily_limit?: number
+          delay_max_sec?: number
+          delay_min_sec?: number
+          end_time?: string
+          followup_day3_message?: string
+          followup_day7_message?: string
+          id?: string
+          last_dispatch_at?: string | null
+          name?: string
+          opening_message?: string
+          start_time?: string
+          state?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp_number_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blast_campaigns_whatsapp_number_id_fkey"
+            columns: ["whatsapp_number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blast_contacts: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          id: string
+          instagram: string
+          last_sent_at: string | null
+          nome: string
+          replied_at: string | null
+          skip_reason: string | null
+          status: string
+          telefone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          id?: string
+          instagram?: string
+          last_sent_at?: string | null
+          nome: string
+          replied_at?: string | null
+          skip_reason?: string | null
+          status?: string
+          telefone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          instagram?: string
+          last_sent_at?: string | null
+          nome?: string
+          replied_at?: string | null
+          skip_reason?: string | null
+          status?: string
+          telefone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blast_contacts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "blast_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blast_logs: {
+        Row: {
+          blast_contact_id: string | null
+          campaign_id: string
+          created_at: string
+          error: string | null
+          id: string
+          stage: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          blast_contact_id?: string | null
+          campaign_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          stage: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          blast_contact_id?: string | null
+          campaign_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          stage?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blast_logs_blast_contact_id_fkey"
+            columns: ["blast_contact_id"]
+            isOneToOne: false
+            referencedRelation: "blast_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blast_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "blast_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_logs: {
         Row: {
           campaign_id: string | null
