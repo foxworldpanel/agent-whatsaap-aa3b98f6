@@ -1,0 +1,2 @@
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.whatsapp_numbers TO authenticated;
+GRANT ALL ON public.whatsapp_numbers TO service_role;
