@@ -1441,8 +1441,28 @@ function ContactListsSection() {
   const exportFn = useServerFn(exportContactList);
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listFn() });
 
+  const { data: camps = [] } = useQuery({
+    queryKey: ["blast_campaigns"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_campaigns")
+        .select("contact_list_id, state");
+      return (data ?? []) as Array<{ contact_list_id: string | null; state: string }>;
+    },
+  });
+  const activeListIds = new Set(
+    camps.filter((c) => c.state === "rodando" && c.contact_list_id).map((c) => c.contact_list_id as string),
+  );
+
+  // Lista A (Meta Ads) à esquerda, Lista B (Instagram) à direita
+  const sortedLists = [...lists].sort((a, b) => {
+    if (a.origem === b.origem) return 0;
+    return a.origem === "meta_ads" ? -1 : 1;
+  });
+
   const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
   const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
+  const [showImportFor, setShowImportFor] = useState<Record<string, boolean>>({});
 
   function parseCsv(text: string): CsvRow[] {
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -1474,21 +1494,32 @@ function ContactListsSection() {
         ou já presentes em Contatos.
       </p>
       <div className="grid gap-4 md:grid-cols-2">
-        {lists.map((l) => {
+        {sortedLists.map((l) => {
           const rows = csvByList[l.id] ?? [];
           const sum = summary[l.id];
           const isMeta = l.origem === "meta_ads";
+          const isActive = activeListIds.has(l.id);
+          const showImport = isMeta ? showImportFor[l.id] === true : true;
           return (
             <div key={l.id} className="rounded-xl border border-border p-5 space-y-3" style={{ background: "var(--gradient-card)" }}>
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-semibold">{l.name}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Origem: <span className="font-medium">{isMeta ? "Meta Ads" : "Instagram"}</span>
-                  </p>
+                <div className="flex items-start gap-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isMeta ? "bg-blue-500/15 text-blue-500" : "bg-pink-500/15 text-pink-500"}`}>
+                    {isMeta ? <Megaphone className="h-5 w-5" /> : <Instagram className="h-5 w-5" />}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{l.name}</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Origem: <span className="font-medium">{isMeta ? "Meta Ads" : "Instagram"}</span> · {isMeta ? "automática" : "manual"}
+                    </p>
+                  </div>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isMeta ? "bg-blue-500/15 text-blue-500" : "bg-pink-500/15 text-pink-500"}`}>
-                  {isMeta ? "automática" : "manual"}
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                    isActive ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {isActive ? "● Ativa" : "○ Parada"}
                 </span>
               </div>
               <div className="grid grid-cols-4 gap-2 text-center">
@@ -1498,6 +1529,20 @@ function ContactListsSection() {
                 <Stat label="Converteu" value={l.convertido} />
               </div>
               <div className="space-y-2">
+                {isMeta && (
+                  <div className="rounded-lg border border-border bg-background/40 p-3 text-xs text-muted-foreground">
+                    Alimentada automaticamente pelos leads do Meta Ads.{" "}
+                    <button
+                      type="button"
+                      onClick={() => setShowImportFor((m) => ({ ...m, [l.id]: !m[l.id] }))}
+                      className="text-primary hover:underline"
+                    >
+                      {showImport ? "ocultar importação manual" : "ou importe manualmente"}
+                    </button>
+                  </div>
+                )}
+                {showImport && (
+                  <>
                 <label className="block text-xs text-muted-foreground">Importar CSV (nome, telefone, instagram)</label>
                 <input
                   type="file"
@@ -1522,11 +1567,19 @@ function ContactListsSection() {
                       setCsvByList((m) => ({ ...m, [l.id]: [] }));
                       qc.invalidateQueries({ queryKey: ["contact_lists"] });
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-                    style={{ background: "var(--gradient-primary)" }}
+                    className={
+                      isMeta
+                        ? "inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
+                        : "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    }
+                    style={isMeta ? undefined : { background: "var(--gradient-primary)" }}
                   >
                     <Plus className="h-3.5 w-3.5" /> Importar
                   </button>
+                </div>
+                  </>
+                )}
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={async () => {
                       const res = await exportFn({ data: { listId: l.id } });
