@@ -555,6 +555,47 @@ export async function describePanelScreen(params: {
 
 export async function classifyLeadTemperature(params: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
+}): Promise<LeadTemperatura | null>;
+
+// ----- Extrai fatos persistentes do que o Sonnet analisou em uma imagem -----
+// Retorna no máximo 2 linhas curtas (formato "- fato") com informações que devem
+// ser lembradas na conversa (ex: "cliente tem cadastro e saldo no painel").
+// Retorna string vazia se não houver fato relevante.
+export async function extractDurableContextFromImageReply(params: {
+  imageReply: string;
+  clientMessage?: string | null;
+}): Promise<string> {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) return "";
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5",
+        max_tokens: 200,
+        system:
+          'Você extrai FATOS PERSISTENTES de uma análise de imagem feita por outro agente em uma conversa de vendas SMM. Esses fatos serão lembrados pelo agente nas próximas mensagens, então só inclua o que for útil para evitar perguntas repetidas (ex.: cliente já tem cadastro no painel, cliente tem saldo de R$X, cliente enviou comprovante de R$X via PIX, pedido ID Y está em status Z, link do vídeo do cliente é tal). Ignore opiniões, instruções e cortesia. Responda APENAS com 0 a 2 linhas no formato "- <fato curto>". Se não houver fato relevante, responda exatamente "NONE".',
+        messages: [
+          {
+            role: "user",
+            content: `Última mensagem do cliente: ${params.clientMessage ?? "(sem texto)"}\n\nResposta gerada após analisar a imagem:\n${params.imageReply}`,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) return "";
+    const json = (await res.json()) as { content?: Array<{ type: string; text?: string }> };
+    const txt = (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
+    if (!txt || /^none$/i.test(txt)) return "";
+    return txt;
+  } catch {
+    return "";
+  }
+}
+
+export async function classifyLeadTemperatureImpl(params: {
+  history: Array<{ sender: "agente" | "cliente"; body: string }>;
 }): Promise<LeadTemperatura | null> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
