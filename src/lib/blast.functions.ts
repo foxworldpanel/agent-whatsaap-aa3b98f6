@@ -51,6 +51,7 @@ export const updateBlastCampaign = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid(),
         whatsapp_number_id: z.string().uuid().nullable().optional(),
+        contact_list_id: z.string().uuid().nullable().optional(),
         start_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
         end_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
         daily_limit: z.number().int().min(1).max(5000).optional(),
