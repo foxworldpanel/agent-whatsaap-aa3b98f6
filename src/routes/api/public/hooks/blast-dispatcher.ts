@@ -52,21 +52,22 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             }
 
             // Carregar dados do número (para aquecimento e risco)
-            let numberRow: {
+            type NumberRow = {
               uazapi_url: string | null;
               uazapi_token: string | null;
               warmup_started_at: string | null;
               warmup_enabled: boolean | null;
               auto_pause_on_risk: boolean | null;
               risk_level: string | null;
-            } | null = null;
+            };
+            let numberRow: NumberRow | null = null;
             if (camp.whatsapp_number_id) {
               const { data: n } = await supabaseAdmin
                 .from("whatsapp_numbers")
                 .select("uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level")
                 .eq("id", camp.whatsapp_number_id)
                 .maybeSingle();
-              numberRow = n as typeof numberRow;
+              numberRow = (n as unknown as NumberRow | null) ?? null;
             }
 
             // Auto-pausa por risco
