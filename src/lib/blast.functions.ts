@@ -64,12 +64,12 @@ export const updateBlastCampaign = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { id, ...rest } = data;
-    const patch: Record<string, unknown> = { ...rest };
-    if (patch.start_time && (patch.start_time as string).length === 5) patch.start_time += ":00";
-    if (patch.end_time && (patch.end_time as string).length === 5) patch.end_time += ":00";
+    const patch = { ...rest } as typeof rest;
+    if (patch.start_time && patch.start_time.length === 5) patch.start_time = patch.start_time + ":00";
+    if (patch.end_time && patch.end_time.length === 5) patch.end_time = patch.end_time + ":00";
     const { error } = await context.supabase
       .from("blast_campaigns")
-      .update(patch)
+      .update(patch as never)
       .eq("id", id)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
