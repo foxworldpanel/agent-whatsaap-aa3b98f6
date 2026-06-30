@@ -25,6 +25,12 @@ import {
   testBlastCampaign,
   getNumberHealth,
 } from "@/lib/blast.functions";
+import {
+  listContactLists,
+  importContactsToList,
+  clearContactList,
+  exportContactList,
+} from "@/lib/contact-lists.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
@@ -130,6 +136,7 @@ function Disparos() {
         <div className="space-y-6">
           <ScriptsSection enabled={disparosActive} />
           <NumbersCard />
+          <ContactListsSection />
           <BlastSection />
 
           {showAdd && (
@@ -587,6 +594,7 @@ type BlastCampaign = {
   id: string;
   name: string;
   whatsapp_number_id: string | null;
+  contact_list_id: string | null;
   start_time: string;
   end_time: string;
   daily_limit: number;
@@ -683,6 +691,9 @@ function BlastCampaignCard({
   const testFn = useServerFn(testBlastCampaign);
 
   const [whatsapp_number_id, setNum] = useState<string>(camp.whatsapp_number_id ?? "");
+  const [contact_list_id, setListId] = useState<string>(camp.contact_list_id ?? "");
+  const listListsFn = useServerFn(listContactLists);
+  const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listListsFn() });
   const [start_time, setStart] = useState(camp.start_time.slice(0, 5));
   const [end_time, setEnd] = useState(camp.end_time.slice(0, 5));
   const [daily_limit, setLimit] = useState(camp.daily_limit);
@@ -714,6 +725,7 @@ function BlastCampaignCard({
         data: {
           id: camp.id,
           whatsapp_number_id: whatsapp_number_id || null,
+          contact_list_id: contact_list_id || null,
           start_time,
           end_time,
           daily_limit,
@@ -839,6 +851,20 @@ function BlastCampaignCard({
             {numbers.map((n) => (
               <option key={n.id} value={n.id}>
                 {n.nome}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Lista de contatos">
+          <select
+            value={contact_list_id}
+            onChange={(e) => setListId(e.target.value)}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+          >
+            <option value="">Selecione…</option>
+            {lists.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
               </option>
             ))}
           </select>
@@ -1419,5 +1445,146 @@ function HistorySection() {
         </div>
       </div>
     </section>
+  );
+}
+
+function ContactListsSection() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listContactLists);
+  const importFn = useServerFn(importContactsToList);
+  const clearFn = useServerFn(clearContactList);
+  const exportFn = useServerFn(exportContactList);
+  const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listFn() });
+
+  const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
+  const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
+
+  function parseCsv(text: string): CsvRow[] {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length === 0) return [];
+    const header = lines[0].toLowerCase().split(/[,;\t]/).map((h) => h.trim());
+    const iNome = header.findIndex((h) => h === "nome" || h === "name");
+    const iTel = header.findIndex((h) => h === "telefone" || h === "phone" || h === "celular");
+    const iIg = header.findIndex((h) => h === "instagram" || h === "ig" || h === "@");
+    const out: CsvRow[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(/[,;\t]/).map((c) => c.replace(/^"|"$/g, "").trim());
+      const nome = iNome >= 0 ? cols[iNome] : cols[0];
+      const telefone = iTel >= 0 ? cols[iTel] : cols[1];
+      const instagram = iIg >= 0 ? cols[iIg] : cols[2] ?? "";
+      if (nome && telefone) out.push({ nome, telefone, instagram });
+    }
+    return out;
+  }
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-5 w-5 text-primary" />
+        <h2 className="font-semibold">Listas de Contatos</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Duas listas independentes. <b>Lista A</b> recebe leads do Meta Ads automaticamente.
+        <b> Lista B</b> é abastecida por CSV de Instagram. O sistema bloqueia números duplicados em qualquer lista
+        ou já presentes em Contatos.
+      </p>
+      <div className="grid gap-4 md:grid-cols-2">
+        {lists.map((l) => {
+          const rows = csvByList[l.id] ?? [];
+          const sum = summary[l.id];
+          const isMeta = l.origem === "meta_ads";
+          return (
+            <div key={l.id} className="rounded-xl border border-border p-5 space-y-3" style={{ background: "var(--gradient-card)" }}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold">{l.name}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Origem: <span className="font-medium">{isMeta ? "Meta Ads" : "Instagram"}</span>
+                  </p>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${isMeta ? "bg-blue-500/15 text-blue-500" : "bg-pink-500/15 text-pink-500"}`}>
+                  {isMeta ? "automática" : "manual"}
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <Stat label="Total" value={l.total} />
+                <Stat label="Contatados" value={l.contatados} />
+                <Stat label="Respondeu" value={l.respondeu} />
+                <Stat label="Converteu" value={l.convertido} />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-xs text-muted-foreground">Importar CSV (nome, telefone, instagram)</label>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const text = await f.text();
+                    setCsvByList((m) => ({ ...m, [l.id]: parseCsv(text) }));
+                  }}
+                  className="block w-full text-xs"
+                />
+                {rows.length > 0 && (
+                  <p className="text-xs text-muted-foreground">{rows.length} linhas no CSV — clique em Importar.</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    disabled={rows.length === 0}
+                    onClick={async () => {
+                      const res = await importFn({ data: { listId: l.id, rows } });
+                      setSummary((m) => ({ ...m, [l.id]: res as never }));
+                      setCsvByList((m) => ({ ...m, [l.id]: [] }));
+                      qc.invalidateQueries({ queryKey: ["contact_lists"] });
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    style={{ background: "var(--gradient-primary)" }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Importar
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const res = await exportFn({ data: { listId: l.id } });
+                      const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url; a.download = `${l.name}.csv`; a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+                  >
+                    <BarChart3 className="h-3.5 w-3.5" /> Exportar relatório
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Limpar todos os contatos de "${l.name}"?`)) return;
+                      await clearFn({ data: { listId: l.id } });
+                      qc.invalidateQueries({ queryKey: ["contact_lists"] });
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Limpar lista
+                  </button>
+                </div>
+                {sum && (
+                  <p className="text-xs text-muted-foreground">
+                    Inseridos: <b>{sum.inserted}</b> · Ignorados (já existem no sistema): <b>{sum.ignored_existing}</b> · Inválidos: <b>{sum.invalid}</b>
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-background/40 px-2 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold">{value}</p>
+    </div>
   );
 }
