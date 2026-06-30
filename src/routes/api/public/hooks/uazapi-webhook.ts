@@ -125,6 +125,18 @@ function extractMessageId(p: UazapiPayload): string | null {
   return m.messageid ?? m.messageId ?? m.id ?? null;
 }
 
+// Fallback determinístico quando o payload não traz messageId.
+// Combina telefone + conteúdo + bucket de 10s para que reentregas
+// do mesmo evento caiam na mesma chave e sejam bloqueadas pelo PK.
+function buildFallbackMessageId(phone: string, content: string): string {
+  const bucket = Math.floor(Date.now() / 10000); // 10s
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    hash = ((hash << 5) - hash + content.charCodeAt(i)) | 0;
+  }
+  return `fb:${phone}:${bucket}:${(hash >>> 0).toString(36)}`;
+}
+
 type LeadSource = {
   source: string;
   source_ref: string | null;
