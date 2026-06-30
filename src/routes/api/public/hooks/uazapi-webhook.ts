@@ -1366,6 +1366,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
 
             let lastBody = "";
+            // Marca a conversa como "funil rodando" para que mensagens
+            // do cliente recebidas durante a entrega não disparem o Claude.
+            await supabaseAdmin
+              .from("conversations")
+              .update({ funnel_status: "running" })
+              .eq("id", conv.id);
             for (let i = 0; i < steps.length; i++) {
               if (steps[i].delayMs > 0) await sleep(steps[i].delayMs);
               const r = await steps[i].run();
@@ -1392,6 +1398,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   last_message_preview: lastBody.slice(0, 120),
                   last_message_at: stamp,
                   status: "aguardando",
+                  funnel_status: "completed",
                 })
                 .eq("id", conv.id);
               await supabaseAdmin
@@ -1401,6 +1408,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               return new Response("ok (welcome funnel)");
             }
           } catch (e) {
+            // Libera a trava se o funil falhar/parar no meio para não travar
+            // a conversa para sempre.
+            try {
+              await supabaseAdmin
+                .from("conversations")
+                .update({ funnel_status: "completed" })
+                .eq("id", conv.id);
+            } catch {}
             if ((e as Error)?.message === "__auto_reply_disabled__") {
               return new Response("ok (auto-reply disabled during welcome funnel)");
             }
