@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat } from "lucide-react";
+import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat, Eye, BarChart3, History, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listCampaigns,
@@ -49,6 +49,7 @@ function Disparos() {
   const listN = useServerFn(listNumbers);
 
   const [showAdd, setShowAdd] = useState(false);
+  const [activeTab, setActiveTab] = useState<"ativo" | "regua" | "historico">("ativo");
 
   const { data: campaigns = [] } = useQuery({ queryKey: ["campaigns"], queryFn: () => listC() });
   const { data: logs = [] } = useQuery({ queryKey: ["campaign_logs"], queryFn: () => listL() });
@@ -94,32 +95,52 @@ function Disparos() {
           <p className="text-sm text-muted-foreground">Campanhas</p>
           <h1 className="text-3xl font-bold tracking-tight">Disparos</h1>
         </div>
-        <button
-          onClick={() => setShowAdd((s) => !s)}
-          className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]"
-          style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
-        >
-          <Plus className="h-4 w-4" /> Nova campanha
-        </button>
+        {activeTab === "ativo" && (
+          <button
+            onClick={() => setShowAdd((s) => !s)}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]"
+            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
+          >
+            <Plus className="h-4 w-4" /> Nova campanha
+          </button>
+        )}
       </header>
 
-      <ScriptsSection enabled={disparosActive} />
+      <div className="flex gap-2 border-b border-border">
+        {[
+          { id: "ativo" as const, label: "Disparo Ativo", icon: Zap },
+          { id: "regua" as const, label: "Régua Automática", icon: Repeat },
+          { id: "historico" as const, label: "Histórico e Métricas", icon: History },
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+              activeTab === t.id
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <t.icon className="h-4 w-4" /> {t.label}
+          </button>
+        ))}
+      </div>
 
-      <NumbersCard />
+      {activeTab === "ativo" && (
+        <div className="space-y-6">
+          <ScriptsSection enabled={disparosActive} />
+          <NumbersCard />
+          <BlastSection />
 
-      <BlastSection />
+          {showAdd && (
+            <AddForm
+              pending={createMut.isPending}
+              onCancel={() => setShowAdd(false)}
+              onSubmit={(v) => createMut.mutate(v)}
+            />
+          )}
 
-      <AutoCampaignsSection />
-
-      {showAdd && (
-        <AddForm
-          pending={createMut.isPending}
-          onCancel={() => setShowAdd(false)}
-          onSubmit={(v) => createMut.mutate(v)}
-        />
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-1">
           {campaigns.length === 0 && (
             <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -237,6 +258,12 @@ function Disparos() {
           </ul>
         </div>
       </div>
+        </div>
+      )}
+
+      {activeTab === "regua" && <AutoCampaignsSection />}
+
+      {activeTab === "historico" && <HistorySection />}
     </div>
   );
 }
