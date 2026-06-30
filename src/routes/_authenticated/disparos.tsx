@@ -568,6 +568,7 @@ function ScriptsSection({ enabled }: { enabled: boolean }) {
             className="mt-4 w-full rounded-lg border border-border bg-background p-3 text-sm font-mono outline-none transition focus:border-primary"
             placeholder="Escreva o script de abordagem…"
           />
+          <div className="mt-2"><PreviewButton template={scripts[tab]} /></div>
           <p className="mt-1 text-xs text-muted-foreground">
             Use <code>{`{nome}`}</code> para personalizar com o nome do contato.
           </p>
