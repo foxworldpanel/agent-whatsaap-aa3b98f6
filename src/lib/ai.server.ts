@@ -85,6 +85,11 @@ function selectActiveModules(
   return Object.entries(mods).filter(([k, v]) => {
     if (!v || !String(v).trim()) return false;
     if (enabled[k] === false) return false;
+    // Nunca injetar o módulo de saudação por horário no agente receptivo.
+    // Variação de saudação por horário é EXCLUSIVA do disparo ativo
+    // (src/lib/blast-variations.ts) — Júlia responde no tom natural
+    // definido na instrução base, sem forçar "bom dia/boa tarde/boa noite".
+    if (k === "tom_horario") return false;
     return wanted.has(k);
   });
 }
