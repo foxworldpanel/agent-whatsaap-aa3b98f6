@@ -81,11 +81,20 @@ export const connectNumber = createServerFn({ method: "POST" })
     if (!row?.uazapi_url || !row.uazapi_token) throw new Error("Número sem credenciais");
     const { uazapiConnect } = await import("./uazapi.server");
     const r = await uazapiConnect({ uazapi_url: row.uazapi_url, uazapi_token: row.uazapi_token });
+    const normalized =
+      r.status === "connected"
+        ? "conectado"
+        : r.status === "disconnected"
+          ? "desconectado"
+          : r.status ?? "pendente";
     await context.supabase
       .from("whatsapp_numbers")
-      .update({ status: r.status ?? "pendente" })
+      .update({
+        status: normalized,
+        last_connected_at: normalized === "conectado" ? new Date().toISOString() : undefined,
+      })
       .eq("id", data.id);
-    return { qrcode: r.qrcode, status: r.status };
+    return { qrcode: r.qrcode, status: normalized };
   });
 
 export const refreshNumberStatus = createServerFn({ method: "POST" })

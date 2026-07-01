@@ -108,7 +108,16 @@ function NumerosPage() {
 
   const connectMut = useMutation({
     mutationFn: (id: string) => connectFn({ data: { id } }),
-    onSuccess: (r, id) => setQrFor({ id, qr: r.qrcode }),
+    onSuccess: (r, id) => {
+      qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] });
+      if (r.qrcode) {
+        setQrFor({ id, qr: r.qrcode });
+      } else if (r.status === "conectado") {
+        alert("Número já está conectado no WhatsApp ✔");
+      } else {
+        alert(`Sem QR disponível. Status atual: ${r.status ?? "desconhecido"}. Tente 'Atualizar' ou 'Desconectar' e conectar novamente.`);
+      }
+    },
   });
 
   const disconnectMut = useMutation({
