@@ -1787,11 +1787,6 @@ function ContactListsSection() {
                 <Stat label="Respondeu" value={l.respondeu} />
                 <Stat label="Converteu" value={l.convertido} />
               </div>
-              {!isMeta && l.total === 0 && (
-                <div className="rounded-lg border border-dashed border-pink-500/40 bg-pink-500/5 p-4 text-center text-sm text-pink-500">
-                  ✨ Importe sua lista para começar o disparo!
-                </div>
-              )}
               {l.total > 0 && (
                 <div>
                   <button
