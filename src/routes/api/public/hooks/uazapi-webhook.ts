@@ -2400,6 +2400,33 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }
             }
           }
+          // === Mídias do agente (vídeos/artes) ===
+          try {
+            const { pickTriggeredMedia, detectPlatform } = await import("@/lib/agent-medias.server");
+            const { uazapiSendMedia } = await import("@/lib/uazapi.server");
+            const plataformaHint = detectPlatform(inboundBody);
+            const lastMediaRaw = (conv as unknown as { last_media_sent?: { ids?: string[]; at?: string } | null }).last_media_sent;
+            const recentIds = new Set<string>((lastMediaRaw?.ids ?? []).slice(-20));
+            const isFreshDay = !lastMediaRaw?.at || (Date.now() - new Date(lastMediaRaw.at).getTime()) > 24 * 3600_000;
+            const sentIds: string[] = [];
+            const video = await pickTriggeredMedia({ ownerId: userId, text: inboundBody, plataformaHint, tipo: "video" });
+            if (video && (!recentIds.has(video.id) || isFreshDay)) {
+              await uazapiSendMedia(sendCreds, phone, "video", video.url, "Deixa eu te mandar um vídeo rápido explicando como funciona! 😊").catch((e) => console.error("send video failed", e));
+              sentIds.push(video.id);
+            }
+            const arte = await pickTriggeredMedia({ ownerId: userId, text: inboundBody, plataformaHint, tipo: "imagem" });
+            if (arte && (!recentIds.has(arte.id) || isFreshDay)) {
+              await uazapiSendMedia(sendCreds, phone, "image", arte.url, "Aproveita! Hoje tem uma condição especial 🎉").catch((e) => console.error("send arte failed", e));
+              sentIds.push(arte.id);
+            }
+            if (sentIds.length > 0) {
+              await supabaseAdmin.from("conversations").update({
+                last_media_sent: { ids: [...(lastMediaRaw?.ids ?? []), ...sentIds].slice(-20), at: new Date().toISOString() },
+              }).eq("id", conv.id);
+            }
+          } catch (mediaErr) {
+            console.error("agent_medias hook failed", mediaErr);
+          }
           await uazapiClearPresence(sendCreds, phone).catch(() => {});
         } catch (e) {
           await uazapiClearPresence(sendCreds, phone).catch(() => {});
