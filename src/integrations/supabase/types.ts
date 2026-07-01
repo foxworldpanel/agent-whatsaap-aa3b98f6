@@ -161,6 +161,57 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_medias: {
+        Row: {
+          ativo: boolean
+          auto_no_inicio: boolean
+          created_at: string
+          data_fim: string | null
+          data_inicio: string | null
+          gatilhos: string[]
+          id: string
+          nome: string
+          owner_id: string
+          plataforma: string
+          storage_path: string | null
+          tipo: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          ativo?: boolean
+          auto_no_inicio?: boolean
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          gatilhos?: string[]
+          id?: string
+          nome: string
+          owner_id: string
+          plataforma?: string
+          storage_path?: string | null
+          tipo: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          ativo?: boolean
+          auto_no_inicio?: boolean
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          gatilhos?: string[]
+          id?: string
+          nome?: string
+          owner_id?: string
+          plataforma?: string
+          storage_path?: string | null
+          tipo?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       auto_campaign_runs: {
         Row: {
           auto_campaign_id: string
@@ -689,6 +740,7 @@ export type Database = {
           funnel_status: Database["public"]["Enums"]["funnel_status"]
           id: string
           internal_note: string | null
+          last_media_sent: Json | null
           last_message_at: string | null
           last_message_preview: string | null
           needs_review: boolean
@@ -707,6 +759,7 @@ export type Database = {
           funnel_status?: Database["public"]["Enums"]["funnel_status"]
           id?: string
           internal_note?: string | null
+          last_media_sent?: Json | null
           last_message_at?: string | null
           last_message_preview?: string | null
           needs_review?: boolean
@@ -725,6 +778,7 @@ export type Database = {
           funnel_status?: Database["public"]["Enums"]["funnel_status"]
           id?: string
           internal_note?: string | null
+          last_media_sent?: Json | null
           last_message_at?: string | null
           last_message_preview?: string | null
           needs_review?: boolean
