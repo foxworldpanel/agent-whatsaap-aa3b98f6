@@ -1758,7 +1758,7 @@ function ContactListsSection() {
               </div>
               <div className="grid grid-cols-4 gap-2 text-center">
                 <Stat label="Total" value={l.total} />
-                <Stat label="Contatados" value={l.contatados} />
+                <Stat label="Abordados" value={l.contatados} />
                 <Stat label="Respondeu" value={l.respondeu} />
                 <Stat label="Converteu" value={l.convertido} />
               </div>
