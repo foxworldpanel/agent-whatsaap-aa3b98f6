@@ -27,6 +27,20 @@ function memMarkSent(phone: string, body: string): void {
   recentSendsMem.set(recentSendKey(phone, body), Date.now() + RECENT_SEND_TTL_MS);
 }
 
+// Contador em memória por messageId — mostra quantas vezes o Uazapi
+// disparou o webhook para a mesma mensagem dentro da vida do worker.
+const messageIdHits = new Map<string, number>();
+function bumpMessageIdHit(id: string): number {
+  const n = (messageIdHits.get(id) ?? 0) + 1;
+  messageIdHits.set(id, n);
+  if (messageIdHits.size > 1000) {
+    // GC oportunista: mantém somente as últimas 500
+    const keys = Array.from(messageIdHits.keys()).slice(0, messageIdHits.size - 500);
+    for (const k of keys) messageIdHits.delete(k);
+  }
+  return n;
+}
+
 type UazapiPayload = {
   event?: string;
   EventType?: string;
