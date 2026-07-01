@@ -1999,15 +1999,6 @@ function ListContactsTable({ listId }: { listId: string }) {
   );
 }
 
-function _StatUnused({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-border bg-background/40 px-2 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-lg font-semibold">{value}</p>
-    </div>
-  );
-}
-
 function OverviewStat({
   icon, label, value, hint, tone,
 }: {
