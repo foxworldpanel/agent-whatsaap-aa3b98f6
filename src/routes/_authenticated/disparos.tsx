@@ -1647,12 +1647,32 @@ function ContactListsSection() {
   );
   const semResposta = Math.max(0, overview.contatados - overview.respondeu);
   const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 1000) / 10 : 0);
-  const metaList = sortedLists.find((l) => l.origem === "meta_ads");
-  const igList = sortedLists.find((l) => l.origem === "instagram");
+  const convRate = pct(overview.convertido, overview.respondeu);
+  const convTone =
+    convRate >= 30 ? { text: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/30" }
+    : convRate >= 10 ? { text: "text-amber-500", bg: "bg-amber-500/10 border-amber-500/30" }
+    : { text: "text-red-500", bg: "bg-red-500/10 border-red-500/30" };
+  const [openContactsFor, setOpenContactsFor] = useState<string | null>(null);
 
   const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
   const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
   const [importingFor, setImportingFor] = useState<string | null>(null);
+
+  async function exportCombinedReport() {
+    const results = await Promise.all(sortedLists.map((l) => exportFn({ data: { listId: l.id } })));
+    const header = "lista,nome,telefone,instagram,status,last_sent_at,replied_at,origem";
+    const lines: string[] = [header];
+    results.forEach((res, i) => {
+      const listName = sortedLists[i].name;
+      const body = res.csv.split("\n").slice(1).filter((r) => r.trim().length > 0);
+      for (const r of body) lines.push(`"${listName.replace(/"/g, '""')}",` + r);
+    });
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `relatorio-geral-listas.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
 
   function parseCsv(text: string): CsvRow[] {
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -1712,6 +1732,22 @@ function ContactListsSection() {
           />
           <OverviewStat icon={<Ban className="h-4 w-4" />} label="Sem resposta" value={semResposta} tone="warn" />
         </div>
+        <div className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 ${convTone.bg}`}>
+          <div className="flex items-center gap-2 text-sm">
+            <BarChart3 className={`h-4 w-4 ${convTone.text}`} />
+            <span className="text-muted-foreground">Taxa de conversão:</span>
+            <span className={`font-semibold ${convTone.text}`}>{convRate}%</span>
+            <span className="text-xs text-muted-foreground">
+              ({overview.convertido} de {overview.respondeu} que responderam compraram)
+            </span>
+          </div>
+          <button
+            onClick={exportCombinedReport}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Exportar relatório
+          </button>
+        </div>
         <p className="text-[11px] text-muted-foreground">
           Veja os detalhes individuais de cada lista nos cards abaixo.
         </p>
@@ -1751,6 +1787,22 @@ function ContactListsSection() {
                 <Stat label="Respondeu" value={l.respondeu} />
                 <Stat label="Converteu" value={l.convertido} />
               </div>
+              {!isMeta && l.total === 0 && (
+                <div className="rounded-lg border border-dashed border-pink-500/40 bg-pink-500/5 p-4 text-center text-sm text-pink-500">
+                  ✨ Importe sua lista para começar o disparo!
+                </div>
+              )}
+              {l.total > 0 && (
+                <div>
+                  <button
+                    onClick={() => setOpenContactsFor((v) => (v === l.id ? null : l.id))}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+                  >
+                    <Eye className="h-3.5 w-3.5" /> {openContactsFor === l.id ? "Ocultar contatos" : "Ver contatos"}
+                  </button>
+                  {openContactsFor === l.id && <ListContactsTable listId={l.id} />}
+                </div>
+              )}
               <div className="space-y-2">
                 {isMeta && (
                   <div className="rounded-lg border border-border bg-background/40 p-3 text-xs text-muted-foreground">
@@ -1852,6 +1904,97 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="rounded-lg border border-border bg-background/40 px-2 py-2">
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
       <p className="text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+type ListContactRow = {
+  id: string;
+  nome: string;
+  telefone: string;
+  status: string;
+  ultima_interacao: string | null;
+  replied_at: string | null;
+  last_sent_at: string | null;
+};
+
+function ListContactsTable({ listId }: { listId: string }) {
+  const { data: rows = [] } = useQuery({
+    queryKey: ["list_contacts_detail", listId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_contacts")
+        .select("id, nome, telefone, status, ultima_interacao, replied_at, last_sent_at")
+        .eq("contact_list_id", listId)
+        .order("updated_at", { ascending: false })
+        .limit(200);
+      return (data ?? []) as ListContactRow[];
+    },
+  });
+
+  const phones = rows.map((r) => r.telefone);
+  const { data: tempMap = {} } = useQuery({
+    queryKey: ["contacts_temperature", listId, phones.length],
+    enabled: phones.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("contacts")
+        .select("telefone, temperatura")
+        .in("telefone", phones);
+      const m: Record<string, string> = {};
+      for (const c of (data ?? []) as Array<{ telefone: string; temperatura: string | null }>) {
+        if (c.telefone) m[c.telefone] = c.temperatura ?? "";
+      }
+      return m;
+    },
+  });
+
+  if (rows.length === 0) {
+    return <p className="mt-3 text-xs text-muted-foreground">Nenhum contato ainda.</p>;
+  }
+
+  const tempStyle = (t: string) =>
+    t === "quente" ? "bg-red-500/15 text-red-500"
+    : t === "morno" ? "bg-amber-500/15 text-amber-500"
+    : t === "frio" ? "bg-blue-500/15 text-blue-500"
+    : "bg-muted text-muted-foreground";
+
+  return (
+    <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+      <table className="w-full text-xs">
+        <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 text-left">Nome</th>
+            <th className="px-3 py-2 text-left">Telefone</th>
+            <th className="px-3 py-2 text-left">Status</th>
+            <th className="px-3 py-2 text-left">Temperatura</th>
+            <th className="px-3 py-2 text-left">Última interação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const t = tempMap[r.telefone] ?? "";
+            const last = r.ultima_interacao ?? r.replied_at ?? r.last_sent_at;
+            return (
+              <tr key={r.id} className="border-t border-border">
+                <td className="px-3 py-2">{r.nome}</td>
+                <td className="px-3 py-2 font-mono text-[11px]">{r.telefone}</td>
+                <td className="px-3 py-2">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">{r.status}</span>
+                </td>
+                <td className="px-3 py-2">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] capitalize ${tempStyle(t)}`}>
+                    {t || "—"}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  {last ? new Date(last).toLocaleString("pt-BR") : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
