@@ -946,28 +946,6 @@ function BlastCampaignCard({
         </button>
       </div>
 
-      <div className="rounded-lg border border-border bg-background/50 p-4 space-y-3">
-        <h4 className="font-semibold text-sm">Contatos desta campanha</h4>
-        <p className="text-xs text-muted-foreground">
-          A importação de contatos foi movida para a seção <b>Listas de Contatos</b> no topo da
-          página. Vincule esta campanha a uma lista no seletor acima.
-        </p>
-        {contacts.length > 0 && (
-          <div className="flex items-center justify-between pt-2">
-            <span className="text-xs text-muted-foreground">
-              {contacts.length} contatos na fila desta campanha
-            </span>
-            <button
-              onClick={() => {
-                if (confirm("Remover todos os contatos desta campanha?")) clearMut.mutate();
-              }}
-              className="text-xs text-destructive hover:underline"
-            >
-              Limpar lista
-            </button>
-          </div>
-        )}
-      </div>
 
       <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
         <h4 className="font-semibold text-sm">Testar com meu número</h4>
