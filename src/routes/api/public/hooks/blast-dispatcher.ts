@@ -60,12 +60,14 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               warmup_enabled: boolean | null;
               auto_pause_on_risk: boolean | null;
               risk_level: string | null;
+              disparos_mode: boolean | null;
+              meta_ads_enabled: boolean | null;
             };
             let numberRow: NumberRow | null = null;
             if (camp.whatsapp_number_id) {
               const { data: n } = await supabaseAdmin
                 .from("whatsapp_numbers")
-                .select("uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level")
+                .select("uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, disparos_mode, meta_ads_enabled")
                 .eq("id", camp.whatsapp_number_id)
                 .maybeSingle();
               numberRow = (n as unknown as NumberRow | null) ?? null;
@@ -142,12 +144,19 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               continue;
             }
 
-            // Sistema de variação inteligente: detecta horário (Brasil) e monta
-            // saudação + corpo, evitando repetir a última combinação enviada ao contato.
-            const pick = montarMensagemDisparo(next.contact.nome, next.contact.instagram, {
-              avoidKey: next.contact.last_variation_key,
-            });
-            const message = pick.text;
+            // Variação de saudação por horário SÓ vale para disparo ativo puro:
+            // número em "Modo Disparos" e SEM "Receber leads Meta Ads".
+            // Para qualquer outro caso (Meta Ads, receptivo, funil, régua),
+            // usa o template configurado da campanha, sem forçar saudação.
+            const isModoDisparo = numberRow?.disparos_mode === true;
+            const isMetaAds = numberRow?.meta_ads_enabled === true;
+            const useVariacao = isModoDisparo && !isMetaAds && next.stage === "opening";
+            const pick = useVariacao
+              ? montarMensagemDisparo(next.contact.nome, next.contact.instagram, {
+                  avoidKey: next.contact.last_variation_key,
+                })
+              : null;
+            const message = pick ? pick.text : renderTemplate(next.template, next.contact);
 
             let status: "sent" | "failed" = "sent";
             let errMsg: string | undefined;
@@ -179,7 +188,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 .update({
                   status: newStatus,
                   last_sent_at: new Date().toISOString(),
-                  last_variation_key: pick.key,
+                  last_variation_key: pick ? pick.key : next.contact.last_variation_key,
                 })
                 .eq("id", next.contact.id);
               await supabaseAdmin
