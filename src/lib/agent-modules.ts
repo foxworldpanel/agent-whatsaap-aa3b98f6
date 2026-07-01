@@ -43,7 +43,6 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "inteligencia_emocional", title: "Inteligência Emocional", emoji: "❤️" },
   { key: "guia_visual_painel", title: "Guia Visual do Painel", emoji: "🖼️" },
   { key: "reativacao_frio", title: "Reativação de Cliente Frio", emoji: "🧊" },
-  { key: "tom_horario", title: "Tom por Horário", emoji: "🕐" },
   { key: "musica_cliente", title: "Música do Cliente", emoji: "🎧" },
   { key: "aprendizado_continuo", title: "Aprendizado Contínuo", emoji: "📚" },
 ];
@@ -729,11 +728,6 @@ Desktop: "No computador o menu lateral já aparece aberto. Clica em Depositar, e
 2ª tentativa (2 dias depois): "Oi {nome}! Essa semana tô com condição especial. Quer ver?"
 3ª tentativa (5 dias depois): "Oi {nome}! Último recado — se quiser crescer seu {perfil/canal/música} é só me chamar 😊"
 Após 3 tentativas sem resposta: para completamente, marca como inativo, aguarda 30 dias para nova tentativa.`,
-
-  tom_horario: `Manhã (6h-12h): Energia e motivação. "Bom dia! Começando o dia com tudo?"
-Tarde (12h-18h): Direto e objetivo. "Boa tarde!"
-Noite (18h-23h): Mais relaxado e informal. "Boa noite!"
-Madrugada (23h-6h): Responde normalmente, não comenta o horário.`,
 
   musica_cliente: `Cliente manda link de música para ouvir:
 NUNCA finge que ouviu. NUNCA fala "ouvi e adorei" sem ter ouvido.
