@@ -1908,6 +1908,106 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
+type ListContactRow = {
+  id: string;
+  nome: string;
+  telefone: string;
+  status: string;
+  ultima_interacao: string | null;
+  replied_at: string | null;
+  last_sent_at: string | null;
+};
+
+function ListContactsTable({ listId }: { listId: string }) {
+  const { data: rows = [] } = useQuery({
+    queryKey: ["list_contacts_detail", listId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_contacts")
+        .select("id, nome, telefone, status, ultima_interacao, replied_at, last_sent_at")
+        .eq("contact_list_id", listId)
+        .order("updated_at", { ascending: false })
+        .limit(200);
+      return (data ?? []) as ListContactRow[];
+    },
+  });
+
+  const phones = rows.map((r) => r.telefone);
+  const { data: tempMap = {} } = useQuery({
+    queryKey: ["contacts_temperature", listId, phones.length],
+    enabled: phones.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("contacts")
+        .select("telefone, temperatura")
+        .in("telefone", phones);
+      const m: Record<string, string> = {};
+      for (const c of (data ?? []) as Array<{ telefone: string; temperatura: string | null }>) {
+        if (c.telefone) m[c.telefone] = c.temperatura ?? "";
+      }
+      return m;
+    },
+  });
+
+  if (rows.length === 0) {
+    return <p className="mt-3 text-xs text-muted-foreground">Nenhum contato ainda.</p>;
+  }
+
+  const tempStyle = (t: string) =>
+    t === "quente" ? "bg-red-500/15 text-red-500"
+    : t === "morno" ? "bg-amber-500/15 text-amber-500"
+    : t === "frio" ? "bg-blue-500/15 text-blue-500"
+    : "bg-muted text-muted-foreground";
+
+  return (
+    <div className="mt-3 overflow-x-auto rounded-lg border border-border">
+      <table className="w-full text-xs">
+        <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-3 py-2 text-left">Nome</th>
+            <th className="px-3 py-2 text-left">Telefone</th>
+            <th className="px-3 py-2 text-left">Status</th>
+            <th className="px-3 py-2 text-left">Temperatura</th>
+            <th className="px-3 py-2 text-left">Última interação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const t = tempMap[r.telefone] ?? "";
+            const last = r.ultima_interacao ?? r.replied_at ?? r.last_sent_at;
+            return (
+              <tr key={r.id} className="border-t border-border">
+                <td className="px-3 py-2">{r.nome}</td>
+                <td className="px-3 py-2 font-mono text-[11px]">{r.telefone}</td>
+                <td className="px-3 py-2">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">{r.status}</span>
+                </td>
+                <td className="px-3 py-2">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] capitalize ${tempStyle(t)}`}>
+                    {t || "—"}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  {last ? new Date(last).toLocaleString("pt-BR") : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function _StatUnused({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-background/40 px-2 py-2">
+      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
 function OverviewStat({
   icon, label, value, hint, tone,
 }: {
