@@ -933,9 +933,6 @@ function BlastCampaignCard({
 
       <div className="space-y-3">
         <VariationInfoCard />
-        <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-          Os follow-ups automáticos são gerenciados pela Régua de Relacionamento abaixo.
-        </div>
         <button
           onClick={() => saveMut.mutate()}
           disabled={saveMut.isPending}
