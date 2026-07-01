@@ -27,6 +27,20 @@ function memMarkSent(phone: string, body: string): void {
   recentSendsMem.set(recentSendKey(phone, body), Date.now() + RECENT_SEND_TTL_MS);
 }
 
+// Contador em memória por messageId — mostra quantas vezes o Uazapi
+// disparou o webhook para a mesma mensagem dentro da vida do worker.
+const messageIdHits = new Map<string, number>();
+function bumpMessageIdHit(id: string): number {
+  const n = (messageIdHits.get(id) ?? 0) + 1;
+  messageIdHits.set(id, n);
+  if (messageIdHits.size > 1000) {
+    // GC oportunista: mantém somente as últimas 500
+    const keys = Array.from(messageIdHits.keys()).slice(0, messageIdHits.size - 500);
+    for (const k of keys) messageIdHits.delete(k);
+  }
+  return n;
+}
+
 type UazapiPayload = {
   event?: string;
   EventType?: string;
@@ -559,25 +573,34 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // ===== Idempotência por messageId =====
         // Uazapi às vezes dispara o mesmo evento mais de uma vez. Trava
-        // definitiva: tenta inserir o messageId na tabela processed_messages
-        // (PK). Se o insert falhar por conflito → já foi processado, ignora.
+        // definitiva: UPSERT com ignoreDuplicates na tabela processed_messages
+        // (PK message_id). Se nada foi inserido → já processado, ignora.
         if (messageId) {
-          const { error: dupErr } = await supabaseAdmin
+          const hits = bumpMessageIdHit(messageId);
+          console.log(`🔁 Webhook hit #${hits} para messageId=${messageId}`);
+          if (hits > 1) {
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ phone, type: "webhook_replay", level: "warn", summary: `🔁 Uazapi reenviou messageId (${hits}x): ${messageId}`, metadata: { messageId, hits } });
+            } catch {}
+            return new Response("ok (in-memory duplicate)");
+          }
+
+          const { data: inserted, error: dupErr } = await supabaseAdmin
             .from("processed_messages")
-            .insert({ message_id: messageId });
+            .upsert({ message_id: messageId }, { onConflict: "message_id", ignoreDuplicates: true })
+            .select("message_id");
           if (dupErr) {
-            // 23505 = unique_violation
-            const code = (dupErr as { code?: string }).code;
-            if (code === "23505" || /duplicate key/i.test(dupErr.message)) {
-              console.log(`Mensagem duplicada bloqueada (processed_messages): ${messageId}`);
-              try {
-                const { logEvent } = await import("@/lib/agent-logger.server");
-                await logEvent({ phone, type: "duplicate_blocked", level: "warn", summary: `Mensagem duplicada bloqueada (${messageId})`, metadata: { messageId } });
-              } catch {}
-              return new Response("ok (duplicate messageId)");
-            }
-            // erro inesperado: loga e segue (não bloqueia o atendimento)
-            console.warn("processed_messages insert error:", dupErr.message);
+            // erro inesperado (não é conflito): loga e segue — não bloqueia atendimento
+            console.warn("processed_messages upsert error:", dupErr.message);
+          } else if (!inserted || inserted.length === 0) {
+            // Nada inserido = messageId já existia → duplicata bloqueada
+            console.log(`🚫 Duplicata bloqueada (processed_messages): ${messageId}`);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({ phone, type: "duplicate_blocked", level: "warn", summary: `🚫 Mensagem duplicada bloqueada (${messageId})`, metadata: { messageId } });
+            } catch {}
+            return new Response("ok (duplicate messageId)");
           }
           // Fallback adicional: se já existe uma mensagem com esse external_id,
           // também ignora (cobre runs anteriores à criação da tabela).
