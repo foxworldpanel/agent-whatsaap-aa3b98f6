@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -13,6 +13,9 @@ import {
   type Node,
   type Edge,
   type Connection,
+  type FinalConnectionState,
+  type OnConnectStartParams,
+  ConnectionMode,
   MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -43,6 +46,26 @@ type NodeData = Record<string, unknown> & {
   keywords_no?: string;
   end_status?: string;
 };
+
+const flowEdgeStyle = { stroke: "var(--primary)", strokeWidth: 2.5 };
+const flowConnectionLineStyle = { stroke: "var(--primary)", strokeWidth: 2.5 };
+
+function normalizeNodes(items: Node<NodeData>[]): Node<NodeData>[] {
+  return items.map((node) => ({
+    ...node,
+    type: "flowCard",
+    sourcePosition: Position.Bottom,
+    targetPosition: Position.Top,
+  }));
+}
+
+function normalizeEdges(items: Edge[]): Edge[] {
+  return items.map((edge) => ({
+    ...edge,
+    markerEnd: { type: MarkerType.ArrowClosed },
+    style: flowEdgeStyle,
+  }));
+}
 
 const KINDS: { kind: NodeKind; icon: string; label: string; color: string }[] = [
   { kind: "message", icon: "📨", label: "Mensagem", color: "#3b82f6" },
@@ -80,7 +103,7 @@ function defaultTemplate(): { nodes: Node<NodeData>[]; edges: Edge[] } {
     target: t,
     label,
     markerEnd: { type: MarkerType.ArrowClosed },
-    style: { stroke: "hsl(var(--primary))" },
+    style: flowEdgeStyle,
   });
   const edges: Edge[] = [
     e("e1", "n1", "n2"),
@@ -93,7 +116,7 @@ function defaultTemplate(): { nodes: Node<NodeData>[]; edges: Edge[] } {
     e("e8", "n3", "n9", "NÃO"),
     e("e9", "n9", "n10"),
   ];
-  return { nodes, edges };
+  return { nodes: normalizeNodes(nodes), edges: normalizeEdges(edges) };
 }
 
 function FlowCardNode({ data, selected }: { data: NodeData; selected?: boolean }) {
@@ -108,7 +131,7 @@ function FlowCardNode({ data, selected }: { data: NodeData; selected?: boolean }
         type="target"
         position={Position.Top}
         isConnectable
-        style={{ background: m.color, width: 12, height: 12, top: -6 }}
+        style={{ background: m.color, width: 18, height: 18, top: -9, zIndex: 30, pointerEvents: "auto", cursor: "crosshair", border: "2px solid var(--card)" }}
       />
       <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: m.color }}>
         <span>{m.icon}</span>
@@ -125,14 +148,14 @@ function FlowCardNode({ data, selected }: { data: NodeData; selected?: boolean }
             type="source"
             position={Position.Bottom}
             isConnectable
-            style={{ left: "30%", background: "#10b981", width: 12, height: 12, bottom: -6 }}
+            style={{ left: "30%", background: "#10b981", width: 18, height: 18, bottom: -9, zIndex: 30, pointerEvents: "auto", cursor: "crosshair", border: "2px solid var(--card)" }}
           />
           <Handle
             id="no"
             type="source"
             position={Position.Bottom}
             isConnectable
-            style={{ left: "70%", background: "#ef4444", width: 12, height: 12, bottom: -6 }}
+            style={{ left: "70%", background: "#ef4444", width: 18, height: 18, bottom: -9, zIndex: 30, pointerEvents: "auto", cursor: "crosshair", border: "2px solid var(--card)" }}
           />
         </>
       ) : data.kind !== "end" ? (
@@ -141,7 +164,7 @@ function FlowCardNode({ data, selected }: { data: NodeData; selected?: boolean }
           type="source"
           position={Position.Bottom}
           isConnectable
-          style={{ background: m.color, width: 12, height: 12, bottom: -6 }}
+          style={{ background: m.color, width: 18, height: 18, bottom: -9, zIndex: 30, pointerEvents: "auto", cursor: "crosshair", border: "2px solid var(--card)" }}
         />
       ) : null}
     </div>
@@ -171,12 +194,13 @@ function Inner({ campaignId }: { campaignId: string }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selected, setSelected] = useState<Node<NodeData> | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const connectingFromRef = useRef<OnConnectStartParams | null>(null);
 
   useEffect(() => {
     if (isLoading || loaded) return;
     if (flow && Array.isArray(flow.nodes) && flow.nodes.length > 0) {
-      setNodes(flow.nodes as unknown as Node<NodeData>[]);
-      setEdges(flow.edges as unknown as Edge[]);
+      setNodes(normalizeNodes(flow.nodes as unknown as Node<NodeData>[]));
+      setEdges(normalizeEdges((flow.edges as unknown as Edge[]) ?? []));
     } else {
       const t = defaultTemplate();
       setNodes(t.nodes);
@@ -185,12 +209,44 @@ function Inner({ campaignId }: { campaignId: string }) {
     setLoaded(true);
   }, [flow, isLoading, loaded, setNodes, setEdges]);
 
-  const onConnect = useCallback(
-    (c: Connection) =>
-      setEdges((eds) =>
-        addEdge({ ...c, markerEnd: { type: MarkerType.ArrowClosed }, style: { stroke: "hsl(var(--primary))" } }, eds),
-      ),
+  const addConnection = useCallback(
+    (c: Connection) => {
+      setEdges((eds) => {
+        if (!c.source || !c.target || c.source === c.target) return eds;
+        const alreadyExists = eds.some(
+          (edge) => edge.source === c.source && edge.target === c.target && edge.sourceHandle === c.sourceHandle && edge.targetHandle === c.targetHandle,
+        );
+        if (alreadyExists) return eds;
+        const label = c.sourceHandle === "yes" ? "SIM" : c.sourceHandle === "no" ? "NÃO" : undefined;
+        return addEdge({ ...c, label, markerEnd: { type: MarkerType.ArrowClosed }, style: flowEdgeStyle }, eds);
+      });
+    },
     [setEdges],
+  );
+
+  const onConnect = useCallback((c: Connection) => addConnection(c), [addConnection]);
+
+  const onConnectStart = useCallback((_: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+    connectingFromRef.current = params;
+  }, []);
+
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
+      const from = connectingFromRef.current;
+      connectingFromRef.current = null;
+      if (!from?.nodeId || from.handleType !== "source") return;
+
+      const pointer = "changedTouches" in event ? event.changedTouches[0] : event;
+      const targetNode = document
+        .elementFromPoint(pointer.clientX, pointer.clientY)
+        ?.closest(".react-flow__node") as HTMLElement | null;
+      const targetId = state.toNode?.id ?? targetNode?.dataset.id;
+
+      if (!targetId || targetId === from.nodeId) return;
+
+      addConnection({ source: from.nodeId, sourceHandle: from.handleId, target: targetId, targetHandle: "in" });
+    },
+    [addConnection],
   );
 
   const addNode = useCallback(
@@ -324,6 +380,8 @@ function Inner({ campaignId }: { campaignId: string }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onConnectStart={onConnectStart}
+            onConnectEnd={onConnectEnd}
             onNodeClick={(_, n) => setSelected(n as Node<NodeData>)}
             onPaneClick={() => setSelected(null)}
             nodeTypes={memoNodeTypes}
@@ -331,6 +389,11 @@ function Inner({ campaignId }: { campaignId: string }) {
             nodesConnectable
             elementsSelectable
             connectOnClick
+            connectionMode={ConnectionMode.Loose}
+            connectionRadius={48}
+            connectionDragThreshold={0}
+            connectionLineStyle={flowConnectionLineStyle}
+            defaultEdgeOptions={{ markerEnd: { type: MarkerType.ArrowClosed }, style: flowEdgeStyle }}
             proOptions={{ hideAttribution: true }}
           >
             <Background gap={16} />
