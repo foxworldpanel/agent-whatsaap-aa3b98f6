@@ -12,27 +12,42 @@ export type LangTemplates = {
 
 export const SAUDACOES_DEFAULT: Record<"manha" | "tarde" | "noite", string[]> = {
   manha: [
-    "Oi, bom dia {nome}! Peguei o seu contato no perfil @{instagram} no Instagram, curti muito o conteúdo! Posso te mostrar algo que pode acelerar o crescimento das suas redes?",
-    "Oi, bom dia {nome}! Peguei o seu contato no perfil @{instagram} no Instagram, muito bom o conteúdo! Tenho algo que pode turbinar suas redes, posso te mostrar?",
-    "Oi, bom dia {nome}! Peguei o seu contato no perfil @{instagram} no Instagram, gostei bastante! Posso te apresentar algo que pode fazer suas redes crescerem muito mais rápido?",
+    "Oi, bom dia {nome}!",
+    "Bom dia {nome}, tudo bem?",
+    "Oi {nome}, bom dia!",
   ],
   tarde: [
-    "Oi, boa tarde {nome}! Peguei o seu contato no perfil @{instagram} no Instagram, curti muito o conteúdo! Posso te mostrar algo que pode ajudar a crescer suas redes?",
-    "Oi, boa tarde {nome}! Peguei o seu contato no perfil @{instagram} no Instagram, muito bom! Tenho algo que pode impulsionar muito suas redes, posso te mostrar?",
-    "Oi, boa tarde {nome}! Peguei o seu contato no perfil @{instagram} no Instagram, gostei bastante do conteúdo! Posso te apresentar algo que pode acelerar o crescimento do seu perfil?",
+    "Oi, boa tarde {nome}!",
+    "Boa tarde {nome}, tudo bem?",
+    "Oi {nome}, boa tarde!",
   ],
   noite: [
-    "Oi, boa noite {nome}! Peguei o seu contato no perfil @{instagram} no Instagram, curti muito o conteúdo! Posso te mostrar algo que pode ajudar a crescer suas redes?",
-    "Oi, boa noite {nome}! Peguei o seu contato no perfil @{instagram} no Instagram, muito bom o conteúdo! Tenho algo que pode turbinar suas redes, posso te mostrar?",
-    "Oi, boa noite {nome}! Peguei o seu contato no perfil @{instagram} no Instagram, gostei bastante! Posso te apresentar algo que pode fazer seu perfil crescer muito mais rápido?",
+    "Oi, boa noite {nome}!",
+    "Boa noite {nome}, tudo bem?",
+    "Oi {nome}, boa noite!",
   ],
 };
 
-// PT: mensagem completa vive em `saudacoes`. Mantemos linha2/perguntas vazios
-// para preservar a estrutura (compat com UI/persistência) — o montador filtra
-// partes vazias antes de enviar.
-export const LINHA2_DEFAULT: string[] = [""];
-export const PERGUNTAS_DEFAULT: string[] = [""];
+// LINHA 2 (PT): REGRA FIXA — toda variação começa com "Peguei o seu contato".
+// Nunca usar "Vi", "Encontrei", "Achei", "Dei uma olhada" etc. Comunica que o
+// contato veio direto da bio do Instagram e gera confiança.
+export const LINHA2_DEFAULT: string[] = [
+  "Peguei o seu contato no perfil @{instagram}, gostei bastante do conteúdo!",
+  "Peguei o seu contato no perfil @{instagram}, adorei seu conteúdo!",
+  "Peguei o seu contato no perfil @{instagram}, muito bom o que você posta!",
+  "Peguei o seu contato lá no seu perfil @{instagram}, curti bastante o conteúdo!",
+  "Peguei o seu contato no seu Instagram @{instagram}, adorei o estilo!",
+  "Peguei o seu contato no perfil @{instagram}, achei muito bom o conteúdo!",
+  "Peguei o seu contato ali no @{instagram}, gostei bastante do que você posta!",
+  "Peguei o seu contato no seu perfil @{instagram}, muito bom seu conteúdo!",
+];
+
+export const PERGUNTAS_DEFAULT: string[] = [
+  "Posso te mostrar algo que pode acelerar o crescimento das suas redes?",
+  "Tenho algo que pode turbinar suas redes, posso te mostrar?",
+  "Posso te apresentar algo que pode fazer suas redes crescerem muito mais rápido?",
+  "Posso te mostrar uma forma de impulsionar bem o seu perfil?",
+];
 
 export const EN_DEFAULT: LangTemplates = {
   saudacoes: {
