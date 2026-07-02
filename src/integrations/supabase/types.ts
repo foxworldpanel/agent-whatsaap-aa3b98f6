@@ -449,6 +449,47 @@ export type Database = {
           },
         ]
       }
+      blast_flows: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          edges: Json
+          id: string
+          name: string
+          nodes: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          edges?: Json
+          id?: string
+          name?: string
+          nodes?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          edges?: Json
+          id?: string
+          name?: string
+          nodes?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blast_flows_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: true
+            referencedRelation: "blast_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blast_logs: {
         Row: {
           blast_contact_id: string | null
