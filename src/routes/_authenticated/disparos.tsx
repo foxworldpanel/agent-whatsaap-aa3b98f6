@@ -2085,6 +2085,7 @@ function ContactListsSection() {
   const listFn = useServerFn(listContactLists);
   const importFn = useServerFn(importContactsToList);
   const clearFn = useServerFn(clearContactList);
+  const clearAllFn = useServerFn(clearAllBlastContacts);
   const exportFn = useServerFn(exportContactList);
   const listCatsFn = useServerFn(listCategories);
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listFn() });
