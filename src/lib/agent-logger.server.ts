@@ -22,11 +22,11 @@ function truncate(v: string | null | undefined, max = 20000): string | null {
 }
 
 export async function logEvent(input: LogEventInput): Promise<void> {
-  // Fire-and-forget: NUNCA bloqueia ou quebra o fluxo principal do webhook.
-  // Mesmo que o Supabase trave / dê timeout / retorne erro, o agente
-  // continua respondendo normalmente.
+  // Em Cloudflare/Worker, fire-and-forget pode ser cortado quando a resposta
+  // HTTP termina. Por isso aguardamos o insert; os chamadores já envolvem logs
+  // em try/catch para nunca quebrar o fluxo principal.
   try {
-    const p = supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("agent_logs")
       .insert({
         user_id: input.userId ?? null,
@@ -40,14 +40,8 @@ export async function logEvent(input: LogEventInput): Promise<void> {
         error: truncate(input.error, 5000),
         duration_ms: input.durationMs ?? null,
         metadata: (input.metadata ?? null) as never,
-      })
-      .then(({ error }) => {
-        if (error) console.error("[agent-logger] insert failed", error);
-      }, (e) => {
-        console.error("[agent-logger] insert threw", e);
       });
-    // Detach: não esperamos o insert resolver.
-    void p;
+    if (error) console.error("[agent-logger] insert failed", error);
   } catch (e) {
     console.error("[agent-logger] build failed", e);
   }

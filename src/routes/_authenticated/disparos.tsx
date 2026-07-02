@@ -1177,29 +1177,51 @@ function BlastCampaignCard({
       return;
     }
     console.log(`[Disparo] Iniciando disparo para ${pendingContacts} contatos — campanha "${camp.name}" via ${selectedNumber.nome ?? selectedNumber.id.slice(0, 6)}`);
-    stateMut.mutate("rodando", {
+    updateFn({
+      data: {
+        id: camp.id,
+        whatsapp_number_id: whatsapp_number_id || null,
+        contact_list_id: contact_list_id || null,
+        categoria_ids,
+        start_time,
+        end_time,
+        daily_limit,
+        delay_min_sec,
+        delay_max_sec,
+        opening_message,
+        followup_day3_message,
+        followup_day7_message,
+        dispatch_mode,
+      },
+    }).then(() => stateMut.mutate("rodando", {
       onSuccess: async () => {
         // Dispara imediatamente sem esperar o cron (1 min).
         try {
           console.log("[Disparo] Chamando dispatcher agora…");
-          const r = await fetch("/api/public/hooks/blast-dispatcher", { method: "POST" });
-          const j = (await r.json().catch(() => null)) as { results?: Array<{ campaign: string; sent: number; skipped?: string }> } | null;
+          const r = await fetch("/api/public/hooks/blast-dispatcher", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ campaignId: camp.id, now: true }),
+          });
+          if (!r.ok) throw new Error(await r.text());
+          const j = (await r.json().catch(() => null)) as { results?: Array<{ campaign: string; sent: number; skipped?: string; error?: string }> } | null;
           const mine = j?.results?.find((x) => x.campaign === camp.name);
           if (mine?.sent) {
             console.log(`[Disparo] Enviado com sucesso via dispatcher (${mine.skipped ?? ""})`);
             toast.success("Primeira mensagem enviada!");
           } else {
             console.log(`[Disparo] Dispatcher retornou sem envio: ${mine?.skipped ?? "sem detalhes"}`);
-            toast.info(`Campanha iniciada. Próximo envio: ${mine?.skipped ?? "aguardando ciclo"}`);
+            toast.error(`Disparo não enviado: ${mine?.error ?? mine?.skipped ?? "sem detalhes"}. Veja Logs → 🚀 Disparo.`);
           }
           qc.invalidateQueries({ queryKey: ["blast_contacts", camp.id] });
+          qc.invalidateQueries({ queryKey: ["blast_report", camp.id] });
           qc.invalidateQueries({ queryKey: ["panel_contacts"] });
         } catch (e) {
           console.error("[Disparo] Falha ao chamar dispatcher:", e);
           toast.error(`Falha ao iniciar: ${(e as Error).message}`);
         }
       },
-    });
+    })).catch((e: Error) => toast.error(`Falha ao salvar campanha antes de iniciar: ${e.message}`));
   }
 
   async function handleStartNow() {
@@ -1217,6 +1239,23 @@ function BlastCampaignCard({
     );
     if (!ok) return;
     try {
+      await updateFn({
+        data: {
+          id: camp.id,
+          whatsapp_number_id: whatsapp_number_id || null,
+          contact_list_id: contact_list_id || null,
+          categoria_ids,
+          start_time,
+          end_time,
+          daily_limit,
+          delay_min_sec,
+          delay_max_sec,
+          opening_message,
+          followup_day3_message,
+          followup_day7_message,
+          dispatch_mode,
+        },
+      });
       // Garante que a campanha esteja rodando (senão dispatcher ignora).
       await stateFn({ data: { id: camp.id, state: "rodando" } });
       const r = await fetch("/api/public/hooks/blast-dispatcher", {
@@ -1224,10 +1263,11 @@ function BlastCampaignCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ campaignId: camp.id, now: true }),
       });
-      const j = (await r.json().catch(() => null)) as { results?: Array<{ campaign: string; sent: number; skipped?: string }> } | null;
+      if (!r.ok) throw new Error(await r.text());
+      const j = (await r.json().catch(() => null)) as { results?: Array<{ campaign: string; sent: number; skipped?: string; error?: string }> } | null;
       const mine = j?.results?.find((x) => x.campaign === camp.name);
       if (mine?.sent) toast.success(`Enviado agora! (${mine.skipped ?? ""})`);
-      else toast.info(`Dispatcher retornou: ${mine?.skipped ?? "sem detalhes"}`);
+      else toast.error(`Disparo não enviado: ${mine?.error ?? mine?.skipped ?? "sem detalhes"}. Veja Logs → 🚀 Disparo.`);
       onChanged();
       qc.invalidateQueries({ queryKey: ["blast_contacts", camp.id] });
       qc.invalidateQueries({ queryKey: ["panel_contacts"] });
