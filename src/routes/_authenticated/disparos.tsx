@@ -2098,92 +2098,83 @@ function ContactListsSection() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {sortedLists.map((l) => {
-          const rows = csvByList[l.id] ?? [];
-          const sum = summary[l.id];
-          const isMeta = l.origem === "meta_ads";
-          const isActive = activeListIds.has(l.id);
-          return (
-            <div key={l.id} className="rounded-xl border border-border p-5 space-y-3" style={{ background: "var(--gradient-card)" }}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-3">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isMeta ? "bg-blue-500/15 text-blue-500" : "bg-pink-500/15 text-pink-500"}`}>
-                    {isMeta ? <Megaphone className="h-5 w-5" /> : <Instagram className="h-5 w-5" />}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">{l.name}</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Origem: <span className="font-medium">{isMeta ? "Meta Ads" : "Instagram"}</span> · {isMeta ? "automática" : "manual"}
-                    </p>
-                  </div>
+      {(() => {
+        const primary = sortedLists[0];
+        if (!primary) return null;
+        const rows = csvByList[primary.id] ?? [];
+        const sum = summary[primary.id];
+        const anyActive = sortedLists.some((l) => activeListIds.has(l.id));
+        return (
+          <div className="rounded-xl border border-border p-5 space-y-3" style={{ background: "var(--gradient-card)" }}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                  <Users className="h-5 w-5" />
                 </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    isActive ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {isActive ? "● Ativa" : "○ Parada"}
-                </span>
-              </div>
-              <div className="grid grid-cols-4 gap-2 text-center">
-                <Stat label="Total" value={l.total} />
-                <Stat label="Abordados" value={l.contatados} />
-                <Stat label="Respondeu" value={l.respondeu} />
-                <Stat label="Converteu" value={l.convertido} />
-              </div>
-              {l.total > 0 && (
                 <div>
-                  <button
-                    onClick={() => setOpenContactsFor((v) => (v === l.id ? null : l.id))}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
-                  >
-                    <Eye className="h-3.5 w-3.5" /> {openContactsFor === l.id ? "Ocultar contatos" : "Ver contatos"}
-                  </button>
-                  {openContactsFor === l.id && <ListContactsTable listId={l.id} />}
+                  <h3 className="font-semibold">Base de Contatos</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Sistema unificado — leads do Meta Ads entram automaticamente e você pode importar CSV manual.
+                  </p>
                 </div>
+              </div>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${anyActive ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"}`}>
+                {anyActive ? "● Ativa" : "○ Parada"}
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <Stat label="Total" value={overview.total} />
+              <Stat label="Abordados" value={overview.contatados} />
+              <Stat label="Respondeu" value={overview.respondeu} />
+              <Stat label="Converteu" value={overview.convertido} />
+            </div>
+            {overview.total > 0 && (
+              <div>
+                <button
+                  onClick={() => setOpenContactsFor((v) => (v ? null : primary.id))}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+                >
+                  <Eye className="h-3.5 w-3.5" /> {openContactsFor ? "Ocultar contatos" : "Ver contatos"}
+                </button>
+                {openContactsFor && <ListContactsTable listId={primary.id} />}
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="block text-xs text-muted-foreground">Importar CSV (nome, telefone, instagram)</label>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const text = await f.text();
+                  const parsed = parseCsv(text);
+                  setCsvByList((m) => ({ ...m, [primary.id]: parsed }));
+                  if (parsed.length === 0) {
+                    toast.error("CSV vazio ou cabeçalho inválido. Use colunas: nome, telefone, instagram");
+                  } else {
+                    toast.success(`${parsed.length} linhas detectadas no CSV`);
+                  }
+                  e.target.value = "";
+                }}
+                className="block w-full text-xs"
+              />
+              {rows.length > 0 && (
+                <p className="text-xs text-muted-foreground">{rows.length} linhas no CSV — clique em Importar.</p>
               )}
-              <div className="space-y-2">
-                {isMeta && (
-                  <div className="rounded-lg border border-border bg-background/40 p-3 text-xs text-muted-foreground">
-                    Alimentada automaticamente pelos leads do Meta Ads. Você também pode importar manualmente abaixo.
-                  </div>
-                )}
-                <label className="block text-xs text-muted-foreground">Importar CSV (nome, telefone, instagram)</label>
-                <input
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    const text = await f.text();
-                    const parsed = parseCsv(text);
-                    setCsvByList((m) => ({ ...m, [l.id]: parsed }));
-                    if (parsed.length === 0) {
-                      toast.error("CSV vazio ou cabeçalho inválido. Use colunas: nome, telefone, instagram");
-                    } else {
-                      toast.success(`${parsed.length} linhas detectadas no CSV`);
-                    }
-                    e.target.value = "";
-                  }}
-                  className="block w-full text-xs"
-                />
-                {rows.length > 0 && (
-                  <p className="text-xs text-muted-foreground">{rows.length} linhas no CSV — clique em Importar.</p>
-                )}
-                {rows.length > 0 && (
+              {rows.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   <button
-                    disabled={importingFor === l.id}
+                    disabled={importingFor === primary.id}
                     onClick={async () => {
-                      setImportingFor(l.id);
+                      setImportingFor(primary.id);
                       try {
-                        const res = await importFn({ data: { listId: l.id, rows } });
-                        setSummary((m) => ({ ...m, [l.id]: res as never }));
-                        setCsvByList((m) => ({ ...m, [l.id]: [] }));
+                        const res = await importFn({ data: { listId: primary.id, rows } });
+                        setSummary((m) => ({ ...m, [primary.id]: res as never }));
+                        setCsvByList((m) => ({ ...m, [primary.id]: [] }));
                         qc.invalidateQueries({ queryKey: ["contact_lists"] });
-                        qc.invalidateQueries({ queryKey: ["panel_contacts", l.id] });
-                        qc.invalidateQueries({ queryKey: ["list_contacts_detail", l.id] });
+                        qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
+                        qc.invalidateQueries({ queryKey: ["list_contacts_detail", primary.id] });
                         toast.success(`${(res as { inserted: number }).inserted} contatos importados`);
                       } catch (err) {
                         toast.error(`Falha ao importar: ${(err as Error).message}`);
@@ -2191,52 +2182,41 @@ function ContactListsSection() {
                         setImportingFor(null);
                       }
                     }}
-                    className={
-                      isMeta
-                        ? "inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted disabled:opacity-50"
-                        : "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-                    }
-                    style={isMeta ? undefined : { background: "var(--gradient-primary)" }}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    style={{ background: "var(--gradient-primary)" }}
                   >
-                    <Plus className="h-3.5 w-3.5" /> {importingFor === l.id ? "Importando…" : "Importar"}
+                    <Plus className="h-3.5 w-3.5" /> {importingFor === primary.id ? "Importando…" : "Importar"}
                   </button>
                 </div>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={async () => {
-                      const res = await exportFn({ data: { listId: l.id } });
-                      const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url; a.download = `${l.name}.csv`; a.click();
-                      URL.revokeObjectURL(url);
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
-                  >
-                    <BarChart3 className="h-3.5 w-3.5" /> Exportar relatório
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (!confirm(`Limpar todos os contatos de "${l.name}"?`)) return;
-                      await clearFn({ data: { listId: l.id } });
-                      qc.invalidateQueries({ queryKey: ["contact_lists"] });
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Limpar lista
-                  </button>
-                </div>
-                {sum && (
-                  <p className="text-xs text-muted-foreground">
-                    Inseridos: <b>{sum.inserted}</b> · Ignorados (já existem no sistema): <b>{sum.ignored_existing}</b> · Inválidos: <b>{sum.invalid}</b>
-                  </p>
-                )}
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={exportCombinedReport}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+                >
+                  <BarChart3 className="h-3.5 w-3.5" /> Exportar relatório
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm("Limpar TODOS os contatos da base de disparo?")) return;
+                    await Promise.all(sortedLists.map((l) => clearFn({ data: { listId: l.id } })));
+                    qc.invalidateQueries({ queryKey: ["contact_lists"] });
+                    qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Limpar base
+                </button>
               </div>
+              {sum && (
+                <p className="text-xs text-muted-foreground">
+                  Inseridos: <b>{sum.inserted}</b> · Ignorados (já existem): <b>{sum.ignored_existing}</b> · Inválidos: <b>{sum.invalid}</b>
+                </p>
+              )}
             </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })()}
 
       <ListsContactsPanel lists={sortedLists} />
     </section>
