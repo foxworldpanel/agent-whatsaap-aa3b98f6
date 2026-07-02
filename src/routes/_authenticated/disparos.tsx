@@ -1457,7 +1457,7 @@ function BlastCampaignCard({
 
       {whatsapp_number_id && <NumberHealthCard numberId={whatsapp_number_id} />}
 
-      <div className="grid gap-3 md:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <Field label="Número">
           <select
             value={whatsapp_number_id}
@@ -1471,34 +1471,6 @@ function BlastCampaignCard({
               </option>
             ))}
           </select>
-        </Field>
-        <Field label="Base de contatos (categorias)">
-          <div className="flex flex-wrap gap-1.5 min-h-[38px] rounded-lg border border-border bg-background px-2 py-1.5">
-            {categories.length === 0 && (
-              <span className="text-xs text-muted-foreground self-center px-1">
-                Nenhuma categoria cadastrada.
-              </span>
-            )}
-            {categories.map((c) => {
-              const on = categoria_ids.includes(c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => toggleCategoria(c.id)}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
-                    on
-                      ? "border-primary bg-primary/15 text-foreground"
-                      : "border-border bg-card text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  <span>{c.icone}</span>
-                  <span>{c.nome}</span>
-                  {on && <span className="text-primary">✓</span>}
-                </button>
-              );
-            })}
-          </div>
         </Field>
         <Field label="Início">
           <input
@@ -1540,6 +1512,49 @@ function BlastCampaignCard({
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
           />
         </Field>
+      </div>
+
+      {/* Base de contatos (categorias) — full width para não quebrar o grid */}
+      <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <p className="text-sm font-medium">Base de contatos</p>
+            <p className="text-[11px] text-muted-foreground">
+              Selecione uma ou mais categorias que serão abordadas por esta campanha.
+            </p>
+          </div>
+          {categoria_ids.length > 0 && (
+            <span className="text-[11px] text-muted-foreground">
+              {categoria_ids.length} selecionada{categoria_ids.length > 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {categories.length === 0 && (
+            <span className="text-xs text-muted-foreground px-1 py-1">
+              Nenhuma categoria cadastrada.
+            </span>
+          )}
+          {categories.map((c) => {
+            const on = categoria_ids.includes(c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => toggleCategoria(c.id)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                  on
+                    ? "border-primary bg-primary/15 text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <span>{c.icone}</span>
+                <span>{c.nome}</span>
+                {on && <span className="text-primary">✓</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="space-y-3">
