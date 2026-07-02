@@ -318,6 +318,8 @@ type PanelContactRow = {
   error_message: string | null;
   sent_via_number_id: string | null;
   categoria_id: string | null;
+  skip_reason: string | null;
+  created_at: string | null;
 };
 
 type PanelCampaign = {
@@ -331,7 +333,7 @@ type PanelCampaign = {
   last_dispatch_at: string | null;
 };
 
-type PanelFilter = "all" | "aguardando" | "enviados" | "responderam" | "converteram" | "falhou";
+type PanelFilter = "all" | "aguardando" | "enviados" | "responderam" | "converteram" | "nao_quer" | "falhou";
 
 const PANEL_STATUS: Record<string, { label: string; cls: string; icon: string }> = {
   pendente:          { label: "Aguardando", cls: "bg-muted text-muted-foreground",          icon: "⬜" },
@@ -343,14 +345,26 @@ const PANEL_STATUS: Record<string, { label: string; cls: string; icon: string }>
   convertido:        { label: "Converteu",  cls: "bg-purple-500/15 text-purple-500",        icon: "🛍️" },
   failed:            { label: "Falhou",     cls: "bg-red-500/15 text-red-500",              icon: "❌" },
   pulado:            { label: "Pulado",     cls: "bg-muted/60 text-muted-foreground",       icon: "⏭️" },
+  bloqueado:         { label: "Não quer",   cls: "bg-red-500/15 text-red-500",              icon: "🚫" },
 };
 
+function isNaoQuer(status: string, skipReason: string | null): boolean {
+  if (status === "bloqueado") return true;
+  if (status === "pulado" && skipReason && /bloque|não quer|nao quer|stop|para/i.test(skipReason)) return true;
+  return false;
+}
+
 function panelStatusMatches(status: string, f: PanelFilter): boolean {
+  return panelStatusMatchesFull(status, null, f);
+}
+
+function panelStatusMatchesFull(status: string, skipReason: string | null, f: PanelFilter): boolean {
   if (f === "all") return true;
   if (f === "aguardando") return status === "pendente" || status === "na_fila";
   if (f === "enviados") return status === "enviado_abertura" || status === "enviado_d3" || status === "enviado_d7";
   if (f === "responderam") return status === "respondeu";
   if (f === "converteram") return status === "convertido";
+  if (f === "nao_quer") return isNaoQuer(status, skipReason);
   if (f === "falhou") return status === "failed";
   return true;
 }
