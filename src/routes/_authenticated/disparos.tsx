@@ -1647,8 +1647,6 @@ function BlastCampaignCard({
         camp={camp}
         effectiveLimit={effectiveLimitFromNumber()}
       />
-
-      <ContactsRealtimeTable contacts={contacts as BlastContactRow[]} />
     </div>
   );
 }
