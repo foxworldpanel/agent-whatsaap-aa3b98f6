@@ -2196,6 +2196,18 @@ function ContactListsSection() {
               <Stat label="Respondeu" value={overview.respondeu} />
               <Stat label="Converteu" value={overview.convertido} />
             </div>
+            {categories.length > 0 && (
+              <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-background/40 p-2 text-xs">
+                <span className="text-muted-foreground">Por categoria:</span>
+                {categories.map((c) => (
+                  <span key={c.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5">
+                    <span>{c.icone}</span>
+                    <span className="font-medium">{c.nome}:</span>
+                    <span className="text-muted-foreground">{(catCounts as Record<string, number>)[c.id] ?? 0}</span>
+                  </span>
+                ))}
+              </div>
+            )}
             {overview.total > 0 && (
               <div>
                 <button
@@ -2209,6 +2221,20 @@ function ContactListsSection() {
             )}
             <div className="space-y-2">
               <label className="block text-xs text-muted-foreground">Importar CSV (nome, telefone, instagram)</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-xs text-muted-foreground">Categoria*:</label>
+                <select
+                  value={importCategoryId}
+                  onChange={(e) => setImportCategoryId(e.target.value)}
+                  className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+                >
+                  {categories.length === 0 && <option value="">Carregando…</option>}
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-muted-foreground">Aplicada a todos os contatos deste CSV.</span>
+              </div>
               <input
                 type="file"
                 accept=".csv,text/csv"
@@ -2233,15 +2259,17 @@ function ContactListsSection() {
               {rows.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   <button
-                    disabled={importingFor === primary.id}
+                    disabled={importingFor === primary.id || !importCategoryId}
                     onClick={async () => {
+                      if (!importCategoryId) { toast.error("Selecione uma categoria"); return; }
                       setImportingFor(primary.id);
                       try {
-                        const res = await importFn({ data: { listId: primary.id, rows } });
+                        const res = await importFn({ data: { listId: primary.id, categoriaId: importCategoryId, rows } });
                         setSummary((m) => ({ ...m, [primary.id]: res as never }));
                         setCsvByList((m) => ({ ...m, [primary.id]: [] }));
                         qc.invalidateQueries({ queryKey: ["contact_lists"] });
                         qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
+                        qc.invalidateQueries({ queryKey: ["contact_categories_counts"] });
                         qc.invalidateQueries({ queryKey: ["list_contacts_detail", primary.id] });
                         toast.success(`${(res as { inserted: number }).inserted} contatos importados`);
                       } catch (err) {
