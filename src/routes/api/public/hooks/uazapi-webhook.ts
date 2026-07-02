@@ -971,6 +971,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         let blastDispatchMode: "agente_livre" | "fluxo_visual" = "agente_livre";
         let blastReplyNumberId: string | null = null;
         let blastReplyNumberSource: "blast_sent_via" | "campaign_number" | null = null;
+        let blastLastSentAt: string | null = null;
         try {
           const { data: latestBlastForPhone } = await supabaseAdmin
             .from("blast_contacts")
@@ -985,8 +986,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             status?: string | null;
             campaign_id?: string | null;
             sent_via_number_id?: string | null;
+            last_sent_at?: string | null;
           } | undefined;
           isBlastThread = !!latestBlast;
+          blastLastSentAt = latestBlast?.last_sent_at ?? null;
           if (latestBlast?.sent_via_number_id) {
             blastReplyNumberId = latestBlast.sent_via_number_id;
             blastReplyNumberSource = "blast_sent_via";
@@ -1029,12 +1032,33 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("ok (blocked)");
         }
 
-        let { data: conv } = await supabaseAdmin
+        type ConversationRow = {
+          id: string;
+          agent_enabled: boolean | null;
+          whatsapp_number_id: string | null;
+          needs_review: boolean | null;
+          contexto_extra?: string | null;
+          last_media_sent?: unknown | null;
+          last_message_at?: string | null;
+          created_at?: string | null;
+        };
+        const desiredConversationNumberId = blastReplyNumberId ?? numberId ?? contact.whatsapp_number_id ?? null;
+        const { data: allConversationRows, error: convLookupErr } = await supabaseAdmin
           .from("conversations")
-          .select("id, agent_enabled, whatsapp_number_id, needs_review")
+          .select("id, agent_enabled, whatsapp_number_id, needs_review, contexto_extra, last_media_sent, last_message_at, created_at")
           .eq("user_id", userId)
           .eq("contact_id", contact.id)
-          .maybeSingle();
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (convLookupErr) return new Response(convLookupErr.message, { status: 500 });
+
+        const conversationCandidates = ((allConversationRows ?? []) as ConversationRow[]).filter((row) => {
+          if (!desiredConversationNumberId) return true;
+          return !row.whatsapp_number_id || row.whatsapp_number_id === desiredConversationNumberId;
+        });
+        let conv: ConversationRow | null = conversationCandidates[0] ?? null;
+        let threadConversationIds = conversationCandidates.map((row) => row.id);
 
         const isFirstContact = !conv;
 
@@ -1047,10 +1071,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               status: "agente_respondendo",
               whatsapp_number_id: blastReplyNumberId ?? numberId,
             })
-            .select("id, agent_enabled, whatsapp_number_id, needs_review")
+              .select("id, agent_enabled, whatsapp_number_id, needs_review, contexto_extra, last_media_sent, last_message_at, created_at")
             .single();
           if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
-          conv = insertedConv.data;
+          conv = insertedConv.data as ConversationRow | null;
+          if (!conv) return new Response("conversation insert failed", { status: 500 });
+          threadConversationIds = [conv.id];
         } else if ((blastReplyNumberId || numberId) && conv.whatsapp_number_id !== (blastReplyNumberId ?? numberId)) {
           const fixedNumberId = blastReplyNumberId ?? numberId;
           await supabaseAdmin
@@ -1059,6 +1085,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .eq("id", conv.id);
           conv = { ...conv, whatsapp_number_id: fixedNumberId };
         }
+        if (!conv) return new Response("conversation missing", { status: 500 });
+        if (!threadConversationIds.includes(conv.id)) threadConversationIds = [conv.id, ...threadConversationIds];
         const authoritativeNumberId = blastReplyNumberId ?? numberId;
         if (authoritativeNumberId && contact.whatsapp_number_id !== authoritativeNumberId) {
           await supabaseAdmin
@@ -2073,14 +2101,50 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           console.error("[unproductive] detection failed", e);
         }
 
-        const { data: history } = await supabaseAdmin
+        const historyConversationIds = threadConversationIds.length > 0 ? threadConversationIds : [conv.id];
+        // Se o lead veio de disparo, há bases antigas com múltiplas conversas
+        // duplicadas para o mesmo contato+número. O histórico precisa juntar
+        // todas essas conversas, mas só a partir da última abertura do disparo,
+        // para não carregar conversas antigas irrelevantes do mesmo contato.
+        const historySinceIso = blastLastSentAt
+          ? new Date(new Date(blastLastSentAt).getTime() - 2 * 60 * 1000).toISOString()
+          : null;
+        let historyQuery = supabaseAdmin
           .from("messages")
-          .select("sender, body")
-          .eq("conversation_id", conv.id)
-          .order("created_at", { ascending: true });
+          .select("sender, body, created_at")
+          .in("conversation_id", historyConversationIds)
+          .order("created_at", { ascending: false })
+          .limit(120);
+        if (historySinceIso) historyQuery = historyQuery.gte("created_at", historySinceIso);
+        const { data: historyDesc } = await historyQuery;
+        const historyRaw = ((historyDesc ?? []) as Array<{
+          sender: "agente" | "cliente";
+          body: string;
+          created_at?: string | null;
+        }>).reverse();
+        const latestBlastOpenerIdx = (() => {
+          for (let i = historyRaw.length - 1; i >= 0; i -= 1) {
+            const row = historyRaw[i];
+            if (
+              row.sender === "agente" &&
+              /peguei\s+o\s+seu\s+contato|posso\s+te\s+apresentar\s+algo|seu\s+perfil\s+@/i.test(row.body ?? "")
+            ) {
+              // Quando a abertura foi salva em bolhas separadas, a saudação
+              // costuma ser a mensagem imediatamente anterior ao "Peguei...".
+              return Math.max(0, i - 1);
+            }
+          }
+          return -1;
+        })();
+        const history = !historySinceIso && latestBlastOpenerIdx > 0
+          ? historyRaw.slice(latestBlastOpenerIdx)
+          : historyRaw;
 
         console.info("[agent-webhook] Loaded full conversation history for Claude", {
           conversationId: conv.id,
+          conversationIds: historyConversationIds,
+          historySinceIso,
+          latestBlastOpenerIdx,
           messagesCount: history?.length ?? 0,
         });
 
@@ -2477,7 +2541,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               catalogInPrompt,
               catalogOnlyRelevant: onlyRelevant,
                 examples: knowledgeExamples?.length ?? 0,
-                history: aiHistory?.slice(-6) ?? [],
+                history: aiHistory ?? [],
+                historyCount: aiHistory?.length ?? 0,
+                historyConversationIds,
                 extraContext: orderStatusContext ?? null,
                 agentIdentity: (agent as { agent_name?: string }).agent_name ?? null,
                 hasBaseInstruction: !!(agent as { base_instruction?: string }).base_instruction,
@@ -2934,6 +3000,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             kind: "audio" | "texto";
             body: string;
             audio_url: string | null;
+            created_at: string;
           }> = [
           ];
           if (!skippedIdx.has(0)) {
@@ -2944,6 +3011,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               kind: "audio",
               body: replyParts[0],
               audio_url: audioDataUri,
+              created_at: new Date(nowReply).toISOString(),
             });
           }
           for (let i = 1; i < replyParts.length; i += 1) {
@@ -2955,6 +3023,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               kind: "texto",
               body: replyParts[i],
               audio_url: null,
+              created_at: new Date(new Date(nowReply).getTime() + i).toISOString(),
             });
           }
           if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
@@ -2962,13 +3031,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           const rows = replyParts
             .map((part, i) => ({ part, i }))
             .filter(({ i }) => !skippedIdx.has(i))
-            .map(({ part }) => ({
+            .map(({ part, i }) => ({
               user_id: userId,
               conversation_id: conv.id,
               sender: "agente" as const,
               kind: "texto" as const,
               body: part,
               audio_url: null,
+              created_at: new Date(new Date(nowReply).getTime() + i).toISOString(),
             }));
           if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
         }

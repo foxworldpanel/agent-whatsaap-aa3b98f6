@@ -380,17 +380,28 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                     }
                   }
                   if (contactId) {
-                    // find/create conversation
+                    // find/create conversation. Nunca usar maybeSingle aqui:
+                    // bases antigas podem ter duplicatas do mesmo contato+número;
+                    // escolher a mais recente evita criar uma conversa nova a
+                    // cada mensagem e mantém o histórico do Claude completo.
                     let convId: string | null = null;
                     {
-                      const { data: existingConv } = await supabaseAdmin
+                      const { data: existingConvs } = await supabaseAdmin
                         .from("conversations")
                         .select("id")
                         .eq("user_id", camp.user_id)
                         .eq("contact_id", contactId)
-                        .maybeSingle();
-                      if (existingConv?.id) {
-                        convId = existingConv.id;
+                        .or(`whatsapp_number_id.is.null,whatsapp_number_id.eq.${numberRow.id}`)
+                        .order("last_message_at", { ascending: false, nullsFirst: false })
+                        .order("created_at", { ascending: false })
+                        .limit(1);
+                      if (existingConvs?.[0]?.id) {
+                        convId = existingConvs[0].id;
+                        await supabaseAdmin
+                          .from("conversations")
+                          .update({ whatsapp_number_id: numberRow.id } as never)
+                          .eq("id", convId)
+                          .is("whatsapp_number_id", null);
                       } else {
                         const insConv = await supabaseAdmin
                           .from("conversations")
@@ -407,13 +418,16 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                     }
                     if (convId) {
                       const nowIso = new Date().toISOString();
-                      await supabaseAdmin.from("messages").insert({
-                        user_id: camp.user_id,
-                        conversation_id: convId,
-                        sender: "agente",
-                        kind: "texto",
-                        body: openerFull,
-                      } as never);
+                      await supabaseAdmin.from("messages").insert(
+                        messageParts.map((part, idx) => ({
+                          user_id: camp.user_id,
+                          conversation_id: convId,
+                          sender: "agente",
+                          kind: "texto",
+                          body: part,
+                          created_at: new Date(Date.now() + idx).toISOString(),
+                        })) as never,
+                      );
                       await supabaseAdmin
                         .from("conversations")
                         .update({
