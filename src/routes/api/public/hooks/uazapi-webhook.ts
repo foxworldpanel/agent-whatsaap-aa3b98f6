@@ -699,6 +699,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           if (isTestNumber) {
             console.log(`🧪 Modo teste ativo para ${phone} — travas ignoradas`);
             try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
               await logEvent({
                 userId,
                 phone,
