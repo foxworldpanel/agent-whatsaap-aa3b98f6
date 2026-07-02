@@ -506,13 +506,21 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         const event = (payload.event ?? payload.EventType ?? "").toLowerCase();
-        // 🔬 RAW payload dump (primeiros 1000 chars) para diagnosticar o formato real do Uazapi.
+        // 🔬 RAW payload dump (até 4000 chars) para diagnosticar o formato real do Uazapi.
         try {
-          const raw = JSON.stringify(payload).slice(0, 1000);
-          console.log("📦 Payload RAW:", raw);
+          const raw = JSON.stringify(payload);
+          const rawShort = raw.slice(0, 4000);
+          console.log("📦 Payload RAW:", rawShort);
           const phoneForLog = extractPhone(payload.message?.chatid, payload.message?.sender) ?? "unknown";
+          const msgProbe = (payload.message ?? payload.data ?? {}) as Record<string, unknown>;
+          const probe = {
+            fromMe: msgProbe.fromMe,
+            type: msgProbe.type ?? msgProbe.messageType,
+            hasText: !!(msgProbe.text ?? msgProbe.content),
+            event,
+          };
           const { logEvent } = await import("@/lib/agent-logger.server");
-          await logEvent({ phone: phoneForLog, type: "message_received", level: "info", summary: `📦 Payload RAW: ${raw.slice(0, 300)}`, metadata: { raw } });
+          await logEvent({ phone: phoneForLog, type: "message_received", level: "info", summary: `📦 Webhook | fromMe=${probe.fromMe} | type=${probe.type} | event=${event} | hasText=${probe.hasText}`, metadata: { raw: rawShort, probe } });
         } catch (e) {
           console.error("raw payload log failed", e);
         }
