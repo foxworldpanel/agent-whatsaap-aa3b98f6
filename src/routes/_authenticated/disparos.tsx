@@ -1763,6 +1763,8 @@ function ContactListsSection() {
           );
         })}
       </div>
+
+      <ListsContactsPanel lists={sortedLists} />
     </section>
   );
 }
