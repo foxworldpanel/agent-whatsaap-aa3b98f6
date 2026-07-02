@@ -9,7 +9,7 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
         const {
@@ -21,10 +21,20 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
         } = await import("@/lib/blast-variations");
         const { _toTemplates } = await import("@/lib/opening-templates.functions");
 
-        const { data: camps, error } = await supabaseAdmin
+        // Body opcional: { campaignId?, now?: boolean }
+        let opts: { campaignId?: string; now?: boolean } = {};
+        try {
+          const t = await request.text();
+          if (t) opts = JSON.parse(t);
+        } catch { /* body vazio */ }
+        const bypass = opts.now === true;
+
+        let q = supabaseAdmin
           .from("blast_campaigns")
           .select("*")
           .eq("state", "rodando");
+        if (opts.campaignId) q = q.eq("id", opts.campaignId);
+        const { data: camps, error } = await q;
         if (error) return new Response(error.message, { status: 500 });
 
         const results: Array<{ campaign: string; sent: number; skipped?: string }> = [];
@@ -33,7 +43,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
           try {
             const now = new Date();
             const hhmm = now.toTimeString().slice(0, 8);
-            if (hhmm < camp.start_time || hhmm > camp.end_time) {
+            if (!bypass && (hhmm < camp.start_time || hhmm > camp.end_time)) {
               results.push({ campaign: camp.name, sent: 0, skipped: "fora do horário" });
               continue;
             }
@@ -44,13 +54,13 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const tickWeight = peakHour ? 1 : 1 / 3;
             // No primeiro envio da campanha, não pula por distribuição natural
             // (para dar feedback imediato ao usuário quando clicar em Iniciar).
-            if (camp.last_dispatch_at && Math.random() > tickWeight) {
+            if (!bypass && camp.last_dispatch_at && Math.random() > tickWeight) {
               results.push({ campaign: camp.name, sent: 0, skipped: "distribuição natural" });
               continue;
             }
 
             // Delay aleatório entre disparos por campanha
-            if (camp.last_dispatch_at) {
+            if (!bypass && camp.last_dispatch_at) {
               const since = Date.now() - new Date(camp.last_dispatch_at).getTime();
               const minMs = (camp.delay_min_sec ?? 45) * 1000;
               const maxMs = (camp.delay_max_sec ?? 90) * 1000;
