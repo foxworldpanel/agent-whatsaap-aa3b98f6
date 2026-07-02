@@ -969,6 +969,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           audio_url: kind === "audio" ? mediaUrl : null,
           external_id: messageId,
         });
+        // Log unificado da mensagem recebida (origem: disparo se houve blast, senão conversas)
+        try {
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          await logEvent({
+            userId,
+            phone,
+            conversationId: conv.id,
+            type: outbound ? "message_sent_manual" : "message_from_client",
+            level: "info",
+            summary: `${outbound ? "📤 Enviado (celular)" : "📥 Cliente respondeu"} (${dbKind}): ${(inboundBody ?? "").slice(0, 100)}`,
+            response: inboundBody,
+            metadata: {
+              origem: isBlastReply ? "disparo" : "conversas",
+              direcao: outbound ? "enviado" : "recebido",
+              tipo: outbound ? "resposta_manual" : "mensagem_cliente",
+              contato_nome: contact.nome,
+              kind: dbKind,
+              messageId,
+            } as never,
+          });
+        } catch {}
         await supabaseAdmin
           .from("conversations")
           .update({
