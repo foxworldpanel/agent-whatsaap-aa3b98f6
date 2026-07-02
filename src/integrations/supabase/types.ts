@@ -306,6 +306,7 @@ export type Database = {
           daily_limit: number
           delay_max_sec: number
           delay_min_sec: number
+          dispatch_mode: string
           end_time: string
           followup_day3_message: string
           followup_day7_message: string
@@ -325,6 +326,7 @@ export type Database = {
           daily_limit?: number
           delay_max_sec?: number
           delay_min_sec?: number
+          dispatch_mode?: string
           end_time?: string
           followup_day3_message?: string
           followup_day7_message?: string
@@ -344,6 +346,7 @@ export type Database = {
           daily_limit?: number
           delay_max_sec?: number
           delay_min_sec?: number
+          dispatch_mode?: string
           end_time?: string
           followup_day3_message?: string
           followup_day7_message?: string
