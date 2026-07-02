@@ -49,6 +49,7 @@ import {
   clearContactList,
   exportContactList,
 } from "@/lib/contact-lists.functions";
+import { listCategories } from "@/lib/categories.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 import { BlastFlowBuilder } from "@/components/BlastFlowBuilder";
 
@@ -315,6 +316,7 @@ type PanelContactRow = {
   ultima_interacao: string | null;
   error_message: string | null;
   sent_via_number_id: string | null;
+  categoria_id: string | null;
 };
 
 type PanelCampaign = {
@@ -373,7 +375,10 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
 
   const [filter, setFilter] = useState<PanelFilter>("all");
   const [q, setQ] = useState("");
-  const [numberFilter, setNumberFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  const listCatsFn = useServerFn(listCategories);
+  const { data: categories = [] } = useQuery({ queryKey: ["contact_categories"], queryFn: () => listCatsFn() });
 
   const { data: rows = [] } = useQuery({
     queryKey: ["panel_contacts", "unified", listIds.join(",")],
@@ -381,7 +386,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
     queryFn: async () => {
       const { data } = await supabase
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id")
+        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id, categoria_id")
         .in("contact_list_id", listIds)
         .order("updated_at", { ascending: false })
         .limit(2000);
@@ -389,23 +394,19 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
     },
   });
 
-  // Números do ZapAgent — usados para gerar filtros dinâmicos
+  // Números do ZapAgent — nome usado na coluna "Abordado por"
   const { data: allNumbers = [] } = useQuery({
     queryKey: ["panel_numbers_list"],
     queryFn: async () => {
       const { data } = await supabase
         .from("whatsapp_numbers")
-        .select("id, nome, status")
+        .select("id, nome")
         .order("nome", { ascending: true });
-      return (data ?? []) as Array<{ id: string; nome: string | null; status: string | null }>;
+      return (data ?? []) as Array<{ id: string; nome: string | null }>;
     },
   });
   const numbersMap: Record<string, string> = {};
   for (const n of allNumbers) numbersMap[n.id] = n.nome ?? "—";
-  const connectedNumbers = allNumbers.filter((n) => {
-    const s = (n.status ?? "").toLowerCase();
-    return s === "connected" || s === "conectado";
-  });
 
   const { data: campaign } = useQuery({
     queryKey: ["panel_campaign_unified", listIds.join(",")],
@@ -440,7 +441,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   // Filtro + busca
   const term = q.trim().toLowerCase();
   const filtered = rows.filter((r) => {
-    if (numberFilter !== "all" && r.sent_via_number_id !== numberFilter) return false;
+    if (categoryFilter !== "all" && r.categoria_id !== categoryFilter) return false;
     if (!panelStatusMatches(r.status, filter)) return false;
     if (!term) return true;
     return (
@@ -450,13 +451,11 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
     );
   });
 
-  // Contadores por número (contatos abordados = já enviados)
-  const countByNumber: Record<string, number> = {};
-  let countAll = 0;
+  // Contadores por categoria
+  const countByCategory: Record<string, number> = {};
   for (const r of rows) {
-    if (!r.sent_via_number_id) continue;
-    countByNumber[r.sent_via_number_id] = (countByNumber[r.sent_via_number_id] ?? 0) + 1;
-    countAll += 1;
+    if (!r.categoria_id) continue;
+    countByCategory[r.categoria_id] = (countByCategory[r.categoria_id] ?? 0) + 1;
   }
 
   const isActive = campaign?.state === "rodando";
@@ -521,34 +520,34 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tempo real</span>
       </div>
 
-      {/* Filtros por número do ZapAgent */}
+      {/* Filtros por categoria */}
       <div className="flex flex-wrap items-center gap-2">
         <button
-          onClick={() => setNumberFilter("all")}
+          onClick={() => setCategoryFilter("all")}
           className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
-            numberFilter === "all"
+            categoryFilter === "all"
               ? "border-primary/40 bg-primary/5 text-primary"
               : "border-border bg-card text-muted-foreground hover:bg-muted"
           }`}
         >
-          <Users className="h-4 w-4" /> Todos os números
-          <span className="ml-1 text-[10px] opacity-80">({countAll || totalContatos})</span>
+          <Users className="h-4 w-4" /> Todas as categorias
+          <span className="ml-1 text-[10px] opacity-80">({rows.length || totalContatos})</span>
         </button>
-        {connectedNumbers.length === 0 && (
-          <span className="text-[11px] text-muted-foreground">Nenhum número conectado.</span>
+        {categories.length === 0 && (
+          <span className="text-[11px] text-muted-foreground">Nenhuma categoria cadastrada.</span>
         )}
-        {connectedNumbers.map((n) => (
+        {categories.map((c) => (
           <button
-            key={n.id}
-            onClick={() => setNumberFilter(n.id)}
+            key={c.id}
+            onClick={() => setCategoryFilter(c.id)}
             className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
-              numberFilter === n.id
+              categoryFilter === c.id
                 ? "border-primary/40 bg-primary/5 text-primary"
                 : "border-border bg-card text-muted-foreground hover:bg-muted"
             }`}
           >
-            📱 {n.nome ?? "—"}
-            <span className="ml-1 text-[10px] opacity-80">({countByNumber[n.id] ?? 0})</span>
+            {c.icone} {c.nome}
+            <span className="ml-1 text-[10px] opacity-80">({countByCategory[c.id] ?? 0})</span>
           </button>
         ))}
       </div>
@@ -1986,7 +1985,26 @@ function ContactListsSection() {
   const importFn = useServerFn(importContactsToList);
   const clearFn = useServerFn(clearContactList);
   const exportFn = useServerFn(exportContactList);
+  const listCatsFn = useServerFn(listCategories);
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listFn() });
+  const { data: categories = [] } = useQuery({ queryKey: ["contact_categories"], queryFn: () => listCatsFn() });
+
+  // Contagem por categoria (tempo real via realtime abaixo)
+  const { data: catCounts = {} } = useQuery({
+    queryKey: ["contact_categories_counts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_contacts")
+        .select("categoria_id");
+      const map: Record<string, number> = {};
+      for (const r of data ?? []) {
+        const k = (r as { categoria_id: string | null }).categoria_id;
+        if (!k) continue;
+        map[k] = (map[k] ?? 0) + 1;
+      }
+      return map;
+    },
+  });
 
   const { data: camps = [] } = useQuery({
     queryKey: ["blast_campaigns", "active-by-list"],
@@ -2010,6 +2028,7 @@ function ContactListsSection() {
         { event: "*", schema: "public", table: "blast_contacts" },
         () => {
           qc.invalidateQueries({ queryKey: ["contact_lists"] });
+          qc.invalidateQueries({ queryKey: ["contact_categories_counts"] });
         },
       )
       .subscribe();
@@ -2045,6 +2064,13 @@ function ContactListsSection() {
   const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
   const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
   const [importingFor, setImportingFor] = useState<string | null>(null);
+  const [importCategoryId, setImportCategoryId] = useState<string>("");
+  useEffect(() => {
+    if (!importCategoryId && categories.length > 0) {
+      const def = categories.find((c) => c.slug === "lead_instagram") ?? categories[0];
+      setImportCategoryId(def.id);
+    }
+  }, [categories, importCategoryId]);
 
   async function exportCombinedReport() {
     const results = await Promise.all(sortedLists.map((l) => exportFn({ data: { listId: l.id } })));
@@ -2170,6 +2196,18 @@ function ContactListsSection() {
               <Stat label="Respondeu" value={overview.respondeu} />
               <Stat label="Converteu" value={overview.convertido} />
             </div>
+            {categories.length > 0 && (
+              <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-background/40 p-2 text-xs">
+                <span className="text-muted-foreground">Por categoria:</span>
+                {categories.map((c) => (
+                  <span key={c.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5">
+                    <span>{c.icone}</span>
+                    <span className="font-medium">{c.nome}:</span>
+                    <span className="text-muted-foreground">{(catCounts as Record<string, number>)[c.id] ?? 0}</span>
+                  </span>
+                ))}
+              </div>
+            )}
             {overview.total > 0 && (
               <div>
                 <button
@@ -2183,6 +2221,20 @@ function ContactListsSection() {
             )}
             <div className="space-y-2">
               <label className="block text-xs text-muted-foreground">Importar CSV (nome, telefone, instagram)</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-xs text-muted-foreground">Categoria*:</label>
+                <select
+                  value={importCategoryId}
+                  onChange={(e) => setImportCategoryId(e.target.value)}
+                  className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+                >
+                  {categories.length === 0 && <option value="">Carregando…</option>}
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-muted-foreground">Aplicada a todos os contatos deste CSV.</span>
+              </div>
               <input
                 type="file"
                 accept=".csv,text/csv"
@@ -2207,15 +2259,17 @@ function ContactListsSection() {
               {rows.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   <button
-                    disabled={importingFor === primary.id}
+                    disabled={importingFor === primary.id || !importCategoryId}
                     onClick={async () => {
+                      if (!importCategoryId) { toast.error("Selecione uma categoria"); return; }
                       setImportingFor(primary.id);
                       try {
-                        const res = await importFn({ data: { listId: primary.id, rows } });
+                        const res = await importFn({ data: { listId: primary.id, categoriaId: importCategoryId, rows } });
                         setSummary((m) => ({ ...m, [primary.id]: res as never }));
                         setCsvByList((m) => ({ ...m, [primary.id]: [] }));
                         qc.invalidateQueries({ queryKey: ["contact_lists"] });
                         qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
+                        qc.invalidateQueries({ queryKey: ["contact_categories_counts"] });
                         qc.invalidateQueries({ queryKey: ["list_contacts_detail", primary.id] });
                         toast.success(`${(res as { inserted: number }).inserted} contatos importados`);
                       } catch (err) {

@@ -787,9 +787,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .eq("telefone", phone)
                   .maybeSingle();
                 if (!dup) {
+                  // Resolve categoria "Meta Ads" (cria se ainda não existir)
+                  let metaCatId: string | undefined;
+                  const { data: metaCat } = await supabaseAdmin
+                    .from("contact_categories")
+                    .select("id")
+                    .eq("user_id", userId)
+                    .eq("slug", "meta_ads")
+                    .maybeSingle();
+                  metaCatId = metaCat?.id;
+                  if (!metaCatId) {
+                    const insCat = await supabaseAdmin
+                      .from("contact_categories")
+                      .insert({ user_id: userId, nome: "Meta Ads", cor: "blue", icone: "📣", slug: "meta_ads", is_system: true })
+                      .select("id")
+                      .single();
+                    metaCatId = insCat.data?.id;
+                  }
                   await supabaseAdmin.from("blast_contacts").insert({
                     user_id: userId,
                     contact_list_id: listAId,
+                    categoria_id: metaCatId,
                     origem: "meta_ads",
                     nome: msg.senderName ?? phone,
                     telefone: phone,
