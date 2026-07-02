@@ -762,7 +762,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           if (inserted.error) return new Response(inserted.error.message, { status: 500 });
           contact = inserted.data;
           // Se é lead Meta Ads, registra também na Lista A (Meta Ads) para histórico/anti-dup
-          if (effectiveSource?.source === "meta_ads") {
+          if (effectiveSource?.source === "meta_ads" && !isTestNumber) {
             try {
               const { data: listA } = await supabaseAdmin
                 .from("contact_lists")
