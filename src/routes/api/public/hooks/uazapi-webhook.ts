@@ -686,6 +686,31 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           `🔑 Config agente carregada: elevenlabs_key=${integ.elevenlabs_api_key ? "tem" : "não tem"} | voice_id=${integ.elevenlabs_voice_id ? "tem" : "não tem"} | user_id=${userId}`,
         );
 
+        // 🧪 Números de teste — ignora todas as travas de negócio
+        let isTestNumber = false;
+        try {
+          const { data: tn } = await supabaseAdmin
+            .from("test_numbers")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("phone", phone)
+            .maybeSingle();
+          isTestNumber = !!tn;
+          if (isTestNumber) {
+            console.log(`🧪 Modo teste ativo para ${phone} — travas ignoradas`);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                userId,
+                phone,
+                type: "test_number",
+                level: "info",
+                summary: `🧪 Modo teste ativo para ${phone} — travas ignoradas`,
+              });
+            } catch {}
+          }
+        } catch {}
+
         let { data: contact } = await supabaseAdmin
           .from("contacts")
           .select("id, nome, perfil, status, source, source_ref, photo_url, whatsapp_number_id")
@@ -737,7 +762,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           if (inserted.error) return new Response(inserted.error.message, { status: 500 });
           contact = inserted.data;
           // Se é lead Meta Ads, registra também na Lista A (Meta Ads) para histórico/anti-dup
-          if (effectiveSource?.source === "meta_ads") {
+          if (effectiveSource?.source === "meta_ads" && !isTestNumber) {
             try {
               const { data: listA } = await supabaseAdmin
                 .from("contact_lists")
@@ -848,7 +873,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         } catch {}
 
-        if (contact.status === "bloqueado") {
+        if (contact.status === "bloqueado" && !isTestNumber) {
           return new Response("ok (blocked)");
         }
 
@@ -1004,6 +1029,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const convEnabled = conv.agent_enabled !== false;
         const needsReview = (conv as { needs_review?: boolean }).needs_review === true;
         const isAutoReplyAllowed = async (): Promise<boolean> => {
+          if (isTestNumber) return true;
           const { data: latestAgent } = await supabaseAdmin
             .from("agent_config")
             .select("agent_enabled")
@@ -1025,7 +1051,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .maybeSingle();
           return latestContact?.status !== "bloqueado";
         };
-        if (!globalEnabled || !convEnabled || needsReview) {
+        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber) {
           await supabaseAdmin
             .from("conversations")
             .update({
@@ -1196,7 +1222,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                       .in("servico", platformServiceIds)
                       .limit(1)
                       .maybeSingle();
-                    if (completedThis) {
+                    if (completedThis && !isTestNumber) {
                       const replyText = `Você já recebeu seu teste grátis de ${platformMatch.label}! Posso te montar um pacote completo agora?`;
                       if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial-used)");
                       try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (trial-used) failed", e); }
@@ -1315,7 +1341,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // Pedidos canceled/partial/failed liberam novo envio.
             const phoneCompleted = trialByPhone?.status === "completed" ? trialByPhone : null;
             const linkCompleted = trialByLink?.status === "completed" ? trialByLink : null;
-            const existingTrial = phoneCompleted || linkCompleted;
+            const existingTrial = isTestNumber ? null : (phoneCompleted || linkCompleted);
 
             const { uazapiSendText } = await import("@/lib/uazapi.server");
             const creds = {
@@ -1806,7 +1832,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .eq("contact_id", contact.id)
           .limit(1)
           .maybeSingle();
-        const funnelAlreadySent = !!priorFunnelRun;
+        const funnelAlreadySent = isTestNumber ? false : !!priorFunnelRun;
 
         // Load knowledge base examples (text + extracted from images) for this user.
         const { data: kbRows } = await supabaseAdmin
@@ -2620,6 +2646,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // ===== Lead scoring automático (Quente/Morno/Frio/Bloqueado) =====
         try {
+          if (isTestNumber) {
+            // 🧪 número de teste — não altera temperatura automaticamente
+            throw new Error("__test_number_skip_scoring__");
+          }
           const { classifyLeadTemperature } = await import("@/lib/ai.server");
           const fullHistory = [
             ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
