@@ -1071,7 +1071,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 const status = (st.status ?? lastTrial.status ?? "").toLowerCase();
                 console.log(`[free-trial:complaint] phone=${phone} order=${lastTrial.order_id} status=${status}`);
                 if (status === "completed") {
-                  replyText = "Aqui mostra que foi entregue! Às vezes demora alguns minutos pra atualizar no Instagram. Dá uma olhada agora no Reel";
+                  {
+                    const l = (lastTrial.link_enviado ?? "").toLowerCase();
+                    const local = /youtube\.com|youtu\.be/.test(l)
+                      ? "no seu vídeo do YouTube"
+                      : /tiktok\.com/.test(l)
+                        ? "no seu vídeo do TikTok"
+                        : /spotify\.com|spotify\.link/.test(l)
+                          ? "na sua música"
+                          : "no seu Reel";
+                    replyText = `Aqui mostra que foi entregue! Às vezes leva alguns minutos pra atualizar. Se em 1 hora não aparecer, abre um ticket no painel no menu Suporte! Dá uma olhada agora ${local}`;
+                  }
                 } else if (status === "pending" || status === "processing" || status === "in_progress") {
                   replyText = "Ainda está processando, já vai chegar! Normalmente leva alguns minutos";
                 } else if (status === "canceled" || status === "cancelled" || status === "partial" || status === "failed") {
