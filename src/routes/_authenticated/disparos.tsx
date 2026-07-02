@@ -47,6 +47,7 @@ import {
   listContactLists,
   importContactsToList,
   clearContactList,
+  clearAllBlastContacts,
   exportContactList,
 } from "@/lib/contact-lists.functions";
 import { listCategories } from "@/lib/categories.functions";
