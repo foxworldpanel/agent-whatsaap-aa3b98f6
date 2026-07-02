@@ -367,24 +367,23 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const skipFn = useServerFn(skipBlastContact);
   const blockFn = useServerFn(blockBlastContact);
 
-  const metaList = lists.find((l) => l.origem === "meta_ads") ?? lists[0];
-  const igList = lists.find((l) => l.origem !== "meta_ads") ?? lists[1] ?? lists[0];
-  const [activeTab, setActiveTab] = useState<"a" | "b">("a");
-  const active = activeTab === "a" ? metaList : igList;
+  // Sistema unificado: uma única visão com todos os contatos de todas as listas do usuário.
+  const listIds = lists.map((l) => l.id);
+  const totalContatos = lists.reduce((acc, l) => acc + l.total, 0);
 
   const [filter, setFilter] = useState<PanelFilter>("all");
   const [q, setQ] = useState("");
 
   const { data: rows = [] } = useQuery({
-    queryKey: ["panel_contacts", active?.id],
-    enabled: !!active?.id,
+    queryKey: ["panel_contacts", "unified", listIds.join(",")],
+    enabled: listIds.length > 0,
     queryFn: async () => {
       const { data } = await supabase
         .from("blast_contacts")
         .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id")
-        .eq("contact_list_id", active!.id)
+        .in("contact_list_id", listIds)
         .order("updated_at", { ascending: false })
-        .limit(500);
+        .limit(2000);
       return (data ?? []) as PanelContactRow[];
     },
   });
@@ -403,13 +402,14 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   });
 
   const { data: campaign } = useQuery({
-    queryKey: ["panel_campaign_for_list", active?.id],
-    enabled: !!active?.id,
+    queryKey: ["panel_campaign_unified", listIds.join(",")],
+    enabled: listIds.length > 0,
     queryFn: async () => {
       const { data } = await supabase
         .from("blast_campaigns")
         .select("id, name, contact_list_id, state, daily_limit, delay_min_sec, delay_max_sec, last_dispatch_at")
-        .eq("contact_list_id", active!.id)
+        .in("contact_list_id", listIds)
+        .order("state", { ascending: false })
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -419,17 +419,17 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
 
   // Realtime — atualiza sem reload
   useEffect(() => {
-    if (!active?.id) return;
+    if (listIds.length === 0) return;
     const ch = supabase
-      .channel(`panel_contacts_${active.id}`)
+      .channel(`panel_contacts_unified`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "blast_contacts", filter: `contact_list_id=eq.${active.id}` },
-        () => qc.invalidateQueries({ queryKey: ["panel_contacts", active.id] }),
+        { event: "*", schema: "public", table: "blast_contacts" },
+        () => qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] }),
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [active?.id, qc]);
+  }, [listIds.join(","), qc]);
 
   // Filtro + busca
   const term = q.trim().toLowerCase();
