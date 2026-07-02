@@ -1063,6 +1063,7 @@ function BlastCampaignCard({
           opening_message,
           followup_day3_message,
           followup_day7_message,
+          dispatch_mode,
         },
       }),
     onSuccess: onChanged,
