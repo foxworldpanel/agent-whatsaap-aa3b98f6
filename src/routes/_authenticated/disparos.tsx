@@ -8,6 +8,8 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { SAUDACOES, CORPOS_MENSAGEM, DEFAULT_TEMPLATES, type OpeningTemplates } from "@/lib/blast-variations";
 import { getOpeningTemplates, saveOpeningTemplates } from "@/lib/opening-templates.functions";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   listCampaigns,
   createCampaign,
