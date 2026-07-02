@@ -818,16 +818,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // Detecta se esta mensagem é resposta a um disparo ativo.
         // Se sim, o agente Júlia assume a conversa diretamente — sem funil.
         let isBlastReply = false;
+        let blastDispatchMode: "agente_livre" | "fluxo_visual" = "agente_livre";
         try {
           const { data: pendingBlast } = await supabaseAdmin
             .from("blast_contacts")
-            .select("id, status")
+            .select("id, status, campaign_id")
             .eq("user_id", userId)
             .eq("telefone", phone)
             .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7"])
             .limit(1);
           isBlastReply = !!(pendingBlast && pendingBlast.length > 0);
           if (isBlastReply) {
+            const campId = (pendingBlast?.[0] as { campaign_id?: string | null } | undefined)?.campaign_id;
+            if (campId) {
+              const { data: campRow } = await supabaseAdmin
+                .from("blast_campaigns")
+                .select("dispatch_mode")
+                .eq("id", campId)
+                .maybeSingle();
+              const m = (campRow as { dispatch_mode?: string | null } | null)?.dispatch_mode;
+              if (m === "fluxo_visual" || m === "agente_livre") blastDispatchMode = m;
+            }
             await supabaseAdmin
               .from("blast_contacts")
               .update({ status: "respondeu", replied_at: new Date().toISOString() })
