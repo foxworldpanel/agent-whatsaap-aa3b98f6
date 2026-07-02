@@ -1240,7 +1240,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               key: integ.smm_api_key,
             };
             const { uazapiSendText } = await import("@/lib/uazapi.server");
-            const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+            const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
             const { data: lastTrial } = await supabaseAdmin
               .from("free_trials")
               .select("id, order_id, link_enviado, link_normalized, servico, quantidade, status")
@@ -1356,7 +1356,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     .map((r) => String(r.service_id));
 
                   const { uazapiSendText } = await import("@/lib/uazapi.server");
-                  const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+                  const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
 
                   if (platformServiceIds.length === 0) {
                     // Não há teste para essa plataforma — não bloqueia, deixa IA responder
@@ -1434,7 +1434,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               const isPhoto = /\/p\//.test(path) && !isVideo;
               if (isPhoto) {
                 const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+                const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
                 const msg = "Esse link é de uma foto, views só funcionam em Reel ou vídeo. Me manda o link de um Reel do seu perfil!";
                 if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial photo)");
                 try { await uazapiSendText(creds, phone, msg); } catch (e) { console.error("uazapi send (trial photo) failed", e); }
@@ -1495,8 +1495,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
             const { uazapiSendText } = await import("@/lib/uazapi.server");
             const creds = {
-              uazapi_url: integ.uazapi_url ?? "",
-              uazapi_token: integ.uazapi_token ?? "",
+              uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "",
+              uazapi_token: instanceToken || (integ.uazapi_token ?? ""),
             };
 
             let replyText: string;
@@ -1668,7 +1668,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before minimal reply)");
               if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
                 const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+                const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
                 memMarkSent(phone, directReply);
                 await uazapiSendText(creds, phone, directReply);
                 const stamp = new Date().toISOString();
@@ -2474,7 +2474,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         void hasHardContent;
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
-        const sendCreds = { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" };
+        const sendCreds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
         const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
         // Human-like behavior: random delay between min and max, optional typing indicator.
