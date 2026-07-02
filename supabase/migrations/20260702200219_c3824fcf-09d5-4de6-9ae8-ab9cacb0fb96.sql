@@ -1,0 +1,1 @@
+UPDATE public.whatsapp_numbers SET disparos_mode = false WHERE uazapi_token = '16c0bb07-b3e7-4070-8b95-a57f88dba2e6';
