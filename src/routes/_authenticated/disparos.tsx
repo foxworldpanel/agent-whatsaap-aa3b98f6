@@ -506,6 +506,34 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         <SummaryCard emoji="🚫" label="Não quer receber" value={naoQuer} tone="danger" />
       </div>
 
+      {/* Progresso da campanha */}
+      {campaign && (
+        <div className="rounded-lg border border-border bg-card/60 p-4 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex h-2 w-2 rounded-full ${isActive ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/50"}`} />
+              <span className="font-medium">
+                {isActive ? "Disparando…" : campaign.state === "pausado" ? "Pausado" : "Parado"}
+              </span>
+              <span className="text-muted-foreground">
+                {sentToday}/{dailyLimit} hoje ({pct}%)
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-muted-foreground">
+              {responderam > 0 && <span>💬 {responderam} responderam</span>}
+              {converteram > 0 && <span>✅ {converteram} converteram</span>}
+              {conclusaoEta && <span>🏁 Conclusão ~{conclusaoEta}</span>}
+            </div>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Filtros por categoria */}
       <div className="flex flex-wrap items-center gap-2">
         <button
