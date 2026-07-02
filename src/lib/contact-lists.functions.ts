@@ -61,6 +61,7 @@ export const importContactsToList = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({
       listId: z.string().uuid(),
+      categoriaId: z.string().uuid(),
       rows: z.array(z.object({
         nome: z.string().trim().min(1).max(120),
         telefone: z.string().trim().min(5).max(40),
@@ -77,6 +78,14 @@ export const importContactsToList = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (!list) throw new Error("Lista não encontrada");
+
+    const { data: cat } = await context.supabase
+      .from("contact_categories")
+      .select("id")
+      .eq("id", data.categoriaId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (!cat) throw new Error("Categoria inválida");
 
     let invalid = 0;
     const normalized = data.rows.map((r) => ({
@@ -124,6 +133,7 @@ export const importContactsToList = createServerFn({ method: "POST" })
     const payload = uniq.map((r) => ({
       user_id: context.userId,
       contact_list_id: data.listId,
+      categoria_id: data.categoriaId,
       origem: list.origem,
       nome: r.nome,
       telefone: r.telefone,
