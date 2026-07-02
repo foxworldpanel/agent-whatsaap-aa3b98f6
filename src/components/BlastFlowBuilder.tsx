@@ -234,13 +234,13 @@ function Inner({ campaignId }: { campaignId: string }) {
     (event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
       const from = connectingFromRef.current;
       connectingFromRef.current = null;
-      if (!from?.nodeId || from.handleType !== "source" || state.toNode) return;
+      if (!from?.nodeId || from.handleType !== "source") return;
 
       const pointer = "changedTouches" in event ? event.changedTouches[0] : event;
       const targetNode = document
         .elementFromPoint(pointer.clientX, pointer.clientY)
         ?.closest(".react-flow__node") as HTMLElement | null;
-      const targetId = targetNode?.dataset.id;
+      const targetId = state.toNode?.id ?? targetNode?.dataset.id;
 
       if (!targetId || targetId === from.nodeId) return;
 
