@@ -2408,8 +2408,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             console.log('Prompt context:', { modules: _modulesCount, services: freeTestServices?.length ?? 0, examples: knowledgeExamples?.length ?? 0, historyLen: aiHistory?.length ?? 0, extraContext: orderStatusContext?.slice(0, 200) ?? '' });
           } catch {}
           const _claudeStart = Date.now();
-          reply = await generateAgentReply(_claudeArgs);
+          const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
+          reply = _claudeOut.text;
           const _claudeMs = Date.now() - _claudeStart;
+          const _claudeModel = _claudeOut.model;
+          const _claudeRoutingReason = _claudeOut.routingReason;
           console.log('Resposta do Claude:', reply);
           // Safety net: se já houve mensagem anterior do agente na conversa,
           // remove saudações repetidas no início da resposta (Oi/Olá/Bom dia
@@ -2461,8 +2464,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             await logEvent({
               userId, phone, conversationId: conv?.id,
               type: "claude_reply", level: "info",
-              summary: `🤖 Claude respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
+              summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
               prompt: JSON.stringify({
+                model: _claudeModel,
+                modelUsed: _claudeModel,
+                routingReason: _claudeRoutingReason,
                 contact: _claudeArgs.contact,
               freeTestServicesCount: freeTestServices?.length ?? 0,
               catalogServicesCount: servicesContext
