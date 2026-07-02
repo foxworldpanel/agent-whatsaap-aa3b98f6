@@ -52,8 +52,11 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               }
             }
 
-            // Carregar dados do número (para aquecimento e risco)
+            // Carregar pool de números ativos para rotação round-robin.
+            // Elegível: disparos_mode=true, status conectado, risco != danger,
+            // e (se auto_pause_on_risk desligado) qualquer risco aceito.
             type NumberRow = {
+              id: string;
               uazapi_url: string | null;
               uazapi_token: string | null;
               warmup_started_at: string | null;
@@ -62,40 +65,35 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               risk_level: string | null;
               disparos_mode: boolean | null;
               meta_ads_enabled: boolean | null;
+              status: string | null;
+              nome: string | null;
             };
-            let numberRow: NumberRow | null = null;
-            if (camp.whatsapp_number_id) {
-              const { data: n } = await supabaseAdmin
-                .from("whatsapp_numbers")
-                .select("uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, disparos_mode, meta_ads_enabled")
-                .eq("id", camp.whatsapp_number_id)
-                .maybeSingle();
-              numberRow = (n as unknown as NumberRow | null) ?? null;
-            }
+            const { data: allNums } = await supabaseAdmin
+              .from("whatsapp_numbers")
+              .select("id, uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, disparos_mode, meta_ads_enabled, status, nome")
+              .eq("user_id", camp.user_id);
+            const allNumbers = (allNums as unknown as NumberRow[] | null) ?? [];
+            const isConnected = (s: string | null | undefined) => {
+              const v = (s ?? "").toLowerCase();
+              return v === "connected" || v === "conectado" || v === "online";
+            };
+            const pool = allNumbers
+              .filter((n) => n.disparos_mode === true)
+              .filter((n) => n.uazapi_url && n.uazapi_token)
+              .filter((n) => isConnected(n.status))
+              .filter((n) => !(n.auto_pause_on_risk && n.risk_level === "danger"))
+              .sort((a, b) => a.id.localeCompare(b.id));
 
-            // Auto-pausa por risco
-            if (numberRow?.auto_pause_on_risk && numberRow.risk_level === "danger") {
-              await supabaseAdmin
-                .from("blast_campaigns")
-                .update({ state: "pausado" })
-                .eq("id", camp.id);
-              await supabaseAdmin.from("blast_logs").insert({
-                user_id: camp.user_id,
-                campaign_id: camp.id,
-                stage: "opening",
-                status: "failed",
-                error: "auto_paused_risk",
-              });
-              results.push({ campaign: camp.name, sent: 0, skipped: "auto-pausa por risco" });
+            // Se campanha aponta um número fixo e ele está no pool, mantém preferência,
+            // caso contrário usa round-robin baseado no total enviado hoje.
+            let numberRow: NumberRow | null = null;
+            if (pool.length === 0) {
+              // Fallback ao número da campanha (mesmo desconectado) para não travar
+              // silenciosamente antes: prefere skipar com mensagem clara.
+              results.push({ campaign: camp.name, sent: 0, skipped: "nenhum número em Modo Disparos ativo/conectado" });
               continue;
             }
 
-            // Limite diário (com aquecimento progressivo)
-            const effectiveLimit = computeEffectiveLimit(
-              numberRow?.warmup_enabled ?? true,
-              numberRow?.warmup_started_at ?? null,
-              camp.daily_limit,
-            );
             const startOfDay = new Date();
             startOfDay.setHours(0, 0, 0, 0);
             const { count: sentToday } = await supabaseAdmin
@@ -104,6 +102,17 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               .eq("campaign_id", camp.id)
               .eq("status", "sent")
               .gte("created_at", startOfDay.toISOString());
+
+            // Round-robin: escolhe pool[(sentToday) % pool.length]
+            const rrIndex = (sentToday ?? 0) % pool.length;
+            numberRow = pool[rrIndex];
+
+            // Limite diário (com aquecimento progressivo) baseado no número escolhido
+            const effectiveLimit = computeEffectiveLimit(
+              numberRow?.warmup_enabled ?? true,
+              numberRow?.warmup_started_at ?? null,
+              camp.daily_limit,
+            );
             if ((sentToday ?? 0) >= effectiveLimit) {
               results.push({ campaign: camp.name, sent: 0, skipped: `limite diário (${effectiveLimit})` });
               continue;
@@ -120,22 +129,9 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               continue;
             }
 
-            // Credenciais: número da campanha ou fallback para integrations
-            let url: string | undefined = numberRow?.uazapi_url ?? undefined;
-            let token: string | undefined = numberRow?.uazapi_token ?? undefined;
-            if (!url || !token) {
-              const { data: integ } = await supabaseAdmin
-                .from("integrations")
-                .select("uazapi_url, uazapi_token")
-                .eq("user_id", camp.user_id)
-                .maybeSingle();
-              url = integ?.uazapi_url ?? undefined;
-              token = integ?.uazapi_token ?? undefined;
-            }
-            if (!url || !token) {
-              results.push({ campaign: camp.name, sent: 0, skipped: "uazapi não configurado" });
-              continue;
-            }
+            // Credenciais do número escolhido no round-robin
+            const url = numberRow.uazapi_url!;
+            const token = numberRow.uazapi_token!;
 
             // Escolher próximo contato e estágio
             const next = await pickNext(supabaseAdmin, camp);
@@ -174,6 +170,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               stage: next.stage,
               status,
               error: errMsg,
+              sent_via_number_id: numberRow.id,
             });
 
             if (status === "sent") {
@@ -189,6 +186,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   status: newStatus,
                   last_sent_at: new Date().toISOString(),
                   last_variation_key: pick ? pick.key : next.contact.last_variation_key,
+                  sent_via_number_id: numberRow.id,
                 })
                 .eq("id", next.contact.id);
               await supabaseAdmin
@@ -196,13 +194,13 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 .update({ last_dispatch_at: new Date().toISOString() })
                 .eq("id", camp.id);
               // Primeiro envio do número → inicia aquecimento
-              if (camp.whatsapp_number_id && !numberRow?.warmup_started_at) {
+              if (!numberRow.warmup_started_at) {
                 await supabaseAdmin
                   .from("whatsapp_numbers")
                   .update({ warmup_started_at: new Date().toISOString() })
-                  .eq("id", camp.whatsapp_number_id);
+                  .eq("id", numberRow.id);
               }
-              results.push({ campaign: camp.name, sent: 1 });
+              results.push({ campaign: camp.name, sent: 1, skipped: `via ${numberRow.nome ?? numberRow.id.slice(0, 6)}` });
             } else {
               results.push({ campaign: camp.name, sent: 0, skipped: `falhou: ${errMsg}` });
             }

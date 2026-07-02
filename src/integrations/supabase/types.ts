@@ -389,6 +389,7 @@ export type Database = {
           origem: string | null
           prioridade: number
           replied_at: string | null
+          sent_via_number_id: string | null
           skip_reason: string | null
           status: string
           telefone: string
@@ -410,6 +411,7 @@ export type Database = {
           origem?: string | null
           prioridade?: number
           replied_at?: string | null
+          sent_via_number_id?: string | null
           skip_reason?: string | null
           status?: string
           telefone: string
@@ -431,6 +433,7 @@ export type Database = {
           origem?: string | null
           prioridade?: number
           replied_at?: string | null
+          sent_via_number_id?: string | null
           skip_reason?: string | null
           status?: string
           telefone?: string
@@ -451,6 +454,13 @@ export type Database = {
             columns: ["contact_list_id"]
             isOneToOne: false
             referencedRelation: "contact_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blast_contacts_sent_via_number_id_fkey"
+            columns: ["sent_via_number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
             referencedColumns: ["id"]
           },
         ]
@@ -503,6 +513,7 @@ export type Database = {
           created_at: string
           error: string | null
           id: string
+          sent_via_number_id: string | null
           stage: string
           status: string
           user_id: string
@@ -513,6 +524,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           id?: string
+          sent_via_number_id?: string | null
           stage: string
           status: string
           user_id: string
@@ -523,6 +535,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           id?: string
+          sent_via_number_id?: string | null
           stage?: string
           status?: string
           user_id?: string
@@ -540,6 +553,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "blast_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blast_logs_sent_via_number_id_fkey"
+            columns: ["sent_via_number_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_numbers"
             referencedColumns: ["id"]
           },
         ]
