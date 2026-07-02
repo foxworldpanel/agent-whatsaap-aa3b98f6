@@ -598,9 +598,17 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold">Visualização de contatos</h3>
+          <h3 className="font-semibold">Base de Contatos</h3>
         </div>
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tempo real</span>
+      </div>
+
+      {/* Cards de resumo (spec) */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <SummaryCard emoji="📋" label="Total na base" value={totalBase} tone="primary" />
+        <SummaryCard emoji="📨" label="Enviados" value={totalEnviados} tone="success" />
+        <SummaryCard emoji="⏳" label="Faltam enviar" value={faltamEnviar} tone="warn" />
+        <SummaryCard emoji="🚫" label="Não quer receber" value={naoQuer} tone="danger" />
       </div>
 
       {/* Filtros por categoria */}
@@ -683,11 +691,12 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
       {/* Filtros + busca */}
       <div className="flex flex-wrap items-center gap-2">
         {filterBtn("all", "Todos")}
-        {filterBtn("aguardando", "Aguardando")}
-        {filterBtn("enviados", "Enviados")}
-        {filterBtn("responderam", "Responderam")}
-        {filterBtn("converteram", "Converteram")}
-        {filterBtn("falhou", "Falhou")}
+        {filterBtn("aguardando", `⏳ Fila (${faltamEnviar})`)}
+        {filterBtn("enviados", `✅ Enviados (${totalEnviados})`)}
+        {filterBtn("responderam", `💬 Responderam (${responderam})`)}
+        {filterBtn("converteram", `🛍️ Converteram (${converteram})`)}
+        {filterBtn("nao_quer", `🚫 Não quer (${naoQuer})`)}
+        {filterBtn("falhou", "❌ Falhou")}
         <div className="ml-auto relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -699,11 +708,53 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         </div>
       </div>
 
+      {/* Ações por aba */}
+      {filter === "aguardando" && faltamEnviar > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+          <Zap className="h-4 w-4 text-primary" />
+          <span>{faltamEnviar} contatos aguardando abordagem.</span>
+          <button
+            onClick={startDispatchNow}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Play className="h-3.5 w-3.5" /> Iniciar disparo para esses contatos
+          </button>
+        </div>
+      )}
+      {filter === "nao_quer" && naoQuer > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs">
+          <ShieldOff className="h-4 w-4 text-destructive" />
+          <span>Blacklist com {naoQuer} contatos — nunca receberão mensagem.</span>
+          <button
+            onClick={() => exportSelectedCsv(rows.filter((r) => isNaoQuer(r.status, r.skip_reason)), `blacklist-${new Date().toISOString().slice(0,10)}.csv`)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Exportar blacklist
+          </button>
+        </div>
+      )}
+
+      {/* Barra de ações em massa */}
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
+          <span className="font-medium">{selected.size} selecionados</span>
+          <button disabled={bulkBusy} onClick={() => runBulk("queue")} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-muted disabled:opacity-50"><Repeat className="h-3.5 w-3.5" /> Mover para fila</button>
+          <button disabled={bulkBusy} onClick={() => runBulk("blacklist")} className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive hover:bg-destructive/20 disabled:opacity-50"><ShieldOff className="h-3.5 w-3.5" /> Blacklist</button>
+          <button disabled={bulkBusy} onClick={() => exportSelectedCsv(filtered.filter((r) => selected.has(r.id)), `contatos-selecionados-${Date.now()}.csv`)} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-muted disabled:opacity-50"><BarChart3 className="h-3.5 w-3.5" /> Exportar</button>
+          <button disabled={bulkBusy} onClick={() => runBulk("delete")} className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive hover:bg-destructive/20 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /> Excluir</button>
+          <button onClick={clearSelection} className="ml-auto text-muted-foreground hover:text-foreground">Limpar seleção</button>
+        </div>
+      )}
+
       {/* Tabela */}
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-xs">
           <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
             <tr>
+              <th className="w-8 px-2 py-2">
+                <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} className="accent-primary" />
+              </th>
               <th className="px-3 py-2 text-left">Contato</th>
               <th className="px-3 py-2 text-left">Telefone</th>
               <th className="px-3 py-2 text-left">Instagram</th>
@@ -717,16 +768,21 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
                   {rows.length === 0 ? "Nenhum contato na lista ainda." : "Nenhum contato corresponde aos filtros."}
                 </td>
               </tr>
             )}
             {filtered.map((r) => {
               const meta = PANEL_STATUS[r.status] ?? { label: r.status, cls: "bg-muted text-muted-foreground", icon: "•" };
+              const naoq = isNaoQuer(r.status, r.skip_reason);
+              const displayMeta = naoq ? PANEL_STATUS.bloqueado : meta;
               const last = r.ultima_interacao ?? r.replied_at ?? r.converted_at ?? r.last_sent_at;
               return (
                 <tr key={r.id} className="group border-t border-border hover:bg-muted/30">
+                  <td className="px-2 py-2">
+                    <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleOne(r.id)} className="accent-primary" />
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">
@@ -738,8 +794,8 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                   <td className="px-3 py-2 font-mono text-[11px]">{r.telefone}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.instagram || "—"}</td>
                   <td className="px-3 py-2">
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${meta.cls}`} title={r.error_message ?? undefined}>
-                      <span>{meta.icon}</span>{meta.label}
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${displayMeta.cls}`} title={r.error_message ?? r.skip_reason ?? undefined}>
+                      <span>{displayMeta.icon}</span>{displayMeta.label}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
