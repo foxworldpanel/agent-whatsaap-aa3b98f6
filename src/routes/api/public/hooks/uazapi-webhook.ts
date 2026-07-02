@@ -967,6 +967,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // guardamos também o último sent_via_number_id para TODA a conversa,
         // não só para a primeira resposta ao disparo.
         let isBlastReply = false;
+        let isBlastThread = false;
         let blastDispatchMode: "agente_livre" | "fluxo_visual" = "agente_livre";
         let blastReplyNumberId: string | null = null;
         let blastReplyNumberSource: "blast_sent_via" | "campaign_number" | null = null;
@@ -985,6 +986,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             campaign_id?: string | null;
             sent_via_number_id?: string | null;
           } | undefined;
+          isBlastThread = !!latestBlast;
           if (latestBlast?.sent_via_number_id) {
             blastReplyNumberId = latestBlast.sent_via_number_id;
             blastReplyNumberSource = "blast_sent_via";
@@ -1262,7 +1264,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const convEnabled = conv.agent_enabled !== false;
         const needsReview = (conv as { needs_review?: boolean }).needs_review === true;
         const isAutoReplyAllowed = async (): Promise<boolean> => {
-          if (isTestNumber || isBlastReply) return true;
+          if (isTestNumber || isBlastThread) return true;
           const { data: latestAgent } = await supabaseAdmin
             .from("agent_config")
             .select("agent_enabled")
@@ -1284,7 +1286,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .maybeSingle();
           return latestContact?.status !== "bloqueado";
         };
-        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber && !isBlastReply) {
+        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber && !isBlastThread) {
           await supabaseAdmin
             .from("conversations")
             .update({
@@ -1710,7 +1712,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // "Modo Disparos": número usado para abordagem ativa.
         // IMPORTANTE: se o contato respondeu a um disparo (ou é número de teste),
         // a mensagem já foi registrada e a Júlia DEVE assumir a conversa.
-        if (disparosMode && !isBlastReply && !isTestNumber) return new Response("ok (disparos mode: no auto-reply)");
+        if (disparosMode && !isBlastThread && !isTestNumber) return new Response("ok (disparos mode: no auto-reply)");
 
         // ===== Respostas mínimas: emoji/figurinha/reações e "vou ver depois" =====
         // Roda antes de funil e Claude para não disparar fluxo automático em
