@@ -380,6 +380,7 @@ export type Database = {
       blast_contacts: {
         Row: {
           campaign_id: string | null
+          categoria_id: string | null
           contact_list_id: string | null
           converted_at: string | null
           created_at: string
@@ -402,6 +403,7 @@ export type Database = {
         }
         Insert: {
           campaign_id?: string | null
+          categoria_id?: string | null
           contact_list_id?: string | null
           converted_at?: string | null
           created_at?: string
@@ -424,6 +426,7 @@ export type Database = {
         }
         Update: {
           campaign_id?: string | null
+          categoria_id?: string | null
           contact_list_id?: string | null
           converted_at?: string | null
           created_at?: string
@@ -450,6 +453,13 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "blast_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blast_contacts_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "contact_categories"
             referencedColumns: ["id"]
           },
           {
@@ -688,6 +698,42 @@ export type Database = {
           nome?: string
           preco_por_1000?: number
           service_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      contact_categories: {
+        Row: {
+          cor: string
+          created_at: string
+          icone: string
+          id: string
+          is_system: boolean
+          nome: string
+          slug: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          icone?: string
+          id?: string
+          is_system?: boolean
+          nome: string
+          slug: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          icone?: string
+          id?: string
+          is_system?: boolean
+          nome?: string
+          slug?: string
           updated_at?: string
           user_id?: string
         }
