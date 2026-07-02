@@ -1831,7 +1831,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .eq("contact_id", contact.id)
           .limit(1)
           .maybeSingle();
-        const funnelAlreadySent = !!priorFunnelRun;
+        const funnelAlreadySent = isTestNumber ? false : !!priorFunnelRun;
 
         // Load knowledge base examples (text + extracted from images) for this user.
         const { data: kbRows } = await supabaseAdmin
