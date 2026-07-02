@@ -1029,6 +1029,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const convEnabled = conv.agent_enabled !== false;
         const needsReview = (conv as { needs_review?: boolean }).needs_review === true;
         const isAutoReplyAllowed = async (): Promise<boolean> => {
+          if (isTestNumber) return true;
           const { data: latestAgent } = await supabaseAdmin
             .from("agent_config")
             .select("agent_enabled")
@@ -1050,7 +1051,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .maybeSingle();
           return latestContact?.status !== "bloqueado";
         };
-        if (!globalEnabled || !convEnabled || needsReview) {
+        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber) {
           await supabaseAdmin
             .from("conversations")
             .update({
