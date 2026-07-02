@@ -1221,7 +1221,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                       .in("servico", platformServiceIds)
                       .limit(1)
                       .maybeSingle();
-                    if (completedThis) {
+                    if (completedThis && !isTestNumber) {
                       const replyText = `Você já recebeu seu teste grátis de ${platformMatch.label}! Posso te montar um pacote completo agora?`;
                       if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial-used)");
                       try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (trial-used) failed", e); }
@@ -1340,7 +1340,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // Pedidos canceled/partial/failed liberam novo envio.
             const phoneCompleted = trialByPhone?.status === "completed" ? trialByPhone : null;
             const linkCompleted = trialByLink?.status === "completed" ? trialByLink : null;
-            const existingTrial = phoneCompleted || linkCompleted;
+            const existingTrial = isTestNumber ? null : (phoneCompleted || linkCompleted);
 
             const { uazapiSendText } = await import("@/lib/uazapi.server");
             const creds = {
