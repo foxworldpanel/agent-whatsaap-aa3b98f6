@@ -1256,6 +1256,29 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           blast_reply_number_source: blastReplyNumberSource,
           using_global_fallback: !replyNumber && !numberId,
         });
+        try {
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          await logEvent({
+            userId,
+            phone,
+            conversationId: conv.id,
+            type: "reply_number_resolved",
+            level: "info",
+            summary: `Resposta será enviada pelo número: ${replyNumberLabel} | token ${replySendCreds.uazapi_token?.slice(0, 8) ?? "sem-token"}`,
+            metadata: {
+              origem: "conversas",
+              expected_reply_number_id: expectedReplyNumberId,
+              reply_number_name: replyNumberLabel,
+              reply_number_token_prefix: replySendCreds.uazapi_token?.slice(0, 8) ?? null,
+              inbound_number_id: numberId,
+              inbound_instance_token_prefix: instanceToken?.slice(0, 8) ?? null,
+              blast_reply_number_id: blastReplyNumberId,
+              blast_reply_number_source: blastReplyNumberSource,
+              is_blast_thread: isBlastThread,
+              using_global_fallback: !replyNumber && !numberId,
+            } as never,
+          });
+        } catch {}
 
         // Guard absoluto: se o agente global, a conversa ou a revisão estiverem desligados,
         // salva a mensagem recebida, mas bloqueia QUALQUER resposta automática abaixo
@@ -2796,6 +2819,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     tipo: "tentativa_envio",
                     to: phone,
                     jid: `${phone}@s.whatsapp.net`,
+                    expected_reply_number_id: expectedReplyNumberId,
+                    reply_number_name: replyNumberLabel,
+                    reply_number_token_prefix: sendCreds.uazapi_token?.slice(0, 8) ?? null,
+                    inbound_instance_token_prefix: instanceToken?.slice(0, 8) ?? null,
+                    blast_reply_number_id: blastReplyNumberId,
+                    blast_reply_number_source: blastReplyNumberSource,
                     ...(replyParts.length > 1 ? { part_index: i, part_total: replyParts.length } : {}),
                   } as never,
                 });
@@ -2824,6 +2853,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     messageId: sendResult.messageId,
                     status: sendResult.status,
                     raw: sendResult.raw,
+                    expected_reply_number_id: expectedReplyNumberId,
+                    reply_number_name: replyNumberLabel,
+                    reply_number_token_prefix: sendCreds.uazapi_token?.slice(0, 8) ?? null,
+                    inbound_instance_token_prefix: instanceToken?.slice(0, 8) ?? null,
+                    blast_reply_number_id: blastReplyNumberId,
+                    blast_reply_number_source: blastReplyNumberSource,
                     ...(replyParts.length > 1 ? { part_index: i, part_total: replyParts.length } : {}),
                   } as never,
                 });
@@ -2942,6 +2977,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 // mas a resposta da Júlia já é conversa normal.
                 from_blast: false,
                 is_reply_to_blast: isBlastReply,
+                is_blast_thread: isBlastThread,
+                expected_reply_number_id: expectedReplyNumberId,
+                reply_number_name: replyNumberLabel,
+                reply_number_token_prefix: sendCreds.uazapi_token?.slice(0, 8) ?? null,
+                blast_reply_number_id: blastReplyNumberId,
+                blast_reply_number_source: blastReplyNumberSource,
                 kind: replyKind,
                 // part_index/part_total só fazem sentido quando há múltiplas
                 // partes (a Júlia às vezes divide em bolhas). Omitimos quando é 1/1.
