@@ -962,28 +962,51 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // Detecta se esta mensagem é resposta a um disparo ativo.
         // Se sim, o agente Júlia assume a conversa diretamente — sem funil.
+        // IMPORTANTE: o número de resposta deve ser o mesmo que enviou a abertura.
+        // Depois que o contato responde, o status vira "respondeu"; por isso
+        // guardamos também o último sent_via_number_id para TODA a conversa,
+        // não só para a primeira resposta ao disparo.
         let isBlastReply = false;
+        let isBlastThread = false;
         let blastDispatchMode: "agente_livre" | "fluxo_visual" = "agente_livre";
+        let blastReplyNumberId: string | null = null;
+        let blastReplyNumberSource: "blast_sent_via" | "campaign_number" | null = null;
         try {
-          const { data: pendingBlast } = await supabaseAdmin
+          const { data: latestBlastForPhone } = await supabaseAdmin
             .from("blast_contacts")
-            .select("id, status, campaign_id")
+            .select("id, status, campaign_id, sent_via_number_id, last_sent_at")
             .eq("user_id", userId)
             .eq("telefone", phone)
-            .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7"])
+            .not("last_sent_at", "is", null)
+            .order("last_sent_at", { ascending: false })
             .limit(1);
-          isBlastReply = !!(pendingBlast && pendingBlast.length > 0);
-          if (isBlastReply) {
-            const campId = (pendingBlast?.[0] as { campaign_id?: string | null } | undefined)?.campaign_id;
-            if (campId) {
-              const { data: campRow } = await supabaseAdmin
-                .from("blast_campaigns")
-                .select("dispatch_mode")
-                .eq("id", campId)
-                .maybeSingle();
-              const m = (campRow as { dispatch_mode?: string | null } | null)?.dispatch_mode;
-              if (m === "fluxo_visual" || m === "agente_livre") blastDispatchMode = m;
+          const latestBlast = latestBlastForPhone?.[0] as {
+            id?: string;
+            status?: string | null;
+            campaign_id?: string | null;
+            sent_via_number_id?: string | null;
+          } | undefined;
+          isBlastThread = !!latestBlast;
+          if (latestBlast?.sent_via_number_id) {
+            blastReplyNumberId = latestBlast.sent_via_number_id;
+            blastReplyNumberSource = "blast_sent_via";
+          }
+          isBlastReply = !!latestBlast && ["enviado_abertura", "enviado_d3", "enviado_d7"].includes(latestBlast.status ?? "");
+          const campId = latestBlast?.campaign_id;
+          if (campId) {
+            const { data: campRow } = await supabaseAdmin
+              .from("blast_campaigns")
+              .select("dispatch_mode, whatsapp_number_id")
+              .eq("id", campId)
+              .maybeSingle();
+            const m = (campRow as { dispatch_mode?: string | null; whatsapp_number_id?: string | null } | null)?.dispatch_mode;
+            if (m === "fluxo_visual" || m === "agente_livre") blastDispatchMode = m;
+            if (!blastReplyNumberId) {
+              blastReplyNumberId = (campRow as { whatsapp_number_id?: string | null } | null)?.whatsapp_number_id ?? null;
+              if (blastReplyNumberId) blastReplyNumberSource = "campaign_number";
             }
+          }
+          if (isBlastReply) {
             await supabaseAdmin
               .from("blast_contacts")
               .update({ status: "respondeu", replied_at: new Date().toISOString() })
@@ -1022,17 +1045,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               user_id: userId,
               contact_id: contact.id,
               status: "agente_respondendo",
-              whatsapp_number_id: numberId,
+              whatsapp_number_id: blastReplyNumberId ?? numberId,
             })
             .select("id, agent_enabled, whatsapp_number_id, needs_review")
             .single();
           if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
           conv = insertedConv.data;
-        } else if (!conv.whatsapp_number_id && numberId) {
+        } else if ((blastReplyNumberId || numberId) && conv.whatsapp_number_id !== (blastReplyNumberId ?? numberId)) {
+          const fixedNumberId = blastReplyNumberId ?? numberId;
           await supabaseAdmin
             .from("conversations")
-            .update({ whatsapp_number_id: numberId })
+            .update({ whatsapp_number_id: fixedNumberId })
             .eq("id", conv.id);
+          conv = { ...conv, whatsapp_number_id: fixedNumberId };
+        }
+        const authoritativeNumberId = blastReplyNumberId ?? numberId;
+        if (authoritativeNumberId && contact.whatsapp_number_id !== authoritativeNumberId) {
+          await supabaseAdmin
+            .from("contacts")
+            .update({ whatsapp_number_id: authoritativeNumberId })
+            .eq("id", contact.id);
+          contact = { ...contact, whatsapp_number_id: authoritativeNumberId };
         }
 
 
@@ -1172,6 +1205,81 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("ok (no agent config)");
         }
 
+        const expectedReplyNumberId = blastReplyNumberId ?? numberId ?? conv.whatsapp_number_id ?? contact.whatsapp_number_id;
+        type ReplyNumberCreds = {
+          id: string;
+          nome: string | null;
+          uazapi_url: string | null;
+          uazapi_token: string | null;
+        };
+        let replyNumber: ReplyNumberCreds | null = null;
+        if (expectedReplyNumberId) {
+          const { data: resolvedNumber } = await supabaseAdmin
+            .from("whatsapp_numbers")
+            .select("id, nome, uazapi_url, uazapi_token")
+            .eq("id", expectedReplyNumberId)
+            .maybeSingle();
+          replyNumber = resolvedNumber as ReplyNumberCreds | null;
+        }
+        const replySendCreds = {
+          uazapi_url: replyNumber?.uazapi_url ?? (numberId ? numberUazapiUrl : integ.uazapi_url) ?? "",
+          uazapi_token: replyNumber?.uazapi_token ?? (numberId ? instanceToken : (integ.uazapi_token ?? "")),
+        };
+        const replyNumberLabel = replyNumber?.nome ?? (number ? ((number as unknown as { nome?: string }).nome ?? "número recebido") : "legacy/global");
+        if (expectedReplyNumberId && (!replyNumber?.uazapi_url || !replyNumber?.uazapi_token)) {
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          await logEvent({
+            userId,
+            phone,
+            conversationId: conv.id,
+            type: "send_text_blocked",
+            level: "error",
+            summary: "Envio bloqueado: número correto da conversa/campanha sem credenciais Uazapi",
+            metadata: {
+              origem: "conversas",
+              expected_reply_number_id: expectedReplyNumberId,
+              blast_reply_number_id: blastReplyNumberId,
+              blast_reply_number_source: blastReplyNumberSource,
+              inbound_number_id: numberId,
+            } as never,
+          });
+          return new Response("ok (reply number missing creds)");
+        }
+        console.log("[webhook/reply-number-resolved]", {
+          phone,
+          expected_reply_number_id: expectedReplyNumberId,
+          reply_number_name: replyNumberLabel,
+          reply_number_token: replySendCreds.uazapi_token?.slice(0, 8),
+          inbound_number_id: numberId,
+          inbound_instance_token: instanceToken?.slice(0, 8),
+          blast_reply_number_id: blastReplyNumberId,
+          blast_reply_number_source: blastReplyNumberSource,
+          using_global_fallback: !replyNumber && !numberId,
+        });
+        try {
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          await logEvent({
+            userId,
+            phone,
+            conversationId: conv.id,
+            type: "reply_number_resolved",
+            level: "info",
+            summary: `Resposta será enviada pelo número: ${replyNumberLabel} | token ${replySendCreds.uazapi_token?.slice(0, 8) ?? "sem-token"}`,
+            metadata: {
+              origem: "conversas",
+              expected_reply_number_id: expectedReplyNumberId,
+              reply_number_name: replyNumberLabel,
+              reply_number_token_prefix: replySendCreds.uazapi_token?.slice(0, 8) ?? null,
+              inbound_number_id: numberId,
+              inbound_instance_token_prefix: instanceToken?.slice(0, 8) ?? null,
+              blast_reply_number_id: blastReplyNumberId,
+              blast_reply_number_source: blastReplyNumberSource,
+              is_blast_thread: isBlastThread,
+              using_global_fallback: !replyNumber && !numberId,
+            } as never,
+          });
+        } catch {}
+
         // Guard absoluto: se o agente global, a conversa ou a revisão estiverem desligados,
         // salva a mensagem recebida, mas bloqueia QUALQUER resposta automática abaixo
         // (teste grátis, funil, IA, áudio, etc.).
@@ -1179,7 +1287,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const convEnabled = conv.agent_enabled !== false;
         const needsReview = (conv as { needs_review?: boolean }).needs_review === true;
         const isAutoReplyAllowed = async (): Promise<boolean> => {
-          if (isTestNumber || isBlastReply) return true;
+          if (isTestNumber || isBlastThread) return true;
           const { data: latestAgent } = await supabaseAdmin
             .from("agent_config")
             .select("agent_enabled")
@@ -1201,7 +1309,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .maybeSingle();
           return latestContact?.status !== "bloqueado";
         };
-        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber && !isBlastReply) {
+        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber && !isBlastThread) {
           await supabaseAdmin
             .from("conversations")
             .update({
@@ -1240,7 +1348,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               key: integ.smm_api_key,
             };
             const { uazapiSendText } = await import("@/lib/uazapi.server");
-            const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+            const creds = replySendCreds;
             const { data: lastTrial } = await supabaseAdmin
               .from("free_trials")
               .select("id, order_id, link_enviado, link_normalized, servico, quantidade, status")
@@ -1356,7 +1464,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     .map((r) => String(r.service_id));
 
                   const { uazapiSendText } = await import("@/lib/uazapi.server");
-                  const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+                  const creds = replySendCreds;
 
                   if (platformServiceIds.length === 0) {
                     // Não há teste para essa plataforma — não bloqueia, deixa IA responder
@@ -1434,7 +1542,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               const isPhoto = /\/p\//.test(path) && !isVideo;
               if (isPhoto) {
                 const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+                const creds = replySendCreds;
                 const msg = "Esse link é de uma foto, views só funcionam em Reel ou vídeo. Me manda o link de um Reel do seu perfil!";
                 if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial photo)");
                 try { await uazapiSendText(creds, phone, msg); } catch (e) { console.error("uazapi send (trial photo) failed", e); }
@@ -1494,10 +1602,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const existingTrial = isTestNumber ? null : (phoneCompleted || linkCompleted);
 
             const { uazapiSendText } = await import("@/lib/uazapi.server");
-            const creds = {
-              uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "",
-              uazapi_token: instanceToken || (integ.uazapi_token ?? ""),
-            };
+            const creds = replySendCreds;
 
             let replyText: string;
 
@@ -1630,7 +1735,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // "Modo Disparos": número usado para abordagem ativa.
         // IMPORTANTE: se o contato respondeu a um disparo (ou é número de teste),
         // a mensagem já foi registrada e a Júlia DEVE assumir a conversa.
-        if (disparosMode && !isBlastReply && !isTestNumber) return new Response("ok (disparos mode: no auto-reply)");
+        if (disparosMode && !isBlastThread && !isTestNumber) return new Response("ok (disparos mode: no auto-reply)");
 
         // ===== Respostas mínimas: emoji/figurinha/reações e "vou ver depois" =====
         // Roda antes de funil e Claude para não disparar fluxo automático em
@@ -1668,7 +1773,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before minimal reply)");
               if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
                 const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+                const creds = replySendCreds;
                 memMarkSent(phone, directReply);
                 await uazapiSendText(creds, phone, directReply);
                 const stamp = new Date().toISOString();
@@ -1713,11 +1818,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             try {
               const goodbye = "Tudo bem, desculpa o incômodo! Se precisar no futuro é só chamar 😊";
               const { uazapiSendText } = await import("@/lib/uazapi.server");
-              await uazapiSendText(
-                { uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "", uazapi_token: instanceToken },
-                phone,
-                goodbye,
-              );
+              await uazapiSendText(replySendCreds, phone, goodbye);
               const stamp = new Date().toISOString();
               await supabaseAdmin.from("messages").insert({
                 user_id: userId,
@@ -1799,10 +1900,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const defaultDelaySec = f.delay_seconds ?? 3;
             const clampDelayMs = (sec: number | undefined) =>
               Math.max(0, Math.min((sec ?? defaultDelaySec) * 1000, 180_000));
-            const creds = {
-              uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "",
-              uazapi_token: instanceToken || (integ.uazapi_token ?? ""),
-            };
+            const creds = replySendCreds;
             const { uazapiSendText, uazapiSendMedia } = await import("@/lib/uazapi.server");
             const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -2474,12 +2572,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         void hasHardContent;
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
-        const sendCreds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+        const sendCreds = replySendCreds;
         console.log("[webhook/reply-creds]", {
           using_instance_token: sendCreds.uazapi_token?.slice(0, 8),
           inbound_instance_token: instanceToken?.slice(0, 8),
           integ_token: integ.uazapi_token?.slice(0, 8),
           match: sendCreds.uazapi_token === instanceToken,
+          expected_reply_number_id: expectedReplyNumberId,
+          reply_number_name: replyNumberLabel,
+          blast_reply_number_id: blastReplyNumberId,
+          blast_reply_number_source: blastReplyNumberSource,
         });
         const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -2717,6 +2819,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     tipo: "tentativa_envio",
                     to: phone,
                     jid: `${phone}@s.whatsapp.net`,
+                    expected_reply_number_id: expectedReplyNumberId,
+                    reply_number_name: replyNumberLabel,
+                    reply_number_token_prefix: sendCreds.uazapi_token?.slice(0, 8) ?? null,
+                    inbound_instance_token_prefix: instanceToken?.slice(0, 8) ?? null,
+                    blast_reply_number_id: blastReplyNumberId,
+                    blast_reply_number_source: blastReplyNumberSource,
                     ...(replyParts.length > 1 ? { part_index: i, part_total: replyParts.length } : {}),
                   } as never,
                 });
@@ -2745,6 +2853,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     messageId: sendResult.messageId,
                     status: sendResult.status,
                     raw: sendResult.raw,
+                    expected_reply_number_id: expectedReplyNumberId,
+                    reply_number_name: replyNumberLabel,
+                    reply_number_token_prefix: sendCreds.uazapi_token?.slice(0, 8) ?? null,
+                    inbound_instance_token_prefix: instanceToken?.slice(0, 8) ?? null,
+                    blast_reply_number_id: blastReplyNumberId,
+                    blast_reply_number_source: blastReplyNumberSource,
                     ...(replyParts.length > 1 ? { part_index: i, part_total: replyParts.length } : {}),
                   } as never,
                 });
@@ -2863,6 +2977,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 // mas a resposta da Júlia já é conversa normal.
                 from_blast: false,
                 is_reply_to_blast: isBlastReply,
+                is_blast_thread: isBlastThread,
+                expected_reply_number_id: expectedReplyNumberId,
+                reply_number_name: replyNumberLabel,
+                reply_number_token_prefix: sendCreds.uazapi_token?.slice(0, 8) ?? null,
+                blast_reply_number_id: blastReplyNumberId,
+                blast_reply_number_source: blastReplyNumberSource,
                 kind: replyKind,
                 // part_index/part_total só fazem sentido quando há múltiplas
                 // partes (a Júlia às vezes divide em bolhas). Omitimos quando é 1/1.
