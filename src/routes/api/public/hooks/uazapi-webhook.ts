@@ -3029,14 +3029,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           const rows = replyParts
             .map((part, i) => ({ part, i }))
             .filter(({ i }) => !skippedIdx.has(i))
-            .map(({ part }) => ({
+            .map(({ part, i }) => ({
               user_id: userId,
               conversation_id: conv.id,
               sender: "agente" as const,
               kind: "texto" as const,
               body: part,
               audio_url: null,
-              created_at: new Date(new Date(nowReply).getTime() + replyParts.indexOf(part)).toISOString(),
+              created_at: new Date(new Date(nowReply).getTime() + i).toISOString(),
             }));
           if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
         }
