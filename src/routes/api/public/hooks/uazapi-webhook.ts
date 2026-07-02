@@ -873,7 +873,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         } catch {}
 
-        if (contact.status === "bloqueado") {
+        if (contact.status === "bloqueado" && !isTestNumber) {
           return new Response("ok (blocked)");
         }
 
