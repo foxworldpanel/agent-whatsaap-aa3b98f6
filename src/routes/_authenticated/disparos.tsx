@@ -373,6 +373,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
 
   const [filter, setFilter] = useState<PanelFilter>("all");
   const [q, setQ] = useState("");
+  const [numberFilter, setNumberFilter] = useState<string>("all");
 
   const { data: rows = [] } = useQuery({
     queryKey: ["panel_contacts", "unified", listIds.join(",")],
@@ -388,18 +389,20 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
     },
   });
 
-  // Nomes dos números para exibição
-  const { data: numbersMap = {} } = useQuery({
-    queryKey: ["panel_numbers_map"],
+  // Números do ZapAgent — usados para gerar filtros dinâmicos
+  const { data: allNumbers = [] } = useQuery({
+    queryKey: ["panel_numbers_list"],
     queryFn: async () => {
       const { data } = await supabase
         .from("whatsapp_numbers")
-        .select("id, nome");
-      const map: Record<string, string> = {};
-      for (const n of data ?? []) map[n.id as string] = (n.nome as string) ?? "—";
-      return map;
+        .select("id, nome, status")
+        .order("nome", { ascending: true });
+      return (data ?? []) as Array<{ id: string; nome: string | null; status: string | null }>;
     },
   });
+  const numbersMap: Record<string, string> = {};
+  for (const n of allNumbers) numbersMap[n.id] = n.nome ?? "—";
+  const connectedNumbers = allNumbers.filter((n) => (n.status ?? "").toLowerCase() === "connected");
 
   const { data: campaign } = useQuery({
     queryKey: ["panel_campaign_unified", listIds.join(",")],
@@ -434,6 +437,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   // Filtro + busca
   const term = q.trim().toLowerCase();
   const filtered = rows.filter((r) => {
+    if (numberFilter !== "all" && r.sent_via_number_id !== numberFilter) return false;
     if (!panelStatusMatches(r.status, filter)) return false;
     if (!term) return true;
     return (
@@ -442,6 +446,15 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
       (r.instagram ?? "").toLowerCase().includes(term)
     );
   });
+
+  // Contadores por número (contatos abordados = já enviados)
+  const countByNumber: Record<string, number> = {};
+  let countAll = 0;
+  for (const r of rows) {
+    if (!r.sent_via_number_id) continue;
+    countByNumber[r.sent_via_number_id] = (countByNumber[r.sent_via_number_id] ?? 0) + 1;
+    countAll += 1;
+  }
 
   const isActive = campaign?.state === "rodando";
   const dailyLimit = campaign?.daily_limit ?? 0;
@@ -505,10 +518,36 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tempo real</span>
       </div>
 
-      {/* Tabs */}
-      <div className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-xs text-primary">
-        <Users className="h-4 w-4" /> Base unificada
-        <span className="ml-1 text-[10px] opacity-80">({totalContatos})</span>
+      {/* Filtros por número do ZapAgent */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => setNumberFilter("all")}
+          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+            numberFilter === "all"
+              ? "border-primary/40 bg-primary/5 text-primary"
+              : "border-border bg-card text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <Users className="h-4 w-4" /> Todos os números
+          <span className="ml-1 text-[10px] opacity-80">({countAll || totalContatos})</span>
+        </button>
+        {connectedNumbers.length === 0 && (
+          <span className="text-[11px] text-muted-foreground">Nenhum número conectado.</span>
+        )}
+        {connectedNumbers.map((n) => (
+          <button
+            key={n.id}
+            onClick={() => setNumberFilter(n.id)}
+            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+              numberFilter === n.id
+                ? "border-primary/40 bg-primary/5 text-primary"
+                : "border-border bg-card text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            📱 {n.nome ?? "—"}
+            <span className="ml-1 text-[10px] opacity-80">({countByNumber[n.id] ?? 0})</span>
+          </button>
+        ))}
       </div>
 
       {/* Progresso quando campanha ativa */}
