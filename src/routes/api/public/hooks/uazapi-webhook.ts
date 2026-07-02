@@ -971,6 +971,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         let blastDispatchMode: "agente_livre" | "fluxo_visual" = "agente_livre";
         let blastReplyNumberId: string | null = null;
         let blastReplyNumberSource: "blast_sent_via" | "campaign_number" | null = null;
+        let blastLastSentAt: string | null = null;
         try {
           const { data: latestBlastForPhone } = await supabaseAdmin
             .from("blast_contacts")
@@ -985,8 +986,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             status?: string | null;
             campaign_id?: string | null;
             sent_via_number_id?: string | null;
+            last_sent_at?: string | null;
           } | undefined;
           isBlastThread = !!latestBlast;
+          blastLastSentAt = latestBlast?.last_sent_at ?? null;
           if (latestBlast?.sent_via_number_id) {
             blastReplyNumberId = latestBlast.sent_via_number_id;
             blastReplyNumberSource = "blast_sent_via";
@@ -2099,15 +2102,25 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const historyConversationIds = threadConversationIds.length > 0 ? threadConversationIds : [conv.id];
-        const { data: history } = await supabaseAdmin
+        // Se o lead veio de disparo, há bases antigas com múltiplas conversas
+        // duplicadas para o mesmo contato+número. O histórico precisa juntar
+        // todas essas conversas, mas só a partir da última abertura do disparo,
+        // para não carregar conversas antigas irrelevantes do mesmo contato.
+        const historySinceIso = blastLastSentAt
+          ? new Date(new Date(blastLastSentAt).getTime() - 2 * 60 * 1000).toISOString()
+          : null;
+        let historyQuery = supabaseAdmin
           .from("messages")
           .select("sender, body")
           .in("conversation_id", historyConversationIds)
           .order("created_at", { ascending: true });
+        if (historySinceIso) historyQuery = historyQuery.gte("created_at", historySinceIso);
+        const { data: history } = await historyQuery;
 
         console.info("[agent-webhook] Loaded full conversation history for Claude", {
           conversationId: conv.id,
           conversationIds: historyConversationIds,
+          historySinceIso,
           messagesCount: history?.length ?? 0,
         });
 
