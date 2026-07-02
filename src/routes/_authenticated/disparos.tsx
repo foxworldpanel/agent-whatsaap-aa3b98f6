@@ -34,6 +34,7 @@ import {
   exportContactList,
 } from "@/lib/contact-lists.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
+import { BlastFlowBuilder } from "@/components/BlastFlowBuilder";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
   ssr: false,
@@ -933,6 +934,7 @@ function BlastCampaignCard({
 
       <div className="space-y-3">
         <VariationInfoCard />
+        <BlastFlowBuilder campaignId={camp.id} />
         <button
           onClick={() => saveMut.mutate()}
           disabled={saveMut.isPending}
