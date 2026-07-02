@@ -815,14 +815,26 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
-        // Marca blast_contacts como respondeu (interrompe sequência)
+        // Detecta se esta mensagem é resposta a um disparo ativo.
+        // Se sim, o agente Júlia assume a conversa diretamente — sem funil.
+        let isBlastReply = false;
         try {
-          await supabaseAdmin
+          const { data: pendingBlast } = await supabaseAdmin
             .from("blast_contacts")
-            .update({ status: "respondeu", replied_at: new Date().toISOString() })
+            .select("id, status")
             .eq("user_id", userId)
             .eq("telefone", phone)
-            .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7", "pendente"]);
+            .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7"])
+            .limit(1);
+          isBlastReply = !!(pendingBlast && pendingBlast.length > 0);
+          if (isBlastReply) {
+            await supabaseAdmin
+              .from("blast_contacts")
+              .update({ status: "respondeu", replied_at: new Date().toISOString() })
+              .eq("user_id", userId)
+              .eq("telefone", phone)
+              .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7", "pendente"]);
+          }
         } catch {}
 
         if (contact.status === "bloqueado") {
