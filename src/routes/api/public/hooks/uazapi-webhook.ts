@@ -2998,6 +2998,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             kind: "audio" | "texto";
             body: string;
             audio_url: string | null;
+            created_at: string;
           }> = [
           ];
           if (!skippedIdx.has(0)) {
@@ -3008,6 +3009,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               kind: "audio",
               body: replyParts[0],
               audio_url: audioDataUri,
+              created_at: new Date(nowReply).toISOString(),
             });
           }
           for (let i = 1; i < replyParts.length; i += 1) {
@@ -3019,6 +3021,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               kind: "texto",
               body: replyParts[i],
               audio_url: null,
+              created_at: new Date(new Date(nowReply).getTime() + i).toISOString(),
             });
           }
           if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
@@ -3033,6 +3036,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               kind: "texto" as const,
               body: part,
               audio_url: null,
+              created_at: new Date(new Date(nowReply).getTime() + replyParts.indexOf(part)).toISOString(),
             }));
           if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
         }
