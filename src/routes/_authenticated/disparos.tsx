@@ -2350,9 +2350,15 @@ function ContactListsSection() {
                 <button
                   onClick={async () => {
                     if (!confirm("Limpar TODOS os contatos da base de disparo?")) return;
-                    await Promise.all(sortedLists.map((l) => clearFn({ data: { listId: l.id } })));
-                    qc.invalidateQueries({ queryKey: ["contact_lists"] });
-                    qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
+                    try {
+                      const res = await clearAllFn();
+                      qc.invalidateQueries({ queryKey: ["contact_lists"] });
+                      qc.invalidateQueries({ queryKey: ["contact_categories_counts"] });
+                      qc.invalidateQueries({ queryKey: ["panel_contacts"] });
+                      alert(`Base limpa: ${res?.deleted ?? 0} contatos removidos.`);
+                    } catch (e) {
+                      alert("Erro ao limpar base: " + (e as Error).message);
+                    }
                   }}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20"
                 >
