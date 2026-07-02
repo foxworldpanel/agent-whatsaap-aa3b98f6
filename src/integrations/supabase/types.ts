@@ -1275,6 +1275,42 @@ export type Database = {
           },
         ]
       }
+      opening_templates: {
+        Row: {
+          created_at: string
+          id: string
+          linha2: Json
+          perguntas: Json
+          saudacoes_manha: Json
+          saudacoes_noite: Json
+          saudacoes_tarde: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          linha2?: Json
+          perguntas?: Json
+          saudacoes_manha?: Json
+          saudacoes_noite?: Json
+          saudacoes_tarde?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          linha2?: Json
+          perguntas?: Json
+          saudacoes_manha?: Json
+          saudacoes_noite?: Json
+          saudacoes_tarde?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       panel_guide: {
         Row: {
           created_at: string
