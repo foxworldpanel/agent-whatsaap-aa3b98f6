@@ -325,20 +325,34 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   for (const n of allNumbers) numbersMap[n.id] = n.nome ?? "—";
 
   const { data: campaign } = useQuery({
-    queryKey: ["panel_campaign_unified", listIds.join(",")],
-    enabled: listIds.length > 0,
+    queryKey: ["panel_campaign_unified"],
     queryFn: async () => {
+      // Busca a campanha mais recente do usuário (RLS já filtra por user_id).
+      // Prioriza "rodando" → "pausado" → "parado".
       const { data } = await supabase
         .from("blast_campaigns")
-        .select("id, name, contact_list_id, state, daily_limit, delay_min_sec, delay_max_sec, last_dispatch_at")
-        .in("contact_list_id", listIds)
-        .order("state", { ascending: false })
+        .select("id, name, contact_list_id, state, daily_limit, delay_min_sec, delay_max_sec, last_dispatch_at, opening_message")
         .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return (data ?? null) as PanelCampaign | null;
+        .limit(20);
+      const list = (data ?? []) as PanelCampaign[];
+      const priority: Record<string, number> = { rodando: 0, pausado: 1, parado: 2 };
+      list.sort((a, b) => (priority[a.state] ?? 9) - (priority[b.state] ?? 9));
+      return list[0] ?? null;
     },
   });
+
+  // Realtime — atualiza card de progresso quando a campanha mudar
+  useEffect(() => {
+    const ch = supabase
+      .channel("panel_campaign_unified")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "blast_campaigns" },
+        () => qc.invalidateQueries({ queryKey: ["panel_campaign_unified"] }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
 
   // Realtime — atualiza sem reload
   useEffect(() => {
