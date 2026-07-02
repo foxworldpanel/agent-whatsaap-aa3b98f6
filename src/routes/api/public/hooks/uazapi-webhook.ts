@@ -696,6 +696,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .eq("phone", phone)
             .maybeSingle();
           isTestNumber = !!tn;
+          // Compatibilidade com bases onde os números de teste foram criados
+          // antes da troca de dono da instância Uazapi: o teste deve valer pelo
+          // telefone, sem pular o pipeline normal de conversa/agente.
+          if (!isTestNumber) {
+            const { data: tnGlobal } = await supabaseAdmin
+              .from("test_numbers")
+              .select("id")
+              .eq("phone", phone)
+              .limit(1);
+            isTestNumber = !!(tnGlobal && tnGlobal.length > 0);
+          }
           if (isTestNumber) {
             console.log(`🧪 Modo teste ativo para ${phone} — travas ignoradas`);
             try {
@@ -706,6 +717,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 type: "test_number",
                 level: "info",
                 summary: `🧪 Modo teste ativo para ${phone} — travas ignoradas`,
+                metadata: { origem: "sistema", direcao: "recebido", tipo: "numero_teste" } as never,
               });
             } catch {}
           }
