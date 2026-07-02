@@ -658,31 +658,6 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         ))}
       </div>
 
-      {/* Progresso quando campanha ativa */}
-      {isActive && (
-        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Zap className="h-4 w-4 text-emerald-500" />
-            <span className="font-semibold text-emerald-500">Disparando…</span>
-            <span className="text-muted-foreground">
-              {sentToday}/{dailyLimit || "∞"} hoje
-            </span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
-            <span>✅ Enviados: <b className="text-foreground">{enviados}</b></span>
-            <span>💬 Responderam: <b className="text-foreground">{responderam}</b></span>
-            <span>🛍️ Converteram: <b className="text-foreground">{converteram}</b></span>
-            {nextInSec !== null && (
-              <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> Próximo em: <b className="text-foreground">{Math.floor(nextInSec/60)}m {nextInSec%60}s</b></span>
-            )}
-            {conclusaoEta && <span>📅 Previsão: <b className="text-foreground">{conclusaoEta}</b></span>}
-          </div>
-        </div>
-      )}
-
       {/* Próximo na fila */}
       {isActive && nextInLine && (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
