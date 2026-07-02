@@ -2697,13 +2697,52 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               memMarkSent(phone, replyParts[i]);
               try {
                 const { logEvent } = await import("@/lib/agent-logger.server");
-                await logEvent({ userId, phone, conversationId: conv.id, type: "send_text", level: "info", summary: `✉️ Enviando texto (${replyParts[i].length} chars, parte ${i + 1}/${replyParts.length})`, response: replyParts[i].slice(0, 200) });
+                await logEvent({
+                  userId,
+                  phone,
+                  conversationId: conv.id,
+                  type: "send_text_attempt",
+                  level: "info",
+                  summary: `✉️ Tentando enviar texto (${replyParts[i].length} chars${replyParts.length > 1 ? `, parte ${i + 1}/${replyParts.length}` : ""})`,
+                  response: replyParts[i].slice(0, 200),
+                  metadata: {
+                    origem: "conversas",
+                    direcao: "enviado",
+                    tipo: "tentativa_envio",
+                    to: phone,
+                    jid: `${phone}@s.whatsapp.net`,
+                    ...(replyParts.length > 1 ? { part_index: i, part_total: replyParts.length } : {}),
+                  } as never,
+                });
               } catch {}
-              await uazapiSendText(
+              const sendResult = await uazapiSendText(
                 sendCreds,
                 phone,
                 replyParts[i],
               );
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({
+                  userId,
+                  phone,
+                  conversationId: conv.id,
+                  type: "send_text",
+                  level: "info",
+                  summary: `✅ Texto aceito pela Uazapi | destino ${phone}@s.whatsapp.net | messageId=${sendResult.messageId}`,
+                  response: replyParts[i],
+                  metadata: {
+                    origem: "conversas",
+                    direcao: "enviado",
+                    tipo: "envio_confirmado",
+                    to: phone,
+                    jid: `${phone}@s.whatsapp.net`,
+                    messageId: sendResult.messageId,
+                    status: sendResult.status,
+                    raw: sendResult.raw,
+                    ...(replyParts.length > 1 ? { part_index: i, part_total: replyParts.length } : {}),
+                  } as never,
+                });
+              } catch {}
               if (i < replyParts.length - 1) {
                 await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
                 await sleep(1200);
@@ -2811,6 +2850,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 direcao: "enviado",
                 tipo: "resposta_agente",
                 contato_nome: contact.nome,
+                metadata_version: "conversation_reply_not_blast_v2",
                 // ⚠️ Resposta de conversa NUNCA é from_blast — só a mensagem de
                 // abertura do disparo (blast-dispatcher) carrega esse flag.
                 // isBlastReply aqui significa "cliente respondeu ao disparo",
