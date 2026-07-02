@@ -1380,6 +1380,27 @@ export type Database = {
         }
         Relationships: []
       }
+      test_numbers: {
+        Row: {
+          created_at: string
+          id: string
+          phone: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          phone: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          phone?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       welcome_funnel_runs: {
         Row: {
           contact_id: string
