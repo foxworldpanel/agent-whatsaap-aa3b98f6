@@ -2373,110 +2373,28 @@ function ContactListsSection() {
         Números duplicados dentro da base são bloqueados automaticamente.
       </p>
 
-      {/* Visão Geral da Base — soma Lista A + Lista B, atualiza em tempo real */}
-      <div className="rounded-xl border border-border p-5 space-y-4" style={{ background: "var(--gradient-card)" }}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold">Visão Geral da Base</h3>
-          </div>
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tempo real</span>
-        </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          <OverviewStat icon={<Users className="h-4 w-4" />} label="Total na base" value={overview.total} tone="primary" />
-          <OverviewStat icon={<Send className="h-4 w-4" />} label="Abordados" value={overview.contatados} />
-          <OverviewStat
-            icon={<MessageCircle className="h-4 w-4" />}
-            label="Responderam"
-            value={overview.respondeu}
-            hint={`${pct(overview.respondeu, overview.contatados)}%`}
-            tone="info"
-          />
-          <OverviewStat
-            icon={<CheckCircle2 className="h-4 w-4" />}
-            label="Converteram"
-            value={overview.convertido}
-            hint={`${pct(overview.convertido, overview.contatados)}%`}
-            tone="success"
-          />
-          <OverviewStat icon={<Ban className="h-4 w-4" />} label="Sem resposta" value={semResposta} tone="warn" />
-        </div>
-        <div className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 ${convTone.bg}`}>
-          <div className="flex items-center gap-2 text-sm">
-            <BarChart3 className={`h-4 w-4 ${convTone.text}`} />
-            <span className="text-muted-foreground">Taxa de conversão:</span>
-            <span className={`font-semibold ${convTone.text}`}>{convRate}%</span>
-            <span className="text-xs text-muted-foreground">
-              ({overview.convertido} de {overview.respondeu} que responderam compraram)
-            </span>
-          </div>
-          <button
-            onClick={exportCombinedReport}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
-          >
-            <BarChart3 className="h-3.5 w-3.5" /> Exportar relatório
-          </button>
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          Veja os detalhes individuais de cada lista nos cards abaixo.
-        </p>
-      </div>
+      {/* Base de Contatos é a única fonte de verdade — os stats aparecem no painel abaixo. */}
 
       {(() => {
         const primary = sortedLists[0];
         if (!primary) return null;
         const rows = csvByList[primary.id] ?? [];
         const sum = summary[primary.id];
-        const anyActive = sortedLists.some((l) => activeListIds.has(l.id));
         return (
           <div className="rounded-xl border border-border p-5 space-y-3" style={{ background: "var(--gradient-card)" }}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                  <Users className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Base de Contatos</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Sistema unificado — leads do Meta Ads entram automaticamente e você pode importar CSV manual.
-                  </p>
-                </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <Plus className="h-5 w-5" />
               </div>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${anyActive ? "bg-emerald-500/15 text-emerald-500" : "bg-muted text-muted-foreground"}`}>
-                {anyActive ? "● Ativa" : "○ Parada"}
-              </span>
-            </div>
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <Stat label="Total" value={overview.total} />
-              <Stat label="Abordados" value={overview.contatados} />
-              <Stat label="Respondeu" value={overview.respondeu} />
-              <Stat label="Converteu" value={overview.convertido} />
-            </div>
-            {categories.length > 0 && (
-              <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-background/40 p-2 text-xs">
-                <span className="text-muted-foreground">Por categoria:</span>
-                {categories.map((c) => (
-                  <span key={c.id} className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5">
-                    <span>{c.icone}</span>
-                    <span className="font-medium">{c.nome}:</span>
-                    <span className="text-muted-foreground">{(catCounts as Record<string, number>)[c.id] ?? 0}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-            {overview.total > 0 && (
               <div>
-                <button
-                  onClick={() => setOpenContactsFor((v) => (v ? null : primary.id))}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
-                >
-                  <Eye className="h-3.5 w-3.5" /> {openContactsFor ? "Ocultar contatos" : "Ver contatos"}
-                </button>
-                {openContactsFor && <ListContactsTable listId={primary.id} />}
+                <h3 className="font-semibold">Importar Contatos</h3>
+                <p className="text-xs text-muted-foreground">
+                  Envie um CSV manual. Leads do Meta Ads entram automaticamente na base.
+                </p>
               </div>
-            )}
+            </div>
             <div className="space-y-2">
-              <label className="block text-xs text-muted-foreground">Importar CSV (nome, telefone, instagram)</label>
+              <label className="block text-xs text-muted-foreground">Arquivo CSV (colunas: nome, telefone, instagram)</label>
               <div className="flex flex-wrap items-center gap-2">
                 <label className="text-xs text-muted-foreground">Categoria*:</label>
                 <select
