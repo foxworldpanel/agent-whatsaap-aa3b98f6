@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Settings, Save, Check, Gift, Play } from "lucide-react";
+import { Settings, Save, Check, Gift, Play, FlaskConical, Plus, X } from "lucide-react";
 import { getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
+import { listTestNumbers, addTestNumber, removeTestNumber } from "@/lib/test-numbers.functions";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   ssr: false,
@@ -49,6 +50,20 @@ function ConfiguracoesPage() {
   const previewMut = useMutation({
     mutationFn: () => preview({ data: {} }),
     onSuccess: ({ audio }) => { new Audio(audio).play().catch(() => {}); },
+  });
+
+  const listTest = useServerFn(listTestNumbers);
+  const addTest = useServerFn(addTestNumber);
+  const rmTest = useServerFn(removeTestNumber);
+  const testQ = useQuery({ queryKey: ["test_numbers"], queryFn: () => listTest() });
+  const [newTest, setNewTest] = useState("");
+  const addTestMut = useMutation({
+    mutationFn: (phone: string) => addTest({ data: { phone } }),
+    onSuccess: () => { setNewTest(""); qc.invalidateQueries({ queryKey: ["test_numbers"] }); },
+  });
+  const rmTestMut = useMutation({
+    mutationFn: (id: string) => rmTest({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["test_numbers"] }),
   });
 
   useEffect(() => {
