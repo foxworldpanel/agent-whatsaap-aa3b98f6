@@ -672,6 +672,31 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           numberUazapiUrl = integLegacy.uazapi_url;
         }
 
+        // Log de diagnóstico: qual número recebeu a mensagem e em qual modo
+        const modoLabel = disparosMode ? "disparos" : metaAdsEnabled ? "meta_ads" : "agente";
+        console.log(
+          `📥 Mensagem recebida no número: ${instanceToken} | Modo: ${modoLabel} | numberId=${numberId ?? "(legacy)"} | user=${userId} | phone=${phone}`,
+        );
+        try {
+          await logEvent({
+            userId,
+            phone,
+            type: "message_received",
+            level: "info",
+            summary: `Mensagem recebida no número ${instanceToken} | Modo: ${modoLabel}`,
+            metadata: {
+              instance_token: instanceToken,
+              number_id: numberId,
+              modo: modoLabel,
+              disparos_mode: disparosMode,
+              meta_ads_enabled: metaAdsEnabled,
+              origem: "conversas",
+            },
+          });
+        } catch (e) {
+          console.error("[webhook] failed to log message_received", e);
+        }
+
         // Carrega config completa do dono do número (chaves de API, SMM, teste grátis)
         const { data: integ, error: intLoadErr } = await supabaseAdmin
           .from("integrations")
