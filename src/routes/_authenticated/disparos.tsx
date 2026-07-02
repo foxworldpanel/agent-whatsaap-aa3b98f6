@@ -2289,11 +2289,9 @@ function ContactListsSection() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
-  // Lista A (Meta Ads) à esquerda, Lista B (Instagram) à direita
-  const sortedLists = [...lists].sort((a, b) => {
-    if (a.origem === b.origem) return 0;
-    return a.origem === "meta_ads" ? -1 : 1;
-  });
+  // Base de disparo: NÃO inclui listas de Meta Ads.
+  // Meta Ads é carregado separadamente quando o usuário decidir mudar de campanha.
+  const sortedLists = [...lists].filter((l) => l.origem !== "meta_ads");
 
   // Visão geral agregada (Lista A + Lista B)
   const overview = sortedLists.reduce(
@@ -2367,7 +2365,7 @@ function ContactListsSection() {
         <h2 className="font-semibold">Listas de Contatos</h2>
       </div>
       <p className="text-xs text-muted-foreground">
-        Base unificada de contatos para disparo. Importe por CSV ou receba leads automaticamente do Meta Ads.
+        Base de contatos do número de disparo. Importe por CSV para adicionar novos leads.
         Números duplicados dentro da base são bloqueados automaticamente.
       </p>
 
@@ -2387,7 +2385,7 @@ function ContactListsSection() {
               <div>
                 <h3 className="font-semibold">Importar Contatos</h3>
                 <p className="text-xs text-muted-foreground">
-                  Envie um CSV manual. Leads do Meta Ads entram automaticamente na base.
+                  Envie um CSV manual com os contatos que serão abordados por este número.
                 </p>
               </div>
             </div>
