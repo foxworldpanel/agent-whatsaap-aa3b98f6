@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat, Eye, BarChart3, History, Zap, Megaphone, Instagram, Users, Ban } from "lucide-react";
+import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, Trash2, Sparkles, AlertTriangle, Check, Repeat, Eye, BarChart3, History, Zap, Megaphone, Instagram, Users, Ban, Search, SkipForward, ShieldOff, Clock, ShoppingBag } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { SAUDACOES, CORPOS_MENSAGEM } from "@/lib/blast-variations";
 import {
@@ -26,6 +27,8 @@ import {
   clearBlastContacts,
   testBlastCampaign,
   getNumberHealth,
+  skipBlastContact,
+  blockBlastContact,
 } from "@/lib/blast.functions";
 import {
   listContactLists,
