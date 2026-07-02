@@ -378,7 +378,9 @@ export type Database = {
         Row: {
           campaign_id: string | null
           contact_list_id: string | null
+          converted_at: string | null
           created_at: string
+          error_message: string | null
           id: string
           instagram: string
           last_sent_at: string | null
@@ -397,7 +399,9 @@ export type Database = {
         Insert: {
           campaign_id?: string | null
           contact_list_id?: string | null
+          converted_at?: string | null
           created_at?: string
+          error_message?: string | null
           id?: string
           instagram?: string
           last_sent_at?: string | null
@@ -416,7 +420,9 @@ export type Database = {
         Update: {
           campaign_id?: string | null
           contact_list_id?: string | null
+          converted_at?: string | null
           created_at?: string
+          error_message?: string | null
           id?: string
           instagram?: string
           last_sent_at?: string | null
