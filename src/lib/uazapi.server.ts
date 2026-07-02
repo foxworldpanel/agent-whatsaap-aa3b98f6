@@ -81,13 +81,23 @@ export async function uazapiSendText(
   const phone = normalizePhone(to);
   assertIndividualPhone(phone, "/send/text");
   const resp = await uazapiPost(creds, "/send/text", { number: phone, text });
+  const nestedData = resp?.data as Record<string, unknown> | undefined;
+  const nestedKey = (resp?.key as Record<string, unknown> | undefined) ?? (nestedData?.key as Record<string, unknown> | undefined);
   const messageId =
     (resp?.messageId as string | undefined) ??
     (resp?.id as string | undefined) ??
+    (resp?.messageid as string | undefined) ??
+    (resp?.message_id as string | undefined) ??
+    (nestedData?.messageId as string | undefined) ??
+    (nestedData?.id as string | undefined) ??
+    (nestedData?.messageid as string | undefined) ??
+    (nestedKey?.id as string | undefined) ??
     ((resp?.message as Record<string, unknown> | undefined)?.id as string | undefined) ??
+    ((nestedData?.message as Record<string, unknown> | undefined)?.id as string | undefined) ??
     null;
   const status =
     (resp?.status as string | undefined) ??
+    (nestedData?.status as string | undefined) ??
     ((resp?.message as Record<string, unknown> | undefined)?.status as string | undefined) ??
     null;
   // Log RESPOSTA COMPLETA para diagnosticar "HTTP 200 sem entrega real".
@@ -100,10 +110,12 @@ export async function uazapiSendText(
     raw: resp,
   });
   if (!messageId) {
+    const rawJson = JSON.stringify(resp ?? {}).slice(0, 1500);
     console.warn("[uazapi/send-text] ⚠️ resposta 200 SEM messageId — provável não-entrega", {
       to: phone,
       raw: resp,
     });
+    throw new Error(`Uazapi /send/text respondeu 200 sem messageId para ${phone}. Raw: ${rawJson}`);
   }
   return { messageId, status, raw: resp };
 }

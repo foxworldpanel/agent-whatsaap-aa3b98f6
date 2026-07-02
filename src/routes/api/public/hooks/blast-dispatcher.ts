@@ -275,7 +275,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             let errMsg: string | undefined;
             try {
               for (let i = 0; i < messageParts.length; i++) {
-                await uazapiSendText(
+                const sendResult = await uazapiSendText(
                   { uazapi_url: url, uazapi_token: token },
                   next.contact.telefone,
                   messageParts[i],
@@ -293,8 +293,14 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                       direcao: "enviado",
                       tipo: next.stage === "opening" ? "abertura" : `followup_${next.stage}`,
                       contato_nome: next.contact.nome,
-                      part_index: i,
-                      part_total: messageParts.length,
+                      to: next.contact.telefone,
+                      jid: `${String(next.contact.telefone).replace(/\D+/g, "")}@s.whatsapp.net`,
+                      messageId: sendResult.messageId,
+                      status: sendResult.status,
+                      raw: sendResult.raw,
+                      ...(next.stage === "opening"
+                        ? { from_blast: true, part_index: i, part_total: messageParts.length }
+                        : {}),
                     } as never,
                   });
                 } catch {}
