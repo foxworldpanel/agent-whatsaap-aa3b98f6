@@ -529,6 +529,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("missing token/phone", { status: 400 });
         }
 
+        // 🔍 Log de entrada do webhook (diagnóstico por número)
+        console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
+
         const { text, kind } = extractContent(payload);
         // Para o DB (enum message_kind = texto|audio) e fluxos legados,
         // tratamos imagem como "texto". O flag `isImage` controla a chamada
@@ -640,7 +643,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
         const { data: number } = await supabaseAdmin
           .from("whatsapp_numbers")
-          .select("id, user_id, uazapi_url, meta_ads_enabled, disparos_mode")
+          .select("id, user_id, uazapi_url, meta_ads_enabled, disparos_mode, nome")
           .eq("uazapi_token", instanceToken)
           .order("updated_at", { ascending: false, nullsFirst: false })
           .limit(1)
@@ -658,7 +661,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           numberUazapiUrl = number.uazapi_url;
           metaAdsEnabled = !!number.meta_ads_enabled;
           disparosMode = !!number.disparos_mode;
+          console.log(
+            `✅ Número encontrado: ${(number as unknown as { nome?: string }).nome ?? "(sem nome)"} | Modo: ${disparosMode ? "disparos" : metaAdsEnabled ? "meta_ads" : "agente"} | id=${numberId}`,
+          );
         } else {
+          console.warn(`⚠️ ERRO: Número não encontrado em whatsapp_numbers para token ${instanceToken} — caindo em integrations (legacy)`);
           const { data: integLegacy, error: intErr } = await supabaseAdmin
             .from("integrations")
             .select("user_id, uazapi_url")
@@ -667,7 +674,20 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .limit(1)
             .maybeSingle();
           if (intErr) return new Response(intErr.message, { status: 500 });
-          if (!integLegacy) return new Response("instance not registered", { status: 404 });
+          if (!integLegacy) {
+            console.error(`❌ ERRO: Nenhuma integração encontrada para token ${instanceToken} — instância não registrada`);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                phone,
+                type: "instance_not_found",
+                level: "error",
+                summary: `Número não encontrado para token ${instanceToken}`,
+                metadata: { instance_token: instanceToken },
+              });
+            } catch {}
+            return new Response("instance not registered", { status: 404 });
+          }
           userId = integLegacy.user_id;
           numberUazapiUrl = integLegacy.uazapi_url;
         }
