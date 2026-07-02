@@ -911,6 +911,7 @@ type BlastCampaign = {
   followup_day3_message: string;
   followup_day7_message: string;
   state: "parado" | "rodando" | "pausado";
+  dispatch_mode?: "agente_livre" | "fluxo_visual" | null;
 };
 
 type CsvRow = {
