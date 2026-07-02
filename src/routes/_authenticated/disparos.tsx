@@ -137,7 +137,6 @@ function Disparos() {
 
       {activeTab === "ativo" && (
         <div className="space-y-6">
-          <ScriptsSection enabled={disparosActive} />
           <NumbersCard />
           <ContactListsSection />
           <BlastSection />
