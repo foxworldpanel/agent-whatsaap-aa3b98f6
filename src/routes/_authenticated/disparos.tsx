@@ -1318,6 +1318,52 @@ function BlastCampaignCard({
         </Field>
       </div>
 
+      <div className="rounded-lg border border-border bg-card/50 p-4 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <h4 className="font-semibold text-sm">Categorias de origem</h4>
+            <p className="text-[11px] text-muted-foreground">
+              Selecione as categorias que servem como fonte de contatos. Quando marcada,
+              a campanha puxa TODOS os contatos dessas categorias (Lead Instagram + Meta Ads etc),
+              ignorando a "Lista de contatos" acima.
+            </p>
+          </div>
+          {categoria_ids.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCategoriaIds([])}
+              className="text-[11px] text-muted-foreground underline hover:text-foreground"
+            >
+              limpar
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {categories.length === 0 && (
+            <span className="text-xs text-muted-foreground">Nenhuma categoria cadastrada.</span>
+          )}
+          {categories.map((c) => {
+            const on = categoria_ids.includes(c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => toggleCategoria(c.id)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
+                  on
+                    ? "border-primary bg-primary/15 text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <span>{c.icone}</span>
+                <span>{c.nome}</span>
+                {on && <span className="text-primary">✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="space-y-3">
         <VariationInfoCard />
         <div className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
