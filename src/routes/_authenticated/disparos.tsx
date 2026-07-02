@@ -644,7 +644,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                           try {
                             await skipFn({ data: { id: r.id } });
                             toast.success("Contato pulado");
-                            qc.invalidateQueries({ queryKey: ["panel_contacts", active?.id] });
+                            qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
                           } catch (e) { toast.error((e as Error).message); }
                         }}
                         className="rounded-md border border-border p-1 hover:bg-muted"
@@ -658,7 +658,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                           try {
                             await blockFn({ data: { id: r.id, telefone: r.telefone } });
                             toast.success("Contato bloqueado");
-                            qc.invalidateQueries({ queryKey: ["panel_contacts", active?.id] });
+                            qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
                           } catch (e) { toast.error((e as Error).message); }
                         }}
                         className="rounded-md border border-destructive/40 bg-destructive/10 p-1 text-destructive hover:bg-destructive/20"
