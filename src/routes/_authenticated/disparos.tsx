@@ -301,6 +301,7 @@ type PanelContactRow = {
   converted_at: string | null;
   ultima_interacao: string | null;
   error_message: string | null;
+  sent_via_number_id: string | null;
 };
 
 type PanelCampaign = {
