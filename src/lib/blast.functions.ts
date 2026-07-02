@@ -60,6 +60,7 @@ export const updateBlastCampaign = createServerFn({ method: "POST" })
         opening_message: z.string().max(4000).optional(),
         followup_day3_message: z.string().max(4000).optional(),
         followup_day7_message: z.string().max(4000).optional(),
+        dispatch_mode: z.enum(["agente_livre", "fluxo_visual"]).optional(),
       })
       .parse(d),
   )

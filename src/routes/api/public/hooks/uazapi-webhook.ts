@@ -818,16 +818,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // Detecta se esta mensagem é resposta a um disparo ativo.
         // Se sim, o agente Júlia assume a conversa diretamente — sem funil.
         let isBlastReply = false;
+        let blastDispatchMode: "agente_livre" | "fluxo_visual" = "agente_livre";
         try {
           const { data: pendingBlast } = await supabaseAdmin
             .from("blast_contacts")
-            .select("id, status")
+            .select("id, status, campaign_id")
             .eq("user_id", userId)
             .eq("telefone", phone)
             .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7"])
             .limit(1);
           isBlastReply = !!(pendingBlast && pendingBlast.length > 0);
           if (isBlastReply) {
+            const campId = (pendingBlast?.[0] as { campaign_id?: string | null } | undefined)?.campaign_id;
+            if (campId) {
+              const { data: campRow } = await supabaseAdmin
+                .from("blast_campaigns")
+                .select("dispatch_mode")
+                .eq("id", campId)
+                .maybeSingle();
+              const m = (campRow as { dispatch_mode?: string | null } | null)?.dispatch_mode;
+              if (m === "fluxo_visual" || m === "agente_livre") blastDispatchMode = m;
+            }
             await supabaseAdmin
               .from("blast_contacts")
               .update({ status: "respondeu", replied_at: new Date().toISOString() })
@@ -2095,7 +2106,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 ? `CONTEXTO PERSISTENTE DA CONVERSA (fatos já confirmados em mensagens/imagens anteriores — NUNCA pergunte de novo o que já está aqui; ex: se já consta "cliente tem cadastro/saldo", NÃO pergunte se tem cadastro):\n${persisted}`
                 : "";
               const blastBlock = isBlastReply
-                ? `MODO DISPARO — CLIENTE RESPONDEU À ABORDAGEM INICIAL:\nVocê está abordando um músico/artista que foi contactado pelo Instagram. Conduza a conversa de forma natural e personalizada. Descubra primeiro qual rede social ele quer crescer e qual é seu objetivo. Use as mídias (áudio, vídeo, link do painel) apenas quando fizer sentido na conversa — NUNCA mande tudo de uma vez. Cada conversa deve parecer única e humana, jamais um script.\nQuando enviar mídia:\n- ÁUDIO → quando o cliente mandou áudio, o assunto precisa de explicação mais detalhada, ou ele pediu para explicar melhor.\n- VÍDEO → quando o cliente perguntar "como funciona?", estiver confuso sobre o painel, ou demonstrar interesse real mas ainda com dúvida.\n- LINK do painel → apenas quando o cliente quiser comprar, perguntar onde acessar, ou você estiver fechando a venda.\nNão envie funil automático nem sequência pronta — improvise com base na resposta dele.`
+                ? (blastDispatchMode === "agente_livre"
+                    ? `MODO DISPARO — AGENTE LIVRE (cliente respondeu à abordagem inicial):\nVocê abordou esse músico/artista pelo Instagram e ele respondeu positivamente. Agora conduza a conversa naturalmente para venda seguindo essa ordem:\n1) Entenda o nicho e objetivo dele (Spotify, YouTube, Instagram?)\n2) Apresente o serviço de forma personalizada para o nicho dele\n3) Informe o preço de forma direta\n4) Se hesitar → ofereça o teste grátis\n5) Se aceitar o teste → processa e aguarda entrega\n6) Após entrega → mostra o resultado e fecha a venda\n7) Se quiser comprar → envia o link do painel\n8) Se pedir mais detalhes → envia o vídeo explicativo\nUse as mídias cadastradas (áudio, vídeo, link) de forma estratégica — apenas quando fizer sentido na conversa, NUNCA tudo de uma vez. Improvise com base na resposta dele; nada de script pronto.`
+                    : `MODO DISPARO — FLUXO VISUAL (cliente respondeu à abordagem inicial):\nEste lead está em uma campanha com fluxo visual configurado. Siga as etapas do fluxo definido para a campanha. Se não houver próxima etapa definida, conduza a conversa de forma natural rumo à venda usando as mídias cadastradas apenas quando fizer sentido.`)
                 : "";
               return [persistedBlock, blastBlock, orderStatusContext ?? ""].filter(Boolean).join("\n\n") || null;
             })(),
