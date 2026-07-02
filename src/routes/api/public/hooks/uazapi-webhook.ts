@@ -643,7 +643,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
         const { data: number } = await supabaseAdmin
           .from("whatsapp_numbers")
-          .select("id, user_id, uazapi_url, meta_ads_enabled, disparos_mode")
+          .select("id, user_id, uazapi_url, meta_ads_enabled, disparos_mode, nome")
           .eq("uazapi_token", instanceToken)
           .order("updated_at", { ascending: false, nullsFirst: false })
           .limit(1)
