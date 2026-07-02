@@ -37,14 +37,43 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
         const { data: camps, error } = await q;
         if (error) return new Response(error.message, { status: 500 });
 
-        const results: Array<{ campaign: string; sent: number; skipped?: string }> = [];
+        const results: Array<{ campaign: string; sent: number; skipped?: string; error?: string }> = [];
+        const { logEvent } = await import("@/lib/agent-logger.server");
+
+        if ((camps ?? []).length === 0 && opts.campaignId) {
+          const { data: campRow } = await supabaseAdmin
+            .from("blast_campaigns")
+            .select("id, user_id, name, state")
+            .eq("id", opts.campaignId)
+            .maybeSingle();
+          if (campRow) {
+            await logEvent({
+              userId: campRow.user_id,
+              type: "blast_skipped",
+              level: "warn",
+              summary: `🚀 Dispatcher chamado, mas campanha não está rodando (estado atual: ${campRow.state})`,
+              metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: campRow.id, reason: "campanha não está rodando", state: campRow.state },
+            });
+            return Response.json({ ran: 1, results: [{ campaign: campRow.name, sent: 0, skipped: `campanha não está rodando (${campRow.state})` }] });
+          }
+        }
 
         for (const camp of camps ?? []) {
           try {
+            if (opts.campaignId || bypass) {
+              await logEvent({
+                userId: camp.user_id,
+                type: "blast_worker_tick",
+                level: "info",
+                summary: `🚀 Worker processando campanha ${camp.name}`,
+                metadata: { origem: "disparo", direcao: "enviado", tipo: "processamento", campaign_id: camp.id, now: bypass },
+              });
+            }
             const now = new Date();
             const hhmm = now.toTimeString().slice(0, 8);
             if (!bypass && (hhmm < camp.start_time || hhmm > camp.end_time)) {
               results.push({ campaign: camp.name, sent: 0, skipped: "fora do horário" });
+              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: `🚀 Disparo não processado — fora do horário (${camp.start_time}-${camp.end_time})`, metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "fora do horário" } });
               continue;
             }
 
@@ -56,6 +85,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // (para dar feedback imediato ao usuário quando clicar em Iniciar).
             if (!bypass && camp.last_dispatch_at && Math.random() > tickWeight) {
               results.push({ campaign: camp.name, sent: 0, skipped: "distribuição natural" });
+              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "info", summary: "🚀 Disparo aguardando distribuição natural de horário", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "distribuição natural" } });
               continue;
             }
 
@@ -67,6 +97,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               const required = minMs + Math.random() * (maxMs - minMs);
               if (since < required) {
                 results.push({ campaign: camp.name, sent: 0, skipped: "delay" });
+                await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "info", summary: "🚀 Disparo aguardando delay entre mensagens", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "delay", remaining_ms: Math.round(required - since) } });
                 continue;
               }
             }
@@ -110,6 +141,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               // Fallback ao número da campanha (mesmo desconectado) para não travar
               // silenciosamente antes: prefere skipar com mensagem clara.
               results.push({ campaign: camp.name, sent: 0, skipped: "nenhum número em Modo Disparos ativo/conectado" });
+              await logEvent({ userId: camp.user_id, type: "blast_failed", level: "error", summary: "❌ Disparo sem número conectado em Modo Disparos", error: "Nenhum número conectado com Modo Disparos ativo", metadata: { origem: "disparo", direcao: "enviado", tipo: "erro", campaign_id: camp.id, total_numbers: allNumbers.length } });
+              await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
               continue;
             }
 
@@ -126,14 +159,28 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const rrIndex = (sentToday ?? 0) % pool.length;
             numberRow = pool[rrIndex];
 
+            // Escolher próximo contato e estágio ANTES das travas para que o
+            // painel/log informe a causa real (sem contato vs limite/agente) e
+            // para números de teste poderem ignorar limites/blacklist.
+            const next = await pickNext(supabaseAdmin, camp);
+            if (!next) {
+              console.log(`[blast-dispatcher] ${camp.name}: sem contatos elegíveis (list_id=${camp.contact_list_id ?? "null"})`);
+              results.push({ campaign: camp.name, sent: 0, skipped: "sem contatos elegíveis" });
+              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: "🚀 Disparo sem contatos elegíveis para enviar", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, contact_list_id: camp.contact_list_id, categoria_ids: camp.categoria_ids ?? [], reason: "sem contatos elegíveis" } });
+              await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
+              continue;
+            }
+            const nextIsTest = await isTestPhone(supabaseAdmin, camp.user_id, next.contact.telefone);
+
             // Limite diário (com aquecimento progressivo) baseado no número escolhido
             const effectiveLimit = computeEffectiveLimit(
               numberRow?.warmup_enabled ?? true,
               numberRow?.warmup_started_at ?? null,
               camp.daily_limit,
             );
-            if ((sentToday ?? 0) >= effectiveLimit) {
+            if (!nextIsTest && (sentToday ?? 0) >= effectiveLimit) {
               results.push({ campaign: camp.name, sent: 0, skipped: `limite diário (${effectiveLimit})` });
+              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: `🚀 Disparo bloqueado pelo limite diário (${effectiveLimit})`, metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "limite diário", effectiveLimit, sentToday } });
               continue;
             }
 
@@ -144,21 +191,19 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               .eq("user_id", camp.user_id)
               .maybeSingle();
             if (agent?.agent_enabled === false) {
-              results.push({ campaign: camp.name, sent: 0, skipped: "agente desativado" });
-              continue;
+              // Números de teste devem passar pelo mesmo pipeline de disparo,
+              // mesmo quando o agente global foi desligado para a operação real.
+              if (!nextIsTest) {
+                results.push({ campaign: camp.name, sent: 0, skipped: "agente desativado" });
+                await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: "🚀 Disparo bloqueado — agente global desativado", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "agente desativado" } });
+                await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
+                continue;
+              }
             }
 
             // Credenciais do número escolhido no round-robin
             const url = numberRow.uazapi_url!;
             const token = numberRow.uazapi_token!;
-
-            // Escolher próximo contato e estágio
-            const next = await pickNext(supabaseAdmin, camp);
-            if (!next) {
-              console.log(`[blast-dispatcher] ${camp.name}: sem contatos elegíveis (list_id=${camp.contact_list_id ?? "null"})`);
-              results.push({ campaign: camp.name, sent: 0, skipped: "sem contatos elegíveis" });
-              continue;
-            }
             console.log(`[blast-dispatcher] ${camp.name}: enviando para ${next.contact.nome} ${next.contact.telefone} (stage=${next.stage})`);
 
             // Variação de saudação por horário SÓ vale para disparo ativo puro:
@@ -211,9 +256,11 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   language,
                 })
               : null;
-            const messageParts: string[] = pick
-              ? pick.parts
-              : splitOpeningIntoParts(renderTemplate(next.template, next.contact));
+            const messageParts: string[] = next.stage === "opening"
+              ? pick
+                ? normalizeOpeningParts(pick.parts.join("\n\n"), pick.parts)
+                : normalizeOpeningParts(renderTemplate(next.template, next.contact))
+              : [renderTemplate(next.template, next.contact).trim()].filter(Boolean);
 
             let status: "sent" | "failed" = "sent";
             let errMsg: string | undefined;
@@ -225,7 +272,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   messageParts[i],
                 );
                 try {
-                  const { logEvent } = await import("@/lib/agent-logger.server");
                   await logEvent({
                     userId: camp.user_id,
                     phone: next.contact.telefone,
@@ -244,8 +290,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   });
                 } catch {}
                 if (i < messageParts.length - 1) {
-                  // Delay natural entre linhas (2.5s–5s) simulando digitação
-                  const wait = 2500 + Math.random() * 2500;
+                  // Delay natural entre linhas (1s–3s) simulando digitação
+                  const wait = 1000 + Math.random() * 2000;
                   await new Promise((r) => setTimeout(r, wait));
                 }
               }
@@ -253,7 +299,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               status = "failed";
               errMsg = (e as Error).message;
               try {
-                const { logEvent } = await import("@/lib/agent-logger.server");
                 await logEvent({
                   userId: camp.user_id,
                   phone: next.contact.telefone,
@@ -308,9 +353,13 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             } else {
               console.log(`[blast-dispatcher] ${camp.name}: erro ao enviar para ${next.contact.nome}: ${errMsg}`);
               results.push({ campaign: camp.name, sent: 0, skipped: `falhou: ${errMsg}` });
+              await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
             }
           } catch (e) {
-            results.push({ campaign: camp.name, sent: 0, skipped: (e as Error).message });
+            const msg = (e as Error).message;
+            results.push({ campaign: camp.name, sent: 0, skipped: msg, error: msg });
+            await logEvent({ userId: camp.user_id, type: "blast_failed", level: "error", summary: `❌ Dispatcher falhou na campanha ${camp.name}`, error: msg, metadata: { origem: "disparo", direcao: "enviado", tipo: "erro", campaign_id: camp.id } });
+            await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
           }
         }
 
@@ -340,19 +389,23 @@ function renderTemplate(tpl: string, c: { nome: string; instagram: string }): st
     .replace(/\{instagram\}/gi, c.instagram ?? "");
 }
 
-// Divide a mensagem de abertura em múltiplas bolhas:
-// - Se houver \n\n → uma bolha por bloco
-// - Senão se houver \n → uma bolha por linha
-// - Senão retorna [texto] (bolha única)
-// Máx 4 bolhas, remove entradas vazias.
-function splitOpeningIntoParts(text: string): string[] {
+// Abertura SEMPRE deve sair em bolhas separadas: saudação, abordagem e pergunta.
+// Se o template estiver em uma linha só, usamos frases/pontuação como fallback.
+function normalizeOpeningParts(text: string, preferred?: string[]): string[] {
+  const fromPreferred = (preferred ?? []).map((s) => s.trim()).filter(Boolean);
+  if (fromPreferred.length >= 3) return fromPreferred.slice(0, 3);
   const raw = (text ?? "").trim();
-  if (!raw) return [raw];
-  const byDouble = raw.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
-  if (byDouble.length >= 2) return byDouble.slice(0, 4);
-  const byLine = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
-  if (byLine.length >= 2) return byLine.slice(0, 4);
-  return [raw];
+  if (!raw) return [];
+  const blocks = raw.split(/\n\s*\n|\n+/).map((s) => s.trim()).filter(Boolean);
+  if (blocks.length >= 3) return blocks.slice(0, 3);
+  if (blocks.length === 2) {
+    const tail = blocks[1].match(/^(.+?[.!])\s+([^.!?]+\?)$/);
+    if (tail) return [blocks[0], tail[1].trim(), tail[2].trim()];
+    return blocks;
+  }
+  const sentences = raw.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [raw];
+  if (sentences.length >= 3) return [sentences[0], sentences.slice(1, -1).join(" "), sentences[sentences.length - 1]].filter(Boolean);
+  return sentences;
 }
 
 type Camp = {
@@ -378,7 +431,18 @@ async function pickNext(
   admin: Awaited<ReturnType<typeof getAdmin>>,
   camp: Camp,
 ): Promise<{ contact: BlastContact; stage: "opening" | "d3" | "d7"; template: string } | null> {
-  const catIds = (camp.categoria_ids ?? []).filter(Boolean);
+  let catIds = (camp.categoria_ids ?? []).filter(Boolean);
+  // Base unificada: se a campanha antiga ainda estiver presa a Lista A/B ou
+  // sem categoria selecionada, usa automaticamente as categorias reais da Base
+  // de Contatos que alimentam Disparos Ativos: Lead Instagram + Meta Ads.
+  if (catIds.length === 0) {
+    const { data: defaults } = await admin
+      .from("contact_categories")
+      .select("id")
+      .eq("user_id", camp.user_id)
+      .in("slug", ["lead_instagram", "meta_ads"]);
+    catIds = (defaults ?? []).map((c) => c.id as string).filter(Boolean);
+  }
   const useCats = catIds.length > 0;
   // Carrega origem da lista (Lista A = meta_ads, Lista B = instagram)
   let listOrigem: "meta_ads" | "instagram" | null = null;
@@ -405,8 +469,8 @@ async function pickNext(
         .in("categoria_id", catIds);
     }
     return camp.contact_list_id
-      ? admin.from("blast_contacts").select(SELECT).eq("contact_list_id", camp.contact_list_id)
-      : admin.from("blast_contacts").select(SELECT).eq("campaign_id", camp.id);
+      ? admin.from("blast_contacts").select(SELECT).eq("user_id", camp.user_id).eq("contact_list_id", camp.contact_list_id)
+      : admin.from("blast_contacts").select(SELECT).eq("user_id", camp.user_id).eq("campaign_id", camp.id);
   };
   // 1) Pendentes (abertura)
   const { data: pend } = await baseQ()
@@ -455,6 +519,12 @@ async function shouldSkip(
   blastContactId: string,
   listOrigem: "meta_ads" | "instagram" | null = null,
 ): Promise<boolean> {
+  // Números cadastrados como teste nunca devem ser filtrados por travas de
+  // blacklist/status convertido/cross-list. A checagem global cobre bases
+  // legadas em que o número de teste foi cadastrado em outro usuário do mesmo
+  // workspace, mas o disparo pertence ao dono da instância Uazapi.
+  if (await isTestPhone(admin, userId, phone)) return false;
+
   const { data: ct } = await admin
     .from("contacts")
     .select("id, status")
@@ -497,6 +567,27 @@ async function shouldSkip(
     }
   }
   return false;
+}
+
+async function isTestPhone(
+  admin: Awaited<ReturnType<typeof getAdmin>>,
+  userId: string,
+  phone: string,
+): Promise<boolean> {
+  const normalized = phone.replace(/\D+/g, "");
+  const { data: own } = await admin
+    .from("test_numbers")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("phone", normalized)
+    .maybeSingle();
+  if (own) return true;
+  const { data: any } = await admin
+    .from("test_numbers")
+    .select("id")
+    .eq("phone", normalized)
+    .limit(1);
+  return !!(any && any.length > 0);
 }
 
 async function getAdmin() {

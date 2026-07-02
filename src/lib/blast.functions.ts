@@ -370,13 +370,47 @@ export const listBlastContacts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ campaignId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
-      .from("blast_contacts")
-      .select("id, nome, telefone, instagram, status, last_sent_at, replied_at")
+    const { data: camp, error: campErr } = await context.supabase
+      .from("blast_campaigns")
+      .select("id, contact_list_id, categoria_ids")
+      .eq("id", data.campaignId)
       .eq("user_id", context.userId)
-      .eq("campaign_id", data.campaignId)
+      .maybeSingle();
+    if (campErr) throw new Error(campErr.message);
+
+    const SELECT = "id, nome, telefone, instagram, status, last_sent_at, replied_at";
+    let catIds = ((camp?.categoria_ids as string[] | null) ?? []).filter(Boolean);
+    if (catIds.length === 0) {
+      const { data: defaults } = await context.supabase
+        .from("contact_categories")
+        .select("id")
+        .eq("user_id", context.userId)
+        .in("slug", ["lead_instagram", "meta_ads"]);
+      catIds = (defaults ?? []).map((c) => c.id as string).filter(Boolean);
+    }
+    let q = context.supabase
+      .from("blast_contacts")
+      .select(SELECT)
+      .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
       .limit(200);
+    if (catIds.length > 0) q = q.in("categoria_id", catIds);
+    else if (camp?.contact_list_id) q = q.eq("contact_list_id", camp.contact_list_id);
+    else q = q.eq("campaign_id", data.campaignId);
+
+    let { data: rows, error } = await q;
+    if (!error && (rows ?? []).length === 0 && (catIds.length > 0 || camp?.contact_list_id)) {
+      // Fallback para campanhas antigas migradas: a base unificada pode não ter
+      // campaign_id/list_id compatível, mas os contatos pertencem ao mesmo usuário.
+      const fallback = await context.supabase
+        .from("blast_contacts")
+        .select(SELECT)
+        .eq("user_id", context.userId)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      rows = fallback.data;
+      error = fallback.error;
+    }
     if (error) throw new Error(error.message);
     return rows ?? [];
   });
@@ -385,11 +419,40 @@ export const getBlastReport = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ campaignId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
+    const { data: camp, error: campErr } = await context.supabase
+      .from("blast_campaigns")
+      .select("id, contact_list_id, categoria_ids")
+      .eq("id", data.campaignId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (campErr) throw new Error(campErr.message);
+
+    let catIds = ((camp?.categoria_ids as string[] | null) ?? []).filter(Boolean);
+    if (catIds.length === 0) {
+      const { data: defaults } = await context.supabase
+        .from("contact_categories")
+        .select("id")
+        .eq("user_id", context.userId)
+        .in("slug", ["lead_instagram", "meta_ads"]);
+      catIds = (defaults ?? []).map((c) => c.id as string).filter(Boolean);
+    }
+    let q = context.supabase
       .from("blast_contacts")
       .select("status")
-      .eq("user_id", context.userId)
-      .eq("campaign_id", data.campaignId);
+      .eq("user_id", context.userId);
+    if (catIds.length > 0) q = q.in("categoria_id", catIds);
+    else if (camp?.contact_list_id) q = q.eq("contact_list_id", camp.contact_list_id);
+    else q = q.eq("campaign_id", data.campaignId);
+
+    let { data: rows, error } = await q;
+    if (!error && (rows ?? []).length === 0 && (catIds.length > 0 || camp?.contact_list_id)) {
+      const fallback = await context.supabase
+        .from("blast_contacts")
+        .select("status")
+        .eq("user_id", context.userId);
+      rows = fallback.data;
+      error = fallback.error;
+    }
     if (error) throw new Error(error.message);
     const list = rows ?? [];
     const total = list.length;

@@ -696,6 +696,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .eq("phone", phone)
             .maybeSingle();
           isTestNumber = !!tn;
+          // Compatibilidade com bases onde os números de teste foram criados
+          // antes da troca de dono da instância Uazapi: o teste deve valer pelo
+          // telefone, sem pular o pipeline normal de conversa/agente.
+          if (!isTestNumber) {
+            const { data: tnGlobal } = await supabaseAdmin
+              .from("test_numbers")
+              .select("id")
+              .eq("phone", phone)
+              .limit(1);
+            isTestNumber = !!(tnGlobal && tnGlobal.length > 0);
+          }
           if (isTestNumber) {
             console.log(`🧪 Modo teste ativo para ${phone} — travas ignoradas`);
             try {
@@ -706,6 +717,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 type: "test_number",
                 level: "info",
                 summary: `🧪 Modo teste ativo para ${phone} — travas ignoradas`,
+                metadata: { origem: "sistema", direcao: "recebido", tipo: "numero_teste" } as never,
               });
             } catch {}
           }
@@ -1516,8 +1528,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
-        // "Modo Disparos": número usado para abordagem ativa — não responde inbound.
-        if (disparosMode) return new Response("ok (disparos mode: no auto-reply)");
+        // "Modo Disparos": número usado para abordagem ativa.
+        // IMPORTANTE: se o contato respondeu a um disparo (ou é número de teste),
+        // a mensagem já foi registrada e a Júlia DEVE assumir a conversa.
+        if (disparosMode && !isBlastReply && !isTestNumber) return new Response("ok (disparos mode: no auto-reply)");
 
         // ===== Respostas mínimas: emoji/figurinha/reações e "vou ver depois" =====
         // Roda antes de funil e Claude para não disparar fluxo automático em
@@ -2670,6 +2684,31 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }));
           if (rows.length > 0) await supabaseAdmin.from("messages").insert(rows);
         }
+        try {
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          for (let i = 0; i < replyParts.length; i += 1) {
+            if (skippedIdx.has(i)) continue;
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv.id,
+              type: "agent_reply_sent",
+              level: "info",
+              summary: `📤 Júlia respondeu (${replyKind}${replyParts.length > 1 ? ` parte ${i + 1}/${replyParts.length}` : ""}): ${replyParts[i].slice(0, 100)}`,
+              response: replyParts[i],
+              metadata: {
+                origem: isBlastReply ? "conversas" : "conversas",
+                direcao: "enviado",
+                tipo: "resposta_agente",
+                contato_nome: contact.nome,
+                from_blast: isBlastReply,
+                kind: replyKind,
+                part_index: i,
+                part_total: replyParts.length,
+              } as never,
+            });
+          }
+        } catch {}
         await supabaseAdmin
           .from("conversations")
           .update({
