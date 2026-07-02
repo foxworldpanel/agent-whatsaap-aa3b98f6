@@ -213,7 +213,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               : null;
             const messageParts: string[] = pick
               ? pick.parts
-              : [renderTemplate(next.template, next.contact)];
+              : splitOpeningIntoParts(renderTemplate(next.template, next.contact));
 
             let status: "sent" | "failed" = "sent";
             let errMsg: string | undefined;
@@ -224,6 +224,25 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   next.contact.telefone,
                   messageParts[i],
                 );
+                try {
+                  const { logEvent } = await import("@/lib/agent-logger.server");
+                  await logEvent({
+                    userId: camp.user_id,
+                    phone: next.contact.telefone,
+                    type: "blast_sent",
+                    level: "info",
+                    summary: `🚀 Disparo enviado (${next.stage}) parte ${i + 1}/${messageParts.length} → ${next.contact.nome}: ${messageParts[i].slice(0, 80)}`,
+                    response: messageParts[i],
+                    metadata: {
+                      origem: "disparo",
+                      direcao: "enviado",
+                      tipo: next.stage === "opening" ? "abertura" : `followup_${next.stage}`,
+                      contato_nome: next.contact.nome,
+                      part_index: i,
+                      part_total: messageParts.length,
+                    } as never,
+                  });
+                } catch {}
                 if (i < messageParts.length - 1) {
                   // Delay natural entre linhas (2.5s–5s) simulando digitação
                   const wait = 2500 + Math.random() * 2500;
@@ -233,6 +252,18 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             } catch (e) {
               status = "failed";
               errMsg = (e as Error).message;
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({
+                  userId: camp.user_id,
+                  phone: next.contact.telefone,
+                  type: "blast_failed",
+                  level: "error",
+                  summary: `❌ Falha no disparo (${next.stage}) → ${next.contact.nome}`,
+                  error: errMsg,
+                  metadata: { origem: "disparo", direcao: "enviado", tipo: "erro" } as never,
+                });
+              } catch {}
             }
 
             await supabaseAdmin.from("blast_logs").insert({
@@ -307,6 +338,21 @@ function renderTemplate(tpl: string, c: { nome: string; instagram: string }): st
   return (tpl ?? "")
     .replace(/\{nome\}/gi, c.nome ?? "")
     .replace(/\{instagram\}/gi, c.instagram ?? "");
+}
+
+// Divide a mensagem de abertura em múltiplas bolhas:
+// - Se houver \n\n → uma bolha por bloco
+// - Senão se houver \n → uma bolha por linha
+// - Senão retorna [texto] (bolha única)
+// Máx 4 bolhas, remove entradas vazias.
+function splitOpeningIntoParts(text: string): string[] {
+  const raw = (text ?? "").trim();
+  if (!raw) return [raw];
+  const byDouble = raw.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
+  if (byDouble.length >= 2) return byDouble.slice(0, 4);
+  const byLine = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+  if (byLine.length >= 2) return byLine.slice(0, 4);
+  return [raw];
 }
 
 type Camp = {

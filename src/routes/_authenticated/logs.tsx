@@ -35,10 +35,31 @@ function LogsPage() {
   const [logs, setLogs] = useState<AgentLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [origemFilter, setOrigemFilter] = useState<"all" | "meta_ads" | "disparo" | "conversas" | "sistema">("all");
   const [phoneFilter, setPhoneFilter] = useState<string>("");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [onlyErrors, setOnlyErrors] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Mapeia tipo de log → origem canônica
+  const inferOrigem = (l: AgentLog): "meta_ads" | "disparo" | "conversas" | "sistema" => {
+    const meta = (l.metadata ?? {}) as Record<string, unknown>;
+    const explicit = typeof meta.origem === "string" ? (meta.origem as string) : null;
+    if (explicit === "meta_ads" || explicit === "disparo" || explicit === "conversas" || explicit === "sistema") return explicit;
+    const t = l.type ?? "";
+    if (t.startsWith("blast_") || t === "campaign_dispatch") return "disparo";
+    if (t === "meta_ads_lead" || t.includes("meta_ads")) return "meta_ads";
+    if (t === "message_from_client" || t === "message_sent_manual" || t === "message_received" || t === "claude_reply" || t === "whisper_transcribe" || t === "elevenlabs_tts") return "conversas";
+    return "sistema";
+  };
+
+  const inferDirecao = (l: AgentLog): "enviado" | "recebido" | null => {
+    const meta = (l.metadata ?? {}) as Record<string, unknown>;
+    if (meta.direcao === "enviado" || meta.direcao === "recebido") return meta.direcao;
+    if (l.type === "message_from_client") return "recebido";
+    if (l.type === "claude_reply" || l.type === "message_sent_manual" || l.type === "blast_sent") return "enviado";
+    return null;
+  };
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -79,10 +100,15 @@ function LogsPage() {
   }, [onlyErrors, typeFilter, phoneFilter]);
 
   const types = useMemo(() => {
-    const set = new Set<string>(["message_received", "claude_reply", "whisper_transcribe", "elevenlabs_tts", "free_trial", "smm_services", "duplicate_blocked", "send_failed"]);
+    const set = new Set<string>(["message_received", "message_from_client", "message_sent_manual", "claude_reply", "whisper_transcribe", "elevenlabs_tts", "free_trial", "smm_services", "duplicate_blocked", "send_failed", "blast_sent", "blast_failed", "meta_ads_lead"]);
     logs.forEach((l) => set.add(l.type));
     return Array.from(set);
   }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    if (origemFilter === "all") return logs;
+    return logs.filter((l) => inferOrigem(l) === origemFilter);
+  }, [logs, origemFilter]);
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -105,6 +131,24 @@ function LogsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
+        <div className="flex w-full flex-wrap items-center gap-2">
+          {([
+            { id: "all", label: "Todos" },
+            { id: "meta_ads", label: "📣 Meta Ads" },
+            { id: "disparo", label: "🚀 Disparo" },
+            { id: "conversas", label: "💬 Conversas" },
+            { id: "sistema", label: "⚙️ Sistema/Erros" },
+          ] as const).map((o) => (
+            <Button
+              key={o.id}
+              size="sm"
+              variant={origemFilter === o.id ? "default" : "outline"}
+              onClick={() => setOrigemFilter(o.id)}
+            >
+              {o.label}
+            </Button>
+          ))}
+        </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Tipo</label>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -130,14 +174,17 @@ function LogsPage() {
       </div>
 
       <div className="rounded-lg border border-border">
-        {loading && logs.length === 0 ? (
+        {loading && filteredLogs.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">Carregando…</p>
-        ) : logs.length === 0 ? (
+        ) : filteredLogs.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">Nenhum log encontrado.</p>
         ) : (
           <ul className="divide-y divide-border">
-            {logs.map((l) => {
+            {filteredLogs.map((l) => {
               const open = expanded.has(l.id);
+              const origem = inferOrigem(l);
+              const direcao = inferDirecao(l);
+              const origemLabel = origem === "meta_ads" ? "📣 Meta Ads" : origem === "disparo" ? "🚀 Disparo" : origem === "conversas" ? "💬 Conversas" : "⚙️ Sistema";
               return (
                 <li key={l.id} className="p-3">
                   <button onClick={() => toggle(l.id)} className="flex w-full items-start gap-3 text-left">
@@ -148,6 +195,12 @@ function LogsPage() {
                       l.level === "warn" && "border-yellow-500 text-yellow-600",
                       l.level === "info" && "border-emerald-500 text-emerald-600",
                     )}>{l.level}</Badge>
+                    <Badge variant="secondary" className="shrink-0">{origemLabel}</Badge>
+                    {direcao && (
+                      <Badge variant="outline" className="shrink-0">
+                        {direcao === "enviado" ? "📤" : "📥"}
+                      </Badge>
+                    )}
                     <Badge variant="secondary" className="shrink-0">{l.type}</Badge>
                     <span className="flex-1 text-sm">{l.summary}</span>
                     {l.duration_ms !== null && <span className="text-xs text-muted-foreground">{l.duration_ms}ms</span>}
