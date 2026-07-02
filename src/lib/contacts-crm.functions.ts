@@ -103,7 +103,11 @@ export const bulkUpdateContacts = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      temperatura?: "quente" | "morno" | "frio" | "cliente" | "bloqueado";
+      temperatura_updated_at?: string;
+      status?: z.infer<typeof statusEnum>;
+    } = {};
     if (data.temperatura) {
       patch.temperatura = data.temperatura;
       patch.temperatura_updated_at = new Date().toISOString();
@@ -129,7 +133,12 @@ export const updateContactFields = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      instagram?: string | null;
+      temperatura?: "quente" | "morno" | "frio" | "cliente" | "bloqueado";
+      temperatura_updated_at?: string;
+      status?: z.infer<typeof statusEnum>;
+    } = {};
     if (data.instagram !== undefined) patch.instagram = data.instagram;
     if (data.temperatura) {
       patch.temperatura = data.temperatura;
