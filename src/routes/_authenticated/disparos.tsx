@@ -1202,6 +1202,40 @@ function BlastCampaignCard({
     });
   }
 
+  async function handleStartNow() {
+    if (!selectedNumber) {
+      toast.error("Selecione um número de WhatsApp antes de disparar.");
+      return;
+    }
+    if (selectedNumber.disparos_mode !== true) {
+      toast.error(`O número "${selectedNumber.nome ?? "selecionado"}" está com 'Modo Disparos' desativado.`);
+      return;
+    }
+    const ok = confirm(
+      "Disparo IMEDIATO: ignora horário programado, distribuição natural e delay entre envios.\n\n" +
+        "O sistema vai enviar 1 mensagem AGORA para o próximo contato elegível.\n\nConfirma?",
+    );
+    if (!ok) return;
+    try {
+      // Garante que a campanha esteja rodando (senão dispatcher ignora).
+      await stateFn({ data: { id: camp.id, state: "rodando" } });
+      const r = await fetch("/api/public/hooks/blast-dispatcher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: camp.id, now: true }),
+      });
+      const j = (await r.json().catch(() => null)) as { results?: Array<{ campaign: string; sent: number; skipped?: string }> } | null;
+      const mine = j?.results?.find((x) => x.campaign === camp.name);
+      if (mine?.sent) toast.success(`Enviado agora! (${mine.skipped ?? ""})`);
+      else toast.info(`Dispatcher retornou: ${mine?.skipped ?? "sem detalhes"}`);
+      onChanged();
+      qc.invalidateQueries({ queryKey: ["blast_contacts", camp.id] });
+      qc.invalidateQueries({ queryKey: ["panel_contacts"] });
+    } catch (e) {
+      toast.error(`Falha ao disparar agora: ${(e as Error).message}`);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border p-5 space-y-5" style={{ background: "var(--gradient-card)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
