@@ -316,6 +316,7 @@ type PanelContactRow = {
   ultima_interacao: string | null;
   error_message: string | null;
   sent_via_number_id: string | null;
+  categoria_id: string | null;
 };
 
 type PanelCampaign = {
