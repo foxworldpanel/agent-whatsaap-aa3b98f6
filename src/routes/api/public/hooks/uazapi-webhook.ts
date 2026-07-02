@@ -2475,6 +2475,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
         const sendCreds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+        console.log("[webhook/reply-creds]", {
+          using_instance_token: sendCreds.uazapi_token?.slice(0, 8),
+          inbound_instance_token: instanceToken?.slice(0, 8),
+          integ_token: integ.uazapi_token?.slice(0, 8),
+          match: sendCreds.uazapi_token === instanceToken,
+        });
         const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
         // Human-like behavior: random delay between min and max, optional typing indicator.
