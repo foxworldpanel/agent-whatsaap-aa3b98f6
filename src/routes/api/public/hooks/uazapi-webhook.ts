@@ -1800,8 +1800,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const clampDelayMs = (sec: number | undefined) =>
               Math.max(0, Math.min((sec ?? defaultDelaySec) * 1000, 180_000));
             const creds = {
-              uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "",
-              uazapi_token: integ.uazapi_token ?? instanceToken,
+              uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "",
+              uazapi_token: instanceToken || (integ.uazapi_token ?? ""),
             };
             const { uazapiSendText, uazapiSendMedia } = await import("@/lib/uazapi.server");
             const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
