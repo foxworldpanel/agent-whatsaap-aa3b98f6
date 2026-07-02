@@ -244,7 +244,9 @@ export function montarMensagemDisparo(
     subst(saudacoes[sIdx], nome, instagram),
     subst(linhas2[lIdx], nome, instagram),
     subst(perguntas[pIdx], nome, instagram),
-  ];
+  ]
+    .map((s) => (s ?? "").trim())
+    .filter((s) => s.length > 0);
   return {
     periodo,
     saudacaoIdx: sIdx,
