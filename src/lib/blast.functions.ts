@@ -379,7 +379,15 @@ export const listBlastContacts = createServerFn({ method: "GET" })
     if (campErr) throw new Error(campErr.message);
 
     const SELECT = "id, nome, telefone, instagram, status, last_sent_at, replied_at";
-    const catIds = ((camp?.categoria_ids as string[] | null) ?? []).filter(Boolean);
+    let catIds = ((camp?.categoria_ids as string[] | null) ?? []).filter(Boolean);
+    if (catIds.length === 0) {
+      const { data: defaults } = await context.supabase
+        .from("contact_categories")
+        .select("id")
+        .eq("user_id", context.userId)
+        .in("slug", ["lead_instagram", "meta_ads"]);
+      catIds = (defaults ?? []).map((c) => c.id as string).filter(Boolean);
+    }
     let q = context.supabase
       .from("blast_contacts")
       .select(SELECT)
@@ -419,7 +427,15 @@ export const getBlastReport = createServerFn({ method: "GET" })
       .maybeSingle();
     if (campErr) throw new Error(campErr.message);
 
-    const catIds = ((camp?.categoria_ids as string[] | null) ?? []).filter(Boolean);
+    let catIds = ((camp?.categoria_ids as string[] | null) ?? []).filter(Boolean);
+    if (catIds.length === 0) {
+      const { data: defaults } = await context.supabase
+        .from("contact_categories")
+        .select("id")
+        .eq("user_id", context.userId)
+        .in("slug", ["lead_instagram", "meta_ads"]);
+      catIds = (defaults ?? []).map((c) => c.id as string).filter(Boolean);
+    }
     let q = context.supabase
       .from("blast_contacts")
       .select("status")
