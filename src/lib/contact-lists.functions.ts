@@ -99,24 +99,16 @@ export const importContactsToList = createServerFn({ method: "POST" })
 
     let dupGlobal = 0;
     if (uniq.length > 0) {
-      // Anti-duplicata GLOBAL: pula se já existe em qualquer lista OU em contacts
+      // Anti-duplicata GLOBAL: pula apenas se já existe em qualquer lista de disparo.
+      // Nao comparar com `contacts` — a base extraida do WhatsApp/Meta é separada
+      // do universo de disparo e bloquearia praticamente todos os imports.
       const phones = uniq.map((r) => r.telefone);
-      const [{ data: ex1 }, { data: ex2 }] = await Promise.all([
-        context.supabase
-          .from("blast_contacts")
-          .select("telefone")
-          .eq("user_id", context.userId)
-          .in("telefone", phones),
-        context.supabase
-          .from("contacts")
-          .select("telefone")
-          .eq("user_id", context.userId)
-          .in("telefone", phones),
-      ]);
-      const exSet = new Set<string>([
-        ...(ex1 ?? []).map((r) => r.telefone as string),
-        ...(ex2 ?? []).map((r) => r.telefone as string),
-      ]);
+      const { data: ex1 } = await context.supabase
+        .from("blast_contacts")
+        .select("telefone")
+        .eq("user_id", context.userId)
+        .in("telefone", phones);
+      const exSet = new Set<string>((ex1 ?? []).map((r) => r.telefone as string));
       const filtered = uniq.filter((r) => {
         if (exSet.has(r.telefone)) { dupGlobal++; return false; }
         return true;
