@@ -962,27 +962,48 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // Detecta se esta mensagem é resposta a um disparo ativo.
         // Se sim, o agente Júlia assume a conversa diretamente — sem funil.
+        // IMPORTANTE: o número de resposta deve ser o mesmo que enviou a abertura.
+        // Depois que o contato responde, o status vira "respondeu"; por isso
+        // guardamos também o último sent_via_number_id para TODA a conversa,
+        // não só para a primeira resposta ao disparo.
         let isBlastReply = false;
         let blastDispatchMode: "agente_livre" | "fluxo_visual" = "agente_livre";
+        let blastReplyNumberId: string | null = null;
+        let blastReplyNumberSource: "blast_sent_via" | "campaign_number" | null = null;
         try {
-          const { data: pendingBlast } = await supabaseAdmin
+          const { data: latestBlastForPhone } = await supabaseAdmin
             .from("blast_contacts")
-            .select("id, status, campaign_id")
+            .select("id, status, campaign_id, sent_via_number_id, last_sent_at")
             .eq("user_id", userId)
             .eq("telefone", phone)
-            .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7"])
+            .not("last_sent_at", "is", null)
+            .order("last_sent_at", { ascending: false })
             .limit(1);
-          isBlastReply = !!(pendingBlast && pendingBlast.length > 0);
+          const latestBlast = latestBlastForPhone?.[0] as {
+            id?: string;
+            status?: string | null;
+            campaign_id?: string | null;
+            sent_via_number_id?: string | null;
+          } | undefined;
+          if (latestBlast?.sent_via_number_id) {
+            blastReplyNumberId = latestBlast.sent_via_number_id;
+            blastReplyNumberSource = "blast_sent_via";
+          }
+          isBlastReply = !!latestBlast && ["enviado_abertura", "enviado_d3", "enviado_d7"].includes(latestBlast.status ?? "");
           if (isBlastReply) {
-            const campId = (pendingBlast?.[0] as { campaign_id?: string | null } | undefined)?.campaign_id;
+            const campId = latestBlast?.campaign_id;
             if (campId) {
               const { data: campRow } = await supabaseAdmin
                 .from("blast_campaigns")
-                .select("dispatch_mode")
+                .select("dispatch_mode, whatsapp_number_id")
                 .eq("id", campId)
                 .maybeSingle();
-              const m = (campRow as { dispatch_mode?: string | null } | null)?.dispatch_mode;
+              const m = (campRow as { dispatch_mode?: string | null; whatsapp_number_id?: string | null } | null)?.dispatch_mode;
               if (m === "fluxo_visual" || m === "agente_livre") blastDispatchMode = m;
+              if (!blastReplyNumberId) {
+                blastReplyNumberId = (campRow as { whatsapp_number_id?: string | null } | null)?.whatsapp_number_id ?? null;
+                if (blastReplyNumberId) blastReplyNumberSource = "campaign_number";
+              }
             }
             await supabaseAdmin
               .from("blast_contacts")
@@ -1022,17 +1043,26 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               user_id: userId,
               contact_id: contact.id,
               status: "agente_respondendo",
-              whatsapp_number_id: numberId,
+              whatsapp_number_id: blastReplyNumberId ?? numberId,
             })
             .select("id, agent_enabled, whatsapp_number_id, needs_review")
             .single();
           if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
           conv = insertedConv.data;
-        } else if (!conv.whatsapp_number_id && numberId) {
+        } else if ((blastReplyNumberId || numberId) && conv.whatsapp_number_id !== (blastReplyNumberId ?? conv.whatsapp_number_id ?? numberId)) {
+          const fixedNumberId = blastReplyNumberId ?? conv.whatsapp_number_id ?? numberId;
           await supabaseAdmin
             .from("conversations")
-            .update({ whatsapp_number_id: numberId })
+            .update({ whatsapp_number_id: fixedNumberId })
             .eq("id", conv.id);
+          conv = { ...conv, whatsapp_number_id: fixedNumberId };
+        }
+        if (blastReplyNumberId && contact.whatsapp_number_id !== blastReplyNumberId) {
+          await supabaseAdmin
+            .from("contacts")
+            .update({ whatsapp_number_id: blastReplyNumberId })
+            .eq("id", contact.id);
+          contact = { ...contact, whatsapp_number_id: blastReplyNumberId };
         }
 
 
@@ -1171,6 +1201,57 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
           return new Response("ok (no agent config)");
         }
+
+        const expectedReplyNumberId = blastReplyNumberId ?? conv.whatsapp_number_id ?? contact.whatsapp_number_id ?? numberId;
+        let replyNumber: {
+          id: string;
+          nome: string | null;
+          uazapi_url: string | null;
+          uazapi_token: string | null;
+        } | null = null;
+        if (expectedReplyNumberId) {
+          const { data: resolvedNumber } = await supabaseAdmin
+            .from("whatsapp_numbers")
+            .select("id, nome, uazapi_url, uazapi_token")
+            .eq("id", expectedReplyNumberId)
+            .maybeSingle();
+          replyNumber = resolvedNumber as typeof replyNumber;
+        }
+        const replySendCreds = {
+          uazapi_url: replyNumber?.uazapi_url ?? (numberId ? numberUazapiUrl : integ.uazapi_url) ?? "",
+          uazapi_token: replyNumber?.uazapi_token ?? (numberId ? instanceToken : (integ.uazapi_token ?? "")),
+        };
+        const replyNumberLabel = replyNumber?.nome ?? (number ? ((number as unknown as { nome?: string }).nome ?? "número recebido") : "legacy/global");
+        if (expectedReplyNumberId && (!replyNumber?.uazapi_url || !replyNumber?.uazapi_token)) {
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          await logEvent({
+            userId,
+            phone,
+            conversationId: conv.id,
+            type: "send_text_blocked",
+            level: "error",
+            summary: "Envio bloqueado: número correto da conversa/campanha sem credenciais Uazapi",
+            metadata: {
+              origem: "conversas",
+              expected_reply_number_id: expectedReplyNumberId,
+              blast_reply_number_id: blastReplyNumberId,
+              blast_reply_number_source: blastReplyNumberSource,
+              inbound_number_id: numberId,
+            } as never,
+          });
+          return new Response("ok (reply number missing creds)");
+        }
+        console.log("[webhook/reply-number-resolved]", {
+          phone,
+          expected_reply_number_id: expectedReplyNumberId,
+          reply_number_name: replyNumberLabel,
+          reply_number_token: replySendCreds.uazapi_token?.slice(0, 8),
+          inbound_number_id: numberId,
+          inbound_instance_token: instanceToken?.slice(0, 8),
+          blast_reply_number_id: blastReplyNumberId,
+          blast_reply_number_source: blastReplyNumberSource,
+          using_global_fallback: !replyNumber && !numberId,
+        });
 
         // Guard absoluto: se o agente global, a conversa ou a revisão estiverem desligados,
         // salva a mensagem recebida, mas bloqueia QUALQUER resposta automática abaixo
