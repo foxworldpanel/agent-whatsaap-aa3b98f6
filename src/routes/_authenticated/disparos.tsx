@@ -383,6 +383,8 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const qc = useQueryClient();
   const skipFn = useServerFn(skipBlastContact);
   const blockFn = useServerFn(blockBlastContact);
+  const bulkFn = useServerFn(bulkBlastAction);
+  const setStateFn = useServerFn(setBlastCampaignState);
 
   // Sistema unificado: uma única visão com todos os contatos de todas as listas do usuário.
   const listIds = lists.map((l) => l.id);
@@ -391,6 +393,8 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const [filter, setFilter] = useState<PanelFilter>("all");
   const [q, setQ] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const listCatsFn = useServerFn(listCategories);
   const { data: categories = [] } = useQuery({ queryKey: ["contact_categories"], queryFn: () => listCatsFn() });
@@ -401,7 +405,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
     queryFn: async () => {
       const { data } = await supabase
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id, categoria_id")
+        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id, categoria_id, skip_reason, created_at")
         .in("contact_list_id", listIds)
         .order("updated_at", { ascending: false })
         .limit(2000);
@@ -457,7 +461,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const term = q.trim().toLowerCase();
   const filtered = rows.filter((r) => {
     if (categoryFilter !== "all" && r.categoria_id !== categoryFilter) return false;
-    if (!panelStatusMatches(r.status, filter)) return false;
+    if (!panelStatusMatchesFull(r.status, r.skip_reason, filter)) return false;
     if (!term) return true;
     return (
       r.nome?.toLowerCase().includes(term) ||
@@ -484,6 +488,10 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const enviados = rows.filter((r) => r.status.startsWith("enviado_")).length;
   const responderam = rows.filter((r) => r.status === "respondeu").length;
   const converteram = rows.filter((r) => r.status === "convertido").length;
+  const totalBase = rows.length;
+  const faltamEnviar = rows.filter((r) => r.status === "pendente" || r.status === "na_fila").length;
+  const naoQuer = rows.filter((r) => isNaoQuer(r.status, r.skip_reason)).length;
+  const totalEnviados = rows.filter((r) => r.status.startsWith("enviado_") || r.status === "respondeu" || r.status === "convertido").length;
   const pct = dailyLimit > 0 ? Math.min(100, Math.round((sentToday / dailyLimit) * 100)) : 0;
 
   // Próximo na fila (primeiro "pendente")
@@ -524,6 +532,66 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
       {label}
     </button>
   );
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+  const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
+  const toggleAll = () => {
+    setSelected((prev) => {
+      if (allVisibleSelected) {
+        const n = new Set(prev);
+        for (const r of filtered) n.delete(r.id);
+        return n;
+      }
+      const n = new Set(prev);
+      for (const r of filtered) n.add(r.id);
+      return n;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
+
+  async function runBulk(action: "queue" | "blacklist" | "delete") {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    if (action === "delete" && !confirm(`Excluir ${ids.length} contatos definitivamente?`)) return;
+    if (action === "blacklist" && !confirm(`Mover ${ids.length} contatos para a blacklist?`)) return;
+    setBulkBusy(true);
+    try {
+      const res = await bulkFn({ data: { ids, action } });
+      toast.success(`${res.affected} contatos atualizados`);
+      clearSelection();
+      qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBulkBusy(false); }
+  }
+
+  function exportSelectedCsv(rowsToExport: PanelContactRow[], filename: string) {
+    const header = "nome,telefone,instagram,status,skip_reason,last_sent_at,replied_at";
+    const body = rowsToExport.map((r) =>
+      [r.nome, r.telefone, r.instagram ?? "", r.status, r.skip_reason ?? "", r.last_sent_at ?? "", r.replied_at ?? ""]
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","),
+    ).join("\n");
+    const blob = new Blob([header + "\n" + body], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function startDispatchNow() {
+    if (!campaign) { toast.error("Nenhuma campanha configurada para essa base"); return; }
+    try {
+      await setStateFn({ data: { id: campaign.id, state: "rodando" } });
+      toast.success("Disparo iniciado — os contatos da fila serão abordados");
+      qc.invalidateQueries({ queryKey: ["blast_campaigns"] });
+      qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
+    } catch (e) { toast.error((e as Error).message); }
+  }
 
   return (
     <div className="rounded-xl border border-border p-5 space-y-4" style={{ background: "var(--gradient-card)" }}>
