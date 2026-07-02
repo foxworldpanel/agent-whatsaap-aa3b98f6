@@ -591,6 +591,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
               <th className="px-3 py-2 text-left">Telefone</th>
               <th className="px-3 py-2 text-left">Instagram</th>
               <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Abordado por</th>
               <th className="px-3 py-2 text-left">Enviado em</th>
               <th className="px-3 py-2 text-left">Última interação</th>
               <th className="px-3 py-2 text-right">Ações</th>
@@ -599,7 +600,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                   {rows.length === 0 ? "Nenhum contato na lista ainda." : "Nenhum contato corresponde aos filtros."}
                 </td>
               </tr>
@@ -623,6 +624,15 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${meta.cls}`} title={r.error_message ?? undefined}>
                       <span>{meta.icon}</span>{meta.label}
                     </span>
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {r.sent_via_number_id ? (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px]">
+                        📱 {numbersMap[r.sent_via_number_id] ?? "—"}
+                      </span>
+                    ) : (
+                      <span className="text-[10px]">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{fmtDT(r.last_sent_at)}</td>
                   <td className="px-3 py-2 text-muted-foreground">{fmtDT(last)}</td>
