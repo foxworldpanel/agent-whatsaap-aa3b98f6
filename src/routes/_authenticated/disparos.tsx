@@ -6,7 +6,9 @@ import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, 
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { SAUDACOES, CORPOS_MENSAGEM } from "@/lib/blast-variations";
+import { SAUDACOES, CORPOS_MENSAGEM, DEFAULT_TEMPLATES, type OpeningTemplates } from "@/lib/blast-variations";
+import { getOpeningTemplates, saveOpeningTemplates } from "@/lib/opening-templates.functions";
+import { toast } from "sonner";
 import {
   listCampaigns,
   createCampaign,
