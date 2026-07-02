@@ -211,6 +211,7 @@ type PanelCampaign = {
   delay_min_sec: number | null;
   delay_max_sec: number | null;
   last_dispatch_at: string | null;
+  opening_message?: string | null;
 };
 
 type PanelFilter = "all" | "aguardando" | "enviados" | "responderam" | "converteram" | "nao_quer" | "falhou";
@@ -508,28 +509,83 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
 
       {/* Progresso da campanha */}
       {campaign && (
-        <div className="rounded-lg border border-border bg-card/60 p-4 space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex h-2 w-2 rounded-full ${isActive ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground/50"}`} />
-              <span className="font-medium">
-                {isActive ? "Disparando…" : campaign.state === "pausado" ? "Pausado" : "Parado"}
-              </span>
-              <span className="text-muted-foreground">
-                {sentToday}/{dailyLimit} hoje ({pct}%)
-              </span>
+        <div
+          className="relative overflow-hidden rounded-2xl border border-border/60 p-5 shadow-sm"
+          style={{ background: "var(--gradient-card)" }}
+        >
+          {isActive && (
+            <div className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-emerald-500/20 blur-3xl" />
+          )}
+          <div className="relative space-y-4">
+            {/* Header status */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`inline-flex h-2.5 w-2.5 rounded-full ${
+                    isActive
+                      ? "bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)] animate-pulse"
+                      : campaign.state === "pausado"
+                        ? "bg-amber-500"
+                        : "bg-muted-foreground/50"
+                  }`}
+                />
+                <span className="text-sm font-semibold tracking-tight">
+                  {isActive ? "🚀 Disparando…" : campaign.state === "pausado" ? "⏸ Pausado" : "⏹ Parado"}
+                </span>
+              </div>
+              <div className="text-xs font-mono tabular-nums text-muted-foreground">
+                <span className="text-foreground font-bold">{sentToday}</span>
+                <span className="mx-1">/</span>
+                <span>{dailyLimit}</span>
+                <span className="ml-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{pct}%</span>
+              </div>
             </div>
-            <div className="flex items-center gap-3 text-muted-foreground">
-              {responderam > 0 && <span>💬 {responderam} responderam</span>}
-              {converteram > 0 && <span>✅ {converteram} converteram</span>}
-              {conclusaoEta && <span>🏁 Conclusão ~{conclusaoEta}</span>}
+
+            {/* Progress bar */}
+            <div className="h-3 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${pct}%`,
+                  background: "var(--gradient-primary)",
+                  boxShadow: isActive ? "0 0 12px color-mix(in oklab, var(--primary) 50%, transparent)" : undefined,
+                }}
+              />
             </div>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${pct}%` }}
-            />
+
+            {/* Métricas em linha */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg border border-border/40 bg-background/40 py-2">
+                <div className="text-sm font-bold text-emerald-500">✅ {totalEnviados}</div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Enviados</div>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-background/40 py-2">
+                <div className="text-sm font-bold text-sky-500">💬 {responderam}</div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Responderam</div>
+              </div>
+              <div className="rounded-lg border border-border/40 bg-background/40 py-2">
+                <div className="text-sm font-bold text-primary">🎯 {converteram}</div>
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Converteram</div>
+              </div>
+            </div>
+
+            {/* Rodapé com ETA */}
+            {isActive && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3 text-[11px] text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  ⏱️ Próximo disparo em:
+                  <span className="font-mono font-semibold text-foreground tabular-nums">
+                    {nextInSec !== null ? `${Math.floor(nextInSec / 60)}m ${nextInSec % 60}s` : "—"}
+                  </span>
+                </span>
+                {conclusaoEta && (
+                  <span className="inline-flex items-center gap-1.5">
+                    📅 Previsão de conclusão:
+                    <span className="font-semibold text-foreground">{conclusaoEta}</span>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -568,19 +624,31 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
 
       {/* Próximo na fila */}
       {isActive && nextInLine && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-sm">
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-primary via-primary/60 to-transparent" />
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-semibold">
+            <div className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold shadow-md">
               {initials(nextInLine.nome)}
             </div>
-            <div className="flex-1">
-              <div className="font-medium">
-                Próximo: {nextInLine.nome}
-                {nextInLine.instagram && <span className="ml-1 text-muted-foreground">({nextInLine.instagram})</span>}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">Próximo</span>
+                <span className="text-sm font-semibold">{nextInLine.nome}</span>
+                {nextInLine.instagram && (
+                  <span className="text-xs text-muted-foreground">@{String(nextInLine.instagram).replace(/^@/, "")}</span>
+                )}
               </div>
-              <div className="text-muted-foreground">
-                {nextInSec !== null ? `Enviando em ~${Math.floor(nextInSec/60)}m ${nextInSec%60}s` : "Aguardando janela de disparo"}
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                ⏱️ Enviando em{" "}
+                <span className="font-mono font-semibold text-foreground tabular-nums">
+                  {nextInSec !== null ? `${Math.floor(nextInSec / 60)}m ${nextInSec % 60}s` : "aguardando janela"}
+                </span>
               </div>
+              {campaign?.opening_message && (
+                <div className="mt-2 rounded-lg border border-border/40 bg-background/60 p-2.5 text-[11px] italic text-muted-foreground line-clamp-3">
+                  "{campaign.opening_message.slice(0, 180)}{campaign.opening_message.length > 180 ? "…" : ""}"
+                </div>
+              )}
             </div>
           </div>
         </div>
