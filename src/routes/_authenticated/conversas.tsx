@@ -33,6 +33,7 @@ type Conv = {
   review_reason?: string | null;
   auto_paused_at?: string | null;
   internal_note?: string | null;
+  is_test?: boolean;
   contact: {
     id: string;
     nome: string;
@@ -461,6 +462,11 @@ function Conversas() {
                         {c.last_message_preview ?? ""}
                       </p>
                       <div className="flex shrink-0 items-center gap-1">
+                        {c.is_test && (
+                          <span className="shrink-0 rounded-full bg-purple-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                            🧪 Teste
+                          </span>
+                        )}
                         {c.needs_review && (
                           <span className="shrink-0 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                             Revisar
