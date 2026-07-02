@@ -100,10 +100,16 @@ function FlowCardNode({ data, selected }: { data: NodeData; selected?: boolean }
   const m = meta(data.kind);
   return (
     <div
-      className="rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-[180px]"
+      className="relative rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-[180px]"
       style={{ borderColor: selected ? m.color : "hsl(var(--border))" }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: m.color, width: 10, height: 10 }} />
+      <Handle
+        id="in"
+        type="target"
+        position={Position.Top}
+        isConnectable
+        style={{ background: m.color, width: 12, height: 12, top: -6 }}
+      />
       <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: m.color }}>
         <span>{m.icon}</span>
         <span>{m.label}</span>
@@ -114,11 +120,29 @@ function FlowCardNode({ data, selected }: { data: NodeData; selected?: boolean }
       )}
       {data.kind === "condition" ? (
         <>
-          <Handle id="yes" type="source" position={Position.Bottom} style={{ left: "30%", background: "#10b981", width: 10, height: 10 }} />
-          <Handle id="no" type="source" position={Position.Bottom} style={{ left: "70%", background: "#ef4444", width: 10, height: 10 }} />
+          <Handle
+            id="yes"
+            type="source"
+            position={Position.Bottom}
+            isConnectable
+            style={{ left: "30%", background: "#10b981", width: 12, height: 12, bottom: -6 }}
+          />
+          <Handle
+            id="no"
+            type="source"
+            position={Position.Bottom}
+            isConnectable
+            style={{ left: "70%", background: "#ef4444", width: 12, height: 12, bottom: -6 }}
+          />
         </>
       ) : data.kind !== "end" ? (
-        <Handle type="source" position={Position.Bottom} style={{ background: m.color, width: 10, height: 10 }} />
+        <Handle
+          id="out"
+          type="source"
+          position={Position.Bottom}
+          isConnectable
+          style={{ background: m.color, width: 12, height: 12, bottom: -6 }}
+        />
       ) : null}
     </div>
   );
@@ -304,6 +328,9 @@ function Inner({ campaignId }: { campaignId: string }) {
             onPaneClick={() => setSelected(null)}
             nodeTypes={memoNodeTypes}
             fitView
+            nodesConnectable
+            elementsSelectable
+            connectOnClick
             proOptions={{ hideAttribution: true }}
           >
             <Background gap={16} />
