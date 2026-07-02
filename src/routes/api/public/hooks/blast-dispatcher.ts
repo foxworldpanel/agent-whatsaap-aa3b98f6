@@ -12,9 +12,13 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
       POST: async () => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
-        const { montarMensagemDisparo, DEFAULT_TEMPLATES, saudacaoIdxFromKey } = await import(
-          "@/lib/blast-variations"
-        );
+        const {
+          montarMensagemDisparo,
+          DEFAULT_TEMPLATES,
+          saudacaoIdxFromKey,
+          detectLanguageFromPhone,
+          DEFAULT_DDI_LANGUAGE_MAP,
+        } = await import("@/lib/blast-variations");
         const { _toTemplates } = await import("@/lib/opening-templates.functions");
 
         const { data: camps, error } = await supabaseAdmin
@@ -156,7 +160,9 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             if (useVariacao) {
               const { data: tplRow } = await supabaseAdmin
                 .from("opening_templates")
-                .select("saudacoes_manha, saudacoes_tarde, saudacoes_noite, linha2, perguntas")
+                .select(
+                  "saudacoes_manha, saudacoes_tarde, saudacoes_noite, linha2, perguntas, templates_en, templates_es, ddi_language_map",
+                )
                 .eq("user_id", camp.user_id)
                 .maybeSingle();
               templates = _toTemplates(
@@ -177,11 +183,18 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               avoidSaudacaoIdx = saudacaoIdxFromKey(lastSent?.[0]?.last_variation_key ?? null);
             }
 
+            const language = useVariacao
+              ? detectLanguageFromPhone(
+                  next.contact.telefone,
+                  templates.ddiMap ?? DEFAULT_DDI_LANGUAGE_MAP,
+                )
+              : "pt";
             const pick = useVariacao
               ? montarMensagemDisparo(next.contact.nome, next.contact.instagram, {
                   avoidKey: next.contact.last_variation_key,
                   avoidSaudacaoIdx,
                   templates,
+                  language,
                 })
               : null;
             const messageParts: string[] = pick
