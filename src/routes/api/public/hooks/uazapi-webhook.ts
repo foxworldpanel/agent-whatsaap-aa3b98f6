@@ -990,21 +990,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             blastReplyNumberSource = "blast_sent_via";
           }
           isBlastReply = !!latestBlast && ["enviado_abertura", "enviado_d3", "enviado_d7"].includes(latestBlast.status ?? "");
-          if (isBlastReply) {
-            const campId = latestBlast?.campaign_id;
-            if (campId) {
-              const { data: campRow } = await supabaseAdmin
-                .from("blast_campaigns")
-                .select("dispatch_mode, whatsapp_number_id")
-                .eq("id", campId)
-                .maybeSingle();
-              const m = (campRow as { dispatch_mode?: string | null; whatsapp_number_id?: string | null } | null)?.dispatch_mode;
-              if (m === "fluxo_visual" || m === "agente_livre") blastDispatchMode = m;
-              if (!blastReplyNumberId) {
-                blastReplyNumberId = (campRow as { whatsapp_number_id?: string | null } | null)?.whatsapp_number_id ?? null;
-                if (blastReplyNumberId) blastReplyNumberSource = "campaign_number";
-              }
+          const campId = latestBlast?.campaign_id;
+          if (campId) {
+            const { data: campRow } = await supabaseAdmin
+              .from("blast_campaigns")
+              .select("dispatch_mode, whatsapp_number_id")
+              .eq("id", campId)
+              .maybeSingle();
+            const m = (campRow as { dispatch_mode?: string | null; whatsapp_number_id?: string | null } | null)?.dispatch_mode;
+            if (m === "fluxo_visual" || m === "agente_livre") blastDispatchMode = m;
+            if (!blastReplyNumberId) {
+              blastReplyNumberId = (campRow as { whatsapp_number_id?: string | null } | null)?.whatsapp_number_id ?? null;
+              if (blastReplyNumberId) blastReplyNumberSource = "campaign_number";
             }
+          }
+          if (isBlastReply) {
             await supabaseAdmin
               .from("blast_contacts")
               .update({ status: "respondeu", replied_at: new Date().toISOString() })
@@ -1049,20 +1049,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .single();
           if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
           conv = insertedConv.data;
-        } else if ((blastReplyNumberId || numberId) && conv.whatsapp_number_id !== (blastReplyNumberId ?? conv.whatsapp_number_id ?? numberId)) {
-          const fixedNumberId = blastReplyNumberId ?? conv.whatsapp_number_id ?? numberId;
+        } else if ((blastReplyNumberId || numberId) && conv.whatsapp_number_id !== (blastReplyNumberId ?? numberId)) {
+          const fixedNumberId = blastReplyNumberId ?? numberId;
           await supabaseAdmin
             .from("conversations")
             .update({ whatsapp_number_id: fixedNumberId })
             .eq("id", conv.id);
           conv = { ...conv, whatsapp_number_id: fixedNumberId };
         }
-        if (blastReplyNumberId && contact.whatsapp_number_id !== blastReplyNumberId) {
+        const authoritativeNumberId = blastReplyNumberId ?? numberId;
+        if (authoritativeNumberId && contact.whatsapp_number_id !== authoritativeNumberId) {
           await supabaseAdmin
             .from("contacts")
-            .update({ whatsapp_number_id: blastReplyNumberId })
+            .update({ whatsapp_number_id: authoritativeNumberId })
             .eq("id", contact.id);
-          contact = { ...contact, whatsapp_number_id: blastReplyNumberId };
+          contact = { ...contact, whatsapp_number_id: authoritativeNumberId };
         }
 
 
@@ -1202,7 +1203,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("ok (no agent config)");
         }
 
-        const expectedReplyNumberId = blastReplyNumberId ?? conv.whatsapp_number_id ?? contact.whatsapp_number_id ?? numberId;
+        const expectedReplyNumberId = blastReplyNumberId ?? numberId ?? conv.whatsapp_number_id ?? contact.whatsapp_number_id;
         type ReplyNumberCreds = {
           id: string;
           nome: string | null;
