@@ -2084,7 +2084,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           messagesCount: history?.length ?? 0,
         });
 
-        const { generateAgentReply } = await import("@/lib/ai.server");
+        const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
 
         // Check if a welcome funnel has already been delivered for this contact.
         const { data: priorFunnelRun } = await supabaseAdmin
