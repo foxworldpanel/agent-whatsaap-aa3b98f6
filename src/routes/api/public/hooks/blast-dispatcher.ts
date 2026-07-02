@@ -159,13 +159,26 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const rrIndex = (sentToday ?? 0) % pool.length;
             numberRow = pool[rrIndex];
 
+            // Escolher próximo contato e estágio ANTES das travas para que o
+            // painel/log informe a causa real (sem contato vs limite/agente) e
+            // para números de teste poderem ignorar limites/blacklist.
+            const next = await pickNext(supabaseAdmin, camp);
+            if (!next) {
+              console.log(`[blast-dispatcher] ${camp.name}: sem contatos elegíveis (list_id=${camp.contact_list_id ?? "null"})`);
+              results.push({ campaign: camp.name, sent: 0, skipped: "sem contatos elegíveis" });
+              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: "🚀 Disparo sem contatos elegíveis para enviar", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, contact_list_id: camp.contact_list_id, categoria_ids: camp.categoria_ids ?? [], reason: "sem contatos elegíveis" } });
+              await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
+              continue;
+            }
+            const nextIsTest = await isTestPhone(supabaseAdmin, camp.user_id, next.contact.telefone);
+
             // Limite diário (com aquecimento progressivo) baseado no número escolhido
             const effectiveLimit = computeEffectiveLimit(
               numberRow?.warmup_enabled ?? true,
               numberRow?.warmup_started_at ?? null,
               camp.daily_limit,
             );
-            if ((sentToday ?? 0) >= effectiveLimit) {
+            if (!nextIsTest && (sentToday ?? 0) >= effectiveLimit) {
               results.push({ campaign: camp.name, sent: 0, skipped: `limite diário (${effectiveLimit})` });
               await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: `🚀 Disparo bloqueado pelo limite diário (${effectiveLimit})`, metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "limite diário", effectiveLimit, sentToday } });
               continue;
@@ -180,9 +193,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             if (agent?.agent_enabled === false) {
               // Números de teste devem passar pelo mesmo pipeline de disparo,
               // mesmo quando o agente global foi desligado para a operação real.
-              const candidate = await pickNext(supabaseAdmin, camp);
-              const candidateIsTest = candidate ? await isTestPhone(supabaseAdmin, camp.user_id, candidate.contact.telefone) : false;
-              if (!candidateIsTest) {
+              if (!nextIsTest) {
                 results.push({ campaign: camp.name, sent: 0, skipped: "agente desativado" });
                 await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: "🚀 Disparo bloqueado — agente global desativado", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "agente desativado" } });
                 await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
@@ -193,16 +204,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // Credenciais do número escolhido no round-robin
             const url = numberRow.uazapi_url!;
             const token = numberRow.uazapi_token!;
-
-            // Escolher próximo contato e estágio
-            const next = await pickNext(supabaseAdmin, camp);
-            if (!next) {
-              console.log(`[blast-dispatcher] ${camp.name}: sem contatos elegíveis (list_id=${camp.contact_list_id ?? "null"})`);
-              results.push({ campaign: camp.name, sent: 0, skipped: "sem contatos elegíveis" });
-              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: "🚀 Disparo sem contatos elegíveis para enviar", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, contact_list_id: camp.contact_list_id, categoria_ids: camp.categoria_ids ?? [], reason: "sem contatos elegíveis" } });
-              await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
-              continue;
-            }
             console.log(`[blast-dispatcher] ${camp.name}: enviando para ${next.contact.nome} ${next.contact.telefone} (stage=${next.stage})`);
 
             // Variação de saudação por horário SÓ vale para disparo ativo puro:
