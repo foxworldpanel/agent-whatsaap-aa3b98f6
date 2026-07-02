@@ -368,11 +368,24 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
     queryFn: async () => {
       const { data } = await supabase
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message")
+        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id")
         .eq("contact_list_id", active!.id)
         .order("updated_at", { ascending: false })
         .limit(500);
       return (data ?? []) as PanelContactRow[];
+    },
+  });
+
+  // Nomes dos números para exibição
+  const { data: numbersMap = {} } = useQuery({
+    queryKey: ["panel_numbers_map"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("whatsapp_numbers")
+        .select("id, nome");
+      const map: Record<string, string> = {};
+      for (const n of data ?? []) map[n.id as string] = (n.nome as string) ?? "—";
+      return map;
     },
   });
 
