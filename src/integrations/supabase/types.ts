@@ -690,6 +690,69 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_group_members: {
+        Row: {
+          added_at: string
+          contact_id: string
+          group_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          contact_id: string
+          group_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          contact_id?: string
+          group_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_group_members_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "contact_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_groups: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       contact_lists: {
         Row: {
           created_at: string
@@ -725,6 +788,7 @@ export type Database = {
           created_at: string
           follow_up_count: number
           id: string
+          instagram: string | null
           last_interaction_at: string | null
           last_purchase_at: string | null
           nome: string
@@ -747,6 +811,7 @@ export type Database = {
           created_at?: string
           follow_up_count?: number
           id?: string
+          instagram?: string | null
           last_interaction_at?: string | null
           last_purchase_at?: string | null
           nome: string
@@ -769,6 +834,7 @@ export type Database = {
           created_at?: string
           follow_up_count?: number
           id?: string
+          instagram?: string | null
           last_interaction_at?: string | null
           last_purchase_at?: string | null
           nome?: string
@@ -1476,6 +1542,10 @@ export type Database = {
         | "convertido"
         | "sem_resposta"
         | "bloqueado"
+        | "abordado_aguardando"
+        | "proposta_enviada"
+        | "comprou"
+        | "perdido"
       contact_temperatura: "quente" | "morno" | "frio" | "bloqueado" | "cliente"
       conversation_status: "agente_respondendo" | "aguardando" | "convertido"
       funnel_status: "not_started" | "running" | "completed"
@@ -1617,6 +1687,10 @@ export const Constants = {
         "convertido",
         "sem_resposta",
         "bloqueado",
+        "abordado_aguardando",
+        "proposta_enviada",
+        "comprou",
+        "perdido",
       ],
       contact_temperatura: ["quente", "morno", "frio", "bloqueado", "cliente"],
       conversation_status: ["agente_respondendo", "aguardando", "convertido"],
