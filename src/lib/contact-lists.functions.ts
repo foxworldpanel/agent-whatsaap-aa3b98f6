@@ -107,6 +107,8 @@ export const importContactsToList = createServerFn({ method: "POST" })
     });
 
     let dupGlobal = 0;
+    let ignoredSent = 0;
+    let ignoredBlocked = 0;
     if (uniq.length > 0) {
       // Anti-duplicata GLOBAL: pula apenas se já existe em qualquer lista de disparo.
       // Nao comparar com `contacts` — a base extraida do WhatsApp/Meta é separada
@@ -114,12 +116,30 @@ export const importContactsToList = createServerFn({ method: "POST" })
       const phones = uniq.map((r) => r.telefone);
       const { data: ex1 } = await context.supabase
         .from("blast_contacts")
-        .select("telefone")
+        .select("telefone, status, skip_reason")
         .eq("user_id", context.userId)
         .in("telefone", phones);
-      const exSet = new Set<string>((ex1 ?? []).map((r) => r.telefone as string));
+      const exMap = new Map<string, { status: string; skip_reason: string | null }>();
+      for (const r of ex1 ?? []) {
+        exMap.set(r.telefone as string, {
+          status: (r.status as string) ?? "",
+          skip_reason: (r.skip_reason as string | null) ?? null,
+        });
+      }
+      const isSentStatus = (s: string) =>
+        s === "enviado_abertura" || s === "enviado_d3" || s === "enviado_d7" ||
+        s === "respondeu" || s === "convertido";
+      const isBlockedStatus = (s: string, reason: string | null) =>
+        s === "bloqueado" ||
+        (s === "pulado" && !!reason && /bloque|não quer|nao quer|stop|para/i.test(reason));
       const filtered = uniq.filter((r) => {
-        if (exSet.has(r.telefone)) { dupGlobal++; return false; }
+        const hit = exMap.get(r.telefone);
+        if (hit) {
+          dupGlobal++;
+          if (isSentStatus(hit.status)) ignoredSent++;
+          else if (isBlockedStatus(hit.status, hit.skip_reason)) ignoredBlocked++;
+          return false;
+        }
         return true;
       });
       uniq.length = 0;
@@ -127,7 +147,13 @@ export const importContactsToList = createServerFn({ method: "POST" })
     }
 
     if (uniq.length === 0) {
-      return { inserted: 0, ignored_existing: dupGlobal + dupBatch, invalid };
+      return {
+        inserted: 0,
+        ignored_existing: dupGlobal + dupBatch,
+        ignored_sent: ignoredSent,
+        ignored_blocked: ignoredBlocked,
+        invalid,
+      };
     }
 
     const payload = uniq.map((r) => ({
@@ -144,7 +170,13 @@ export const importContactsToList = createServerFn({ method: "POST" })
       .from("blast_contacts")
       .insert(payload, { count: "exact" });
     if (error) throw new Error(error.message);
-    return { inserted: count ?? payload.length, ignored_existing: dupGlobal + dupBatch, invalid };
+    return {
+      inserted: count ?? payload.length,
+      ignored_existing: dupGlobal + dupBatch,
+      ignored_sent: ignoredSent,
+      ignored_blocked: ignoredBlocked,
+      invalid,
+    };
   });
 
 export const clearContactList = createServerFn({ method: "POST" })
