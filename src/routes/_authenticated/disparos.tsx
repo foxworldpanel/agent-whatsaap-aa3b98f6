@@ -280,6 +280,390 @@ function Disparos() {
   );
 }
 
+type PanelListRow = {
+  id: string;
+  name: string;
+  origem: string;
+  total: number;
+  contatados: number;
+  respondeu: number;
+  convertido: number;
+};
+
+type PanelContactRow = {
+  id: string;
+  nome: string;
+  telefone: string;
+  instagram: string | null;
+  status: string;
+  last_sent_at: string | null;
+  replied_at: string | null;
+  converted_at: string | null;
+  ultima_interacao: string | null;
+  error_message: string | null;
+};
+
+type PanelCampaign = {
+  id: string;
+  name: string;
+  contact_list_id: string | null;
+  state: string;
+  daily_limit: number | null;
+  delay_min_sec: number | null;
+  delay_max_sec: number | null;
+  last_dispatch_at: string | null;
+};
+
+type PanelFilter = "all" | "aguardando" | "enviados" | "responderam" | "converteram" | "falhou";
+
+const PANEL_STATUS: Record<string, { label: string; cls: string; icon: string }> = {
+  pendente:          { label: "Aguardando", cls: "bg-muted text-muted-foreground",          icon: "⬜" },
+  na_fila:           { label: "Na fila",    cls: "bg-amber-500/15 text-amber-500",          icon: "🟡" },
+  enviado_abertura:  { label: "Enviado",    cls: "bg-emerald-500/15 text-emerald-500",      icon: "✅" },
+  enviado_d3:        { label: "Follow-up 3d", cls: "bg-emerald-500/15 text-emerald-500",    icon: "✅" },
+  enviado_d7:        { label: "Follow-up 7d", cls: "bg-emerald-500/15 text-emerald-500",    icon: "✅" },
+  respondeu:         { label: "Respondeu",  cls: "bg-blue-500/15 text-blue-500",            icon: "💬" },
+  convertido:        { label: "Converteu",  cls: "bg-purple-500/15 text-purple-500",        icon: "🛍️" },
+  failed:            { label: "Falhou",     cls: "bg-red-500/15 text-red-500",              icon: "❌" },
+  pulado:            { label: "Pulado",     cls: "bg-muted/60 text-muted-foreground",       icon: "⏭️" },
+};
+
+function panelStatusMatches(status: string, f: PanelFilter): boolean {
+  if (f === "all") return true;
+  if (f === "aguardando") return status === "pendente" || status === "na_fila";
+  if (f === "enviados") return status === "enviado_abertura" || status === "enviado_d3" || status === "enviado_d7";
+  if (f === "responderam") return status === "respondeu";
+  if (f === "converteram") return status === "convertido";
+  if (f === "falhou") return status === "failed";
+  return true;
+}
+
+function initials(name: string): string {
+  const parts = (name || "?").trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+function fmtDT(iso: string | null): string {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleString("pt-BR"); } catch { return "—"; }
+}
+
+function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
+  const qc = useQueryClient();
+  const skipFn = useServerFn(skipBlastContact);
+  const blockFn = useServerFn(blockBlastContact);
+
+  const metaList = lists.find((l) => l.origem === "meta_ads") ?? lists[0];
+  const igList = lists.find((l) => l.origem !== "meta_ads") ?? lists[1] ?? lists[0];
+  const [activeTab, setActiveTab] = useState<"a" | "b">("a");
+  const active = activeTab === "a" ? metaList : igList;
+
+  const [filter, setFilter] = useState<PanelFilter>("all");
+  const [q, setQ] = useState("");
+
+  const { data: rows = [] } = useQuery({
+    queryKey: ["panel_contacts", active?.id],
+    enabled: !!active?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_contacts")
+        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message")
+        .eq("contact_list_id", active!.id)
+        .order("updated_at", { ascending: false })
+        .limit(500);
+      return (data ?? []) as PanelContactRow[];
+    },
+  });
+
+  const { data: campaign } = useQuery({
+    queryKey: ["panel_campaign_for_list", active?.id],
+    enabled: !!active?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_campaigns")
+        .select("id, name, contact_list_id, state, daily_limit, delay_min_sec, delay_max_sec, last_dispatch_at")
+        .eq("contact_list_id", active!.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return (data ?? null) as PanelCampaign | null;
+    },
+  });
+
+  // Realtime — atualiza sem reload
+  useEffect(() => {
+    if (!active?.id) return;
+    const ch = supabase
+      .channel(`panel_contacts_${active.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "blast_contacts", filter: `contact_list_id=eq.${active.id}` },
+        () => qc.invalidateQueries({ queryKey: ["panel_contacts", active.id] }),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [active?.id, qc]);
+
+  // Filtro + busca
+  const term = q.trim().toLowerCase();
+  const filtered = rows.filter((r) => {
+    if (!panelStatusMatches(r.status, filter)) return false;
+    if (!term) return true;
+    return (
+      r.nome?.toLowerCase().includes(term) ||
+      r.telefone?.toLowerCase().includes(term) ||
+      (r.instagram ?? "").toLowerCase().includes(term)
+    );
+  });
+
+  const isActive = campaign?.state === "rodando";
+  const dailyLimit = campaign?.daily_limit ?? 0;
+  const sentToday = rows.filter((r) => {
+    if (!r.last_sent_at) return false;
+    const d = new Date(r.last_sent_at);
+    const now = new Date();
+    return d.toDateString() === now.toDateString();
+  }).length;
+  const enviados = rows.filter((r) => r.status.startsWith("enviado_")).length;
+  const responderam = rows.filter((r) => r.status === "respondeu").length;
+  const converteram = rows.filter((r) => r.status === "convertido").length;
+  const pct = dailyLimit > 0 ? Math.min(100, Math.round((sentToday / dailyLimit) * 100)) : 0;
+
+  // Próximo na fila (primeiro "pendente")
+  const nextInLine = rows.find((r) => r.status === "pendente") ?? null;
+  const avgDelay = ((campaign?.delay_min_sec ?? 45) + (campaign?.delay_max_sec ?? 90)) / 2;
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isActive) return;
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [isActive]);
+  const nextInSec = (() => {
+    if (!isActive || !campaign?.last_dispatch_at) return null;
+    const eta = new Date(campaign.last_dispatch_at).getTime() + avgDelay * 1000;
+    return Math.max(0, Math.round((eta - nowTs) / 1000));
+  })();
+
+  const conclusaoEta = (() => {
+    if (!isActive || dailyLimit <= 0) return null;
+    const restam = rows.filter((r) => r.status === "pendente").length;
+    if (restam === 0) return null;
+    const dias = Math.max(1, Math.ceil(restam / dailyLimit));
+    const d = new Date();
+    d.setDate(d.getDate() + (dias - 1));
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  })();
+
+  const filterBtn = (v: PanelFilter, label: string) => (
+    <button
+      key={v}
+      onClick={() => setFilter(v)}
+      className={`rounded-full px-3 py-1 text-xs border ${
+        filter === v
+          ? "bg-primary text-primary-foreground border-primary"
+          : "border-border bg-card text-muted-foreground hover:bg-muted"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="rounded-xl border border-border p-5 space-y-4" style={{ background: "var(--gradient-card)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Visualização de contatos</h3>
+        </div>
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tempo real</span>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setActiveTab("a")}
+          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+            activeTab === "a"
+              ? "border-blue-500/50 bg-blue-500/10 text-blue-500"
+              : "border-border bg-card text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <Megaphone className="h-4 w-4" /> Lista A — Meta Ads
+          {metaList && <span className="ml-1 text-[10px] opacity-80">({metaList.total})</span>}
+        </button>
+        <button
+          onClick={() => setActiveTab("b")}
+          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+            activeTab === "b"
+              ? "border-pink-500/50 bg-pink-500/10 text-pink-500"
+              : "border-border bg-card text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <Instagram className="h-4 w-4" /> Lista B — Instagram
+          {igList && <span className="ml-1 text-[10px] opacity-80">({igList.total})</span>}
+        </button>
+      </div>
+
+      {/* Progresso quando campanha ativa */}
+      {isActive && (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <Zap className="h-4 w-4 text-emerald-500" />
+            <span className="font-semibold text-emerald-500">Disparando…</span>
+            <span className="text-muted-foreground">
+              {sentToday}/{dailyLimit || "∞"} hoje
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+            <span>✅ Enviados: <b className="text-foreground">{enviados}</b></span>
+            <span>💬 Responderam: <b className="text-foreground">{responderam}</b></span>
+            <span>🛍️ Converteram: <b className="text-foreground">{converteram}</b></span>
+            {nextInSec !== null && (
+              <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> Próximo em: <b className="text-foreground">{Math.floor(nextInSec/60)}m {nextInSec%60}s</b></span>
+            )}
+            {conclusaoEta && <span>📅 Previsão: <b className="text-foreground">{conclusaoEta}</b></span>}
+          </div>
+        </div>
+      )}
+
+      {/* Próximo na fila */}
+      {isActive && nextInLine && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-semibold">
+              {initials(nextInLine.nome)}
+            </div>
+            <div className="flex-1">
+              <div className="font-medium">
+                Próximo: {nextInLine.nome}
+                {nextInLine.instagram && <span className="ml-1 text-muted-foreground">({nextInLine.instagram})</span>}
+              </div>
+              <div className="text-muted-foreground">
+                {nextInSec !== null ? `Enviando em ~${Math.floor(nextInSec/60)}m ${nextInSec%60}s` : "Aguardando janela de disparo"}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filtros + busca */}
+      <div className="flex flex-wrap items-center gap-2">
+        {filterBtn("all", "Todos")}
+        {filterBtn("aguardando", "Aguardando")}
+        {filterBtn("enviados", "Enviados")}
+        {filterBtn("responderam", "Responderam")}
+        {filterBtn("converteram", "Converteram")}
+        {filterBtn("falhou", "Falhou")}
+        <div className="ml-auto relative">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar nome ou telefone"
+            className="w-64 rounded-lg border border-border bg-background pl-7 pr-2 py-1.5 text-xs outline-none focus:border-primary"
+          />
+        </div>
+      </div>
+
+      {/* Tabela */}
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left">Contato</th>
+              <th className="px-3 py-2 text-left">Telefone</th>
+              <th className="px-3 py-2 text-left">Instagram</th>
+              <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Enviado em</th>
+              <th className="px-3 py-2 text-left">Última interação</th>
+              <th className="px-3 py-2 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                  {rows.length === 0 ? "Nenhum contato na lista ainda." : "Nenhum contato corresponde aos filtros."}
+                </td>
+              </tr>
+            )}
+            {filtered.map((r) => {
+              const meta = PANEL_STATUS[r.status] ?? { label: r.status, cls: "bg-muted text-muted-foreground", icon: "•" };
+              const last = r.ultima_interacao ?? r.replied_at ?? r.converted_at ?? r.last_sent_at;
+              return (
+                <tr key={r.id} className="group border-t border-border hover:bg-muted/30">
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">
+                        {initials(r.nome)}
+                      </div>
+                      <span className="font-medium">{r.nome || "—"}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 font-mono text-[11px]">{r.telefone}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{r.instagram || "—"}</td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${meta.cls}`} title={r.error_message ?? undefined}>
+                      <span>{meta.icon}</span>{meta.label}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">{fmtDT(r.last_sent_at)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{fmtDT(last)}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex justify-end gap-1 opacity-0 transition group-hover:opacity-100">
+                      <Link
+                        to="/conversas"
+                        title="Ver conversa"
+                        className="rounded-md border border-border p-1 hover:bg-muted"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </Link>
+                      <button
+                        title="Pular esse contato"
+                        onClick={async () => {
+                          try {
+                            await skipFn({ data: { id: r.id } });
+                            toast.success("Contato pulado");
+                            qc.invalidateQueries({ queryKey: ["panel_contacts", active?.id] });
+                          } catch (e) { toast.error((e as Error).message); }
+                        }}
+                        className="rounded-md border border-border p-1 hover:bg-muted"
+                      >
+                        <SkipForward className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        title="Bloquear"
+                        onClick={async () => {
+                          if (!confirm(`Bloquear ${r.nome || r.telefone}?`)) return;
+                          try {
+                            await blockFn({ data: { id: r.id, telefone: r.telefone } });
+                            toast.success("Contato bloqueado");
+                            qc.invalidateQueries({ queryKey: ["panel_contacts", active?.id] });
+                          } catch (e) { toast.error((e as Error).message); }
+                        }}
+                        className="rounded-md border border-destructive/40 bg-destructive/10 p-1 text-destructive hover:bg-destructive/20"
+                      >
+                        <ShieldOff className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
+        <ShoppingBag className="h-3 w-3" /> Status atualiza em tempo real conforme os disparos e respostas acontecem.
+      </p>
+    </div>
+  );
+}
+
 function AddForm({
   onCancel,
   onSubmit,
