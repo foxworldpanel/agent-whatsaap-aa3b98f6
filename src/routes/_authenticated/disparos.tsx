@@ -1095,6 +1095,7 @@ function BlastCampaignCard({
           id: camp.id,
           whatsapp_number_id: whatsapp_number_id || null,
           contact_list_id: contact_list_id || null,
+          categoria_ids,
           start_time,
           end_time,
           daily_limit,
