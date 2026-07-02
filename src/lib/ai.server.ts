@@ -195,6 +195,44 @@ export async function generateAgentReply(params: {
   imageBase64?: string | null;
   imageMediaType?: string | null;
 }): Promise<string> {
+  const { text } = await generateAgentReplyWithMeta(params);
+  return text;
+}
+
+// Regra de roteamento HAIKU/SONNET — exportada para logs/auditoria.
+// Sonnet quando: há imagem, áudio, mensagem longa (>400 chars) ou palavras
+// que indicam análise/reclamação/suporte complexo. Caso contrário, Haiku.
+export function pickClaudeModel(opts: {
+  hasImage: boolean;
+  inputKind?: "texto" | "audio";
+  latestMessage?: string | null;
+}): { model: "claude-sonnet-4-5" | "claude-haiku-4-5"; reason: string } {
+  const msg = (opts.latestMessage ?? "").trim();
+  if (opts.hasImage) return { model: "claude-sonnet-4-5", reason: "image_present" };
+  if (opts.inputKind === "audio") return { model: "claude-sonnet-4-5", reason: "audio_input" };
+  if (msg.length > 400) return { model: "claude-sonnet-4-5", reason: "long_message" };
+  const complexRe = /(reclama|problema|n[aã]o funcion|nunca funcion|reembolso|cancelar|golpe|an[aá]lise|analisa|print|comprovante|preju[ií]zo|erro|urgente|processo|proced|jur[ií]dic)/i;
+  if (complexRe.test(msg)) return { model: "claude-sonnet-4-5", reason: "complex_keywords" };
+  return { model: "claude-haiku-4-5", reason: "default_text" };
+}
+
+export async function generateAgentReplyWithMeta(params: {
+  anthropicApiKey?: string | null;
+  agent: AgentConfig;
+  contact: Contact;
+  history: Msg[];
+  servicesContext?: string | null;
+  isInbound?: boolean;
+  funnelAlreadySent?: boolean;
+  knowledgeExamples?: Array<{ context?: string | null; content: string }>;
+  panelScreens?: Array<{ name: string; description?: string | null; extracted_content?: string | null }>;
+  forbiddenRules?: Array<{ rule: string; deflection?: string | null }>;
+  freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
+  extraContext?: string | null;
+  inputKind?: "texto" | "audio";
+  imageBase64?: string | null;
+  imageMediaType?: string | null;
+}): Promise<{ text: string; model: string; routingReason: string }> {
   const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices: freeTestServicesRaw = [], extraContext = null, inputKind = "texto", imageBase64 = null, imageMediaType = null } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
