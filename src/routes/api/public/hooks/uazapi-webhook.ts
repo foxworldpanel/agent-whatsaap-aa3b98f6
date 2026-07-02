@@ -1474,8 +1474,48 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        // ===== Resposta a disparo: agente Júlia assume =====
+        // Se o cliente respondeu ao disparo dizendo NÃO / sem interesse,
+        // envia despedida curta e marca como perdido — sem acionar o agente.
+        if (isBlastReply) {
+          const negRe = /^\s*(n[aã]o(\s+(quero|tenho|preciso|obrigad[oa]|me\s+manda|me\s+chame|interess[ae]|gost))?|para|pare|sai|remov|bloqu|n[aã]o\s+me\s+mand|sem\s+interesse|n[aã]o\s+t[oô]\s+interess)/i;
+          if (negRe.test((text ?? inboundBody ?? "").trim())) {
+            try {
+              const goodbye = "Tudo bem, desculpa o incômodo! Se precisar no futuro é só chamar 😊";
+              const { uazapiSendText } = await import("@/lib/uazapi.server");
+              await uazapiSendText(
+                { uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "", uazapi_token: instanceToken },
+                phone,
+                goodbye,
+              );
+              const stamp = new Date().toISOString();
+              await supabaseAdmin.from("messages").insert({
+                user_id: userId,
+                conversation_id: conv.id,
+                sender: "agente",
+                kind: "texto",
+                body: goodbye,
+              });
+              await supabaseAdmin
+                .from("conversations")
+                .update({ agent_enabled: false, status: "perdido", last_message_preview: goodbye.slice(0, 120), last_message_at: stamp })
+                .eq("id", conv.id);
+              await supabaseAdmin.from("contacts").update({ status: "perdido" }).eq("id", contact.id);
+              await supabaseAdmin
+                .from("blast_contacts")
+                .update({ status: "perdido" })
+                .eq("user_id", userId)
+                .eq("telefone", phone);
+            } catch (e) {
+              console.error("[blast-no] goodbye failed", e);
+            }
+            return new Response("ok (blast declined)");
+          }
+        }
+
         // ===== Funis de boas-vindas (múltiplos por número; primeiro gatilho que casar dispara, uma vez por contato) =====
-        if (numberId && !isDirectClientQuestion(inboundBody)) {
+        // Se a mensagem é resposta a disparo, o agente Júlia assume direto — pula funil.
+        if (numberId && !isDirectClientQuestion(inboundBody) && !isBlastReply) {
           try {
             const { data: funnels } = await supabaseAdmin
               .from("welcome_funnels")
