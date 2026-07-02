@@ -686,6 +686,30 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           `🔑 Config agente carregada: elevenlabs_key=${integ.elevenlabs_api_key ? "tem" : "não tem"} | voice_id=${integ.elevenlabs_voice_id ? "tem" : "não tem"} | user_id=${userId}`,
         );
 
+        // 🧪 Números de teste — ignora todas as travas de negócio
+        let isTestNumber = false;
+        try {
+          const { data: tn } = await supabaseAdmin
+            .from("test_numbers")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("phone", phone)
+            .maybeSingle();
+          isTestNumber = !!tn;
+          if (isTestNumber) {
+            console.log(`🧪 Modo teste ativo para ${phone} — travas ignoradas`);
+            try {
+              await logEvent({
+                userId,
+                phone,
+                type: "test_number",
+                level: "info",
+                summary: `🧪 Modo teste ativo para ${phone} — travas ignoradas`,
+              });
+            } catch {}
+          }
+        } catch {}
+
         let { data: contact } = await supabaseAdmin
           .from("contacts")
           .select("id, nome, perfil, status, source, source_ref, photo_url, whatsapp_number_id")
