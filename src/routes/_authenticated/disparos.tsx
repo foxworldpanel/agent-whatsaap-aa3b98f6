@@ -2203,6 +2203,8 @@ function ContactListsSection() {
                         setSummary((m) => ({ ...m, [l.id]: res as never }));
                         setCsvByList((m) => ({ ...m, [l.id]: [] }));
                         qc.invalidateQueries({ queryKey: ["contact_lists"] });
+                        qc.invalidateQueries({ queryKey: ["panel_contacts", l.id] });
+                        qc.invalidateQueries({ queryKey: ["list_contacts_detail", l.id] });
                         toast.success(`${(res as { inserted: number }).inserted} contatos importados`);
                       } catch (err) {
                         toast.error(`Falha ao importar: ${(err as Error).message}`);
