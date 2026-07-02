@@ -1631,10 +1631,6 @@ type BlastContactRow = {
   replied_at: string | null;
 };
 
-function isSentStatus(s: string) {
-  return s === "enviado_abertura" || s === "enviado_d3" || s === "enviado_d7" || s === "respondeu" || s === "convertido";
-}
-
 type StatusFilter = "todos" | "aguardando" | "enviados" | "responderam" | "converteram" | "falhou";
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
