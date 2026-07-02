@@ -1498,9 +1498,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
               await supabaseAdmin
                 .from("conversations")
-                .update({ agent_enabled: false, status: "perdido", last_message_preview: goodbye.slice(0, 120), last_message_at: stamp })
+                .update({ agent_enabled: false, status: "aguardando", last_message_preview: goodbye.slice(0, 120), last_message_at: stamp })
                 .eq("id", conv.id);
-              await supabaseAdmin.from("contacts").update({ status: "perdido" }).eq("id", contact.id);
+              await supabaseAdmin.from("contacts").update({ status: "sem_resposta" }).eq("id", contact.id);
               await supabaseAdmin
                 .from("blast_contacts")
                 .update({ status: "perdido" })
