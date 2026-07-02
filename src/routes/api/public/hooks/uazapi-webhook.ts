@@ -1203,19 +1203,20 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const expectedReplyNumberId = blastReplyNumberId ?? conv.whatsapp_number_id ?? contact.whatsapp_number_id ?? numberId;
-        let replyNumber: {
+        type ReplyNumberCreds = {
           id: string;
           nome: string | null;
           uazapi_url: string | null;
           uazapi_token: string | null;
-        } | null = null;
+        };
+        let replyNumber: ReplyNumberCreds | null = null;
         if (expectedReplyNumberId) {
           const { data: resolvedNumber } = await supabaseAdmin
             .from("whatsapp_numbers")
             .select("id, nome, uazapi_url, uazapi_token")
             .eq("id", expectedReplyNumberId)
             .maybeSingle();
-          replyNumber = resolvedNumber as typeof replyNumber;
+          replyNumber = resolvedNumber as ReplyNumberCreds | null;
         }
         const replySendCreds = {
           uazapi_url: replyNumber?.uazapi_url ?? (numberId ? numberUazapiUrl : integ.uazapi_url) ?? "",
@@ -1321,7 +1322,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               key: integ.smm_api_key,
             };
             const { uazapiSendText } = await import("@/lib/uazapi.server");
-            const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+            const creds = replySendCreds;
             const { data: lastTrial } = await supabaseAdmin
               .from("free_trials")
               .select("id, order_id, link_enviado, link_normalized, servico, quantidade, status")
@@ -1437,7 +1438,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     .map((r) => String(r.service_id));
 
                   const { uazapiSendText } = await import("@/lib/uazapi.server");
-                  const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+                  const creds = replySendCreds;
 
                   if (platformServiceIds.length === 0) {
                     // Não há teste para essa plataforma — não bloqueia, deixa IA responder
@@ -1515,7 +1516,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               const isPhoto = /\/p\//.test(path) && !isVideo;
               if (isPhoto) {
                 const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+                const creds = replySendCreds;
                 const msg = "Esse link é de uma foto, views só funcionam em Reel ou vídeo. Me manda o link de um Reel do seu perfil!";
                 if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial photo)");
                 try { await uazapiSendText(creds, phone, msg); } catch (e) { console.error("uazapi send (trial photo) failed", e); }
@@ -1575,10 +1576,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const existingTrial = isTestNumber ? null : (phoneCompleted || linkCompleted);
 
             const { uazapiSendText } = await import("@/lib/uazapi.server");
-            const creds = {
-              uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "",
-              uazapi_token: instanceToken || (integ.uazapi_token ?? ""),
-            };
+            const creds = replySendCreds;
 
             let replyText: string;
 
@@ -1749,7 +1747,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before minimal reply)");
               if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
                 const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+                const creds = replySendCreds;
                 memMarkSent(phone, directReply);
                 await uazapiSendText(creds, phone, directReply);
                 const stamp = new Date().toISOString();
@@ -1794,11 +1792,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             try {
               const goodbye = "Tudo bem, desculpa o incômodo! Se precisar no futuro é só chamar 😊";
               const { uazapiSendText } = await import("@/lib/uazapi.server");
-              await uazapiSendText(
-                { uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "", uazapi_token: instanceToken },
-                phone,
-                goodbye,
-              );
+              await uazapiSendText(replySendCreds, phone, goodbye);
               const stamp = new Date().toISOString();
               await supabaseAdmin.from("messages").insert({
                 user_id: userId,
@@ -1880,10 +1874,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const defaultDelaySec = f.delay_seconds ?? 3;
             const clampDelayMs = (sec: number | undefined) =>
               Math.max(0, Math.min((sec ?? defaultDelaySec) * 1000, 180_000));
-            const creds = {
-              uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "",
-              uazapi_token: instanceToken || (integ.uazapi_token ?? ""),
-            };
+            const creds = replySendCreds;
             const { uazapiSendText, uazapiSendMedia } = await import("@/lib/uazapi.server");
             const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -2555,12 +2546,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         void hasHardContent;
 
         const { uazapiSendText, uazapiSendAudio, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
-        const sendCreds = { uazapi_url: numberUazapiUrl ?? integ.uazapi_url ?? "", uazapi_token: instanceToken || (integ.uazapi_token ?? "") };
+        const sendCreds = replySendCreds;
         console.log("[webhook/reply-creds]", {
           using_instance_token: sendCreds.uazapi_token?.slice(0, 8),
           inbound_instance_token: instanceToken?.slice(0, 8),
           integ_token: integ.uazapi_token?.slice(0, 8),
           match: sendCreds.uazapi_token === instanceToken,
+          expected_reply_number_id: expectedReplyNumberId,
+          reply_number_name: replyNumberLabel,
+          blast_reply_number_id: blastReplyNumberId,
+          blast_reply_number_source: blastReplyNumberSource,
         });
         const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
