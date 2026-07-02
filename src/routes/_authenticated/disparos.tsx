@@ -1303,19 +1303,33 @@ function BlastCampaignCard({
             ))}
           </select>
         </Field>
-        <Field label="Lista de contatos">
-          <select
-            value={contact_list_id}
-            onChange={(e) => setListId(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
-          >
-            <option value="">Selecione…</option>
-            {lists.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
+        <Field label="Base de contatos (categorias)">
+          <div className="flex flex-wrap gap-1.5 min-h-[38px] rounded-lg border border-border bg-background px-2 py-1.5">
+            {categories.length === 0 && (
+              <span className="text-xs text-muted-foreground self-center px-1">
+                Nenhuma categoria cadastrada.
+              </span>
+            )}
+            {categories.map((c) => {
+              const on = categoria_ids.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => toggleCategoria(c.id)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                    on
+                      ? "border-primary bg-primary/15 text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span>{c.icone}</span>
+                  <span>{c.nome}</span>
+                  {on && <span className="text-primary">✓</span>}
+                </button>
+              );
+            })}
+          </div>
         </Field>
         <Field label="Início">
           <input
@@ -1357,52 +1371,6 @@ function BlastCampaignCard({
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
           />
         </Field>
-      </div>
-
-      <div className="rounded-lg border border-border bg-card/50 p-4 space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div>
-            <h4 className="font-semibold text-sm">Categorias de origem</h4>
-            <p className="text-[11px] text-muted-foreground">
-              Selecione as categorias que servem como fonte de contatos. Quando marcada,
-              a campanha puxa TODOS os contatos dessas categorias (Lead Instagram + Meta Ads etc),
-              ignorando a "Lista de contatos" acima.
-            </p>
-          </div>
-          {categoria_ids.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setCategoriaIds([])}
-              className="text-[11px] text-muted-foreground underline hover:text-foreground"
-            >
-              limpar
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {categories.length === 0 && (
-            <span className="text-xs text-muted-foreground">Nenhuma categoria cadastrada.</span>
-          )}
-          {categories.map((c) => {
-            const on = categoria_ids.includes(c.id);
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => toggleCategoria(c.id)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
-                  on
-                    ? "border-primary bg-primary/15 text-foreground"
-                    : "border-border bg-card text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <span>{c.icone}</span>
-                <span>{c.nome}</span>
-                {on && <span className="text-primary">✓</span>}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       <div className="space-y-3">
