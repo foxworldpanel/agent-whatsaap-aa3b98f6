@@ -313,6 +313,7 @@ type Camp = {
   id: string;
   user_id: string;
   contact_list_id?: string | null;
+  categoria_ids?: string[] | null;
   opening_message: string;
   followup_day3_message: string;
   followup_day7_message: string;
@@ -331,9 +332,11 @@ async function pickNext(
   admin: Awaited<ReturnType<typeof getAdmin>>,
   camp: Camp,
 ): Promise<{ contact: BlastContact; stage: "opening" | "d3" | "d7"; template: string } | null> {
+  const catIds = (camp.categoria_ids ?? []).filter(Boolean);
+  const useCats = catIds.length > 0;
   // Carrega origem da lista (Lista A = meta_ads, Lista B = instagram)
   let listOrigem: "meta_ads" | "instagram" | null = null;
-  if (camp.contact_list_id) {
+  if (!useCats && camp.contact_list_id) {
     const { data: l } = await admin
       .from("contact_lists")
       .select("origem")
@@ -347,16 +350,20 @@ async function pickNext(
       : q.eq("campaign_id", camp.id);
 
   const SELECT = "id, nome, telefone, instagram, status, last_sent_at, last_variation_key";
+  const baseQ = () => {
+    if (useCats) {
+      return admin
+        .from("blast_contacts")
+        .select(SELECT)
+        .eq("user_id", camp.user_id)
+        .in("categoria_id", catIds);
+    }
+    return camp.contact_list_id
+      ? admin.from("blast_contacts").select(SELECT).eq("contact_list_id", camp.contact_list_id)
+      : admin.from("blast_contacts").select(SELECT).eq("campaign_id", camp.id);
+  };
   // 1) Pendentes (abertura)
-  const { data: pend } = await (camp.contact_list_id
-    ? admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("contact_list_id", camp.contact_list_id)
-    : admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("campaign_id", camp.id))
+  const { data: pend } = await baseQ()
     .eq("status", "pendente")
     .order("prioridade", { ascending: false })
     .order("created_at", { ascending: true })
@@ -370,15 +377,7 @@ async function pickNext(
 
   // 2) Follow-up D3 (3 dias após abertura)
   const d3Cutoff = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
-  const { data: d3 } = await (camp.contact_list_id
-    ? admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("contact_list_id", camp.contact_list_id)
-    : admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("campaign_id", camp.id))
+  const { data: d3 } = await baseQ()
     .eq("status", "enviado_abertura")
     .lte("last_sent_at", d3Cutoff)
     .order("last_sent_at", { ascending: true })
@@ -390,15 +389,7 @@ async function pickNext(
 
   // 3) Follow-up D7
   const d7Cutoff = new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString();
-  const { data: d7 } = await (camp.contact_list_id
-    ? admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("contact_list_id", camp.contact_list_id)
-    : admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("campaign_id", camp.id))
+  const { data: d7 } = await baseQ()
     .eq("status", "enviado_d3")
     .lte("last_sent_at", d7Cutoff)
     .order("last_sent_at", { ascending: true })
