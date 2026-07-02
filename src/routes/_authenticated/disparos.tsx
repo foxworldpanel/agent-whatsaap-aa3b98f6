@@ -1010,6 +1010,9 @@ function BlastCampaignCard({
   const [opening_message, setOpening] = useState(camp.opening_message);
   const [followup_day3_message, setD3] = useState(camp.followup_day3_message);
   const [followup_day7_message, setD7] = useState(camp.followup_day7_message);
+  const [dispatch_mode, setDispatchMode] = useState<"agente_livre" | "fluxo_visual">(
+    (camp.dispatch_mode as "agente_livre" | "fluxo_visual") ?? "agente_livre",
+  );
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [csvName, setCsvName] = useState<string>("");
   const [testPhone, setTestPhone] = useState("");
