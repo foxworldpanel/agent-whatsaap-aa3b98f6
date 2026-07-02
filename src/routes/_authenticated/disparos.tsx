@@ -936,6 +936,7 @@ type BlastCampaign = {
   name: string;
   whatsapp_number_id: string | null;
   contact_list_id: string | null;
+  categoria_ids?: string[] | null;
   start_time: string;
   end_time: string;
   daily_limit: number;
@@ -1036,6 +1037,11 @@ function BlastCampaignCard({
   const [contact_list_id, setListId] = useState<string>(camp.contact_list_id ?? "");
   const listListsFn = useServerFn(listContactLists);
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listListsFn() });
+  const listCatsFn = useServerFn(listCategories);
+  const { data: categories = [] } = useQuery({ queryKey: ["contact_categories"], queryFn: () => listCatsFn() });
+  const [categoria_ids, setCategoriaIds] = useState<string[]>(camp.categoria_ids ?? []);
+  const toggleCategoria = (id: string) =>
+    setCategoriaIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const [start_time, setStart] = useState(camp.start_time.slice(0, 5));
   const [end_time, setEnd] = useState(camp.end_time.slice(0, 5));
   const [daily_limit, setLimit] = useState(camp.daily_limit);
@@ -1089,6 +1095,7 @@ function BlastCampaignCard({
           id: camp.id,
           whatsapp_number_id: whatsapp_number_id || null,
           contact_list_id: contact_list_id || null,
+          categoria_ids,
           start_time,
           end_time,
           daily_limit,
@@ -1195,6 +1202,40 @@ function BlastCampaignCard({
     });
   }
 
+  async function handleStartNow() {
+    if (!selectedNumber) {
+      toast.error("Selecione um número de WhatsApp antes de disparar.");
+      return;
+    }
+    if (selectedNumber.disparos_mode !== true) {
+      toast.error(`O número "${selectedNumber.nome ?? "selecionado"}" está com 'Modo Disparos' desativado.`);
+      return;
+    }
+    const ok = confirm(
+      "Disparo IMEDIATO: ignora horário programado, distribuição natural e delay entre envios.\n\n" +
+        "O sistema vai enviar 1 mensagem AGORA para o próximo contato elegível.\n\nConfirma?",
+    );
+    if (!ok) return;
+    try {
+      // Garante que a campanha esteja rodando (senão dispatcher ignora).
+      await stateFn({ data: { id: camp.id, state: "rodando" } });
+      const r = await fetch("/api/public/hooks/blast-dispatcher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: camp.id, now: true }),
+      });
+      const j = (await r.json().catch(() => null)) as { results?: Array<{ campaign: string; sent: number; skipped?: string }> } | null;
+      const mine = j?.results?.find((x) => x.campaign === camp.name);
+      if (mine?.sent) toast.success(`Enviado agora! (${mine.skipped ?? ""})`);
+      else toast.info(`Dispatcher retornou: ${mine?.skipped ?? "sem detalhes"}`);
+      onChanged();
+      qc.invalidateQueries({ queryKey: ["blast_contacts", camp.id] });
+      qc.invalidateQueries({ queryKey: ["panel_contacts"] });
+    } catch (e) {
+      toast.error(`Falha ao disparar agora: ${(e as Error).message}`);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border p-5 space-y-5" style={{ background: "var(--gradient-card)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1222,6 +1263,13 @@ function BlastCampaignCard({
             style={{ background: "var(--gradient-primary)" }}
           >
             <Play className="h-3.5 w-3.5" /> Iniciar
+          </button>
+          <button
+            onClick={handleStartNow}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
+            title="Dispara AGORA ignorando horário, distribuição natural e delay entre envios"
+          >
+            ⚡ Disparar Agora
           </button>
           <button
             onClick={() => stateMut.mutate("pausado")}
@@ -1309,6 +1357,52 @@ function BlastCampaignCard({
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
           />
         </Field>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card/50 p-4 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <h4 className="font-semibold text-sm">Categorias de origem</h4>
+            <p className="text-[11px] text-muted-foreground">
+              Selecione as categorias que servem como fonte de contatos. Quando marcada,
+              a campanha puxa TODOS os contatos dessas categorias (Lead Instagram + Meta Ads etc),
+              ignorando a "Lista de contatos" acima.
+            </p>
+          </div>
+          {categoria_ids.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCategoriaIds([])}
+              className="text-[11px] text-muted-foreground underline hover:text-foreground"
+            >
+              limpar
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {categories.length === 0 && (
+            <span className="text-xs text-muted-foreground">Nenhuma categoria cadastrada.</span>
+          )}
+          {categories.map((c) => {
+            const on = categoria_ids.includes(c.id);
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => toggleCategoria(c.id)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
+                  on
+                    ? "border-primary bg-primary/15 text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <span>{c.icone}</span>
+                <span>{c.nome}</span>
+                {on && <span className="text-primary">✓</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="space-y-3">

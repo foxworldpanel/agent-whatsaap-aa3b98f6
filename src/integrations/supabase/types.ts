@@ -301,6 +301,7 @@ export type Database = {
       }
       blast_campaigns: {
         Row: {
+          categoria_ids: string[]
           contact_list_id: string | null
           created_at: string
           daily_limit: number
@@ -321,6 +322,7 @@ export type Database = {
           whatsapp_number_id: string | null
         }
         Insert: {
+          categoria_ids?: string[]
           contact_list_id?: string | null
           created_at?: string
           daily_limit?: number
@@ -341,6 +343,7 @@ export type Database = {
           whatsapp_number_id?: string | null
         }
         Update: {
+          categoria_ids?: string[]
           contact_list_id?: string | null
           created_at?: string
           daily_limit?: number

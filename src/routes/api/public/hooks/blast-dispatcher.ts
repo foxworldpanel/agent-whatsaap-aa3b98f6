@@ -9,7 +9,7 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
         const {
@@ -21,10 +21,20 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
         } = await import("@/lib/blast-variations");
         const { _toTemplates } = await import("@/lib/opening-templates.functions");
 
-        const { data: camps, error } = await supabaseAdmin
+        // Body opcional: { campaignId?, now?: boolean }
+        let opts: { campaignId?: string; now?: boolean } = {};
+        try {
+          const t = await request.text();
+          if (t) opts = JSON.parse(t);
+        } catch { /* body vazio */ }
+        const bypass = opts.now === true;
+
+        let q = supabaseAdmin
           .from("blast_campaigns")
           .select("*")
           .eq("state", "rodando");
+        if (opts.campaignId) q = q.eq("id", opts.campaignId);
+        const { data: camps, error } = await q;
         if (error) return new Response(error.message, { status: 500 });
 
         const results: Array<{ campaign: string; sent: number; skipped?: string }> = [];
@@ -33,7 +43,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
           try {
             const now = new Date();
             const hhmm = now.toTimeString().slice(0, 8);
-            if (hhmm < camp.start_time || hhmm > camp.end_time) {
+            if (!bypass && (hhmm < camp.start_time || hhmm > camp.end_time)) {
               results.push({ campaign: camp.name, sent: 0, skipped: "fora do horário" });
               continue;
             }
@@ -44,13 +54,13 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const tickWeight = peakHour ? 1 : 1 / 3;
             // No primeiro envio da campanha, não pula por distribuição natural
             // (para dar feedback imediato ao usuário quando clicar em Iniciar).
-            if (camp.last_dispatch_at && Math.random() > tickWeight) {
+            if (!bypass && camp.last_dispatch_at && Math.random() > tickWeight) {
               results.push({ campaign: camp.name, sent: 0, skipped: "distribuição natural" });
               continue;
             }
 
             // Delay aleatório entre disparos por campanha
-            if (camp.last_dispatch_at) {
+            if (!bypass && camp.last_dispatch_at) {
               const since = Date.now() - new Date(camp.last_dispatch_at).getTime();
               const minMs = (camp.delay_min_sec ?? 45) * 1000;
               const maxMs = (camp.delay_max_sec ?? 90) * 1000;
@@ -303,6 +313,7 @@ type Camp = {
   id: string;
   user_id: string;
   contact_list_id?: string | null;
+  categoria_ids?: string[] | null;
   opening_message: string;
   followup_day3_message: string;
   followup_day7_message: string;
@@ -321,9 +332,11 @@ async function pickNext(
   admin: Awaited<ReturnType<typeof getAdmin>>,
   camp: Camp,
 ): Promise<{ contact: BlastContact; stage: "opening" | "d3" | "d7"; template: string } | null> {
+  const catIds = (camp.categoria_ids ?? []).filter(Boolean);
+  const useCats = catIds.length > 0;
   // Carrega origem da lista (Lista A = meta_ads, Lista B = instagram)
   let listOrigem: "meta_ads" | "instagram" | null = null;
-  if (camp.contact_list_id) {
+  if (!useCats && camp.contact_list_id) {
     const { data: l } = await admin
       .from("contact_lists")
       .select("origem")
@@ -337,16 +350,20 @@ async function pickNext(
       : q.eq("campaign_id", camp.id);
 
   const SELECT = "id, nome, telefone, instagram, status, last_sent_at, last_variation_key";
+  const baseQ = () => {
+    if (useCats) {
+      return admin
+        .from("blast_contacts")
+        .select(SELECT)
+        .eq("user_id", camp.user_id)
+        .in("categoria_id", catIds);
+    }
+    return camp.contact_list_id
+      ? admin.from("blast_contacts").select(SELECT).eq("contact_list_id", camp.contact_list_id)
+      : admin.from("blast_contacts").select(SELECT).eq("campaign_id", camp.id);
+  };
   // 1) Pendentes (abertura)
-  const { data: pend } = await (camp.contact_list_id
-    ? admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("contact_list_id", camp.contact_list_id)
-    : admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("campaign_id", camp.id))
+  const { data: pend } = await baseQ()
     .eq("status", "pendente")
     .order("prioridade", { ascending: false })
     .order("created_at", { ascending: true })
@@ -360,15 +377,7 @@ async function pickNext(
 
   // 2) Follow-up D3 (3 dias após abertura)
   const d3Cutoff = new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString();
-  const { data: d3 } = await (camp.contact_list_id
-    ? admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("contact_list_id", camp.contact_list_id)
-    : admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("campaign_id", camp.id))
+  const { data: d3 } = await baseQ()
     .eq("status", "enviado_abertura")
     .lte("last_sent_at", d3Cutoff)
     .order("last_sent_at", { ascending: true })
@@ -380,15 +389,7 @@ async function pickNext(
 
   // 3) Follow-up D7
   const d7Cutoff = new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString();
-  const { data: d7 } = await (camp.contact_list_id
-    ? admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("contact_list_id", camp.contact_list_id)
-    : admin
-        .from("blast_contacts")
-        .select(SELECT)
-        .eq("campaign_id", camp.id))
+  const { data: d7 } = await baseQ()
     .eq("status", "enviado_d3")
     .lte("last_sent_at", d7Cutoff)
     .order("last_sent_at", { ascending: true })
