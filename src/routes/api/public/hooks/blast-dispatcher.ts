@@ -344,6 +344,90 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   : next.stage === "d3"
                     ? "enviado_d3"
                     : "enviado_d7";
+              // 🔴 CRITICAL: espelha a mensagem enviada em contacts/conversations/messages
+              // para que o histórico do Claude receba o contexto completo quando o
+              // cliente responder. Sem isso, o webhook de inbound só vê a resposta
+              // do cliente e o agente perde toda a memória da conversa.
+              try {
+                const openerFull = messageParts.join("\n\n").trim();
+                if (openerFull) {
+                  const phoneDigits = String(next.contact.telefone).replace(/\D+/g, "");
+                  // find/create contact
+                  let contactId: string | null = null;
+                  {
+                    const { data: existing } = await supabaseAdmin
+                      .from("contacts")
+                      .select("id")
+                      .eq("user_id", camp.user_id)
+                      .eq("telefone", phoneDigits)
+                      .maybeSingle();
+                    if (existing?.id) {
+                      contactId = existing.id;
+                    } else {
+                      const ins = await supabaseAdmin
+                        .from("contacts")
+                        .insert({
+                          user_id: camp.user_id,
+                          telefone: phoneDigits,
+                          nome: next.contact.nome ?? phoneDigits,
+                          origem: "disparo",
+                          status: "em_conversa",
+                          whatsapp_number_id: numberRow.id,
+                        } as never)
+                        .select("id")
+                        .single();
+                      contactId = ins.data?.id ?? null;
+                    }
+                  }
+                  if (contactId) {
+                    // find/create conversation
+                    let convId: string | null = null;
+                    {
+                      const { data: existingConv } = await supabaseAdmin
+                        .from("conversations")
+                        .select("id")
+                        .eq("user_id", camp.user_id)
+                        .eq("contact_id", contactId)
+                        .maybeSingle();
+                      if (existingConv?.id) {
+                        convId = existingConv.id;
+                      } else {
+                        const insConv = await supabaseAdmin
+                          .from("conversations")
+                          .insert({
+                            user_id: camp.user_id,
+                            contact_id: contactId,
+                            status: "aguardando",
+                            whatsapp_number_id: numberRow.id,
+                          } as never)
+                          .select("id")
+                          .single();
+                        convId = insConv.data?.id ?? null;
+                      }
+                    }
+                    if (convId) {
+                      const nowIso = new Date().toISOString();
+                      await supabaseAdmin.from("messages").insert({
+                        user_id: camp.user_id,
+                        conversation_id: convId,
+                        sender: "agente",
+                        kind: "texto",
+                        body: openerFull,
+                      } as never);
+                      await supabaseAdmin
+                        .from("conversations")
+                        .update({
+                          last_message_preview: openerFull.slice(0, 120),
+                          last_message_at: nowIso,
+                          status: "aguardando",
+                        } as never)
+                        .eq("id", convId);
+                    }
+                  }
+                }
+              } catch (e) {
+                console.error("[blast-dispatcher] failed to mirror opener into messages", e);
+              }
               await supabaseAdmin
                 .from("blast_contacts")
                 .update({

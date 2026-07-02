@@ -1,0 +1,1 @@
+UPDATE public.agent_config SET agent_name = 'Júlia', updated_at = now() WHERE COALESCE(TRIM(agent_name), '') = '';
