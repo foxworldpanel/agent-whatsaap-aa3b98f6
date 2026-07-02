@@ -1358,8 +1358,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   const { logEvent } = await import("@/lib/agent-logger.server");
                   await logEvent({ userId, phone, conversationId: conv.id, type: "free_trial", level: "info", summary: `🎵 Teste grátis processado: ${qty} para ${link.platform} (order ${result.order})`, metadata: { serviceId, qty, link: link.url, platform: link.platform, order: result.order } });
                 } catch {}
-                replyText =
-                  `Recebi! Já liberei ${qty} ${matched?.category?.toLowerCase().includes("view") || matched?.category?.toLowerCase().includes("visual") ? "views" : "unidades"} grátis no seu link, costuma chegar em poucos minutos ✅`;
+                {
+                  const unidade =
+                    link.platform === "spotify"
+                      ? "plays"
+                      : matched?.category?.toLowerCase().includes("segui")
+                        ? "seguidores"
+                        : matched?.category?.toLowerCase().includes("curt") ||
+                            matched?.category?.toLowerCase().includes("like")
+                          ? "curtidas"
+                          : matched?.category?.toLowerCase().includes("inscri")
+                            ? "inscritos"
+                            : "views";
+                  const local =
+                    link.platform === "youtube"
+                      ? "no seu vídeo do YouTube"
+                      : link.platform === "tiktok"
+                        ? "no seu vídeo do TikTok"
+                        : link.platform === "spotify"
+                          ? "na sua música"
+                          : "no seu Reel";
+                  replyText = `Recebi! Já liberei ${qty} ${unidade} grátis ${local}, costuma chegar em poucos minutos ✅`;
+                }
               } catch (e) {
                 const raw = e instanceof Error ? e.message : String(e);
                 console.error("[free-trial] smm add failed", { error: raw, serviceId, qty, url: link.url, platform: link.platform });
