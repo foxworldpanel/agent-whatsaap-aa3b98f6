@@ -8,6 +8,8 @@ import {
   addEdge,
   useNodesState,
   useEdgesState,
+  Handle,
+  Position,
   type Node,
   type Edge,
   type Connection,
@@ -101,6 +103,7 @@ function FlowCardNode({ data, selected }: { data: NodeData; selected?: boolean }
       className="rounded-lg border-2 bg-card px-3 py-2 shadow-sm min-w-[180px]"
       style={{ borderColor: selected ? m.color : "hsl(var(--border))" }}
     >
+      <Handle type="target" position={Position.Top} style={{ background: m.color, width: 10, height: 10 }} />
       <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: m.color }}>
         <span>{m.icon}</span>
         <span>{m.label}</span>
@@ -109,6 +112,14 @@ function FlowCardNode({ data, selected }: { data: NodeData; selected?: boolean }
       {data.content && (
         <div className="mt-1 text-[11px] text-muted-foreground truncate max-w-[220px]">{data.content}</div>
       )}
+      {data.kind === "condition" ? (
+        <>
+          <Handle id="yes" type="source" position={Position.Bottom} style={{ left: "30%", background: "#10b981", width: 10, height: 10 }} />
+          <Handle id="no" type="source" position={Position.Bottom} style={{ left: "70%", background: "#ef4444", width: 10, height: 10 }} />
+        </>
+      ) : data.kind !== "end" ? (
+        <Handle type="source" position={Position.Bottom} style={{ background: m.color, width: 10, height: 10 }} />
+      ) : null}
     </div>
   );
 }
