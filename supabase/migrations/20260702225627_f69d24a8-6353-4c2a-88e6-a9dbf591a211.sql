@@ -1,0 +1,1 @@
+DELETE FROM public.blast_campaigns WHERE id = 'fedbb61c-6609-427a-8ce0-3615301e581f';
