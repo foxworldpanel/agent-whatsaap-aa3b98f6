@@ -531,10 +531,46 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         if (!msg) return new Response("no message");
         const outbound = msg.fromMe === true;
 
+        // 🛡️ Guard: ignora mensagens de GRUPO / broadcast / status / newsletter.
+        // O JID de grupo (`...@g.us`) tem ~18 dígitos e, se tratado como número
+        // individual, faz o Uazapi responder "failed to get group members".
+        const chatidRaw = (msg.chatid ?? msg.sender ?? "").toLowerCase();
+        const isGroupChat =
+          chatidRaw.includes("@g.us") ||
+          chatidRaw.includes("@broadcast") ||
+          chatidRaw.includes("status@") ||
+          chatidRaw.includes("@newsletter");
+        if (isGroupChat) {
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              phone: (chatidRaw.split("@")[0] || "group"),
+              type: "message_received",
+              level: "warn",
+              summary: `↩️ Ignorado: mensagem de grupo/broadcast (${chatidRaw})`,
+            });
+          } catch {}
+          return new Response("group ignored");
+        }
+
         const instanceToken = pickInstanceToken(payload);
         const phone = extractPhone(msg.chatid, msg.sender);
         if (!instanceToken || !phone) {
           return new Response("missing token/phone", { status: 400 });
+        }
+        // Extra: rejeita destinos com mais de 15 dígitos (E.164 max = 15).
+        // JIDs de grupo têm ~18 dígitos e cairiam aqui como fallback.
+        if (phone.length > 15 || phone.length < 8) {
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              phone,
+              type: "message_received",
+              level: "warn",
+              summary: `↩️ Ignorado: número inválido (${phone.length} dígitos)`,
+            });
+          } catch {}
+          return new Response("invalid phone");
         }
 
         // 🔍 Log de entrada do webhook (diagnóstico por número)

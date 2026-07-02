@@ -10,7 +10,18 @@ function normalizePhone(raw: string): string {
   return raw.replace(/\D+/g, "");
 }
 
-async function uazapiPost(creds: UazapiCreds, path: string, body: unknown): Promise<void> {
+function assertIndividualPhone(phone: string, path: string): void {
+  // JID de grupo do WhatsApp costuma ter 18+ dígitos (ex: 120363...).
+  // E.164 individual: 8–15 dígitos.
+  if (!phone || phone.length < 8 || phone.length > 15) {
+    throw new Error(
+      `Uazapi ${path}: destino inválido "${phone}" (${phone.length} dígitos). ` +
+      `Provavelmente é um JID de grupo/broadcast, não um número individual.`,
+    );
+  }
+}
+
+async function uazapiPost(creds: UazapiCreds, path: string, body: unknown): Promise<Record<string, unknown> | null> {
   const base = creds.uazapi_url.replace(/\/+$/, "");
   const res = await fetch(`${base}${path}`, {
     method: "POST",
@@ -20,9 +31,14 @@ async function uazapiPost(creds: UazapiCreds, path: string, body: unknown): Prom
     },
     body: JSON.stringify(body),
   });
+  const rawText = await res.text().catch(() => "");
   if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Uazapi ${path} falhou (${res.status}): ${t.slice(0, 300)}`);
+    throw new Error(`Uazapi ${path} falhou (${res.status}): ${rawText.slice(0, 300)}`);
+  }
+  try {
+    return rawText ? (JSON.parse(rawText) as Record<string, unknown>) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -57,8 +73,25 @@ const PRESENCE_VARIANTS: Array<{
   { path: "/chat/sendPresence", build: (phone, presence, delay) => ({ phone, status: presence, ...(delay ? { delay } : {}) }) },
 ];
 
-export async function uazapiSendText(creds: UazapiCreds, to: string, text: string): Promise<void> {
-  await uazapiPost(creds, "/send/text", { number: normalizePhone(to), text });
+export async function uazapiSendText(
+  creds: UazapiCreds,
+  to: string,
+  text: string,
+): Promise<{ messageId: string | null; status: string | null; raw: Record<string, unknown> | null }> {
+  const phone = normalizePhone(to);
+  assertIndividualPhone(phone, "/send/text");
+  const resp = await uazapiPost(creds, "/send/text", { number: phone, text });
+  const messageId =
+    (resp?.messageId as string | undefined) ??
+    (resp?.id as string | undefined) ??
+    ((resp?.message as Record<string, unknown> | undefined)?.id as string | undefined) ??
+    null;
+  const status =
+    (resp?.status as string | undefined) ??
+    ((resp?.message as Record<string, unknown> | undefined)?.status as string | undefined) ??
+    null;
+  console.log("[uazapi/send-text]", { to: phone, messageId, status });
+  return { messageId, status, raw: resp };
 }
 
 // Presence helpers — use Uazapi /chat/presence (the endpoint available on
