@@ -104,10 +104,26 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
               const qty = res.quantity ?? trial.quantidade ?? null;
               const viewsAtuais =
                 startCount !== null && qty !== null ? startCount + qty : null;
+              // Detecta plataforma pelo link para usar termo correto
+              const linkLower = (trial.link_enviado ?? "").toLowerCase();
+              const isYouTube = /youtube\.com|youtu\.be/.test(linkLower);
+              const isTikTok = /tiktok\.com/.test(linkLower);
+              const isSpotify = /spotify\.com|spotify\.link/.test(linkLower);
+              const isInstagram = /instagram\.com|instagr\.am/.test(linkLower);
+              const unidade = isSpotify ? "plays" : "views";
+              const local = isYouTube
+                ? "no seu vídeo do YouTube"
+                : isTikTok
+                  ? "no seu vídeo do TikTok"
+                  : isSpotify
+                    ? "na sua música"
+                    : isInstagram
+                      ? "no seu Reel"
+                      : "no seu link";
               const msg =
                 startCount !== null && viewsAtuais !== null
-                  ? `Seu teste foi entregue! Seu Reel tinha ${startCount} views, agora está com ${viewsAtuais} views! Sentiu a diferença? 🚀`
-                  : "Seu teste foi entregue! Dá uma olhada no seu perfil e me conta o que achou! 🚀";
+                  ? `Seu teste foi entregue! ${local[0].toUpperCase() + local.slice(1)} tinha ${startCount} ${unidade}, agora está com ${viewsAtuais} ${unidade}! Sentiu a diferença? 🚀`
+                  : `Seu teste foi entregue! Dá uma olhada ${local} e me conta o que achou! 🚀`;
               try {
                 await uazapiSendText(
                   {

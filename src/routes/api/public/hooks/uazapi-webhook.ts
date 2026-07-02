@@ -1071,7 +1071,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 const status = (st.status ?? lastTrial.status ?? "").toLowerCase();
                 console.log(`[free-trial:complaint] phone=${phone} order=${lastTrial.order_id} status=${status}`);
                 if (status === "completed") {
-                  replyText = "Aqui mostra que foi entregue! Às vezes demora alguns minutos pra atualizar no Instagram. Dá uma olhada agora no Reel";
+                  {
+                    const l = (lastTrial.link_enviado ?? "").toLowerCase();
+                    const local = /youtube\.com|youtu\.be/.test(l)
+                      ? "no seu vídeo do YouTube"
+                      : /tiktok\.com/.test(l)
+                        ? "no seu vídeo do TikTok"
+                        : /spotify\.com|spotify\.link/.test(l)
+                          ? "na sua música"
+                          : "no seu Reel";
+                    replyText = `Aqui mostra que foi entregue! Às vezes leva alguns minutos pra atualizar. Se em 1 hora não aparecer, abre um ticket no painel no menu Suporte! Dá uma olhada agora ${local}`;
+                  }
                 } else if (status === "pending" || status === "processing" || status === "in_progress") {
                   replyText = "Ainda está processando, já vai chegar! Normalmente leva alguns minutos";
                 } else if (status === "canceled" || status === "cancelled" || status === "partial" || status === "failed") {
@@ -1348,8 +1358,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   const { logEvent } = await import("@/lib/agent-logger.server");
                   await logEvent({ userId, phone, conversationId: conv.id, type: "free_trial", level: "info", summary: `🎵 Teste grátis processado: ${qty} para ${link.platform} (order ${result.order})`, metadata: { serviceId, qty, link: link.url, platform: link.platform, order: result.order } });
                 } catch {}
-                replyText =
-                  `Recebi! Já liberei ${qty} ${matched?.category?.toLowerCase().includes("view") || matched?.category?.toLowerCase().includes("visual") ? "views" : "unidades"} grátis no seu link, costuma chegar em poucos minutos ✅`;
+                {
+                  const unidade =
+                    link.platform === "spotify"
+                      ? "plays"
+                      : matched?.category?.toLowerCase().includes("segui")
+                        ? "seguidores"
+                        : matched?.category?.toLowerCase().includes("curt") ||
+                            matched?.category?.toLowerCase().includes("like")
+                          ? "curtidas"
+                          : matched?.category?.toLowerCase().includes("inscri")
+                            ? "inscritos"
+                            : "views";
+                  const local =
+                    link.platform === "youtube"
+                      ? "no seu vídeo do YouTube"
+                      : link.platform === "tiktok"
+                        ? "no seu vídeo do TikTok"
+                        : link.platform === "spotify"
+                          ? "na sua música"
+                          : "no seu Reel";
+                  replyText = `Recebi! Já liberei ${qty} ${unidade} grátis ${local}, costuma chegar em poucos minutos ✅`;
+                }
               } catch (e) {
                 const raw = e instanceof Error ? e.message : String(e);
                 console.error("[free-trial] smm add failed", { error: raw, serviceId, qty, url: link.url, platform: link.platform });
