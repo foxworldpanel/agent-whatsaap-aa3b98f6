@@ -49,7 +49,7 @@ import {
   clearContactList,
   exportContactList,
 } from "@/lib/contact-lists.functions";
-import { listCategories, type ContactCategory } from "@/lib/categories.functions";
+import { listCategories } from "@/lib/categories.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 import { BlastFlowBuilder } from "@/components/BlastFlowBuilder";
 
