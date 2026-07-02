@@ -42,7 +42,16 @@ export const listConversations = createServerFn({ method: "GET" })
     if (data?.numberId) q = q.eq("whatsapp_number_id", data.numberId);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    if (!rows || rows.length === 0) return [];
+    const { data: testRows } = await supabaseAdmin
+      .from("test_numbers")
+      .select("phone")
+      .in("user_id", userIds);
+    const testSet = new Set((testRows ?? []).map((r) => r.phone));
+    return rows.map((r: any) => ({
+      ...r,
+      is_test: r.contact?.telefone ? testSet.has(r.contact.telefone) : false,
+    }));
   });
 
 export const listMessages = createServerFn({ method: "POST" })
