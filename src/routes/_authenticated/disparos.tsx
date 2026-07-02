@@ -2155,57 +2155,88 @@ function ContactListsSection() {
         const rows = csvByList[primary.id] ?? [];
         const sum = summary[primary.id];
         return (
-          <div className="rounded-xl border border-border p-5 space-y-3" style={{ background: "var(--gradient-card)" }}>
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                <Plus className="h-5 w-5" />
+          <div
+            className="relative overflow-hidden rounded-2xl border border-border/60 p-6 shadow-sm ring-1 ring-inset ring-white/5"
+            style={{ background: "var(--gradient-card)" }}
+          >
+            {/* glow accent */}
+            <div className="pointer-events-none absolute -top-16 -right-16 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
+
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className="flex h-11 w-11 items-center justify-center rounded-xl text-primary-foreground shadow-md"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  <Plus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold tracking-tight">Importar Contatos</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Envie um CSV com as colunas <code className="rounded bg-muted px-1 py-0.5 text-[10px]">nome</code>, <code className="rounded bg-muted px-1 py-0.5 text-[10px]">telefone</code>, <code className="rounded bg-muted px-1 py-0.5 text-[10px]">instagram</code>.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold">Importar Contatos</h3>
-                <p className="text-xs text-muted-foreground">
-                  Envie um CSV manual com os contatos que serão abordados por este número.
-                </p>
-              </div>
+              {rows.length > 0 && (
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold text-primary">
+                  {rows.length} prontos para importar
+                </span>
+              )}
             </div>
-            <div className="space-y-2">
-              <label className="block text-xs text-muted-foreground">Arquivo CSV (colunas: nome, telefone, instagram)</label>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="text-xs text-muted-foreground">Categoria*:</label>
+
+            <div className="relative mt-5 space-y-4">
+              {/* Categoria */}
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-2">
+                <label className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Categoria</label>
                 <select
                   value={importCategoryId}
                   onChange={(e) => setImportCategoryId(e.target.value)}
-                  className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+                  className="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   {categories.length === 0 && <option value="">Carregando…</option>}
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>
                   ))}
                 </select>
-                <span className="text-[10px] text-muted-foreground">Aplicada a todos os contatos deste CSV.</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">Aplicada a todos os contatos do CSV.</span>
               </div>
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (!f) return;
-                  const text = await f.text();
-                  const parsed = parseCsv(text);
-                  setCsvByList((m) => ({ ...m, [primary.id]: parsed }));
-                  if (parsed.length === 0) {
-                    toast.error("CSV vazio ou cabeçalho inválido. Use colunas: nome, telefone, instagram");
-                  } else {
-                    toast.success(`${parsed.length} linhas detectadas no CSV`);
-                  }
-                  e.target.value = "";
-                }}
-                className="block w-full text-xs"
-              />
+
+              {/* Dropzone */}
+              <label
+                htmlFor="csv-import-input"
+                className="group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border/70 bg-background/30 px-4 py-6 text-center transition-all hover:border-primary/50 hover:bg-primary/5"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary transition-transform group-hover:scale-110">
+                  <Plus className="h-5 w-5" />
+                </div>
+                <div className="text-xs">
+                  <span className="font-semibold text-foreground">Clique para selecionar</span>
+                  <span className="text-muted-foreground"> ou arraste um arquivo .csv</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground">Formato: nome, telefone, instagram</span>
+                <input
+                  id="csv-import-input"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    const text = await f.text();
+                    const parsed = parseCsv(text);
+                    setCsvByList((m) => ({ ...m, [primary.id]: parsed }));
+                    if (parsed.length === 0) {
+                      toast.error("CSV vazio ou cabeçalho inválido. Use colunas: nome, telefone, instagram");
+                    } else {
+                      toast.success(`${parsed.length} linhas detectadas no CSV`);
+                    }
+                    e.target.value = "";
+                  }}
+                  className="hidden"
+                />
+              </label>
+
               {rows.length > 0 && (
-                <p className="text-xs text-muted-foreground">{rows.length} linhas no CSV — clique em Importar.</p>
-              )}
-              {rows.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     disabled={importingFor === primary.id || !importCategoryId}
                     onClick={async () => {
@@ -2231,17 +2262,18 @@ function ContactListsSection() {
                         setImportingFor(null);
                       }
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold text-primary-foreground shadow-md transition-all hover:shadow-lg hover:brightness-110 disabled:opacity-50"
                     style={{ background: "var(--gradient-primary)" }}
                   >
-                    <Plus className="h-3.5 w-3.5" /> {importingFor === primary.id ? "Importando…" : "Importar"}
+                    <Plus className="h-3.5 w-3.5" /> {importingFor === primary.id ? "Importando…" : `Importar ${rows.length} contatos`}
                   </button>
                 </div>
               )}
-              <div className="flex flex-wrap gap-2">
+
+              <div className="flex flex-wrap gap-2 border-t border-border/50 pt-3">
                 <button
                   onClick={exportCombinedReport}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-card/70 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
                 >
                   <BarChart3 className="h-3.5 w-3.5" /> Exportar relatório
                 </button>
@@ -2252,15 +2284,18 @@ function ContactListsSection() {
                     qc.invalidateQueries({ queryKey: ["contact_lists"] });
                     qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Limpar base
                 </button>
               </div>
               {sum && (
-                <p className="text-xs text-muted-foreground">
-                  <b>{sum.inserted}</b> novos · <b>{sum.ignored_sent}</b> ignorados (já enviados) · <b>{sum.ignored_blocked}</b> ignorados (não quer) · <b>{sum.invalid}</b> inválidos
-                </p>
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-border/50 bg-background/40 p-3 text-[11px] md:grid-cols-4">
+                  <div><div className="text-emerald-500 text-sm font-bold">{sum.inserted}</div><div className="text-muted-foreground">Novos</div></div>
+                  <div><div className="text-amber-500 text-sm font-bold">{sum.ignored_sent}</div><div className="text-muted-foreground">Já enviados</div></div>
+                  <div><div className="text-rose-500 text-sm font-bold">{sum.ignored_blocked}</div><div className="text-muted-foreground">Não quer</div></div>
+                  <div><div className="text-muted-foreground text-sm font-bold">{sum.invalid}</div><div className="text-muted-foreground">Inválidos</div></div>
+                </div>
               )}
             </div>
           </div>
