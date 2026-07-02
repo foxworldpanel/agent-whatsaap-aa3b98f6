@@ -2318,7 +2318,7 @@ function ContactListsSection() {
   const [openContactsFor, setOpenContactsFor] = useState<string | null>(null);
 
   const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
-  const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
+  const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; ignored_sent: number; ignored_blocked: number; invalid: number } | null>>({});
   const [importingFor, setImportingFor] = useState<string | null>(null);
   const [importCategoryId, setImportCategoryId] = useState<string>("");
   useEffect(() => {
@@ -2527,7 +2527,12 @@ function ContactListsSection() {
                         qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
                         qc.invalidateQueries({ queryKey: ["contact_categories_counts"] });
                         qc.invalidateQueries({ queryKey: ["list_contacts_detail", primary.id] });
-                        toast.success(`${(res as { inserted: number }).inserted} contatos importados`);
+                        {
+                          const r = res as { inserted: number; ignored_sent: number; ignored_blocked: number };
+                          toast.success(
+                            `${r.inserted} novos adicionados · ${r.ignored_sent} ignorados (já enviados) · ${r.ignored_blocked} ignorados (não quer)`,
+                          );
+                        }
                       } catch (err) {
                         toast.error(`Falha ao importar: ${(err as Error).message}`);
                       } finally {
@@ -2562,7 +2567,7 @@ function ContactListsSection() {
               </div>
               {sum && (
                 <p className="text-xs text-muted-foreground">
-                  Inseridos: <b>{sum.inserted}</b> · Ignorados (já existem): <b>{sum.ignored_existing}</b> · Inválidos: <b>{sum.invalid}</b>
+                  <b>{sum.inserted}</b> novos · <b>{sum.ignored_sent}</b> ignorados (já enviados) · <b>{sum.ignored_blocked}</b> ignorados (não quer) · <b>{sum.invalid}</b> inválidos
                 </p>
               )}
             </div>
