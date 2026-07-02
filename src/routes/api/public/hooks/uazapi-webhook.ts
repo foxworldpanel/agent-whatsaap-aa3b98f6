@@ -900,6 +900,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .eq("user_id", userId)
               .eq("telefone", phone)
               .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7", "pendente"]);
+            // Cliente respondeu a um disparo — reativa o agente nesta conversa
+            // (mesmo que o agente esteja desligado globalmente ou em revisão).
+            try {
+              await supabaseAdmin
+                .from("conversations")
+                .update({ agent_enabled: true, needs_review: false, review_reason: null })
+                .eq("user_id", userId)
+                .eq("contact_id", contact.id);
+            } catch {}
           }
         } catch {}
 
@@ -1080,7 +1089,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const convEnabled = conv.agent_enabled !== false;
         const needsReview = (conv as { needs_review?: boolean }).needs_review === true;
         const isAutoReplyAllowed = async (): Promise<boolean> => {
-          if (isTestNumber) return true;
+          if (isTestNumber || isBlastReply) return true;
           const { data: latestAgent } = await supabaseAdmin
             .from("agent_config")
             .select("agent_enabled")
@@ -1102,7 +1111,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .maybeSingle();
           return latestContact?.status !== "bloqueado";
         };
-        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber) {
+        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber && !isBlastReply) {
           await supabaseAdmin
             .from("conversations")
             .update({
