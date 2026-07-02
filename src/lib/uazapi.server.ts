@@ -90,7 +90,21 @@ export async function uazapiSendText(
     (resp?.status as string | undefined) ??
     ((resp?.message as Record<string, unknown> | undefined)?.status as string | undefined) ??
     null;
-  console.log("[uazapi/send-text]", { to: phone, messageId, status });
+  // Log RESPOSTA COMPLETA para diagnosticar "HTTP 200 sem entrega real".
+  // A Uazapi às vezes responde 200 sem enfileirar (JID de grupo, número inválido,
+  // instância dessincronizada). Sem o JSON cru fica impossível diferenciar.
+  console.log("[uazapi/send-text]", {
+    to: phone,
+    messageId,
+    status,
+    raw: resp,
+  });
+  if (!messageId) {
+    console.warn("[uazapi/send-text] ⚠️ resposta 200 SEM messageId — provável não-entrega", {
+      to: phone,
+      raw: resp,
+    });
+  }
   return { messageId, status, raw: resp };
 }
 

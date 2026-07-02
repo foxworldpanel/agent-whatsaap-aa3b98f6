@@ -2811,10 +2811,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 direcao: "enviado",
                 tipo: "resposta_agente",
                 contato_nome: contact.nome,
-                from_blast: isBlastReply,
+                // ⚠️ Resposta de conversa NUNCA é from_blast — só a mensagem de
+                // abertura do disparo (blast-dispatcher) carrega esse flag.
+                // isBlastReply aqui significa "cliente respondeu ao disparo",
+                // mas a resposta da Júlia já é conversa normal.
+                from_blast: false,
+                is_reply_to_blast: isBlastReply,
                 kind: replyKind,
-                part_index: i,
-                part_total: replyParts.length,
+                // part_index/part_total só fazem sentido quando há múltiplas
+                // partes (a Júlia às vezes divide em bolhas). Omitimos quando é 1/1.
+                ...(replyParts.length > 1 ? { part_index: i, part_total: replyParts.length } : {}),
               } as never,
             });
           }
