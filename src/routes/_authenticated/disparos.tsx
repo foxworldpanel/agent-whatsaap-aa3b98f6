@@ -1610,13 +1610,6 @@ function BlastCampaignCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <ReportCard label="Total disparado" value={report?.sent ?? 0} />
-        <ReportCard label="Taxa de resposta" value={`${report?.replyRate ?? 0}%`} />
-        <ReportCard label="Convertidos" value={report?.converted ?? 0} />
-        <ReportCard label="Sem resposta" value={report?.noReply ?? 0} />
-      </div>
-
       <CampaignProgressCard
         contacts={contacts as BlastContactRow[]}
         camp={camp}
