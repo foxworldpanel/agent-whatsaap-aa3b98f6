@@ -36,7 +36,6 @@ import {
   setBlastCampaignState,
   importBlastContacts,
   listBlastContacts,
-  getBlastReport,
   clearBlastContacts,
   testBlastCampaign,
   getNumberHealth,
@@ -1158,7 +1157,6 @@ function BlastCampaignCard({
   const stateFn = useServerFn(setBlastCampaignState);
   const importFn = useServerFn(importBlastContacts);
   const listContactsFn = useServerFn(listBlastContacts);
-  const reportFn = useServerFn(getBlastReport);
   const clearFn = useServerFn(clearBlastContacts);
   const testFn = useServerFn(testBlastCampaign);
 
@@ -1193,12 +1191,6 @@ function BlastCampaignCard({
     queryKey: ["blast_contacts", camp.id],
     queryFn: () => listContactsFn({ data: { campaignId: camp.id } }),
   });
-  const { data: report } = useQuery({
-    queryKey: ["blast_report", camp.id],
-    queryFn: () => reportFn({ data: { campaignId: camp.id } }),
-    refetchInterval: 15000,
-  });
-
   // Realtime: refresca lista de contatos quando o dispatcher atualiza qualquer status
   useEffect(() => {
     const ch = supabase
@@ -1625,11 +1617,6 @@ function BlastCampaignCard({
         </div>
       </div>
 
-      <CampaignProgressCard
-        contacts={contacts as BlastContactRow[]}
-        camp={camp}
-        effectiveLimit={effectiveLimitFromNumber()}
-      />
     </div>
   );
 }
@@ -1646,103 +1633,6 @@ type BlastContactRow = {
 
 function isSentStatus(s: string) {
   return s === "enviado_abertura" || s === "enviado_d3" || s === "enviado_d7" || s === "respondeu" || s === "convertido";
-}
-
-function CampaignProgressCard({
-  contacts,
-  camp,
-  effectiveLimit,
-}: {
-  contacts: BlastContactRow[];
-  camp: BlastCampaign;
-  effectiveLimit: number;
-}) {
-  const total = contacts.length;
-  const sentTotal = contacts.filter((c) => isSentStatus(c.status)).length;
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const sentToday = contacts.filter(
-    (c) => c.last_sent_at && new Date(c.last_sent_at).getTime() >= startOfDay.getTime(),
-  ).length;
-  const pending = contacts.filter((c) => c.status === "pendente").length;
-  const remainingToday = Math.max(0, effectiveLimit - sentToday);
-  const pct = total > 0 ? Math.round((sentTotal / total) * 100) : 0;
-  const days = pending > 0 ? Math.max(1, Math.ceil(pending / Math.max(1, effectiveLimit))) : 0;
-
-  // próximo disparo estimado
-  const lastSent = contacts
-    .map((c) => (c.last_sent_at ? new Date(c.last_sent_at).getTime() : 0))
-    .reduce((a, b) => Math.max(a, b), 0);
-  const avgDelaySec = Math.round((camp.delay_min_sec + camp.delay_max_sec) / 2);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const nextEtaSec =
-    camp.state === "rodando" && lastSent > 0 && pending > 0
-      ? Math.max(0, Math.round((lastSent + avgDelaySec * 1000 - now) / 1000))
-      : null;
-
-  const stateBadge =
-    camp.state === "rodando"
-      ? { label: "Em andamento", cls: "bg-success/20 text-success" }
-      : camp.state === "pausado"
-        ? { label: "Pausado", cls: "bg-warning/20 text-warning" }
-        : { label: "Parado", cls: "bg-muted text-muted-foreground" };
-
-  return (
-    <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="font-semibold text-sm flex items-center gap-2">
-          🚀 Progresso da Campanha — {camp.name}
-        </h4>
-        <span className={`rounded-full px-2.5 py-0.5 text-xs ${stateBadge.cls}`}>{stateBadge.label}</span>
-      </div>
-      <div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${pct}%`, background: "var(--gradient-primary)" }}
-          />
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {sentTotal}/{total} ({pct}%)
-        </p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 text-xs">
-        <div className="rounded-md border border-border bg-background/60 p-2.5">
-          <p className="text-muted-foreground">✅ Enviados hoje</p>
-          <p className="text-base font-semibold">{sentToday}</p>
-        </div>
-        <div className="rounded-md border border-border bg-background/60 p-2.5">
-          <p className="text-muted-foreground">⏳ Faltam hoje</p>
-          <p className="text-base font-semibold">
-            {remainingToday} <span className="text-xs font-normal text-muted-foreground">(limite {effectiveLimit}/dia)</span>
-          </p>
-        </div>
-        <div className="rounded-md border border-border bg-background/60 p-2.5">
-          <p className="text-muted-foreground">📅 Total restante</p>
-          <p className="text-base font-semibold">{pending}</p>
-        </div>
-        <div className="rounded-md border border-border bg-background/60 p-2.5">
-          <p className="text-muted-foreground">⏱️ Próximo disparo em</p>
-          <p className="text-base font-semibold">
-            {camp.state !== "rodando"
-              ? "—"
-              : nextEtaSec === null
-                ? "aguardando"
-                : nextEtaSec > 0
-                  ? `${Math.floor(nextEtaSec / 60)}m ${nextEtaSec % 60}s`
-                  : "a qualquer momento"}
-          </p>
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        📆 Previsão de conclusão: {pending === 0 ? "concluído" : `${days} dia${days > 1 ? "s" : ""}`}
-      </p>
-    </div>
-  );
 }
 
 type StatusFilter = "todos" | "aguardando" | "enviados" | "responderam" | "converteram" | "falhou";
