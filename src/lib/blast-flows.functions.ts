@@ -2,10 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 const FlowSchema = z.object({
   campaignId: z.string().uuid(),
-  nodes: z.array(z.any()),
-  edges: z.array(z.any()),
+  nodes: z.array(z.record(z.string(), z.any())),
+  edges: z.array(z.record(z.string(), z.any())),
   name: z.string().optional(),
 });
 
@@ -30,7 +31,7 @@ export const getBlastFlow = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return row as { id: string; name: string; nodes: unknown[]; edges: unknown[] } | null;
+    return row as { id: string; name: string; nodes: Json[]; edges: Json[] } | null;
   });
 
 export const saveBlastFlow = createServerFn({ method: "POST" })
