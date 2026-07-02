@@ -369,6 +369,21 @@ function panelStatusMatchesFull(status: string, skipReason: string | null, f: Pa
   return true;
 }
 
+function SummaryCard({ emoji, label, value, tone }: { emoji: string; label: string; value: number; tone: "primary" | "success" | "warn" | "danger" }) {
+  const toneCls =
+    tone === "success" ? "text-emerald-500" :
+    tone === "warn" ? "text-amber-500" :
+    tone === "danger" ? "text-red-500" : "text-primary";
+  return (
+    <div className="rounded-lg border border-border bg-card/60 p-3">
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+        <span className="text-base leading-none">{emoji}</span>{label}
+      </div>
+      <div className={`mt-1 text-2xl font-semibold ${toneCls}`}>{value.toLocaleString("pt-BR")}</div>
+    </div>
+  );
+}
+
 function initials(name: string): string {
   const parts = (name || "?").trim().split(/\s+/);
   return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
