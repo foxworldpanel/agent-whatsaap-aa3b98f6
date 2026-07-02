@@ -2045,9 +2045,8 @@ function ContactListsSection() {
         <h2 className="font-semibold">Listas de Contatos</h2>
       </div>
       <p className="text-xs text-muted-foreground">
-        Duas listas independentes. <b>Lista A</b> recebe leads do Meta Ads automaticamente.
-        <b> Lista B</b> é abastecida por CSV de Instagram. O sistema bloqueia números duplicados em qualquer lista
-        ou já presentes em Contatos.
+        Base unificada de contatos para disparo. Importe por CSV ou receba leads automaticamente do Meta Ads.
+        Números duplicados dentro da base são bloqueados automaticamente.
       </p>
 
       {/* Visão Geral da Base — soma Lista A + Lista B, atualiza em tempo real */}
