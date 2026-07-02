@@ -1035,7 +1035,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           whatsapp_number_id: string | null;
           needs_review: boolean | null;
           contexto_extra?: string | null;
-          last_media_sent?: { ids?: string[]; at?: string } | null;
+          last_media_sent?: unknown | null;
           last_message_at?: string | null;
           created_at?: string | null;
         };
@@ -1071,7 +1071,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .select("id, agent_enabled, whatsapp_number_id, needs_review, contexto_extra, last_media_sent, last_message_at, created_at")
             .single();
           if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
-          conv = insertedConv.data;
+          conv = insertedConv.data as ConversationRow | null;
+          if (!conv) return new Response("conversation insert failed", { status: 500 });
           threadConversationIds = [conv.id];
         } else if ((blastReplyNumberId || numberId) && conv.whatsapp_number_id !== (blastReplyNumberId ?? numberId)) {
           const fixedNumberId = blastReplyNumberId ?? numberId;
@@ -1081,6 +1082,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .eq("id", conv.id);
           conv = { ...conv, whatsapp_number_id: fixedNumberId };
         }
+        if (!conv) return new Response("conversation missing", { status: 500 });
         if (!threadConversationIds.includes(conv.id)) threadConversationIds = [conv.id, ...threadConversationIds];
         const authoritativeNumberId = blastReplyNumberId ?? numberId;
         if (authoritativeNumberId && contact.whatsapp_number_id !== authoritativeNumberId) {
