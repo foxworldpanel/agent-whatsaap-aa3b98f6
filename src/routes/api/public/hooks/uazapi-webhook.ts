@@ -661,7 +661,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           numberUazapiUrl = number.uazapi_url;
           metaAdsEnabled = !!number.meta_ads_enabled;
           disparosMode = !!number.disparos_mode;
+          console.log(
+            `✅ Número encontrado: ${(number as unknown as { nome?: string }).nome ?? "(sem nome)"} | Modo: ${disparosMode ? "disparos" : metaAdsEnabled ? "meta_ads" : "agente"} | id=${numberId}`,
+          );
         } else {
+          console.warn(`⚠️ ERRO: Número não encontrado em whatsapp_numbers para token ${instanceToken} — caindo em integrations (legacy)`);
           const { data: integLegacy, error: intErr } = await supabaseAdmin
             .from("integrations")
             .select("user_id, uazapi_url")
@@ -670,7 +674,20 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .limit(1)
             .maybeSingle();
           if (intErr) return new Response(intErr.message, { status: 500 });
-          if (!integLegacy) return new Response("instance not registered", { status: 404 });
+          if (!integLegacy) {
+            console.error(`❌ ERRO: Nenhuma integração encontrada para token ${instanceToken} — instância não registrada`);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                phone,
+                type: "instance_not_found",
+                level: "error",
+                summary: `Número não encontrado para token ${instanceToken}`,
+                metadata: { instance_token: instanceToken },
+              });
+            } catch {}
+            return new Response("instance not registered", { status: 404 });
+          }
           userId = integLegacy.user_id;
           numberUazapiUrl = integLegacy.uazapi_url;
         }
