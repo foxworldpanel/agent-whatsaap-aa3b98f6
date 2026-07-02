@@ -1558,10 +1558,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .limit(1)
               .maybeSingle();
             const lastAgentBody = ((lastAgentMsg as { body?: string } | null)?.body ?? "") as string;
-            let directReply: string | null = deferredDecision ? "Tá bom! Qualquer coisa me chama 😊" : minimalReactionReply ?? null;
+            // Se veio "ok/obrigado/beleza" e ainda não fechamos com "qualquer
+            // coisa me chama", responde a cortesia — antes ficava mudo e o
+            // usuário percebia como "agente parou de responder".
+            let directReply: string | null = deferredDecision
+              ? "Tá bom! Qualquer coisa me chama 😊"
+              : minimalReactionReply === null
+                ? "De nada! Qualquer coisa me chama 😊"
+                : minimalReactionReply ?? null;
 
             if (deferredDecision && waitingClosureAlreadySent(lastAgentBody)) directReply = null;
-            if (!deferredDecision && directReply && minimalReactionAlreadySent(lastAgentBody)) directReply = null;
+            if (
+              !deferredDecision &&
+              directReply &&
+              (minimalReactionAlreadySent(lastAgentBody) || waitingClosureAlreadySent(lastAgentBody))
+            ) directReply = null;
 
             if (directReply) {
               if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before minimal reply)");
