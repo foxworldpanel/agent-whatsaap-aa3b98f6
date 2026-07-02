@@ -529,6 +529,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("missing token/phone", { status: 400 });
         }
 
+        // 🔍 Log de entrada do webhook (diagnóstico por número)
+        console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
+
         const { text, kind } = extractContent(payload);
         // Para o DB (enum message_kind = texto|audio) e fluxos legados,
         // tratamos imagem como "texto". O flag `isImage` controla a chamada
