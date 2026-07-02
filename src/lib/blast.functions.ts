@@ -415,3 +415,34 @@ export const clearBlastContacts = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const skipBlastContact = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("blast_contacts")
+      .update({ status: "pulado", skip_reason: "pulado manualmente" })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const blockBlastContact = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), telefone: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("blast_contacts")
+      .update({ status: "pulado", skip_reason: "bloqueado manualmente" })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    await context.supabase
+      .from("contacts")
+      .update({ status: "bloqueado" })
+      .eq("telefone", data.telefone)
+      .eq("user_id", context.userId);
+    return { ok: true };
+  });
