@@ -999,7 +999,7 @@ function BlastCampaignCard({
   onChanged,
 }: {
   camp: BlastCampaign;
-  numbers: Array<{ id: string; nome: string; warmup_started_at?: string | null; warmup_enabled?: boolean | null }>;
+  numbers: Array<{ id: string; nome: string; warmup_started_at?: string | null; warmup_enabled?: boolean | null; disparos_mode?: boolean | null }>;
   onChanged: () => void;
 }) {
   const qc = useQueryClient();
@@ -1135,7 +1135,43 @@ function BlastCampaignCard({
       );
       if (!ok) return;
     }
-    stateMut.mutate("rodando");
+    // Validações pré-disparo (feedback imediato ao usuário)
+    if (!selectedNumber) {
+      toast.error("Selecione um número de WhatsApp antes de iniciar.");
+      return;
+    }
+    if (selectedNumber.disparos_mode !== true) {
+      toast.error(`O número "${selectedNumber.nome ?? "selecionado"}" está com 'Modo Disparos' desativado. Ative em Números.`);
+      return;
+    }
+    if (pendingContacts === 0) {
+      toast.error("Nenhum contato com status 'pendente' na lista vinculada. Importe contatos antes de iniciar.");
+      return;
+    }
+    console.log(`[Disparo] Iniciando disparo para ${pendingContacts} contatos — campanha "${camp.name}" via ${selectedNumber.nome ?? selectedNumber.id.slice(0, 6)}`);
+    stateMut.mutate("rodando", {
+      onSuccess: async () => {
+        // Dispara imediatamente sem esperar o cron (1 min).
+        try {
+          console.log("[Disparo] Chamando dispatcher agora…");
+          const r = await fetch("/api/public/hooks/blast-dispatcher", { method: "POST" });
+          const j = (await r.json().catch(() => null)) as { results?: Array<{ campaign: string; sent: number; skipped?: string }> } | null;
+          const mine = j?.results?.find((x) => x.campaign === camp.name);
+          if (mine?.sent) {
+            console.log(`[Disparo] Enviado com sucesso via dispatcher (${mine.skipped ?? ""})`);
+            toast.success("Primeira mensagem enviada!");
+          } else {
+            console.log(`[Disparo] Dispatcher retornou sem envio: ${mine?.skipped ?? "sem detalhes"}`);
+            toast.info(`Campanha iniciada. Próximo envio: ${mine?.skipped ?? "aguardando ciclo"}`);
+          }
+          qc.invalidateQueries({ queryKey: ["blast_contacts", camp.id] });
+          qc.invalidateQueries({ queryKey: ["panel_contacts"] });
+        } catch (e) {
+          console.error("[Disparo] Falha ao chamar dispatcher:", e);
+          toast.error(`Falha ao iniciar: ${(e as Error).message}`);
+        }
+      },
+    });
   }
 
   return (
@@ -2167,6 +2203,8 @@ function ContactListsSection() {
                         setSummary((m) => ({ ...m, [l.id]: res as never }));
                         setCsvByList((m) => ({ ...m, [l.id]: [] }));
                         qc.invalidateQueries({ queryKey: ["contact_lists"] });
+                        qc.invalidateQueries({ queryKey: ["panel_contacts", l.id] });
+                        qc.invalidateQueries({ queryKey: ["list_contacts_detail", l.id] });
                         toast.success(`${(res as { inserted: number }).inserted} contatos importados`);
                       } catch (err) {
                         toast.error(`Falha ao importar: ${(err as Error).message}`);

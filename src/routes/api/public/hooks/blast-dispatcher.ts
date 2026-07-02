@@ -42,7 +42,9 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const hour = now.getHours();
             const peakHour = (hour >= 10 && hour < 12) || (hour >= 18 && hour < 20);
             const tickWeight = peakHour ? 1 : 1 / 3;
-            if (Math.random() > tickWeight) {
+            // No primeiro envio da campanha, não pula por distribuição natural
+            // (para dar feedback imediato ao usuário quando clicar em Iniciar).
+            if (camp.last_dispatch_at && Math.random() > tickWeight) {
               results.push({ campaign: camp.name, sent: 0, skipped: "distribuição natural" });
               continue;
             }
@@ -143,9 +145,11 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // Escolher próximo contato e estágio
             const next = await pickNext(supabaseAdmin, camp);
             if (!next) {
+              console.log(`[blast-dispatcher] ${camp.name}: sem contatos elegíveis (list_id=${camp.contact_list_id ?? "null"})`);
               results.push({ campaign: camp.name, sent: 0, skipped: "sem contatos elegíveis" });
               continue;
             }
+            console.log(`[blast-dispatcher] ${camp.name}: enviando para ${next.contact.nome} ${next.contact.telefone} (stage=${next.stage})`);
 
             // Variação de saudação por horário SÓ vale para disparo ativo puro:
             // número em "Modo Disparos" e SEM "Receber leads Meta Ads".
@@ -232,6 +236,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             });
 
             if (status === "sent") {
+              console.log(`[blast-dispatcher] ${camp.name}: enviado com sucesso para ${next.contact.nome}`);
               const newStatus =
                 next.stage === "opening"
                   ? "enviado_abertura"
@@ -260,6 +265,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               }
               results.push({ campaign: camp.name, sent: 1, skipped: `via ${numberRow.nome ?? numberRow.id.slice(0, 6)}` });
             } else {
+              console.log(`[blast-dispatcher] ${camp.name}: erro ao enviar para ${next.contact.nome}: ${errMsg}`);
               results.push({ campaign: camp.name, sent: 0, skipped: `falhou: ${errMsg}` });
             }
           } catch (e) {
