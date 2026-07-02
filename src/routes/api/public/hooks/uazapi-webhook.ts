@@ -2129,7 +2129,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               row.sender === "agente" &&
               /peguei\s+o\s+seu\s+contato|posso\s+te\s+apresentar\s+algo|seu\s+perfil\s+@/i.test(row.body ?? "")
             ) {
-              return i;
+              // Quando a abertura foi salva em bolhas separadas, a saudação
+              // costuma ser a mensagem imediatamente anterior ao "Peguei...".
+              return Math.max(0, i - 1);
             }
           }
           return -1;
