@@ -1265,6 +1265,13 @@ function BlastCampaignCard({
             <Play className="h-3.5 w-3.5" /> Iniciar
           </button>
           <button
+            onClick={handleStartNow}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
+            title="Dispara AGORA ignorando horário, distribuição natural e delay entre envios"
+          >
+            ⚡ Disparar Agora
+          </button>
+          <button
             onClick={() => stateMut.mutate("pausado")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
           >
