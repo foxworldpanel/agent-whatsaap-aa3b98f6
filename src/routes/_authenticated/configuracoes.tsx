@@ -165,6 +165,64 @@ function ConfiguracoesPage() {
         </div>
       </div>
 
+      <div className="rounded-xl border border-border p-6 space-y-4" style={{ background: "var(--gradient-card)" }}>
+        <div className="flex items-center gap-2">
+          <FlaskConical className="h-5 w-5 text-purple-500" />
+          <h2 className="font-semibold">Números liberados para teste</h2>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Contatos nesta lista ignoram todas as travas: recebem teste grátis mesmo já tendo recebido,
+          o funil sempre dispara novamente, o agente sempre responde (ignora bloqueio/blacklist),
+          a temperatura não muda automaticamente e não contam nas métricas de campanha ou nas listas A/B.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={newTest}
+            onChange={(e) => setNewTest(e.target.value)}
+            placeholder="Ex: 5511999999999"
+            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newTest.trim()) addTestMut.mutate(newTest.trim());
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => newTest.trim() && addTestMut.mutate(newTest.trim())}
+            disabled={addTestMut.isPending || !newTest.trim()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-purple-700 disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar número de teste
+          </button>
+        </div>
+        {addTestMut.error && (
+          <p className="text-xs text-destructive">{(addTestMut.error as Error).message}</p>
+        )}
+        <div className="space-y-1.5">
+          {testQ.isLoading && <p className="text-xs text-muted-foreground">Carregando…</p>}
+          {!testQ.isLoading && (testQ.data ?? []).length === 0 && (
+            <p className="text-xs text-muted-foreground">Nenhum número cadastrado ainda.</p>
+          )}
+          {(testQ.data ?? []).map((t: { id: string; phone: string }) => (
+            <div key={t.id} className="flex items-center justify-between rounded-lg border border-border bg-background/60 px-3 py-2 text-sm">
+              <span className="flex items-center gap-2">
+                <span className="text-purple-500">🧪</span>
+                <span className="font-mono">{t.phone}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => rmTestMut.mutate(t.id)}
+                disabled={rmTestMut.isPending}
+                className="rounded-md p-1 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+                title="Remover"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         {intGroups.map((g) => (
           <div key={g.title} className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
