@@ -1278,34 +1278,43 @@ export type Database = {
       opening_templates: {
         Row: {
           created_at: string
+          ddi_language_map: Json | null
           id: string
           linha2: Json
           perguntas: Json
           saudacoes_manha: Json
           saudacoes_noite: Json
           saudacoes_tarde: Json
+          templates_en: Json | null
+          templates_es: Json | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          ddi_language_map?: Json | null
           id?: string
           linha2?: Json
           perguntas?: Json
           saudacoes_manha?: Json
           saudacoes_noite?: Json
           saudacoes_tarde?: Json
+          templates_en?: Json | null
+          templates_es?: Json | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          ddi_language_map?: Json | null
           id?: string
           linha2?: Json
           perguntas?: Json
           saudacoes_manha?: Json
           saudacoes_noite?: Json
           saudacoes_tarde?: Json
+          templates_en?: Json | null
+          templates_es?: Json | null
           updated_at?: string
           user_id?: string
         }

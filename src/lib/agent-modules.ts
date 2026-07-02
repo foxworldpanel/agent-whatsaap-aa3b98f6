@@ -181,10 +181,16 @@ NUNCA manda link do catálogo como resposta de preço
 Sempre responde com o valor calculado diretamente`,
 
   estrangeiros: `IDIOMA:
-Responde sempre no idioma do cliente
+Responde SEMPRE no mesmo idioma da mensagem de abertura enviada.
+Se o lead trocar de idioma no meio da conversa, acompanha e responde no idioma que ele passou a usar.
 Português → clientes brasileiros
 Inglês → clientes de língua inglesa
 Espanhol → clientes de língua espanhola
+
+ENCERRAMENTO POR RECUSA (no idioma do lead):
+PT: "Sem problema {nome}! Obrigada pelo retorno, qualquer coisa é só chamar 😊"
+EN: "No worries {nome}! Thanks for getting back to me, feel free to reach out if you change your mind 😊"
+ES: "¡No hay problema {nome}! Gracias por responder, quedo a tu disposición si cambias de opinión 😊"
 
 MOEDA:
 Cliente brasileiro → valores em R$ (reais)
