@@ -1029,12 +1029,33 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("ok (blocked)");
         }
 
-        let { data: conv } = await supabaseAdmin
+        type ConversationRow = {
+          id: string;
+          agent_enabled: boolean | null;
+          whatsapp_number_id: string | null;
+          needs_review: boolean | null;
+          contexto_extra?: string | null;
+          last_media_sent?: { ids?: string[]; at?: string } | null;
+          last_message_at?: string | null;
+          created_at?: string | null;
+        };
+        const desiredConversationNumberId = blastReplyNumberId ?? numberId ?? contact.whatsapp_number_id ?? null;
+        const { data: allConversationRows, error: convLookupErr } = await supabaseAdmin
           .from("conversations")
-          .select("id, agent_enabled, whatsapp_number_id, needs_review")
+          .select("id, agent_enabled, whatsapp_number_id, needs_review, contexto_extra, last_media_sent, last_message_at, created_at")
           .eq("user_id", userId)
           .eq("contact_id", contact.id)
-          .maybeSingle();
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (convLookupErr) return new Response(convLookupErr.message, { status: 500 });
+
+        const conversationCandidates = ((allConversationRows ?? []) as ConversationRow[]).filter((row) => {
+          if (!desiredConversationNumberId) return true;
+          return !row.whatsapp_number_id || row.whatsapp_number_id === desiredConversationNumberId;
+        });
+        let conv: ConversationRow | null = conversationCandidates[0] ?? null;
+        let threadConversationIds = conversationCandidates.map((row) => row.id);
 
         const isFirstContact = !conv;
 
@@ -1047,10 +1068,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               status: "agente_respondendo",
               whatsapp_number_id: blastReplyNumberId ?? numberId,
             })
-            .select("id, agent_enabled, whatsapp_number_id, needs_review")
+              .select("id, agent_enabled, whatsapp_number_id, needs_review, contexto_extra, last_media_sent, last_message_at, created_at")
             .single();
           if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
           conv = insertedConv.data;
+          threadConversationIds = [conv.id];
         } else if ((blastReplyNumberId || numberId) && conv.whatsapp_number_id !== (blastReplyNumberId ?? numberId)) {
           const fixedNumberId = blastReplyNumberId ?? numberId;
           await supabaseAdmin
@@ -1059,6 +1081,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .eq("id", conv.id);
           conv = { ...conv, whatsapp_number_id: fixedNumberId };
         }
+        if (!threadConversationIds.includes(conv.id)) threadConversationIds = [conv.id, ...threadConversationIds];
         const authoritativeNumberId = blastReplyNumberId ?? numberId;
         if (authoritativeNumberId && contact.whatsapp_number_id !== authoritativeNumberId) {
           await supabaseAdmin
@@ -2073,14 +2096,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           console.error("[unproductive] detection failed", e);
         }
 
+        const historyConversationIds = threadConversationIds.length > 0 ? threadConversationIds : [conv.id];
         const { data: history } = await supabaseAdmin
           .from("messages")
           .select("sender, body")
-          .eq("conversation_id", conv.id)
+          .in("conversation_id", historyConversationIds)
           .order("created_at", { ascending: true });
 
         console.info("[agent-webhook] Loaded full conversation history for Claude", {
           conversationId: conv.id,
+          conversationIds: historyConversationIds,
           messagesCount: history?.length ?? 0,
         });
 
@@ -2477,7 +2502,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               catalogInPrompt,
               catalogOnlyRelevant: onlyRelevant,
                 examples: knowledgeExamples?.length ?? 0,
-                history: aiHistory?.slice(-6) ?? [],
+                history: aiHistory ?? [],
+                historyCount: aiHistory?.length ?? 0,
+                historyConversationIds,
                 extraContext: orderStatusContext ?? null,
                 agentIdentity: (agent as { agent_name?: string }).agent_name ?? null,
                 hasBaseInstruction: !!(agent as { base_instruction?: string }).base_instruction,
