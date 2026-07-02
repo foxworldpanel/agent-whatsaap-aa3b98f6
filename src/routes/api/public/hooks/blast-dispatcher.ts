@@ -70,10 +70,19 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               });
             }
             const now = new Date();
-            const hhmm = now.toTimeString().slice(0, 8);
+            // Janela de horário é configurada em horário de Brasília.
+            // Convertemos "now" para America/Sao_Paulo antes de comparar,
+            // caso contrário o worker (UTC no Cloudflare) bloqueia dentro da janela.
+            const hhmm = new Intl.DateTimeFormat("en-GB", {
+              timeZone: "America/Sao_Paulo",
+              hour12: false,
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }).format(now);
             if (!bypass && (hhmm < camp.start_time || hhmm > camp.end_time)) {
               results.push({ campaign: camp.name, sent: 0, skipped: "fora do horário" });
-              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: `🚀 Disparo não processado — fora do horário (${camp.start_time}-${camp.end_time})`, metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "fora do horário" } });
+              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: `🚀 Disparo não processado — fora do horário BR ${hhmm} (janela ${camp.start_time}-${camp.end_time})`, metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "fora do horário", now_brt: hhmm } });
               continue;
             }
 
