@@ -1243,7 +1243,38 @@ function BlastCampaignCard({
 
       <div className="space-y-3">
         <VariationInfoCard />
-        <BlastFlowBuilder campaignId={camp.id} />
+        <div className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h4 className="font-semibold text-sm">Modo do disparo</h4>
+              <p className="text-xs text-muted-foreground">
+                Escolha como a campanha conduz o lead depois que ele responder à abertura.
+              </p>
+            </div>
+            <div className="inline-flex rounded-full border border-border overflow-hidden text-xs">
+              <button
+                type="button"
+                onClick={() => setDispatchMode("agente_livre")}
+                className={`px-3 py-1.5 ${dispatch_mode === "agente_livre" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
+              >
+                🎯 Agente Livre
+              </button>
+              <button
+                type="button"
+                onClick={() => setDispatchMode("fluxo_visual")}
+                className={`px-3 py-1.5 border-l border-border ${dispatch_mode === "fluxo_visual" ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted"}`}
+              >
+                🔀 Fluxo Visual
+              </button>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            {dispatch_mode === "agente_livre"
+              ? "O sistema envia apenas a mensagem de abertura. Quando o cliente responder, a agente Júlia assume 100% e conduz a conversa livremente (entende nicho → apresenta serviço → informa preço → oferece teste → fecha venda), usando mídias apenas quando fizer sentido."
+              : "Usa o construtor de fluxo visual com etapas rígidas e previsíveis. Bom quando você quer controlar exatamente cada passo após a abertura."}
+          </p>
+        </div>
+        {dispatch_mode === "fluxo_visual" ? <BlastFlowBuilder campaignId={camp.id} /> : null}
         <button
           onClick={() => saveMut.mutate()}
           disabled={saveMut.isPending}
