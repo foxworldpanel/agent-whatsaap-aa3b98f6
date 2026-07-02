@@ -402,7 +402,10 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   });
   const numbersMap: Record<string, string> = {};
   for (const n of allNumbers) numbersMap[n.id] = n.nome ?? "—";
-  const connectedNumbers = allNumbers.filter((n) => (n.status ?? "").toLowerCase() === "connected");
+  const connectedNumbers = allNumbers.filter((n) => {
+    const s = (n.status ?? "").toLowerCase();
+    return s === "connected" || s === "conectado";
+  });
 
   const { data: campaign } = useQuery({
     queryKey: ["panel_campaign_unified", listIds.join(",")],
