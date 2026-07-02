@@ -2387,6 +2387,7 @@ function VariationInfoCard() {
   const [saving, setSaving] = useState(false);
   const [tpls, setTpls] = useState<OpeningTemplates>(DEFAULT_TEMPLATES);
   const [loaded, setLoaded] = useState(false);
+  const [lang, setLang] = useState<Language>("pt");
 
   useEffect(() => {
     if (!editing || loaded) return;
@@ -2402,25 +2403,62 @@ function VariationInfoCard() {
     })();
   }, [editing, loaded]);
 
+  // Acessa/edita o pack de idioma atual (pt = campos raiz; en/es = subobjetos).
+  const getPack = (state: OpeningTemplates, l: Language): LangTemplates => {
+    if (l === "en") return state.en ?? EN_DEFAULT;
+    if (l === "es") return state.es ?? ES_DEFAULT;
+    return { saudacoes: state.saudacoes, linha2: state.linha2, perguntas: state.perguntas };
+  };
+  const setPack = (state: OpeningTemplates, l: Language, pack: LangTemplates): OpeningTemplates => {
+    if (l === "en") return { ...state, en: pack };
+    if (l === "es") return { ...state, es: pack };
+    return { ...state, saudacoes: pack.saudacoes, linha2: pack.linha2, perguntas: pack.perguntas };
+  };
+  const pack = getPack(tpls, lang);
+
   const updateList = (key: "linha2" | "perguntas", idx: number, val: string) => {
     setTpls((prev) => {
-      const arr = [...prev[key]];
+      const cur = getPack(prev, lang);
+      const arr = [...cur[key]];
       arr[idx] = val;
-      return { ...prev, [key]: arr };
+      return setPack(prev, lang, { ...cur, [key]: arr });
     });
   };
   const updateSaud = (p: "manha" | "tarde" | "noite", idx: number, val: string) => {
     setTpls((prev) => {
-      const arr = [...prev.saudacoes[p]];
+      const cur = getPack(prev, lang);
+      const arr = [...cur.saudacoes[p]];
       arr[idx] = val;
-      return { ...prev, saudacoes: { ...prev.saudacoes, [p]: arr } };
+      return setPack(prev, lang, {
+        ...cur,
+        saudacoes: { ...cur.saudacoes, [p]: arr },
+      });
     });
   };
 
+  const [ddiText, setDdiText] = useState<string>(
+    JSON.stringify(DEFAULT_DDI_LANGUAGE_MAP, null, 2),
+  );
+  const [ddiError, setDdiError] = useState<string | null>(null);
+  useEffect(() => {
+    if (loaded) {
+      setDdiText(JSON.stringify(tpls.ddiMap ?? DEFAULT_DDI_LANGUAGE_MAP, null, 2));
+    }
+  }, [loaded, tpls.ddiMap]);
+
   const save = async () => {
+    // Parse DDI map antes de salvar
+    let parsedMap: Record<string, Language> | undefined;
+    try {
+      parsedMap = JSON.parse(ddiText);
+      setDdiError(null);
+    } catch {
+      setDdiError("JSON inválido no mapa de DDI");
+      return;
+    }
     setSaving(true);
     try {
-      await saveOpeningTemplates({ data: tpls });
+      await saveOpeningTemplates({ data: { ...tpls, ddiMap: parsedMap } });
       toast.success("Templates salvos!");
       setEditing(false);
     } catch (e) {
@@ -2491,6 +2529,27 @@ function VariationInfoCard() {
             <p className="text-xs text-muted-foreground">Carregando templates…</p>
           ) : (
             <>
+              <div className="flex gap-1 border-b border-border">
+                {(
+                  [
+                    { id: "pt" as const, label: "🇧🇷 Português" },
+                    { id: "en" as const, label: "🇺🇸 English" },
+                    { id: "es" as const, label: "🇪🇸 Español" },
+                  ]
+                ).map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setLang(t.id)}
+                    className={`px-3 py-1.5 text-xs font-medium border-b-2 -mb-px transition-colors ${
+                      lang === t.id
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
               <p className="text-[11px] text-muted-foreground">
                 Use <code>{"{nome}"}</code> e <code>{"{instagram}"}</code> como variáveis.
               </p>
@@ -2499,7 +2558,7 @@ function VariationInfoCard() {
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Saudações — {p === "manha" ? "Manhã" : p === "tarde" ? "Tarde" : "Noite"}
                   </div>
-                  {tpls.saudacoes[p].map((s, i) => (
+                  {pack.saudacoes[p].map((s, i) => (
                     <Input
                       key={i}
                       value={s}
@@ -2513,7 +2572,7 @@ function VariationInfoCard() {
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Linha 2 — abordagem
                 </div>
-                {tpls.linha2.map((s, i) => (
+                {pack.linha2.map((s, i) => (
                   <Input
                     key={i}
                     value={s}
@@ -2526,7 +2585,7 @@ function VariationInfoCard() {
                 <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   Pergunta final
                 </div>
-                {tpls.perguntas.map((s, i) => (
+                {pack.perguntas.map((s, i) => (
                   <Input
                     key={i}
                     value={s}
@@ -2534,6 +2593,23 @@ function VariationInfoCard() {
                     className="text-xs"
                   />
                 ))}
+              </div>
+              <div className="space-y-1 pt-2 border-t border-border">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Mapa DDI → Idioma (JSON)
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Chave = DDI (só dígitos), valor = <code>pt</code>, <code>en</code> ou <code>es</code>.
+                  DDIs não listados usam <code>en</code> como padrão.
+                </p>
+                <textarea
+                  value={ddiText}
+                  onChange={(e) => setDdiText(e.target.value)}
+                  className="w-full h-40 rounded-md border border-input bg-background p-2 text-xs font-mono"
+                />
+                {ddiError && (
+                  <p className="text-[11px] text-destructive">{ddiError}</p>
+                )}
               </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={save} disabled={saving}>
@@ -2544,6 +2620,7 @@ function VariationInfoCard() {
                   variant="outline"
                   onClick={() => {
                     setTpls(DEFAULT_TEMPLATES);
+                    setDdiText(JSON.stringify(DEFAULT_DDI_LANGUAGE_MAP, null, 2));
                   }}
                   disabled={saving}
                 >
