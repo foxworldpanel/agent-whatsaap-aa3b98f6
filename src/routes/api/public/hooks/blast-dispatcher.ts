@@ -391,11 +391,17 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                         .select("id")
                         .eq("user_id", camp.user_id)
                         .eq("contact_id", contactId)
+                        .or(`whatsapp_number_id.is.null,whatsapp_number_id.eq.${numberRow.id}`)
                         .order("last_message_at", { ascending: false, nullsFirst: false })
                         .order("created_at", { ascending: false })
                         .limit(1);
                       if (existingConvs?.[0]?.id) {
                         convId = existingConvs[0].id;
+                        await supabaseAdmin
+                          .from("conversations")
+                          .update({ whatsapp_number_id: numberRow.id } as never)
+                          .eq("id", convId)
+                          .is("whatsapp_number_id", null);
                       } else {
                         const insConv = await supabaseAdmin
                           .from("conversations")
