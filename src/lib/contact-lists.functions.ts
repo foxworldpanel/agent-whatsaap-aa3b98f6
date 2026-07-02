@@ -192,6 +192,19 @@ export const clearContactList = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const clearAllBlastContacts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    // Remove TODOS os contatos de disparo do usuário (exceto os originários de Meta Ads).
+    const { error, count } = await context.supabase
+      .from("blast_contacts")
+      .delete({ count: "exact" })
+      .eq("user_id", context.userId)
+      .or("origem.is.null,origem.neq.meta_ads");
+    if (error) throw new Error(error.message);
+    return { ok: true, deleted: count ?? 0 };
+  });
+
 export const exportContactList = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ listId: z.string().uuid() }).parse(d))
