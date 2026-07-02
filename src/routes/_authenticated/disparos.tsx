@@ -934,6 +934,7 @@ function BlastCampaignCard({
 
       <div className="space-y-3">
         <VariationInfoCard />
+        <BlastFlowBuilder campaignId={camp.id} />
         <button
           onClick={() => saveMut.mutate()}
           disabled={saveMut.isPending}
