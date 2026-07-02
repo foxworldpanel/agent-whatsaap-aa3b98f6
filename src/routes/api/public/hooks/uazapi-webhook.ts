@@ -2411,6 +2411,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           reply = await generateAgentReply(_claudeArgs);
           const _claudeMs = Date.now() - _claudeStart;
           console.log('Resposta do Claude:', reply);
+          // Safety net: se já houve mensagem anterior do agente na conversa,
+          // remove saudações repetidas no início da resposta (Oi/Olá/Bom dia
+          // etc.), preservando o conteúdo da mensagem.
+          try {
+            const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
+            if (hasPriorAgent && reply) {
+              const parts = reply.split("===SPLIT===");
+              const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
+              parts[0] = parts[0].replace(greetRe, "").trimStart();
+              const cleaned = parts.join("===SPLIT===").trim();
+              if (cleaned.length > 0) reply = cleaned;
+            }
+          } catch {}
           // Após análise de imagem pelo Sonnet, persiste fatos duráveis em
           // conversations.contexto_extra para que o agente nunca esqueça o
           // que viu no print (ex.: "cliente já tem cadastro com saldo").
