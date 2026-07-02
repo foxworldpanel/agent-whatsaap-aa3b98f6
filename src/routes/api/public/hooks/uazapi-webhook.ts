@@ -678,6 +678,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           `📥 Mensagem recebida no número: ${instanceToken} | Modo: ${modoLabel} | numberId=${numberId ?? "(legacy)"} | user=${userId} | phone=${phone}`,
         );
         try {
+          const { logEvent } = await import("@/lib/agent-logger.server");
           await logEvent({
             userId,
             phone,
