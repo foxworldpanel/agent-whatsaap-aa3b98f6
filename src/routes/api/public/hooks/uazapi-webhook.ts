@@ -2111,16 +2111,38 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           : null;
         let historyQuery = supabaseAdmin
           .from("messages")
-          .select("sender, body")
+          .select("sender, body, created_at")
           .in("conversation_id", historyConversationIds)
-          .order("created_at", { ascending: true });
+          .order("created_at", { ascending: false })
+          .limit(120);
         if (historySinceIso) historyQuery = historyQuery.gte("created_at", historySinceIso);
-        const { data: history } = await historyQuery;
+        const { data: historyDesc } = await historyQuery;
+        const historyRaw = ((historyDesc ?? []) as Array<{
+          sender: "agente" | "cliente";
+          body: string;
+          created_at?: string | null;
+        }>).reverse();
+        const latestBlastOpenerIdx = (() => {
+          for (let i = historyRaw.length - 1; i >= 0; i -= 1) {
+            const row = historyRaw[i];
+            if (
+              row.sender === "agente" &&
+              /peguei\s+o\s+seu\s+contato|posso\s+te\s+apresentar\s+algo|seu\s+perfil\s+@/i.test(row.body ?? "")
+            ) {
+              return i;
+            }
+          }
+          return -1;
+        })();
+        const history = !historySinceIso && latestBlastOpenerIdx > 0
+          ? historyRaw.slice(latestBlastOpenerIdx)
+          : historyRaw;
 
         console.info("[agent-webhook] Loaded full conversation history for Claude", {
           conversationId: conv.id,
           conversationIds: historyConversationIds,
           historySinceIso,
+          latestBlastOpenerIdx,
           messagesCount: history?.length ?? 0,
         });
 
