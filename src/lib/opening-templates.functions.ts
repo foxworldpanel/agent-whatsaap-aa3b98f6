@@ -57,12 +57,4 @@ export const saveOpeningTemplates = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export async function loadTemplatesForUser(userId: string): Promise<OpeningTemplates> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data } = await supabaseAdmin
-    .from("opening_templates")
-    .select("saudacoes_manha, saudacoes_tarde, saudacoes_noite, linha2, perguntas")
-    .eq("user_id", userId)
-    .maybeSingle();
-  return toTemplates(data as Row | null);
-}
+export { toTemplates as _toTemplates };
