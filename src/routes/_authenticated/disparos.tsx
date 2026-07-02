@@ -506,29 +506,9 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setActiveTab("a")}
-          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
-            activeTab === "a"
-              ? "border-blue-500/50 bg-blue-500/10 text-blue-500"
-              : "border-border bg-card text-muted-foreground hover:bg-muted"
-          }`}
-        >
-          <Megaphone className="h-4 w-4" /> Lista A — Meta Ads
-          {metaList && <span className="ml-1 text-[10px] opacity-80">({metaList.total})</span>}
-        </button>
-        <button
-          onClick={() => setActiveTab("b")}
-          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
-            activeTab === "b"
-              ? "border-pink-500/50 bg-pink-500/10 text-pink-500"
-              : "border-border bg-card text-muted-foreground hover:bg-muted"
-          }`}
-        >
-          <Instagram className="h-4 w-4" /> Lista B — Instagram
-          {igList && <span className="ml-1 text-[10px] opacity-80">({igList.total})</span>}
-        </button>
+      <div className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-xs text-primary">
+        <Users className="h-4 w-4" /> Base unificada
+        <span className="ml-1 text-[10px] opacity-80">({totalContatos})</span>
       </div>
 
       {/* Progresso quando campanha ativa */}
