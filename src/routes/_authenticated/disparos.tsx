@@ -42,6 +42,7 @@ import {
   getNumberHealth,
   skipBlastContact,
   blockBlastContact,
+  bulkBlastAction,
 } from "@/lib/blast.functions";
 import {
   listContactLists,
@@ -317,6 +318,8 @@ type PanelContactRow = {
   error_message: string | null;
   sent_via_number_id: string | null;
   categoria_id: string | null;
+  skip_reason: string | null;
+  created_at: string | null;
 };
 
 type PanelCampaign = {
@@ -330,7 +333,7 @@ type PanelCampaign = {
   last_dispatch_at: string | null;
 };
 
-type PanelFilter = "all" | "aguardando" | "enviados" | "responderam" | "converteram" | "falhou";
+type PanelFilter = "all" | "aguardando" | "enviados" | "responderam" | "converteram" | "nao_quer" | "falhou";
 
 const PANEL_STATUS: Record<string, { label: string; cls: string; icon: string }> = {
   pendente:          { label: "Aguardando", cls: "bg-muted text-muted-foreground",          icon: "⬜" },
@@ -342,16 +345,43 @@ const PANEL_STATUS: Record<string, { label: string; cls: string; icon: string }>
   convertido:        { label: "Converteu",  cls: "bg-purple-500/15 text-purple-500",        icon: "🛍️" },
   failed:            { label: "Falhou",     cls: "bg-red-500/15 text-red-500",              icon: "❌" },
   pulado:            { label: "Pulado",     cls: "bg-muted/60 text-muted-foreground",       icon: "⏭️" },
+  bloqueado:         { label: "Não quer",   cls: "bg-red-500/15 text-red-500",              icon: "🚫" },
 };
 
+function isNaoQuer(status: string, skipReason: string | null): boolean {
+  if (status === "bloqueado") return true;
+  if (status === "pulado" && skipReason && /bloque|não quer|nao quer|stop|para/i.test(skipReason)) return true;
+  return false;
+}
+
 function panelStatusMatches(status: string, f: PanelFilter): boolean {
+  return panelStatusMatchesFull(status, null, f);
+}
+
+function panelStatusMatchesFull(status: string, skipReason: string | null, f: PanelFilter): boolean {
   if (f === "all") return true;
   if (f === "aguardando") return status === "pendente" || status === "na_fila";
   if (f === "enviados") return status === "enviado_abertura" || status === "enviado_d3" || status === "enviado_d7";
   if (f === "responderam") return status === "respondeu";
   if (f === "converteram") return status === "convertido";
+  if (f === "nao_quer") return isNaoQuer(status, skipReason);
   if (f === "falhou") return status === "failed";
   return true;
+}
+
+function SummaryCard({ emoji, label, value, tone }: { emoji: string; label: string; value: number; tone: "primary" | "success" | "warn" | "danger" }) {
+  const toneCls =
+    tone === "success" ? "text-emerald-500" :
+    tone === "warn" ? "text-amber-500" :
+    tone === "danger" ? "text-red-500" : "text-primary";
+  return (
+    <div className="rounded-lg border border-border bg-card/60 p-3">
+      <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+        <span className="text-base leading-none">{emoji}</span>{label}
+      </div>
+      <div className={`mt-1 text-2xl font-semibold ${toneCls}`}>{value.toLocaleString("pt-BR")}</div>
+    </div>
+  );
 }
 
 function initials(name: string): string {
@@ -368,6 +398,8 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const qc = useQueryClient();
   const skipFn = useServerFn(skipBlastContact);
   const blockFn = useServerFn(blockBlastContact);
+  const bulkFn = useServerFn(bulkBlastAction);
+  const setStateFn = useServerFn(setBlastCampaignState);
 
   // Sistema unificado: uma única visão com todos os contatos de todas as listas do usuário.
   const listIds = lists.map((l) => l.id);
@@ -376,6 +408,8 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const [filter, setFilter] = useState<PanelFilter>("all");
   const [q, setQ] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const listCatsFn = useServerFn(listCategories);
   const { data: categories = [] } = useQuery({ queryKey: ["contact_categories"], queryFn: () => listCatsFn() });
@@ -386,7 +420,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
     queryFn: async () => {
       const { data } = await supabase
         .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id, categoria_id")
+        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id, categoria_id, skip_reason, created_at")
         .in("contact_list_id", listIds)
         .order("updated_at", { ascending: false })
         .limit(2000);
@@ -442,7 +476,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const term = q.trim().toLowerCase();
   const filtered = rows.filter((r) => {
     if (categoryFilter !== "all" && r.categoria_id !== categoryFilter) return false;
-    if (!panelStatusMatches(r.status, filter)) return false;
+    if (!panelStatusMatchesFull(r.status, r.skip_reason, filter)) return false;
     if (!term) return true;
     return (
       r.nome?.toLowerCase().includes(term) ||
@@ -469,6 +503,10 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const enviados = rows.filter((r) => r.status.startsWith("enviado_")).length;
   const responderam = rows.filter((r) => r.status === "respondeu").length;
   const converteram = rows.filter((r) => r.status === "convertido").length;
+  const totalBase = rows.length;
+  const faltamEnviar = rows.filter((r) => r.status === "pendente" || r.status === "na_fila").length;
+  const naoQuer = rows.filter((r) => isNaoQuer(r.status, r.skip_reason)).length;
+  const totalEnviados = rows.filter((r) => r.status.startsWith("enviado_") || r.status === "respondeu" || r.status === "convertido").length;
   const pct = dailyLimit > 0 ? Math.min(100, Math.round((sentToday / dailyLimit) * 100)) : 0;
 
   // Próximo na fila (primeiro "pendente")
@@ -510,14 +548,82 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
     </button>
   );
 
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  };
+  const allVisibleSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.id));
+  const toggleAll = () => {
+    setSelected((prev) => {
+      if (allVisibleSelected) {
+        const n = new Set(prev);
+        for (const r of filtered) n.delete(r.id);
+        return n;
+      }
+      const n = new Set(prev);
+      for (const r of filtered) n.add(r.id);
+      return n;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
+
+  async function runBulk(action: "queue" | "blacklist" | "delete") {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    if (action === "delete" && !confirm(`Excluir ${ids.length} contatos definitivamente?`)) return;
+    if (action === "blacklist" && !confirm(`Mover ${ids.length} contatos para a blacklist?`)) return;
+    setBulkBusy(true);
+    try {
+      const res = await bulkFn({ data: { ids, action } });
+      toast.success(`${res.affected} contatos atualizados`);
+      clearSelection();
+      qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBulkBusy(false); }
+  }
+
+  function exportSelectedCsv(rowsToExport: PanelContactRow[], filename: string) {
+    const header = "nome,telefone,instagram,status,skip_reason,last_sent_at,replied_at";
+    const body = rowsToExport.map((r) =>
+      [r.nome, r.telefone, r.instagram ?? "", r.status, r.skip_reason ?? "", r.last_sent_at ?? "", r.replied_at ?? ""]
+        .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","),
+    ).join("\n");
+    const blob = new Blob([header + "\n" + body], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function startDispatchNow() {
+    if (!campaign) { toast.error("Nenhuma campanha configurada para essa base"); return; }
+    try {
+      await setStateFn({ data: { id: campaign.id, state: "rodando" } });
+      toast.success("Disparo iniciado — os contatos da fila serão abordados");
+      qc.invalidateQueries({ queryKey: ["blast_campaigns"] });
+      qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
+    } catch (e) { toast.error((e as Error).message); }
+  }
+
   return (
     <div className="rounded-xl border border-border p-5 space-y-4" style={{ background: "var(--gradient-card)" }}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold">Visualização de contatos</h3>
+          <h3 className="font-semibold">Base de Contatos</h3>
         </div>
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Tempo real</span>
+      </div>
+
+      {/* Cards de resumo (spec) */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <SummaryCard emoji="📋" label="Total na base" value={totalBase} tone="primary" />
+        <SummaryCard emoji="📨" label="Enviados" value={totalEnviados} tone="success" />
+        <SummaryCard emoji="⏳" label="Faltam enviar" value={faltamEnviar} tone="warn" />
+        <SummaryCard emoji="🚫" label="Não quer receber" value={naoQuer} tone="danger" />
       </div>
 
       {/* Filtros por categoria */}
@@ -600,11 +706,12 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
       {/* Filtros + busca */}
       <div className="flex flex-wrap items-center gap-2">
         {filterBtn("all", "Todos")}
-        {filterBtn("aguardando", "Aguardando")}
-        {filterBtn("enviados", "Enviados")}
-        {filterBtn("responderam", "Responderam")}
-        {filterBtn("converteram", "Converteram")}
-        {filterBtn("falhou", "Falhou")}
+        {filterBtn("aguardando", `⏳ Fila (${faltamEnviar})`)}
+        {filterBtn("enviados", `✅ Enviados (${totalEnviados})`)}
+        {filterBtn("responderam", `💬 Responderam (${responderam})`)}
+        {filterBtn("converteram", `🛍️ Converteram (${converteram})`)}
+        {filterBtn("nao_quer", `🚫 Não quer (${naoQuer})`)}
+        {filterBtn("falhou", "❌ Falhou")}
         <div className="ml-auto relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -616,11 +723,53 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         </div>
       </div>
 
+      {/* Ações por aba */}
+      {filter === "aguardando" && faltamEnviar > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+          <Zap className="h-4 w-4 text-primary" />
+          <span>{faltamEnviar} contatos aguardando abordagem.</span>
+          <button
+            onClick={startDispatchNow}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+            style={{ background: "var(--gradient-primary)" }}
+          >
+            <Play className="h-3.5 w-3.5" /> Iniciar disparo para esses contatos
+          </button>
+        </div>
+      )}
+      {filter === "nao_quer" && naoQuer > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs">
+          <ShieldOff className="h-4 w-4 text-destructive" />
+          <span>Blacklist com {naoQuer} contatos — nunca receberão mensagem.</span>
+          <button
+            onClick={() => exportSelectedCsv(rows.filter((r) => isNaoQuer(r.status, r.skip_reason)), `blacklist-${new Date().toISOString().slice(0,10)}.csv`)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Exportar blacklist
+          </button>
+        </div>
+      )}
+
+      {/* Barra de ações em massa */}
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 p-2 text-xs">
+          <span className="font-medium">{selected.size} selecionados</span>
+          <button disabled={bulkBusy} onClick={() => runBulk("queue")} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-muted disabled:opacity-50"><Repeat className="h-3.5 w-3.5" /> Mover para fila</button>
+          <button disabled={bulkBusy} onClick={() => runBulk("blacklist")} className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive hover:bg-destructive/20 disabled:opacity-50"><ShieldOff className="h-3.5 w-3.5" /> Blacklist</button>
+          <button disabled={bulkBusy} onClick={() => exportSelectedCsv(filtered.filter((r) => selected.has(r.id)), `contatos-selecionados-${Date.now()}.csv`)} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 hover:bg-muted disabled:opacity-50"><BarChart3 className="h-3.5 w-3.5" /> Exportar</button>
+          <button disabled={bulkBusy} onClick={() => runBulk("delete")} className="inline-flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-destructive hover:bg-destructive/20 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /> Excluir</button>
+          <button onClick={clearSelection} className="ml-auto text-muted-foreground hover:text-foreground">Limpar seleção</button>
+        </div>
+      )}
+
       {/* Tabela */}
       <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-xs">
           <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
             <tr>
+              <th className="w-8 px-2 py-2">
+                <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} className="accent-primary" />
+              </th>
               <th className="px-3 py-2 text-left">Contato</th>
               <th className="px-3 py-2 text-left">Telefone</th>
               <th className="px-3 py-2 text-left">Instagram</th>
@@ -634,16 +783,21 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
                   {rows.length === 0 ? "Nenhum contato na lista ainda." : "Nenhum contato corresponde aos filtros."}
                 </td>
               </tr>
             )}
             {filtered.map((r) => {
               const meta = PANEL_STATUS[r.status] ?? { label: r.status, cls: "bg-muted text-muted-foreground", icon: "•" };
+              const naoq = isNaoQuer(r.status, r.skip_reason);
+              const displayMeta = naoq ? PANEL_STATUS.bloqueado : meta;
               const last = r.ultima_interacao ?? r.replied_at ?? r.converted_at ?? r.last_sent_at;
               return (
                 <tr key={r.id} className="group border-t border-border hover:bg-muted/30">
+                  <td className="px-2 py-2">
+                    <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleOne(r.id)} className="accent-primary" />
+                  </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-semibold text-foreground">
@@ -655,8 +809,8 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                   <td className="px-3 py-2 font-mono text-[11px]">{r.telefone}</td>
                   <td className="px-3 py-2 text-muted-foreground">{r.instagram || "—"}</td>
                   <td className="px-3 py-2">
-                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${meta.cls}`} title={r.error_message ?? undefined}>
-                      <span>{meta.icon}</span>{meta.label}
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${displayMeta.cls}`} title={r.error_message ?? r.skip_reason ?? undefined}>
+                      <span>{displayMeta.icon}</span>{displayMeta.label}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
@@ -2164,7 +2318,7 @@ function ContactListsSection() {
   const [openContactsFor, setOpenContactsFor] = useState<string | null>(null);
 
   const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
-  const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
+  const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; ignored_sent: number; ignored_blocked: number; invalid: number } | null>>({});
   const [importingFor, setImportingFor] = useState<string | null>(null);
   const [importCategoryId, setImportCategoryId] = useState<string>("");
   useEffect(() => {
@@ -2373,7 +2527,12 @@ function ContactListsSection() {
                         qc.invalidateQueries({ queryKey: ["panel_contacts", "unified"] });
                         qc.invalidateQueries({ queryKey: ["contact_categories_counts"] });
                         qc.invalidateQueries({ queryKey: ["list_contacts_detail", primary.id] });
-                        toast.success(`${(res as { inserted: number }).inserted} contatos importados`);
+                        {
+                          const r = res as { inserted: number; ignored_sent: number; ignored_blocked: number };
+                          toast.success(
+                            `${r.inserted} novos adicionados · ${r.ignored_sent} ignorados (já enviados) · ${r.ignored_blocked} ignorados (não quer)`,
+                          );
+                        }
                       } catch (err) {
                         toast.error(`Falha ao importar: ${(err as Error).message}`);
                       } finally {
@@ -2408,7 +2567,7 @@ function ContactListsSection() {
               </div>
               {sum && (
                 <p className="text-xs text-muted-foreground">
-                  Inseridos: <b>{sum.inserted}</b> · Ignorados (já existem): <b>{sum.ignored_existing}</b> · Inválidos: <b>{sum.invalid}</b>
+                  <b>{sum.inserted}</b> novos · <b>{sum.ignored_sent}</b> ignorados (já enviados) · <b>{sum.ignored_blocked}</b> ignorados (não quer) · <b>{sum.invalid}</b> inválidos
                 </p>
               )}
             </div>

@@ -511,3 +511,54 @@ export const blockBlastContact = createServerFn({ method: "POST" })
       .eq("user_id", context.userId);
     return { ok: true };
   });
+
+export const bulkBlastAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      ids: z.array(z.string().uuid()).min(1).max(2000),
+      action: z.enum(["queue", "blacklist", "delete"]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    if (data.action === "delete") {
+      const { error, count } = await context.supabase
+        .from("blast_contacts")
+        .delete({ count: "exact" })
+        .in("id", data.ids)
+        .eq("user_id", context.userId);
+      if (error) throw new Error(error.message);
+      return { affected: count ?? data.ids.length };
+    }
+    if (data.action === "queue") {
+      const { error, count } = await context.supabase
+        .from("blast_contacts")
+        .update({ status: "pendente", skip_reason: null }, { count: "exact" })
+        .in("id", data.ids)
+        .eq("user_id", context.userId);
+      if (error) throw new Error(error.message);
+      return { affected: count ?? data.ids.length };
+    }
+    // blacklist
+    const { data: rows, error: e0 } = await context.supabase
+      .from("blast_contacts")
+      .select("telefone")
+      .in("id", data.ids)
+      .eq("user_id", context.userId);
+    if (e0) throw new Error(e0.message);
+    const { error, count } = await context.supabase
+      .from("blast_contacts")
+      .update({ status: "pulado", skip_reason: "bloqueado manualmente" }, { count: "exact" })
+      .in("id", data.ids)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    const phones = (rows ?? []).map((r) => r.telefone as string).filter(Boolean);
+    if (phones.length > 0) {
+      await context.supabase
+        .from("contacts")
+        .update({ status: "bloqueado" })
+        .in("telefone", phones)
+        .eq("user_id", context.userId);
+    }
+    return { affected: count ?? data.ids.length };
+  });
