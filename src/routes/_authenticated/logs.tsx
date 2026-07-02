@@ -49,7 +49,7 @@ function LogsPage() {
     const t = l.type ?? "";
     if (t.startsWith("blast_") || t === "campaign_dispatch") return "disparo";
     if (t === "meta_ads_lead" || t.includes("meta_ads")) return "meta_ads";
-    if (t === "message_from_client" || t === "message_sent_manual" || t === "message_received" || t === "claude_reply" || t === "whisper_transcribe" || t === "elevenlabs_tts") return "conversas";
+    if (t === "message_from_client" || t === "message_sent_manual" || t === "message_received" || t === "claude_reply" || t === "agent_reply_sent" || t === "whisper_transcribe" || t === "elevenlabs_tts") return "conversas";
     return "sistema";
   };
 
@@ -57,9 +57,27 @@ function LogsPage() {
     const meta = (l.metadata ?? {}) as Record<string, unknown>;
     if (meta.direcao === "enviado" || meta.direcao === "recebido") return meta.direcao;
     if (l.type === "message_from_client") return "recebido";
-    if (l.type === "claude_reply" || l.type === "message_sent_manual" || l.type === "blast_sent") return "enviado";
+    if (l.type === "claude_reply" || l.type === "agent_reply_sent" || l.type === "message_sent_manual" || l.type === "blast_sent") return "enviado";
     return null;
   };
+
+  const inferTipo = (l: AgentLog): string => {
+    const meta = (l.metadata ?? {}) as Record<string, unknown>;
+    if (typeof meta.tipo === "string") return meta.tipo.replace(/_/g, " ");
+    if (l.type === "blast_sent") return "Abertura/Follow-up";
+    if (l.type === "agent_reply_sent" || l.type === "claude_reply") return "Resposta do agente";
+    if (l.type === "message_from_client") return "Mensagem do cliente";
+    if (l.level === "error" || l.type.includes("failed")) return "Erro";
+    return l.type;
+  };
+
+  const getContactLabel = (l: AgentLog): string => {
+    const meta = (l.metadata ?? {}) as Record<string, unknown>;
+    const nome = typeof meta.contato_nome === "string" ? meta.contato_nome : "";
+    return [nome, l.phone].filter(Boolean).join(" · ") || "—";
+  };
+
+  const contentSummary = (l: AgentLog): string => (l.response || l.summary || l.error || "").slice(0, 140);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -185,6 +203,7 @@ function LogsPage() {
               const origem = inferOrigem(l);
               const direcao = inferDirecao(l);
               const origemLabel = origem === "meta_ads" ? "📣 Meta Ads" : origem === "disparo" ? "🚀 Disparo" : origem === "conversas" ? "💬 Conversas" : "⚙️ Sistema";
+              const statusLabel = l.level === "error" ? "❌ Falha" : "✅ Sucesso";
               return (
                 <li key={l.id} className="p-3">
                   <button onClick={() => toggle(l.id)} className="flex w-full items-start gap-3 text-left">
@@ -198,11 +217,13 @@ function LogsPage() {
                     <Badge variant="secondary" className="shrink-0">{origemLabel}</Badge>
                     {direcao && (
                       <Badge variant="outline" className="shrink-0">
-                        {direcao === "enviado" ? "📤" : "📥"}
+                        {direcao === "enviado" ? "📤 Enviado" : "📥 Recebido"}
                       </Badge>
                     )}
-                    <Badge variant="secondary" className="shrink-0">{l.type}</Badge>
-                    <span className="flex-1 text-sm">{l.summary}</span>
+                    <Badge variant="secondary" className="shrink-0">{inferTipo(l)}</Badge>
+                    <Badge variant={l.level === "error" ? "destructive" : "outline"} className="shrink-0">{statusLabel}</Badge>
+                    <span className="w-44 shrink-0 truncate text-xs text-muted-foreground">{getContactLabel(l)}</span>
+                    <span className="flex-1 text-sm">{contentSummary(l)}</span>
                     {l.duration_ms !== null && <span className="text-xs text-muted-foreground">{l.duration_ms}ms</span>}
                     {l.phone && <span className="text-xs text-muted-foreground">{l.phone}</span>}
                     <span className="text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString()}</span>
