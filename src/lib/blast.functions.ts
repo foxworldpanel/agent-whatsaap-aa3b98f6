@@ -533,10 +533,9 @@ export const bulkBlastAction = createServerFn({ method: "POST" })
     if (data.action === "queue") {
       const { error, count } = await context.supabase
         .from("blast_contacts")
-        .update({ status: "pendente", skip_reason: null })
+        .update({ status: "pendente", skip_reason: null }, { count: "exact" })
         .in("id", data.ids)
-        .eq("user_id", context.userId)
-        .select("id", { count: "exact", head: true });
+        .eq("user_id", context.userId);
       if (error) throw new Error(error.message);
       return { affected: count ?? data.ids.length };
     }
@@ -549,10 +548,9 @@ export const bulkBlastAction = createServerFn({ method: "POST" })
     if (e0) throw new Error(e0.message);
     const { error, count } = await context.supabase
       .from("blast_contacts")
-      .update({ status: "pulado", skip_reason: "bloqueado manualmente" })
+      .update({ status: "pulado", skip_reason: "bloqueado manualmente" }, { count: "exact" })
       .in("id", data.ids)
-      .eq("user_id", context.userId)
-      .select("id", { count: "exact", head: true });
+      .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     const phones = (rows ?? []).map((r) => r.telefone as string).filter(Boolean);
     if (phones.length > 0) {
