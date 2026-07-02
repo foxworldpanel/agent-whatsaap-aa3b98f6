@@ -211,6 +211,7 @@ type PanelCampaign = {
   delay_min_sec: number | null;
   delay_max_sec: number | null;
   last_dispatch_at: string | null;
+  opening_message?: string | null;
 };
 
 type PanelFilter = "all" | "aguardando" | "enviados" | "responderam" | "converteram" | "nao_quer" | "falhou";
