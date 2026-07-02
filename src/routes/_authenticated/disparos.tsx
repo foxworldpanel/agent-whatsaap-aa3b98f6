@@ -999,7 +999,7 @@ function BlastCampaignCard({
   onChanged,
 }: {
   camp: BlastCampaign;
-  numbers: Array<{ id: string; nome: string; warmup_started_at?: string | null; warmup_enabled?: boolean | null }>;
+  numbers: Array<{ id: string; nome: string; warmup_started_at?: string | null; warmup_enabled?: boolean | null; disparos_mode?: boolean | null }>;
   onChanged: () => void;
 }) {
   const qc = useQueryClient();
