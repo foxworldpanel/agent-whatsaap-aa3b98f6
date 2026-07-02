@@ -1037,6 +1037,11 @@ function BlastCampaignCard({
   const [contact_list_id, setListId] = useState<string>(camp.contact_list_id ?? "");
   const listListsFn = useServerFn(listContactLists);
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listListsFn() });
+  const listCatsFn = useServerFn(listCategories);
+  const { data: categories = [] } = useQuery({ queryKey: ["contact_categories"], queryFn: () => listCatsFn() });
+  const [categoria_ids, setCategoriaIds] = useState<string[]>(camp.categoria_ids ?? []);
+  const toggleCategoria = (id: string) =>
+    setCategoriaIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const [start_time, setStart] = useState(camp.start_time.slice(0, 5));
   const [end_time, setEnd] = useState(camp.end_time.slice(0, 5));
   const [daily_limit, setLimit] = useState(camp.daily_limit);
