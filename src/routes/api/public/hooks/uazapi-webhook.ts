@@ -815,14 +815,26 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
-        // Marca blast_contacts como respondeu (interrompe sequência)
+        // Detecta se esta mensagem é resposta a um disparo ativo.
+        // Se sim, o agente Júlia assume a conversa diretamente — sem funil.
+        let isBlastReply = false;
         try {
-          await supabaseAdmin
+          const { data: pendingBlast } = await supabaseAdmin
             .from("blast_contacts")
-            .update({ status: "respondeu", replied_at: new Date().toISOString() })
+            .select("id, status")
             .eq("user_id", userId)
             .eq("telefone", phone)
-            .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7", "pendente"]);
+            .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7"])
+            .limit(1);
+          isBlastReply = !!(pendingBlast && pendingBlast.length > 0);
+          if (isBlastReply) {
+            await supabaseAdmin
+              .from("blast_contacts")
+              .update({ status: "respondeu", replied_at: new Date().toISOString() })
+              .eq("user_id", userId)
+              .eq("telefone", phone)
+              .in("status", ["enviado_abertura", "enviado_d3", "enviado_d7", "pendente"]);
+          }
         } catch {}
 
         if (contact.status === "bloqueado") {
@@ -1462,8 +1474,48 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        // ===== Resposta a disparo: agente Júlia assume =====
+        // Se o cliente respondeu ao disparo dizendo NÃO / sem interesse,
+        // envia despedida curta e marca como perdido — sem acionar o agente.
+        if (isBlastReply) {
+          const negRe = /^\s*(n[aã]o(\s+(quero|tenho|preciso|obrigad[oa]|me\s+manda|me\s+chame|interess[ae]|gost))?|para|pare|sai|remov|bloqu|n[aã]o\s+me\s+mand|sem\s+interesse|n[aã]o\s+t[oô]\s+interess)/i;
+          if (negRe.test((text ?? inboundBody ?? "").trim())) {
+            try {
+              const goodbye = "Tudo bem, desculpa o incômodo! Se precisar no futuro é só chamar 😊";
+              const { uazapiSendText } = await import("@/lib/uazapi.server");
+              await uazapiSendText(
+                { uazapi_url: integ.uazapi_url ?? numberUazapiUrl ?? "", uazapi_token: instanceToken },
+                phone,
+                goodbye,
+              );
+              const stamp = new Date().toISOString();
+              await supabaseAdmin.from("messages").insert({
+                user_id: userId,
+                conversation_id: conv.id,
+                sender: "agente",
+                kind: "texto",
+                body: goodbye,
+              });
+              await supabaseAdmin
+                .from("conversations")
+                .update({ agent_enabled: false, status: "aguardando", last_message_preview: goodbye.slice(0, 120), last_message_at: stamp })
+                .eq("id", conv.id);
+              await supabaseAdmin.from("contacts").update({ status: "sem_resposta" }).eq("id", contact.id);
+              await supabaseAdmin
+                .from("blast_contacts")
+                .update({ status: "perdido" })
+                .eq("user_id", userId)
+                .eq("telefone", phone);
+            } catch (e) {
+              console.error("[blast-no] goodbye failed", e);
+            }
+            return new Response("ok (blast declined)");
+          }
+        }
+
         // ===== Funis de boas-vindas (múltiplos por número; primeiro gatilho que casar dispara, uma vez por contato) =====
-        if (numberId && !isDirectClientQuestion(inboundBody)) {
+        // Se a mensagem é resposta a disparo, o agente Júlia assume direto — pula funil.
+        if (numberId && !isDirectClientQuestion(inboundBody) && !isBlastReply) {
           try {
             const { data: funnels } = await supabaseAdmin
               .from("welcome_funnels")
@@ -2012,7 +2064,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               const persistedBlock = persisted
                 ? `CONTEXTO PERSISTENTE DA CONVERSA (fatos já confirmados em mensagens/imagens anteriores — NUNCA pergunte de novo o que já está aqui; ex: se já consta "cliente tem cadastro/saldo", NÃO pergunte se tem cadastro):\n${persisted}`
                 : "";
-              return [persistedBlock, orderStatusContext ?? ""].filter(Boolean).join("\n\n") || null;
+              const blastBlock = isBlastReply
+                ? `MODO DISPARO — CLIENTE RESPONDEU À ABORDAGEM INICIAL:\nVocê está abordando um músico/artista que foi contactado pelo Instagram. Conduza a conversa de forma natural e personalizada. Descubra primeiro qual rede social ele quer crescer e qual é seu objetivo. Use as mídias (áudio, vídeo, link do painel) apenas quando fizer sentido na conversa — NUNCA mande tudo de uma vez. Cada conversa deve parecer única e humana, jamais um script.\nQuando enviar mídia:\n- ÁUDIO → quando o cliente mandou áudio, o assunto precisa de explicação mais detalhada, ou ele pediu para explicar melhor.\n- VÍDEO → quando o cliente perguntar "como funciona?", estiver confuso sobre o painel, ou demonstrar interesse real mas ainda com dúvida.\n- LINK do painel → apenas quando o cliente quiser comprar, perguntar onde acessar, ou você estiver fechando a venda.\nNão envie funil automático nem sequência pronta — improvise com base na resposta dele.`
+                : "";
+              return [persistedBlock, blastBlock, orderStatusContext ?? ""].filter(Boolean).join("\n\n") || null;
             })(),
             inputKind: dbKind,
             imageBase64: _imageBase64,
