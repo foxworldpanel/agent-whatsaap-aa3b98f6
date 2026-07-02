@@ -393,8 +393,12 @@ export async function generateAgentReplyWithMeta(params: {
 
   // Modelo dinâmico: Sonnet (com visão) quando há imagem; Haiku para texto/áudio.
   const hasImage = !!imageBase64;
-  const model = hasImage ? "claude-sonnet-4-5" : "claude-haiku-4-5";
-  if (hasImage) console.info("[agent-ai] Usando Sonnet para análise de imagem");
+  const { model, reason: routingReason } = pickClaudeModel({
+    hasImage,
+    inputKind,
+    latestMessage: latestClientMessage,
+  });
+  console.info("[agent-ai] Roteamento modelo:", { model, routingReason });
 
   // Quando há imagem, anexa a imagem como bloco na ÚLTIMA mensagem do user.
   // Encontra ou cria a última msg user e converte content em array com image+text.
@@ -448,7 +452,7 @@ export async function generateAgentReplyWithMeta(params: {
     content?: Array<{ type: string; text?: string }>;
   };
   const text = (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
-  return text || "…";
+  return { text: text || "…", model, routingReason };
 }
 
 // ----- Transcrição (Whisper via Lovable AI Gateway, sem chave do usuário) -----
