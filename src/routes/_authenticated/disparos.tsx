@@ -34,6 +34,7 @@ import {
   exportContactList,
 } from "@/lib/contact-lists.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
+import { BlastFlowBuilder } from "@/components/BlastFlowBuilder";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
   ssr: false,
