@@ -12,7 +12,10 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
       POST: async () => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
-        const { montarMensagemDisparo } = await import("@/lib/blast-variations");
+        const { montarMensagemDisparo, DEFAULT_TEMPLATES, saudacaoIdxFromKey } = await import(
+          "@/lib/blast-variations"
+        );
+        const { _toTemplates } = await import("@/lib/opening-templates.functions");
 
         const { data: camps, error } = await supabaseAdmin
           .from("blast_campaigns")
@@ -147,17 +150,59 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const isModoDisparo = numberRow?.disparos_mode === true;
             const isMetaAds = numberRow?.meta_ads_enabled === true;
             const useVariacao = isModoDisparo && !isMetaAds && next.stage === "opening";
+
+            // Carrega templates editáveis do usuário
+            let templates = DEFAULT_TEMPLATES;
+            if (useVariacao) {
+              const { data: tplRow } = await supabaseAdmin
+                .from("opening_templates")
+                .select("saudacoes_manha, saudacoes_tarde, saudacoes_noite, linha2, perguntas")
+                .eq("user_id", camp.user_id)
+                .maybeSingle();
+              templates = _toTemplates(
+                tplRow as Parameters<typeof _toTemplates>[0] ?? null,
+              );
+            }
+
+            // Anti-repetição da saudação: pega saudação do último envio da campanha
+            let avoidSaudacaoIdx: number | null = null;
+            if (useVariacao && camp.last_dispatch_at) {
+              const { data: lastSent } = await supabaseAdmin
+                .from("blast_contacts")
+                .select("last_variation_key")
+                .eq("campaign_id", camp.id)
+                .not("last_variation_key", "is", null)
+                .order("last_sent_at", { ascending: false })
+                .limit(1);
+              avoidSaudacaoIdx = saudacaoIdxFromKey(lastSent?.[0]?.last_variation_key ?? null);
+            }
+
             const pick = useVariacao
               ? montarMensagemDisparo(next.contact.nome, next.contact.instagram, {
                   avoidKey: next.contact.last_variation_key,
+                  avoidSaudacaoIdx,
+                  templates,
                 })
               : null;
-            const message = pick ? pick.text : renderTemplate(next.template, next.contact);
+            const messageParts: string[] = pick
+              ? pick.parts
+              : [renderTemplate(next.template, next.contact)];
 
             let status: "sent" | "failed" = "sent";
             let errMsg: string | undefined;
             try {
-              await uazapiSendText({ uazapi_url: url, uazapi_token: token }, next.contact.telefone, message);
+              for (let i = 0; i < messageParts.length; i++) {
+                await uazapiSendText(
+                  { uazapi_url: url, uazapi_token: token },
+                  next.contact.telefone,
+                  messageParts[i],
+                );
+                if (i < messageParts.length - 1) {
+                  // Delay natural entre linhas (2.5s–5s) simulando digitação
+                  const wait = 2500 + Math.random() * 2500;
+                  await new Promise((r) => setTimeout(r, wait));
+                }
+              }
             } catch (e) {
               status = "failed";
               errMsg = (e as Error).message;

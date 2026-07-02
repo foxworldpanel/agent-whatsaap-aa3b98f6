@@ -6,7 +6,10 @@ import { Play, Pause, Square, Send, CheckCircle2, XCircle, MessageCircle, Plus, 
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { SAUDACOES, CORPOS_MENSAGEM } from "@/lib/blast-variations";
+import { SAUDACOES, CORPOS_MENSAGEM, DEFAULT_TEMPLATES, type OpeningTemplates } from "@/lib/blast-variations";
+import { getOpeningTemplates, saveOpeningTemplates } from "@/lib/opening-templates.functions";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   listCampaigns,
   createCampaign,
@@ -2370,6 +2373,53 @@ function ChannelBreakdown({
 
 function VariationInfoCard() {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [tpls, setTpls] = useState<OpeningTemplates>(DEFAULT_TEMPLATES);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!editing || loaded) return;
+    (async () => {
+      try {
+        const t = await getOpeningTemplates();
+        setTpls(t as OpeningTemplates);
+      } catch {
+        setTpls(DEFAULT_TEMPLATES);
+      } finally {
+        setLoaded(true);
+      }
+    })();
+  }, [editing, loaded]);
+
+  const updateList = (key: "linha2" | "perguntas", idx: number, val: string) => {
+    setTpls((prev) => {
+      const arr = [...prev[key]];
+      arr[idx] = val;
+      return { ...prev, [key]: arr };
+    });
+  };
+  const updateSaud = (p: "manha" | "tarde" | "noite", idx: number, val: string) => {
+    setTpls((prev) => {
+      const arr = [...prev.saudacoes[p]];
+      arr[idx] = val;
+      return { ...prev, saudacoes: { ...prev.saudacoes, [p]: arr } };
+    });
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await saveOpeningTemplates({ data: tpls });
+      toast.success("Templates salvos!");
+      setEditing(false);
+    } catch (e) {
+      toast.error("Erro ao salvar: " + (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-2">
       <div className="flex items-start gap-2">
@@ -2377,19 +2427,26 @@ function VariationInfoCard() {
         <div className="flex-1">
           <h4 className="text-sm font-semibold">Mensagem inteligente automática</h4>
           <p className="text-xs text-muted-foreground mt-1">
-            O sistema vai variar automaticamente a saudação (manhã/tarde/noite, fuso Brasil)
-            e o texto de abordagem para cada contato, evitando padrões repetitivos. Cada
-            disparo gera uma combinação diferente — sem repetir a última usada no mesmo
-            contato em follow-ups.
+            O sistema envia a abordagem em 3 mensagens (saudação + linha 2 + pergunta),
+            variando por período (manhã/tarde/noite, fuso Brasil). Cada disparo gera uma
+            combinação diferente e não repete a mesma saudação em disparos seguidos.
           </p>
         </div>
       </div>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="text-xs font-medium text-primary hover:underline"
-      >
-        {open ? "Ocultar exemplos" : "Ver exemplos de variações"}
-      </button>
+      <div className="flex gap-3">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          {open ? "Ocultar exemplos" : "Ver exemplos de variações"}
+        </button>
+        <button
+          onClick={() => setEditing((v) => !v)}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          {editing ? "Fechar editor" : "Ver/editar templates"}
+        </button>
+      </div>
       {open && (
         <div className="mt-2 space-y-3 max-h-80 overflow-y-auto rounded-md border border-border bg-background/60 p-3">
           {(["manha", "tarde", "noite"] as const).map((p) => (
@@ -2416,6 +2473,75 @@ function VariationInfoCard() {
               ))}
             </ul>
           </div>
+        </div>
+      )}
+      {editing && (
+        <div className="mt-2 space-y-4 rounded-md border border-border bg-background/60 p-3">
+          {!loaded ? (
+            <p className="text-xs text-muted-foreground">Carregando templates…</p>
+          ) : (
+            <>
+              <p className="text-[11px] text-muted-foreground">
+                Use <code>{"{nome}"}</code> e <code>{"{instagram}"}</code> como variáveis.
+              </p>
+              {(["manha", "tarde", "noite"] as const).map((p) => (
+                <div key={p} className="space-y-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Saudações — {p === "manha" ? "Manhã" : p === "tarde" ? "Tarde" : "Noite"}
+                  </div>
+                  {tpls.saudacoes[p].map((s, i) => (
+                    <Input
+                      key={i}
+                      value={s}
+                      onChange={(e) => updateSaud(p, i, e.target.value)}
+                      className="text-xs"
+                    />
+                  ))}
+                </div>
+              ))}
+              <div className="space-y-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Linha 2 — abordagem
+                </div>
+                {tpls.linha2.map((s, i) => (
+                  <Input
+                    key={i}
+                    value={s}
+                    onChange={(e) => updateList("linha2", i, e.target.value)}
+                    className="text-xs"
+                  />
+                ))}
+              </div>
+              <div className="space-y-1">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Pergunta final
+                </div>
+                {tpls.perguntas.map((s, i) => (
+                  <Input
+                    key={i}
+                    value={s}
+                    onChange={(e) => updateList("perguntas", i, e.target.value)}
+                    className="text-xs"
+                  />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={save} disabled={saving}>
+                  {saving ? "Salvando…" : "Salvar templates"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setTpls(DEFAULT_TEMPLATES);
+                  }}
+                  disabled={saving}
+                >
+                  Restaurar padrão
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
