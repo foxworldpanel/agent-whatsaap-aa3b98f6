@@ -1985,7 +1985,26 @@ function ContactListsSection() {
   const importFn = useServerFn(importContactsToList);
   const clearFn = useServerFn(clearContactList);
   const exportFn = useServerFn(exportContactList);
+  const listCatsFn = useServerFn(listCategories);
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listFn() });
+  const { data: categories = [] } = useQuery({ queryKey: ["contact_categories"], queryFn: () => listCatsFn() });
+
+  // Contagem por categoria (tempo real via realtime abaixo)
+  const { data: catCounts = {} } = useQuery({
+    queryKey: ["contact_categories_counts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_contacts")
+        .select("categoria_id");
+      const map: Record<string, number> = {};
+      for (const r of data ?? []) {
+        const k = (r as { categoria_id: string | null }).categoria_id;
+        if (!k) continue;
+        map[k] = (map[k] ?? 0) + 1;
+      }
+      return map;
+    },
+  });
 
   const { data: camps = [] } = useQuery({
     queryKey: ["blast_campaigns", "active-by-list"],
@@ -2009,6 +2028,7 @@ function ContactListsSection() {
         { event: "*", schema: "public", table: "blast_contacts" },
         () => {
           qc.invalidateQueries({ queryKey: ["contact_lists"] });
+          qc.invalidateQueries({ queryKey: ["contact_categories_counts"] });
         },
       )
       .subscribe();
@@ -2044,6 +2064,13 @@ function ContactListsSection() {
   const [csvByList, setCsvByList] = useState<Record<string, CsvRow[]>>({});
   const [summary, setSummary] = useState<Record<string, { inserted: number; ignored_existing: number; invalid: number } | null>>({});
   const [importingFor, setImportingFor] = useState<string | null>(null);
+  const [importCategoryId, setImportCategoryId] = useState<string>("");
+  useEffect(() => {
+    if (!importCategoryId && categories.length > 0) {
+      const def = categories.find((c) => c.slug === "lead_instagram") ?? categories[0];
+      setImportCategoryId(def.id);
+    }
+  }, [categories, importCategoryId]);
 
   async function exportCombinedReport() {
     const results = await Promise.all(sortedLists.map((l) => exportFn({ data: { listId: l.id } })));
