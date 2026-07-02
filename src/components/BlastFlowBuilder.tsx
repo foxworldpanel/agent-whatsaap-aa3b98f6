@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -13,6 +13,8 @@ import {
   type Node,
   type Edge,
   type Connection,
+  type FinalConnectionState,
+  type OnConnectStartParams,
   ConnectionMode,
   MarkerType,
 } from "@xyflow/react";
@@ -192,6 +194,7 @@ function Inner({ campaignId }: { campaignId: string }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [selected, setSelected] = useState<Node<NodeData> | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const connectingFromRef = useRef<OnConnectStartParams | null>(null);
 
   useEffect(() => {
     if (isLoading || loaded) return;
@@ -206,8 +209,8 @@ function Inner({ campaignId }: { campaignId: string }) {
     setLoaded(true);
   }, [flow, isLoading, loaded, setNodes, setEdges]);
 
-  const onConnect = useCallback(
-    (c: Connection) =>
+  const addConnection = useCallback(
+    (c: Connection) => {
       setEdges((eds) => {
         if (!c.source || !c.target || c.source === c.target) return eds;
         const alreadyExists = eds.some(
@@ -216,8 +219,34 @@ function Inner({ campaignId }: { campaignId: string }) {
         if (alreadyExists) return eds;
         const label = c.sourceHandle === "yes" ? "SIM" : c.sourceHandle === "no" ? "NÃO" : undefined;
         return addEdge({ ...c, label, markerEnd: { type: MarkerType.ArrowClosed }, style: flowEdgeStyle }, eds);
-      }),
+      });
+    },
     [setEdges],
+  );
+
+  const onConnect = useCallback((c: Connection) => addConnection(c), [addConnection]);
+
+  const onConnectStart = useCallback((_: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+    connectingFromRef.current = params;
+  }, []);
+
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent, state: FinalConnectionState) => {
+      const from = connectingFromRef.current;
+      connectingFromRef.current = null;
+      if (!from?.nodeId || from.handleType !== "source" || state.toNode) return;
+
+      const pointer = "changedTouches" in event ? event.changedTouches[0] : event;
+      const targetNode = document
+        .elementFromPoint(pointer.clientX, pointer.clientY)
+        ?.closest(".react-flow__node") as HTMLElement | null;
+      const targetId = targetNode?.dataset.id;
+
+      if (!targetId || targetId === from.nodeId) return;
+
+      addConnection({ source: from.nodeId, sourceHandle: from.handleId, target: targetId, targetHandle: "in" });
+    },
+    [addConnection],
   );
 
   const addNode = useCallback(
@@ -351,6 +380,8 @@ function Inner({ campaignId }: { campaignId: string }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onConnectStart={onConnectStart}
+            onConnectEnd={onConnectEnd}
             onNodeClick={(_, n) => setSelected(n as Node<NodeData>)}
             onPaneClick={() => setSelected(null)}
             nodeTypes={memoNodeTypes}
