@@ -638,7 +638,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
       </div>
 
       {/* Próximo na fila */}
-      {isActive && nextInLine && (
+      {nextInLine && (
         <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-sm">
           <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-primary via-primary/60 to-transparent" />
           <div className="flex items-start gap-3">
