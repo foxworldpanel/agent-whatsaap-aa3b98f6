@@ -1650,6 +1650,24 @@ export type Database = {
     }
     Functions: {
       cleanup_old_agent_logs: { Args: never; Returns: undefined }
+      get_or_create_active_conversation: {
+        Args: {
+          _contact_id: string
+          _initial_status?: Database["public"]["Enums"]["conversation_status"]
+          _user_id: string
+          _whatsapp_number_id?: string
+        }
+        Returns: {
+          agent_enabled: boolean
+          contexto_extra: string
+          created_at: string
+          id: string
+          last_media_sent: Json
+          last_message_at: string
+          needs_review: boolean
+          whatsapp_number_id: string
+        }[]
+      }
     }
     Enums: {
       campaign_state: "parado" | "rodando" | "pausado"
