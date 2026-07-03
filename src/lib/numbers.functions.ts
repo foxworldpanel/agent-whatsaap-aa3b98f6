@@ -2,13 +2,31 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+async function getSharedUazapiUserIds(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: own } = await supabaseAdmin
+    .from("integrations")
+    .select("uazapi_token")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const token = own?.uazapi_token;
+  if (!token) return [userId];
+  const { data: peers } = await supabaseAdmin
+    .from("integrations")
+    .select("user_id")
+    .eq("uazapi_token", token);
+  return Array.from(new Set([userId, ...(peers ?? []).map((r) => r.user_id)]));
+}
+
 export const listNumbers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    const userIds = await getSharedUazapiUserIds(context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
       .from("whatsapp_numbers")
       .select("id, nome, uazapi_url, status, meta_ads_enabled, disparos_mode, last_connected_at, created_at, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, last_risk_check_at")
-      .eq("user_id", context.userId)
+      .in("user_id", userIds)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
