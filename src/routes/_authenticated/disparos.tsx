@@ -1281,10 +1281,6 @@ function BlastCampaignCard({
       toast.error("Selecione um número de WhatsApp antes de iniciar.");
       return;
     }
-    if (selectedNumber.disparos_mode !== true) {
-      toast.error(`O número "${selectedNumber.nome ?? "selecionado"}" está com 'Modo Disparos' desativado. Ative em Números.`);
-      return;
-    }
     if (pendingContacts === 0) {
       toast.error("Nenhum contato com status 'pendente' na lista vinculada. Importe contatos antes de iniciar.");
       return;
