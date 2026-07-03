@@ -2621,7 +2621,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 userId, phone, conversationId: conv?.id,
                 type: "claude_reply", level: "error",
                 summary: "Claude retornou resposta vazia — usando fallback genérico",
-                error: `model=${_claudeModel} ms=${_claudeMs} routing=${_claudeRoutingReason}`,
+                error: "Claude retornou string vazia/branca — verificar prompt, tokens, ou rate limit",
                 metadata: { origem: "sistema", fallback: true, reason: "empty_reply" },
               });
             } catch {}
