@@ -469,16 +469,20 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
               userIdForRawLog = integ?.user_id ?? null;
             }
           }
-          const { error: rawLogError } = await supabaseAdmin.from("agent_logs").insert({
-            user_id: userIdForRawLog,
-            phone: extractPhone(msgForRawLog?.chatid, msgForRawLog?.sender) ?? "debug",
-            type: "message_received",
-            level: "info",
-            summary: `PAYLOAD: ${rawBody.slice(0, 800)}`,
-            metadata: { raw: rawBody.slice(0, 800) } as never,
-            created_at: new Date().toISOString(),
-          });
-          if (rawLogError) console.error("PAYLOAD_RAW agent_logs insert failed:", rawLogError);
+          if (userIdForRawLog) {
+            const { error: rawLogError } = await supabaseAdmin.from("agent_logs").insert({
+              user_id: userIdForRawLog,
+              phone: extractPhone(msgForRawLog?.chatid, msgForRawLog?.sender) ?? "debug",
+              type: "message_received",
+              level: "info",
+              summary: `PAYLOAD: ${rawBody.slice(0, 800)}`,
+              metadata: { raw: rawBody.slice(0, 800) } as never,
+              created_at: new Date().toISOString(),
+            });
+            if (rawLogError) console.error("PAYLOAD_RAW agent_logs insert failed:", rawLogError);
+          } else {
+            console.warn("PAYLOAD_RAW skipped (no user_id resolved)");
+          }
         } catch (e) {
           console.error("PAYLOAD_RAW agent_logs insert threw:", e);
         }
