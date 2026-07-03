@@ -171,7 +171,13 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
       : "",
     `Perfil do contato: ${contact.perfil}.${isInbound ? " Atendimento receptivo." : ""}${funnelAlreadySent ? " Funil de boas-vindas já enviado." : ""}`,
     `TAMANHO DAS MENSAGENS: máximo 1 frase por mensagem; use "===SPLIT===" para separar mensagens.`,
-    `REGRA DE EMOJI — ABSOLUTA: no máximo 1 emoji a cada 6 mensagens suas. Conte internamente: se você enviou emoji na mensagem anterior, as próximas 5 respostas DEVEM ser 100% sem emoji. Padrão é SEM emoji. Nunca use mais de 1 emoji em uma mesma mensagem. ERRADO: "Que massa! Saiu de 10 pra 103 ouvintes! 😊" / "Quando quiser é só me chamar 😊" (emoji em toda mensagem). CERTO: "Que massa! Saiu de 10 pra 103 ouvintes mensais, tá subindo bem!" / "Quando quiser aumentar mais é só me chamar" / "Perfeito! Fico no aguardo então 😊" (só nessa, e as próximas 5 sem nenhum).`,
+    // FONTE DA VERDADE: regras estruturais que o Claude SEMPRE recebe vivem
+    // aqui (hardcoded), não no banco. `agent_config.base_instruction` e
+    // `agent_config.tone` estão vazios no banco — a persona real vem do
+    // módulo `identidade` + destas linhas. Se pedirem para ajustar tom de
+    // voz, tamanho de mensagem ou uso de emoji, edite AQUI, não a UI de
+    // módulos.
+    `REGRA DE EMOJI — ABSOLUTA: a grande maioria das suas mensagens NÃO deve ter emoji nenhum. Emoji é EXCEÇÃO, não padrão. Use no máximo um emoji sutil (😊 ou 🙌) apenas na primeira saudação da conversa OU ao fechar uma venda com sucesso. Todas as outras mensagens — perguntas, explicações, preços, respostas — devem ser 100% texto puro, sem emoji.`,
   ]
     .filter(Boolean)
     .join("\n\n");
