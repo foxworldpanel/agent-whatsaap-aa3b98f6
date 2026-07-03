@@ -2611,14 +2611,55 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             });
           } catch {}
           }
-          if (!reply || !reply.trim()) reply = FALLBACK_REPLY;
+          if (!reply || !reply.trim()) {
+            // Claude respondeu vazio — registra como ERRO real em vez de mascarar
+            // como uma resposta normal. Assim o fallback aparece com tag de erro
+            // no painel de Logs (⚙️ Sistema/Erros).
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                userId, phone, conversationId: conv?.id,
+                type: "claude_reply", level: "error",
+                summary: "Claude retornou resposta vazia — usando fallback genérico",
+                error: "Claude retornou string vazia/branca — verificar prompt, tokens, ou rate limit",
+                metadata: { origem: "sistema", fallback: true, reason: "empty_reply" },
+              });
+            } catch {}
+            reply = FALLBACK_REPLY;
+          }
         } catch (e) {
           console.error("claude failed", e);
           reply = FALLBACK_REPLY;
           try {
             const { logEvent } = await import("@/lib/agent-logger.server");
-            await logEvent({ userId, phone, conversationId: conv?.id, type: "claude_reply", level: "error", summary: "Falha ao chamar Claude", error: (e as Error)?.message ?? String(e) });
+            await logEvent({
+              userId, phone, conversationId: conv?.id,
+              type: "claude_reply", level: "error",
+              summary: `Falha ao chamar Claude — usando fallback genérico: ${(e as Error)?.message ?? String(e)}`.slice(0, 500),
+              error: (e as Error)?.stack ?? (e as Error)?.message ?? String(e),
+              metadata: { origem: "sistema", fallback: true, reason: "claude_exception" },
+            });
           } catch {}
+        }
+
+        // Anti-loop: se o fallback já foi enviado na última mensagem do agente,
+        // não repete a mesma frase — envia uma variação neutra e registra warn.
+        if (reply === FALLBACK_REPLY) {
+          const lastAgent = [...(history ?? [])].reverse().find(
+            (m) => (m as { sender?: string }).sender === "agente",
+          ) as { body?: string } | undefined;
+          if (lastAgent?.body && lastAgent.body.trim() === FALLBACK_REPLY) {
+            reply = "Desculpa, tive uma instabilidade aqui do meu lado 🙏 Pode repetir sua última pergunta?";
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                userId, phone, conversationId: conv?.id,
+                type: "claude_reply", level: "warn",
+                summary: "Fallback repetido detectado — enviando mensagem alternativa para quebrar loop",
+                metadata: { origem: "sistema", fallback: true, reason: "fallback_loop" },
+              });
+            } catch {}
+          }
         }
 
         // Divide a resposta em partes quando o agente usa "===SPLIT===" (link separado).
