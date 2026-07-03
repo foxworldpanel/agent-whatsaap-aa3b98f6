@@ -127,7 +127,7 @@ export type Database = {
           response: string | null
           summary: string
           type: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           conversation_id?: string | null
@@ -142,7 +142,7 @@ export type Database = {
           response?: string | null
           summary: string
           type: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           conversation_id?: string | null
@@ -157,7 +157,7 @@ export type Database = {
           response?: string | null
           summary?: string
           type?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
