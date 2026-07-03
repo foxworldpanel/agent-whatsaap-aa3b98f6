@@ -568,8 +568,6 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 created_at: new Date().toISOString(),
               });
             }
-              created_at: new Date().toISOString(),
-            });
           } catch (logError) {
             console.error("failed to persist webhook thrown error", logError);
           }
