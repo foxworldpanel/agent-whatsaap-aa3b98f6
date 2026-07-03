@@ -111,8 +111,10 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               const v = (s ?? "").toLowerCase();
               return v === "connected" || v === "conectado" || v === "online";
             };
+            // Qualquer número conectado pode disparar. O toggle disparos_mode
+            // deixou de ser um filtro de elegibilidade — todos os números
+            // conectados entram no round-robin.
             const pool = allNumbers
-              .filter((n) => n.disparos_mode === true)
               .filter((n) => n.uazapi_url && n.uazapi_token)
               .filter((n) => isConnected(n.status))
               .filter((n) => !(n.auto_pause_on_risk && n.risk_level === "danger"))
@@ -122,10 +124,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // caso contrário usa round-robin baseado no total enviado hoje.
             let numberRow: NumberRow | null = null;
             if (pool.length === 0) {
-              // Fallback ao número da campanha (mesmo desconectado) para não travar
-              // silenciosamente antes: prefere skipar com mensagem clara.
-              results.push({ campaign: camp.name, sent: 0, skipped: "nenhum número em Modo Disparos ativo/conectado" });
-              await logEvent({ userId: camp.user_id, type: "blast_failed", level: "error", summary: "❌ Disparo sem número conectado em Modo Disparos", error: "Nenhum número conectado com Modo Disparos ativo", metadata: { origem: "disparo", direcao: "enviado", tipo: "erro", campaign_id: camp.id, total_numbers: allNumbers.length } });
+              results.push({ campaign: camp.name, sent: 0, skipped: "nenhum número conectado disponível para disparo" });
+              await logEvent({ userId: camp.user_id, type: "blast_failed", level: "error", summary: "❌ Disparo sem número conectado disponível", error: "Nenhum número conectado disponível para disparo", metadata: { origem: "disparo", direcao: "enviado", tipo: "erro", campaign_id: camp.id, total_numbers: allNumbers.length } });
               await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
               continue;
             }
@@ -190,13 +190,10 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const token = numberRow.uazapi_token!;
             console.log(`[blast-dispatcher] ${camp.name}: enviando para ${next.contact.nome} ${next.contact.telefone} (stage=${next.stage})`);
 
-            // Variação de saudação por horário SÓ vale para disparo ativo puro:
-            // número em "Modo Disparos" e SEM "Receber leads Meta Ads".
-            // Para qualquer outro caso (Meta Ads, receptivo, funil, régua),
-            // usa o template configurado da campanha, sem forçar saudação.
-            const isModoDisparo = numberRow?.disparos_mode === true;
-            const isMetaAds = numberRow?.meta_ads_enabled === true;
-            const useVariacao = isModoDisparo && !isMetaAds && next.stage === "opening";
+            // Variação de saudação por horário na abertura de um disparo ativo.
+            // Independe do rótulo do número — usa variação em qualquer opening
+            // de campanha (inclusive remarketing para leads antigos).
+            const useVariacao = next.stage === "opening";
 
             // Carrega templates editáveis do usuário
             let templates = DEFAULT_TEMPLATES;
