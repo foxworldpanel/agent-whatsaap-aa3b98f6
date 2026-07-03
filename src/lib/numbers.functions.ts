@@ -66,7 +66,8 @@ export const createNumber = createServerFn({ method: "POST" })
       });
       token = r.token;
     }
-    const { data: row, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
       .from("whatsapp_numbers")
       .insert({
         user_id: context.userId,

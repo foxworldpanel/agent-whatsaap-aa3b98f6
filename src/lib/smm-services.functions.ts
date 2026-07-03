@@ -86,7 +86,8 @@ export const listCatalogCache = createServerFn({ method: "GET" })
       max: String(r.maximo),
     }));
     // Pega meta da última sync
-    const { data: integ } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: integ } = await supabaseAdmin
       .from("integrations")
       .select("smm_last_sync_at, smm_last_sync_count")
       .eq("user_id", context.userId)
