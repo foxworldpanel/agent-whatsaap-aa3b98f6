@@ -8,24 +8,7 @@ import { createFileRoute } from "@tanstack/react-router";
 // Se sim, pega 1 contato "nao_abordado" do perfil alvo, gera mensagem com Claude,
 // envia via Uazapi, registra em campaign_logs e cria conversation + message.
 
-function nowHHMM(): string {
-  const d = new Date();
-  // Horário de Brasília (UTC-3)
-  const offsetMs = -3 * 60 * 60 * 1000;
-  const local = new Date(d.getTime() + offsetMs);
-  const hh = String(local.getUTCHours()).padStart(2, "0");
-  const mm = String(local.getUTCMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-function withinWindow(now: string, start: string, end: string): boolean {
-  const s = start.slice(0, 5);
-  const e = end.slice(0, 5);
-  if (s <= e) return now >= s && now <= e;
-  // janela atravessa meia-noite
-  return now >= s || now <= e;
-}
-
+// Plataforma 24h — janela de horário removida.
 export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
   server: {
     handlers: {
