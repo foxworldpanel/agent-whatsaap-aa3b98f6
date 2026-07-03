@@ -312,7 +312,8 @@ export const getNumberHealth = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ numberId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: num, error } = await context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: num, error } = await supabaseAdmin
       .from("whatsapp_numbers")
       .select("id, status, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, last_risk_check_at")
       .eq("id", data.numberId)
@@ -348,7 +349,7 @@ export const getNumberHealth = createServerFn({ method: "GET" })
     else if (failRate >= 15) level = "warning";
 
     // Persist risk level so the dispatcher can act on it
-    await context.supabase
+    await supabaseAdmin
       .from("whatsapp_numbers")
       .update({ risk_level: level, last_risk_check_at: new Date().toISOString() })
       .eq("id", data.numberId)

@@ -26,10 +26,15 @@ export async function logEvent(input: LogEventInput): Promise<void> {
   // HTTP termina. Por isso aguardamos o insert; os chamadores já envolvem logs
   // em try/catch para nunca quebrar o fluxo principal.
   try {
+    if (!input.userId) {
+      // agent_logs.user_id é NOT NULL; sem dono, apenas logamos no console.
+      console.warn("[agent-logger] skipped insert without user_id", { type: input.type, summary: input.summary });
+      return;
+    }
     const { error } = await supabaseAdmin
       .from("agent_logs")
       .insert({
-        user_id: input.userId ?? null,
+        user_id: input.userId,
         phone: input.phone ?? null,
         conversation_id: input.conversationId ?? null,
         type: input.type,
