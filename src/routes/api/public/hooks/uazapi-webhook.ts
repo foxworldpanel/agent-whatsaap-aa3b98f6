@@ -1735,10 +1735,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
-        // "Modo Disparos": número usado para abordagem ativa.
-        // IMPORTANTE: se o contato respondeu a um disparo (ou é número de teste),
-        // a mensagem já foi registrada e a Júlia DEVE assumir a conversa.
-        if (disparosMode && !isBlastThread && !isTestNumber) return new Response("ok (disparos mode: no auto-reply)");
+        // Arquitetura unificada: qualquer número pode receber inbound e usar
+        // disparo ativo simultaneamente. O toggle disparos_mode passa a ser
+        // apenas um rótulo — a Júlia sempre assume a conversa em qualquer
+        // número conectado, independentemente do rótulo. O contexto (lead de
+        // Meta Ads vs. resposta a disparo/remarketing) é derivado da conversa
+        // (source/last_blast_stage), não do número.
 
         // ===== Respostas mínimas: emoji/figurinha/reações e "vou ver depois" =====
         // Roda antes de funil e Claude para não disparar fluxo automático em
