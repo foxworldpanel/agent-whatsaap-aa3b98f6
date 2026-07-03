@@ -380,41 +380,21 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                     }
                   }
                   if (contactId) {
-                    // find/create conversation. Nunca usar maybeSingle aqui:
-                    // bases antigas podem ter duplicatas do mesmo contato+número;
-                    // escolher a mais recente evita criar uma conversa nova a
-                    // cada mensagem e mantém o histórico do Claude completo.
+                    // find/create conversation atômico. Mesma regra do webhook:
+                    // contato + número de WhatsApp ativo reutiliza sempre a mesma conversa.
                     let convId: string | null = null;
                     {
-                      const { data: existingConvs } = await supabaseAdmin
-                        .from("conversations")
-                        .select("id")
-                        .eq("user_id", camp.user_id)
-                        .eq("contact_id", contactId)
-                        .or(`whatsapp_number_id.is.null,whatsapp_number_id.eq.${numberRow.id}`)
-                        .order("last_message_at", { ascending: false, nullsFirst: false })
-                        .order("created_at", { ascending: false })
-                        .limit(1);
-                      if (existingConvs?.[0]?.id) {
-                        convId = existingConvs[0].id;
-                        await supabaseAdmin
-                          .from("conversations")
-                          .update({ whatsapp_number_id: numberRow.id } as never)
-                          .eq("id", convId)
-                          .is("whatsapp_number_id", null);
-                      } else {
-                        const insConv = await supabaseAdmin
-                          .from("conversations")
-                          .insert({
-                            user_id: camp.user_id,
-                            contact_id: contactId,
-                            status: "aguardando",
-                            whatsapp_number_id: numberRow.id,
-                          } as never)
-                          .select("id")
-                          .single();
-                        convId = insConv.data?.id ?? null;
-                      }
+                      const { data: existingConvs, error: convErr } = await (supabaseAdmin as any).rpc(
+                        "get_or_create_active_conversation",
+                        {
+                          _user_id: camp.user_id,
+                          _contact_id: contactId,
+                          _whatsapp_number_id: numberRow.id,
+                          _initial_status: "aguardando",
+                        },
+                      );
+                      if (convErr) throw convErr;
+                      convId = existingConvs?.[0]?.id ?? null;
                     }
                     if (convId) {
                       const nowIso = new Date().toISOString();
