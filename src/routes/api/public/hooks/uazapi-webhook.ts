@@ -516,20 +516,22 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                   .maybeSingle();
                 userIdForFailure = num?.user_id ?? null;
               }
-              await supabaseAdmin.from("agent_logs").insert({
-                user_id: userIdForFailure,
-                phone: extractPhone(msgForFailure?.chatid, msgForFailure?.sender),
-                type: "webhook_processing_failed",
-                level: "error",
-                summary: `Webhook retornou erro interno (${result.status})`,
-                error: body.slice(0, 5000),
-                metadata: {
-                  instance_token: tokenForFailure,
-                  messageId: extractMessageId(payload),
-                  status: result.status,
-                } as never,
-                created_at: new Date().toISOString(),
-              });
+              if (userIdForFailure) {
+                await supabaseAdmin.from("agent_logs").insert({
+                  user_id: userIdForFailure,
+                  phone: extractPhone(msgForFailure?.chatid, msgForFailure?.sender),
+                  type: "webhook_processing_failed",
+                  level: "error",
+                  summary: `Webhook retornou erro interno (${result.status})`,
+                  error: body.slice(0, 5000),
+                  metadata: {
+                    instance_token: tokenForFailure,
+                    messageId: extractMessageId(payload),
+                    status: result.status,
+                  } as never,
+                  created_at: new Date().toISOString(),
+                });
+              }
             } catch (logError) {
               console.error("failed to persist webhook processing error", logError);
             }
@@ -551,17 +553,21 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
                 .maybeSingle();
               userIdForFailure = num?.user_id ?? null;
             }
-            await supabaseAdmin.from("agent_logs").insert({
-              user_id: userIdForFailure,
-              phone: extractPhone(msgForFailure?.chatid, msgForFailure?.sender),
-              type: "webhook_processing_failed",
-              level: "error",
-              summary: "Webhook quebrou antes de concluir o processamento",
-              error: ((e as Error)?.stack ?? (e as Error)?.message ?? String(e)).slice(0, 5000),
-              metadata: {
-                instance_token: tokenForFailure,
-                messageId: extractMessageId(payload),
-              } as never,
+            if (userIdForFailure) {
+              await supabaseAdmin.from("agent_logs").insert({
+                user_id: userIdForFailure,
+                phone: extractPhone(msgForFailure?.chatid, msgForFailure?.sender),
+                type: "webhook_processing_failed",
+                level: "error",
+                summary: "Webhook quebrou antes de concluir o processamento",
+                error: ((e as Error)?.stack ?? (e as Error)?.message ?? String(e)).slice(0, 5000),
+                metadata: {
+                  instance_token: tokenForFailure,
+                  messageId: extractMessageId(payload),
+                } as never,
+                created_at: new Date().toISOString(),
+              });
+            }
               created_at: new Date().toISOString(),
             });
           } catch (logError) {
