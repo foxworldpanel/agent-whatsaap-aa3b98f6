@@ -170,7 +170,7 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
       ? `TESTE GRÁTIS DISPONÍVEL (${freeTestServices.length} serviços):\n${freeTestServices.map((s) => `- ${s.service_name} (${s.category}) — ${s.quantity} grátis`).join("\n")}`
       : "",
     `Perfil do contato: ${contact.perfil}.${isInbound ? " Atendimento receptivo." : ""}${funnelAlreadySent ? " Funil de boas-vindas já enviado." : ""}`,
-    `TAMANHO DAS MENSAGENS: máximo 1 frase por mensagem; use "===SPLIT===" para separar mensagens.`,
+    `REGRA DE SPLIT — PADRÃO É 1 MENSAGEM: a grande maioria das suas respostas deve ser UMA ÚNICA mensagem, mesmo que tenha uma explicação seguida de uma pergunta — junte tudo em um único texto corrido (pode usar quebra de linha \\n dentro da mesma mensagem se ajudar a organizar visualmente, isso NÃO conta como split).\nSó divida em 2 mensagens separadas (usando "===SPLIT===") quando:\n- A resposta for genuinamente longa (mais de ~350 caracteres) E tratar de dois assuntos completamente diferentes\n- Você estiver enviando a mensagem de abertura de disparo (que já tem regra própria de 3 partes)\n- Fizer sentido dramático/natural separar uma confirmação curta de uma pergunta de acompanhamento (raro — use com moderação, não como padrão)\nQuando dividir, nunca ultrapasse 2 mensagens (exceto abertura de disparo, que tem regra própria de 3 partes).`,
     // FONTE DA VERDADE: regras estruturais que o Claude SEMPRE recebe vivem
     // aqui (hardcoded), não no banco. `agent_config.base_instruction` e
     // `agent_config.tone` estão vazios no banco — a persona real vem do
