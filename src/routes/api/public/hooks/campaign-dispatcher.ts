@@ -45,10 +45,7 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
 
         for (const camp of campaigns ?? []) {
           try {
-            if (!withinWindow(now, camp.start_time, camp.end_time)) {
-              results.push({ campaign: camp.id, result: "fora da janela" });
-              continue;
-            }
+            // 24h: janela de horário desativada.
 
             // volume diário
             const startOfDay = new Date();
