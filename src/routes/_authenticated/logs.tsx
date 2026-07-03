@@ -1,6 +1,7 @@
 import { createFileRoute, ErrorComponent, useRouter } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useServerFn } from "@tanstack/react-start";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { listAgentLogs } from "@/lib/agent.functions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,8 +33,10 @@ export const Route = createFileRoute("/_authenticated/logs")({
 
 function LogsPage() {
   const router = useRouter();
+  const listLogs = useServerFn(listAgentLogs);
   const [logs, setLogs] = useState<AgentLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [origemFilter, setOrigemFilter] = useState<"all" | "meta_ads" | "disparo" | "conversas" | "sistema">("all");
   const [phoneFilter, setPhoneFilter] = useState<string>("");
@@ -79,43 +82,39 @@ function LogsPage() {
 
   const contentSummary = (l: AgentLog): string => (l.response || l.summary || l.error || "").slice(0, 140);
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
-    let q = supabase.from("agent_logs").select("*").order("created_at", { ascending: false }).limit(500);
-    if (onlyErrors) q = q.eq("level", "error");
-    if (typeFilter !== "all") q = q.eq("type", typeFilter);
-    if (phoneFilter.trim()) q = q.ilike("phone", `%${phoneFilter.trim()}%`);
-    if (dateFilter) {
-      const start = new Date(`${dateFilter}T00:00:00`).toISOString();
-      const end = new Date(`${dateFilter}T23:59:59.999`).toISOString();
-      q = q.gte("created_at", start).lte("created_at", end);
+    setErrorMessage(null);
+    try {
+      const data = await listLogs({
+        data: {
+          onlyErrors,
+          type: typeFilter !== "all" ? typeFilter : undefined,
+          phone: phoneFilter.trim() || undefined,
+          date: dateFilter || undefined,
+        },
+      });
+      setLogs((data ?? []) as AgentLog[]);
+    } catch (e) {
+      setErrorMessage((e as Error)?.message ?? "Falha ao carregar logs");
+      setLogs([]);
+    } finally {
+      setLoading(false);
     }
-    const { data, error } = await q;
-    if (!error) setLogs((data ?? []) as AgentLog[]);
-    setLoading(false);
-  };
+  }, [dateFilter, listLogs, onlyErrors, phoneFilter, typeFilter]);
 
   useEffect(() => {
     void fetchLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter, phoneFilter, dateFilter, onlyErrors]);
+  }, [fetchLogs]);
 
-  // Realtime
   useEffect(() => {
-    const channel = supabase
-      .channel("agent_logs_stream")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "agent_logs" }, (payload) => {
-        const row = payload.new as AgentLog;
-        if (onlyErrors && row.level !== "error") return;
-        if (typeFilter !== "all" && row.type !== typeFilter) return;
-        if (phoneFilter.trim() && !(row.phone ?? "").includes(phoneFilter.trim())) return;
-        setLogs((prev) => [row, ...prev].slice(0, 500));
-      })
-      .subscribe();
+    const interval = window.setInterval(() => {
+      void fetchLogs();
+    }, 7000);
     return () => {
-      void supabase.removeChannel(channel);
+      window.clearInterval(interval);
     };
-  }, [onlyErrors, typeFilter, phoneFilter]);
+  }, [fetchLogs]);
 
   const types = useMemo(() => {
     const set = new Set<string>(["message_received", "message_from_client", "message_sent_manual", "claude_reply", "whisper_transcribe", "elevenlabs_tts", "free_trial", "smm_services", "duplicate_blocked", "send_failed", "blast_sent", "blast_failed", "meta_ads_lead"]);
@@ -192,7 +191,9 @@ function LogsPage() {
       </div>
 
       <div className="rounded-lg border border-border">
-        {loading && filteredLogs.length === 0 ? (
+        {errorMessage ? (
+          <p className="p-6 text-sm text-red-600">Erro ao carregar logs: {errorMessage}</p>
+        ) : loading && filteredLogs.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">Carregando…</p>
         ) : filteredLogs.length === 0 ? (
           <p className="p-6 text-sm text-muted-foreground">Nenhum log encontrado.</p>

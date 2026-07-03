@@ -80,6 +80,41 @@ export const getAgentConfig = createServerFn({ method: "GET" })
     };
   });
 
+const listAgentLogsSchema = z.object({
+  type: z.string().max(100).optional(),
+  phone: z.string().max(40).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  onlyErrors: z.boolean().optional(),
+});
+
+export const listAgentLogs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => listAgentLogsSchema.parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    const userIds = await getSharedUazapiUserIds(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let query = supabaseAdmin
+      .from("agent_logs")
+      .select("id, phone, conversation_id, type, level, summary, prompt, response, error, duration_ms, metadata, created_at")
+      .in("user_id", userIds)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (data.onlyErrors) query = query.eq("level", "error");
+    if (data.type) query = query.eq("type", data.type);
+    if (data.phone?.trim()) query = query.ilike("phone", `%${data.phone.trim()}%`);
+    if (data.date) {
+      const start = new Date(`${data.date}T00:00:00`).toISOString();
+      const end = new Date(`${data.date}T23:59:59.999`).toISOString();
+      query = query.gte("created_at", start).lte("created_at", end);
+    }
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
 export const saveAgentConfig = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>

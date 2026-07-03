@@ -493,9 +493,76 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         // de devolver 200. O delay humanizado é limitado para caber dentro
         // do timeout do Uazapi (~60s).
         try {
-          await processWebhook(payload);
+          const result = await processWebhook(payload);
+          if (!result.ok) {
+            const body = await result.clone().text().catch(() => "");
+            console.error("webhook processing returned error", result.status, body);
+            try {
+              const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+              const tokenForFailure = pickInstanceToken(payload);
+              const msgForFailure = payload.message ?? payload.data;
+              let userIdForFailure: string | null = null;
+              if (tokenForFailure) {
+                const { data: num } = await supabaseAdmin
+                  .from("whatsapp_numbers")
+                  .select("user_id")
+                  .eq("uazapi_token", tokenForFailure)
+                  .order("updated_at", { ascending: false, nullsFirst: false })
+                  .limit(1)
+                  .maybeSingle();
+                userIdForFailure = num?.user_id ?? null;
+              }
+              await supabaseAdmin.from("agent_logs").insert({
+                user_id: userIdForFailure,
+                phone: extractPhone(msgForFailure?.chatid, msgForFailure?.sender),
+                type: "webhook_processing_failed",
+                level: "error",
+                summary: `Webhook retornou erro interno (${result.status})`,
+                error: body.slice(0, 5000),
+                metadata: {
+                  instance_token: tokenForFailure,
+                  messageId: extractMessageId(payload),
+                  status: result.status,
+                } as never,
+                created_at: new Date().toISOString(),
+              });
+            } catch (logError) {
+              console.error("failed to persist webhook processing error", logError);
+            }
+          }
         } catch (e) {
           console.error("webhook processing failed", e);
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            const tokenForFailure = pickInstanceToken(payload);
+            const msgForFailure = payload.message ?? payload.data;
+            let userIdForFailure: string | null = null;
+            if (tokenForFailure) {
+              const { data: num } = await supabaseAdmin
+                .from("whatsapp_numbers")
+                .select("user_id")
+                .eq("uazapi_token", tokenForFailure)
+                .order("updated_at", { ascending: false, nullsFirst: false })
+                .limit(1)
+                .maybeSingle();
+              userIdForFailure = num?.user_id ?? null;
+            }
+            await supabaseAdmin.from("agent_logs").insert({
+              user_id: userIdForFailure,
+              phone: extractPhone(msgForFailure?.chatid, msgForFailure?.sender),
+              type: "webhook_processing_failed",
+              level: "error",
+              summary: "Webhook quebrou antes de concluir o processamento",
+              error: ((e as Error)?.stack ?? (e as Error)?.message ?? String(e)).slice(0, 5000),
+              metadata: {
+                instance_token: tokenForFailure,
+                messageId: extractMessageId(payload),
+              } as never,
+              created_at: new Date().toISOString(),
+            });
+          } catch (logError) {
+            console.error("failed to persist webhook thrown error", logError);
+          }
         }
         return new Response("ok");
       },
@@ -1042,7 +1109,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           last_message_at?: string | null;
           created_at?: string | null;
         };
-        const desiredConversationNumberId = blastReplyNumberId ?? numberId ?? contact.whatsapp_number_id ?? null;
+        // Conversas são isoladas por número conectado. Mesmo se o contato tem
+        // histórico de disparo em outro chip, a resposta deve ficar no número
+        // que recebeu a mensagem agora.
+        const desiredConversationNumberId = numberId ?? blastReplyNumberId ?? contact.whatsapp_number_id ?? null;
         // RAIZ DA DUPLICAÇÃO: antes o webhook fazia find-or-create em duas etapas
         // (SELECT e depois INSERT). Em mensagens quase simultâneas — ou quando o
         // status/número ainda não tinha sido atualizado — cada request podia não
@@ -1062,7 +1132,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         let conv: ConversationRow | null = ((convRows ?? [])[0] ?? null) as ConversationRow | null;
         let threadConversationIds = conv?.id ? [conv.id] : [];
         if (!conv) return new Response("conversation missing", { status: 500 });
-        const authoritativeNumberId = blastReplyNumberId ?? numberId;
+        const authoritativeNumberId = numberId ?? blastReplyNumberId;
         if (authoritativeNumberId && contact.whatsapp_number_id !== authoritativeNumberId) {
           await supabaseAdmin
             .from("contacts")
@@ -1208,7 +1278,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("ok (no agent config)");
         }
 
-        const expectedReplyNumberId = blastReplyNumberId ?? numberId ?? conv.whatsapp_number_id ?? contact.whatsapp_number_id;
+        const expectedReplyNumberId = numberId ?? conv.whatsapp_number_id ?? contact.whatsapp_number_id ?? blastReplyNumberId;
         type ReplyNumberCreds = {
           id: string;
           nome: string | null;
