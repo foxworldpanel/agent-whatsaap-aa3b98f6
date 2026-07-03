@@ -1043,50 +1043,25 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           created_at?: string | null;
         };
         const desiredConversationNumberId = blastReplyNumberId ?? numberId ?? contact.whatsapp_number_id ?? null;
-        const { data: allConversationRows, error: convLookupErr } = await supabaseAdmin
-          .from("conversations")
-          .select("id, agent_enabled, whatsapp_number_id, needs_review, contexto_extra, last_media_sent, last_message_at, created_at")
-          .eq("user_id", userId)
-          .eq("contact_id", contact.id)
-          .order("last_message_at", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false })
-          .limit(50);
+        // RAIZ DA DUPLICAÇÃO: antes o webhook fazia find-or-create em duas etapas
+        // (SELECT e depois INSERT). Em mensagens quase simultâneas — ou quando o
+        // status/número ainda não tinha sido atualizado — cada request podia não
+        // enxergar a conversa anterior e criar outra. Agora a decisão é atômica
+        // no banco: mesmo contato + mesmo número ativo sempre reaproveita 1 conversa.
+        const { data: convRows, error: convLookupErr } = await (supabaseAdmin as any).rpc(
+          "get_or_create_active_conversation",
+          {
+            _user_id: userId,
+            _contact_id: contact.id,
+            _whatsapp_number_id: desiredConversationNumberId,
+            _initial_status: "agente_respondendo",
+          },
+        );
         if (convLookupErr) return new Response(convLookupErr.message, { status: 500 });
 
-        const conversationCandidates = ((allConversationRows ?? []) as ConversationRow[]).filter((row) => {
-          if (!desiredConversationNumberId) return true;
-          return !row.whatsapp_number_id || row.whatsapp_number_id === desiredConversationNumberId;
-        });
-        let conv: ConversationRow | null = conversationCandidates[0] ?? null;
-        let threadConversationIds = conversationCandidates.map((row) => row.id);
-
-        const isFirstContact = !conv;
-
-        if (!conv) {
-          const insertedConv = await supabaseAdmin
-            .from("conversations")
-            .insert({
-              user_id: userId,
-              contact_id: contact.id,
-              status: "agente_respondendo",
-              whatsapp_number_id: blastReplyNumberId ?? numberId,
-            })
-              .select("id, agent_enabled, whatsapp_number_id, needs_review, contexto_extra, last_media_sent, last_message_at, created_at")
-            .single();
-          if (insertedConv.error) return new Response(insertedConv.error.message, { status: 500 });
-          conv = insertedConv.data as ConversationRow | null;
-          if (!conv) return new Response("conversation insert failed", { status: 500 });
-          threadConversationIds = [conv.id];
-        } else if ((blastReplyNumberId || numberId) && conv.whatsapp_number_id !== (blastReplyNumberId ?? numberId)) {
-          const fixedNumberId = blastReplyNumberId ?? numberId;
-          await supabaseAdmin
-            .from("conversations")
-            .update({ whatsapp_number_id: fixedNumberId })
-            .eq("id", conv.id);
-          conv = { ...conv, whatsapp_number_id: fixedNumberId };
-        }
+        let conv: ConversationRow | null = ((convRows ?? [])[0] ?? null) as ConversationRow | null;
+        let threadConversationIds = conv?.id ? [conv.id] : [];
         if (!conv) return new Response("conversation missing", { status: 500 });
-        if (!threadConversationIds.includes(conv.id)) threadConversationIds = [conv.id, ...threadConversationIds];
         const authoritativeNumberId = blastReplyNumberId ?? numberId;
         if (authoritativeNumberId && contact.whatsapp_number_id !== authoritativeNumberId) {
           await supabaseAdmin
