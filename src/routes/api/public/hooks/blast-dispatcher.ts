@@ -1,5 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+// Números Uazapi podem ser compartilhados entre usuários que usam o mesmo
+// uazapi_token (mesmo "workspace" Uazapi). O dispatcher precisa considerar
+// esse pool compartilhado — não só numbers.user_id == camp.user_id — senão
+// campanhas de um usuário que usa um número cadastrado por outro do mesmo
+// workspace veem "nenhum número conectado disponível".
+async function getSharedUazapiUserIdsForDispatcher(userId: string): Promise<string[]> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: own } = await supabaseAdmin
+    .from("integrations")
+    .select("uazapi_token")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const token = own?.uazapi_token;
+  if (!token) return [userId];
+  const { data: peers } = await supabaseAdmin
+    .from("integrations")
+    .select("user_id")
+    .eq("uazapi_token", token);
+  return Array.from(new Set([userId, ...(peers ?? []).map((r) => r.user_id as string)]));
+}
+
 // Disparos ativos. Chamado por pg_cron a cada minuto.
 // Para cada campanha 'rodando', dentro do horário e respeitando o limite diário,
 // envia próxima mensagem (abertura, follow-up D3 ou D7) ao próximo contato elegível,
@@ -105,7 +126,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const { data: allNums } = await supabaseAdmin
               .from("whatsapp_numbers")
               .select("id, uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, disparos_mode, meta_ads_enabled, status, nome")
-              .eq("user_id", camp.user_id);
+              .in("user_id", await getSharedUazapiUserIdsForDispatcher(camp.user_id));
             const allNumbers = (allNums as unknown as NumberRow[] | null) ?? [];
             const isConnected = (s: string | null | undefined) => {
               const v = (s ?? "").toLowerCase();
