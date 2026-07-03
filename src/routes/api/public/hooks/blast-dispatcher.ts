@@ -70,33 +70,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               });
             }
             const now = new Date();
-            // Janela de horário é configurada em horário de Brasília.
-            // Convertemos "now" para America/Sao_Paulo antes de comparar,
-            // caso contrário o worker (UTC no Cloudflare) bloqueia dentro da janela.
-            const hhmm = new Intl.DateTimeFormat("en-GB", {
-              timeZone: "America/Sao_Paulo",
-              hour12: false,
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            }).format(now);
-            if (!bypass && (hhmm < camp.start_time || hhmm > camp.end_time)) {
-              results.push({ campaign: camp.name, sent: 0, skipped: "fora do horário" });
-              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: `🚀 Disparo não processado — fora do horário BR ${hhmm} (janela ${camp.start_time}-${camp.end_time})`, metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "fora do horário", now_brt: hhmm } });
-              continue;
-            }
-
-            // Distribuição natural: maior peso 10–12h e 18–20h, menor fora.
-            const hour = now.getHours();
-            const peakHour = (hour >= 10 && hour < 12) || (hour >= 18 && hour < 20);
-            const tickWeight = peakHour ? 1 : 1 / 3;
-            // No primeiro envio da campanha, não pula por distribuição natural
-            // (para dar feedback imediato ao usuário quando clicar em Iniciar).
-            if (!bypass && camp.last_dispatch_at && Math.random() > tickWeight) {
-              results.push({ campaign: camp.name, sent: 0, skipped: "distribuição natural" });
-              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "info", summary: "🚀 Disparo aguardando distribuição natural de horário", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "distribuição natural" } });
-              continue;
-            }
+            // Plataforma opera 24h — sem janela de horário e sem distribuição
+            // natural por hora do dia. Todos os ticks processam normalmente.
 
             // Delay aleatório entre disparos por campanha
             if (!bypass && camp.last_dispatch_at) {
