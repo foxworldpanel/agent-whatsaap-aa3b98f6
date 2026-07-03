@@ -1281,10 +1281,6 @@ function BlastCampaignCard({
       toast.error("Selecione um número de WhatsApp antes de iniciar.");
       return;
     }
-    if (selectedNumber.disparos_mode !== true) {
-      toast.error(`O número "${selectedNumber.nome ?? "selecionado"}" está com 'Modo Disparos' desativado. Ative em Números.`);
-      return;
-    }
     if (pendingContacts === 0) {
       toast.error("Nenhum contato com status 'pendente' na lista vinculada. Importe contatos antes de iniciar.");
       return;
@@ -1340,10 +1336,6 @@ function BlastCampaignCard({
   async function handleStartNow() {
     if (!selectedNumber) {
       toast.error("Selecione um número de WhatsApp antes de disparar.");
-      return;
-    }
-    if (selectedNumber.disparos_mode !== true) {
-      toast.error(`O número "${selectedNumber.nome ?? "selecionado"}" está com 'Modo Disparos' desativado.`);
       return;
     }
     const ok = confirm(
@@ -1757,7 +1749,10 @@ function NumbersCard() {
         <div>
           <h2 className="text-lg font-semibold">Números do ZapAgent</h2>
           <p className="text-xs text-muted-foreground">
-            Ative o modo Disparo no número que será usado para campanhas. Apenas um número costuma ficar dedicado a disparos.
+            Qualquer número conectado pode rodar campanhas de disparo — não há
+            mais dedicação exclusiva. O rótulo "Modo Disparos" fica só como
+            marcação visual (o aquecimento e o round-robin usam todos os
+            números conectados).
           </p>
         </div>
       </div>
