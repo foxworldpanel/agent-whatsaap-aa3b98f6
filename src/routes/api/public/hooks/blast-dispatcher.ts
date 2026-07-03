@@ -105,7 +105,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const { data: allNums } = await supabaseAdmin
               .from("whatsapp_numbers")
               .select("id, uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, disparos_mode, meta_ads_enabled, status, nome")
-              .eq("user_id", camp.user_id);
+              .in("user_id", await getSharedUazapiUserIdsForDispatcher(camp.user_id));
             const allNumbers = (allNums as unknown as NumberRow[] | null) ?? [];
             const isConnected = (s: string | null | undefined) => {
               const v = (s ?? "").toLowerCase();
