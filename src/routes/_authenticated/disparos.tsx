@@ -1338,11 +1338,10 @@ function BlastCampaignCard({
       toast.error("Selecione um número de WhatsApp antes de disparar.");
       return;
     }
-    const ok = confirm(
-      "Disparo IMEDIATO: ignora horário programado, distribuição natural e delay entre envios.\n\n" +
-        "O sistema vai enviar 1 mensagem AGORA para o próximo contato elegível.\n\nConfirma?",
-    );
-    if (!ok) return;
+    // OBS: não usamos window.confirm() aqui — o preview do Lovable roda em
+    // iframe cross-origin e o Chrome bloqueia dialogs modais nesse contexto
+    // (o confirm retorna false silenciosamente e o botão parecia "não fazer nada").
+    toast.message("Disparando agora…", { description: "Enviando 1 mensagem para o próximo contato elegível." });
     try {
       await updateFn({
         data: {
