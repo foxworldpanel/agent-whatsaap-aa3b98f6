@@ -23,7 +23,6 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
           .eq("state", "rodando");
         if (cErr) return new Response(cErr.message, { status: 500 });
 
-        const now = nowHHMM();
         const results: Array<{ campaign: string; result: string }> = [];
 
         for (const camp of campaigns ?? []) {
