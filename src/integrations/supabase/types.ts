@@ -1683,7 +1683,11 @@ export type Database = {
         | "comprou"
         | "perdido"
       contact_temperatura: "quente" | "morno" | "frio" | "bloqueado" | "cliente"
-      conversation_status: "agente_respondendo" | "aguardando" | "convertido"
+      conversation_status:
+        | "agente_respondendo"
+        | "aguardando"
+        | "convertido"
+        | "encerrada"
       funnel_status: "not_started" | "running" | "completed"
       log_status: "enviado" | "respondido" | "falha"
       message_kind: "texto" | "audio"
@@ -1829,7 +1833,12 @@ export const Constants = {
         "perdido",
       ],
       contact_temperatura: ["quente", "morno", "frio", "bloqueado", "cliente"],
-      conversation_status: ["agente_respondendo", "aguardando", "convertido"],
+      conversation_status: [
+        "agente_respondendo",
+        "aguardando",
+        "convertido",
+        "encerrada",
+      ],
       funnel_status: ["not_started", "running", "completed"],
       log_status: ["enviado", "respondido", "falha"],
       message_kind: ["texto", "audio"],

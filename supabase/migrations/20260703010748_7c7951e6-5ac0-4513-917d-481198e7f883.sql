@@ -1,0 +1,2 @@
+
+ALTER TYPE conversation_status ADD VALUE IF NOT EXISTS 'encerrada';
