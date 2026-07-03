@@ -1338,10 +1338,6 @@ function BlastCampaignCard({
       toast.error("Selecione um número de WhatsApp antes de disparar.");
       return;
     }
-    if (selectedNumber.disparos_mode !== true) {
-      toast.error(`O número "${selectedNumber.nome ?? "selecionado"}" está com 'Modo Disparos' desativado.`);
-      return;
-    }
     const ok = confirm(
       "Disparo IMEDIATO: ignora horário programado, distribuição natural e delay entre envios.\n\n" +
         "O sistema vai enviar 1 mensagem AGORA para o próximo contato elegível.\n\nConfirma?",
