@@ -320,7 +320,19 @@ export const getNumberHealth = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!num) throw new Error("Número não encontrado");
+    if (!num) {
+      return {
+        sent24h: 0,
+        failed24h: 0,
+        failRate: 0,
+        risk_level: "ok" as const,
+        auto_pause_on_risk: false,
+        warmup_enabled: false,
+        warmup_started_at: null as string | null,
+        connection_status: null as string | null,
+        not_found: true as const,
+      };
+    }
 
     const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
     const { data: camps } = await context.supabase
