@@ -2,6 +2,7 @@ import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-route
 import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap, LogOut, Phone, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "./ThemeToggle";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -27,11 +28,31 @@ export function AppShell() {
   const fetchAgent = useServerFn(getAgentConfig);
   const toggleGlobal = useServerFn(setAgentGlobalEnabled);
   const fetchReviewCount = useServerFn(countConversationsToReview);
-  const agentQ = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchAgent() });
+  const [hasSession, setHasSession] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setHasSession(!!data.session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setHasSession(!!session);
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+  const agentQ = useQuery({
+    queryKey: ["agent_config"],
+    queryFn: () => fetchAgent(),
+    enabled: hasSession,
+  });
   const reviewQ = useQuery({
     queryKey: ["conversations_review_count"],
     queryFn: () => fetchReviewCount(),
     refetchInterval: 10000,
+    enabled: hasSession,
+    retry: false,
   });
   const reviewCount = (reviewQ.data as { count?: number } | undefined)?.count ?? 0;
   const errorCountQ = useQuery({
