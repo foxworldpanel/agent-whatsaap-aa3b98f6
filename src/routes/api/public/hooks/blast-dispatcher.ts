@@ -112,6 +112,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // e (se auto_pause_on_risk desligado) qualquer risco aceito.
             type NumberRow = {
               id: string;
+              user_id: string;
               uazapi_url: string | null;
               uazapi_token: string | null;
               warmup_started_at: string | null;
@@ -125,7 +126,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             };
             const { data: allNums } = await supabaseAdmin
               .from("whatsapp_numbers")
-              .select("id, uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, disparos_mode, meta_ads_enabled, status, nome")
+              .select("id, user_id, uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, disparos_mode, meta_ads_enabled, status, nome")
               .in("user_id", await getSharedUazapiUserIdsForDispatcher(camp.user_id));
             const allNumbers = (allNums as unknown as NumberRow[] | null) ?? [];
             const isConnected = (s: string | null | undefined) => {
@@ -245,6 +246,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // Credenciais do número escolhido no round-robin
             const url = numberRow.uazapi_url!;
             const token = numberRow.uazapi_token!;
+            const mirrorUserId = numberRow.user_id ?? camp.user_id;
             console.log(`[blast-dispatcher] ${camp.name}: enviando para ${next.contact.nome} ${next.contact.telefone} (stage=${next.stage})`);
 
             // Variação de saudação por horário na abertura de um disparo ativo.
@@ -310,7 +312,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               const existingContact = await supabaseAdmin
                 .from("contacts")
                 .select("id")
-                .eq("user_id", camp.user_id)
+                .eq("user_id", mirrorUserId)
                 .eq("telefone", phoneDigits)
                 .maybeSingle();
               if (existingContact.error) throw new Error(`mirror contact lookup failed: ${existingContact.error.message}`);
@@ -321,6 +323,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   .from("contacts")
                   .insert({
                     user_id: camp.user_id,
+                    user_id: mirrorUserId,
                     telefone: phoneDigits,
                     nome: next.contact.nome ?? phoneDigits,
                     source: "disparo",
@@ -338,6 +341,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 "get_or_create_active_conversation",
                 {
                   _user_id: camp.user_id,
+                  _user_id: mirrorUserId,
                   _contact_id: contactId,
                   _whatsapp_number_id: numberRow.id,
                   _initial_status: "aguardando",
@@ -359,6 +363,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 );
                 await logEvent({
                   userId: camp.user_id,
+                  userId: mirrorUserId,
                   phone: next.contact.telefone,
                   conversationId: mirrorConversationId,
                   type: "blast_debug_opening_message_insert_before",
@@ -379,6 +384,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 });
                 const mirrorInsert = await supabaseAdmin.from("messages").insert({
                   user_id: camp.user_id,
+                  user_id: mirrorUserId,
                   conversation_id: mirrorConversationId,
                   sender: "agente",
                   kind: "texto",
@@ -388,6 +394,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 if (mirrorInsert.error) {
                   await logEvent({
                     userId: camp.user_id,
+                    userId: mirrorUserId,
                     phone: next.contact.telefone,
                     conversationId: mirrorConversationId,
                     type: "blast_debug_opening_message_insert_after",
@@ -412,6 +419,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 }
                 await logEvent({
                   userId: camp.user_id,
+                  userId: mirrorUserId,
                   phone: next.contact.telefone,
                   conversationId: mirrorConversationId,
                   type: "blast_debug_opening_message_insert_after",
