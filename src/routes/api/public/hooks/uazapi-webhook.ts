@@ -272,9 +272,15 @@ function isConfirmationEmojiOnly(text: string): boolean {
 }
 
 function isShortConfirmationText(text: string): boolean {
+  // Só agradecimento/despedida CLARA e inequívoca dispara a resposta canned
+  // "De nada! Qualquer coisa me chama 😊". Confirmações neutras de
+  // continuidade ("ok", "blz", "beleza", "certo", "show", "aham" etc.)
+  // NÃO entram aqui — elas devem seguir para o Claude e ser interpretadas
+  // no contexto do script (podem ser interesse pós-abertura de disparo,
+  // por exemplo).
   const t = compactHumanText(text);
   if (!t || t.length > 24) return false;
-  return /^(ok|okay|blz|beleza|show|top|valeu|obrigado|obrigada|certo|ta bom|tudo bem|aham|uhum|entendi|tranquilo|tmj|perfeito)$/i.test(t);
+  return /^(valeu|vlw|obrigado|obrigada|obg|brigado|brigada|agradecido|agradecida|tchau|xau|xauzinho|falou|flw|ate mais|ate logo|ate\+)$/i.test(t);
 }
 
 function isDeferredDecisionText(text: string): boolean {
