@@ -3200,8 +3200,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 });
               } catch {}
               if (i < replyParts.length - 1) {
-                await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
-                await sleep(1200);
+                const gap = nextBubbleDelayMs(replyParts[i + 1]);
+                if (gap > 0) {
+                  await uazapiSendTyping(sendCreds, phone, gap + 500).catch(() => {});
+                  await sleep(gap);
+                }
               }
             }
           }
