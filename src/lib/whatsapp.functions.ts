@@ -164,7 +164,6 @@ export const clearConversation = createServerFn({ method: "POST" })
       .update({
         last_message_preview: null,
         last_message_at: null,
-        status: "aguardando",
       })
       .eq("id", data.conversationId);
     if (updErr) throw new Error(updErr.message);
