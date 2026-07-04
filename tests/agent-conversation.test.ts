@@ -406,3 +406,29 @@ describe('10) "Não é golpe?" e afins — objeção, nunca encerramento', () =>
     },
   );
 });
+
+// ---------------------------------------------------------------------------
+// 11) Filosofia agent-first: agradecimento/adiamento agora passam pelo Claude
+// ---------------------------------------------------------------------------
+describe("11) Sem interceptador: agradecimentos passam pelo Claude", () => {
+  it.each(["valeu", "obrigado", "obrigada", "vlw", "brigado"])(
+    'agradecimento "%s" em contexto de venda ativa vai pro Claude (sem frase fixa)',
+    async (msg) => {
+      const { fetchMock, text } = await callAgent({
+        history: [
+          { sender: "agente", body: "1000 inscritos YouTube sai R$140. Fechamos?" },
+          { sender: "cliente", body: msg },
+        ],
+        mockReply: "Show! Já te passo o link do painel pra você fechar 😊",
+      });
+      expect(
+        fetchMock.mock.calls.length,
+        `FALHOU: "${msg}" foi interceptado — deveria chegar ao Claude`,
+      ).toBeGreaterThanOrEqual(1);
+      expect(
+        /de\s+nada.*qualquer\s+coisa\s+me\s+chama/i.test(text),
+        `FALHOU: resposta é a frase fixa antiga do interceptador — Claude deveria ter decidido: "${text}"`,
+      ).toBe(false);
+    },
+  );
+});
