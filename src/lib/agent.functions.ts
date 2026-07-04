@@ -486,7 +486,13 @@ export const getIntegrations = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!data) return null;
+    const mask0 = (v: unknown) => (typeof v === "string" && v.length > 0 ? "••••••" : null);
+    if (!data) {
+      return {
+        anthropic_api_key: mask0(process.env.ANTHROPIC_API_KEY),
+        openai_api_key: mask0(process.env.OPENAI_API_KEY),
+      };
+    }
     // Mask secret values before returning to the browser: expose only whether
     // each credential is configured, never the raw token/key.
     const mask = (v: unknown) => (typeof v === "string" && v.length > 0 ? "••••••" : null);
@@ -494,9 +500,9 @@ export const getIntegrations = createServerFn({ method: "GET" })
       ...data,
       uazapi_token: mask(data.uazapi_token),
       uazapi_admin_token: mask(data.uazapi_admin_token),
-      anthropic_api_key: mask(data.anthropic_api_key),
+      anthropic_api_key: mask(data.anthropic_api_key) ?? mask(process.env.ANTHROPIC_API_KEY),
       elevenlabs_api_key: mask(data.elevenlabs_api_key),
-      openai_api_key: mask(data.openai_api_key),
+      openai_api_key: mask(data.openai_api_key) ?? mask(process.env.OPENAI_API_KEY),
       smm_api_key: mask(data.smm_api_key),
     };
   });
