@@ -442,6 +442,7 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
               status: "aguardando",
             } as never)
             .eq("id", convId);
+        }
       }
     } catch (e) {
       console.error("[testBlastCampaign] failed to mirror opener into messages", e);
