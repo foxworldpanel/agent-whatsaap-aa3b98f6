@@ -403,14 +403,12 @@ STATUS DOS PEDIDOS:
 ⚠️ Parcial → entregue parcialmente (saldo devolvido)
 ❌ Cancelado → não processado (valor estornado)
 
-BOTÃO DE REFIL (laranja):
-Aparece apenas em serviços com reposição ativa
-Funciona a cada 24 horas
-Disponível durante todo o prazo de garantia
-R30 → 30 dias / R60 → 60 dias / R∞ → vitalício / SR → sem refil
+GARANTIA DE REPOSIÇÃO:
+Serviços com garantia: R30 → 30 dias / R60 → 60 dias / R∞ → vitalício / SR → sem garantia
 
-Quando cliente reclamar de queda:
-"Acessa o painel → Histórico → clica no botão laranja de Refil que repõe na hora!"`,
+Quando cliente reclamar de queda ou pedir reposição:
+NUNCA orientar botão de refil no painel. Orientar SEMPRE abrir ticket no menu Suporte do painel, informando o ID do pedido.
+"Normal acontecer às vezes! Pra resolver, é só abrir um ticket no menu Suporte do painel, informando o ID do pedido que a equipe já analisa e resolve pra você."`,
 
   desconto_niveis: `NUNCA dá desconto no WhatsApp.
 
