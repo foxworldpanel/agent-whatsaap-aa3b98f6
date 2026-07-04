@@ -2886,10 +2886,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         // Divide a resposta em partes quando o agente usa "===SPLIT===" (link separado).
-        const replyParts = collapseRedundantWaitingParts(reply
+        // Além disso, se uma parte for genuinamente longa (>350 chars) e tiver
+        // parágrafos separados por \n\n, quebramos em mensagens independentes —
+        // evita bolhas gigantes quando o Claude esquece de usar ===SPLIT===.
+        const rawParts = reply
           .split(/===SPLIT===/i)
           .map((s) => s.trim())
-          .filter((s) => s.length > 0), inboundBody);
+          .filter((s) => s.length > 0);
+        const replyParts = collapseRedundantWaitingParts(
+          autoSplitLongParts(rawParts),
+          inboundBody,
+        );
 
         const replyForPreview = replyParts.join("\n");
 
