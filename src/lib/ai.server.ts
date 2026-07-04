@@ -214,12 +214,10 @@ export function pickClaudeModel(opts: {
   hasImage: boolean;
   inputKind?: "texto" | "audio";
   latestMessage?: string | null;
-  isBlastActiveSale?: boolean;
 }): { model: "claude-sonnet-4-5" | "claude-haiku-4-5"; reason: string } {
   const msg = (opts.latestMessage ?? "").trim();
   if (opts.hasImage) return { model: "claude-sonnet-4-5", reason: "image_present" };
   if (opts.inputKind === "audio") return { model: "claude-sonnet-4-5", reason: "audio_input" };
-  if (opts.isBlastActiveSale) return { model: "claude-sonnet-4-5", reason: "blast_active_sale" };
   if (msg.length > 400) return { model: "claude-sonnet-4-5", reason: "long_message" };
   const complexRe = /(reclama|problema|n[aã]o funcion|nunca funcion|reembolso|cancelar|golpe|an[aá]lise|analisa|print|comprovante|preju[ií]zo|erro|urgente|processo|proced|jur[ií]dic)/i;
   if (complexRe.test(msg)) return { model: "claude-sonnet-4-5", reason: "complex_keywords" };
@@ -471,19 +469,10 @@ export async function generateAgentReplyWithMeta(params: {
   const hasImage = !!imageBase64;
   // Nas primeiras 3 respostas do agente numa conversa de Disparo (isInbound=false),
   // força Sonnet: é o trecho em que a aderência ao script de vendas mais importa.
-  // Modo Disparo: enquanto a venda não está fechada (link do painel ainda não
-  // enviado pelo agente), força Sonnet — Haiku falha em generalizar intenção
-  // além de correspondência literal. Depois que o link vai, Haiku assume o
-  // pós-venda simples.
-  const panelLinkAlreadySent = history.some(
-    (m) => m.sender === "agente" && /mindsmmpanel\.com/i.test(m.body ?? ""),
-  );
-  const isBlastActiveSale = !isInbound && !panelLinkAlreadySent;
   const { model, reason: routingReason } = pickClaudeModel({
     hasImage,
     inputKind,
     latestMessage: latestClientMessage,
-    isBlastActiveSale,
   });
   console.info("[agent-ai] Roteamento modelo:", { model, routingReason });
 
