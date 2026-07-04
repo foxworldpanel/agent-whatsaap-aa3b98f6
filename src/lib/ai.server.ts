@@ -192,12 +192,19 @@ type BuildPromptParams = {
   panelScreens?: Array<{ name: string; description?: string | null; extracted_content?: string | null }>;
   forbiddenRules?: Array<{ rule: string; deflection?: string | null }>;
   freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
+  userId?: string | null;
 };
 
 export function buildSystemPrompt(params: BuildPromptParams): string {
   const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [] } = params;
+  // Nota: buildSystemPrompt é síncrono (só usado por diagnostics como preview).
+  // O prompt real de produção usa generateAgentReplyWithMeta, que carrega
+  // a identidade do banco. Aqui usamos defaults + `buildSharedRules` sem I/O.
+  const identityPreview = require("@/lib/agent-identity.server") as typeof import("@/lib/agent-identity.server");
+  const sharedRules = identityPreview.buildSharedRules(identityPreview.DEFAULT_IDENTITY, { freeTestServices });
   const latestClientMessage = getLatestClientMessage(history);
   const system = [
+    sharedRules,
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
     `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico da conversa que a PRIMEIRA mensagem SUA (do agente) contém um padrão de abertura de disparo — menciona "Peguei o seu contato", "Vi seu perfil", "@" de instagram, ou uma pergunta inicial do tipo "Posso te apresentar/mostrar uma forma de impulsionar..." — trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO (pergunta de conexão → rede → serviço → preço → só então trata hesitação), MESMO que alguma informação técnica de contexto (extraContext, flags, etc.) diga o contrário. O conteúdo real da conversa é a fonte de verdade mais confiável — sempre prevalece sobre metadados técnicos.`,
