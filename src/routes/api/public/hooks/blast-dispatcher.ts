@@ -80,6 +80,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
         }
 
         for (const camp of camps ?? []) {
+          let claimedBlastContactId: string | null = null;
           try {
             if (opts.campaignId || bypass) {
               await logEvent({
@@ -301,6 +302,40 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 ? normalizeOpeningParts(pick.parts.join("\n\n"), pick.parts)
                 : normalizeOpeningParts(renderTemplate(next.template, next.contact))
               : [renderTemplate(next.template, next.contact).trim()].filter(Boolean);
+
+            // Claim atômico do contato ANTES de enviar. Sem isso, cron + clique
+            // manual ou dois workers simultâneos podiam ler o mesmo contato ainda
+            // como "pendente" e reenviar a abertura antes do status final virar
+            // "enviado_abertura". O update condicional faz só um worker vencer.
+            const sendingStatus = `enviando_${next.stage}`;
+            const { data: claimedRows, error: claimErr } = await supabaseAdmin
+              .from("blast_contacts")
+              .update({ status: sendingStatus, updated_at: new Date().toISOString() } as never)
+              .eq("id", next.contact.id)
+              .eq("status", next.contact.status)
+              .select("id");
+            if (claimErr) throw new Error(`claim blast contact failed: ${claimErr.message}`);
+            if (!claimedRows || claimedRows.length === 0) {
+              await logEvent({
+                userId: camp.user_id,
+                type: "blast_skipped",
+                level: "warn",
+                summary: `🚀 Disparo ignorado: contato já estava sendo processado (${next.contact.nome})`,
+                metadata: {
+                  origem: "disparo",
+                  direcao: "enviado",
+                  tipo: "bloqueio",
+                  campaign_id: camp.id,
+                  blast_contact_id: next.contact.id,
+                  expected_status: next.contact.status,
+                  claim_status: sendingStatus,
+                  reason: "contact_claim_lost",
+                } as never,
+              });
+              results.push({ campaign: camp.name, sent: 0, skipped: "contato já estava sendo processado" });
+              continue;
+            }
+            claimedBlastContactId = next.contact.id;
 
             // Prepara a conversa ANTES de enviar. Assim, cada parte enviada com
             // sucesso é persistida imediatamente após o aceite da Uazapi — se o
@@ -532,11 +567,21 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             } else {
               console.log(`[blast-dispatcher] ${camp.name}: erro ao enviar para ${next.contact.nome}: ${errMsg}`);
               results.push({ campaign: camp.name, sent: 0, skipped: `falhou: ${errMsg}` });
+              await supabaseAdmin
+                .from("blast_contacts")
+                .update({ status: "erro", error_message: errMsg ?? "falha no envio", updated_at: new Date().toISOString() } as never)
+                .eq("id", next.contact.id);
               await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
             }
           } catch (e) {
             const msg = (e as Error).message;
             results.push({ campaign: camp.name, sent: 0, skipped: msg, error: msg });
+            if (claimedBlastContactId) {
+              await supabaseAdmin
+                .from("blast_contacts")
+                .update({ status: "erro", error_message: msg, updated_at: new Date().toISOString() } as never)
+                .eq("id", claimedBlastContactId);
+            }
             await logEvent({ userId: camp.user_id, type: "blast_failed", level: "error", summary: `❌ Dispatcher falhou na campanha ${camp.name}`, error: msg, metadata: { origem: "disparo", direcao: "enviado", tipo: "erro", campaign_id: camp.id } });
             await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
           }

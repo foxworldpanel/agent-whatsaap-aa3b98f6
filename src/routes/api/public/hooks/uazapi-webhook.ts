@@ -2543,7 +2543,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             servicesContext,
             // CRÍTICO: se o cliente respondeu a um disparo, isso NÃO é receptivo.
             // Deixar isInbound=true para respostas de disparo faz o ai.server.ts pular
-            // o bloco EXEMPLO_MODELO_DISPARO (e o RECAP final), matando o script de vendas.
+            // o bloco EXEMPLO_MODELO_DISPARO da identidade, matando o script de vendas.
             // Usamos isBlastThread (não isBlastReply) porque, após o 1º inbound, o status
             // do blast_contact vira "respondeu" → isBlastReply=false nas mensagens
             // seguintes, mas a conversa continua sendo originada de disparo e o script
@@ -2561,8 +2561,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 : "";
               const blastBlock = isBlastReply
                 ? (blastDispatchMode === "agente_livre"
-                    ? `MODO DISPARO — AGENTE LIVRE (cliente respondeu à abordagem inicial):\nVocê abordou esse músico/artista pelo Instagram e ele respondeu positivamente. Agora conduza a conversa naturalmente para venda seguindo essa ordem:\n1) Entenda o nicho e objetivo dele (Spotify, YouTube, Instagram?)\n2) Apresente o serviço de forma personalizada para o nicho dele\n3) Informe o preço de forma direta\n4) Se hesitar → ofereça o teste grátis\n5) Se aceitar o teste → processa e aguarda entrega\n6) Após entrega → mostra o resultado e fecha a venda\n7) Se quiser comprar → envia o link do painel\n8) Se pedir mais detalhes → envia o vídeo explicativo\nUse as mídias cadastradas (áudio, vídeo, link) de forma estratégica — apenas quando fizer sentido na conversa, NUNCA tudo de uma vez. Improvise com base na resposta dele; nada de script pronto.`
-                    : `MODO DISPARO — FLUXO VISUAL (cliente respondeu à abordagem inicial):\nEste lead está em uma campanha com fluxo visual configurado. Siga as etapas do fluxo definido para a campanha. Se não houver próxima etapa definida, conduza a conversa de forma natural rumo à venda usando as mídias cadastradas apenas quando fizer sentido.`)
+                    ? `MODO DISPARO, AGENTE LIVRE:\nEste lead respondeu à abertura de uma campanha. A fonte única do fluxo é o bloco EXEMPLO_MODELO_DISPARO da identidade da Júlia. Siga essa ordem: pergunta de rede, serviço específico, preço com menor quantidade real do catálogo, depois objeção ou teste grátis quando permitido. Não use etapa de conexão pessoal antiga e não cumprimente de novo.`
+                    : `MODO DISPARO, FLUXO VISUAL:\nEste lead respondeu à abertura de uma campanha com fluxo visual configurado. Se não houver próxima etapa definida, conduza usando o EXEMPLO_MODELO_DISPARO da identidade da Júlia: rede, serviço, preço e objeção. Não use etapa de conexão pessoal antiga.`)
                 : "";
               return [persistedBlock, blastBlock, orderStatusContext ?? ""].filter(Boolean).join("\n\n") || null;
             })(),
