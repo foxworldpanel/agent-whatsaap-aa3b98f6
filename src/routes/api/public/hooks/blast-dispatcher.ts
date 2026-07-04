@@ -300,6 +300,54 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 : normalizeOpeningParts(renderTemplate(next.template, next.contact))
               : [renderTemplate(next.template, next.contact).trim()].filter(Boolean);
 
+            // Prepara a conversa ANTES de enviar. Assim, cada parte enviada com
+            // sucesso é persistida imediatamente após o aceite da Uazapi — se o
+            // worker encerrar depois, o histórico não fica vazio para a resposta
+            // do cliente.
+            const phoneDigits = String(next.contact.telefone).replace(/\D+/g, "");
+            let mirrorConversationId: string | null = null;
+            {
+              const existingContact = await supabaseAdmin
+                .from("contacts")
+                .select("id")
+                .eq("user_id", camp.user_id)
+                .eq("telefone", phoneDigits)
+                .maybeSingle();
+              if (existingContact.error) throw new Error(`mirror contact lookup failed: ${existingContact.error.message}`);
+
+              let contactId = existingContact.data?.id ?? null;
+              if (!contactId) {
+                const createdContact = await supabaseAdmin
+                  .from("contacts")
+                  .insert({
+                    user_id: camp.user_id,
+                    telefone: phoneDigits,
+                    nome: next.contact.nome ?? phoneDigits,
+                    origem: "disparo",
+                    status: "em_conversa",
+                    whatsapp_number_id: numberRow.id,
+                  } as never)
+                  .select("id")
+                  .single();
+                if (createdContact.error) throw new Error(`mirror contact insert failed: ${createdContact.error.message}`);
+                contactId = createdContact.data?.id ?? null;
+              }
+
+              if (!contactId) throw new Error("mirror contact missing after lookup/insert");
+              const { data: convRows, error: convErr } = await (supabaseAdmin as any).rpc(
+                "get_or_create_active_conversation",
+                {
+                  _user_id: camp.user_id,
+                  _contact_id: contactId,
+                  _whatsapp_number_id: numberRow.id,
+                  _initial_status: "aguardando",
+                },
+              );
+              if (convErr) throw new Error(`mirror conversation rpc failed: ${convErr.message}`);
+              mirrorConversationId = convRows?.[0]?.id ?? null;
+              if (!mirrorConversationId) throw new Error("mirror conversation missing after rpc");
+            }
+
             let status: "sent" | "failed" = "sent";
             let errMsg: string | undefined;
             try {
@@ -309,6 +357,17 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   next.contact.telefone,
                   messageParts[i],
                 );
+                const mirrorInsert = await supabaseAdmin.from("messages").insert({
+                  user_id: camp.user_id,
+                  conversation_id: mirrorConversationId,
+                  sender: "agente",
+                  kind: "texto",
+                  body: messageParts[i],
+                  external_id: sendResult.messageId ?? null,
+                } as never);
+                if (mirrorInsert.error) {
+                  throw new Error(`mirror message insert failed: ${mirrorInsert.error.message}`);
+                }
                 try {
                   await logEvent({
                     userId: camp.user_id,
@@ -373,84 +432,17 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   : next.stage === "d3"
                     ? "enviado_d3"
                     : "enviado_d7";
-              // 🔴 CRITICAL: espelha a mensagem enviada em contacts/conversations/messages
-              // para que o histórico do Claude receba o contexto completo quando o
-              // cliente responder. Sem isso, o webhook de inbound só vê a resposta
-              // do cliente e o agente perde toda a memória da conversa.
-              try {
-                const openerFull = messageParts.join("\n\n").trim();
-                if (openerFull) {
-                  const phoneDigits = String(next.contact.telefone).replace(/\D+/g, "");
-                  // find/create contact
-                  let contactId: string | null = null;
-                  {
-                    const { data: existing } = await supabaseAdmin
-                      .from("contacts")
-                      .select("id")
-                      .eq("user_id", camp.user_id)
-                      .eq("telefone", phoneDigits)
-                      .maybeSingle();
-                    if (existing?.id) {
-                      contactId = existing.id;
-                    } else {
-                      const ins = await supabaseAdmin
-                        .from("contacts")
-                        .insert({
-                          user_id: camp.user_id,
-                          telefone: phoneDigits,
-                          nome: next.contact.nome ?? phoneDigits,
-                          origem: "disparo",
-                          status: "em_conversa",
-                          whatsapp_number_id: numberRow.id,
-                        } as never)
-                        .select("id")
-                        .single();
-                      contactId = ins.data?.id ?? null;
-                    }
-                  }
-                  if (contactId) {
-                    // find/create conversation atômico. Mesma regra do webhook:
-                    // contato + número de WhatsApp ativo reutiliza sempre a mesma conversa.
-                    let convId: string | null = null;
-                    {
-                      const { data: existingConvs, error: convErr } = await (supabaseAdmin as any).rpc(
-                        "get_or_create_active_conversation",
-                        {
-                          _user_id: camp.user_id,
-                          _contact_id: contactId,
-                          _whatsapp_number_id: numberRow.id,
-                          _initial_status: "aguardando",
-                        },
-                      );
-                      if (convErr) throw convErr;
-                      convId = existingConvs?.[0]?.id ?? null;
-                    }
-                    if (convId) {
-                      const nowIso = new Date().toISOString();
-                      await supabaseAdmin.from("messages").insert(
-                        messageParts.map((part, idx) => ({
-                          user_id: camp.user_id,
-                          conversation_id: convId,
-                          sender: "agente",
-                          kind: "texto",
-                          body: part,
-                          created_at: new Date(Date.now() + idx).toISOString(),
-                        })) as never,
-                      );
-                      await supabaseAdmin
-                        .from("conversations")
-                        .update({
-                          last_message_preview: openerFull.slice(0, 120),
-                          last_message_at: nowIso,
-                          status: "aguardando",
-                        } as never)
-                        .eq("id", convId);
-                    }
-                  }
-                }
-              } catch (e) {
-                console.error("[blast-dispatcher] failed to mirror opener into messages", e);
-              }
+              const openerFull = messageParts.join("\n\n").trim();
+              const nowIso = new Date().toISOString();
+              const convUpdate = await supabaseAdmin
+                .from("conversations")
+                .update({
+                  last_message_preview: openerFull.slice(0, 120),
+                  last_message_at: nowIso,
+                  status: "aguardando",
+                } as never)
+                .eq("id", mirrorConversationId);
+              if (convUpdate.error) throw new Error(`mirror conversation update failed: ${convUpdate.error.message}`);
               await supabaseAdmin
                 .from("blast_contacts")
                 .update({
