@@ -48,7 +48,7 @@ function detectPlatform(name: string, category: string) {
 
 export function TesteGratisCard() {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [filter, setFilter] = useState("");
   const [drafts, setDrafts] = useState<Record<string, { enabled: boolean; quantity: number }>>({});
@@ -169,9 +169,9 @@ export function TesteGratisCard() {
           <div className="flex items-center gap-3">
             <Gift className="h-5 w-5 text-primary" />
             <div>
-              <div className="font-medium">Teste Grátis</div>
+              <div className="font-medium">Catálogo de Serviços & Teste Grátis</div>
               <div className="text-xs text-muted-foreground">
-                {activeCount} serviço(s) ativos · {trials.length} testes no histórico
+                {services.length} serviços no catálogo · {activeCount} com teste grátis ativo · {trials.length} testes no histórico
               </div>
             </div>
           </div>
