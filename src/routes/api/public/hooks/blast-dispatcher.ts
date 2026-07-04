@@ -357,6 +357,26 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   next.contact.telefone,
                   messageParts[i],
                 );
+                await logEvent({
+                  userId: camp.user_id,
+                  phone: next.contact.telefone,
+                  conversationId: mirrorConversationId,
+                  type: "blast_debug_opening_message_insert_before",
+                  level: "error",
+                  summary: `🔥 DEBUG ANTES insert abertura ${i + 1}/${messageParts.length}`,
+                  response: messageParts[i],
+                  metadata: {
+                    origem: "debug_disparo",
+                    campaign_id: camp.id,
+                    blast_contact_id: next.contact.id,
+                    stage: next.stage,
+                    conversation_id: mirrorConversationId,
+                    part_index: i,
+                    part_total: messageParts.length,
+                    body: messageParts[i],
+                    external_id: sendResult.messageId ?? null,
+                  },
+                });
                 const mirrorInsert = await supabaseAdmin.from("messages").insert({
                   user_id: camp.user_id,
                   conversation_id: mirrorConversationId,
@@ -366,8 +386,51 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   external_id: sendResult.messageId ?? null,
                 } as never);
                 if (mirrorInsert.error) {
+                  await logEvent({
+                    userId: camp.user_id,
+                    phone: next.contact.telefone,
+                    conversationId: mirrorConversationId,
+                    type: "blast_debug_opening_message_insert_after",
+                    level: "error",
+                    summary: `🔥 DEBUG DEPOIS insert abertura ${i + 1}/${messageParts.length}: ERRO`,
+                    response: messageParts[i],
+                    error: JSON.stringify(mirrorInsert.error),
+                    metadata: {
+                      origem: "debug_disparo",
+                      campaign_id: camp.id,
+                      blast_contact_id: next.contact.id,
+                      stage: next.stage,
+                      conversation_id: mirrorConversationId,
+                      part_index: i,
+                      part_total: messageParts.length,
+                      body: messageParts[i],
+                      insert_ok: false,
+                      insert_error: mirrorInsert.error,
+                    },
+                  });
                   throw new Error(`mirror message insert failed: ${mirrorInsert.error.message}`);
                 }
+                await logEvent({
+                  userId: camp.user_id,
+                  phone: next.contact.telefone,
+                  conversationId: mirrorConversationId,
+                  type: "blast_debug_opening_message_insert_after",
+                  level: "error",
+                  summary: `🔥 DEBUG DEPOIS insert abertura ${i + 1}/${messageParts.length}: SUCESSO`,
+                  response: messageParts[i],
+                  metadata: {
+                    origem: "debug_disparo",
+                    campaign_id: camp.id,
+                    blast_contact_id: next.contact.id,
+                    stage: next.stage,
+                    conversation_id: mirrorConversationId,
+                    part_index: i,
+                    part_total: messageParts.length,
+                    body: messageParts[i],
+                    insert_ok: true,
+                    external_id: sendResult.messageId ?? null,
+                  },
+                });
                 try {
                   await logEvent({
                     userId: camp.user_id,

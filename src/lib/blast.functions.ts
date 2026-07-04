@@ -338,12 +338,13 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
               user_id: context.userId,
               telefone: phoneDigits,
               nome: "Teste",
-              origem: "disparo",
+              source: "disparo",
               status: "em_conversa",
               whatsapp_number_id: camp.whatsapp_number_id ?? null,
             } as never)
             .select("id")
             .single();
+          if (ins.error) throw new Error(`test mirror contact insert failed: ${ins.error.message}`);
           contactId = ins.data?.id ?? null;
         }
       }
@@ -361,16 +362,76 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
         const convId: string | null = convRows?.[0]?.id ?? null;
         if (convId) {
           const nowIso = new Date().toISOString();
-          await supabaseAdmin.from("messages").insert(
-            messageParts.map((part, idx) => ({
+          const { logEvent } = await import("@/lib/agent-logger.server");
+          for (let idx = 0; idx < messageParts.length; idx++) {
+            const part = messageParts[idx];
+            await logEvent({
+              userId: context.userId,
+              phone,
+              conversationId: convId,
+              type: "blast_debug_opening_message_insert_before",
+              level: "error",
+              summary: `🔥 DEBUG TESTE ANTES insert abertura ${idx + 1}/${messageParts.length}`,
+              response: part,
+              metadata: {
+                origem: "debug_teste_disparo",
+                campaign_id: camp.id,
+                conversation_id: convId,
+                part_index: idx,
+                part_total: messageParts.length,
+                body: part,
+              },
+            });
+            const insertResult = await supabaseAdmin.from("messages").insert({
               user_id: context.userId,
               conversation_id: convId,
               sender: "agente",
               kind: "texto",
               body: part,
               created_at: new Date(Date.now() + idx).toISOString(),
-            })) as never,
-          );
+            } as never);
+            if (insertResult.error) {
+              await logEvent({
+                userId: context.userId,
+                phone,
+                conversationId: convId,
+                type: "blast_debug_opening_message_insert_after",
+                level: "error",
+                summary: `🔥 DEBUG TESTE DEPOIS insert abertura ${idx + 1}/${messageParts.length}: ERRO`,
+                response: part,
+                error: JSON.stringify(insertResult.error),
+                metadata: {
+                  origem: "debug_teste_disparo",
+                  campaign_id: camp.id,
+                  conversation_id: convId,
+                  part_index: idx,
+                  part_total: messageParts.length,
+                  body: part,
+                  insert_ok: false,
+                  insert_error: insertResult.error,
+                },
+              });
+              throw new Error(`test mirror message insert failed: ${insertResult.error.message}`);
+            }
+            await logEvent({
+              userId: context.userId,
+              phone,
+              conversationId: convId,
+              type: "blast_debug_opening_message_insert_after",
+              level: "error",
+              summary: `🔥 DEBUG TESTE DEPOIS insert abertura ${idx + 1}/${messageParts.length}: SUCESSO`,
+              response: part,
+              metadata: {
+                origem: "debug_teste_disparo",
+                campaign_id: camp.id,
+                conversation_id: convId,
+                part_index: idx,
+                part_total: messageParts.length,
+                body: part,
+                insert_ok: true,
+              },
+            });
+          }
           await supabaseAdmin
             .from("conversations")
             .update({
