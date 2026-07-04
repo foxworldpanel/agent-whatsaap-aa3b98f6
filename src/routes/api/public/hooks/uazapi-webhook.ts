@@ -2569,6 +2569,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             inputKind: dbKind,
             imageBase64: _imageBase64,
             imageMediaType: _imageMediaType,
+            userId,
           };
           try {
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
