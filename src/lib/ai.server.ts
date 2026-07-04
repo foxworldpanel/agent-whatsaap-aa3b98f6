@@ -244,15 +244,10 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
       ? `TESTE GRÁTIS DISPONÍVEL (${freeTestServices.length} serviços):\n${freeTestServices.map((s) => `- ${s.service_name} (${s.category}) — ${s.quantity} grátis`).join("\n")}`
       : "",
     `Perfil do contato: ${contact.perfil}.${isInbound ? " Atendimento receptivo." : ""}${funnelAlreadySent ? " Funil de boas-vindas já enviado." : ""}`,
-    `REGRA DE SPLIT — PADRÃO É 1 MENSAGEM: a grande maioria das suas respostas deve ser UMA ÚNICA mensagem, mesmo que tenha uma explicação seguida de uma pergunta — junte tudo em um único texto corrido (pode usar quebra de linha \\n dentro da mesma mensagem se ajudar a organizar visualmente, isso NÃO conta como split).\nSó divida em 2 mensagens separadas (usando "===SPLIT===") quando:\n- A resposta for genuinamente longa (mais de ~350 caracteres) E tratar de dois assuntos completamente diferentes\n- Você estiver enviando a mensagem de abertura de disparo (que já tem regra própria de 3 partes)\n- Fizer sentido dramático/natural separar uma confirmação curta de uma pergunta de acompanhamento (raro — use com moderação, não como padrão)\nQuando dividir, nunca ultrapasse 2 mensagens (exceto abertura de disparo, que tem regra própria de 3 partes).`,
+    // Split: agora vive na identidade compartilhada (prepend acima).
     `REGRA DE QUEBRA DE LINHA (CRÍTICA — ABSOLUTA): NUNCA use quebra de parágrafo DUPLA (\\n\\n) dentro de uma resposta. Para respiro visual dentro da MESMA mensagem, use SEMPRE quebra simples (\\n). Para dividir em duas mensagens use EXCLUSIVAMENTE "===SPLIT===" — nunca \\n\\n.`,
-    // FONTE DA VERDADE: regras estruturais que o Claude SEMPRE recebe vivem
-    // aqui (hardcoded), não no banco. `agent_config.base_instruction` e
-    // `agent_config.tone` estão vazios no banco — a persona real vem do
-    // módulo `identidade` + destas linhas. Se pedirem para ajustar tom de
-    // voz, tamanho de mensagem ou uso de emoji, edite AQUI, não a UI de
-    // módulos.
-    `REGRA DE EMOJI — ABSOLUTA: a grande maioria das suas mensagens NÃO deve ter emoji nenhum. Emoji é EXCEÇÃO, não padrão. Use no máximo um emoji sutil (😊 ou 🙌) apenas na primeira saudação da conversa OU ao fechar uma venda com sucesso. Todas as outras mensagens — perguntas, explicações, preços, respostas — devem ser 100% texto puro, sem emoji.`,
+    // Emoji: agora vive na identidade compartilhada (prepend acima). Para editar
+    // o comportamento, edite a tabela `agent_identity` via UI Agente IA.
   ]
     .filter(Boolean)
     .join("\n\n");
