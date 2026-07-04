@@ -330,6 +330,18 @@ function isClearBlastRefusal(text: string): boolean {
   return /^(nao|n|no)\b/.test(normalized) || /(nao\s+(quero|tenho interesse|precisa|obrigad)|sem interesse|agora nao|not interested|no thanks|no thank you|no necesito|no quiero)/i.test(normalized);
 }
 
+// Saudação/cortesia neutra em resposta à abertura ("bom dia", "oi", "boa tarde"...).
+// NÃO é resposta afirmativa à pergunta — é só reciprocidade social. Nesses casos
+// devolvemos null pra deixar o LLM responder aplicando a regra de 3 categorias
+// (retribuir saudação + refazer a pergunta de abertura) em vez de pular o funil.
+function isBlastNeutralGreeting(text: string): boolean {
+  const normalized = normalizeText(text).replace(/[!?.,;]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!normalized) return false;
+  // Remove vocativos comuns ("oi julia", "oi tudo bem") para checar o núcleo.
+  const greetingOnly = /^(oi+|ola|ol[aá]|hello|hi|hey|e ai|eae|salve|bom dia|boa tarde|boa noite|buenos dias|buenas tardes|buenas noches|good morning|good afternoon|good evening|tudo bem|tudo bom|td bem|td bom|como vai|como vc esta|como voce esta|how are you|que tal)(\s+(oi+|ola|ol[aá]|bom dia|boa tarde|boa noite|tudo bem|tudo bom|td bem|td bom|julia|j[uú]lia|amigo|amiga|moc[ao]|linda|lindo))*$/i;
+  return greetingOnly.test(normalized);
+}
+
 function getIdentityInitialBlastInterestReply(identity: typeof DEFAULT_IDENTITY): string {
   const example = identity.exemplo_disparo ?? DEFAULT_IDENTITY.exemplo_disparo;
   const match = example.match(/Cliente:\s*"[^"]+"[^\n]*\nJúlia:\s*"([^"]+)"/i);
@@ -348,6 +360,9 @@ export function getInitialBlastInterestReply(history: Msg[], identity: typeof DE
 
   const latestClientBody = history[latestClientIndex]?.body ?? "";
   if (isClearBlastRefusal(latestClientBody)) return null;
+  // Cortesia neutra ("oi", "bom dia", ...) NÃO é afirmação: deixa o LLM aplicar
+  // a regra de 3 categorias (retribuir + refazer a pergunta de abertura).
+  if (isBlastNeutralGreeting(latestClientBody)) return null;
 
   let lastAgentBeforeClient: Msg | null = null;
   for (let i = latestClientIndex - 1; i >= 0; i -= 1) {
