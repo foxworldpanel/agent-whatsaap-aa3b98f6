@@ -1223,6 +1223,19 @@ function BlastCampaignCard({
   const listCatsFn = useServerFn(listCategories);
   const { data: categories = [] } = useQuery({ queryKey: ["contact_categories"], queryFn: () => listCatsFn() });
   const [categoria_ids, setCategoriaIds] = useState<string[]>(camp.categoria_ids ?? []);
+  const { data: catCounts = {} } = useQuery({
+    queryKey: ["contact_categories_counts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("blast_contacts").select("categoria_id");
+      const map: Record<string, number> = {};
+      for (const r of data ?? []) {
+        const k = (r as { categoria_id: string | null }).categoria_id;
+        if (!k) continue;
+        map[k] = (map[k] ?? 0) + 1;
+      }
+      return map;
+    },
+  });
   const toggleCategoria = (id: string) =>
     setCategoriaIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const [start_time, setStart] = useState(camp.start_time.slice(0, 5));
