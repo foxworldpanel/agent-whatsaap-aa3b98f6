@@ -1706,12 +1706,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const { uazapiSendText } = await import("@/lib/uazapi.server");
             const creds = replySendCreds;
 
-            let replyText: string;
+            // replyText = mensagem direta fixa (só para o caminho SUCESSO real
+            // do teste, que gera dado técnico útil: qty+link+plataforma).
+            // Erros e "já usou" agora viram FATO TÉCNICO no extraContext →
+            // Claude formula no idioma/tom da conversa.
+            let replyText: string | null = null;
 
             if (existingTrial) {
-              replyText = linkCompleted && !phoneCompleted
-                ? "Esse perfil já recebeu um teste anteriormente. Que tal aproveitar e fazer um pedido completo?"
-                : "Você já usou seu teste grátis. Posso te montar um pacote completo a partir de R$5?";
+              technicalFactContext = linkCompleted && !phoneCompleted
+                ? `FATO TÉCNICO VERIFICADO: este LINK (perfil/vídeo) já recebeu um teste grátis anteriormente. Não pode receber outro no mesmo link. Informe ao cliente e ofereça seguir para um pacote pago pequeno como alternativa.`
+                : `FATO TÉCNICO VERIFICADO: este número de cliente já usou o teste grátis anteriormente (limite: 1 por número). Informe ao cliente de forma natural e ofereça seguir para um pacote pago a partir de R$5 como alternativa.`;
             } else {
               const smmCreds = {
                 url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
@@ -1783,26 +1787,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 } catch {}
                 const low = raw.toLowerCase();
                 if (/private|privado|not.*public/.test(low)) {
-                  replyText = "Seu perfil precisa estar público pra receber as views. Deixa público e me manda o link de novo!";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: o pedido de teste grátis falhou porque o perfil está configurado como PRIVADO no ${link.platform}. O cliente precisa deixar o perfil público temporariamente para o serviço funcionar, e depois reenviar o link.`;
                 } else if (/already|duplicate|exists/.test(low)) {
-                  replyText = "Esse perfil já recebeu um teste anteriormente. Quer que eu monte um pacote completo a partir de R$5?";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: esse link já recebeu um pedido idêntico recentemente no provedor (duplicado). Informe ao cliente e ofereça seguir para um pacote pago pequeno como alternativa (a partir de R$5).`;
                 } else if (/invalid|not found|link|url/.test(low)) {
-                  const tip = link.platform === "instagram"
-                    ? "Me manda o link de um Reel ou vídeo do seu Instagram."
+                  const tipoLink = link.platform === "instagram"
+                    ? "Reel ou vídeo do Instagram"
                     : link.platform === "youtube"
-                      ? "Me manda o link do vídeo do YouTube."
+                      ? "vídeo do YouTube"
                       : link.platform === "tiktok"
-                        ? "Me manda o link do vídeo do TikTok."
-                        : "Me manda o link da música do Spotify.";
-                  replyText = `Esse link não funcionou aqui. ${tip}`;
+                        ? "vídeo do TikTok"
+                        : "música do Spotify";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: o link enviado pelo cliente é inválido, não foi reconhecido pelo provedor ou o recurso não existe. Peça um novo link válido de ${tipoLink}.`;
                 } else if (/min|minimum|quantidade/.test(low)) {
-                  replyText = "A quantidade do teste não bate com o mínimo do serviço. Já tô ajustando aqui!";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: a quantidade solicitada (${qty}) está abaixo do mínimo permitido pelo catálogo para esse serviço. Informe ao cliente e ofereça a menor quantidade real disponível.`;
                 } else {
-                  replyText = "Me manda o link de novo que processo agora!";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: o pedido de teste grátis falhou no provedor com erro técnico não classificado ("${raw.slice(0, 200)}"). Peça ao cliente para reenviar o link para nova tentativa.`;
                 }
               }
             }
 
+            if (replyText) {
             try {
               if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial)");
               await uazapiSendText(creds, phone, replyText);
@@ -1830,6 +1835,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .update({ last_interaction_at: nowT, status: "em_conversa" })
               .eq("id", contact.id);
             return new Response("ok (free trial)");
+            }
+            // Sem replyText direto: cai para o Claude com technicalFactContext.
+            }
             }
           }
         }
