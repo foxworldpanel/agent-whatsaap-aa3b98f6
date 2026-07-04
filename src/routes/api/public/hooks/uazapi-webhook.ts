@@ -2503,7 +2503,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // CRÍTICO: se o cliente respondeu a um disparo, isso NÃO é receptivo.
             // Deixar isInbound=true para respostas de disparo faz o ai.server.ts pular
             // o bloco EXEMPLO_MODELO_DISPARO (e o RECAP final), matando o script de vendas.
-            isInbound: !isBlastReply,
+            // Usamos isBlastThread (não isBlastReply) porque, após o 1º inbound, o status
+            // do blast_contact vira "respondeu" → isBlastReply=false nas mensagens
+            // seguintes, mas a conversa continua sendo originada de disparo e o script
+            // precisa continuar valendo.
+            isInbound: !(isBlastReply || isBlastThread),
             funnelAlreadySent,
             knowledgeExamples,
             panelScreens,
@@ -2528,6 +2532,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           try {
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
             console.log('Prompt context:', { modules: _modulesCount, services: freeTestServices?.length ?? 0, examples: knowledgeExamples?.length ?? 0, historyLen: aiHistory?.length ?? 0, extraContext: orderStatusContext?.slice(0, 200) ?? '' });
+          } catch {}
+          try {
+            const _agentTurnsSoFar = (aiHistory ?? []).filter((m: { sender?: string }) => m?.sender === "agente").length;
+            console.log('[agent-ai] Roteamento inputs:', {
+              conversationId: (conv as { id?: string })?.id,
+              phone,
+              isBlastReply,
+              isBlastThread,
+              isInboundEffective: !(isBlastReply || isBlastThread),
+              agentTurnsSoFar: _agentTurnsSoFar,
+              isBlastEarlyTurn: (isBlastReply || isBlastThread) && _agentTurnsSoFar <= 3,
+              blastDispatchMode,
+            });
           } catch {}
           const _claudeStart = Date.now();
           const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
