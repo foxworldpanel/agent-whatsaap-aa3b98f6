@@ -1570,6 +1570,47 @@ function BlastCampaignCard({
         </Field>
       </div>
 
+      {/* Contexto: tempo entre disparos + ETA */}
+      {(() => {
+        const avg = (delay_min_sec + delay_max_sec) / 2;
+        const minMin = (delay_min_sec / 60).toFixed(1);
+        const maxMin = (delay_max_sec / 60).toFixed(1);
+        const [sh, sm] = start_time.split(":").map(Number);
+        const [eh, em] = end_time.split(":").map(Number);
+        const startMin = (sh || 0) * 60 + (sm || 0);
+        const endMin = (eh || 0) * 60 + (em || 0);
+        const totalSec = daily_limit * avg;
+        const endEstimMin = startMin + Math.round(totalSec / 60);
+        const overflows = endEstimMin > endMin;
+        const hh = Math.floor((endEstimMin % (24 * 60)) / 60);
+        const mm = endEstimMin % 60;
+        const hhmm = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+        return (
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              Isso equivale a cerca de <strong>{minMin}</strong> a <strong>{maxMin}</strong> minutos entre cada disparo.
+            </p>
+            <div
+              className={`rounded-lg border p-3 text-xs ${
+                overflows
+                  ? "border-warning/50 bg-warning/10 text-warning"
+                  : "border-primary/30 bg-primary/5 text-foreground"
+              }`}
+            >
+              {overflows ? (
+                <>
+                  ⚠️ Não deve concluir hoje com esse ritmo — a estimativa passaria de <strong>{hhmm}</strong> (limite {end_time}). Considere reduzir o delay ou o limite/dia.
+                </>
+              ) : (
+                <>
+                  Com esse ritmo, os <strong>{daily_limit}</strong> disparos do dia terminam por volta das <strong>{hhmm}</strong>.
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Base de contatos (categorias) — full width para não quebrar o grid */}
       <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1593,6 +1634,7 @@ function BlastCampaignCard({
           )}
           {categories.map((c) => {
             const on = categoria_ids.includes(c.id);
+            const count = (catCounts as Record<string, number>)[c.id] ?? 0;
             return (
               <button
                 key={c.id}
@@ -1605,7 +1647,9 @@ function BlastCampaignCard({
                 }`}
               >
                 <span>{c.icone}</span>
-                <span>{c.nome}</span>
+                <span>
+                  {c.nome} <span className="opacity-70">({count})</span>
+                </span>
                 {on && <span className="text-primary">✓</span>}
               </button>
             );
