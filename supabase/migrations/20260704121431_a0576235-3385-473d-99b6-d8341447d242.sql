@@ -1,0 +1,4 @@
+DELETE FROM public.messages WHERE conversation_id IN (SELECT c.id FROM public.conversations c JOIN public.contacts ct ON ct.id = c.contact_id WHERE ct.telefone = '5511970116430');
+DELETE FROM public.agent_logs WHERE conversation_id IN (SELECT c.id FROM public.conversations c JOIN public.contacts ct ON ct.id = c.contact_id WHERE ct.telefone = '5511970116430');
+DELETE FROM public.agent_generation_locks WHERE conversation_id IN (SELECT c.id FROM public.conversations c JOIN public.contacts ct ON ct.id = c.contact_id WHERE ct.telefone = '5511970116430');
+DELETE FROM public.conversations WHERE contact_id IN (SELECT id FROM public.contacts WHERE telefone = '5511970116430');
