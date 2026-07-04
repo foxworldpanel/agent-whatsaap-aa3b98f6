@@ -1334,6 +1334,7 @@ function BlastCampaignCard({
   }
 
   async function handleStartNow() {
+    console.log("[Disparo Agora] clique registrado", { campId: camp.id, whatsapp_number_id, contact_list_id });
     if (!selectedNumber) {
       toast.error("Selecione um número de WhatsApp antes de disparar.");
       return;
@@ -1402,6 +1403,7 @@ function BlastCampaignCard({
         </div>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={handleStart}
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
             style={{ background: "var(--gradient-primary)" }}
@@ -1409,6 +1411,7 @@ function BlastCampaignCard({
             <Play className="h-3.5 w-3.5" /> Iniciar
           </button>
           <button
+            type="button"
             onClick={handleStartNow}
             className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
             title="Dispara AGORA ignorando horário, distribuição natural e delay entre envios"
@@ -1416,12 +1419,14 @@ function BlastCampaignCard({
             ⚡ Disparar Agora
           </button>
           <button
+            type="button"
             onClick={() => stateMut.mutate("pausado")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
           >
             <Pause className="h-3.5 w-3.5" /> Pausar
           </button>
           <button
+            type="button"
             onClick={() => stateMut.mutate("parado")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
           >
