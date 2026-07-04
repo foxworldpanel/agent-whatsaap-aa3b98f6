@@ -1462,7 +1462,6 @@ function BlastCampaignCard({
     <div className="rounded-xl border border-border p-5 space-y-5" style={{ background: "var(--gradient-card)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-lg">{camp.name}</h3>
           <p className="text-xs text-muted-foreground">
             Estado:{" "}
             <span
@@ -1485,12 +1484,12 @@ function BlastCampaignCard({
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
             style={{ background: "var(--gradient-primary)" }}
           >
-            <Play className="h-3.5 w-3.5" /> Iniciar
+            <Play className="h-3.5 w-3.5" /> {camp.state === "pausado" ? "Retomar" : "Iniciar"}
           </button>
           <button
             type="button"
             onClick={handleStartNow}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
             title="Dispara AGORA ignorando horário, distribuição natural e delay entre envios"
           >
             ⚡ Disparar Agora
@@ -1498,14 +1497,14 @@ function BlastCampaignCard({
           <button
             type="button"
             onClick={() => stateMut.mutate("pausado")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
           >
             <Pause className="h-3.5 w-3.5" /> Pausar
           </button>
           <button
             type="button"
             onClick={() => stateMut.mutate("parado")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/50 bg-transparent px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
           >
             <Square className="h-3.5 w-3.5" /> Parar
           </button>
