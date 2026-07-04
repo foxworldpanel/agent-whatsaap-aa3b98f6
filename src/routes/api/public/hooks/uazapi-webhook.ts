@@ -2213,12 +2213,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .limit(120);
         if (historySinceIso) historyQuery = historyQuery.gte("created_at", historySinceIso);
         const { data: historyDesc } = await historyQuery;
-        const historyRaw = ((historyDesc ?? []) as Array<{
+        let historyRaw = ((historyDesc ?? []) as Array<{
           sender: "agente" | "cliente";
           body: string;
           created_at?: string | null;
         }>).reverse();
-        const latestBlastOpenerIdx = (() => {
+        let latestBlastOpenerIdx = (() => {
           for (let i = historyRaw.length - 1; i >= 0; i -= 1) {
             const row = historyRaw[i];
             if (
@@ -2232,7 +2232,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
           return -1;
         })();
-        const history = !historySinceIso && latestBlastOpenerIdx > 0
+        let history = !historySinceIso && latestBlastOpenerIdx > 0
           ? historyRaw.slice(latestBlastOpenerIdx)
           : historyRaw;
 
