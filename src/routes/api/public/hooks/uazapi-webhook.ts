@@ -2246,6 +2246,47 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
 
+        // ===== Coalescência de mensagens rápidas do cliente =====
+        // Cliente costuma mandar 2-3 mensagens em sequência ("O que é MQ?",
+        // "Quero tudo brasileiro"). Sem trava, cada webhook roda em paralelo
+        // e produz respostas contraditórias com preços/informações diferentes.
+        // Espera 5s e checa se chegou mensagem mais nova do MESMO cliente na
+        // mesma conversa — se sim, sai: o handler mais recente responderá
+        // já com nossa mensagem no histórico.
+        {
+          await new Promise((r) => setTimeout(r, 5000));
+          const { data: latestClient } = await supabaseAdmin
+            .from("messages")
+            .select("created_at, external_id")
+            .eq("conversation_id", conv.id)
+            .eq("sender", "cliente")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const latestAt = latestClient?.created_at ?? null;
+          const latestExt = latestClient?.external_id ?? null;
+          const isSuperseded =
+            !!latestAt &&
+            (new Date(latestAt).getTime() > new Date(now).getTime() ||
+              (latestExt && messageId && latestExt !== messageId &&
+                new Date(latestAt).getTime() === new Date(now).getTime()));
+          if (isSuperseded) {
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                userId,
+                phone,
+                conversationId: conv.id,
+                type: "reply_coalesced",
+                level: "info",
+                summary: `⏭️ Resposta coalescida — mensagem mais nova chegou, handler atual sai`,
+                metadata: { messageId, latestExt, my_at: now, latest_at: latestAt } as never,
+              });
+            } catch {}
+            return new Response("ok (superseded by newer client message)");
+          }
+        }
+
         // Check if a welcome funnel has already been delivered for this contact.
         const { data: priorFunnelRun } = await supabaseAdmin
           .from("welcome_funnel_runs")
