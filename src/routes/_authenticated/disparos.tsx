@@ -548,26 +548,64 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                 <span className="text-sm font-semibold tracking-tight">
                   {isActive ? "🚀 Disparando…" : campaign.state === "pausado" ? "⏸ Pausado" : "⏹ Parado"}
                 </span>
-              </div>
-              <div className="text-xs font-mono tabular-nums text-muted-foreground">
-                <span className="text-foreground font-bold">{sentToday}</span>
-                <span className="mx-1">/</span>
-                <span>{dailyLimit}</span>
-                <span className="ml-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{pct}%</span>
+                {campaign.state === "pausado" && (
+                  <button
+                    onClick={startDispatchNow}
+                    className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                    style={{ background: "var(--gradient-primary)" }}
+                  >
+                    <Play className="h-3 w-3" /> Retomar
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="h-3 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${pct}%`,
-                  background: "var(--gradient-primary)",
-                  boxShadow: isActive ? "0 0 12px color-mix(in oklab, var(--primary) 50%, transparent)" : undefined,
-                }}
-              />
+            {/* Progresso — Limite diário */}
+            <div>
+              <div className="mb-1 flex items-center justify-between text-[11px]">
+                <span className="font-medium text-muted-foreground">Limite diário</span>
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  <span className="text-foreground font-bold">{sentToday}</span>
+                  <span className="mx-1">de</span>
+                  <span>{dailyLimit}</span>
+                  <span className="ml-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{pct}%</span>
+                </span>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${pct}%`,
+                    background: "var(--gradient-primary)",
+                    boxShadow: isActive ? "0 0 12px color-mix(in oklab, var(--primary) 50%, transparent)" : undefined,
+                  }}
+                />
+              </div>
             </div>
+
+            {/* Progresso — Base total abordada */}
+            {(() => {
+              const basePct = totalBase > 0 ? Math.min(100, Math.round((totalEnviados / totalBase) * 100)) : 0;
+              return (
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span className="font-medium text-muted-foreground">Base total abordada</span>
+                    <span className="font-mono tabular-nums text-muted-foreground">
+                      <span className="text-foreground font-bold">{totalEnviados}</span>
+                      <span className="mx-1">de</span>
+                      <span>{totalBase}</span>
+                      <span className="ml-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500">{basePct}%</span>
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${basePct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Métricas em linha */}
             <div className="grid grid-cols-3 gap-2 text-center">
