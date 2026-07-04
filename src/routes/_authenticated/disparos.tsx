@@ -548,26 +548,64 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                 <span className="text-sm font-semibold tracking-tight">
                   {isActive ? "🚀 Disparando…" : campaign.state === "pausado" ? "⏸ Pausado" : "⏹ Parado"}
                 </span>
-              </div>
-              <div className="text-xs font-mono tabular-nums text-muted-foreground">
-                <span className="text-foreground font-bold">{sentToday}</span>
-                <span className="mx-1">/</span>
-                <span>{dailyLimit}</span>
-                <span className="ml-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{pct}%</span>
+                {campaign.state === "pausado" && (
+                  <button
+                    onClick={startDispatchNow}
+                    className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold text-primary-foreground"
+                    style={{ background: "var(--gradient-primary)" }}
+                  >
+                    <Play className="h-3 w-3" /> Retomar
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Progress bar */}
-            <div className="h-3 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${pct}%`,
-                  background: "var(--gradient-primary)",
-                  boxShadow: isActive ? "0 0 12px color-mix(in oklab, var(--primary) 50%, transparent)" : undefined,
-                }}
-              />
+            {/* Progresso — Limite diário */}
+            <div>
+              <div className="mb-1 flex items-center justify-between text-[11px]">
+                <span className="font-medium text-muted-foreground">Limite diário</span>
+                <span className="font-mono tabular-nums text-muted-foreground">
+                  <span className="text-foreground font-bold">{sentToday}</span>
+                  <span className="mx-1">de</span>
+                  <span>{dailyLimit}</span>
+                  <span className="ml-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">{pct}%</span>
+                </span>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${pct}%`,
+                    background: "var(--gradient-primary)",
+                    boxShadow: isActive ? "0 0 12px color-mix(in oklab, var(--primary) 50%, transparent)" : undefined,
+                  }}
+                />
+              </div>
             </div>
+
+            {/* Progresso — Base total abordada */}
+            {(() => {
+              const basePct = totalBase > 0 ? Math.min(100, Math.round((totalEnviados / totalBase) * 100)) : 0;
+              return (
+                <div>
+                  <div className="mb-1 flex items-center justify-between text-[11px]">
+                    <span className="font-medium text-muted-foreground">Base total abordada</span>
+                    <span className="font-mono tabular-nums text-muted-foreground">
+                      <span className="text-foreground font-bold">{totalEnviados}</span>
+                      <span className="mx-1">de</span>
+                      <span>{totalBase}</span>
+                      <span className="ml-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-500">{basePct}%</span>
+                    </span>
+                  </div>
+                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted/60 ring-1 ring-inset ring-border/40">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      style={{ width: `${basePct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Métricas em linha */}
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -622,7 +660,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         {categories.length === 0 && (
           <span className="text-[11px] text-muted-foreground">Nenhuma categoria cadastrada.</span>
         )}
-        {categories.map((c) => (
+        {categories.filter((c) => !c.slug?.startsWith("debug_")).map((c) => (
           <button
             key={c.id}
             onClick={() => setCategoryFilter(c.id)}
@@ -637,6 +675,31 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
           </button>
         ))}
       </div>
+
+      {/* Resumo por número (dentro do filtro atual) */}
+      {(() => {
+        const perNumber: Record<string, number> = {};
+        for (const r of filtered) {
+          if (!r.sent_via_number_id) continue;
+          if (!(r.status.startsWith("enviado_") || r.status === "respondeu" || r.status === "convertido")) continue;
+          perNumber[r.sent_via_number_id] = (perNumber[r.sent_via_number_id] ?? 0) + 1;
+        }
+        const entries = Object.entries(perNumber).sort((a, b) => b[1] - a[1]);
+        if (entries.length === 0) return null;
+        return (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/40 p-2 text-[11px]">
+            <span className="font-medium text-muted-foreground uppercase tracking-wide text-[10px]">Resumo por número</span>
+            {entries.map(([id, count]) => (
+              <span key={id} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-0.5">
+                <span className="font-medium text-foreground">{numbersMap[id] ?? "—"}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="font-semibold text-primary">{count}</span>
+                <span className="text-muted-foreground">enviados</span>
+              </span>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Próximo na fila */}
       {nextInLine && (
@@ -781,9 +844,9 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
-                    {r.sent_via_number_id ? (
-                      <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px]">
-                        📱 {numbersMap[r.sent_via_number_id] ?? "—"}
+                    {r.sent_via_number_id && numbersMap[r.sent_via_number_id] ? (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                        {numbersMap[r.sent_via_number_id]}
                       </span>
                     ) : (
                       <span className="text-[10px]">—</span>
@@ -2376,7 +2439,7 @@ function ContactListsSection() {
                   className="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   {categories.length === 0 && <option value="">Carregando…</option>}
-                  {categories.map((c) => (
+                  {categories.filter((c) => !c.slug?.startsWith("debug_")).map((c) => (
                     <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>
                   ))}
                 </select>
