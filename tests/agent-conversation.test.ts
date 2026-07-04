@@ -16,6 +16,7 @@ import {
   getInitialBlastInterestReply,
   buildSystemPrompt,
 } from "@/lib/ai.server";
+import { autoSplitLongParts, LONG_MESSAGE_THRESHOLD } from "@/lib/message-splitter";
 
 const OPENING =
   "Oi, bom dia Romulo! Peguei o seu contato no perfil @sourcee, achei muito bom o conteúdo! Posso te mostrar algo que pode acelerar o crescimento das suas redes?";
@@ -295,5 +296,45 @@ describe("8) Fechamento não prematuro (não se despede antes do painel)", () =>
       /CONFIRMA[ÇC][AÃ]O.*nunca despedida/is.test(prompt),
       'FALHOU: regra "confirmação, nunca despedida" ausente do prompt',
     ).toBe(true);
+  });
+});
+
+describe("9) Auto-split de mensagens longas com \\n\\n", () => {
+  it("resposta curta com \\n\\n NÃO divide", () => {
+    const short = "Show!\n\nQual seu objetivo?";
+    const parts = autoSplitLongParts([short]);
+    expect(
+      parts.length === 1,
+      `FALHOU: mensagem curta (${short.length} chars) foi dividida em ${parts.length} partes — deveria continuar como 1`,
+    ).toBe(true);
+  });
+
+  it("resposta longa (>350 chars) com \\n\\n DIVIDE em partes", () => {
+    const long =
+      "No YouTube o que mais pesa hoje é a combinação de views, inscritos e horas de exibição — views mostram que o vídeo tá performando, inscritos consolidam a base de audiência recorrente e horas de exibição são o que destrava monetização e alcance orgânico. Cada um puxa o outro e o algoritmo entende que o canal tá relevante." +
+      "\n\n" +
+      "Qual seu objetivo hoje: crescer em views, ganhar inscritos ou já mirar direto na monetização?";
+    expect(long.length > LONG_MESSAGE_THRESHOLD).toBe(true);
+    const parts = autoSplitLongParts([long]);
+    expect(
+      parts.length === 2,
+      `FALHOU: resposta longa com 2 parágrafos deveria virar 2 mensagens; virou ${parts.length}`,
+    ).toBe(true);
+    expect(parts[0]).toContain("views");
+    expect(parts[1]).toMatch(/objetivo/i);
+  });
+
+  it("preserva ===SPLIT=== explícito e ainda auto-divide partes longas", () => {
+    const longPart =
+      "Explicação bem completa sobre benefício de views no YouTube: views mostram que o vídeo tá performando, ajudam no algoritmo, empurram pra mais gente, aumentam retenção, geram inscritos, e assim por diante — é o motor principal de crescimento orgânico no YouTube hoje em dia sem sombra de dúvida." +
+      "\n\n" +
+      "Quer priorizar views, inscritos ou horas de exibição pra monetizar?";
+    expect(longPart.length > LONG_MESSAGE_THRESHOLD).toBe(true);
+    const parts = autoSplitLongParts([longPart, "www.mindsmmpanel.com"]);
+    expect(
+      parts.length === 3,
+      `FALHOU: esperava 3 partes (2 do split automático + 1 do link), veio ${parts.length}`,
+    ).toBe(true);
+    expect(parts[2]).toBe("www.mindsmmpanel.com");
   });
 });
