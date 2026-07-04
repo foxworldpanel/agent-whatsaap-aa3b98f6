@@ -348,7 +348,8 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
           contactId = ins.data?.id ?? null;
         }
       }
-      if (contactId) {
+      if (!contactId) throw new Error("test mirror contact missing after lookup/insert");
+      {
         const { data: convRows, error: convErr } = await (supabaseAdmin as any).rpc(
           "get_or_create_active_conversation",
           {
@@ -360,7 +361,8 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
         );
         if (convErr) throw convErr;
         const convId: string | null = convRows?.[0]?.id ?? null;
-        if (convId) {
+        if (!convId) throw new Error("test mirror conversation missing after rpc");
+        {
           const nowIso = new Date().toISOString();
           const { logEvent } = await import("@/lib/agent-logger.server");
           for (let idx = 0; idx < messageParts.length; idx++) {
@@ -440,10 +442,26 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
               status: "aguardando",
             } as never)
             .eq("id", convId);
-        }
       }
     } catch (e) {
       console.error("[testBlastCampaign] failed to mirror opener into messages", e);
+      try {
+        const { logEvent } = await import("@/lib/agent-logger.server");
+        await logEvent({
+          userId: context.userId,
+          phone,
+          type: "blast_debug_opening_message_insert_after",
+          level: "error",
+          summary: "🔥 DEBUG TESTE falhou ao espelhar abertura no histórico",
+          error: (e as Error)?.stack ?? (e as Error)?.message ?? String(e),
+          metadata: {
+            origem: "debug_teste_disparo",
+            campaign_id: camp.id,
+            insert_ok: false,
+          },
+        });
+      } catch {}
+      throw e;
     }
 
     return { ok: true, sentTo: phone, parts: messageParts.length };
