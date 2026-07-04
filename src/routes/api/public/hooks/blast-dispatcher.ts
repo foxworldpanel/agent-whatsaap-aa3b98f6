@@ -323,7 +323,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                     user_id: camp.user_id,
                     telefone: phoneDigits,
                     nome: next.contact.nome ?? phoneDigits,
-                    origem: "disparo",
+                    source: "disparo",
                     status: "em_conversa",
                     whatsapp_number_id: numberRow.id,
                   } as never)
