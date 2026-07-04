@@ -13,7 +13,6 @@ import {
   generateAgentReplyWithMeta,
   guardFreeTrialOffer,
   humanizePunctuation,
-  getInitialBlastInterestReply,
   buildSystemPrompt,
 } from "@/lib/ai.server";
 import { autoSplitLongParts, LONG_MESSAGE_THRESHOLD } from "@/lib/message-splitter";
