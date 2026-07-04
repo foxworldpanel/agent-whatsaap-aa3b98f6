@@ -53,6 +53,7 @@ import {
 import { listCategories } from "@/lib/categories.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 import { BlastFlowBuilder } from "@/components/BlastFlowBuilder";
+import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
   ssr: false,
