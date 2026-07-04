@@ -3110,8 +3110,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             for (const url of askedLinkBySpeech ? [] : extractedUrls) {
               if (memWasRecentlySent(phone, url) || await wasRecentlySent(conv.id, url)) continue;
               memMarkSent(phone, url);
-              await uazapiSendTyping(sendCreds, phone, 1000).catch(() => {});
-              await sleep(1000);
+              const gap = nextBubbleDelayMs(url);
+              if (gap > 0) {
+                await uazapiSendTyping(sendCreds, phone, gap + 500).catch(() => {});
+                await sleep(gap);
+              }
               await uazapiSendText(sendCreds, phone, url);
             }
             }
@@ -3122,8 +3125,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 continue;
               }
               memMarkSent(phone, replyParts[i]);
-              await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
-              await sleep(1200);
+              const gap = nextBubbleDelayMs(replyParts[i]);
+              if (gap > 0) {
+                await uazapiSendTyping(sendCreds, phone, gap + 500).catch(() => {});
+                await sleep(gap);
+              }
               await uazapiSendText(sendCreds, phone, replyParts[i]);
             }
           } else {
