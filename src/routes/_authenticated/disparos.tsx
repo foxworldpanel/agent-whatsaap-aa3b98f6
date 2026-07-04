@@ -660,7 +660,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         {categories.length === 0 && (
           <span className="text-[11px] text-muted-foreground">Nenhuma categoria cadastrada.</span>
         )}
-        {categories.map((c) => (
+        {categories.filter((c) => !c.slug?.startsWith("debug_")).map((c) => (
           <button
             key={c.id}
             onClick={() => setCategoryFilter(c.id)}
