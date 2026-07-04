@@ -204,6 +204,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // Escolher próximo contato e estágio ANTES das travas para que o
             // painel/log informe a causa real (sem contato vs limite/agente) e
             // para números de teste poderem ignorar limites/blacklist.
+            let claimedBlastContactId: string | null = null;
             const next = await pickNext(supabaseAdmin, camp);
             if (!next) {
               console.log(`[blast-dispatcher] ${camp.name}: sem contatos elegíveis (list_id=${camp.contact_list_id ?? "null"})`);
@@ -334,6 +335,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               results.push({ campaign: camp.name, sent: 0, skipped: "contato já estava sendo processado" });
               continue;
             }
+            claimedBlastContactId = next.contact.id;
 
             // Prepara a conversa ANTES de enviar. Assim, cada parte enviada com
             // sucesso é persistida imediatamente após o aceite da Uazapi — se o
@@ -574,6 +576,12 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
           } catch (e) {
             const msg = (e as Error).message;
             results.push({ campaign: camp.name, sent: 0, skipped: msg, error: msg });
+            if (claimedBlastContactId) {
+              await supabaseAdmin
+                .from("blast_contacts")
+                .update({ status: "erro", error_message: msg, updated_at: new Date().toISOString() } as never)
+                .eq("id", claimedBlastContactId);
+            }
             await logEvent({ userId: camp.user_id, type: "blast_failed", level: "error", summary: `❌ Dispatcher falhou na campanha ${camp.name}`, error: msg, metadata: { origem: "disparo", direcao: "enviado", tipo: "erro", campaign_id: camp.id } });
             await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
           }
