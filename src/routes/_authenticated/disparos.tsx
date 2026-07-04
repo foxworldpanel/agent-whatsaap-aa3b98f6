@@ -2073,28 +2073,36 @@ function NumberHealthCard({ numberId }: { numberId: string }) {
           </p>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-background/50 p-4 md:grid-cols-4">
-        <div>
-          <p className="text-xs text-muted-foreground">Saúde do número</p>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div
+          className={`rounded-lg border p-3 ${
+            danger
+              ? "border-destructive/50 bg-destructive/10"
+              : warning
+                ? "border-warning/50 bg-warning/10"
+                : "border-success/40 bg-success/10"
+          }`}
+        >
+          <p className="text-[11px] text-muted-foreground">Saúde do número</p>
           <p
-            className={`mt-1 text-sm font-semibold ${
+            className={`mt-1 text-xl font-bold ${
               danger ? "text-destructive" : warning ? "text-warning" : "text-success"
             }`}
           >
             {danger ? "Crítica" : warning ? "Atenção" : "OK"}
           </p>
         </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Taxa de falha (24h)</p>
-          <p className="mt-1 text-sm font-semibold">{health.failRate}%</p>
+        <div className="rounded-lg border border-border bg-background/50 p-3">
+          <p className="text-[11px] text-muted-foreground">Taxa de falha (24h)</p>
+          <p className="mt-1 text-xl font-bold">{health.failRate}%</p>
         </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Enviadas (24h)</p>
-          <p className="mt-1 text-sm font-semibold">{health.sent24h}</p>
+        <div className="rounded-lg border border-border bg-background/50 p-3">
+          <p className="text-[11px] text-muted-foreground">Enviadas (24h)</p>
+          <p className="mt-1 text-xl font-bold">{health.sent24h}</p>
         </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Falhas (24h)</p>
-          <p className="mt-1 text-sm font-semibold">{health.failed24h}</p>
+        <div className="rounded-lg border border-border bg-background/50 p-3">
+          <p className="text-[11px] text-muted-foreground">Falhas (24h)</p>
+          <p className="mt-1 text-xl font-bold">{health.failed24h}</p>
         </div>
       </div>
     </div>
