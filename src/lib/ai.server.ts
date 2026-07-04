@@ -33,6 +33,72 @@ function getLatestClientMessage(history: Msg[]): string {
   return "";
 }
 
+// Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
+// que está na lista de teste grátis liberado. Chave = token que aparece no
+// texto; valor = família de serviço.
+const SERVICE_TOPIC_TOKENS: Array<{ rx: RegExp; family: string }> = [
+  { rx: /\bviews?\b|\bvisualiza(ç|c)[oõ]es?\b/i, family: "views" },
+  { rx: /\bseguidor(es)?\b|\bfollow(ers?)?\b|\binscrit[oa]s?\b/i, family: "seguidores" },
+  { rx: /\bcurtidas?\b|\blikes?\b/i, family: "curtidas" },
+  { rx: /\bplays?\b|\bexecu(ç|c)[oõ]es?\b/i, family: "plays" },
+  { rx: /\bouvintes?\b|\blisteners?\b/i, family: "ouvintes" },
+  { rx: /\bcoment[aá]rios?\b|\bcomments?\b/i, family: "comentarios" },
+  { rx: /\bcompartilhament[oa]s?\b|\bshares?\b/i, family: "compartilhamentos" },
+  { rx: /\bsalvamentos?\b|\bsaves?\b/i, family: "saves" },
+  { rx: /\bhoras?\s+de\s+exibi(ç|c)[aã]o\b|\bwatch\s*time\b|\bmonetiza(ç|c)[aã]o\b/i, family: "horas_exibicao" },
+];
+
+function extractFamilies(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const { rx, family } of SERVICE_TOPIC_TOKENS) {
+    if (rx.test(text)) out.add(family);
+  }
+  return out;
+}
+
+// Guarda de segurança pós-geração: bloqueia qualquer promessa de "teste
+// grátis" quando o serviço mencionado NÃO está na lista de elegíveis.
+// Retorna { text, replaced, reason } — quando replaced=true, o texto original
+// foi trocado por uma deflexão segura.
+export function guardFreeTrialOffer(params: {
+  reply: string;
+  freeTestServices: Array<{ service_name: string; category: string }>;
+}): { text: string; replaced: boolean; reason?: string } {
+  const { reply, freeTestServices } = params;
+  // Detecta menção a "teste grátis/gratuito" (evita falso positivo em "de graça").
+  const mentionsFreeTrial = /(teste\s+gr[aá]tis|teste\s+gratuit[oa]|gr[aá]tis\s+(pra|para)\s+(voc[eê]|vc)|amostra\s+gr[aá]tis|libero\s+um\s+teste|te\s+mand[oa]\s+.{0,20}gr[aá]tis|faço\s+.{0,30}gr[aá]tis|coloco\s+.{0,30}gr[aá]tis)/i.test(reply);
+  if (!mentionsFreeTrial) return { text: reply, replaced: false };
+
+  const allowedFamilies = new Set<string>();
+  for (const s of freeTestServices) {
+    for (const f of extractFamilies(`${s.service_name} ${s.category}`)) allowedFamilies.add(f);
+  }
+
+  const replyFamilies = extractFamilies(reply);
+
+  // Se a resposta menciona uma família de serviço que NÃO está liberada
+  // (ou não há nenhum serviço liberado), bloqueia a oferta.
+  const mentionsForbidden = [...replyFamilies].some((f) => !allowedFamilies.has(f));
+  const noEligibleAtAll = freeTestServices.length === 0;
+
+  if (!mentionsForbidden && !noEligibleAtAll && replyFamilies.size > 0) {
+    return { text: reply, replaced: false };
+  }
+
+  const forbiddenTopic = [...replyFamilies].find((f) => !allowedFamilies.has(f));
+  const safeDeflection =
+    "Pra esse serviço não tenho teste grátis liberado, mas dá pra começar com a menor quantidade paga pra você sentir o resultado sem se comprometer. Quer que eu te passe o valor?";
+  return {
+    text: safeDeflection,
+    replaced: true,
+    reason: noEligibleAtAll
+      ? "no_eligible_services"
+      : forbiddenTopic
+        ? `topic_not_eligible:${forbiddenTopic}`
+        : "ambiguous_free_trial_mention",
+  };
+}
+
 function pickScript(cfg: AgentConfig, perfil: Contact["perfil"]): string {
   return perfil === "ativo"
     ? cfg.script_ativo
