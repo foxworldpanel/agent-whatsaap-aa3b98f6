@@ -141,8 +141,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               .filter((n) => !(n.auto_pause_on_risk && n.risk_level === "danger"))
               .sort((a, b) => a.id.localeCompare(b.id));
 
-            // Se campanha aponta um número fixo e ele está no pool, mantém preferência,
-            // caso contrário usa round-robin baseado no total enviado hoje.
             let numberRow: NumberRow | null = null;
             if (pool.length === 0) {
               results.push({ campaign: camp.name, sent: 0, skipped: "nenhum número conectado disponível para disparo" });
@@ -160,9 +158,47 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               .eq("status", "sent")
               .gte("created_at", startOfDay.toISOString());
 
-            // Round-robin: escolhe pool[(sentToday) % pool.length]
-            const rrIndex = (sentToday ?? 0) % pool.length;
-            numberRow = pool[rrIndex];
+            // Prioridade ABSOLUTA: se a campanha tem um número específico
+            // selecionado no dropdown (whatsapp_number_id), usa SEMPRE esse
+            // número — sem round-robin, sem fallback silencioso para outro.
+            // Round-robin só entra quando a campanha NÃO tem número fixo.
+            if (camp.whatsapp_number_id) {
+              const fixed = pool.find((n) => n.id === camp.whatsapp_number_id) ?? null;
+              if (!fixed) {
+                const exists = allNumbers.find((n) => n.id === camp.whatsapp_number_id) ?? null;
+                const reason = !exists
+                  ? "número selecionado não encontrado"
+                  : !isConnected(exists.status)
+                    ? `número selecionado não está conectado (status=${exists.status ?? "desconhecido"})`
+                    : exists.auto_pause_on_risk && exists.risk_level === "danger"
+                      ? "número selecionado em risco (danger) com auto_pause_on_risk ligado"
+                      : "número selecionado sem credenciais uazapi";
+                results.push({ campaign: camp.name, sent: 0, skipped: reason });
+                await logEvent({
+                  userId: camp.user_id,
+                  type: "blast_skipped",
+                  level: "error",
+                  summary: `❌ Disparo bloqueado — ${reason}`,
+                  metadata: {
+                    origem: "disparo",
+                    direcao: "enviado",
+                    tipo: "bloqueio",
+                    campaign_id: camp.id,
+                    reason,
+                    selected_number_id: camp.whatsapp_number_id,
+                    selected_number_name: exists?.nome ?? null,
+                    selected_number_status: exists?.status ?? null,
+                  },
+                });
+                await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
+                continue;
+              }
+              numberRow = fixed;
+            } else {
+              // Sem número fixo: round-robin baseado no total enviado hoje.
+              const rrIndex = (sentToday ?? 0) % pool.length;
+              numberRow = pool[rrIndex];
+            }
 
             // Escolher próximo contato e estágio ANTES das travas para que o
             // painel/log informe a causa real (sem contato vs limite/agente) e
