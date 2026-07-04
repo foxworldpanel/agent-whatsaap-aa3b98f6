@@ -2542,6 +2542,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } catch {}
           try {
             const _agentTurnsSoFar = (aiHistory ?? []).filter((m: { sender?: string }) => m?.sender === "agente").length;
+            const _panelLinkAlreadySent = (aiHistory ?? []).some(
+              (m: { sender?: string; body?: string }) =>
+                m?.sender === "agente" && /mindsmmpanel\.com/i.test(m?.body ?? ""),
+            );
             console.log('[agent-ai] Roteamento inputs:', {
               conversationId: (conv as { id?: string })?.id,
               phone,
@@ -2549,7 +2553,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               isBlastThread,
               isInboundEffective: !(isBlastReply || isBlastThread),
               agentTurnsSoFar: _agentTurnsSoFar,
-              isBlastEarlyTurn: (isBlastReply || isBlastThread) && _agentTurnsSoFar <= 3,
+              isBlastActiveSale: (isBlastReply || isBlastThread) && !_panelLinkAlreadySent,
+              panelLinkAlreadySent: _panelLinkAlreadySent,
               blastDispatchMode,
             });
           } catch {}
