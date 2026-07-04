@@ -2414,7 +2414,7 @@ function ContactListsSection() {
                   className="rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                   {categories.length === 0 && <option value="">Carregando…</option>}
-                  {categories.map((c) => (
+                  {categories.filter((c) => !c.slug?.startsWith("debug_")).map((c) => (
                     <option key={c.id} value={c.id}>{c.icone} {c.nome}</option>
                   ))}
                 </select>
