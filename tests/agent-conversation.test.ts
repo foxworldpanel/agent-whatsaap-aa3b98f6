@@ -252,7 +252,7 @@ describe("6) Sem travessão em respostas", () => {
 //    (regra é ENSINADA ao LLM via prompt; validamos a instrução existe)
 // ---------------------------------------------------------------------------
 describe("7) Split de mensagem — padrão é 1 mensagem", () => {
-  it("prompt contém regra de split (padrão 1 mensagem, >350 chars pra dividir)", () => {
+  it("prompt contém regra de split com brevidade por bolha (1-2 frases, até 4 bolhas)", () => {
     const prompt = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
@@ -263,8 +263,12 @@ describe("7) Split de mensagem — padrão é 1 mensagem", () => {
       "FALHOU: regra de split ausente",
     ).toBe(true);
     expect(
-      /350/.test(prompt),
-      "FALHOU: threshold de 350 caracteres ausente",
+      /CADA BOLHA CURTA|no m[aá]ximo 2 frases curtas/i.test(prompt),
+      "FALHOU: reforço de brevidade por bolha ausente",
+    ).toBe(true);
+    expect(
+      /BREVIDADE|Haiku e Sonnet/i.test(prompt),
+      "FALHOU: reforço explícito Haiku/Sonnet ausente no estilo",
     ).toBe(true);
   });
 
