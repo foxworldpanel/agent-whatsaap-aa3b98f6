@@ -2198,6 +2198,27 @@ function ContactListsSection() {
     },
   });
 
+  // Contagem detalhada por categoria (total / enviados / restam) — leitura pura.
+  const { data: catStats = {} } = useQuery({
+    queryKey: ["contact_categories_status_counts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_contacts")
+        .select("categoria_id, status");
+      const map: Record<string, { total: number; enviados: number; restam: number }> = {};
+      for (const r of (data ?? []) as Array<{ categoria_id: string | null; status: string }>) {
+        if (!r.categoria_id) continue;
+        const s = map[r.categoria_id] ?? { total: 0, enviados: 0, restam: 0 };
+        s.total += 1;
+        if (r.status && r.status.startsWith("enviado_")) s.enviados += 1;
+        else if (r.status === "respondeu" || r.status === "convertido") s.enviados += 1;
+        else if (r.status === "pendente" || r.status === "na_fila") s.restam += 1;
+        map[r.categoria_id] = s;
+      }
+      return map;
+    },
+  });
+
   const { data: camps = [] } = useQuery({
     queryKey: ["blast_campaigns", "active-by-list"],
     queryFn: async () => {
@@ -2221,6 +2242,7 @@ function ContactListsSection() {
         () => {
           qc.invalidateQueries({ queryKey: ["contact_lists"] });
           qc.invalidateQueries({ queryKey: ["contact_categories_counts"] });
+          qc.invalidateQueries({ queryKey: ["contact_categories_status_counts"] });
         },
       )
       .subscribe();
