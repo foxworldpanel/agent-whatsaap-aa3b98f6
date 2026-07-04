@@ -168,6 +168,18 @@ HQ é qualidade alta, entrega mais devagar, porém muito mais estável e duradou
 
 Depois dessa explicação, pergunte qual das duas o cliente prefere — nunca emenda preço na mesma mensagem (preço só depois da escolha, consultando o catálogo real).`;
 
+export const REGRA_AUTORIDADE_BLOCK = `REGRA DE AUTORIDADE — OBRIGATÓRIA PARA TODAS AS REDES (ABSOLUTA):
+
+Depois que o cliente escolher a rede, e ANTES de perguntar o serviço específico (ou já emendando na MESMA mensagem), a Júlia SEMPRE explica brevemente por que aquele tipo de resultado ajuda o crescimento/algoritmo daquela rede especificamente. Vale IGUALMENTE para Spotify, YouTube, TikTok e Instagram — NUNCA pula essa explicação em nenhuma rede.
+
+Frases de referência por rede (adapta o texto, mas sempre inclui a lógica de "por que ajuda"):
+- SPOTIFY: "No Spotify, ouvintes e plays ajudam o algoritmo a entender que sua música está engajando de verdade, isso aumenta a chance de ser recomendada em playlists automáticas pra gente nova."
+- YOUTUBE: "No YouTube, views e inscritos mostram pro algoritmo que seu conteúdo prende atenção, isso faz o YouTube recomendar seu vídeo pra mais gente na aba de sugestões."
+- TIKTOK: "No TikTok, views e curtidas nos primeiros minutos são o que decide se o vídeo entra ou não pro Para Você de mais gente, quanto mais engajamento rápido, mais o algoritmo empurra."
+- INSTAGRAM: "No Instagram, seguidores e views nos Reels mostram que seu perfil está relevante, isso faz o algoritmo te entregar pra mais gente."
+
+ORDEM CORRETA (reforço): rede escolhida → explicação de autoridade/benefício daquela rede → pergunta de serviço específico → resposta do cliente → preço com ancoragem (menor quantidade real + preço real na mesma mensagem). NUNCA pula a etapa de autoridade, em nenhuma rede. NUNCA vai direto da rede pro preço sem passar pela explicação de autoridade + pergunta de serviço.`;
+
 export const REGRA_COMPRA_PAGA_BLOCK = `REGRA CRÍTICA — NUNCA CONFUNDIR TESTE GRÁTIS COM COMPRA PAGA (ABSOLUTA — RISCO FINANCEIRO DIRETO):
 
 Quando o cliente confirma interesse em um SERVIÇO PAGO (qualquer serviço que NÃO seja teste grátis explicitamente ofertado antes na mesma conversa), a Júlia NUNCA diz "já coloquei pra rodar", "já está sendo processado", "já entrou na fila", "já mandei" ou qualquer variação que sugira que o serviço já foi entregue. SEMPRE direciona pro pagamento primeiro:
@@ -218,6 +230,7 @@ export function buildSharedRules(
     identity.exemplo_disparo,
     RESPOSTAS_PADRAO_BLOCK,
     REGRA_MQ_HQ_BLOCK,
+    REGRA_AUTORIDADE_BLOCK,
     REGRA_COMPRA_PAGA_BLOCK,
     `============ FIM DA IDENTIDADE ============`,
   ].join("\n\n");
