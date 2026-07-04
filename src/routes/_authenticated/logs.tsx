@@ -127,6 +127,20 @@ function LogsPage() {
     return logs.filter((l) => inferOrigem(l) === origemFilter);
   }, [logs, origemFilter]);
 
+  // Contagem Haiku vs Sonnet nos logs carregados (últimos claude_reply).
+  const modelCounts = useMemo(() => {
+    let haiku = 0, sonnet = 0, other = 0;
+    for (const l of logs) {
+      if (l.type !== "claude_reply" || l.level === "error") continue;
+      const m = (l.metadata ?? {}) as Record<string, unknown>;
+      const model = typeof m.model === "string" ? m.model : null;
+      if (model?.includes("haiku")) haiku += 1;
+      else if (model?.includes("sonnet")) sonnet += 1;
+      else if (model) other += 1;
+    }
+    return { haiku, sonnet, other, total: haiku + sonnet + other };
+  }, [logs]);
+
   const toggle = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -146,6 +160,18 @@ function LogsPage() {
           <RefreshCw className="mr-2 h-4 w-4" /> Atualizar
         </Button>
       </div>
+
+      {modelCounts.total > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-4 py-3 text-sm">
+          <span className="text-muted-foreground">Roteamento de modelo (janela carregada):</span>
+          <Badge variant="secondary">🪶 Haiku: {modelCounts.haiku}</Badge>
+          <Badge variant="secondary">🎼 Sonnet: {modelCounts.sonnet}</Badge>
+          {modelCounts.other > 0 && <Badge variant="outline">Outros: {modelCounts.other}</Badge>}
+          <span className="text-muted-foreground">
+            · Sonnet ratio: {((modelCounts.sonnet / modelCounts.total) * 100).toFixed(0)}%
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
         <div className="flex w-full flex-wrap items-center gap-2">

@@ -2733,6 +2733,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }, null, 2),
               response: reply ?? null,
               durationMs: _claudeMs,
+              metadata: {
+                model: _claudeModel,
+                routingReason: _claudeRoutingReason,
+                origem: "conversas",
+              },
             });
           } catch {}
           }
