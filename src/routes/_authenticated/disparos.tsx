@@ -1223,6 +1223,19 @@ function BlastCampaignCard({
   const listCatsFn = useServerFn(listCategories);
   const { data: categories = [] } = useQuery({ queryKey: ["contact_categories"], queryFn: () => listCatsFn() });
   const [categoria_ids, setCategoriaIds] = useState<string[]>(camp.categoria_ids ?? []);
+  const { data: catCounts = {} } = useQuery({
+    queryKey: ["contact_categories_counts"],
+    queryFn: async () => {
+      const { data } = await supabase.from("blast_contacts").select("categoria_id");
+      const map: Record<string, number> = {};
+      for (const r of data ?? []) {
+        const k = (r as { categoria_id: string | null }).categoria_id;
+        if (!k) continue;
+        map[k] = (map[k] ?? 0) + 1;
+      }
+      return map;
+    },
+  });
   const toggleCategoria = (id: string) =>
     setCategoriaIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const [start_time, setStart] = useState(camp.start_time.slice(0, 5));
@@ -1449,7 +1462,6 @@ function BlastCampaignCard({
     <div className="rounded-xl border border-border p-5 space-y-5" style={{ background: "var(--gradient-card)" }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-lg">{camp.name}</h3>
           <p className="text-xs text-muted-foreground">
             Estado:{" "}
             <span
@@ -1472,12 +1484,12 @@ function BlastCampaignCard({
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-primary-foreground"
             style={{ background: "var(--gradient-primary)" }}
           >
-            <Play className="h-3.5 w-3.5" /> Iniciar
+            <Play className="h-3.5 w-3.5" /> {camp.state === "pausado" ? "Retomar" : "Iniciar"}
           </button>
           <button
             type="button"
             onClick={handleStartNow}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/20"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
             title="Dispara AGORA ignorando horário, distribuição natural e delay entre envios"
           >
             ⚡ Disparar Agora
@@ -1485,14 +1497,14 @@ function BlastCampaignCard({
           <button
             type="button"
             onClick={() => stateMut.mutate("pausado")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
           >
             <Pause className="h-3.5 w-3.5" /> Pausar
           </button>
           <button
             type="button"
             onClick={() => stateMut.mutate("parado")}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/50 bg-transparent px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
           >
             <Square className="h-3.5 w-3.5" /> Parar
           </button>
@@ -1558,6 +1570,47 @@ function BlastCampaignCard({
         </Field>
       </div>
 
+      {/* Contexto: tempo entre disparos + ETA */}
+      {(() => {
+        const avg = (delay_min_sec + delay_max_sec) / 2;
+        const minMin = (delay_min_sec / 60).toFixed(1);
+        const maxMin = (delay_max_sec / 60).toFixed(1);
+        const [sh, sm] = start_time.split(":").map(Number);
+        const [eh, em] = end_time.split(":").map(Number);
+        const startMin = (sh || 0) * 60 + (sm || 0);
+        const endMin = (eh || 0) * 60 + (em || 0);
+        const totalSec = daily_limit * avg;
+        const endEstimMin = startMin + Math.round(totalSec / 60);
+        const overflows = endEstimMin > endMin;
+        const hh = Math.floor((endEstimMin % (24 * 60)) / 60);
+        const mm = endEstimMin % 60;
+        const hhmm = `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+        return (
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              Isso equivale a cerca de <strong>{minMin}</strong> a <strong>{maxMin}</strong> minutos entre cada disparo.
+            </p>
+            <div
+              className={`rounded-lg border p-3 text-xs ${
+                overflows
+                  ? "border-warning/50 bg-warning/10 text-warning"
+                  : "border-primary/30 bg-primary/5 text-foreground"
+              }`}
+            >
+              {overflows ? (
+                <>
+                  ⚠️ Não deve concluir hoje com esse ritmo — a estimativa passaria de <strong>{hhmm}</strong> (limite {end_time}). Considere reduzir o delay ou o limite/dia.
+                </>
+              ) : (
+                <>
+                  Com esse ritmo, os <strong>{daily_limit}</strong> disparos do dia terminam por volta das <strong>{hhmm}</strong>.
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Base de contatos (categorias) — full width para não quebrar o grid */}
       <div className="rounded-lg border border-border bg-card/40 p-3 space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1581,6 +1634,7 @@ function BlastCampaignCard({
           )}
           {categories.map((c) => {
             const on = categoria_ids.includes(c.id);
+            const count = (catCounts as Record<string, number>)[c.id] ?? 0;
             return (
               <button
                 key={c.id}
@@ -1593,7 +1647,9 @@ function BlastCampaignCard({
                 }`}
               >
                 <span>{c.icone}</span>
-                <span>{c.nome}</span>
+                <span>
+                  {c.nome} <span className="opacity-70">({count})</span>
+                </span>
                 {on && <span className="text-primary">✓</span>}
               </button>
             );
@@ -2017,28 +2073,36 @@ function NumberHealthCard({ numberId }: { numberId: string }) {
           </p>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-background/50 p-4 md:grid-cols-4">
-        <div>
-          <p className="text-xs text-muted-foreground">Saúde do número</p>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div
+          className={`rounded-lg border p-3 ${
+            danger
+              ? "border-destructive/50 bg-destructive/10"
+              : warning
+                ? "border-warning/50 bg-warning/10"
+                : "border-success/40 bg-success/10"
+          }`}
+        >
+          <p className="text-[11px] text-muted-foreground">Saúde do número</p>
           <p
-            className={`mt-1 text-sm font-semibold ${
+            className={`mt-1 text-xl font-bold ${
               danger ? "text-destructive" : warning ? "text-warning" : "text-success"
             }`}
           >
             {danger ? "Crítica" : warning ? "Atenção" : "OK"}
           </p>
         </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Taxa de falha (24h)</p>
-          <p className="mt-1 text-sm font-semibold">{health.failRate}%</p>
+        <div className="rounded-lg border border-border bg-background/50 p-3">
+          <p className="text-[11px] text-muted-foreground">Taxa de falha (24h)</p>
+          <p className="mt-1 text-xl font-bold">{health.failRate}%</p>
         </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Enviadas (24h)</p>
-          <p className="mt-1 text-sm font-semibold">{health.sent24h}</p>
+        <div className="rounded-lg border border-border bg-background/50 p-3">
+          <p className="text-[11px] text-muted-foreground">Enviadas (24h)</p>
+          <p className="mt-1 text-xl font-bold">{health.sent24h}</p>
         </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Falhas (24h)</p>
-          <p className="mt-1 text-sm font-semibold">{health.failed24h}</p>
+        <div className="rounded-lg border border-border bg-background/50 p-3">
+          <p className="text-[11px] text-muted-foreground">Falhas (24h)</p>
+          <p className="mt-1 text-xl font-bold">{health.failed24h}</p>
         </div>
       </div>
     </div>
