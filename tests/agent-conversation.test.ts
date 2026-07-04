@@ -338,3 +338,63 @@ describe("9) Auto-split de mensagens longas com \\n\\n", () => {
     expect(parts[2]).toBe("www.mindsmmpanel.com");
   });
 });
+
+// ---------------------------------------------------------------------------
+// 10) Objeção com "?" NUNCA é tratada como recusa
+// ---------------------------------------------------------------------------
+describe('10) "Não é golpe?" e afins — objeção, nunca encerramento', () => {
+  const FAREWELL_CLOSURE = [
+    /tudo bem[!,\.\s]+(agrade[çc]o|desculp)/i,
+    /desculpa o inc[oô]modo/i,
+    /se precisar no futuro/i,
+    /fico [aà] disposi[çc][aã]o se mudar de ideia/i,
+    /mudar de ideia\s*😊?$/i,
+  ];
+
+  it("prompt distingue recusa real de objeção com '?'", () => {
+    const prompt = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [],
+    });
+    expect(
+      /termine com "\?"|termina com "\?"/i.test(prompt),
+      "FALHOU: prompt não menciona a distinção por ponto de interrogação",
+    ).toBe(true);
+    expect(
+      /n[aã]o [eé] golpe\?/i.test(prompt),
+      'FALHOU: prompt não cita exemplo "não é golpe?"',
+    ).toBe(true);
+    expect(
+      /NUNCA [eé] recusa|nunca .* recusa/i.test(prompt),
+      'FALHOU: prompt não diz explicitamente que pergunta com "?" nunca é recusa',
+    ).toBe(true);
+  });
+
+  it.each(["Não é golpe?", "não vai dar problema?", "isso não cai não?", "não tem risco?"])(
+    'resposta do agente para "%s" NÃO deve conter frase de encerramento',
+    async (pergunta) => {
+      // Mock devolve o texto que o Claude devolveria se seguisse a regra:
+      // tranquilização + reforço do próximo passo.
+      const goodReply =
+        "Nada disso! A gente trabalha há anos no mercado, pagamento é direto no painel via PIX, entrega automática e ainda tem botão de refil de garantia. Pode ficar tranquilo, é só criar sua conta no painel 😊";
+      const { text } = await callAgent({
+        history: [
+          { sender: "agente", body: "Show! Cria sua conta no painel: www.mindsmmpanel.com" },
+          { sender: "cliente", body: pergunta },
+        ],
+        mockReply: goodReply,
+      });
+      for (const rx of FAREWELL_CLOSURE) {
+        expect(
+          rx.test(text),
+          `FALHOU: resposta contém frase de encerramento (${rx}) para pergunta de objeção "${pergunta}": "${text}"`,
+        ).toBe(false);
+      }
+      expect(
+        /tranquil|seguro|garantia|anos no mercado|painel/i.test(text),
+        `FALHOU: resposta não tranquiliza o cliente: "${text}"`,
+      ).toBe(true);
+    },
+  );
+});
