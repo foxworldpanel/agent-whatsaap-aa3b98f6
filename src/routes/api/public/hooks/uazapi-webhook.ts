@@ -1889,7 +1889,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // ===== Funis de boas-vindas (múltiplos por número; primeiro gatilho que casar dispara, uma vez por contato) =====
         // Se a mensagem é resposta a disparo, o agente Júlia assume direto — pula funil.
-        if (numberId && !isDirectClientQuestion(inboundBody) && !isBlastReply) {
+        // Se technicalFactContext foi setado, pula funil e vai direto pro Claude
+        // (o fato técnico precisa ser comunicado imediatamente ao cliente).
+        if (numberId && !isDirectClientQuestion(inboundBody) && !isBlastReply && !technicalFactContext) {
           try {
             const { data: funnels } = await supabaseAdmin
               .from("welcome_funnels")
