@@ -410,10 +410,15 @@ export async function generateAgentReplyWithMeta(params: {
 
   // Modelo dinâmico: Sonnet (com visão) quando há imagem; Haiku para texto/áudio.
   const hasImage = !!imageBase64;
+  // Nas primeiras 3 respostas do agente numa conversa de Disparo (isInbound=false),
+  // força Sonnet: é o trecho em que a aderência ao script de vendas mais importa.
+  const agentTurnsSoFar = history.filter((m) => m.sender === "agente").length;
+  const isBlastEarlyTurn = !isInbound && agentTurnsSoFar <= 3;
   const { model, reason: routingReason } = pickClaudeModel({
     hasImage,
     inputKind,
     latestMessage: latestClientMessage,
+    isBlastEarlyTurn,
   });
   console.info("[agent-ai] Roteamento modelo:", { model, routingReason });
 
