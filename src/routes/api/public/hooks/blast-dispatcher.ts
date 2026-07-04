@@ -322,7 +322,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 const createdContact = await supabaseAdmin
                   .from("contacts")
                   .insert({
-                    user_id: camp.user_id,
                     user_id: mirrorUserId,
                     telefone: phoneDigits,
                     nome: next.contact.nome ?? phoneDigits,
@@ -340,7 +339,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               const { data: convRows, error: convErr } = await (supabaseAdmin as any).rpc(
                 "get_or_create_active_conversation",
                 {
-                  _user_id: camp.user_id,
                   _user_id: mirrorUserId,
                   _contact_id: contactId,
                   _whatsapp_number_id: numberRow.id,
@@ -362,7 +360,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   messageParts[i],
                 );
                 await logEvent({
-                  userId: camp.user_id,
                   userId: mirrorUserId,
                   phone: next.contact.telefone,
                   conversationId: mirrorConversationId,
@@ -383,7 +380,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   },
                 });
                 const mirrorInsert = await supabaseAdmin.from("messages").insert({
-                  user_id: camp.user_id,
                   user_id: mirrorUserId,
                   conversation_id: mirrorConversationId,
                   sender: "agente",
@@ -393,7 +389,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 } as never);
                 if (mirrorInsert.error) {
                   await logEvent({
-                    userId: camp.user_id,
                     userId: mirrorUserId,
                     phone: next.contact.telefone,
                     conversationId: mirrorConversationId,
@@ -418,7 +413,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   throw new Error(`mirror message insert failed: ${mirrorInsert.error.message}`);
                 }
                 await logEvent({
-                  userId: camp.user_id,
                   userId: mirrorUserId,
                   phone: next.contact.telefone,
                   conversationId: mirrorConversationId,
