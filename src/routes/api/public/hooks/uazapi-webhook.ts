@@ -1502,10 +1502,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                         : /spotify\.com|spotify\.link/.test(l)
                           ? "na sua música"
                           : "no seu Reel";
-                    replyText = `Aqui mostra que foi entregue! Às vezes leva alguns minutos pra atualizar. Se em 1 hora não aparecer, abre um ticket no painel no menu Suporte! Dá uma olhada agora ${local}`;
+                    technicalFactContext = `FATO TÉCNICO VERIFICADO: o teste grátis anterior desse cliente (order ${lastTrial.order_id}) foi ENTREGUE com sucesso pelo provedor ${local}. Se o cliente afirma que não chegou, oriente: às vezes leva alguns minutos pra atualizar; se em 1 hora não aparecer, abrir ticket no menu Suporte do painel.`;
                   }
                 } else if (status === "pending" || status === "processing" || status === "in_progress") {
-                  replyText = "Ainda está processando, já vai chegar! Normalmente leva alguns minutos";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: o teste grátis anterior (order ${lastTrial.order_id}) está com status "${status}" no provedor — ainda está sendo processado, deve chegar em poucos minutos.`;
                 } else if (status === "canceled" || status === "cancelled" || status === "partial" || status === "failed") {
                   // Reenvia automaticamente o pedido com o mesmo link
                   try {
@@ -1528,7 +1528,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                         status: "pending",
                         raw_response: res.raw as never,
                       });
-                      replyText = "Tive um problema no envio anterior, já reenviei pra você!";
+                      technicalFactContext = `FATO TÉCNICO VERIFICADO: o teste grátis anterior falhou (status "${status}") no provedor e o sistema JÁ REENVIOU automaticamente agora com o mesmo link (novo order ${res.order}). Comunique isso ao cliente com naturalidade.`;
                     }
                   } catch (e) {
                     console.error("[free-trial:complaint] resend failed", e);
@@ -1539,21 +1539,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }
             }
 
-            if (replyText) {
-              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial complaint)");
-              try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (complaint) failed", e); }
-              const nowC = new Date().toISOString();
-              await supabaseAdmin.from("messages").insert({
-                user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: replyText,
-              });
-              await supabaseAdmin.from("conversations").update({
-                last_message_preview: replyText.slice(0, 120),
-                last_message_at: nowC,
-                status: "aguardando",
-              }).eq("id", conv.id);
-              return new Response("ok (free trial complaint)");
-            }
-            // Sem pedido encontrado ou status indefinido → deixa o agente normal responder
+            // Sem replyText direto: se technicalFactContext foi setado, deixa
+            // o Claude formular a resposta no idioma/tom da conversa. Se nem
+            // fato técnico foi apurado, também deixa o agente responder normal.
+            void replyText;
           }
 
           const link = detectSocialLink(inboundBody);
