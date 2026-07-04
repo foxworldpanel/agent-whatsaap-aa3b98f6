@@ -14,6 +14,7 @@ export type AgentIdentityFields = {
   exemplo_disparo: string;
   reconhecimento_interesse: string;
   regra_encerramento: string;
+  regra_estilo_escrita: string;
 };
 
 export const IDENTITY_FIELDS: Array<keyof AgentIdentityFields> = [
