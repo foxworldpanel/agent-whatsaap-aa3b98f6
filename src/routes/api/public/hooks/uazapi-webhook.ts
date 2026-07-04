@@ -2903,31 +2903,42 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         });
         const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-        // Human-like behavior: random delay between min and max, optional typing indicator.
+        // Human-like behavior: random delay antes da primeira bolha + delay
+        // proporcional ao tamanho do texto entre bolhas divididas.
         const a = agent as {
           response_delay_min_sec?: number;
           response_delay_max_sec?: number;
           typing_indicator_enabled?: boolean;
         };
-        // Para respostas de áudio, encurtamos o delay para evitar estourar o
-        // tempo de execução do Worker antes do TTS rodar (ElevenLabs + envio
-        // já levam vários segundos por si só). A presença "gravando" continua
-        // sendo enviada durante a geração do áudio.
-        // Cap absoluto: agora processamos o webhook de forma síncrona (não
-        // dá pra usar waitUntil neste runtime), então o delay precisa caber
-        // bem dentro do timeout do Uazapi (~60s) considerando ainda IA + TTS.
         // Cap absoluto: processamos o webhook de forma síncrona neste runtime
-        // (sem waitUntil), então qualquer sleep grande estoura o tempo de
-        // execução do Worker antes do envio — o Claude responde mas a
-        // mensagem nunca chega a sair. Mantemos caps baixos.
-        const HARD_CAP_SEC = respondWithAudio ? 5 : 8;
-        const baseMin = Math.max(0, Math.min(a.response_delay_min_sec ?? 2, HARD_CAP_SEC));
-        const baseMax = Math.max(baseMin, Math.min(a.response_delay_max_sec ?? 5, HARD_CAP_SEC));
-        const minSec = baseMin;
-        const maxSec = baseMax;
-        const delaySegundos = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
-        console.log('Delay sorteado:', delaySegundos, 'segundos');
-        const delayMs = delaySegundos * 1000;
+        // (sem waitUntil). Para áudio, ainda temos TTS + envio; então o teto
+        // do delay INICIAL é menor. O total (inicial + entre bolhas) é
+        // limitado por TOTAL_BUDGET_MS abaixo pra nunca passar de 10s.
+        const HARD_CAP_MS = (respondWithAudio ? 5 : 8) * 1000;
+        const cfgMinMs = (a.response_delay_min_sec ?? 2) * 1000;
+        const cfgMaxMs = (a.response_delay_max_sec ?? 5) * 1000;
+        // Inicial: 2–5s por padrão, com piso de 1s ("ler + começar a digitar"),
+        // variação aleatória contínua (não em segundos inteiros) pra não ficar
+        // padrão mecânico.
+        const initMinMs = Math.max(1000, Math.min(cfgMinMs, HARD_CAP_MS));
+        const initMaxMs = Math.max(initMinMs, Math.min(cfgMaxMs, HARD_CAP_MS));
+        const delayMs = Math.round(initMinMs + Math.random() * (initMaxMs - initMinMs));
+        console.log('Delay inicial (ms):', delayMs);
+
+        // Teto do delay TOTAL (inicial + entre bolhas). Nunca ultrapassa 10s.
+        const TOTAL_DELAY_BUDGET_MS = 10_000;
+        const delayStartTs = Date.now();
+        const remainingBudgetMs = () =>
+          Math.max(0, TOTAL_DELAY_BUDGET_MS - (Date.now() - delayStartTs));
+        // Delay entre bolhas: proporcional ao tamanho da PRÓXIMA bolha
+        // (30–50ms por caractere, sorteado), clampado em [1500, 3500]ms,
+        // e ainda limitado pelo orçamento total restante.
+        const nextBubbleDelayMs = (nextText: string): number => {
+          const perChar = 30 + Math.random() * 20; // 30–50 ms/char
+          const raw = (nextText?.length ?? 0) * perChar;
+          const clamped = Math.max(1500, Math.min(3500, raw));
+          return Math.min(clamped, remainingBudgetMs());
+        };
         const typingOn = a.typing_indicator_enabled !== false;
         if (delayMs > 0) {
           // Renova o status de presença a cada ~10s (Uazapi expira rápido)
@@ -3099,8 +3110,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             for (const url of askedLinkBySpeech ? [] : extractedUrls) {
               if (memWasRecentlySent(phone, url) || await wasRecentlySent(conv.id, url)) continue;
               memMarkSent(phone, url);
-              await uazapiSendTyping(sendCreds, phone, 1000).catch(() => {});
-              await sleep(1000);
+              const gap = nextBubbleDelayMs(url);
+              if (gap > 0) {
+                await uazapiSendTyping(sendCreds, phone, gap + 500).catch(() => {});
+                await sleep(gap);
+              }
               await uazapiSendText(sendCreds, phone, url);
             }
             }
@@ -3111,8 +3125,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 continue;
               }
               memMarkSent(phone, replyParts[i]);
-              await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
-              await sleep(1200);
+              const gap = nextBubbleDelayMs(replyParts[i]);
+              if (gap > 0) {
+                await uazapiSendTyping(sendCreds, phone, gap + 500).catch(() => {});
+                await sleep(gap);
+              }
               await uazapiSendText(sendCreds, phone, replyParts[i]);
             }
           } else {
@@ -3183,8 +3200,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 });
               } catch {}
               if (i < replyParts.length - 1) {
-                await uazapiSendTyping(sendCreds, phone, 1200).catch(() => {});
-                await sleep(1200);
+                const gap = nextBubbleDelayMs(replyParts[i + 1]);
+                if (gap > 0) {
+                  await uazapiSendTyping(sendCreds, phone, gap + 500).catch(() => {});
+                  await sleep(gap);
+                }
               }
             }
           }
