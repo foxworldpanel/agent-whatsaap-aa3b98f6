@@ -2543,7 +2543,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             servicesContext,
             // CRÍTICO: se o cliente respondeu a um disparo, isso NÃO é receptivo.
             // Deixar isInbound=true para respostas de disparo faz o ai.server.ts pular
-            // o bloco EXEMPLO_MODELO_DISPARO (e o RECAP final), matando o script de vendas.
+            // o bloco EXEMPLO_MODELO_DISPARO da identidade, matando o script de vendas.
             // Usamos isBlastThread (não isBlastReply) porque, após o 1º inbound, o status
             // do blast_contact vira "respondeu" → isBlastReply=false nas mensagens
             // seguintes, mas a conversa continua sendo originada de disparo e o script
