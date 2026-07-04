@@ -2383,6 +2383,27 @@ function ContactListsSection() {
                 <span className="ml-auto text-[10px] text-muted-foreground">Aplicada a todos os contatos do CSV.</span>
               </div>
 
+              {/* Estatísticas da categoria selecionada */}
+              {importCategoryId && (() => {
+                const s = catStats[importCategoryId] ?? { total: 0, enviados: 0, restam: 0 };
+                return (
+                  <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/60 bg-background/40 p-3">
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total na base</p>
+                      <p className="mt-1 text-lg font-semibold">{s.total.toLocaleString("pt-BR")}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Já enviados</p>
+                      <p className="mt-1 text-lg font-semibold text-emerald-500">{s.enviados.toLocaleString("pt-BR")}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Restam enviar</p>
+                      <p className="mt-1 text-lg font-semibold text-primary">{s.restam.toLocaleString("pt-BR")}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Dropzone */}
               <label
                 htmlFor="csv-import-input"
