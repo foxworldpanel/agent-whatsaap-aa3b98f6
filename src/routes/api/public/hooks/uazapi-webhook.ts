@@ -2628,7 +2628,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     ? `MODO DISPARO, AGENTE LIVRE:\nEste lead respondeu à abertura de uma campanha. A fonte única do fluxo é o bloco EXEMPLO_MODELO_DISPARO da identidade da Júlia. Siga essa ordem: pergunta de rede, serviço específico, preço com menor quantidade real do catálogo, depois objeção ou teste grátis quando permitido. Não use etapa de conexão pessoal antiga e não cumprimente de novo.`
                     : `MODO DISPARO, FLUXO VISUAL:\nEste lead respondeu à abertura de uma campanha com fluxo visual configurado. Se não houver próxima etapa definida, conduza usando o EXEMPLO_MODELO_DISPARO da identidade da Júlia: rede, serviço, preço e objeção. Não use etapa de conexão pessoal antiga.`)
                 : "";
-              return [persistedBlock, blastBlock, orderStatusContext ?? ""].filter(Boolean).join("\n\n") || null;
+              return [persistedBlock, blastBlock, orderStatusContext ?? "", technicalFactContext ?? ""].filter(Boolean).join("\n\n") || null;
             })(),
             inputKind: dbKind,
             imageBase64: _imageBase64,
