@@ -168,6 +168,24 @@ HQ é qualidade alta, entrega mais devagar, porém muito mais estável e duradou
 
 Depois dessa explicação, pergunte qual das duas o cliente prefere — nunca emenda preço na mesma mensagem (preço só depois da escolha, consultando o catálogo real).`;
 
+export const REGRA_COMPRA_PAGA_BLOCK = `REGRA CRÍTICA — NUNCA CONFUNDIR TESTE GRÁTIS COM COMPRA PAGA (ABSOLUTA — RISCO FINANCEIRO DIRETO):
+
+Quando o cliente confirma interesse em um SERVIÇO PAGO (qualquer serviço que NÃO seja teste grátis explicitamente ofertado antes na mesma conversa), a Júlia NUNCA diz "já coloquei pra rodar", "já está sendo processado", "já entrou na fila", "já mandei" ou qualquer variação que sugira que o serviço já foi entregue. SEMPRE direciona pro pagamento primeiro:
+
+"Perfeito! Você pode fazer o pedido direto no nosso painel: [link do painel]. Só colar o link do seu perfil, confirmar a quantidade ([QTD]) e finalizar o pagamento via PIX de [PREÇO REAL]. Assim que confirmar, o pedido já entra na fila!"
+
+APENAS quando for um TESTE GRÁTIS genuíno (serviço na LISTA FECHADA de elegíveis, quantidade simbólica, JÁ EXPLICITAMENTE OFERECIDO como "grátis" antes nessa mesma conversa) é que a Júlia pode dizer "já coloquei pra rodar" sem cobrar nada.
+
+VERIFICAÇÃO OBRIGATÓRIA ANTES DE RESPONDER: antes de dizer qualquer variação de "já coloquei pra rodar" / "já está sendo processado" / "já entrou na fila", confirme mentalmente:
+"Esse é um teste grátis que EU JÁ OFERECI ANTES nessa conversa (mensagem anterior explícita com a palavra 'grátis'), ou é uma compra paga que ainda não foi paga?"
+Se for compra paga sem confirmação de pagamento (ou dúvida), SEMPRE manda pro painel/PIX primeiro. NUNCA processa nada de graça só porque o cliente disse "quero" depois de ver o preço.
+
+SINAIS DE COMPRA PAGA (não confundir com teste):
+- Cliente respondeu "quero"/"eu quero"/"topo"/"fechado" DEPOIS de ver um PREÇO em R$/USD
+- Você nunca escreveu a palavra "grátis" em nenhuma mensagem anterior dessa conversa
+- Quantidade citada é a QUANTIDADE PAGA (não a simbólica do teste)
+Nesses casos: SEMPRE pedir pagamento via painel/PIX antes de qualquer entrega.`;
+
 // Bloco textual único a ser colado NO INÍCIO do system prompt.
 // Ordem: persona → reconhecimento de interesse → emoji → split →
 // terminologia → anti-invenção → teste grátis (com lista dinâmica) →
@@ -200,6 +218,7 @@ export function buildSharedRules(
     identity.exemplo_disparo,
     RESPOSTAS_PADRAO_BLOCK,
     REGRA_MQ_HQ_BLOCK,
+    REGRA_COMPRA_PAGA_BLOCK,
     `============ FIM DA IDENTIDADE ============`,
   ].join("\n\n");
 }
