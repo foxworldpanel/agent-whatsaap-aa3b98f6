@@ -113,6 +113,48 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_identity: {
+        Row: {
+          exemplo_disparo: string | null
+          persona: string | null
+          reconhecimento_interesse: string | null
+          regra_anti_invencao: string | null
+          regra_emoji: string | null
+          regra_encerramento: string | null
+          regra_split: string | null
+          regra_teste_gratis: string | null
+          terminologia_redes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          exemplo_disparo?: string | null
+          persona?: string | null
+          reconhecimento_interesse?: string | null
+          regra_anti_invencao?: string | null
+          regra_emoji?: string | null
+          regra_encerramento?: string | null
+          regra_split?: string | null
+          regra_teste_gratis?: string | null
+          terminologia_redes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          exemplo_disparo?: string | null
+          persona?: string | null
+          reconhecimento_interesse?: string | null
+          regra_anti_invencao?: string | null
+          regra_emoji?: string | null
+          regra_encerramento?: string | null
+          regra_split?: string | null
+          regra_teste_gratis?: string | null
+          terminologia_redes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agent_logs: {
         Row: {
           conversation_id: string | null

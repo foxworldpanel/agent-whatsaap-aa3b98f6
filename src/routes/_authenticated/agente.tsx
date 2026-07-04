@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
 import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 import { MediasCard } from "@/components/agente/MediasCard";
+import { IdentidadeCard } from "@/components/agente/IdentidadeCard";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/agente")({
@@ -131,6 +132,7 @@ function AgentePage() {
       </div>
 
       <div className="flex flex-col gap-2">
+        <IdentidadeCard />
         <TesteGratisCard />
         <MediasCard tipo="video" title="Vídeos tutoriais" emoji="🎬" />
         <MediasCard tipo="imagem" title="Artes e promoções" emoji="🖼️" />

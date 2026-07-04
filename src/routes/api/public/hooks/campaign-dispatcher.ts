@@ -105,6 +105,7 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
                   anthropicApiKey: integ.anthropic_api_key,
                   agent,
                   contact: { nome: contact.nome, perfil: contact.perfil },
+                  userId: camp.user_id,
                   history: [
                     {
                       sender: "cliente",
