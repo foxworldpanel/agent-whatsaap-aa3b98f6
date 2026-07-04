@@ -302,6 +302,39 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 : normalizeOpeningParts(renderTemplate(next.template, next.contact))
               : [renderTemplate(next.template, next.contact).trim()].filter(Boolean);
 
+            // Claim atômico do contato ANTES de enviar. Sem isso, cron + clique
+            // manual ou dois workers simultâneos podiam ler o mesmo contato ainda
+            // como "pendente" e reenviar a abertura antes do status final virar
+            // "enviado_abertura". O update condicional faz só um worker vencer.
+            const sendingStatus = `enviando_${next.stage}`;
+            const { data: claimedRows, error: claimErr } = await supabaseAdmin
+              .from("blast_contacts")
+              .update({ status: sendingStatus, updated_at: new Date().toISOString() } as never)
+              .eq("id", next.contact.id)
+              .eq("status", next.contact.status)
+              .select("id");
+            if (claimErr) throw new Error(`claim blast contact failed: ${claimErr.message}`);
+            if (!claimedRows || claimedRows.length === 0) {
+              await logEvent({
+                userId: camp.user_id,
+                type: "blast_skipped",
+                level: "warn",
+                summary: `🚀 Disparo ignorado: contato já estava sendo processado (${next.contact.nome})`,
+                metadata: {
+                  origem: "disparo",
+                  direcao: "enviado",
+                  tipo: "bloqueio",
+                  campaign_id: camp.id,
+                  blast_contact_id: next.contact.id,
+                  expected_status: next.contact.status,
+                  claim_status: sendingStatus,
+                  reason: "contact_claim_lost",
+                } as never,
+              });
+              results.push({ campaign: camp.name, sent: 0, skipped: "contato já estava sendo processado" });
+              continue;
+            }
+
             // Prepara a conversa ANTES de enviar. Assim, cada parte enviada com
             // sucesso é persistida imediatamente após o aceite da Uazapi — se o
             // worker encerrar depois, o histórico não fica vazio para a resposta
@@ -532,6 +565,10 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             } else {
               console.log(`[blast-dispatcher] ${camp.name}: erro ao enviar para ${next.contact.nome}: ${errMsg}`);
               results.push({ campaign: camp.name, sent: 0, skipped: `falhou: ${errMsg}` });
+              await supabaseAdmin
+                .from("blast_contacts")
+                .update({ status: "erro", error_message: errMsg ?? "falha no envio", updated_at: new Date().toISOString() } as never)
+                .eq("id", next.contact.id);
               await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
             }
           } catch (e) {
