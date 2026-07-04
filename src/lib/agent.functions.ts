@@ -486,7 +486,13 @@ export const getIntegrations = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!data) return null;
+    const mask0 = (v: unknown) => (typeof v === "string" && v.length > 0 ? "••••••" : null);
+    if (!data) {
+      return {
+        anthropic_api_key: mask0(process.env.ANTHROPIC_API_KEY),
+        openai_api_key: mask0(process.env.OPENAI_API_KEY),
+      };
+    }
     // Mask secret values before returning to the browser: expose only whether
     // each credential is configured, never the raw token/key.
     const mask = (v: unknown) => (typeof v === "string" && v.length > 0 ? "••••••" : null);
