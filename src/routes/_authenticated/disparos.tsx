@@ -1331,6 +1331,10 @@ function BlastCampaignCard({
 
   const selectedNumber = numbers.find((n) => n.id === whatsapp_number_id);
   const pendingContacts = contacts.filter((c) => c.status === "pendente").length;
+  const totalContacts = contacts.length;
+  const isCompleted =
+    totalContacts > 0 && pendingContacts === 0 && camp.state !== "rodando";
+  const displayState = isCompleted ? "concluído" : camp.state;
 
   function effectiveLimitFromNumber(): number {
     const cfg = Math.max(1, Math.min(daily_limit ?? 200, 200));
@@ -1467,14 +1471,16 @@ function BlastCampaignCard({
             Estado:{" "}
             <span
               className={
-                camp.state === "rodando"
-                  ? "text-success font-medium"
-                  : camp.state === "pausado"
-                    ? "text-warning font-medium"
-                    : "text-muted-foreground"
+                isCompleted
+                  ? "text-primary font-semibold"
+                  : camp.state === "rodando"
+                    ? "text-success font-medium"
+                    : camp.state === "pausado"
+                      ? "text-warning font-medium"
+                      : "text-muted-foreground"
               }
             >
-              {camp.state}
+              {isCompleted ? "✅ concluído (100%)" : displayState}
             </span>
           </p>
         </div>
