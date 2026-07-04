@@ -2198,6 +2198,27 @@ function ContactListsSection() {
     },
   });
 
+  // Contagem detalhada por categoria (total / enviados / restam) — leitura pura.
+  const { data: catStats = {} } = useQuery({
+    queryKey: ["contact_categories_status_counts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_contacts")
+        .select("categoria_id, status");
+      const map: Record<string, { total: number; enviados: number; restam: number }> = {};
+      for (const r of (data ?? []) as Array<{ categoria_id: string | null; status: string }>) {
+        if (!r.categoria_id) continue;
+        const s = map[r.categoria_id] ?? { total: 0, enviados: 0, restam: 0 };
+        s.total += 1;
+        if (r.status && r.status.startsWith("enviado_")) s.enviados += 1;
+        else if (r.status === "respondeu" || r.status === "convertido") s.enviados += 1;
+        else if (r.status === "pendente" || r.status === "na_fila") s.restam += 1;
+        map[r.categoria_id] = s;
+      }
+      return map;
+    },
+  });
+
   const { data: camps = [] } = useQuery({
     queryKey: ["blast_campaigns", "active-by-list"],
     queryFn: async () => {
@@ -2221,6 +2242,7 @@ function ContactListsSection() {
         () => {
           qc.invalidateQueries({ queryKey: ["contact_lists"] });
           qc.invalidateQueries({ queryKey: ["contact_categories_counts"] });
+          qc.invalidateQueries({ queryKey: ["contact_categories_status_counts"] });
         },
       )
       .subscribe();
@@ -2360,6 +2382,27 @@ function ContactListsSection() {
                 </select>
                 <span className="ml-auto text-[10px] text-muted-foreground">Aplicada a todos os contatos do CSV.</span>
               </div>
+
+              {/* Estatísticas da categoria selecionada */}
+              {importCategoryId && (() => {
+                const s = catStats[importCategoryId] ?? { total: 0, enviados: 0, restam: 0 };
+                return (
+                  <div className="grid grid-cols-3 gap-2 rounded-xl border border-border/60 bg-background/40 p-3">
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total na base</p>
+                      <p className="mt-1 text-lg font-semibold">{s.total.toLocaleString("pt-BR")}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Já enviados</p>
+                      <p className="mt-1 text-lg font-semibold text-emerald-500">{s.enviados.toLocaleString("pt-BR")}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Restam enviar</p>
+                      <p className="mt-1 text-lg font-semibold text-primary">{s.restam.toLocaleString("pt-BR")}</p>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Dropzone */}
               <label
