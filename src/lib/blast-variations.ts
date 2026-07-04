@@ -12,19 +12,19 @@ export type LangTemplates = {
 
 export const SAUDACOES_DEFAULT: Record<"manha" | "tarde" | "noite", string[]> = {
   manha: [
-    "Oi, bom dia {nome}!",
-    "Bom dia {nome}, tudo bem?",
-    "Oi {nome}, bom dia!",
+    "Oi, bom dia!",
+    "Bom dia, tudo bem?",
+    "Oi, bom dia!",
   ],
   tarde: [
-    "Oi, boa tarde {nome}!",
-    "Boa tarde {nome}, tudo bem?",
-    "Oi {nome}, boa tarde!",
+    "Oi, boa tarde!",
+    "Boa tarde, tudo bem?",
+    "Oi, boa tarde!",
   ],
   noite: [
-    "Oi, boa noite {nome}!",
-    "Boa noite {nome}, tudo bem?",
-    "Oi {nome}, boa noite!",
+    "Oi, boa noite!",
+    "Boa noite, tudo bem?",
+    "Oi, boa noite!",
   ],
 };
 
@@ -52,19 +52,19 @@ export const PERGUNTAS_DEFAULT: string[] = [
 export const EN_DEFAULT: LangTemplates = {
   saudacoes: {
     manha: [
-      "Hi, good morning {nome}!",
-      "Hello, good morning {nome}!",
-      "Good morning {nome}, how are you?",
+      "Hi, good morning!",
+      "Hello, good morning!",
+      "Good morning, how are you?",
     ],
     tarde: [
-      "Hi, good afternoon {nome}!",
-      "Hello, good afternoon {nome}!",
-      "Good afternoon {nome}, how are you?",
+      "Hi, good afternoon!",
+      "Hello, good afternoon!",
+      "Good afternoon, how are you?",
     ],
     noite: [
-      "Hi, good evening {nome}!",
-      "Hello, good evening {nome}!",
-      "Good evening {nome}, how are you?",
+      "Hi, good evening!",
+      "Hello, good evening!",
+      "Good evening, how are you?",
     ],
   },
   linha2: [
@@ -90,19 +90,19 @@ export const EN_DEFAULT: LangTemplates = {
 export const ES_DEFAULT: LangTemplates = {
   saudacoes: {
     manha: [
-      "Hola, buenos días {nome}!",
-      "¡Buenos días {nome}!",
-      "Buenos días {nome}, ¿cómo estás?",
+      "¡Hola, buenos días!",
+      "¡Buenos días!",
+      "Buenos días, ¿cómo estás?",
     ],
     tarde: [
-      "Hola, buenas tardes {nome}!",
-      "¡Buenas tardes {nome}!",
-      "Buenas tardes {nome}, ¿cómo estás?",
+      "¡Hola, buenas tardes!",
+      "¡Buenas tardes!",
+      "Buenas tardes, ¿cómo estás?",
     ],
     noite: [
-      "Hola, buenas noches {nome}!",
-      "¡Buenas noches {nome}!",
-      "Buenas noches {nome}, ¿cómo estás?",
+      "¡Hola, buenas noches!",
+      "¡Buenas noches!",
+      "Buenas noches, ¿cómo estás?",
     ],
   },
   linha2: [
