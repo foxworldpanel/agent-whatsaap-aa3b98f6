@@ -292,7 +292,7 @@ export async function generateAgentReplyWithMeta(params: {
   const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices: freeTestServicesRaw = [], extraContext = null, inputKind = "texto", imageBase64 = null, imageMediaType = null } = params;
   const latestClientMessage = getLatestClientMessage(history);
 
-  const forcedInitialBlastReply = !isInbound ? getInitialBlastInterestReply(history) : null;
+  const forcedInitialBlastReply = getInitialBlastInterestReply(history);
   if (forcedInitialBlastReply) {
     console.info("[agent-ai] Regra determinística aplicada: interesse inicial pós-abertura de disparo");
     return { text: forcedInitialBlastReply, model: "rule-based", routingReason: "blast_initial_interest_guard" };
