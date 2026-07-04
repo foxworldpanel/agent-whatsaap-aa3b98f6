@@ -5,6 +5,7 @@ import { ChevronDown, RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Collapsible,
@@ -58,7 +59,16 @@ export function IdentidadeCard() {
   }, [defaults, stored]);
 
   const save = useMutation({
-    mutationFn: (payload: Values) => saveFn({ data: payload }),
+    mutationFn: (payload: Values) => {
+      // Persistir SOMENTE campos divergentes do default atual.
+      // Campos iguais ao default viram null no banco (backend converte "" → null),
+      // assim futuras atualizações de DEFAULT_IDENTITY chegam livremente.
+      const diff: Record<string, string> = {};
+      for (const f of FIELDS) {
+        diff[f.key] = payload[f.key] === (defaults?.[f.key] as string) ? "" : payload[f.key];
+      }
+      return saveFn({ data: diff as Values });
+    },
     onSuccess: () => {
       toast.success("Identidade salva");
       qc.invalidateQueries({ queryKey: ["agent_identity"] });
@@ -96,15 +106,27 @@ export function IdentidadeCard() {
             {FIELDS.map((f) => {
               const val = values[f.key] ?? "";
               const isDefault = val === (defaults[f.key] as string);
+              const storedVal = (stored?.[f.key] ?? null) as string | null;
+              const isCustomizedInDb = !!(storedVal && storedVal.trim().length > 0 && storedVal !== (defaults[f.key] as string));
               return (
                 <div key={f.key} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">{f.label}</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium">{f.label}</label>
+                      {isDefault ? (
+                        <Badge variant="secondary" className="text-[10px]">Padrão do sistema</Badge>
+                      ) : (
+                        <Badge variant="default" className="text-[10px]">
+                          {isCustomizedInDb ? "Customizado (salvo)" : "Editado (não salvo)"}
+                        </Badge>
+                      )}
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       disabled={isDefault}
                       onClick={() => restoreDefault(f.key)}
+                      title="Volta ao texto padrão do código e, ao salvar, remove a customização do banco"
                     >
                       <RotateCcw className="mr-1 h-3 w-3" /> Padrão
                     </Button>
