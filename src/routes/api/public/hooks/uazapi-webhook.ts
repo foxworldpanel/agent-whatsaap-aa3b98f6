@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { autoSplitLongParts } from "@/lib/message-splitter";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
