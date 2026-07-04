@@ -80,6 +80,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
         }
 
         for (const camp of camps ?? []) {
+          let claimedBlastContactId: string | null = null;
           try {
             if (opts.campaignId || bypass) {
               await logEvent({
@@ -204,7 +205,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // Escolher próximo contato e estágio ANTES das travas para que o
             // painel/log informe a causa real (sem contato vs limite/agente) e
             // para números de teste poderem ignorar limites/blacklist.
-            let claimedBlastContactId: string | null = null;
             const next = await pickNext(supabaseAdmin, camp);
             if (!next) {
               console.log(`[blast-dispatcher] ${camp.name}: sem contatos elegíveis (list_id=${camp.contact_list_id ?? "null"})`);
