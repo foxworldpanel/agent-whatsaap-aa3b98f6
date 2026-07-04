@@ -1658,7 +1658,7 @@ function BlastCampaignCard({
       </div>
 
       <div className="space-y-3">
-        <VariationInfoCard />
+        {/* <VariationInfoCard /> — oculto a pedido */}
         <div className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
