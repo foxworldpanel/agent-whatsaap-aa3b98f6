@@ -1459,6 +1459,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         // ===== TESTE GRÁTIS: detecta link IG/YT na mensagem do cliente =====
+        // Fato técnico verificado: acumulador injetado no extraContext do Claude
+        // quando o webhook detecta uma condição técnica (teste já usado, link de
+        // foto em vez de Reel, erro do provedor). Substitui as respostas fixas
+        // antigas — o Claude formula a mensagem no idioma/tom da conversa.
+        let technicalFactContext: string | null = null;
         if (integ.free_trial_enabled && integ.smm_api_key) {
           const { detectSocialLink, normalizeSocialLink, smmAddOrder, smmOrderStatus } = await import("@/lib/smm.server");
 
