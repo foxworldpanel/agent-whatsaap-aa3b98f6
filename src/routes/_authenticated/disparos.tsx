@@ -819,9 +819,9 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">
-                    {r.sent_via_number_id ? (
-                      <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px]">
-                        📱 {numbersMap[r.sent_via_number_id] ?? "—"}
+                    {r.sent_via_number_id && numbersMap[r.sent_via_number_id] ? (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                        {numbersMap[r.sent_via_number_id]}
                       </span>
                     ) : (
                       <span className="text-[10px]">—</span>
