@@ -275,6 +275,7 @@ export async function generateAgentReply(params: {
   inputKind?: "texto" | "audio";
   imageBase64?: string | null;
   imageMediaType?: string | null;
+  userId?: string | null;
 }): Promise<string> {
   const { text } = await generateAgentReplyWithMeta(params);
   return text;
@@ -360,9 +361,14 @@ export async function generateAgentReplyWithMeta(params: {
   inputKind?: "texto" | "audio";
   imageBase64?: string | null;
   imageMediaType?: string | null;
+  userId?: string | null;
 }): Promise<{ text: string; model: string; routingReason: string }> {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices: freeTestServicesRaw = [], extraContext = null, inputKind = "texto", imageBase64 = null, imageMediaType = null } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices: freeTestServicesRaw = [], extraContext = null, inputKind = "texto", imageBase64 = null, imageMediaType = null, userId = null } = params;
   const latestClientMessage = getLatestClientMessage(history);
+
+  // FONTE ÚNICA DE IDENTIDADE — carrega do banco (com fallback pros defaults)
+  // e injeta como PRIMEIRO bloco do system prompt (posição de primazia máxima).
+  const identity = await loadAgentIdentity(userId);
 
   const forcedInitialBlastReply = getInitialBlastInterestReply(history);
   if (forcedInitialBlastReply) {
