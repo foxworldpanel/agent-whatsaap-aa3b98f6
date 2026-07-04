@@ -299,14 +299,117 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
     }
     if (!url || !token) throw new Error("Uazapi não configurado para este número");
 
-    const message = (camp.opening_message ?? "")
+    const rendered = (camp.opening_message ?? "")
       .replace(/\{nome\}/gi, "Teste")
       .replace(/\{instagram\}/gi, "teste");
 
+    // Abertura SEMPRE em bolhas separadas (mesma regra do dispatcher).
+    const messageParts = splitOpeningParts(rendered);
+    if (messageParts.length === 0) throw new Error("Mensagem de abertura vazia");
+
     const { uazapiSendText } = await import("@/lib/uazapi.server");
-    await uazapiSendText({ uazapi_url: url, uazapi_token: token }, phone, message);
-    return { ok: true, sentTo: phone };
+    for (let i = 0; i < messageParts.length; i++) {
+      await uazapiSendText({ uazapi_url: url, uazapi_token: token }, phone, messageParts[i]);
+      if (i < messageParts.length - 1) {
+        await new Promise((r) => setTimeout(r, 1000 + Math.random() * 2000));
+      }
+    }
+
+    // 🔴 Espelha abertura em contacts/conversations/messages para que o histórico
+    // do Claude tenha o contexto quando o cliente responder — mesmo caminho do
+    // dispatcher, agora aplicado ao envio de teste (inclusive reenvio em
+    // conversas já existentes).
+    try {
+      const phoneDigits = phone;
+      let contactId: string | null = null;
+      {
+        const { data: existing } = await supabaseAdmin
+          .from("contacts")
+          .select("id")
+          .eq("user_id", context.userId)
+          .eq("telefone", phoneDigits)
+          .maybeSingle();
+        if (existing?.id) {
+          contactId = existing.id;
+        } else {
+          const ins = await supabaseAdmin
+            .from("contacts")
+            .insert({
+              user_id: context.userId,
+              telefone: phoneDigits,
+              nome: "Teste",
+              origem: "disparo",
+              status: "em_conversa",
+              whatsapp_number_id: camp.whatsapp_number_id ?? null,
+            } as never)
+            .select("id")
+            .single();
+          contactId = ins.data?.id ?? null;
+        }
+      }
+      if (contactId) {
+        const { data: convRows, error: convErr } = await (supabaseAdmin as any).rpc(
+          "get_or_create_active_conversation",
+          {
+            _user_id: context.userId,
+            _contact_id: contactId,
+            _whatsapp_number_id: camp.whatsapp_number_id ?? null,
+            _initial_status: "aguardando",
+          },
+        );
+        if (convErr) throw convErr;
+        const convId: string | null = convRows?.[0]?.id ?? null;
+        if (convId) {
+          const nowIso = new Date().toISOString();
+          await supabaseAdmin.from("messages").insert(
+            messageParts.map((part, idx) => ({
+              user_id: context.userId,
+              conversation_id: convId,
+              sender: "agente",
+              kind: "texto",
+              body: part,
+              created_at: new Date(Date.now() + idx).toISOString(),
+            })) as never,
+          );
+          await supabaseAdmin
+            .from("conversations")
+            .update({
+              last_message_preview: messageParts.join("\n\n").slice(0, 120),
+              last_message_at: nowIso,
+              status: "aguardando",
+            } as never)
+            .eq("id", convId);
+        }
+      }
+    } catch (e) {
+      console.error("[testBlastCampaign] failed to mirror opener into messages", e);
+    }
+
+    return { ok: true, sentTo: phone, parts: messageParts.length };
   });
+
+// Espelha normalizeOpeningParts do dispatcher — abertura em 3 bolhas quando possível.
+function splitOpeningParts(text: string): string[] {
+  const raw = (text ?? "").trim();
+  if (!raw) return [];
+  const blocks = raw.split(/\n\s*\n|\n+/).map((s) => s.trim()).filter(Boolean);
+  if (blocks.length >= 3) return blocks.slice(0, 3);
+  if (blocks.length === 2) {
+    const tail = blocks[1].match(/^(.+?[.!])\s+([^.!?]+\?)$/);
+    if (tail) return [blocks[0], tail[1].trim(), tail[2].trim()];
+    return blocks;
+  }
+  const sentences =
+    raw.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [raw];
+  if (sentences.length >= 3) {
+    return [
+      sentences[0],
+      sentences.slice(1, -1).join(" "),
+      sentences[sentences.length - 1],
+    ].filter(Boolean);
+  }
+  return sentences;
+}
 
 export const getNumberHealth = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
