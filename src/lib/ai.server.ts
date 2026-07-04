@@ -603,14 +603,18 @@ export async function generateAgentReplyWithMeta(params: {
   };
   const text = (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
   const finalText = text || "…";
+  // Sanitiza tiques de escrita de IA: em-dash / en-dash no meio de frases
+  // denunciam texto gerado por LLM. Substitui por vírgula (com fallback
+  // para hífen quando não estiver cercado por espaços).
+  const humanized = humanizePunctuation(finalText);
   // Guarda pós-geração: se o LLM tentou oferecer teste grátis de um serviço
   // que não está na lista de elegíveis (freeTestServicesRaw filtrado), o
   // texto é substituído por uma deflexão segura para evitar risco financeiro.
-  const guarded = guardFreeTrialOffer({ reply: finalText, freeTestServices });
+  const guarded = guardFreeTrialOffer({ reply: humanized, freeTestServices });
   if (guarded.replaced) {
     console.error("[agent-ai] GUARD: oferta de teste grátis bloqueada", {
       reason: guarded.reason,
-      originalPreview: finalText.slice(0, 200),
+      originalPreview: humanized.slice(0, 200),
       allowedServices: freeTestServices.map((s) => s.service_name),
     });
   }
