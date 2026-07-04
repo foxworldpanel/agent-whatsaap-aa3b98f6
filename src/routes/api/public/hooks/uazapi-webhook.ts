@@ -1064,27 +1064,45 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         let blastLastSentAt: string | null = null;
         try {
           // isBlastThread = existe QUALQUER registro de blast_contacts para
-          // esse telefone, INDEPENDENTE de status ou de last_sent_at estar
-          // preenchido. Não filtramos por user_id porque o disparo pode ter
-          // sido criado por outro user_id em setups multi-conta e ainda assim
-          // é a mesma conversa de disparo. Pegamos o registro mais recente
-          // (preferindo last_sent_at, caindo para created_at) para extrair
-          // sent_via_number_id / campaign_id / status.
+          // esse telefone NESSE mesmo whatsapp_number_id que recebeu a
+          // mensagem. Sem filtrar por número, o mesmo telefone usado em
+          // disparos por outro número seria tratado como thread de disparo
+          // em qualquer conversa receptiva — bug de contexto cruzado entre
+          // números (ex.: Mind-Disparo x Mind-Campanha).
+          // Não filtramos por user_id porque o disparo pode ter sido criado
+          // por outro user_id em setups multi-conta e ainda assim é a mesma
+          // conversa de disparo. Match do número é feito via
+          // sent_via_number_id OU via whatsapp_number_id da campanha (para
+          // registros ainda pendentes, sem sent_via_number_id preenchido).
+          // Buscamos todos os registros para esse telefone e filtramos em
+          // JS pelo numberId, aceitando match direto (sent_via_number_id)
+          // ou via campanha (blast_campaigns.whatsapp_number_id) para
+          // registros pendentes ainda sem sent_via_number_id preenchido.
           const { data: latestBlastForPhone } = await supabaseAdmin
             .from("blast_contacts")
-            .select("id, status, campaign_id, sent_via_number_id, last_sent_at, created_at")
+            .select("id, status, campaign_id, sent_via_number_id, last_sent_at, created_at, blast_campaigns(whatsapp_number_id)")
             .eq("telefone", phone)
             .order("last_sent_at", { ascending: false, nullsFirst: false })
             .order("created_at", { ascending: false })
-            .limit(1);
-          const latestBlast = latestBlastForPhone?.[0] as {
+            .limit(20);
+          type BlastRow = {
             id?: string;
             status?: string | null;
             campaign_id?: string | null;
             sent_via_number_id?: string | null;
             last_sent_at?: string | null;
             created_at?: string | null;
-          } | undefined;
+            blast_campaigns?: { whatsapp_number_id?: string | null } | Array<{ whatsapp_number_id?: string | null }> | null;
+          };
+          const rows = (latestBlastForPhone ?? []) as BlastRow[];
+          const matchesNumber = (r: BlastRow) => {
+            if (!numberId) return true;
+            if (r.sent_via_number_id && r.sent_via_number_id === numberId) return true;
+            const camp = Array.isArray(r.blast_campaigns) ? r.blast_campaigns[0] : r.blast_campaigns;
+            if (!r.sent_via_number_id && camp?.whatsapp_number_id === numberId) return true;
+            return false;
+          };
+          const latestBlast = rows.find(matchesNumber);
           isBlastThread = !!latestBlast;
           blastLastSentAt = latestBlast?.last_sent_at ?? null;
           if (latestBlast?.sent_via_number_id) {
