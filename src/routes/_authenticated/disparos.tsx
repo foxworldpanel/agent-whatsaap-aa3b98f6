@@ -1343,7 +1343,8 @@ function BlastCampaignCard({
   }
 
   function handleStart() {
-    if (pendingContacts >= 100) {
+    const isResuming = camp.state === "pausado";
+    if (!isResuming && pendingContacts >= 100) {
       const limit = effectiveLimitFromNumber();
       const days = Math.max(1, Math.ceil(pendingContacts / Math.max(1, limit)));
       const ok = confirm(
@@ -1358,7 +1359,7 @@ function BlastCampaignCard({
       toast.error("Selecione um número de WhatsApp antes de iniciar.");
       return;
     }
-    if (pendingContacts === 0) {
+    if (!isResuming && pendingContacts === 0) {
       toast.error("Nenhum contato com status 'pendente' na lista vinculada. Importe contatos antes de iniciar.");
       return;
     }
