@@ -161,6 +161,18 @@ function LogsPage() {
         </Button>
       </div>
 
+      {modelCounts.total > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-4 py-3 text-sm">
+          <span className="text-muted-foreground">Roteamento de modelo (janela carregada):</span>
+          <Badge variant="secondary">🪶 Haiku: {modelCounts.haiku}</Badge>
+          <Badge variant="secondary">🎼 Sonnet: {modelCounts.sonnet}</Badge>
+          {modelCounts.other > 0 && <Badge variant="outline">Outros: {modelCounts.other}</Badge>}
+          <span className="text-muted-foreground">
+            · Sonnet ratio: {((modelCounts.sonnet / modelCounts.total) * 100).toFixed(0)}%
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
         <div className="flex w-full flex-wrap items-center gap-2">
           {([
