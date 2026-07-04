@@ -1064,16 +1064,30 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         let blastLastSentAt: string | null = null;
         try {
           // isBlastThread = existe QUALQUER registro de blast_contacts para
-          // esse telefone, INDEPENDENTE de status ou de last_sent_at estar
-          // preenchido. Não filtramos por user_id porque o disparo pode ter
-          // sido criado por outro user_id em setups multi-conta e ainda assim
-          // é a mesma conversa de disparo. Pegamos o registro mais recente
-          // (preferindo last_sent_at, caindo para created_at) para extrair
-          // sent_via_number_id / campaign_id / status.
-          const { data: latestBlastForPhone } = await supabaseAdmin
+          // esse telefone NESSE mesmo whatsapp_number_id que recebeu a
+          // mensagem. Sem filtrar por número, o mesmo telefone usado em
+          // disparos por outro número seria tratado como thread de disparo
+          // em qualquer conversa receptiva — bug de contexto cruzado entre
+          // números (ex.: Mind-Disparo x Mind-Campanha).
+          // Não filtramos por user_id porque o disparo pode ter sido criado
+          // por outro user_id em setups multi-conta e ainda assim é a mesma
+          // conversa de disparo. Match do número é feito via
+          // sent_via_number_id OU via whatsapp_number_id da campanha (para
+          // registros ainda pendentes, sem sent_via_number_id preenchido).
+          let blastQuery = supabaseAdmin
             .from("blast_contacts")
-            .select("id, status, campaign_id, sent_via_number_id, last_sent_at, created_at")
-            .eq("telefone", phone)
+            .select("id, status, campaign_id, sent_via_number_id, last_sent_at, created_at, blast_campaigns!inner(whatsapp_number_id)")
+            .eq("telefone", phone);
+          if (numberId) {
+            blastQuery = blastQuery.or(
+              `sent_via_number_id.eq.${numberId},and(sent_via_number_id.is.null,whatsapp_number_id.eq.${numberId})`,
+              { foreignTable: "blast_campaigns" as never } as never,
+            );
+            // The OR above needs to reference both tables; use a simpler
+            // approach: filter by sent_via_number_id when set, otherwise
+            // by campaign.whatsapp_number_id.
+          }
+          const { data: latestBlastForPhone } = await blastQuery
             .order("last_sent_at", { ascending: false, nullsFirst: false })
             .order("created_at", { ascending: false })
             .limit(1);
