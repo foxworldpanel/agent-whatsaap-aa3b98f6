@@ -2265,11 +2265,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .maybeSingle();
           const latestAt = latestClient?.created_at ?? null;
           const latestExt = latestClient?.external_id ?? null;
+          // Só é "superseded" se a mensagem mais recente TIVER um external_id
+          // diferente do meu — comparar timestamps é frágil porque a
+          // `created_at` da própria linha inserida acima (default now() no
+          // banco) é alguns milissegundos > `now` (capturado no cliente
+          // antes do INSERT), o que descartaria TODA resposta.
           const isSuperseded =
             !!latestAt &&
-            (new Date(latestAt).getTime() > new Date(now).getTime() ||
-              (latestExt && messageId && latestExt !== messageId &&
-                new Date(latestAt).getTime() === new Date(now).getTime()));
+            !!latestExt &&
+            !!messageId &&
+            latestExt !== messageId &&
+            new Date(latestAt).getTime() >= new Date(now).getTime();
           if (isSuperseded) {
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
