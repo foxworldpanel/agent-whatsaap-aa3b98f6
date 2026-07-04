@@ -1597,19 +1597,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                       .limit(1)
                       .maybeSingle();
                     if (completedThis && !isTestNumber) {
-                      const replyText = `Você já recebeu seu teste grátis de ${platformMatch.label}! Posso te montar um pacote completo agora?`;
-                      if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial-used)");
-                      try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (trial-used) failed", e); }
-                      const nowT = new Date().toISOString();
-                      await supabaseAdmin.from("messages").insert({
-                        user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: replyText,
-                      });
-                      await supabaseAdmin.from("conversations").update({
-                        last_message_preview: replyText.slice(0, 120),
-                        last_message_at: nowT,
-                        status: "aguardando",
-                      }).eq("id", conv.id);
-                      return new Response("ok (trial already used for platform)");
+                      // #4: NÃO responde com frase fixa. Injeta fato técnico e
+                      // deixa o Claude formular no idioma/tom da conversa.
+                      technicalFactContext = `FATO TÉCNICO VERIFICADO: este cliente já utilizou o teste grátis de ${platformMatch.label} anteriormente (limite: 1 teste por número por rede). Não pode receber novo teste grátis dessa mesma rede. Informe isso ao cliente de forma natural, no idioma da conversa, e ofereça seguir para um pacote pago pequeno como alternativa (menor quantidade real do catálogo).`;
+                      void creds;
                     }
                     // Não usou essa plataforma ainda → deixa IA seguir e pedir o link
                   }
