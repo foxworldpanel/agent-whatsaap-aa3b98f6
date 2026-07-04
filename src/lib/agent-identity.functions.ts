@@ -12,6 +12,7 @@ const IdentitySchema = z.object({
   exemplo_disparo: z.string().optional().nullable(),
   reconhecimento_interesse: z.string().optional().nullable(),
   regra_encerramento: z.string().optional().nullable(),
+  regra_estilo_escrita: z.string().optional().nullable(),
 });
 
 export const getAgentIdentity = createServerFn({ method: "GET" })
@@ -49,6 +50,7 @@ export const updateAgentIdentity = createServerFn({ method: "POST" })
       exemplo_disparo: clean(data.exemplo_disparo),
       reconhecimento_interesse: clean(data.reconhecimento_interesse),
       regra_encerramento: clean(data.regra_encerramento),
+      regra_estilo_escrita: clean(data.regra_estilo_escrita),
     };
     const { error } = await context.supabase
       .from("agent_identity")
