@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_identity ADD COLUMN IF NOT EXISTS regra_estilo_escrita text;
