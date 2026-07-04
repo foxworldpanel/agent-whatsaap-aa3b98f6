@@ -127,6 +127,20 @@ function LogsPage() {
     return logs.filter((l) => inferOrigem(l) === origemFilter);
   }, [logs, origemFilter]);
 
+  // Contagem Haiku vs Sonnet nos logs carregados (últimos claude_reply).
+  const modelCounts = useMemo(() => {
+    let haiku = 0, sonnet = 0, other = 0;
+    for (const l of logs) {
+      if (l.type !== "claude_reply" || l.level === "error") continue;
+      const m = (l.metadata ?? {}) as Record<string, unknown>;
+      const model = typeof m.model === "string" ? m.model : null;
+      if (model?.includes("haiku")) haiku += 1;
+      else if (model?.includes("sonnet")) sonnet += 1;
+      else if (model) other += 1;
+    }
+    return { haiku, sonnet, other, total: haiku + sonnet + other };
+  }, [logs]);
+
   const toggle = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
