@@ -1,5 +1,5 @@
 // Server-only Claude (Anthropic) call to generate the agent reply.
-import { buildSharedRules, loadAgentIdentity } from "@/lib/agent-identity.server";
+import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity } from "@/lib/agent-identity.server";
 
 type AgentConfig = {
   agent_name: string;
@@ -200,8 +200,7 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
   // Nota: buildSystemPrompt é síncrono (só usado por diagnostics como preview).
   // O prompt real de produção usa generateAgentReplyWithMeta, que carrega
   // a identidade do banco. Aqui usamos defaults + `buildSharedRules` sem I/O.
-  const identityPreview = require("@/lib/agent-identity.server") as typeof import("@/lib/agent-identity.server");
-  const sharedRules = identityPreview.buildSharedRules(identityPreview.DEFAULT_IDENTITY, { freeTestServices });
+  const sharedRules = buildSharedRules(DEFAULT_IDENTITY, { freeTestServices });
   const latestClientMessage = getLatestClientMessage(history);
   const system = [
     sharedRules,
