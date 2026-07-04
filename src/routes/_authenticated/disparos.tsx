@@ -53,6 +53,7 @@ import {
 import { listCategories } from "@/lib/categories.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 import { BlastFlowBuilder } from "@/components/BlastFlowBuilder";
+import { Switch } from "@/components/ui/switch";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
   ssr: false,
@@ -1744,6 +1745,64 @@ function NumbersCard() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp_numbers"] }),
   });
 
+  // Campanhas rodando (por número) — leitura pura, apenas para exibição.
+  const { data: runningCampaigns = [] } = useQuery({
+    queryKey: ["numbers_card_running_campaigns"],
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("blast_campaigns")
+        .select("id, name, state, whatsapp_number_id")
+        .eq("state", "rodando");
+      return (data ?? []) as Array<{ id: string; name: string; state: string; whatsapp_number_id: string | null }>;
+    },
+  });
+  const runningByNumber: Record<string, string> = {};
+  for (const c of runningCampaigns) {
+    if (c.whatsapp_number_id && !runningByNumber[c.whatsapp_number_id]) {
+      runningByNumber[c.whatsapp_number_id] = c.name;
+    }
+  }
+
+  // Métricas ao vivo por número (disparos hoje + última msg) — apenas leitura.
+  const { data: liveStats = {} } = useQuery({
+    queryKey: ["numbers_card_live_stats"],
+    refetchInterval: 20_000,
+    queryFn: async () => {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const { data } = await supabase
+        .from("blast_contacts")
+        .select("sent_via_number_id, last_sent_at")
+        .not("sent_via_number_id", "is", null)
+        .not("last_sent_at", "is", null)
+        .gte("last_sent_at", startOfDay.toISOString())
+        .order("last_sent_at", { ascending: false })
+        .limit(2000);
+      const stats: Record<string, { count: number; last: string | null }> = {};
+      for (const r of (data ?? []) as Array<{ sent_via_number_id: string | null; last_sent_at: string | null }>) {
+        if (!r.sent_via_number_id) continue;
+        const s = stats[r.sent_via_number_id] ?? { count: 0, last: null };
+        s.count += 1;
+        if (!s.last || (r.last_sent_at && r.last_sent_at > s.last)) s.last = r.last_sent_at;
+        stats[r.sent_via_number_id] = s;
+      }
+      return stats;
+    },
+  });
+
+  const relTime = (iso: string | null): string => {
+    if (!iso) return "—";
+    const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+    const min = Math.floor(diff / 60000);
+    if (min < 1) return "agora";
+    if (min < 60) return `há ${min} min`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `há ${h}h`;
+    const d = Math.floor(h / 24);
+    return `há ${d}d`;
+  };
+
   return (
     <section
       className="rounded-xl border border-border p-5"
@@ -1792,61 +1851,79 @@ function NumbersCard() {
                     : day === 3
                       ? 150
                       : 200;
+            const runningName = runningByNumber[n.id];
+            const stats = liveStats[n.id];
             return (
               <div
                 key={n.id}
-                className={`rounded-lg border p-4 transition-colors ${active ? "border-primary bg-primary/5" : "border-border bg-background/40"}`}
+                className={`rounded-lg border p-4 transition-colors ${active ? "border-2 border-primary bg-primary/5" : "border border-border bg-background/40"}`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="font-semibold truncate">{n.nome}</p>
                     <p className="text-xs mt-0.5">
                       <span className={connected ? "text-emerald-500" : "text-muted-foreground"}>
                         ● {connected ? "Conectado" : n.status}
                       </span>
                     </p>
-                  </div>
-                  {active && (
-                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                      <Check className="h-3 w-3" /> Disparo
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => toggleMut.mutate({ id: n.id, disparos_mode: !active })}
-                  disabled={toggleMut.isPending}
-                  className={`mt-3 w-full rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${active ? "bg-primary text-primary-foreground" : "border border-border hover:bg-muted"}`}
-                >
-                  {active ? "Ativo para disparo" : "Ativar para disparo"}
-                </button>
-                {active && (
-                  <div className="mt-3 space-y-2 border-t border-border pt-3 text-xs">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Aquecimento</span>
-                      <span className="font-medium">
-                        {n.warmup_enabled ? (day === 0 ? "ainda não iniciou" : `Dia ${day} — ${todayLimit}/dia`) : "desativado"}
+                    {runningName ? (
+                      <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-foreground">
+                        <Zap className="h-3 w-3" /> Rodando: {runningName}
                       </span>
+                    ) : active ? (
+                      <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Disponível
+                      </span>
+                    ) : null}
+                  </div>
+                  <Switch
+                    checked={active}
+                    disabled={toggleMut.isPending}
+                    onCheckedChange={(v) => toggleMut.mutate({ id: n.id, disparos_mode: v })}
+                    aria-label={active ? "Desativar para disparo" : "Ativar para disparo"}
+                  />
+                </div>
+                {active && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-background/60 p-2 text-xs">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Disparos hoje</p>
+                      <p className="font-semibold">{stats?.count ?? 0}</p>
                     </div>
-                    <label className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground">Aquecimento progressivo</span>
-                      <input
-                        type="checkbox"
-                        checked={!!n.warmup_enabled}
-                        onChange={(e) => toggleMut.mutate({ id: n.id, warmup_enabled: e.target.checked })}
-                        className="h-4 w-4"
-                      />
-                    </label>
-                    <label className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground">Pausar auto se houver risco</span>
-                      <input
-                        type="checkbox"
-                        checked={!!n.auto_pause_on_risk}
-                        onChange={(e) => toggleMut.mutate({ id: n.id, auto_pause_on_risk: e.target.checked })}
-                        className="h-4 w-4"
-                      />
-                    </label>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Última msg</p>
+                      <p className="font-semibold">{relTime(stats?.last ?? null)}</p>
+                    </div>
                   </div>
                 )}
+                <div
+                  className={`mt-3 space-y-2 border-t border-border pt-3 text-xs transition-opacity ${active ? "opacity-100" : "opacity-40 pointer-events-none"}`}
+                  aria-disabled={!active}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Aquecimento</span>
+                    <span className="font-medium">
+                      {n.warmup_enabled ? (day === 0 ? "ainda não iniciou" : `Dia ${day} — ${todayLimit}/dia`) : "desativado"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">Aquecimento progressivo</span>
+                    <Switch
+                      checked={!!n.warmup_enabled}
+                      disabled={!active || toggleMut.isPending}
+                      onCheckedChange={(v) => toggleMut.mutate({ id: n.id, warmup_enabled: v })}
+                      aria-label="Aquecimento progressivo"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">Pausar auto se houver risco</span>
+                    <Switch
+                      checked={!!n.auto_pause_on_risk}
+                      disabled={!active || toggleMut.isPending}
+                      onCheckedChange={(v) => toggleMut.mutate({ id: n.id, auto_pause_on_risk: v })}
+                      aria-label="Pausar auto se houver risco"
+                    />
+                  </div>
+                </div>
               </div>
             );
           })}
