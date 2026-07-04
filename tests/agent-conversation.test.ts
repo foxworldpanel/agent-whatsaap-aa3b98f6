@@ -431,3 +431,106 @@ describe("11) Sem interceptador: agradecimentos passam pelo Claude", () => {
     },
   );
 });
+
+// ---------------------------------------------------------------------------
+// 12) FATO TÉCNICO VERIFICADO — extraContext chega ao Claude e Claude respeita
+// ---------------------------------------------------------------------------
+async function callAgentWithExtra(opts: {
+  history: Array<{ sender: "agente" | "cliente"; body: string }>;
+  mockReply: string;
+  extraContext: string;
+}) {
+  const fetchMock = mockAnthropic(opts.mockReply);
+  vi.stubGlobal("fetch", fetchMock);
+  process.env.ANTHROPIC_API_KEY = "test-key";
+  const res = await generateAgentReplyWithMeta({
+    agent: baseAgent(),
+    contact: baseContact(),
+    history: opts.history,
+    isInbound: true,
+    freeTestServices: [],
+    extraContext: opts.extraContext,
+    userId: null,
+  });
+  return { ...res, fetchMock };
+}
+
+describe("12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext", () => {
+  it("#4 trial já usado por plataforma → fato no prompt + regra na identidade", async () => {
+    const fact = `FATO TÉCNICO VERIFICADO: este cliente já utilizou o teste grátis de Instagram anteriormente (limite: 1 teste por número por rede).`;
+    const { fetchMock } = await callAgentWithExtra({
+      history: [
+        { sender: "agente", body: "Show! Manda o link do seu Reel pra rodar o teste 😊" },
+        { sender: "cliente", body: "https://instagram.com/reel/xyz" },
+      ],
+      mockReply: "Vi aqui que você já usou o teste grátis do Instagram. Posso te montar um pacote pequeno a partir de R$5?",
+      extraContext: fact,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.system.includes(fact), "FALHOU: fato técnico não chegou no system prompt").toBe(true);
+    expect(
+      /FATO T[ÉE]CNICO VERIFICADO/i.test(body.system),
+      "FALHOU: regra da identidade sobre FATO TÉCNICO VERIFICADO ausente",
+    ).toBe(true);
+  });
+
+  it("#5 link é foto → fato técnico injetado", async () => {
+    const fact = `FATO TÉCNICO VERIFICADO: o link enviado pelo cliente é de uma foto/post estático do Instagram, não é um Reel/vídeo.`;
+    const { fetchMock } = await callAgentWithExtra({
+      history: [
+        { sender: "agente", body: "Manda o link do Reel!" },
+        { sender: "cliente", body: "https://instagram.com/p/abc123" },
+      ],
+      mockReply: "Vi aqui que esse link é de uma foto — views só funcionam em Reel. Me manda o link de um Reel do seu perfil!",
+      extraContext: fact,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.system.includes(fact)).toBe(true);
+  });
+
+  it("#6 erro do provedor (perfil privado) → fato técnico injetado", async () => {
+    const fact = `FATO TÉCNICO VERIFICADO: o pedido de teste grátis falhou porque o perfil está configurado como PRIVADO no instagram.`;
+    const { fetchMock } = await callAgentWithExtra({
+      history: [
+        { sender: "cliente", body: "https://instagram.com/reel/xyz" },
+      ],
+      mockReply: "Rapidão: seu perfil tá privado, então o teste não conseguiu rodar. Deixa público por uns minutos e me manda o link de novo!",
+      extraContext: fact,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.system.includes(fact)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 13) Validação de idioma — FATO TÉCNICO respeita o idioma da conversa
+// ---------------------------------------------------------------------------
+describe("13) FATO TÉCNICO respeita o idioma da conversa (EN)", () => {
+  it("conversa em inglês + fato técnico → Claude gera resposta em inglês", async () => {
+    const fact = `FATO TÉCNICO VERIFICADO: this client already used the free trial for Instagram (limit: 1 per number per network).`;
+    const englishReply = "Looks like you've already used your free Instagram trial! I can put together a small paid package starting at R$5 if you want.";
+    const { fetchMock, text } = await callAgentWithExtra({
+      history: [
+        { sender: "agente", body: "Hi! Send me the link of your Reel so I can run the trial 😊" },
+        { sender: "cliente", body: "https://instagram.com/reel/xyz" },
+      ],
+      mockReply: englishReply,
+      extraContext: fact,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    // Confirma que a regra da identidade instrui responder no idioma do cliente
+    expect(
+      /idioma da conversa|no idioma/i.test(body.system),
+      "FALHOU: regra não instrui manter idioma da conversa",
+    ).toBe(true);
+    // Confirma que a resposta ficou em inglês (não voltou pra frase fixa PT)
+    expect(
+      /already used|free trial/i.test(text),
+      `FALHOU: resposta não ficou em inglês: "${text}"`,
+    ).toBe(true);
+    expect(
+      /voc[êe] j[aá] recebeu|voc[êe] j[aá] usou/i.test(text),
+      `FALHOU: resposta contém a frase fixa antiga em português: "${text}"`,
+    ).toBe(false);
+  });
+});
