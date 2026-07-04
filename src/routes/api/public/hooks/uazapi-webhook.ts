@@ -2500,7 +2500,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             contact: { nome: contact.nome, perfil: contact.perfil },
             history: aiHistory,
             servicesContext,
-            isInbound: true,
+            // CRÍTICO: se o cliente respondeu a um disparo, isso NÃO é receptivo.
+            // Deixar isInbound=true para respostas de disparo faz o ai.server.ts pular
+            // o bloco EXEMPLO_MODELO_DISPARO (e o RECAP final), matando o script de vendas.
+            isInbound: !isBlastReply,
             funnelAlreadySent,
             knowledgeExamples,
             panelScreens,
