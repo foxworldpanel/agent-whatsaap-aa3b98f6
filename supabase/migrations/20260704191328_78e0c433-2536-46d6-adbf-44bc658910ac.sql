@@ -1,0 +1,1 @@
+UPDATE public.conversations SET agent_enabled = true WHERE agent_enabled = false; UPDATE public.agent_config SET agent_enabled = true WHERE agent_enabled = false;
