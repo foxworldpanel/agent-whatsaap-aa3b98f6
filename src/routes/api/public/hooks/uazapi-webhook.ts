@@ -1862,130 +1862,42 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // (source/last_blast_stage), não do número.
 
         // ===== Respostas mínimas: emoji/figurinha/reações e "vou ver depois" =====
-        // Roda antes de funil e Claude para não disparar fluxo automático em
-        // confirmações curtas, figurinhas ou adiamentos sem nova dúvida.
-        {
-          const minimalReactionReply = getMinimalReactionReply(kind, inboundBody);
-          const deferredDecision = isDeferredDecisionText(inboundBody);
-          if (minimalReactionReply !== undefined || deferredDecision) {
-            const { data: lastAgentMsg } = await supabaseAdmin
-              .from("messages")
-              .select("body")
-              .eq("conversation_id", conv.id)
-              .eq("sender", "agente")
-              .order("created_at", { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            const lastAgentBody = ((lastAgentMsg as { body?: string } | null)?.body ?? "") as string;
-            const shouldLetBlastOpeningGoToClaude =
-              (isBlastReply || isBlastThread) &&
-              isBlastOpeningQuestion(lastAgentBody) &&
-              !isClearBlastRefusalText(inboundBody);
-
-            if (shouldLetBlastOpeningGoToClaude) {
-              try {
-                const { logEvent } = await import("@/lib/agent-logger.server");
-                await logEvent({
-                  userId,
-                  phone,
-                  conversationId: conv.id,
-                  type: "minimal_reply",
-                  level: "info",
-                  summary: "Resposta curta pós-abertura de disparo liberada para o Claude",
-                  metadata: { kind, inboundBody, deferredDecision, lastAgentBody: lastAgentBody.slice(0, 240) },
-                });
-              } catch {}
-            } else {
-            // Se veio "ok/obrigado/beleza" e ainda não fechamos com "qualquer
-            // coisa me chama", responde a cortesia — antes ficava mudo e o
-            // usuário percebia como "agente parou de responder".
-            let directReply: string | null = deferredDecision
-              ? "Tá bom! Qualquer coisa me chama 😊"
-              : minimalReactionReply === null
-                ? "De nada! Qualquer coisa me chama 😊"
-                : minimalReactionReply ?? null;
-
-            if (deferredDecision && waitingClosureAlreadySent(lastAgentBody)) directReply = null;
-            if (
-              !deferredDecision &&
-              directReply &&
-              (minimalReactionAlreadySent(lastAgentBody) || waitingClosureAlreadySent(lastAgentBody))
-            ) directReply = null;
-
-            if (directReply) {
-              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before minimal reply)");
-              if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
-                const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = replySendCreds;
-                memMarkSent(phone, directReply);
-                await uazapiSendText(creds, phone, directReply);
-                const stamp = new Date().toISOString();
-                await supabaseAdmin.from("messages").insert({
-                  user_id: userId,
-                  conversation_id: conv.id,
-                  sender: "agente",
-                  kind: "texto",
-                  body: directReply,
-                });
-                await supabaseAdmin
-                  .from("conversations")
-                  .update({ last_message_preview: directReply.slice(0, 120), last_message_at: stamp, status: "aguardando" })
-                  .eq("id", conv.id);
-                await supabaseAdmin
-                  .from("contacts")
-                  .update({ last_interaction_at: stamp, status: "em_conversa" })
-                  .eq("id", contact.id);
-                try {
-                  const { logEvent } = await import("@/lib/agent-logger.server");
-                  await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: `Resposta mínima enviada: ${directReply}`, metadata: { kind, inboundBody, deferredDecision } });
-                } catch {}
-                return new Response("ok (minimal reply)");
-              }
-            }
-
-            await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
+        // FILOSOFIA: Claude decide TUDO relacionado a conteúdo. Só interceptamos
+        // emoji-puro / figurinha (reações sem semântica textual — economia de
+        // custo real, zero risco de decisão de venda). Agradecimento, adiamento
+        // e confirmações curtas passam pelo Claude, que aplica a identidade.
+        if (isEmojiOnly(inboundBody) || (kind === "sticker" && (inboundBody ?? "").trim() === "[figurinha recebida]")) {
+          const directReply = "😊";
+          if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before emoji reply)");
+          if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
+            const { uazapiSendText } = await import("@/lib/uazapi.server");
+            memMarkSent(phone, directReply);
+            await uazapiSendText(replySendCreds, phone, directReply);
+            const stamp = new Date().toISOString();
+            await supabaseAdmin.from("messages").insert({
+              user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: directReply,
+            });
+            await supabaseAdmin
+              .from("conversations")
+              .update({ last_message_preview: directReply, last_message_at: stamp, status: "aguardando" })
+              .eq("id", conv.id);
+            await supabaseAdmin
+              .from("contacts")
+              .update({ last_interaction_at: stamp, status: "em_conversa" })
+              .eq("id", contact.id);
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: "Reação curta sem resposta automática", metadata: { kind, inboundBody, deferredDecision } });
+              await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: "Emoji/figurinha respondido sem chamar Claude", metadata: { kind, inboundBody } });
             } catch {}
-            return new Response("ok (short reaction ignored)");
-            }
           }
+          return new Response("ok (emoji reply)");
         }
 
         // ===== Resposta a disparo: agente Júlia assume =====
-        // Se o cliente respondeu ao disparo dizendo NÃO / sem interesse,
-        // envia despedida curta e marca como perdido — sem acionar o agente.
-        if (isBlastReply) {
-          if (isClearBlastRefusalText(text ?? inboundBody ?? "")) {
-            try {
-              const goodbye = "Tudo bem, desculpa o incômodo! Se precisar no futuro é só chamar 😊";
-              const { uazapiSendText } = await import("@/lib/uazapi.server");
-              await uazapiSendText(replySendCreds, phone, goodbye);
-              const stamp = new Date().toISOString();
-              await supabaseAdmin.from("messages").insert({
-                user_id: userId,
-                conversation_id: conv.id,
-                sender: "agente",
-                kind: "texto",
-                body: goodbye,
-              });
-              await supabaseAdmin
-                .from("conversations")
-                .update({ agent_enabled: false, status: "aguardando", last_message_preview: goodbye.slice(0, 120), last_message_at: stamp })
-                .eq("id", conv.id);
-              await supabaseAdmin.from("contacts").update({ status: "sem_resposta" }).eq("id", contact.id);
-              await supabaseAdmin
-                .from("blast_contacts")
-                .update({ status: "perdido" })
-                .eq("user_id", userId)
-                .eq("telefone", phone);
-            } catch (e) {
-              console.error("[blast-no] goodbye failed", e);
-            }
-            return new Response("ok (blast declined)");
-          }
-        }
+        // Recusa de disparo agora é decidida pelo Claude via `regra_encerramento`
+        // (identidade), que distingue RECUSA REAL (afirmação sem "?") de
+        // OBJEÇÃO/PERGUNTA ("não é golpe?"). Interceptador anterior tratava
+        // qualquer "não" como recusa e encerrava — causava bug de "não é golpe?".
 
         // ===== Funis de boas-vindas (múltiplos por número; primeiro gatilho que casar dispara, uma vez por contato) =====
         // Se a mensagem é resposta a disparo, o agente Júlia assume direto — pula funil.
