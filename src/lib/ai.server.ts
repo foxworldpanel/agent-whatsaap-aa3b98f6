@@ -260,10 +260,8 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
       ? `TESTE GRÁTIS DISPONÍVEL (${freeTestServices.length} serviços):\n${freeTestServices.map((s) => `- ${s.service_name} (${s.category}) — ${s.quantity} grátis`).join("\n")}`
       : "",
     `Perfil do contato: ${contact.perfil}.${isInbound ? " Atendimento receptivo." : ""}${funnelAlreadySent ? " Funil de boas-vindas já enviado." : ""}`,
-    // Split: agora vive na identidade compartilhada (prepend acima).
-    `REGRA DE QUEBRA DE LINHA (CRÍTICA — ABSOLUTA): NUNCA use quebra de parágrafo DUPLA (\\n\\n) dentro de uma resposta. Para respiro visual dentro da MESMA mensagem, use SEMPRE quebra simples (\\n). Para dividir em duas mensagens use EXCLUSIVAMENTE "===SPLIT===" — nunca \\n\\n.`,
-    // Emoji: agora vive na identidade compartilhada (prepend acima). Para editar
-    // o comportamento, edite a tabela `agent_identity` via UI Agente IA.
+    // Split e emoji: fonte única é identity.regra_split / identity.regra_emoji
+    // via buildSharedRules (não duplicar aqui).
   ]
     .filter(Boolean)
     .join("\n\n");
