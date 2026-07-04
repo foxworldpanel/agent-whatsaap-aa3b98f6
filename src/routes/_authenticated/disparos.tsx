@@ -676,6 +676,31 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         ))}
       </div>
 
+      {/* Resumo por número (dentro do filtro atual) */}
+      {(() => {
+        const perNumber: Record<string, number> = {};
+        for (const r of filtered) {
+          if (!r.sent_via_number_id) continue;
+          if (!(r.status.startsWith("enviado_") || r.status === "respondeu" || r.status === "convertido")) continue;
+          perNumber[r.sent_via_number_id] = (perNumber[r.sent_via_number_id] ?? 0) + 1;
+        }
+        const entries = Object.entries(perNumber).sort((a, b) => b[1] - a[1]);
+        if (entries.length === 0) return null;
+        return (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/40 p-2 text-[11px]">
+            <span className="font-medium text-muted-foreground uppercase tracking-wide text-[10px]">Resumo por número</span>
+            {entries.map(([id, count]) => (
+              <span key={id} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-0.5">
+                <span className="font-medium text-foreground">{numbersMap[id] ?? "—"}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="font-semibold text-primary">{count}</span>
+                <span className="text-muted-foreground">enviados</span>
+              </span>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Próximo na fila */}
       {nextInLine && (
         <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-sm">
