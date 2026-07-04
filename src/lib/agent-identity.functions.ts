@@ -37,14 +37,22 @@ export const updateAgentIdentity = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => IdentitySchema.parse(input))
   .handler(async ({ data, context }) => {
     const { invalidateAgentIdentityCache } = await import("@/lib/agent-identity.server");
-    const payload: Record<string, string | null> = { user_id: context.userId };
-    for (const [k, v] of Object.entries(data)) {
-      // string vazia = restaurar padrão (grava NULL)
-      payload[k] = typeof v === "string" && v.trim().length > 0 ? v : null;
-    }
+    const clean = (v: unknown) => (typeof v === "string" && v.trim().length > 0 ? v : null);
+    const row = {
+      user_id: context.userId,
+      persona: clean(data.persona),
+      regra_emoji: clean(data.regra_emoji),
+      regra_split: clean(data.regra_split),
+      terminologia_redes: clean(data.terminologia_redes),
+      regra_teste_gratis: clean(data.regra_teste_gratis),
+      regra_anti_invencao: clean(data.regra_anti_invencao),
+      exemplo_disparo: clean(data.exemplo_disparo),
+      reconhecimento_interesse: clean(data.reconhecimento_interesse),
+      regra_encerramento: clean(data.regra_encerramento),
+    };
     const { error } = await context.supabase
       .from("agent_identity")
-      .upsert(payload, { onConflict: "user_id" });
+      .upsert(row, { onConflict: "user_id" });
     if (error) throw new Error(error.message);
     invalidateAgentIdentityCache(context.userId);
     return { ok: true };
