@@ -494,9 +494,9 @@ export const getIntegrations = createServerFn({ method: "GET" })
       ...data,
       uazapi_token: mask(data.uazapi_token),
       uazapi_admin_token: mask(data.uazapi_admin_token),
-      anthropic_api_key: mask(data.anthropic_api_key),
+      anthropic_api_key: mask(data.anthropic_api_key) ?? mask(process.env.ANTHROPIC_API_KEY),
       elevenlabs_api_key: mask(data.elevenlabs_api_key),
-      openai_api_key: mask(data.openai_api_key),
+      openai_api_key: mask(data.openai_api_key) ?? mask(process.env.OPENAI_API_KEY),
       smm_api_key: mask(data.smm_api_key),
     };
   });
