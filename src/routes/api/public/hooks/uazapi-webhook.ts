@@ -3015,6 +3015,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               summary: "Resposta cancelada antes do envio porque o agente foi desativado",
             });
           } catch {}
+          await releaseLock();
           return new Response("ok (agent disabled before send)");
         }
 
@@ -3271,6 +3272,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const { logEvent } = await import("@/lib/agent-logger.server");
             await logEvent({ userId, phone, conversationId: conv.id, type: "send_failed", level: "error", summary: "Falha ao enviar mensagem via Uazapi", error: (e as Error)?.message ?? String(e) });
           } catch {}
+          await releaseLock();
           return new Response(`uazapi send failed: ${(e as Error).message}`, { status: 502 });
         }
 
@@ -3416,5 +3418,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           console.error("lead scoring failed", e);
         }
 
+        await releaseLock();
         return new Response("ok");
 }
