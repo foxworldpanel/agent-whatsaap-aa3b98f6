@@ -27,6 +27,7 @@ export const IDENTITY_FIELDS: Array<keyof AgentIdentityFields> = [
   "exemplo_disparo",
   "reconhecimento_interesse",
   "regra_encerramento",
+  "regra_estilo_escrita",
 ];
 
 export const IDENTITY_LABELS: Record<keyof AgentIdentityFields, string> = {
@@ -39,6 +40,7 @@ export const IDENTITY_LABELS: Record<keyof AgentIdentityFields, string> = {
   exemplo_disparo: "7. Exemplo modelo de disparo",
   reconhecimento_interesse: "8. Reconhecimento de interesse",
   regra_encerramento: "9. Regra de encerramento por recusa",
+  regra_estilo_escrita: "10. Estilo de escrita (soar humano)",
 };
 
 export const DEFAULT_IDENTITY: AgentIdentityFields = {
