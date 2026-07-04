@@ -95,47 +95,55 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// 1) Reconhecimento de interesse amplo — determinístico (rule-based)
+// 1) Reconhecimento de interesse amplo — agora via Claude (sem interceptador)
 // ---------------------------------------------------------------------------
-describe("1) Reconhecimento de interesse pós-abertura de disparo", () => {
+describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)", () => {
   it.each(["blz", "certo", "pode falar", "sim", "manda", "bora"])(
-    'resposta "%s" deve gerar pergunta de rede, nunca despedida',
+    'resposta "%s" chega ao Claude com prompt contendo exemplo_disparo',
     async (resposta) => {
-      const rule = getInitialBlastInterestReply([
-        { sender: "agente", body: OPENING },
-        { sender: "cliente", body: resposta },
-      ]);
+      const { fetchMock, model } = await callAgent({
+        history: [
+          { sender: "agente", body: OPENING },
+          { sender: "cliente", body: resposta },
+        ],
+        mockReply: "Show! Qual rede social você mais usa hoje?",
+      });
+      // Confirma que a chamada REAL ao Claude aconteceu (interceptador removido)
       expect(
-        rule,
-        `FALHOU: nenhuma resposta determinística para interesse "${resposta}"`,
-      ).toBeTruthy();
+        fetchMock.mock.calls.length,
+        `FALHOU: mensagem "${resposta}" foi interceptada — deveria chegar ao Claude`,
+      ).toBeGreaterThanOrEqual(1);
+      expect(model).not.toBe("rule-based");
+      // Confirma que o system prompt carrega o exemplo_disparo (Claude vai decidir)
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(
-        /rede/i.test(rule!),
-        `FALHOU: resposta não pergunta rede: "${rule}"`,
+        /EXEMPLO_MODELO_DISPARO|Qual rede social/i.test(body.system),
+        "FALHOU: system prompt não contém o exemplo_disparo para o Claude aplicar",
       ).toBe(true);
-      expect(
-        hasFarewell(rule!),
-        `FALHOU: resposta contém despedida prematura: "${rule}"`,
-      ).toBe(false);
     },
   );
 });
 
 // ---------------------------------------------------------------------------
-// 2) Cortesia neutra ("oi", "bom dia") — NÃO cai na regra determinística
+// 2) Cortesia neutra ("oi", "bom dia") — também passa pelo Claude
 // ---------------------------------------------------------------------------
-describe('2) Cortesia neutra (não pula pra pergunta de rede)', () => {
+describe('2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria NEUTRA)', () => {
   it.each(["oi", "bom dia", "boa tarde", "olá"])(
-    'resposta "%s" deixa o LLM aplicar a regra (sem forçar rede)',
-    (resposta) => {
-      const rule = getInitialBlastInterestReply([
-        { sender: "agente", body: OPENING },
-        { sender: "cliente", body: resposta },
-      ]);
+    'saudação "%s" chega ao Claude com regra de 3 categorias no prompt',
+    async (resposta) => {
+      const { fetchMock } = await callAgent({
+        history: [
+          { sender: "agente", body: OPENING },
+          { sender: "cliente", body: resposta },
+        ],
+        mockReply: "Bom dia! Posso te mostrar como acelerar suas redes?",
+      });
+      expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(
-        rule,
-        `FALHOU: "${resposta}" foi tratado como interesse afirmado; deveria voltar null para o LLM aplicar a regra de retribuir saudação`,
-      ).toBeNull();
+        /NEUTRA\s*\/?\s*S[OÓ]\s*CORTESIA|reciprocidade social/i.test(body.system),
+        "FALHOU: prompt não contém regra de categoria NEUTRA para o Claude decidir",
+      ).toBe(true);
     },
   );
 });
