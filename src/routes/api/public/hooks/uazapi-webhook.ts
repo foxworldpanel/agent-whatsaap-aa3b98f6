@@ -2306,6 +2306,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const LOCK_POLL_MS = 400;
         const holder = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
         let lockHeld = false;
+        // Limpeza global proativa: apaga QUALQUER trava expirada em qualquer
+        // conversa, não só a atual. Custo praticamente zero (index em
+        // acquired_at) e garante que nenhuma linha órfã fique presa mesmo
+        // que a conversa dela nunca receba outra mensagem.
+        try {
+          const globalCutoff = new Date(Date.now() - LOCK_TTL_MS).toISOString();
+          await supabaseAdmin
+            .from("agent_generation_locks")
+            .delete()
+            .lt("acquired_at", globalCutoff);
+        } catch {}
         const acquireLockStart = Date.now();
         while (Date.now() - acquireLockStart < LOCK_TTL_MS) {
           // Limpa lock expirado (dono anterior travou/errou sem liberar).
