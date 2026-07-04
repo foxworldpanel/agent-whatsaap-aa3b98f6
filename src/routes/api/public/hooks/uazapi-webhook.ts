@@ -1648,22 +1648,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               const isVideo = /\/(reel|reels|tv)\//.test(path);
               const isPhoto = /\/p\//.test(path) && !isVideo;
               if (isPhoto) {
-                const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = replySendCreds;
-                const msg = "Esse link é de uma foto, views só funcionam em Reel ou vídeo. Me manda o link de um Reel do seu perfil!";
-                if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial photo)");
-                try { await uazapiSendText(creds, phone, msg); } catch (e) { console.error("uazapi send (trial photo) failed", e); }
-                await supabaseAdmin.from("messages").insert({
-                  user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: msg,
-                });
-                await supabaseAdmin.from("conversations").update({
-                  last_message_preview: msg.slice(0, 120),
-                  last_message_at: new Date().toISOString(),
-                  status: "aguardando",
-                }).eq("id", conv.id);
-                return new Response("ok (trial blocked: instagram photo)");
+                // #5: NÃO responde com frase fixa. Injeta fato técnico e deixa
+                // o Claude formular no idioma/tom da conversa. Aborta o
+                // processamento do teste (não chama API do provedor).
+                technicalFactContext = `FATO TÉCNICO VERIFICADO: o link enviado pelo cliente é de uma foto/post estático do Instagram (path "${path}"), não é um Reel/vídeo. O serviço de views só funciona em Reels (vídeos). Explique isso ao cliente com clareza e peça o link correto de um Reel ou vídeo do perfil dele.`;
               }
             }
+            // Se o fato técnico "link é foto" foi setado, aborta processamento
+            // do teste — Claude responde com o fato injetado no extraContext.
+            if (technicalFactContext) {
+              // Fall-through direto pro Claude, sem chamar API do provedor.
+            } else {
             // Resolve service: prefer per-platform free_test_services, fall back to legacy smm_service_id
             const platformKeywords: Record<string, string[]> = {
               instagram: ["instagram", "insta"],
