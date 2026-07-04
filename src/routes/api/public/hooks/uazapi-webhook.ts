@@ -1459,6 +1459,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         // ===== TESTE GRÁTIS: detecta link IG/YT na mensagem do cliente =====
+        // Fato técnico verificado: acumulador injetado no extraContext do Claude
+        // quando o webhook detecta uma condição técnica (teste já usado, link de
+        // foto em vez de Reel, erro do provedor). Substitui as respostas fixas
+        // antigas — o Claude formula a mensagem no idioma/tom da conversa.
+        let technicalFactContext: string | null = null;
         if (integ.free_trial_enabled && integ.smm_api_key) {
           const { detectSocialLink, normalizeSocialLink, smmAddOrder, smmOrderStatus } = await import("@/lib/smm.server");
 
@@ -1497,10 +1502,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                         : /spotify\.com|spotify\.link/.test(l)
                           ? "na sua música"
                           : "no seu Reel";
-                    replyText = `Aqui mostra que foi entregue! Às vezes leva alguns minutos pra atualizar. Se em 1 hora não aparecer, abre um ticket no painel no menu Suporte! Dá uma olhada agora ${local}`;
+                    technicalFactContext = `FATO TÉCNICO VERIFICADO: o teste grátis anterior desse cliente (order ${lastTrial.order_id}) foi ENTREGUE com sucesso pelo provedor ${local}. Se o cliente afirma que não chegou, oriente: às vezes leva alguns minutos pra atualizar; se em 1 hora não aparecer, abrir ticket no menu Suporte do painel.`;
                   }
                 } else if (status === "pending" || status === "processing" || status === "in_progress") {
-                  replyText = "Ainda está processando, já vai chegar! Normalmente leva alguns minutos";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: o teste grátis anterior (order ${lastTrial.order_id}) está com status "${status}" no provedor — ainda está sendo processado, deve chegar em poucos minutos.`;
                 } else if (status === "canceled" || status === "cancelled" || status === "partial" || status === "failed") {
                   // Reenvia automaticamente o pedido com o mesmo link
                   try {
@@ -1523,7 +1528,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                         status: "pending",
                         raw_response: res.raw as never,
                       });
-                      replyText = "Tive um problema no envio anterior, já reenviei pra você!";
+                      technicalFactContext = `FATO TÉCNICO VERIFICADO: o teste grátis anterior falhou (status "${status}") no provedor e o sistema JÁ REENVIOU automaticamente agora com o mesmo link (novo order ${res.order}). Comunique isso ao cliente com naturalidade.`;
                     }
                   } catch (e) {
                     console.error("[free-trial:complaint] resend failed", e);
@@ -1534,21 +1539,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }
             }
 
-            if (replyText) {
-              if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial complaint)");
-              try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (complaint) failed", e); }
-              const nowC = new Date().toISOString();
-              await supabaseAdmin.from("messages").insert({
-                user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: replyText,
-              });
-              await supabaseAdmin.from("conversations").update({
-                last_message_preview: replyText.slice(0, 120),
-                last_message_at: nowC,
-                status: "aguardando",
-              }).eq("id", conv.id);
-              return new Response("ok (free trial complaint)");
-            }
-            // Sem pedido encontrado ou status indefinido → deixa o agente normal responder
+            // Sem replyText direto: se technicalFactContext foi setado, deixa
+            // o Claude formular a resposta no idioma/tom da conversa. Se nem
+            // fato técnico foi apurado, também deixa o agente responder normal.
+            void replyText;
           }
 
           const link = detectSocialLink(inboundBody);
@@ -1603,19 +1597,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                       .limit(1)
                       .maybeSingle();
                     if (completedThis && !isTestNumber) {
-                      const replyText = `Você já recebeu seu teste grátis de ${platformMatch.label}! Posso te montar um pacote completo agora?`;
-                      if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial-used)");
-                      try { await uazapiSendText(creds, phone, replyText); } catch (e) { console.error("uazapi send (trial-used) failed", e); }
-                      const nowT = new Date().toISOString();
-                      await supabaseAdmin.from("messages").insert({
-                        user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: replyText,
-                      });
-                      await supabaseAdmin.from("conversations").update({
-                        last_message_preview: replyText.slice(0, 120),
-                        last_message_at: nowT,
-                        status: "aguardando",
-                      }).eq("id", conv.id);
-                      return new Response("ok (trial already used for platform)");
+                      // #4: NÃO responde com frase fixa. Injeta fato técnico e
+                      // deixa o Claude formular no idioma/tom da conversa.
+                      technicalFactContext = `FATO TÉCNICO VERIFICADO: este cliente já utilizou o teste grátis de ${platformMatch.label} anteriormente (limite: 1 teste por número por rede). Não pode receber novo teste grátis dessa mesma rede. Informe isso ao cliente de forma natural, no idioma da conversa, e ofereça seguir para um pacote pago pequeno como alternativa (menor quantidade real do catálogo).`;
+                      void creds;
                     }
                     // Não usou essa plataforma ainda → deixa IA seguir e pedir o link
                   }
@@ -1663,22 +1648,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               const isVideo = /\/(reel|reels|tv)\//.test(path);
               const isPhoto = /\/p\//.test(path) && !isVideo;
               if (isPhoto) {
-                const { uazapiSendText } = await import("@/lib/uazapi.server");
-                const creds = replySendCreds;
-                const msg = "Esse link é de uma foto, views só funcionam em Reel ou vídeo. Me manda o link de um Reel do seu perfil!";
-                if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before trial photo)");
-                try { await uazapiSendText(creds, phone, msg); } catch (e) { console.error("uazapi send (trial photo) failed", e); }
-                await supabaseAdmin.from("messages").insert({
-                  user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: msg,
-                });
-                await supabaseAdmin.from("conversations").update({
-                  last_message_preview: msg.slice(0, 120),
-                  last_message_at: new Date().toISOString(),
-                  status: "aguardando",
-                }).eq("id", conv.id);
-                return new Response("ok (trial blocked: instagram photo)");
+                // #5: NÃO responde com frase fixa. Injeta fato técnico e deixa
+                // o Claude formular no idioma/tom da conversa. Aborta o
+                // processamento do teste (não chama API do provedor).
+                technicalFactContext = `FATO TÉCNICO VERIFICADO: o link enviado pelo cliente é de uma foto/post estático do Instagram (path "${path}"), não é um Reel/vídeo. O serviço de views só funciona em Reels (vídeos). Explique isso ao cliente com clareza e peça o link correto de um Reel ou vídeo do perfil dele.`;
               }
             }
+            // Se o fato técnico "link é foto" foi setado, aborta processamento
+            // do teste — Claude responde com o fato injetado no extraContext.
+            if (technicalFactContext) {
+              // Fall-through direto pro Claude, sem chamar API do provedor.
+            } else {
             // Resolve service: prefer per-platform free_test_services, fall back to legacy smm_service_id
             const platformKeywords: Record<string, string[]> = {
               instagram: ["instagram", "insta"],
@@ -1726,12 +1706,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const { uazapiSendText } = await import("@/lib/uazapi.server");
             const creds = replySendCreds;
 
-            let replyText: string;
+            // replyText = mensagem direta fixa (só para o caminho SUCESSO real
+            // do teste, que gera dado técnico útil: qty+link+plataforma).
+            // Erros e "já usou" agora viram FATO TÉCNICO no extraContext →
+            // Claude formula no idioma/tom da conversa.
+            let replyText: string | null = null;
 
             if (existingTrial) {
-              replyText = linkCompleted && !phoneCompleted
-                ? "Esse perfil já recebeu um teste anteriormente. Que tal aproveitar e fazer um pedido completo?"
-                : "Você já usou seu teste grátis. Posso te montar um pacote completo a partir de R$5?";
+              technicalFactContext = linkCompleted && !phoneCompleted
+                ? `FATO TÉCNICO VERIFICADO: este LINK (perfil/vídeo) já recebeu um teste grátis anteriormente. Não pode receber outro no mesmo link. Informe ao cliente e ofereça seguir para um pacote pago pequeno como alternativa.`
+                : `FATO TÉCNICO VERIFICADO: este número de cliente já usou o teste grátis anteriormente (limite: 1 por número). Informe ao cliente de forma natural e ofereça seguir para um pacote pago a partir de R$5 como alternativa.`;
             } else {
               const smmCreds = {
                 url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1",
@@ -1803,26 +1787,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 } catch {}
                 const low = raw.toLowerCase();
                 if (/private|privado|not.*public/.test(low)) {
-                  replyText = "Seu perfil precisa estar público pra receber as views. Deixa público e me manda o link de novo!";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: o pedido de teste grátis falhou porque o perfil está configurado como PRIVADO no ${link.platform}. O cliente precisa deixar o perfil público temporariamente para o serviço funcionar, e depois reenviar o link.`;
                 } else if (/already|duplicate|exists/.test(low)) {
-                  replyText = "Esse perfil já recebeu um teste anteriormente. Quer que eu monte um pacote completo a partir de R$5?";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: esse link já recebeu um pedido idêntico recentemente no provedor (duplicado). Informe ao cliente e ofereça seguir para um pacote pago pequeno como alternativa (a partir de R$5).`;
                 } else if (/invalid|not found|link|url/.test(low)) {
-                  const tip = link.platform === "instagram"
-                    ? "Me manda o link de um Reel ou vídeo do seu Instagram."
+                  const tipoLink = link.platform === "instagram"
+                    ? "Reel ou vídeo do Instagram"
                     : link.platform === "youtube"
-                      ? "Me manda o link do vídeo do YouTube."
+                      ? "vídeo do YouTube"
                       : link.platform === "tiktok"
-                        ? "Me manda o link do vídeo do TikTok."
-                        : "Me manda o link da música do Spotify.";
-                  replyText = `Esse link não funcionou aqui. ${tip}`;
+                        ? "vídeo do TikTok"
+                        : "música do Spotify";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: o link enviado pelo cliente é inválido, não foi reconhecido pelo provedor ou o recurso não existe. Peça um novo link válido de ${tipoLink}.`;
                 } else if (/min|minimum|quantidade/.test(low)) {
-                  replyText = "A quantidade do teste não bate com o mínimo do serviço. Já tô ajustando aqui!";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: a quantidade solicitada (${qty}) está abaixo do mínimo permitido pelo catálogo para esse serviço. Informe ao cliente e ofereça a menor quantidade real disponível.`;
                 } else {
-                  replyText = "Me manda o link de novo que processo agora!";
+                  technicalFactContext = `FATO TÉCNICO VERIFICADO: o pedido de teste grátis falhou no provedor com erro técnico não classificado ("${raw.slice(0, 200)}"). Peça ao cliente para reenviar o link para nova tentativa.`;
                 }
               }
             }
 
+            if (replyText) {
             try {
               if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial)");
               await uazapiSendText(creds, phone, replyText);
@@ -1850,6 +1835,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .update({ last_interaction_at: nowT, status: "em_conversa" })
               .eq("id", contact.id);
             return new Response("ok (free trial)");
+            }
+            // Sem replyText direto: cai para o Claude com technicalFactContext.
+            }
             }
           }
         }
@@ -1901,7 +1889,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // ===== Funis de boas-vindas (múltiplos por número; primeiro gatilho que casar dispara, uma vez por contato) =====
         // Se a mensagem é resposta a disparo, o agente Júlia assume direto — pula funil.
-        if (numberId && !isDirectClientQuestion(inboundBody) && !isBlastReply) {
+        // Se technicalFactContext foi setado, pula funil e vai direto pro Claude
+        // (o fato técnico precisa ser comunicado imediatamente ao cliente).
+        if (numberId && !isDirectClientQuestion(inboundBody) && !isBlastReply && !technicalFactContext) {
           try {
             const { data: funnels } = await supabaseAdmin
               .from("welcome_funnels")
@@ -2638,7 +2628,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     ? `MODO DISPARO, AGENTE LIVRE:\nEste lead respondeu à abertura de uma campanha. A fonte única do fluxo é o bloco EXEMPLO_MODELO_DISPARO da identidade da Júlia. Siga essa ordem: pergunta de rede, serviço específico, preço com menor quantidade real do catálogo, depois objeção ou teste grátis quando permitido. Não use etapa de conexão pessoal antiga e não cumprimente de novo.`
                     : `MODO DISPARO, FLUXO VISUAL:\nEste lead respondeu à abertura de uma campanha com fluxo visual configurado. Se não houver próxima etapa definida, conduza usando o EXEMPLO_MODELO_DISPARO da identidade da Júlia: rede, serviço, preço e objeção. Não use etapa de conexão pessoal antiga.`)
                 : "";
-              return [persistedBlock, blastBlock, orderStatusContext ?? ""].filter(Boolean).join("\n\n") || null;
+              return [persistedBlock, blastBlock, orderStatusContext ?? "", technicalFactContext ?? ""].filter(Boolean).join("\n\n") || null;
             })(),
             inputKind: dbKind,
             imageBase64: _imageBase64,
