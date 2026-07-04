@@ -330,7 +330,13 @@ function isClearBlastRefusal(text: string): boolean {
   return /^(nao|n|no)\b/.test(normalized) || /(nao\s+(quero|tenho interesse|precisa|obrigad)|sem interesse|agora nao|not interested|no thanks|no thank you|no necesito|no quiero)/i.test(normalized);
 }
 
-export function getInitialBlastInterestReply(history: Msg[]): string | null {
+function getIdentityInitialBlastInterestReply(identity: typeof DEFAULT_IDENTITY): string {
+  const example = identity.exemplo_disparo ?? DEFAULT_IDENTITY.exemplo_disparo;
+  const match = example.match(/Cliente:\s*"[^"]+"[^\n]*\nJúlia:\s*"([^"]+)"/i);
+  return humanizePunctuation(match?.[1]?.trim() || "Show! Bora ver o que mais combina com você. Qual rede social você mais usa hoje em dia?");
+}
+
+export function getInitialBlastInterestReply(history: Msg[], identity: typeof DEFAULT_IDENTITY = DEFAULT_IDENTITY): string | null {
   const latestClientIndex = (() => {
     for (let i = history.length - 1; i >= 0; i -= 1) {
       if (history[i]?.sender === "cliente" && history[i]?.body?.trim()) return i;
@@ -353,7 +359,7 @@ export function getInitialBlastInterestReply(history: Msg[]): string | null {
 
   if (!lastAgentBeforeClient || !isBlastOpeningQuestion(lastAgentBeforeClient.body)) return null;
 
-  return "Show! Me conta uma coisa — você já vive de música ou tá construindo o público ainda?";
+  return getIdentityInitialBlastInterestReply(identity);
 }
 
 export async function generateAgentReplyWithMeta(params: {
@@ -381,7 +387,7 @@ export async function generateAgentReplyWithMeta(params: {
   // e injeta como PRIMEIRO bloco do system prompt (posição de primazia máxima).
   const identity = await loadAgentIdentity(userId);
 
-  const forcedInitialBlastReply = getInitialBlastInterestReply(history);
+  const forcedInitialBlastReply = getInitialBlastInterestReply(history, identity);
   if (forcedInitialBlastReply) {
     console.info("[agent-ai] Regra determinística aplicada: interesse inicial pós-abertura de disparo");
     return { text: forcedInitialBlastReply, model: "rule-based", routingReason: "blast_initial_interest_guard" };
