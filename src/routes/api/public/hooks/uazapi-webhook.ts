@@ -283,6 +283,15 @@ function isShortConfirmationText(text: string): boolean {
   return /^(valeu|vlw|obrigado|obrigada|obg|brigado|brigada|agradecido|agradecida|tchau|xau|xauzinho|falou|flw|ate mais|ate logo|ate\+)$/i.test(t);
 }
 
+function isClearBlastRefusalText(text: string): boolean {
+  return /^\s*(n[aã]o(\s+(quero|tenho|preciso|obrigad[oa]|me\s+manda|me\s+chame|interess[ae]|gost))?|para|pare|sai|remov|bloqu|n[aã]o\s+me\s+mand|sem\s+interesse|n[aã]o\s+t[oô]\s+interess)/i.test((text ?? "").trim());
+}
+
+function isBlastOpeningQuestion(text: string): boolean {
+  const t = normalizeText(text ?? "");
+  return /\bposso\b[\s\S]{0,80}\b(te\s+)?(mostrar|apresentar|falar|mandar)\b[\s\S]{0,120}\b(impulsion|turbinar|acelerar|ajudar|crescer|perfil|rede|redes)\b/i.test(t);
+}
+
 function isDeferredDecisionText(text: string): boolean {
   if (isDirectClientQuestion(text)) return false;
   const t = normalizeText(text ?? "");
@@ -1849,6 +1858,25 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .limit(1)
               .maybeSingle();
             const lastAgentBody = ((lastAgentMsg as { body?: string } | null)?.body ?? "") as string;
+            const shouldLetBlastOpeningGoToClaude =
+              (isBlastReply || isBlastThread) &&
+              isBlastOpeningQuestion(lastAgentBody) &&
+              !isClearBlastRefusalText(inboundBody);
+
+            if (shouldLetBlastOpeningGoToClaude) {
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({
+                  userId,
+                  phone,
+                  conversationId: conv.id,
+                  type: "minimal_reply",
+                  level: "info",
+                  summary: "Resposta curta pós-abertura de disparo liberada para o Claude",
+                  metadata: { kind, inboundBody, deferredDecision, lastAgentBody: lastAgentBody.slice(0, 240) },
+                });
+              } catch {}
+            } else {
             // Se veio "ok/obrigado/beleza" e ainda não fechamos com "qualquer
             // coisa me chama", responde a cortesia — antes ficava mudo e o
             // usuário percebia como "agente parou de responder".
@@ -1902,6 +1930,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: "Reação curta sem resposta automática", metadata: { kind, inboundBody, deferredDecision } });
             } catch {}
             return new Response("ok (short reaction ignored)");
+            }
           }
         }
 
@@ -1909,8 +1938,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // Se o cliente respondeu ao disparo dizendo NÃO / sem interesse,
         // envia despedida curta e marca como perdido — sem acionar o agente.
         if (isBlastReply) {
-          const negRe = /^\s*(n[aã]o(\s+(quero|tenho|preciso|obrigad[oa]|me\s+manda|me\s+chame|interess[ae]|gost))?|para|pare|sai|remov|bloqu|n[aã]o\s+me\s+mand|sem\s+interesse|n[aã]o\s+t[oô]\s+interess)/i;
-          if (negRe.test((text ?? inboundBody ?? "").trim())) {
+          if (isClearBlastRefusalText(text ?? inboundBody ?? "")) {
             try {
               const goodbye = "Tudo bem, desculpa o incômodo! Se precisar no futuro é só chamar 😊";
               const { uazapiSendText } = await import("@/lib/uazapi.server");
