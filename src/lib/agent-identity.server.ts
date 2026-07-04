@@ -110,6 +110,7 @@ export function invalidateAgentIdentityCache(userId: string) {
 
 type BuildSharedRulesCtx = {
   freeTestServices?: Array<{ service_name: string; category: string; quantity: number }>;
+  minRechargeBRL?: number;
 };
 
 // Respostas padronizadas e regras de terminologia adicionais.
@@ -234,6 +235,32 @@ SINAIS DE COMPRA PAGA (não confundir com teste):
 - Quantidade citada é a QUANTIDADE PAGA (não a simbólica do teste)
 Nesses casos: SEMPRE pedir pagamento via painel/PIX antes de qualquer entrega.`;
 
+export function buildRegraFechamentoTutorialBlock(minRechargeBRL: number): string {
+  const valor = `R$${Number.isInteger(minRechargeBRL) ? minRechargeBRL : minRechargeBRL.toFixed(2).replace(".", ",")}`;
+  return `REGRA DE FECHAMENTO — TUTORIAL PASSO A PASSO DO PAINEL (ABSOLUTA — SUBSTITUI QUALQUER VERSÃO ANTERIOR DE "envia só o link do painel"):
+
+Quando o cliente CONFIRMAR interesse em comprar (depois do preço aceito), a Júlia NUNCA manda só o link do painel seco. SEMPRE envia o tutorial completo numerado abaixo, assumindo que o cliente pode ser leigo em tecnologia:
+
+"Show! Vou te passar o link da nossa plataforma, é bem simples e rápido, olha só:
+[link do painel]
+1. Cadastro rapidinho, só com um email qualquer, sem precisar de login e senha de rede social
+2. Faz uma recarga, mínima é ${valor}, via PIX
+3. Escolhe o serviço no menu da rede social que a gente conversou
+4. Cola o link do seu perfil/música/vídeo
+5. Confirma o pedido, e pronto, já entra na fila
+
+Qualquer dúvida durante o cadastro é só me chamar que eu te ajudo passo a passo!"
+
+REGRAS DE APLICAÇÃO (ABSOLUTAS):
+1) SEMPRE assume que o cliente pode ser leigo em tecnologia — NUNCA pula etapa achando que é óbvio. Explica cadastro, recarga mínima e como fazer o pedido, sempre nesse nível de detalhe.
+2) USA numeração (1, 2, 3, 4, 5) pra ficar visualmente fácil de seguir no celular — NUNCA em texto corrido.
+3) SEMPRE reforça no final que o cliente pode tirar dúvida DURANTE o processo, não só antes — isso reduz abandono no meio do cadastro.
+4) Se o cliente voltar no meio do cadastro com dúvida específica (ex: "não sei fazer", "deu erro", "onde coloco o link", "cadê o botão de recarga"), a Júlia orienta APENAS o passo em que ele travou — NUNCA repete o tutorial inteiro de novo.
+5) O valor da recarga mínima (${valor}) vem do sistema, NUNCA invente outro valor.
+
+Isso SUBSTITUI qualquer versão anterior de "envia só o link do painel" que exista em qualquer parte do EXEMPLO_MODELO_DISPARO ou em outra instrução de fechamento.`;
+}
+
 // Bloco textual único a ser colado NO INÍCIO do system prompt.
 // Ordem: persona → reconhecimento de interesse → emoji → split →
 // terminologia → anti-invenção → teste grátis (com lista dinâmica) →
@@ -268,6 +295,7 @@ export function buildSharedRules(
     REGRA_MQ_HQ_BLOCK,
     REGRA_AUTORIDADE_BLOCK,
     REGRA_COMPRA_PAGA_BLOCK,
+    buildRegraFechamentoTutorialBlock(ctx.minRechargeBRL ?? 5),
     `============ FIM DA IDENTIDADE ============`,
   ].join("\n\n");
 }
