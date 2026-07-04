@@ -113,6 +113,24 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_generation_locks: {
+        Row: {
+          acquired_at: string
+          conversation_id: string
+          holder: string | null
+        }
+        Insert: {
+          acquired_at?: string
+          conversation_id: string
+          holder?: string | null
+        }
+        Update: {
+          acquired_at?: string
+          conversation_id?: string
+          holder?: string | null
+        }
+        Relationships: []
+      }
       agent_identity: {
         Row: {
           exemplo_disparo: string | null
