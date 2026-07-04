@@ -2287,6 +2287,91 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        // ===== Trava por conversation_id =====
+        // Impede duas gerações do Claude rodando em paralelo para a mesma
+        // conversa (ex.: cliente manda 2 perguntas com 10s de intervalo — a
+        // janela de coalescência de 5s acima não pega, então esta trava
+        // serializa. A segunda rodada aguarda a primeira liberar e RELÊ o
+        // histórico completo antes de decidir a resposta, garantindo que
+        // veja a mensagem que a primeira rodada acabou de gravar.
+        // TTL de 30s: se algo travar e não liberar, a próxima rodada limpa
+        // a linha órfã e assume — nunca deixa a conversa travada indefinidamente.
+        const LOCK_TTL_MS = 30_000;
+        const LOCK_POLL_MS = 400;
+        const holder = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+        let lockHeld = false;
+        const acquireLockStart = Date.now();
+        while (Date.now() - acquireLockStart < LOCK_TTL_MS) {
+          // Limpa lock expirado (dono anterior travou/errou sem liberar).
+          const staleCutoff = new Date(Date.now() - LOCK_TTL_MS).toISOString();
+          await supabaseAdmin
+            .from("agent_generation_locks")
+            .delete()
+            .eq("conversation_id", conv.id)
+            .lt("acquired_at", staleCutoff);
+          const { error: lockErr } = await supabaseAdmin
+            .from("agent_generation_locks")
+            .insert({ conversation_id: conv.id, holder } as never);
+          if (!lockErr) { lockHeld = true; break; }
+          await new Promise((r) => setTimeout(r, LOCK_POLL_MS));
+        }
+        if (!lockHeld) {
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId, phone, conversationId: conv.id,
+              type: "reply_coalesced", level: "warn",
+              summary: `⏱️ Timeout aguardando trava da conversa (${LOCK_TTL_MS}ms) — seguindo mesmo assim`,
+            });
+          } catch {}
+        }
+        const releaseLock = async () => {
+          if (!lockHeld) return;
+          lockHeld = false;
+          try {
+            await supabaseAdmin
+              .from("agent_generation_locks")
+              .delete()
+              .eq("conversation_id", conv.id)
+              .eq("holder", holder);
+          } catch {}
+        };
+
+        // Relê o histórico DEPOIS de adquirir a trava — pode ter chegado
+        // mensagem nova enquanto esperávamos, e a resposta precisa considerá-la.
+        try {
+          let reHistoryQuery = supabaseAdmin
+            .from("messages")
+            .select("sender, body, created_at")
+            .in("conversation_id", historyConversationIds)
+            .order("created_at", { ascending: false })
+            .limit(120);
+          if (historySinceIso) reHistoryQuery = reHistoryQuery.gte("created_at", historySinceIso);
+          const { data: reDesc } = await reHistoryQuery;
+          if (reDesc) {
+            historyRaw = (reDesc as Array<{
+              sender: "agente" | "cliente";
+              body: string;
+              created_at?: string | null;
+            }>).reverse();
+            latestBlastOpenerIdx = (() => {
+              for (let i = historyRaw.length - 1; i >= 0; i -= 1) {
+                const row = historyRaw[i];
+                if (
+                  row.sender === "agente" &&
+                  /peguei\s+o\s+seu\s+contato|posso\s+te\s+apresentar\s+algo|seu\s+perfil\s+@/i.test(row.body ?? "")
+                ) return Math.max(0, i - 1);
+              }
+              return -1;
+            })();
+            history = !historySinceIso && latestBlastOpenerIdx > 0
+              ? historyRaw.slice(latestBlastOpenerIdx)
+              : historyRaw;
+          }
+        } catch (e) {
+          console.error("[conv-lock] reload history failed", e);
+        }
+
         // Check if a welcome funnel has already been delivered for this contact.
         const { data: priorFunnelRun } = await supabaseAdmin
           .from("welcome_funnel_runs")
