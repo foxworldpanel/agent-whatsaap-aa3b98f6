@@ -121,6 +121,7 @@ export type Database = {
           regra_anti_invencao: string | null
           regra_emoji: string | null
           regra_encerramento: string | null
+          regra_estilo_escrita: string | null
           regra_split: string | null
           regra_teste_gratis: string | null
           terminologia_redes: string | null
@@ -134,6 +135,7 @@ export type Database = {
           regra_anti_invencao?: string | null
           regra_emoji?: string | null
           regra_encerramento?: string | null
+          regra_estilo_escrita?: string | null
           regra_split?: string | null
           regra_teste_gratis?: string | null
           terminologia_redes?: string | null
@@ -147,6 +149,7 @@ export type Database = {
           regra_anti_invencao?: string | null
           regra_emoji?: string | null
           regra_encerramento?: string | null
+          regra_estilo_escrita?: string | null
           regra_split?: string | null
           regra_teste_gratis?: string | null
           terminologia_redes?: string | null

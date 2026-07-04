@@ -61,6 +61,22 @@ function extractFamilies(text: string): Set<string> {
 // grátis" quando o serviço mencionado NÃO está na lista de elegíveis.
 // Retorna { text, replaced, reason } — quando replaced=true, o texto original
 // foi trocado por uma deflexão segura.
+// Remove tiques de escrita de IA — em-dash / en-dash no meio de frases.
+// Substitui " — " / " – " por ", " e remove o dash quando cercado por
+// espaços em contextos ambíguos. Preserva hífen normal em palavras
+// compostas ("bem-vindo") e o marcador "===SPLIT===".
+export function humanizePunctuation(input: string): string {
+  if (!input) return input;
+  let out = input;
+  // dash com espaços dos dois lados => vírgula
+  out = out.replace(/\s+[—–]\s+/g, ", ");
+  // dash colado a um dos lados no meio de palavra => espaço
+  out = out.replace(/([^\s])[—–]([^\s])/g, "$1, $2");
+  // colapsa vírgulas duplas / vírgula antes de pontuação
+  out = out.replace(/,\s*,/g, ",").replace(/,\s*([.!?…;:])/g, "$1");
+  return out;
+}
+
 export function guardFreeTrialOffer(params: {
   reply: string;
   freeTestServices: Array<{ service_name: string; category: string }>;
@@ -603,14 +619,18 @@ export async function generateAgentReplyWithMeta(params: {
   };
   const text = (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
   const finalText = text || "…";
+  // Sanitiza tiques de escrita de IA: em-dash / en-dash no meio de frases
+  // denunciam texto gerado por LLM. Substitui por vírgula (com fallback
+  // para hífen quando não estiver cercado por espaços).
+  const humanized = humanizePunctuation(finalText);
   // Guarda pós-geração: se o LLM tentou oferecer teste grátis de um serviço
   // que não está na lista de elegíveis (freeTestServicesRaw filtrado), o
   // texto é substituído por uma deflexão segura para evitar risco financeiro.
-  const guarded = guardFreeTrialOffer({ reply: finalText, freeTestServices });
+  const guarded = guardFreeTrialOffer({ reply: humanized, freeTestServices });
   if (guarded.replaced) {
     console.error("[agent-ai] GUARD: oferta de teste grátis bloqueada", {
       reason: guarded.reason,
-      originalPreview: finalText.slice(0, 200),
+      originalPreview: humanized.slice(0, 200),
       allowedServices: freeTestServices.map((s) => s.service_name),
     });
   }
