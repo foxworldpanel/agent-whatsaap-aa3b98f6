@@ -399,12 +399,9 @@ export async function generateAgentReplyWithMeta(params: {
   // FONTE ÚNICA DE IDENTIDADE — carrega do banco (com fallback pros defaults)
   // e injeta como PRIMEIRO bloco do system prompt (posição de primazia máxima).
   const identity = await loadAgentIdentity(userId);
-
-  const forcedInitialBlastReply = getInitialBlastInterestReply(history, identity);
-  if (forcedInitialBlastReply) {
-    console.info("[agent-ai] Regra determinística aplicada: interesse inicial pós-abertura de disparo");
-    return { text: forcedInitialBlastReply, model: "rule-based", routingReason: "blast_initial_interest_guard" };
-  }
+  // NOTA: interceptador determinístico `getInitialBlastInterestReply` foi
+  // removido — o Claude decide TUDO relacionado a conteúdo. A função ainda
+  // é exportada apenas para testes que validam a heurística de detecção.
 
   // GATE DUPLO para teste grátis:
   // 1) Spotify NUNCA tem teste grátis — remove do catálogo proativo independente do que estiver salvo.
