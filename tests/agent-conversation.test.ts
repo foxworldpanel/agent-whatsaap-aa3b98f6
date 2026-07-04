@@ -16,6 +16,7 @@ import {
   getInitialBlastInterestReply,
   buildSystemPrompt,
 } from "@/lib/ai.server";
+import { autoSplitLongParts, LONG_MESSAGE_THRESHOLD } from "@/lib/message-splitter";
 
 const OPENING =
   "Oi, bom dia Romulo! Peguei o seu contato no perfil @sourcee, achei muito bom o conteúdo! Posso te mostrar algo que pode acelerar o crescimento das suas redes?";
