@@ -26,6 +26,7 @@ const FIELDS = [
   { key: "regra_teste_gratis", label: "7. Teste grátis (regras de ouro)" },
   { key: "regra_encerramento", label: "8. Encerramento por recusa" },
   { key: "exemplo_disparo", label: "9. Exemplo modelo de disparo" },
+  { key: "regra_estilo_escrita", label: "10. Estilo de escrita (soar humano)" },
 ] as const;
 
 type FieldKey = (typeof FIELDS)[number]["key"];
