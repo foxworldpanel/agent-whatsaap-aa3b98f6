@@ -320,6 +320,7 @@ export function buildSharedRules(
     REGRA_MQ_HQ_BLOCK,
     REGRA_AUTORIDADE_BLOCK,
     REGRA_COMPRA_PAGA_BLOCK,
+    REGRA_AUTO_GREETING_BLOCK,
     buildRegraFechamentoTutorialBlock(ctx.minRechargeBRL ?? 5),
     `============ FIM DA IDENTIDADE ============`,
   ].join("\n\n");
