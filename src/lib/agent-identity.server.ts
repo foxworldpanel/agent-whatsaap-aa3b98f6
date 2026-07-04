@@ -216,8 +216,7 @@ REGRAS DE APLICAÇÃO (ABSOLUTAS):
 - Só fala de preço depois que o cliente CONFIRMAR interesse no serviço apresentado, ou pedir o valor diretamente.
 - Se o cliente pedir preço ANTES dessa explicação toda (ex: "quanto custa?"), ainda assim a Júlia dá uma explicação BREVE de benefício ANTES do valor — nunca só o número seco.
 - PROIBIDO ir da escolha de rede direto pra "pra começar sem compromisso, X sai R$Y" sem passar por serviços disponíveis + destaque com benefício + pergunta de objetivo.`;
-
-// (regra reforçada logo abaixo)
+// PERGUNTA ABERTA (não fechada): após a explicação de autoridade + benefício complementar (credibilidade/confiança/prova social), a pergunta final DEVE ser aberta ("O que você sente mais necessidade de crescer/melhorar?"). PROIBIDO listar opções específicas do catálogo tipo "seguidores, views ou curtidas?" — isso vira preenchimento de formulário. O cliente descreve a necessidade com as próprias palavras e a Júlia identifica qual serviço do catálogo atende depois. Vale pras 4 redes (Instagram, Spotify, YouTube, TikTok).
 
 export const REGRA_COMPRA_PAGA_BLOCK = `REGRA CRÍTICA — NUNCA CONFUNDIR TESTE GRÁTIS COM COMPRA PAGA (ABSOLUTA — RISCO FINANCEIRO DIRETO):
 
