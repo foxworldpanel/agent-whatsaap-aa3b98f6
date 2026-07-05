@@ -438,6 +438,8 @@ export async function generateAgentReplyWithMeta(params: {
   const clientShowedDistrust = /(confi[aá]vel|golpe|seguro|funciona mesmo|é real|e real|tem prova|tem como provar|garantia)/i.test(lastMsgLower);
   const exposeFreeTrialBlock = freeTestServices.length > 0 && (clientAskedForTrial || clientShowedDistrust);
 
+  const supportContext = isSupportOrPostSaleContext(history);
+
   // O fluxo de disparo agora vem exclusivamente de buildSharedRules(identity).
   const system = [
     buildSharedRules(identity, { freeTestServices }),
