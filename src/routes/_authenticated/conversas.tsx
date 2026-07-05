@@ -174,7 +174,7 @@ function Conversas() {
     mutationFn: (body: string) => sendFn({ data: { conversationId: activeId!, text: body } }),
     onSuccess: () => {
       setText("");
-      qc.invalidateQueries({ queryKey: ["messages", activeId] });
+      qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, activeId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
@@ -217,7 +217,7 @@ function Conversas() {
   const clearMut = useMutation({
     mutationFn: () => clearFn({ data: { conversationId: activeId! } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["messages", activeId] });
+      qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, activeId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
@@ -281,7 +281,7 @@ function Conversas() {
       setSyncStatus("live");
       if (res?.inserted > 0) {
         toast.success(`${res.inserted} nova(s) mensagem(ns) sincronizada(s)`);
-        qc.invalidateQueries({ queryKey: ["messages", activeId] });
+        qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, activeId] });
         qc.invalidateQueries({ queryKey: ["conversations"] });
       }
     },
@@ -316,7 +316,7 @@ function Conversas() {
           (payload) => {
             const row = (payload.new ?? {}) as { conversation_id?: string };
             qc.invalidateQueries({ queryKey: ["conversations"] });
-            qc.invalidateQueries({ queryKey: ["messages", row.conversation_id] });
+            qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, row.conversation_id] });
             // Auto-foca a conversa que recebeu a mensagem nova
             if (row.conversation_id) setActiveId(row.conversation_id);
             setSyncStatus("live");
