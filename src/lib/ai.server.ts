@@ -1,5 +1,5 @@
 // Server-only Claude (Anthropic) call to generate the agent reply.
-import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity } from "@/lib/agent-identity.server";
+import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, mergeIdentity } from "@/lib/agent-identity.server";
 
 type AgentConfig = {
   agent_name: string;
