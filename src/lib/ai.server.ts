@@ -24,7 +24,7 @@ type Contact = {
   perfil: "frio" | "inativo" | "ativo";
 };
 
-type Msg = { sender: "agente" | "cliente"; body: string };
+type Msg = { sender: "agente" | "cliente"; body: string; created_at?: string | null };
 
 function getLatestClientMessage(history: Msg[]): string {
   for (let i = history.length - 1; i >= 0; i -= 1) {
@@ -54,6 +54,52 @@ export function isSupportOrPostSaleContext(history: Msg[]): boolean {
     if (supportRx.test(m.body)) return true;
   }
   return false;
+}
+
+// Detecta REENGAJAMENTO após hiato: a última mensagem do cliente é apenas uma
+// saudação/cortesia curta, e passaram mais de ~3h desde a última mensagem da
+// agente. Nesse caso o modelo deve retribuir a saudação e AGUARDAR o cliente
+// dizer o que quer, em vez de emendar automaticamente a próxima pergunta do
+// funil pendente (bug real observado: pergunta de views/inscritos disparada
+// depois de "Boa tarde" no dia seguinte).
+const GREETING_ONLY_RX =
+  /^\s*(oi+|ol[aá]+|opa+|eae|e\s*a[ií]|hey|hi|hello|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem\??|tudo\s*bom\??|blz\??|beleza\??)\s*[.!?…]*\s*$/i;
+
+export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean {
+  if (!history?.length) return false;
+  // Última mensagem do cliente
+  let clientIdx = -1;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i].sender === "cliente" && history[i].body?.trim()) {
+      clientIdx = i;
+      break;
+    }
+  }
+  if (clientIdx < 0) return false;
+  const clientMsg = history[clientIdx];
+  const body = (clientMsg.body ?? "").trim();
+  // Saudação/cortesia curta (até ~30 chars) e sem sinal de intenção comercial
+  if (body.length > 30) return false;
+  if (!GREETING_ONLY_RX.test(body)) return false;
+  // Última mensagem da agente ANTES dessa do cliente
+  let agentBefore: Msg | null = null;
+  for (let i = clientIdx - 1; i >= 0; i -= 1) {
+    if (history[i].sender === "agente" && history[i].body?.trim()) {
+      agentBefore = history[i];
+      break;
+    }
+  }
+  if (!agentBefore) return false;
+  const agentTs = agentBefore.created_at ? Date.parse(agentBefore.created_at) : NaN;
+  const clientTs = clientMsg.created_at
+    ? Date.parse(clientMsg.created_at)
+    : nowIso
+      ? Date.parse(nowIso)
+      : Date.now();
+  if (!Number.isFinite(agentTs) || !Number.isFinite(clientTs)) return false;
+  const gapMs = clientTs - agentTs;
+  const THREE_HOURS = 3 * 60 * 60 * 1000;
+  return gapMs >= THREE_HOURS;
 }
 
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
