@@ -25,7 +25,7 @@ export const getAgentIdentity = createServerFn({ method: "GET" })
       .from("agent_identity")
       .select("*")
       .eq("user_id", context.userId)
-      .eq("workspace_id", workspaceId)
+      .eq("workspace_id", context.workspaceId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     const effective = mergeIdentity(data as never);
