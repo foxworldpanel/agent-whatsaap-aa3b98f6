@@ -479,7 +479,10 @@ export async function generateAgentReplyWithMeta(params: {
 
   // FONTE ÚNICA DE IDENTIDADE — carrega do banco (com fallback pros defaults)
   // e injeta como PRIMEIRO bloco do system prompt (posição de primazia máxima).
-  const identity = await loadAgentIdentity(userId);
+  const [identity, brandBlocks] = await Promise.all([
+    loadAgentIdentity(userId),
+    loadBrandBlocks(userId),
+  ]);
   // NOTA: interceptador determinístico `getInitialBlastInterestReply` foi
   // removido — o Claude decide TUDO relacionado a conteúdo. A função ainda
   // é exportada apenas para testes que validam a heurística de detecção.
@@ -503,7 +506,7 @@ export async function generateAgentReplyWithMeta(params: {
 
   // O fluxo de disparo agora vem exclusivamente de buildSharedRules(identity).
   const system = [
-    buildSharedRules(identity, { freeTestServices }),
+    buildSharedRules(identity, { freeTestServices, brandBlocks }),
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
     `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a primeira mensagem sua tem padrão de abertura de disparo, menciona "Peguei o seu contato", "Vi seu perfil", "@" de instagram, ou uma pergunta inicial do tipo "Posso te apresentar/mostrar uma forma de impulsionar...", trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. O conteúdo real da conversa prevalece sobre metadados técnicos.`,
