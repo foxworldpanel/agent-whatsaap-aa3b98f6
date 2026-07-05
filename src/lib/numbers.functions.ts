@@ -27,7 +27,10 @@ export const listNumbers = createServerFn({ method: "GET" })
       .from("whatsapp_numbers")
       .select("id, nome, uazapi_url, status, meta_ads_enabled, disparos_mode, last_connected_at, created_at, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, last_risk_check_at")
       .in("user_id", userIds)
-      .eq("workspace_id", context.workspaceId)
+      // Own rows must match the active workspace; peer rows (shared via
+      // uazapi_token, owned by another user) pass through regardless of
+      // workspace_id since workspaces are per-user.
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
