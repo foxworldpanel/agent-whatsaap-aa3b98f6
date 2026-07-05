@@ -425,6 +425,8 @@ function Conversas() {
               const sel = c.id === activeId;
               const name = c.contact?.nome ?? "—";
               const photo = c.contact?.photo_url;
+              const phone = c.contact?.telefone;
+              const displayName = phone ? `${phone} · ${name}` : name;
               return (
                 <button
                   key={c.id}
@@ -451,7 +453,7 @@ function Conversas() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium text-neutral-900">
-                        {name}
+                        {displayName}
                       </span>
                       <span className="shrink-0 text-[11px] text-neutral-500">
                         {formatTime(c.last_message_at)}
