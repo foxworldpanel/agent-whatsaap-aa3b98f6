@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 const normPhone = (p: string) => p.replace(/\D+/g, "");
 
 export const listTestNumbers = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
@@ -18,7 +18,7 @@ export const listTestNumbers = createServerFn({ method: "GET" })
   });
 
 export const addTestNumber = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ phone: z.string().min(6).max(30) }).parse(d),
   )
@@ -34,7 +34,7 @@ export const addTestNumber = createServerFn({ method: "POST" })
   });
 
 export const removeTestNumber = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

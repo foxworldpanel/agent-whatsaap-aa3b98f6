@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
@@ -11,7 +11,7 @@ const FlowSchema = z.object({
 });
 
 export const getBlastFlow = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: { campaignId: string }) =>
     z.object({ campaignId: z.string().uuid() }).parse(d),
   )
@@ -35,7 +35,7 @@ export const getBlastFlow = createServerFn({ method: "GET" })
   });
 
 export const saveBlastFlow = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => FlowSchema.parse(d))
   .handler(async ({ data, context }) => {
     const payload = {

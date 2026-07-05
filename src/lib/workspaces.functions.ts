@@ -1,9 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 export const listWorkspaces = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("workspaces")
@@ -15,7 +15,7 @@ export const listWorkspaces = createServerFn({ method: "GET" })
   });
 
 export const getDefaultWorkspace = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("workspaces")
@@ -27,7 +27,7 @@ export const getDefaultWorkspace = createServerFn({ method: "GET" })
   });
 
 export const renameWorkspace = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       id: z.string().uuid(),

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 
 export type ContactCategory = {
   id: string;
@@ -26,7 +26,7 @@ async function ensureDefaults(
 }
 
 export const listCategories = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const sb = context.supabase as unknown as import("@supabase/supabase-js").SupabaseClient<import("@/integrations/supabase/types").Database>;
     await ensureDefaults(sb, context.userId);

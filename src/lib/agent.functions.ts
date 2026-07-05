@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { resolveWorkspaceId } from "@/lib/workspace-scope.server";
 import { z } from "zod";
@@ -27,7 +27,7 @@ function extractPanelGuideStoragePath(url?: string | null): string | null {
 }
 
 export const getAgentConfig = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("agent_config")
@@ -70,7 +70,7 @@ const listAgentLogsSchema = z.object({
 });
 
 export const listAgentLogs = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => listAgentLogsSchema.parse(d ?? {}))
   .handler(async ({ data, context }) => {
     const userIds = await getSharedUazapiUserIds(context);
@@ -98,7 +98,7 @@ export const listAgentLogs = createServerFn({ method: "GET" })
   });
 
 export const saveAgentConfig = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       agent_name: z.string().min(1).max(80),
@@ -145,7 +145,7 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
   });
 
 export const saveAgentModules = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       modules: z.record(z.string(), z.string().max(20000)),
@@ -168,7 +168,7 @@ export const saveAgentModules = createServerFn({ method: "POST" })
   });
 
 export const saveBehavior = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       response_delay_min_sec: z.number().int().min(0).max(600),
@@ -200,7 +200,7 @@ export const saveBehavior = createServerFn({ method: "POST" })
 // "Guia Visual do Painel" module so the agent has visual context of where
 // each menu lives.
 export const savePanelScreenshots = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       panel_screenshot_mobile_url: z.string().max(10000).nullable().optional(),
@@ -296,7 +296,7 @@ export const savePanelScreenshots = createServerFn({ method: "POST" })
 
 // Toggle "Consultar preços em tempo real"
 export const setServicesRealtime = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ enabled: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     const workspaceId = await resolveWorkspaceId(context.supabase, context.userId, getRequestHeader("x-workspace-id") ?? null);
@@ -312,7 +312,7 @@ export const setServicesRealtime = createServerFn({ method: "POST" })
 
 // Toggles do catálogo em cache
 export const setCatalogFlags = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       catalog_in_prompt: z.boolean().optional(),
@@ -338,7 +338,7 @@ export const setCatalogFlags = createServerFn({ method: "POST" })
 
 // Toggle global agent on/off (sidebar switch)
 export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ enabled: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
     const workspaceId = await resolveWorkspaceId(context.supabase, context.userId, getRequestHeader("x-workspace-id") ?? null);
@@ -371,7 +371,7 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
 
 // Toggle agent on/off for a single conversation
 export const setConversationAgentEnabled = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ conversationId: z.string().uuid(), enabled: z.boolean() }).parse(d),
   )
@@ -414,7 +414,7 @@ export const setConversationAgentEnabled = createServerFn({ method: "POST" })
 // Reactivate a conversation that was auto-paused due to unproductive behavior.
 // Clears the review flag, re-enables the agent, and unblocks the contact.
 export const reactivateConversation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const userIds = await getSharedUazapiUserIds(context);
@@ -444,7 +444,7 @@ export const reactivateConversation = createServerFn({ method: "POST" })
 
 // Manually block a conversation: pauses the agent and flags it for review.
 export const blockConversation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ conversationId: z.string().uuid(), reason: z.string().max(200).optional() }).parse(d),
   )
@@ -475,7 +475,7 @@ export const blockConversation = createServerFn({ method: "POST" })
 
 // Counter for the sidebar badge ("conversas para revisar").
 export const countConversationsToReview = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const userIds = await getSharedUazapiUserIds(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -489,7 +489,7 @@ export const countConversationsToReview = createServerFn({ method: "GET" })
   });
 
 export const getIntegrations = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
@@ -520,7 +520,7 @@ export const getIntegrations = createServerFn({ method: "GET" })
   });
 
 export const saveIntegrations = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       uazapi_url: z.string().max(500).optional().nullable(),
@@ -562,7 +562,7 @@ export const saveIntegrations = createServerFn({ method: "POST" })
   });
 
 export const previewVoice = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ text: z.string().min(1).max(500).optional() }).parse(d),
   )

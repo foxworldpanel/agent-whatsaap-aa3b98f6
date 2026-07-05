@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 export const DEFAULT_FORBIDDEN_RULES: Array<{ rule: string; deflection: string }> = [
@@ -16,7 +16,7 @@ export const DEFAULT_FORBIDDEN_RULES: Array<{ rule: string; deflection: string }
 ];
 
 export const listForbiddenRules = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("forbidden_rules")
@@ -29,7 +29,7 @@ export const listForbiddenRules = createServerFn({ method: "GET" })
   });
 
 export const saveForbiddenRules = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       rules: z.array(z.object({
@@ -61,7 +61,7 @@ export const saveForbiddenRules = createServerFn({ method: "POST" })
   });
 
 export const seedDefaultForbiddenRules = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data: existing } = await context.supabase
       .from("forbidden_rules")

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import {
   DEFAULT_TEMPLATES,
   DEFAULT_DDI_LANGUAGE_MAP,
@@ -51,7 +51,7 @@ function toTemplates(row: Row | null): OpeningTemplates {
 }
 
 export const getOpeningTemplates = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data } = await context.supabase
       .from("opening_templates")
@@ -64,7 +64,7 @@ export const getOpeningTemplates = createServerFn({ method: "GET" })
   });
 
 export const saveOpeningTemplates = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: OpeningTemplates) => d)
   .handler(async ({ data, context }) => {
     const clean = (a: string[]) =>

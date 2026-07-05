@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { getRequestHeader } from "@tanstack/react-start/server";
 import { resolveWorkspaceId } from "@/lib/workspace-scope.server";
 import { z } from "zod";
@@ -18,7 +18,7 @@ const IdentitySchema = z.object({
 });
 
 export const getAgentIdentity = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { DEFAULT_IDENTITY, mergeIdentity } = await import("@/lib/agent-identity.server");
     const workspaceId = await resolveWorkspaceId(context.supabase, context.userId, getRequestHeader("x-workspace-id") ?? null);
@@ -38,7 +38,7 @@ export const getAgentIdentity = createServerFn({ method: "GET" })
   });
 
 export const updateAgentIdentity = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((input: unknown) => IdentitySchema.parse(input))
   .handler(async ({ data, context }) => {
     const { invalidateAgentIdentityCache } = await import("@/lib/agent-identity.server");

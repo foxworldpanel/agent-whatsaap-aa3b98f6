@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 export const DEFAULT_AUTO_CAMPAIGNS = [
@@ -46,7 +46,7 @@ export const DEFAULT_AUTO_CAMPAIGNS = [
 ] as const;
 
 export const listAutoCampaigns = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("auto_campaigns")
@@ -74,7 +74,7 @@ function byDefaultOrder(a: { key: string }, b: { key: string }) {
 }
 
 export const updateAutoCampaign = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -97,7 +97,7 @@ export const updateAutoCampaign = createServerFn({ method: "POST" })
   });
 
 export const markContactPurchase = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ contactId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase

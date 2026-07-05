@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 const stepSchema = z
@@ -29,7 +29,7 @@ const stepsSchema = z
   .partial();
 
 export const listWelcomeFunnels = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ whatsapp_number_id: z.string().uuid() }).parse(d),
   )
@@ -46,7 +46,7 @@ export const listWelcomeFunnels = createServerFn({ method: "GET" })
   });
 
 export const createWelcomeFunnel = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ whatsapp_number_id: z.string().uuid(), name: z.string().min(1).max(80).optional() }).parse(d),
   )
@@ -75,7 +75,7 @@ export const createWelcomeFunnel = createServerFn({ method: "POST" })
   });
 
 export const updateWelcomeFunnel = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -105,7 +105,7 @@ export const updateWelcomeFunnel = createServerFn({ method: "POST" })
   });
 
 export const deleteWelcomeFunnel = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase

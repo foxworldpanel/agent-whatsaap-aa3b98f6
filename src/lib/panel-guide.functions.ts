@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 const MAX_SCREENS = 30;
 
 export const listPanelGuide = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("panel_guide")
@@ -17,7 +17,7 @@ export const listPanelGuide = createServerFn({ method: "GET" })
   });
 
 export const addPanelScreen = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       name: z.string().trim().min(1).max(200),
@@ -56,7 +56,7 @@ export const addPanelScreen = createServerFn({ method: "POST" })
   });
 
 export const updatePanelScreen = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       id: z.string().uuid(),
@@ -75,7 +75,7 @@ export const updatePanelScreen = createServerFn({ method: "POST" })
   });
 
 export const deletePanelScreen = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase

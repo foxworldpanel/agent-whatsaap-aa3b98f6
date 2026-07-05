@@ -1,12 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 const profileEnum = z.enum(["ativo", "frio", "inativo"]);
 const stateEnum = z.enum(["parado", "rodando", "pausado"]);
 
 export const listCampaigns = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("campaigns")
@@ -17,7 +17,7 @@ export const listCampaigns = createServerFn({ method: "GET" })
   });
 
 export const createCampaign = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       target_profile: profileEnum,
@@ -46,7 +46,7 @@ export const createCampaign = createServerFn({ method: "POST" })
   });
 
 export const updateCampaignState = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ id: z.string().uuid(), state: stateEnum }).parse(d),
   )
@@ -60,7 +60,7 @@ export const updateCampaignState = createServerFn({ method: "POST" })
   });
 
 export const deleteCampaign = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("campaigns").delete().eq("id", data.id);
@@ -69,7 +69,7 @@ export const deleteCampaign = createServerFn({ method: "POST" })
   });
 
 export const listCampaignLogs = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("campaign_logs")

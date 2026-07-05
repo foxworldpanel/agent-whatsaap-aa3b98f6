@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 const SEED_NAME = "Músicos e Artistas";
@@ -11,7 +11,7 @@ const SEED_D7 =
   "Oi {nome}! Última mensagem — se quiser crescer seu perfil nas redes é só me chamar 😊";
 
 export const listBlastCampaigns = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("blast_campaigns")
@@ -45,7 +45,7 @@ export const listBlastCampaigns = createServerFn({ method: "GET" })
   });
 
 export const updateBlastCampaign = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -80,7 +80,7 @@ export const updateBlastCampaign = createServerFn({ method: "POST" })
   });
 
 export const setBlastCampaignState = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -127,7 +127,7 @@ export function effectiveDailyLimit(opts: {
 }
 
 export const importBlastContacts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -255,7 +255,7 @@ export const importBlastContacts = createServerFn({ method: "POST" })
   });
 
 export const testBlastCampaign = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       campaignId: z.string().uuid(),
@@ -492,7 +492,7 @@ function splitOpeningParts(text: string): string[] {
 }
 
 export const getNumberHealth = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ numberId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -563,7 +563,7 @@ export const getNumberHealth = createServerFn({ method: "GET" })
   });
 
 export const listBlastContacts = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ campaignId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: camp, error: campErr } = await context.supabase
@@ -612,7 +612,7 @@ export const listBlastContacts = createServerFn({ method: "GET" })
   });
 
 export const getBlastReport = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ campaignId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: camp, error: campErr } = await context.supabase
@@ -665,7 +665,7 @@ export const getBlastReport = createServerFn({ method: "GET" })
   });
 
 export const clearBlastContacts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ campaignId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
@@ -678,7 +678,7 @@ export const clearBlastContacts = createServerFn({ method: "POST" })
   });
 
 export const skipBlastContact = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
@@ -691,7 +691,7 @@ export const skipBlastContact = createServerFn({ method: "POST" })
   });
 
 export const blockBlastContact = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid(), telefone: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
@@ -709,7 +709,7 @@ export const blockBlastContact = createServerFn({ method: "POST" })
   });
 
 export const bulkBlastAction = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       ids: z.array(z.string().uuid()).min(1).max(2000),

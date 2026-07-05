@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 function normalizePhone(raw: string): string {
@@ -28,7 +28,7 @@ async function ensureLists(supabase: never, userId: string) {
 }
 
 export const listContactLists = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const lists = await ensureLists(context.supabase as never, context.userId);
     const out: Array<{
@@ -57,7 +57,7 @@ export const listContactLists = createServerFn({ method: "GET" })
   });
 
 export const importContactsToList = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       listId: z.string().uuid(),
@@ -180,7 +180,7 @@ export const importContactsToList = createServerFn({ method: "POST" })
   });
 
 export const clearContactList = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ listId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
@@ -193,7 +193,7 @@ export const clearContactList = createServerFn({ method: "POST" })
   });
 
 export const clearAllBlastContacts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     // Remove TODOS os contatos de disparo do usuário (exceto os originários de Meta Ads).
     const { error, count } = await context.supabase
@@ -206,7 +206,7 @@ export const clearAllBlastContacts = createServerFn({ method: "POST" })
   });
 
 export const exportContactList = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ listId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { data: rows } = await context.supabase

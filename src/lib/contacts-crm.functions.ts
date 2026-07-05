@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 const temperaturaEnum = z.enum(["quente", "morno", "frio", "cliente", "bloqueado"]);
@@ -16,7 +16,7 @@ const statusEnum = z.enum([
 ]);
 
 export const listContactGroups = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data: groups, error } = await context.supabase
       .from("contact_groups")
@@ -31,7 +31,7 @@ export const listContactGroups = createServerFn({ method: "GET" })
   });
 
 export const createContactGroup = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ name: z.string().min(1).max(80), color: z.string().max(20).optional() }).parse(d),
   )
@@ -46,7 +46,7 @@ export const createContactGroup = createServerFn({ method: "POST" })
   });
 
 export const deleteContactGroup = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("contact_groups").delete().eq("id", data.id);
@@ -55,7 +55,7 @@ export const deleteContactGroup = createServerFn({ method: "POST" })
   });
 
 export const assignContactsToGroup = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       group_id: z.string().uuid(),
@@ -76,7 +76,7 @@ export const assignContactsToGroup = createServerFn({ method: "POST" })
   });
 
 export const removeContactsFromGroup = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       group_id: z.string().uuid(),
@@ -94,7 +94,7 @@ export const removeContactsFromGroup = createServerFn({ method: "POST" })
   });
 
 export const bulkUpdateContacts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       contact_ids: z.array(z.string().uuid()).min(1).max(2000),
@@ -123,7 +123,7 @@ export const bulkUpdateContacts = createServerFn({ method: "POST" })
   });
 
 export const updateContactFields = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       id: z.string().uuid(),
