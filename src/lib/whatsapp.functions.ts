@@ -38,7 +38,7 @@ export const listConversations = createServerFn({ method: "GET" })
         "id, status, last_message_preview, last_message_at, agent_enabled, whatsapp_number_id, needs_review, review_reason, auto_paused_at, internal_note, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline, photo_url)",
       )
       .in("user_id", userIds)
-      .eq("workspace_id", context.workspaceId)
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
       .order("last_message_at", { ascending: false, nullsFirst: false });
     if (data?.numberId) q = q.eq("whatsapp_number_id", data.numberId);
     const { data: rows, error } = await q;
@@ -65,7 +65,7 @@ export const listMessages = createServerFn({ method: "POST" })
       .from("messages")
       .select("id, sender, kind, body, audio_url, created_at")
       .in("user_id", userIds)
-      .eq("workspace_id", context.workspaceId)
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
       .eq("conversation_id", data.conversationId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
@@ -90,7 +90,7 @@ export const sendManualMessage = createServerFn({ method: "POST" })
       .select("id, user_id, contact:contacts(telefone)")
       .eq("id", data.conversationId)
       .in("user_id", userIds)
-      .eq("workspace_id", context.workspaceId)
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
       .maybeSingle();
     if (convErr) throw new Error(convErr.message);
     if (!conv?.contact) throw new Error("Conversa não encontrada");
@@ -135,7 +135,7 @@ export const sendManualMessage = createServerFn({ method: "POST" })
         status: "aguardando",
       })
       .eq("id", data.conversationId)
-      .eq("workspace_id", context.workspaceId);
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`);
 
     return { ok: true };
   });
@@ -153,7 +153,7 @@ export const clearConversation = createServerFn({ method: "POST" })
       .select("id, user_id")
       .eq("id", data.conversationId)
       .in("user_id", userIds)
-      .eq("workspace_id", context.workspaceId)
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
       .maybeSingle();
     if (convErr) throw new Error(convErr.message);
     if (!conv) throw new Error("Conversa não encontrada");
@@ -162,7 +162,7 @@ export const clearConversation = createServerFn({ method: "POST" })
       .from("messages")
       .delete()
       .eq("conversation_id", data.conversationId)
-      .eq("workspace_id", context.workspaceId);
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`);
     if (delErr) throw new Error(delErr.message);
 
     const { error: updErr } = await supabaseAdmin
@@ -172,7 +172,7 @@ export const clearConversation = createServerFn({ method: "POST" })
         last_message_at: null,
       })
       .eq("id", data.conversationId)
-      .eq("workspace_id", context.workspaceId);
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`);
     if (updErr) throw new Error(updErr.message);
 
     return { ok: true };
