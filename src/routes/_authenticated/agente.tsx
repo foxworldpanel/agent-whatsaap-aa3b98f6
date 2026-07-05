@@ -14,6 +14,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { getAgentConfig, saveAgentModules, setServicesRealtime, saveBehavior, savePanelScreenshots } from "@/lib/agent.functions";
+import { seedMindBrand } from "@/lib/seed-mind-brand.functions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
@@ -37,6 +38,16 @@ function AgentePage() {
   const toggleRealtimeFn = useServerFn(setServicesRealtime);
   const saveBehaviorFn = useServerFn(saveBehavior);
   const savePanelShotsFn = useServerFn(savePanelScreenshots);
+  const seedFn = useServerFn(seedMindBrand);
+  const seedMut = useMutation({
+    mutationFn: () => seedFn(),
+    onSuccess: (r) => {
+      toast.success(`Seed OK: identity=${r.identity_fields}, modules=${r.modules_count}, brand=${r.brand_blocks}, rows=${r.agent_config_rows_updated}`);
+      qc.invalidateQueries({ queryKey: ["agent_config"] });
+      qc.invalidateQueries({ queryKey: ["agent_identity"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const { data: cfgRaw } = useQuery({ queryKey: ["agent_config", activeWorkspaceId], queryFn: () => fetchCfg() });
   const cfg = cfgRaw as AgentConfigUi | null | undefined;
 
@@ -132,6 +143,28 @@ function AgentePage() {
           {save.isPending ? "Salvando..." : "Salvar tudo"}
         </Button>
       </div>
+
+      {/* TEMP — Passo 1 seed. Remover depois da validação. */}
+      <Card className="border-amber-400/60 bg-amber-50/40 p-3 text-xs">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="font-medium">Seed Mind (one-shot — Passo 1)</div>
+            <div className="text-muted-foreground">
+              Copia DEFAULT_IDENTITY, DEFAULT_MODULES e os 3 brand_blocks
+              atuais pro banco. Não muda nenhum comportamento. Rode uma vez
+              estando no workspace Mind.
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => seedMut.mutate()}
+            disabled={seedMut.isPending}
+          >
+            {seedMut.isPending ? "Semeando..." : "Rodar seed"}
+          </Button>
+        </div>
+      </Card>
 
       <div className="flex flex-col gap-2">
         <IdentidadeCard />
