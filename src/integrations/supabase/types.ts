@@ -20,6 +20,7 @@ export type Database = {
           agent_name: string
           audio_enabled: boolean
           base_instruction: string
+          brand_blocks: Json
           catalog_in_prompt: boolean
           catalog_only_relevant: boolean
           company_info: Json
@@ -53,6 +54,7 @@ export type Database = {
           agent_name?: string
           audio_enabled?: boolean
           base_instruction?: string
+          brand_blocks?: Json
           catalog_in_prompt?: boolean
           catalog_only_relevant?: boolean
           company_info?: Json
@@ -86,6 +88,7 @@ export type Database = {
           agent_name?: string
           audio_enabled?: boolean
           base_instruction?: string
+          brand_blocks?: Json
           catalog_in_prompt?: boolean
           catalog_only_relevant?: boolean
           company_info?: Json
