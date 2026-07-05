@@ -660,4 +660,77 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
       "FALHOU: prompt ativou MODO REENGAJAMENTO sem hiato de tempo",
     ).toBe(false);
   });
+
+  // Cenário exato reportado em produção: thread de DISPARO (isInbound=false),
+  // pergunta pendente sobre rede, gap > 12h, cliente responde só "Boa tarde".
+  // Antes do fix, EXEMPLO_MODELO_DISPARO + REFINAMENTOS ganhavam do
+  // MODO REENGAJAMENTO e a Júlia repetia/reformulava a pergunta de rede.
+  it("DISPARO (isInbound=false) + gap > 12h + saudação → veto de reengajamento tem prioridade sobre funil", async () => {
+    const longAgo = new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString();
+    const now = new Date().toISOString();
+    const neutralReply = "Boa tarde! Como posso te ajudar?";
+    const fetchMock = mockAnthropic(neutralReply);
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    const res = await generateAgentReplyWithMeta({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: OPENING, created_at: longAgo },
+        { sender: "cliente", body: "Sim", created_at: longAgo },
+        {
+          sender: "agente",
+          body: "Show! Bora ver o que mais combina com você. Qual rede social você mais usa hoje em dia?",
+          created_at: longAgo,
+        },
+        { sender: "cliente", body: "Boa tarde", created_at: now },
+      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
+      isInbound: false,
+      freeTestServices: [],
+      userId: null,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      /VETO DE PRIORIDADE M[AÁ]XIMA[\s\S]*MODO REENGAJAMENTO/i.test(body.system),
+      "FALHOU: veto de reengajamento não foi injetado no topo do prompt em thread de disparo",
+    ).toBe(true);
+    expect(
+      /REFINAMENTOS DE TOM CONSULTIVO/i.test(body.system),
+      "FALHOU: refinamentos do disparo deveriam ser suprimidos quando reengajamento está ativo",
+    ).toBe(false);
+    expect(
+      /qual\s+rede|rede\s+social|instagram|youtube|tiktok|priorizar|qual\s+desses/i.test(res.text),
+      `FALHOU: resposta emendou pergunta pendente do funil de disparo: "${res.text}"`,
+    ).toBe(false);
+  });
+
+  // Garantia anti-regressão: fluxo de disparo NORMAL (sem gap) continua
+  // recebendo os refinamentos e avança direto para a pergunta de rede como
+  // sempre fez — o veto SÓ atua quando o gap é real.
+  it("DISPARO normal (sem gap) → continua com REFINAMENTOS e sem veto de reengajamento", async () => {
+    const t = new Date().toISOString();
+    const fetchMock = mockAnthropic("Show! Qual rede social você mais usa hoje em dia?");
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    await generateAgentReplyWithMeta({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: OPENING, created_at: t },
+        { sender: "cliente", body: "Sim", created_at: t },
+      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
+      isInbound: false,
+      freeTestServices: [],
+      userId: null,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      /VETO DE PRIORIDADE M[AÁ]XIMA/i.test(body.system),
+      "FALHOU: veto de reengajamento foi injetado em disparo normal sem hiato",
+    ).toBe(false);
+    expect(
+      /REFINAMENTOS DE TOM CONSULTIVO/i.test(body.system),
+      "FALHOU: refinamentos do disparo desapareceram no fluxo normal (regressão)",
+    ).toBe(true);
+  });
 });
