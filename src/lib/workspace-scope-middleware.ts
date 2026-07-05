@@ -1,5 +1,5 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { getRequestHeader } from "@tanstack/react-start/server";
+import { getRequest, getRequestHeader } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -17,30 +17,18 @@ export const withWorkspaceScope = createMiddleware({ type: "function" })
     const headerValue = getRequestHeader("x-workspace-id") ?? null;
     const workspaceId = await resolveWorkspaceId(context.supabase, context.userId, headerValue);
 
+    const req = getRequest();
+    const bearer = req?.headers.get("authorization") ?? "";
     const SUPABASE_URL = process.env.SUPABASE_URL!;
     const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
 
-    // Recreate the authenticated client with a fetch that appends the workspace
-    // header. We reuse the same bearer token from the original request.
-    const authHeader = (context.supabase as unknown as { headers?: Record<string, string> }) ?? null;
-    void authHeader;
-
-    const scopedSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       global: {
         fetch: withWorkspaceHeaderFetch(fetch, workspaceId),
-        headers: {
-          // Pass through the same bearer the auth middleware validated.
-          Authorization: `Bearer ${context.claims.__raw ?? ""}`,
-        },
+        headers: bearer ? { Authorization: bearer } : {},
       },
       auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
     });
-
-    // Prefer the scoped client, but fall back to the original if bearer isn't
-    // reachable (defensive — the raw JWT isn't always exposed on claims).
-    const supabase = (context.claims && (context.claims as unknown as { __raw?: string }).__raw)
-      ? scopedSupabase
-      : context.supabase;
 
     return next({
       context: {
