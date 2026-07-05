@@ -694,6 +694,20 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
       /VETO DE PRIORIDADE M[AÁ]XIMA[\s\S]*MODO REENGAJAMENTO/i.test(body.system),
       "FALHOU: veto de reengajamento não foi injetado no topo do prompt em thread de disparo",
     ).toBe(true);
+    // Variante DISPARO deve reapresentar a isca ("posso te mostrar...")
+    expect(
+      /REAPRESENTE A ISCA/i.test(body.system),
+      "FALHOU: veto de disparo não instrui a reapresentar a isca da abertura",
+    ).toBe(true);
+    expect(
+      /Posso te mostrar como acelerar suas redes/i.test(body.system),
+      "FALHOU: exemplo da isca (acelerar suas redes) ausente no veto de disparo",
+    ).toBe(true);
+    // No disparo, "Como posso ajudar" NÃO é o formato correto (é o formato receptivo)
+    expect(
+      /RECEPTIVO/i.test(body.system),
+      "FALHOU: variante RECEPTIVA foi injetada em thread de disparo",
+    ).toBe(false);
     expect(
       /REFINAMENTOS DE TOM CONSULTIVO/i.test(body.system),
       "FALHOU: refinamentos do disparo deveriam ser suprimidos quando reengajamento está ativo",
@@ -701,6 +715,45 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     expect(
       /qual\s+rede|rede\s+social|instagram|youtube|tiktok|priorizar|qual\s+desses/i.test(res.text),
       `FALHOU: resposta emendou pergunta pendente do funil de disparo: "${res.text}"`,
+    ).toBe(false);
+  });
+
+  // Variante RECEPTIVA: mesmo cenário de hiato, mas isInbound=true → o veto
+  // deve usar o formato "Como posso ajudar" e NÃO reapresentar isca de disparo.
+  it("RECEPTIVO (isInbound=true) + gap > 12h + saudação → veto usa 'Como posso ajudar', NÃO reapresenta isca", async () => {
+    const longAgo = new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString();
+    const now = new Date().toISOString();
+    const fetchMock = mockAnthropic("Boa tarde! Como posso te ajudar?");
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    await generateAgentReplyWithMeta({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "cliente", body: "Oi, quero saber sobre seguidores", created_at: longAgo },
+        {
+          sender: "agente",
+          body: "Show! Quantos seguidores você tá pensando em pegar?",
+          created_at: longAgo,
+        },
+        { sender: "cliente", body: "Boa tarde", created_at: now },
+      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
+      isInbound: true,
+      freeTestServices: [],
+      userId: null,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      /MODO REENGAJAMENTO APÓS HIATO \(RECEPTIVO\)/i.test(body.system),
+      "FALHOU: variante RECEPTIVA do veto não foi injetada",
+    ).toBe(true);
+    expect(
+      /Como posso ajudar/i.test(body.system),
+      "FALHOU: formato 'Como posso ajudar' ausente no veto receptivo",
+    ).toBe(true);
+    expect(
+      /REAPRESENTE A ISCA/i.test(body.system),
+      "FALHOU: veto receptivo não deve pedir reapresentação de isca de disparo",
     ).toBe(false);
   });
 
