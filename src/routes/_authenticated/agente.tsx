@@ -21,6 +21,7 @@ import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 import { MediasCard } from "@/components/agente/MediasCard";
 import { IdentidadeCard } from "@/components/agente/IdentidadeCard";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/workspace-context";
 
 export const Route = createFileRoute("/_authenticated/agente")({
   ssr: false,
@@ -30,12 +31,13 @@ export const Route = createFileRoute("/_authenticated/agente")({
 
 function AgentePage() {
   const qc = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const fetchCfg = useServerFn(getAgentConfig);
   const saveFn = useServerFn(saveAgentModules);
   const toggleRealtimeFn = useServerFn(setServicesRealtime);
   const saveBehaviorFn = useServerFn(saveBehavior);
   const savePanelShotsFn = useServerFn(savePanelScreenshots);
-  const { data: cfgRaw } = useQuery({ queryKey: ["agent_config"], queryFn: () => fetchCfg() });
+  const { data: cfgRaw } = useQuery({ queryKey: ["agent_config", activeWorkspaceId], queryFn: () => fetchCfg() });
   const cfg = cfgRaw as AgentConfigUi | null | undefined;
 
   const [modules, setModules] = useState<Record<string, string>>({});
