@@ -14,7 +14,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { getAgentConfig, saveAgentModules, setServicesRealtime, saveBehavior, savePanelScreenshots } from "@/lib/agent.functions";
-import { seedMindBrand, seedBrandFromMindTemplate } from "@/lib/seed-mind-brand.functions";
+import { seedBrandFromMindTemplate } from "@/lib/seed-mind-brand.functions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
@@ -38,16 +38,6 @@ function AgentePage() {
   const toggleRealtimeFn = useServerFn(setServicesRealtime);
   const saveBehaviorFn = useServerFn(saveBehavior);
   const savePanelShotsFn = useServerFn(savePanelScreenshots);
-  const seedFn = useServerFn(seedMindBrand);
-  const seedMut = useMutation({
-    mutationFn: () => seedFn(),
-    onSuccess: (r) => {
-      toast.success(`Seed OK: identity=${r.identity_fields}, modules=${r.modules_count}, brand=${r.brand_blocks}, rows=${r.agent_config_rows_updated}`);
-      qc.invalidateQueries({ queryKey: ["agent_config"] });
-      qc.invalidateQueries({ queryKey: ["agent_identity"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
   const seedTplFn = useServerFn(seedBrandFromMindTemplate);
   const seedTplMut = useMutation({
     mutationFn: () => seedTplFn(),
