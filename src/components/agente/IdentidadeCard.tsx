@@ -33,6 +33,14 @@ const FIELDS = [
 type FieldKey = (typeof FIELDS)[number]["key"];
 type Values = Record<FieldKey, string>;
 
+// Campos BRAND — sem fallback universal no código; workspace sem seed
+// nasce vazio nesses 3 e é isso que a UI deve deixar explícito.
+const BRAND_FIELDS: ReadonlyArray<FieldKey> = [
+  "persona",
+  "terminologia_redes",
+  "exemplo_disparo",
+];
+
 export function IdentidadeCard() {
   const qc = useQueryClient();
   const fetchFn = useServerFn(getAgentIdentity);
@@ -108,13 +116,24 @@ export function IdentidadeCard() {
               const isDefault = val === (defaults[f.key] as string);
               const storedVal = (stored?.[f.key] ?? null) as string | null;
               const isCustomizedInDb = !!(storedVal && storedVal.trim().length > 0 && storedVal !== (defaults[f.key] as string));
+              const isBrand = BRAND_FIELDS.includes(f.key);
+              const isEmptyBrand = isBrand && val.trim().length === 0;
               return (
                 <div key={f.key} className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <label className="text-sm font-medium">{f.label}</label>
-                      {isDefault ? (
-                        <Badge variant="secondary" className="text-[10px]">Padrão do sistema</Badge>
+                      {isEmptyBrand ? (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-400 text-amber-700 dark:text-amber-400 text-[10px]"
+                        >
+                          Sem configuração
+                        </Badge>
+                      ) : isDefault ? (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {isBrand ? "Padrão do sistema" : "Padrão do sistema (safety)"}
+                        </Badge>
                       ) : (
                         <Badge variant="default" className="text-[10px]">
                           {isCustomizedInDb ? "Customizado (salvo)" : "Editado (não salvo)"}
@@ -135,6 +154,11 @@ export function IdentidadeCard() {
                     value={val}
                     rows={f.key === "exemplo_disparo" ? 18 : 6}
                     className="font-mono text-xs"
+                    placeholder={
+                      isEmptyBrand
+                        ? "Sem configuração — este workspace ainda não tem persona/terminologia/exemplo. Configure aqui, ou use o botão “Seed a partir do template Mind” acima pra começar com a Júlia."
+                        : undefined
+                    }
                     onChange={(e) =>
                       setValues((prev) => (prev ? { ...prev, [f.key]: e.target.value } : prev))
                     }
