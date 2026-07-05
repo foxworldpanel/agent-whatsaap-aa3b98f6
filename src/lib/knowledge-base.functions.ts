@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 const MAX_EXAMPLES = 50;
 
 export const listKnowledge = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("knowledge_base")
@@ -28,7 +28,7 @@ async function assertUnderLimit(supabase: any, userId: string) {
 }
 
 export const addTextExample = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       context: z.string().trim().max(500).optional().nullable(),
@@ -52,7 +52,7 @@ export const addTextExample = createServerFn({ method: "POST" })
   });
 
 export const addImageExample = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       context: z.string().trim().max(500).optional().nullable(),
@@ -79,7 +79,7 @@ export const addImageExample = createServerFn({ method: "POST" })
   });
 
 export const deleteKnowledge = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase

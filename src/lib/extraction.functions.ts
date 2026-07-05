@@ -1,11 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 const profileEnum = z.enum(["ativo", "frio", "inativo"]);
 
 export const extractChatsFromNumber = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ whatsapp_number_id: z.string().uuid() }).parse(d),
   )
@@ -54,7 +54,7 @@ export const extractChatsFromNumber = createServerFn({ method: "POST" })
   });
 
 export const importExtractedContacts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z
       .object({
@@ -156,7 +156,7 @@ export const importExtractedContacts = createServerFn({ method: "POST" })
   });
 
 export const listExtractionLogs = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("extraction_logs")

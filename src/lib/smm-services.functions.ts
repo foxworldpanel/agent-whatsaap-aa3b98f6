@@ -1,12 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 // Sync the SMM panel catalogue. Calls the SMM API live, updates sync status on
 // integrations, and returns the list to the caller. Does NOT persist the whole
 // catalogue — it is fetched fresh on demand.
 export const syncSmmServices = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: integ, error: ie } = await supabaseAdmin
@@ -69,7 +69,7 @@ export const syncSmmServices = createServerFn({ method: "POST" })
 
 // Lista o catálogo em cache (já sincronizado) para o usuário atual.
 export const listCatalogCache = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("catalog_cache")
@@ -109,7 +109,7 @@ export type ServiceRow = {
 };
 
 export const listFreeTestServices = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("free_test_services")
@@ -120,7 +120,7 @@ export const listFreeTestServices = createServerFn({ method: "GET" })
   });
 
 export const upsertFreeTestService = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       service_id: z.string().min(1).max(50),
@@ -149,7 +149,7 @@ export const upsertFreeTestService = createServerFn({ method: "POST" })
   });
 
 export const deleteFreeTestService = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ service_id: z.string().min(1) }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 
 export type AgentMediaTipo = "video" | "imagem";
 export type AgentMedia = {
@@ -46,7 +46,7 @@ function validateVideoUrl(url: string): void {
 }
 
 export const listAgentMedias = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: { tipo?: AgentMediaTipo } | undefined) => d ?? {})
   .handler(async ({ data, context }) => {
     const q = context.supabase.from("agent_medias").select("*").order("created_at", { ascending: false });
@@ -57,7 +57,7 @@ export const listAgentMedias = createServerFn({ method: "GET" })
   });
 
 export const upsertAgentMedia = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: AgentMediaInput) => {
     if (!d.nome?.trim()) throw new Error("Nome é obrigatório.");
     if (!d.url?.trim()) throw new Error("URL/arquivo é obrigatório.");
@@ -94,7 +94,7 @@ export const upsertAgentMedia = createServerFn({ method: "POST" })
   });
 
 export const deleteAgentMedia = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: { id: string }) => d)
   .handler(async ({ data, context }) => {
     const { data: existing } = await context.supabase
@@ -108,7 +108,7 @@ export const deleteAgentMedia = createServerFn({ method: "POST" })
   });
 
 export const toggleAgentMedia = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: { id: string; ativo: boolean }) => d)
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase

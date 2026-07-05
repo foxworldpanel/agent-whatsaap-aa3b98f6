@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 async function getSharedUazapiUserIds(userId: string) {
@@ -19,7 +19,7 @@ async function getSharedUazapiUserIds(userId: string) {
 }
 
 export const listNumbers = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const userIds = await getSharedUazapiUserIds(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -33,7 +33,7 @@ export const listNumbers = createServerFn({ method: "GET" })
   });
 
 export const createNumber = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       nome: z.string().min(1).max(80),
@@ -86,7 +86,7 @@ export const createNumber = createServerFn({ method: "POST" })
   });
 
 export const connectNumber = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -118,7 +118,7 @@ export const connectNumber = createServerFn({ method: "POST" })
   });
 
 export const refreshNumberStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -142,7 +142,7 @@ export const refreshNumberStatus = createServerFn({ method: "POST" })
   });
 
 export const disconnectNumber = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -165,7 +165,7 @@ export const disconnectNumber = createServerFn({ method: "POST" })
   });
 
 export const deleteNumber = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const userIds = await getSharedUazapiUserIds(context.userId);
@@ -180,7 +180,7 @@ export const deleteNumber = createServerFn({ method: "POST" })
   });
 
 export const updateNumberToggles = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       id: z.string().uuid(),

@@ -1,12 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 const profileEnum = z.enum(["ativo", "frio", "inativo"]);
 const statusEnum = z.enum(["nao_abordado", "em_conversa", "convertido", "sem_resposta", "bloqueado"]);
 
 export const listContacts = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("contacts")
@@ -17,7 +17,7 @@ export const listContacts = createServerFn({ method: "GET" })
   });
 
 export const createContact = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       nome: z.string().min(1).max(120),
@@ -39,7 +39,7 @@ export const createContact = createServerFn({ method: "POST" })
   });
 
 export const importContacts = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       rows: z.array(z.object({
@@ -65,7 +65,7 @@ export const importContacts = createServerFn({ method: "POST" })
   });
 
 export const deleteContact = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("contacts").delete().eq("id", data.id);

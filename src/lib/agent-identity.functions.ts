@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getRequestHeader } from "@tanstack/react-start/server";
-import { resolveWorkspaceId } from "@/lib/workspace-scope.server";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
+
+
 import { z } from "zod";
 
 const IdentitySchema = z.object({
@@ -18,15 +18,14 @@ const IdentitySchema = z.object({
 });
 
 export const getAgentIdentity = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { DEFAULT_IDENTITY, mergeIdentity } = await import("@/lib/agent-identity.server");
-    const workspaceId = await resolveWorkspaceId(context.supabase, context.userId, getRequestHeader("x-workspace-id") ?? null);
     const { data, error } = await context.supabase
       .from("agent_identity")
       .select("*")
       .eq("user_id", context.userId)
-      .eq("workspace_id", workspaceId)
+      .eq("workspace_id", context.workspaceId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     const effective = mergeIdentity(data as never);
@@ -38,15 +37,14 @@ export const getAgentIdentity = createServerFn({ method: "GET" })
   });
 
 export const updateAgentIdentity = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((input: unknown) => IdentitySchema.parse(input))
   .handler(async ({ data, context }) => {
     const { invalidateAgentIdentityCache } = await import("@/lib/agent-identity.server");
-    const workspaceId = await resolveWorkspaceId(context.supabase, context.userId, getRequestHeader("x-workspace-id") ?? null);
     const clean = (v: unknown) => (typeof v === "string" && v.trim().length > 0 ? v : null);
     const row = {
       user_id: context.userId,
-      workspace_id: workspaceId,
+      workspace_id: context.workspaceId,
       persona: clean(data.persona),
       regra_emoji: clean(data.regra_emoji),
       regra_split: clean(data.regra_split),

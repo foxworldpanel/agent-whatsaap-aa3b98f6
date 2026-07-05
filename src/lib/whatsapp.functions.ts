@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
 async function getSharedUazapiUserIds(context: { supabase: any; userId: string }) {
@@ -25,7 +25,7 @@ async function getSharedUazapiUserIds(context: { supabase: any; userId: string }
 
 // List conversations with contact info
 export const listConversations = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({ numberId: z.string().uuid().nullable().optional() }).optional().parse(d),
   )
@@ -55,7 +55,7 @@ export const listConversations = createServerFn({ method: "GET" })
   });
 
 export const listMessages = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const userIds = await getSharedUazapiUserIds(context);
@@ -72,7 +72,7 @@ export const listMessages = createServerFn({ method: "POST" })
 
 // Manual send from the Conversas screen.
 export const sendManualMessage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       conversationId: z.string().uuid(),
@@ -138,7 +138,7 @@ export const sendManualMessage = createServerFn({ method: "POST" })
 
 // Clear conversation history and reset agent context for that contact.
 export const clearConversation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const userIds = await getSharedUazapiUserIds(context);
