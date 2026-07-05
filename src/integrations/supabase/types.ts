@@ -46,7 +46,7 @@ export type Database = {
           typing_indicator_enabled: boolean
           updated_at: string
           user_id: string
-          workspace_id: string | null
+          workspace_id: string
         }
         Insert: {
           agent_enabled?: boolean
@@ -79,7 +79,7 @@ export type Database = {
           typing_indicator_enabled?: boolean
           updated_at?: string
           user_id: string
-          workspace_id?: string | null
+          workspace_id: string
         }
         Update: {
           agent_enabled?: boolean
@@ -112,7 +112,7 @@ export type Database = {
           typing_indicator_enabled?: boolean
           updated_at?: string
           user_id?: string
-          workspace_id?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -156,7 +156,7 @@ export type Database = {
           terminologia_redes: string | null
           updated_at: string
           user_id: string
-          workspace_id: string | null
+          workspace_id: string
         }
         Insert: {
           exemplo_disparo?: string | null
@@ -171,7 +171,7 @@ export type Database = {
           terminologia_redes?: string | null
           updated_at?: string
           user_id: string
-          workspace_id?: string | null
+          workspace_id: string
         }
         Update: {
           exemplo_disparo?: string | null
@@ -186,7 +186,7 @@ export type Database = {
           terminologia_redes?: string | null
           updated_at?: string
           user_id?: string
-          workspace_id?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -1502,7 +1502,7 @@ export type Database = {
           uazapi_url: string | null
           updated_at: string
           user_id: string
-          workspace_id: string | null
+          workspace_id: string
         }
         Insert: {
           anthropic_api_key?: string | null
@@ -1521,7 +1521,7 @@ export type Database = {
           uazapi_url?: string | null
           updated_at?: string
           user_id: string
-          workspace_id?: string | null
+          workspace_id: string
         }
         Update: {
           anthropic_api_key?: string | null
@@ -1540,7 +1540,7 @@ export type Database = {
           uazapi_url?: string | null
           updated_at?: string
           user_id?: string
-          workspace_id?: string | null
+          workspace_id?: string
         }
         Relationships: [
           {
@@ -2084,6 +2084,8 @@ export type Database = {
     }
     Functions: {
       cleanup_old_agent_logs: { Args: never; Returns: undefined }
+      current_workspace_id: { Args: never; Returns: string }
+      effective_workspace_id: { Args: { _user_id: string }; Returns: string }
       get_or_create_active_conversation: {
         Args: {
           _contact_id: string
