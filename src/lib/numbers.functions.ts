@@ -27,6 +27,7 @@ export const listNumbers = createServerFn({ method: "GET" })
       .from("whatsapp_numbers")
       .select("id, nome, uazapi_url, status, meta_ads_enabled, disparos_mode, last_connected_at, created_at, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, last_risk_check_at")
       .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -71,6 +72,7 @@ export const createNumber = createServerFn({ method: "POST" })
       .from("whatsapp_numbers")
       .insert({
         user_id: context.userId,
+        workspace_id: context.workspaceId,
         nome: data.nome,
         uazapi_url: data.uazapi_url,
         uazapi_admin_token: data.uazapi_admin_token || "",

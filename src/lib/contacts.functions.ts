@@ -8,20 +8,10 @@ const statusEnum = z.enum(["nao_abordado", "em_conversa", "convertido", "sem_res
 export const listContacts = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    // TEMP DEBUG
-    console.log("[DEBUG listContacts] context.workspaceId:", context.workspaceId);
-    console.log("[DEBUG listContacts] context.userId:", context.userId);
-    try {
-      const { data: effective, error: rpcErr } = await context.supabase.rpc("current_workspace_id" as never);
-      console.log("[DEBUG listContacts] pg current_workspace_id():", effective, "err:", rpcErr?.message);
-    } catch (e) {
-      console.log("[DEBUG listContacts] rpc threw:", (e as Error).message);
-    }
     const { data, error } = await context.supabase
       .from("contacts")
       .select("*")
       .order("created_at", { ascending: false });
-    console.log("[DEBUG listContacts] rows returned:", data?.length ?? 0, "err:", error?.message);
     if (error) throw new Error(error.message);
     return data ?? [];
   });
