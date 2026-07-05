@@ -99,9 +99,9 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       } catch {
         /* ignore */
       }
-      // Drop cached data from previous workspace and force active observers to refetch
-      // with the new x-workspace-id header.
-      qc.removeQueries();
+      // Mark all active queries stale and refetch them with the new
+      // x-workspace-id header. Do NOT removeQueries() first — that detaches
+      // observers and leaves nothing to invalidate/refetch.
       void qc.invalidateQueries({ refetchType: "all" });
     },
     [activeWorkspaceId, qc],
