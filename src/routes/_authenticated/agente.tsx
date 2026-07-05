@@ -144,6 +144,28 @@ function AgentePage() {
         </Button>
       </div>
 
+      {/* TEMP — Passo 1 seed. Remover depois da validação. */}
+      <Card className="border-amber-400/60 bg-amber-50/40 p-3 text-xs">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <div className="font-medium">Seed Mind (one-shot — Passo 1)</div>
+            <div className="text-muted-foreground">
+              Copia DEFAULT_IDENTITY, DEFAULT_MODULES e os 3 brand_blocks
+              atuais pro banco. Não muda nenhum comportamento. Rode uma vez
+              estando no workspace Mind.
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => seedMut.mutate()}
+            disabled={seedMut.isPending}
+          >
+            {seedMut.isPending ? "Semeando..." : "Rodar seed"}
+          </Button>
+        </div>
+      </Card>
+
       <div className="flex flex-col gap-2">
         <IdentidadeCard />
         <TesteGratisCard />
