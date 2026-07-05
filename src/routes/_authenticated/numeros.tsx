@@ -149,11 +149,11 @@ function NumerosPage() {
   return (
     <div className="space-y-6">
       <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-mono text-amber-900">
-        🔧 Debug: workspace ativo = {activeWorkspace?.name ?? "(sem nome)"} ({activeWorkspaceId ?? "null"})
+        🔧 Debug: workspace ativo = {activeWorkspace?.nome ?? "(sem nome)"} ({activeWorkspaceId ?? "null"})
         {" · "}total workspaces carregados: {workspaces.length}
         {workspaces.length > 0 && (
           <div className="mt-1 opacity-70">
-            {workspaces.map((w) => `${w.name}=${w.id}`).join(" | ")}
+            {workspaces.map((w) => `${w.nome}=${w.id}`).join(" | ")}
           </div>
         )}
       </div>
