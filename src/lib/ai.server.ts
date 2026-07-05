@@ -34,6 +34,27 @@ function getLatestClientMessage(history: Msg[]): string {
   return "";
 }
 
+// Detecta se a conversa já saiu do "momento de abertura de disparo" — ou seja,
+// já entrou em suporte/pós-venda/atendimento sobre pedido em andamento. Quando
+// verdadeiro, a regra de "interesse amplo" (qualquer 'ok'/'blz' avança pro
+// funil) NÃO deve ser aplicada, mesmo que a thread tenha sido originada de um
+// disparo. Serve como guarda determinística contra o modelo reiniciar o funil
+// de vendas dentro de uma conversa de suporte.
+export function isSupportOrPostSaleContext(history: Msg[]): boolean {
+  const agentMsgs = history.filter((m) => m.sender === "agente" && m.body?.trim());
+  if (agentMsgs.length < 2) return false;
+  // Se a agente já perguntou rede/serviço/quantidade OU já respondeu sobre
+  // pedido/status/painel/saldo/ticket/processando/pendente, isso não é mais
+  // "logo após abertura de disparo".
+  const supportRx =
+    /(qual\s+rede|qual\s+servi[cç]o|qual\s+plataforma|quer\s+impulsionar|status|pedido|painel|saldo|ticket|processando|pendente|entregue|order\s*id|comprovante|pagamento|pix)/i;
+  // Ignora a primeira mensagem (que costuma ser a própria abertura).
+  for (let i = 1; i < agentMsgs.length; i += 1) {
+    if (supportRx.test(agentMsgs[i].body)) return true;
+  }
+  return false;
+}
+
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
 // que está na lista de teste grátis liberado. Chave = token que aparece no
 // texto; valor = família de serviço.
