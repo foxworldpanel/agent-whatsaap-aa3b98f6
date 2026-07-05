@@ -33,6 +33,7 @@ export const getAgentConfig = createServerFn({ method: "GET" })
       .from("agent_config")
       .select("*")
       .eq("user_id", context.userId)
+      .eq("workspace_id", context.workspaceId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!data) return data;
