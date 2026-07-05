@@ -15,6 +15,7 @@ import {
   humanizePunctuation,
   buildSystemPrompt,
 } from "@/lib/ai.server";
+import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts } from "@/lib/message-splitter";
 
 const OPENING =
@@ -215,6 +216,7 @@ describe("5) Terminologia por rede (YouTube/TikTok = views)", () => {
       agent: baseAgent(),
       contact: baseContact(),
       history: [{ sender: "cliente", body: "quero views no youtube" }],
+      identity: MIND_BRAND_TEMPLATE,
     });
     expect(
       /YouTube\s*→\s*"views".*NUNCA\s*"plays"/is.test(prompt),
@@ -298,6 +300,7 @@ describe("8) Fechamento não prematuro (não se despede antes do painel)", () =>
         { sender: "agente", body: "Pra começar, 1000 seguidores sai R$50." },
         { sender: "cliente", body: "ok" },
       ],
+      identity: MIND_BRAND_TEMPLATE,
     });
     expect(
       /MODO FECHAMENTO/i.test(prompt),
