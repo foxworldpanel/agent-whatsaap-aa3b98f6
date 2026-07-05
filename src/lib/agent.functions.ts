@@ -553,9 +553,10 @@ export const saveIntegrations = createServerFn({ method: "POST" })
       if (typeof v === "string" && /^•+$/.test(v)) delete clean[k];
     }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const workspaceId = await resolveWorkspaceId(context.supabase, context.userId, getRequestHeader("x-workspace-id") ?? null);
     const { error } = await supabaseAdmin
       .from("integrations")
-      .upsert({ user_id: context.userId, ...clean }, { onConflict: "user_id" });
+      .upsert({ user_id: context.userId, workspace_id: workspaceId, ...clean }, { onConflict: "user_id,workspace_id" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
