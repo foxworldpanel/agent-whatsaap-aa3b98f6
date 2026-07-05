@@ -72,6 +72,7 @@ export const createNumber = createServerFn({ method: "POST" })
       .from("whatsapp_numbers")
       .insert({
         user_id: context.userId,
+        workspace_id: context.workspaceId,
         nome: data.nome,
         uazapi_url: data.uazapi_url,
         uazapi_admin_token: data.uazapi_admin_token || "",
