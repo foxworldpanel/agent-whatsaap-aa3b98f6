@@ -17,11 +17,6 @@ export const withWorkspaceScope = createMiddleware({ type: "function" })
     const headerValue = getRequestHeader("x-workspace-id") ?? null;
     const workspaceId = await resolveWorkspaceId(context.supabase, context.userId, headerValue);
 
-    // TEMP DEBUG
-    console.log("[DEBUG withWorkspaceScope] raw x-workspace-id header:", headerValue);
-    console.log("[DEBUG withWorkspaceScope] resolved workspaceId:", workspaceId);
-    console.log("[DEBUG withWorkspaceScope] userId:", context.userId);
-
     const req = getRequest();
     const bearer = req?.headers.get("authorization") ?? "";
     const SUPABASE_URL = process.env.SUPABASE_URL!;
