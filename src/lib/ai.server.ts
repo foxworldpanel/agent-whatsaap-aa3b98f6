@@ -42,15 +42,16 @@ function getLatestClientMessage(history: Msg[]): string {
 // de vendas dentro de uma conversa de suporte.
 export function isSupportOrPostSaleContext(history: Msg[]): boolean {
   const agentMsgs = history.filter((m) => m.sender === "agente" && m.body?.trim());
-  if (agentMsgs.length < 2) return false;
+  if (agentMsgs.length === 0) return false;
   // Se a agente já perguntou rede/serviço/quantidade OU já respondeu sobre
-  // pedido/status/painel/saldo/ticket/processando/pendente, isso não é mais
-  // "logo após abertura de disparo".
+  // pedido/status/painel/saldo/ticket/processando/pendente/pagamento, isso não
+  // é mais "logo após abertura de disparo". A pergunta de abertura em si
+  // ("posso te mostrar...") NÃO casa com nenhum desses padrões, então é seguro
+  // varrer TODAS as mensagens da agente sem falso positivo na abertura.
   const supportRx =
     /(qual\s+rede|qual\s+servi[cç]o|qual\s+plataforma|quer\s+impulsionar|status|pedido|painel|saldo|ticket|processando|pendente|entregue|order\s*id|comprovante|pagamento|pix)/i;
-  // Ignora a primeira mensagem (que costuma ser a própria abertura).
-  for (let i = 1; i < agentMsgs.length; i += 1) {
-    if (supportRx.test(agentMsgs[i].body)) return true;
+  for (const m of agentMsgs) {
+    if (supportRx.test(m.body)) return true;
   }
   return false;
 }
