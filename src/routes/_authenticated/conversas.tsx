@@ -144,8 +144,13 @@ function Conversas() {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   useEffect(() => {
+    setFilterNumberId(null);
     setActiveId(null);
-  }, [activeWorkspaceId, filterNumberId]);
+  }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    setActiveId(null);
+  }, [filterNumberId]);
 
   useEffect(() => {
     if (!activeId && conversations.length) setActiveId(conversations[0].id);
