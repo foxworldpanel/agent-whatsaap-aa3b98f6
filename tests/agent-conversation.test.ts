@@ -787,3 +787,62 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     ).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Áudio ininteligível: prompt de MODO ÁUDIO precisa carregar veto que impede
+// a Júlia de imitar tom/brincar junto quando a transcrição vem vazia, curta
+// ou é só uma interjeição solta. Deve responder UMA vez pedindo esclarecimento.
+// ---------------------------------------------------------------------------
+describe("Áudio ininteligível / sem conteúdo claro", () => {
+  it("inputKind=audio injeta veto de ÁUDIO ININTELIGÍVEL com frase de esclarecimento exata", async () => {
+    const fetchMock = mockAnthropic("Não consegui entender bem o áudio, consegue escrever ou mandar de novo?");
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    await generateAgentReplyWithMeta({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: OPENING },
+        { sender: "cliente", body: "ah" },
+      ],
+      isInbound: false,
+      freeTestServices: [],
+      inputKind: "audio",
+      userId: null,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      /ÁUDIO ININTELIGÍVEL/i.test(body.system),
+      "FALHOU: veto de áudio ininteligível ausente no MODO ÁUDIO",
+    ).toBe(true);
+    expect(
+      /Não consegui entender bem o áudio, consegue escrever ou mandar de novo\?/i.test(body.system),
+      "FALHOU: frase padrão de esclarecimento ausente no prompt",
+    ).toBe(true);
+    expect(
+      /PROIBIDO imitar o tom|brincar junto|reproduzir o som/i.test(body.system),
+      "FALHOU: proibição de imitar tom/brincar junto ausente no veto",
+    ).toBe(true);
+  });
+
+  it("inputKind=texto NÃO injeta o bloco de MODO ÁUDIO (nem o veto de ininteligível)", async () => {
+    const fetchMock = mockAnthropic("Show!");
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    await generateAgentReplyWithMeta({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: OPENING },
+        { sender: "cliente", body: "ah" },
+      ],
+      isInbound: false,
+      freeTestServices: [],
+      inputKind: "texto",
+      userId: null,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(/MODO ÁUDIO/i.test(body.system)).toBe(false);
+    expect(/ÁUDIO ININTELIGÍVEL/i.test(body.system)).toBe(false);
+  });
+});

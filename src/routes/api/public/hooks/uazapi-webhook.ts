@@ -400,6 +400,26 @@ function isNonsense(body: string): boolean {
   if (letters.length >= 6 && new Set(letters).size <= 2) return true;
   return false;
 }
+// Áudio ininteligível / sem conteúdo claro. Barra mais baixa que texto porque
+// transcrições vazias, muito curtas ou só interjeições ("ah", "ahn", palavra
+// cortada) não são conteúdo útil e devem contar como "sem sentido" pra regra
+// de comportamento inadequado (mesma lógica de custo já aplicada a texto).
+export function isAudioNonsense(body: string): boolean {
+  const raw = (body ?? "").trim();
+  // Transcrição vazia OU placeholder de "[áudio recebido]" (Whisper falhou ou
+  // devolveu string vazia) → conta como sem sentido.
+  if (!raw) return true;
+  if (/^\[[^\]]*audio[^\]]*\]$/i.test(raw) || /^\[[^\]]*áudio[^\]]*\]$/i.test(raw)) return true;
+  const t = normalizeText(raw);
+  if (/\?/.test(raw)) return false;
+  if (SMM_KEYWORDS.some((k) => t.includes(k))) return false;
+  // Interjeições curtas / palavra solta cortada ("ah", "ahn", "eh", "hm",
+  // "uhum", "aham", "oi", "ta") — mesma lista de fillers de texto + tamanho ≤ 4.
+  if (t.length <= 4 && !/\s/.test(t)) return true;
+  if (ONE_WORD_FILLER.has(t)) return true;
+  // Reaproveita a regra genérica de gibberish.
+  return isNonsense(raw);
+}
 function isOnTopic(body: string): boolean {
   const t = normalizeText(body ?? "");
   if (!t.trim()) return false;
@@ -435,8 +455,14 @@ function detectUnproductive(
     return { reason: "5+ figurinhas/imagens seguidas sem texto" };
   }
   // 4) 3 mensagens completamente sem sentido seguidas.
-  const last3Text = recent.filter((m) => m.kind === "texto" && (m.body ?? "").trim().length > 0).slice(-3);
-  if (last3Text.length >= 3 && last3Text.every((m) => isNonsense(m.body))) {
+  // Conta texto E áudio: áudios com transcrição vazia / interjeições curtas
+  // ("ah", "ahn", palavra cortada) seguem o mesmo padrão de "trote" e devem
+  // acionar a mesma pausa silenciosa que já vale pra texto.
+  const last3 = recent.filter((m) => m.kind === "texto" || m.kind === "audio").slice(-3);
+  if (
+    last3.length >= 3 &&
+    last3.every((m) => (m.kind === "audio" ? isAudioNonsense(m.body) : isNonsense(m.body)))
+  ) {
     return { reason: "3 mensagens sem sentido seguidas" };
   }
   return null;
