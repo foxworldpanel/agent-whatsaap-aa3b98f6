@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.set_default_workspace_id() FROM PUBLIC, anon;
