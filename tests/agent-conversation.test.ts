@@ -546,3 +546,50 @@ describe("13) FATO TÉCNICO respeita o idioma da conversa (EN)", () => {
     ).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 14) Suporte / pós-venda — "ok" após consulta de status NÃO reinicia funil
+// ---------------------------------------------------------------------------
+describe("14) Suporte/pós-venda: 'obrigado' + 'ok' NÃO dispara pergunta de rede", () => {
+  it("cliente com pedido em andamento agradece e confirma → prompt injeta MODO SUPORTE e Claude não pergunta 'qual rede'", async () => {
+    // Reply neutro esperado: Claude deveria APENAS reconhecer, sem reiniciar funil.
+    const neutralReply = "😊 Qualquer coisa me chama!";
+    const { fetchMock, text } = await callAgent({
+      history: [
+        { sender: "cliente", body: "oi, queria saber o status dos meus pedidos" },
+        {
+          sender: "agente",
+          body:
+            "Oi! Deixa eu ver aqui pra você. Seu pedido de seguidores no Instagram tá pendente, e o de plays no Spotify tá processando. Assim que atualizar te aviso!",
+        },
+        { sender: "cliente", body: "obrigado" },
+        { sender: "agente", body: "De nada! Qualquer coisa me chama 😊" },
+        { sender: "cliente", body: "ok" },
+      ],
+      mockReply: neutralReply,
+      isInbound: true,
+    });
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    // 1) O prompt injeta explicitamente o bloco MODO SUPORTE / PÓS-VENDA.
+    expect(
+      /MODO SUPORTE\s*\/?\s*P[ÓO]S-VENDA/i.test(body.system),
+      "FALHOU: prompt não contém o bloco MODO SUPORTE / PÓS-VENDA para esta conversa",
+    ).toBe(true);
+    // 2) O prompt proíbe reiniciar o funil nesse contexto.
+    expect(
+      /N[ÃA]O reinicie o funil de vendas|N[ÃA]O reiniciar o funil/i.test(body.system),
+      "FALHOU: prompt não proíbe reiniciar o funil de vendas em contexto de suporte",
+    ).toBe(true);
+    // 3) A regra reforça que "ok/blz/obrigado" fora da janela de abertura é só CONFIRMAÇÃO.
+    expect(
+      /apenas uma CONFIRMA[ÇC][ÃA]O|apenas reconhe[çc]a a confirma[çc][ãa]o/i.test(body.system),
+      "FALHOU: prompt não explica que 'ok' fora da janela é só confirmação",
+    ).toBe(true);
+    // 4) A resposta final (mock neutro) NÃO contém pergunta de rede/serviço.
+    expect(
+      /qual\s+rede|qual\s+servi[cç]o|qual\s+plataforma|quer\s+impulsionar/i.test(text),
+      `FALHOU: resposta reiniciou o funil de vendas: "${text}"`,
+    ).toBe(false);
+  });
+});
