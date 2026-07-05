@@ -1,5 +1,5 @@
 // Server-only Claude (Anthropic) call to generate the agent reply.
-import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, mergeIdentity } from "@/lib/agent-identity.server";
+import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks, mergeIdentity, type AgentBrandBlocks } from "@/lib/agent-identity.server";
 
 type AgentConfig = {
   agent_name: string;
@@ -284,14 +284,20 @@ type BuildPromptParams = {
    * prompt real vem de generateAgentReplyWithMeta, que carrega do DB.
    */
   identity?: Partial<import("./agent-identity.server").AgentIdentityFields> | null;
+  /**
+   * Brand blocks opcionais (Passo 3 do refactor). Se fornecido, é injetado
+   * em buildSharedRules. Em produção vem de agent_config.brand_blocks;
+   * aqui é usado por testes/diagnóstico pra injetar o template Mind.
+   */
+  brandBlocks?: AgentBrandBlocks | null;
 };
 
 export function buildSystemPrompt(params: BuildPromptParams): string {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], identity } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], identity, brandBlocks = null } = params;
   // Nota: buildSystemPrompt é síncrono (só usado por diagnostics como preview).
   // O prompt real de produção usa generateAgentReplyWithMeta, que carrega
   // a identidade do banco. Aqui usamos defaults + `buildSharedRules` sem I/O.
-  const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), { freeTestServices });
+  const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), { freeTestServices, brandBlocks });
   const latestClientMessage = getLatestClientMessage(history);
   const system = [
     sharedRules,
