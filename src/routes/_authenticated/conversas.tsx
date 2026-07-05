@@ -346,7 +346,10 @@ function Conversas() {
             status === "CLOSED"
           ) {
             setSyncStatus("error");
-            if (channel) supabase.removeChannel(channel);
+            // Não chame removeChannel() aqui: em CLOSED o canal já está
+            // desmontando, e removeChannel() dispara unsubscribe() → callback
+            // de close de novo → recursão infinita ("Maximum call stack size
+            // exceeded"). Apenas descarta a referência e agenda a reconexão.
             channel = null;
             if (!cancelled) {
               retry = setTimeout(connect, 5000);
