@@ -28,7 +28,7 @@ export const seedMindBrand = createServerFn({ method: "POST" })
       throw new Error("Forbidden: only Mind owner can run this seed");
     }
 
-    const [{ DEFAULT_IDENTITY, RESPOSTAS_PADRAO_BLOCK, REGRA_MQ_HQ_BLOCK, REGRA_AUTORIDADE_BLOCK }, { DEFAULT_MODULES }, { supabaseAdmin }] = await Promise.all([
+    const [{ DEFAULT_IDENTITY, MIND_BRAND_BLOCKS }, { DEFAULT_MODULES }, { supabaseAdmin }] = await Promise.all([
       import("@/lib/agent-identity.server"),
       import("@/lib/agent-modules"),
       import("@/integrations/supabase/client.server"),
@@ -46,11 +46,7 @@ export const seedMindBrand = createServerFn({ method: "POST" })
     if (idErr) throw new Error(`agent_identity: ${idErr.message}`);
 
     // 2) Update agent_config: modules e brand_blocks.
-    const brandBlocks = {
-      respostas_padrao: RESPOSTAS_PADRAO_BLOCK,
-      regra_mq_hq: REGRA_MQ_HQ_BLOCK,
-      regra_autoridade: REGRA_AUTORIDADE_BLOCK,
-    };
+    const brandBlocks = MIND_BRAND_BLOCKS;
     const { error: cfgErr, count } = await supabaseAdmin
       .from("agent_config")
       .update({
