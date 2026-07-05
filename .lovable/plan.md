@@ -1,64 +1,59 @@
-## Fase 2.5 — Isolamento real de workspace (pré-requisito da Fase 3)
+# Deletar TESTE-ISO + Wizard de Criação de Workspace
 
-Objetivo: eliminar os 3 bloqueios técnicos identificados para que dois workspaces do mesmo usuário fiquem 100% isolados em leitura, escrita e identidade de agente, sem quebrar Mind-Campanha nem Mind-Disparo.
+## 1. Remoção do workspace TESTE-ISO
+Migração de dados (via insert tool):
+- Confirma que TESTE-ISO não tem números, conversas, contatos, mensagens, blast_campaigns próprios.
+- `DELETE FROM public.workspaces WHERE nome = 'TESTE-ISO' AND user_id = <dono>` (via cascade limpa filhos vazios).
+- Remove também a linha de debug temporária adicionada em `numeros.tsx` (do turno anterior).
 
-### 1. Migração de schema
+## 2. Server functions novas em `src/lib/workspaces.functions.ts`
 
-Uma única migração que:
+- **`createWorkspace({ nome, icone?, cor? })`** — insere workspace novo (não-default), retorna `{ id, nome }`. Usa `withWorkspaceScope` só pra pegar `userId`, mas **não** força `x-workspace-id` (é criação).
+- **`deleteWorkspace({ id })`** — bloqueia se `is_default=true`; deleta workspace (cascade cuida do resto).
 
-- **PKs compostas** (permite 1 linha por workspace):
-  - `agent_identity`: `DROP CONSTRAINT ... PRIMARY KEY`, novo PK `(user_id, workspace_id)`
-  - `agent_config`: idem
-  - `integrations`: idem (mantém `user_id` como chave, adiciona `workspace_id`)
-  - Backfill: as linhas existentes já têm `workspace_id` do default (Mind), ok.
-- **Uniques por workspace**:
-  - `contact_categories`: drop `(user_id, slug)` → `(user_id, workspace_id, slug)`
-  - `free_test_services`: drop `(user_id, service_id)` → `(user_id, workspace_id, service_id)`
-- **RLS reescrita** para ler o header via GUC `request.headers` (PostgREST):
-  - Helper `public.current_workspace_id()` SECURITY DEFINER retornando `nullif(current_setting('request.headers', true)::json->>'x-workspace-id','')::uuid`
-  - Substitui `current_setting('app.workspace_id')` por `current_workspace_id()` em todas as policies da Fase 2 (`agent_identity`, `agent_config`, `integrations`, `contact_categories`, `free_test_services`, `contacts`, `conversations`, `messages`, `whatsapp_numbers`, `agent_medias`, `blast_*`, etc.)
-  - Modo estrito: se `current_workspace_id()` for NULL, fallback = workspace default do usuário (compatível com Mind quando header ausente, ex.: webhook)
-- **Trigger `set_default_workspace_id`** passa a usar `current_workspace_id()` primeiro, depois cai no default.
+Categoria inicial é criada via `contact_categories` (já tem `createCategory` em `src/lib/categories.functions.ts` — reaproveitar).
 
-### 2. Middleware server: forwarding do header para PostgREST
+## 3. Wizard UI
 
-Novo arquivo `src/lib/workspace-scope-middleware.ts`:
+Novo componente: `src/components/CreateWorkspaceWizard.tsx` — Dialog com 4 passos e stepper.
 
-- Server-side middleware que roda **depois** de `requireSupabaseAuth`
-- Lê `x-workspace-id` do request original (`getRequest().headers.get(...)`)
-- Recria `context.supabase` com um custom fetch que adiciona `x-workspace-id` em toda chamada PostgREST — garante que a policy enxerga o header via `request.headers` GUC
-- Adiciona `context.workspaceId` (string | null) para uso opcional em handlers
+```
+Passo 1 — Nome
+  [input "Nome do workspace"] + [ícone emoji opcional]
+Passo 2 — Números do WhatsApp
+  Explica: "Você pode conectar agora ou depois na tela Números."
+  Ação principal: "Pular por agora e conectar depois" (leva direto pra tela Números após finalizar)
+  (não replica o fluxo de conexão inteiro — reutiliza a tela Números já ativa no novo workspace)
+Passo 3 — Identidade do agente
+  Mostra 3 campos BRAND vazios: persona, terminologia_redes, exemplo_disparo (textareas).
+  Toggle: [ ] "Usar template Mind como ponto de partida (editável)"
+    → quando marcado, chama `seedMindBrand({ workspaceId })` no submit final.
+  Se preencher manual, salva via `updateAgentIdentity` no submit final.
+Passo 4 — Categoria inicial
+  Lista com uma categoria default sugerida ("Leads") + botão "+ adicionar outra".
+  Cada linha: nome, emoji, cor (ou só nome pra simplificar).
+```
 
-Todos os `.middleware([requireSupabaseAuth])` viram `.middleware([requireSupabaseAuth, withWorkspaceScope])`. Isso é edit em massa (~25 arquivos `.functions.ts`) mas mecânico.
+Fluxo do submit final:
+1. `createWorkspace({ nome, icone })` → recebe `workspaceId`.
+2. `switchWorkspace(workspaceId)` no contexto (para próximas chamadas irem com header correto).
+3. Se toggle "usar template Mind" marcado: `seedMindBrand()`. Senão: `updateAgentIdentity({ persona, terminologia_redes, exemplo_disparo })` com o que foi digitado.
+4. Para cada categoria: `createCategory({ nome, cor, icone })`.
+5. Fecha modal, toast "Workspace criado!", `router.invalidate()`.
 
-### 3. Webhook (numbers → conversations)
+## 4. Botão no `WorkspaceSwitcher`
+Adiciona `DropdownMenuItem` "+ Criar novo workspace" abaixo da lista, abre o wizard.
 
-`src/routes/api/public/whatsapp/webhook.ts` (ou equivalente): ao criar `conversation`/`messages`, propaga `workspace_id` do `whatsapp_number` explicitamente (não confia no trigger, porque webhook não tem header). Trigger continua como fallback via `is_default`.
+## 5. Validação
+- `bun run test:agent` → 46/46 (não mexemos em ai.server nem tests).
+- Manual smoke: criar TESTE-ISO-2 pelo wizard, confirmar telas vazias, voltar pra Mind confirmar tudo intacto.
+- Após validado, aviso o usuário pra criar a Smoke Music de verdade.
 
-### 4. Validação (na ordem que você pediu)
+## Arquivos alterados/criados
+- `supabase migration` — DELETE de TESTE-ISO (via insert tool).
+- `src/lib/workspaces.functions.ts` — adiciona `createWorkspace`, `deleteWorkspace`.
+- `src/components/CreateWorkspaceWizard.tsx` — **novo**.
+- `src/components/WorkspaceSwitcher.tsx` — botão "+ Criar novo workspace".
+- `src/routes/_authenticated/numeros.tsx` — remove linha de debug temporária.
 
-1. `bun run test:agent` — confirmar 41 testes passando
-2. Teste manual real:
-   - Mind SMM Panel continua respondendo (Júlia intacta)
-   - Mind-Campanha e Mind-Disparo funcionando
-3. **Prova de isolamento** (antes de liberar Fase 3):
-   - Criar workspace temporário "TESTE-ISO" via SQL direto
-   - Trocar UI para esse workspace
-   - Confirmar que `contacts`, `conversations`, `agent_identity`, `contact_categories` retornam VAZIO
-   - Voltar para Mind SMM Panel e confirmar dados intactos
-   - Deletar workspace temporário
-
-### Arquivos afetados
-
-- 1 migração nova
-- `src/lib/workspace-scope-middleware.ts` (novo)
-- ~25 `src/lib/*.functions.ts` (append `withWorkspaceScope` no array)
-- `src/start.ts` (nenhuma mudança — attachWorkspaceHeader já envia header)
-- webhook route (propaga workspace_id explícito)
-
-### Riscos assumidos
-
-- Como todas as policies mudam ao mesmo tempo, se a migração falhar no meio, o app pode ficar sem acesso até rollback. Mitigação: migração idempotente com `DROP POLICY IF EXISTS` antes de `CREATE POLICY`.
-- Header ausente = fallback pro workspace default. Isso preserva webhook e chamadas legadas, mas significa que se o cliente esquecer o header, escreve no Mind. Aceito porque `attachWorkspaceHeader` já está registrado global.
-
-Confirma e eu executo a migração (aprovação separada obrigatória) + código.
+Confirma pra eu executar?

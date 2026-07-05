@@ -1,4 +1,5 @@
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { useState } from "react";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { cn } from "@/lib/utils";
 import {
@@ -9,9 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { CreateWorkspaceWizard } from "@/components/CreateWorkspaceWizard";
 
 export function WorkspaceSwitcher() {
   const { workspaces, activeWorkspace, activeWorkspaceId, switchWorkspace, isLoading } = useWorkspace();
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   if (isLoading || !workspaces.length) {
     return (
@@ -23,6 +26,7 @@ export function WorkspaceSwitcher() {
   }
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
@@ -55,7 +59,17 @@ export function WorkspaceSwitcher() {
             </DropdownMenuItem>
           );
         })}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => setWizardOpen(true)}
+          className="flex items-center gap-2 text-primary focus:text-primary"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="flex-1">Criar novo workspace</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <CreateWorkspaceWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+    </>
   );
 }

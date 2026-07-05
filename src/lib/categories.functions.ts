@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
+import { z } from "zod";
 
 export type ContactCategory = {
   id: string;
@@ -37,4 +38,41 @@ export const listCategories = createServerFn({ method: "GET" })
       .order("is_system", { ascending: false })
       .order("nome", { ascending: true });
     return (data ?? []) as ContactCategory[];
+  });
+
+function toSlug(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40) || "categoria";
+}
+
+export const createCategory = createServerFn({ method: "POST" })
+  .middleware([withWorkspaceScope])
+  .inputValidator((d: unknown) =>
+    z.object({
+      nome: z.string().min(1).max(40),
+      icone: z.string().max(4).optional(),
+      cor: z.string().max(20).optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const slugBase = toSlug(data.nome);
+    const { data: row, error } = await context.supabase
+      .from("contact_categories")
+      .insert({
+        user_id: context.userId,
+        nome: data.nome,
+        cor: data.cor ?? "blue",
+        icone: data.icone ?? "🏷️",
+        slug: `${slugBase}_${Date.now().toString(36)}`,
+        is_system: false,
+      })
+      .select("id, nome, cor, icone, slug, is_system")
+      .single();
+    if (error) throw new Error(error.message);
+    return row as ContactCategory;
   });

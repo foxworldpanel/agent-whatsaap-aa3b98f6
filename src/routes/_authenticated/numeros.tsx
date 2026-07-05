@@ -75,7 +75,7 @@ function StatusDot({ status }: { status: string }) {
 
 function NumerosPage() {
   const qc = useQueryClient();
-  const { activeWorkspaceId, activeWorkspace, workspaces } = useWorkspace();
+  const { activeWorkspaceId } = useWorkspace();
   const fetchList = useServerFn(listNumbers);
   const createFn = useServerFn(createNumber);
   const connectFn = useServerFn(connectNumber);
@@ -148,15 +148,6 @@ function NumerosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-mono text-amber-900">
-        🔧 Debug: workspace ativo = {activeWorkspace?.nome ?? "(sem nome)"} ({activeWorkspaceId ?? "null"})
-        {" · "}total workspaces carregados: {workspaces.length}
-        {workspaces.length > 0 && (
-          <div className="mt-1 opacity-70">
-            {workspaces.map((w) => `${w.nome}=${w.id}`).join(" | ")}
-          </div>
-        )}
-      </div>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">Configurações</p>
