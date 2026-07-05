@@ -1,154 +1,63 @@
-# Plano: Sistema de Workspaces
+# Fase 3 — Criar novo workspace + onboarding
 
-Sistema para múltiplos negócios/agentes isolados na mesma conta, com seletor no topo. Execução em 3 fases separadas, cada uma validada antes da próxima.
+## Objetivo
 
----
+Permitir ao usuário criar um novo workspace do zero via wizard, com dados 100% isolados dos demais, sem herdar nada da Júlia / Mind SMM Panel.
 
-## FASE 1 — Schema + Migração de Dados (sem UI)
+## Entregas
 
-### 1.1 Nova tabela `workspaces`
+### 1) Botão "+ Criar novo workspace" no seletor
 
-```sql
-CREATE TABLE public.workspaces (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  nome text NOT NULL,
-  icone text DEFAULT '📱',
-  cor text DEFAULT 'blue',
-  is_default boolean DEFAULT false,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
--- GRANT + RLS (só o dono vê seus workspaces)
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.workspaces TO authenticated;
-GRANT ALL ON public.workspaces TO service_role;
-ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "own_workspaces" ON public.workspaces
-  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-```
+Em `src/components/WorkspaceSwitcher.tsx`, adicionar item fixo no rodapé do `DropdownMenuContent`:
+- Separador
+- `DropdownMenuItem` com ícone `Plus` e label "Criar novo workspace"
+- Ao clicar, abre o wizard (state no próprio switcher, `<CreateWorkspaceWizard open onOpenChange />`).
 
-### 1.2 Ordem exata das migrações (uma migration por bloco, para permitir rollback granular)
+### 2) Wizard — `src/components/CreateWorkspaceWizard.tsx`
 
-Todas as 32 tabelas com `user_id` recebem `workspace_id uuid` (nullable no início, NOT NULL no fim).
+`Dialog` do shadcn com estado interno `step: 1..4` e um objeto `draft` acumulando os dados. Barra de progresso no topo (Passo X de 4). Botões "Voltar" / "Continuar" / "Concluir".
 
-**Migração A — criar tabela `workspaces` + seed do "Mind SMM Panel"**
-- Cria `workspaces`.
-- Para cada `user_id` distinto em `auth.users` que tenha dados, cria 1 workspace `Mind SMM Panel` com `is_default=true`.
+**Passo 1 — Nome do workspace**
+- Campos: `nome` (obrigatório, 1-60), `icone` (emoji picker simples com defaults 📱💬🎵🚀🏢), `cor` (5 swatches).
+- Ação "Continuar": chama `createWorkspace({ nome, icone, cor })` (nova server fn), guarda `workspaceId` no draft, imediatamente **troca o workspace ativo** (`switchWorkspace(id)` + limpa cache) para que os próximos passos gravem no workspace novo. Volta pro passo 2.
+- Se o usuário fechar aqui em diante, o workspace já existe e aparece no seletor (fica só "em branco", ele pode continuar depois pelas páginas normais).
 
-**Migração B — adicionar `workspace_id` nullable em todas as 32 tabelas**
-- `ALTER TABLE ... ADD COLUMN workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE`.
-- Ainda nullable — nada quebra.
+**Passo 2 — Conectar número de WhatsApp**
+- Instrução: "Você pode conectar agora ou pular e conectar depois em Números".
+- Formulário compacto reaproveitando `createNumber`: `nome`, `uazapi_url`, e um dos dois tokens (mesma regra do formulário atual em `numeros.tsx`). Depois de criar, chama `connectNumber({ id })` e mostra QR code (`<img src={data:image/png;base64,qr}/>`) com botão "Já escaneei". Polling opcional via `refreshNumberStatus` — se ficar complexo, apenas mostrar QR + instrução e permitir avançar; conexão final o usuário confirma na página de Números.
+- Botão "Pular" avança para o passo 3 sem número.
 
-**Migração C — backfill (UPDATE)**
-- Para cada tabela: `UPDATE t SET workspace_id = (SELECT id FROM workspaces w WHERE w.user_id = t.user_id AND w.is_default = true)`.
-- Feito via tool `supabase--insert` (que aceita UPDATE), não migration.
-- Validação: `SELECT count(*) FROM t WHERE workspace_id IS NULL` = 0 para cada tabela.
+**Passo 3 — Identidade do agente**
+- Campos essenciais em branco/default genérico: `persona` (placeholder: "Ex: Atendente consultiva da [sua marca], tom próximo e humano"), `regra_estilo_escrita`, `exemplo_disparo`, `reconhecimento_interesse`.
+- NÃO pré-carrega os defaults da Júlia — os campos ficam vazios. Ao concluir, chama `updateAgentIdentity` só com os campos preenchidos (os demais ficam null → fallback nos defaults genéricos do sistema por workspace novo).
+- Botão "Pular" também permitido; identidade fica 100% nos defaults.
 
-**Migração D — tornar `workspace_id` NOT NULL + índices**
-- `ALTER TABLE ... ALTER COLUMN workspace_id SET NOT NULL`.
-- `CREATE INDEX ON t(workspace_id)` para queries rápidas.
+**Passo 4 — Categorias de contato iniciais**
+- Lista sugerida: `[{ nome: "Leads", icone: "👤", cor: "blue" }]` marcada por padrão, com botão "+ Adicionar categoria" para o usuário digitar mais.
+- Ao concluir, chama nova fn `bulkCreateCategories({ items: [...] })` — insere no workspace ativo.
 
-**Migração E — atualizar `get_or_create_active_conversation`**
-- Adiciona parâmetro `_workspace_id`, incluído no lock e no INSERT.
-- Atualiza unique constraint em `conversations` para incluir workspace_id.
+**Botão final "Concluir"**
+- Fecha o wizard, `refresh()` da lista de workspaces, `qc.clear()`, toast "Workspace 'X' criado".
 
-**Migração F — atualizar RLS de todas as 32 tabelas (ver 1.3)**
+### 3) Server functions novas em `src/lib/workspaces.functions.ts`
 
-### 1.3 RLS — como garantir isolamento total entre workspaces (ponto crítico)
+- `createWorkspace({ nome, icone?, cor? })` → INSERT em `workspaces` (`user_id = auth.uid()`, `is_default = false`), retorna `{ id }`.
+- `bulkCreateCategories({ items: [{nome, icone, cor}] })` — pode viver em `categories.functions.ts`; insere em `contact_categories` para o `user_id`, gera `slug` a partir do nome (kebab-case), `is_system = false`. **Nota**: como categorias hoje são por `user_id` (não `workspace_id`), verificar se o schema da Fase 1 já adicionou `workspace_id` — se sim, o `set_default_workspace_id` trigger já preenche pelo header `x-workspace-id`. Nenhuma mudança de schema aqui.
 
-O modelo atual: `USING (auth.uid() = user_id)`. Isso protege entre USUÁRIOS, mas não entre WORKSPACES do mesmo usuário.
+### 4) Isolamento
 
-**Estratégia:** função SECURITY DEFINER `user_owns_workspace(_workspace_id)` + policies que checam AMBOS user_id E workspace_id.
+Nada muda: Fase 1 já adicionou `workspace_id` + trigger `set_default_workspace_id` que lê `x-workspace-id`, e o middleware `attachWorkspaceHeader` já envia o header. Trocar o workspace ativo antes de gravar identity/categorias/número garante que tudo cai no novo workspace.
 
-```sql
-CREATE FUNCTION public.user_owns_workspace(_workspace_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM public.workspaces
-    WHERE id = _workspace_id AND user_id = auth.uid()
-  )
-$$;
-```
+### 5) Testes / validação
 
-Nova policy padrão em cada tabela (substitui a antiga):
-```sql
-DROP POLICY <antiga> ON public.<tabela>;
-CREATE POLICY "workspace_scoped" ON public.<tabela>
-  FOR ALL
-  USING (auth.uid() = user_id AND user_owns_workspace(workspace_id))
-  WITH CHECK (auth.uid() = user_id AND user_owns_workspace(workspace_id));
-```
+- `bun run test:agent` — 41 testes devem continuar passando (nenhuma mudança em `ai.server.ts`).
+- Manual conforme roteiro do usuário (criar "Smoke Music", verificar isolamento, voltar para Mind).
 
-**Por que isso garante zero vazamento:**
-1. `user_id = auth.uid()` — segurança base preservada.
-2. `user_owns_workspace(workspace_id)` — mesmo se o cliente enviar `workspace_id` de outro user, é rejeitado.
-3. NOT NULL em `workspace_id` — impossível ter linha órfã.
-4. Cascade em `workspaces.ON DELETE` — apagar workspace apaga todos os dados dele.
-5. As server functions vão SEMPRE injetar `workspace_id` do contexto (não do input do cliente) — ver 1.4.
+## Arquivos
 
-### 1.4 Server functions — enforcement duplo
+- editar `src/components/WorkspaceSwitcher.tsx`
+- criar `src/components/CreateWorkspaceWizard.tsx`
+- editar `src/lib/workspaces.functions.ts` (+ `createWorkspace`)
+- editar `src/lib/categories.functions.ts` (+ `bulkCreateCategories`)
 
-Adicionar middleware `requireWorkspace` que:
-1. Lê `x-workspace-id` do header (setado pelo cliente via functionMiddleware).
-2. Verifica que o workspace pertence ao user via `user_owns_workspace()`.
-3. Injeta `context.workspaceId` — todas as queries usam esse valor, nunca input do cliente.
-
-Toda query `.eq("user_id", ...)` vira `.eq("user_id", ...).eq("workspace_id", context.workspaceId)`.
-
-**Nesta Fase 1 (sem UI ainda):** o middleware default cai para o workspace `is_default=true` do usuário. Comportamento idêntico ao atual.
-
-### 1.5 Webhook UAZAPI
-
-`whatsapp_numbers.workspace_id` é a fonte da verdade. O webhook resolve o workspace pelo número que recebeu a mensagem — sem depender do cliente. Contatos são isolados por workspace (mesmo telefone = 2 contatos se estiver em 2 workspaces diferentes).
-
-### 1.6 Rollback plan
-
-Cada migração A-F é independente e reversível:
-- **Falha em A**: `DROP TABLE workspaces` — nada mais foi tocado.
-- **Falha em B**: `ALTER TABLE ... DROP COLUMN workspace_id` em cada tabela — coluna era nullable, nada usava ainda.
-- **Falha em C (backfill)**: nenhum schema mudou desde B; roda o UPDATE de novo.
-- **Falha em D**: `ALTER COLUMN workspace_id DROP NOT NULL` — volta ao estado da C.
-- **Falha em E**: restaura versão anterior da função (guardada como comentário na migration).
-- **Falha em F (RLS)**: cada policy é substituída atomicamente; se der ruim, recria a policy antiga (guardada como comentário).
-
-Backup completo antes da Fase 1: usar Cloud → Advanced settings → Export data.
-
-### 1.7 Validação da Fase 1 (antes de entregar)
-
-- `SELECT count(*) FROM t WHERE workspace_id IS NULL` = 0 em todas as 32 tabelas.
-- `bun run test:agent` — 38 testes passam.
-- Você testa manualmente: enviar mensagem no Mind-Campanha e Mind-Disparo, ver que agente responde, contatos aparecem, logs registram.
-
-**Só depois da sua confirmação, começa a Fase 2.**
-
----
-
-## FASE 2 — Seletor de UI
-
-- Componente `<WorkspaceSwitcher />` no topo do `AppShell`.
-- Estado global (Zustand ou React context) com `activeWorkspaceId`, persistido em localStorage.
-- `functionMiddleware` no `src/start.ts` envia `x-workspace-id` em cada chamada.
-- Trocar workspace = `queryClient.clear()` + reload das rotas.
-- Cria server fn `listWorkspaces` e `switchWorkspace`.
-
-Validação: você troca entre workspaces, confirma que dados não vazam, testes passam.
-
----
-
-## FASE 3 — Criação de novo workspace + onboarding
-
-- Botão "+ Criar novo workspace" no seletor.
-- Wizard: nome → conectar número WhatsApp → configurar identidade → criar categorias.
-- Teste final: criar "Smoke Music" vazio, conectar número, mandar msg, confirmar que aparece SÓ em Smoke Music.
-
----
-
-## Tabelas afetadas (32)
-
-`agent_config`, `agent_identity`, `agent_logs`, `auto_campaign_runs`, `auto_campaigns`, `blast_campaigns`, `blast_contacts`, `blast_flows`, `blast_logs`, `campaign_logs`, `campaigns`, `catalog_cache`, `contact_categories`, `contact_group_members`, `contact_groups`, `contact_lists`, `contacts`, `conversations`, `extraction_logs`, `forbidden_rules`, `free_test_services`, `free_trials`, `integrations`, `knowledge_base`, `messages`, `opening_templates`, `panel_guide`, `prompt_modules`, `test_numbers`, `welcome_funnel_runs`, `welcome_funnels`, `whatsapp_numbers`.
-
-## Confirmação de preservação dos dados
-
-- Nenhum `DELETE` nesta migração — só `ALTER TABLE ADD COLUMN` e `UPDATE ... SET workspace_id = ...`.
-- Todos os `user_id`, `nome`, `telefone`, `messages`, `logs`, `agent_identity` (persona/regras/script) permanecem intactos.
-- Após backfill, todos os dados atuais ficam no workspace `Mind SMM Panel` (is_default=true), acessados pela UI exatamente como hoje — enquanto Fase 2 não sobe, o middleware auto-seleciona o default.
+Sem migração nova. Aprovar para eu executar.
