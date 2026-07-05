@@ -14,7 +14,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { getAgentConfig, saveAgentModules, setServicesRealtime, saveBehavior, savePanelScreenshots } from "@/lib/agent.functions";
-import { seedMindBrand } from "@/lib/seed-mind-brand.functions";
+import { seedMindBrand, seedBrandFromMindTemplate } from "@/lib/seed-mind-brand.functions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
@@ -48,6 +48,32 @@ function AgentePage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+  const seedTplFn = useServerFn(seedBrandFromMindTemplate);
+  const seedTplMut = useMutation({
+    mutationFn: () => seedTplFn(),
+    onSuccess: (r) => {
+      toast.success(
+        `Template Mind aplicado: ${r.brand_fields} campos brand + ${r.brand_blocks} blocos${
+          r.agent_config_rows_updated === 0 ? " (⚠️ agent_config não existia — só a identidade foi seedada)" : ""
+        }`,
+      );
+      qc.invalidateQueries({ queryKey: ["agent_config"] });
+      qc.invalidateQueries({ queryKey: ["agent_identity"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const confirmAndSeedTemplate = () => {
+    if (
+      window.confirm(
+        "Aplicar o template Mind (Júlia) neste workspace?\n\n" +
+          "Vai SOBRESCREVER apenas os 3 campos brand (persona, terminologia_redes, exemplo_disparo) " +
+          "e os 3 brand_blocks (respostas_padrao, regra_mq_hq, regra_autoridade).\n\n" +
+          "As regras de SAFETY já configuradas neste workspace são preservadas.",
+      )
+    ) {
+      seedTplMut.mutate();
+    }
+  };
   const { data: cfgRaw } = useQuery({ queryKey: ["agent_config", activeWorkspaceId], queryFn: () => fetchCfg() });
   const cfg = cfgRaw as AgentConfigUi | null | undefined;
 
@@ -144,24 +170,25 @@ function AgentePage() {
         </Button>
       </div>
 
-      {/* TEMP — Passo 1 seed. Remover depois da validação. */}
-      <Card className="border-amber-400/60 bg-amber-50/40 p-3 text-xs">
+      {/* Seed opcional a partir do template Mind (Júlia) — Passo 4. */}
+      <Card className="border-dashed border-primary/40 bg-muted/20 p-3 text-xs">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="font-medium">Seed Mind (one-shot — Passo 1)</div>
+            <div className="font-medium">Seed a partir do template Mind (opcional)</div>
             <div className="text-muted-foreground">
-              Copia DEFAULT_IDENTITY, DEFAULT_MODULES e os 3 brand_blocks
-              atuais pro banco. Não muda nenhum comportamento. Rode uma vez
-              estando no workspace Mind.
+              Aplica a Júlia como ponto de partida neste workspace: preenche
+              persona, terminologia por rede, exemplo de disparo e os 3 blocos
+              brand (respostas padrão, MQ/HQ, autoridade). NÃO toca em regras
+              de safety. Só roda quando você clica.
             </div>
           </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => seedMut.mutate()}
-            disabled={seedMut.isPending}
+            onClick={confirmAndSeedTemplate}
+            disabled={seedTplMut.isPending}
           >
-            {seedMut.isPending ? "Semeando..." : "Rodar seed"}
+            {seedTplMut.isPending ? "Aplicando..." : "Usar template Mind"}
           </Button>
         </div>
       </Card>
