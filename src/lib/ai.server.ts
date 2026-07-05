@@ -24,7 +24,7 @@ type Contact = {
   perfil: "frio" | "inativo" | "ativo";
 };
 
-type Msg = { sender: "agente" | "cliente"; body: string };
+type Msg = { sender: "agente" | "cliente"; body: string; created_at?: string | null };
 
 function getLatestClientMessage(history: Msg[]): string {
   for (let i = history.length - 1; i >= 0; i -= 1) {
@@ -54,6 +54,52 @@ export function isSupportOrPostSaleContext(history: Msg[]): boolean {
     if (supportRx.test(m.body)) return true;
   }
   return false;
+}
+
+// Detecta REENGAJAMENTO após hiato: a última mensagem do cliente é apenas uma
+// saudação/cortesia curta, e passaram mais de ~3h desde a última mensagem da
+// agente. Nesse caso o modelo deve retribuir a saudação e AGUARDAR o cliente
+// dizer o que quer, em vez de emendar automaticamente a próxima pergunta do
+// funil pendente (bug real observado: pergunta de views/inscritos disparada
+// depois de "Boa tarde" no dia seguinte).
+const GREETING_ONLY_RX =
+  /^\s*(oi+|ol[aá]+|opa+|eae|e\s*a[ií]|hey|hi|hello|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem\??|tudo\s*bom\??|blz\??|beleza\??)\s*[.!?…]*\s*$/i;
+
+export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean {
+  if (!history?.length) return false;
+  // Última mensagem do cliente
+  let clientIdx = -1;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i].sender === "cliente" && history[i].body?.trim()) {
+      clientIdx = i;
+      break;
+    }
+  }
+  if (clientIdx < 0) return false;
+  const clientMsg = history[clientIdx];
+  const body = (clientMsg.body ?? "").trim();
+  // Saudação/cortesia curta (até ~30 chars) e sem sinal de intenção comercial
+  if (body.length > 30) return false;
+  if (!GREETING_ONLY_RX.test(body)) return false;
+  // Última mensagem da agente ANTES dessa do cliente
+  let agentBefore: Msg | null = null;
+  for (let i = clientIdx - 1; i >= 0; i -= 1) {
+    if (history[i].sender === "agente" && history[i].body?.trim()) {
+      agentBefore = history[i];
+      break;
+    }
+  }
+  if (!agentBefore) return false;
+  const agentTs = agentBefore.created_at ? Date.parse(agentBefore.created_at) : NaN;
+  const clientTs = clientMsg.created_at
+    ? Date.parse(clientMsg.created_at)
+    : nowIso
+      ? Date.parse(nowIso)
+      : Date.now();
+  if (!Number.isFinite(agentTs) || !Number.isFinite(clientTs)) return false;
+  const gapMs = clientTs - agentTs;
+  const THREE_HOURS = 3 * 60 * 60 * 1000;
+  return gapMs >= THREE_HOURS;
 }
 
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
@@ -440,6 +486,7 @@ export async function generateAgentReplyWithMeta(params: {
   const exposeFreeTrialBlock = freeTestServices.length > 0 && (clientAskedForTrial || clientShowedDistrust);
 
   const supportContext = isSupportOrPostSaleContext(history);
+  const reengagementGreeting = isReengagementGreeting(history);
 
   // O fluxo de disparo agora vem exclusivamente de buildSharedRules(identity).
   const system = [
@@ -449,6 +496,9 @@ export async function generateAgentReplyWithMeta(params: {
     `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a primeira mensagem sua tem padrão de abertura de disparo, menciona "Peguei o seu contato", "Vi seu perfil", "@" de instagram, ou uma pergunta inicial do tipo "Posso te apresentar/mostrar uma forma de impulsionar...", trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. O conteúdo real da conversa prevalece sobre metadados técnicos.`,
     supportContext
       ? `MODO SUPORTE / PÓS-VENDA (ABSOLUTA — sobrescreve qualquer regra de "interesse amplo" pós-abertura):\n- Esta conversa JÁ passou do momento de abertura de disparo. Você já perguntou sobre rede/serviço, OU já falou sobre pedido, status, painel, saldo, ticket, pagamento etc.\n- PROIBIDO tratar respostas curtas do cliente ("ok", "blz", "beleza", "certo", "obrigado", "vlw", "👍") como INTERESSE INICIAL pós-abertura. NÃO reinicie o funil de vendas. NÃO pergunte "qual rede social você quer impulsionar" nem equivalente.\n- Antes de tratar qualquer resposta curta e afirmativa como sinal de avançar o funil, verifique o CONTEXTO: se essa resposta vem depois de explicação de status, agradecimento, ou pergunta de suporte, ela é apenas uma CONFIRMAÇÃO — reconheça de forma neutra e curta ("Fechado!", "😊", "Qualquer coisa me chama") e PARE. Sem pergunta de venda, sem CTA, sem link.\n- A regra de "interesse amplo" (qualquer resposta não-negativa avança pro funil) só vale LOGO DEPOIS da pergunta literal de abertura de disparo ("posso te mostrar algo que pode acelerar suas redes?"), e SOMENTE quando ainda não houve nenhuma outra pergunta/resposta comercial depois. Fora dessa janela, ela NÃO se aplica.`
+      : "",
+    reengagementGreeting
+      ? `MODO REENGAJAMENTO APÓS HIATO (ABSOLUTA — sobrescreve retomada automática do funil):\n- Passaram VÁRIAS HORAS (ou virou o dia) desde a sua última mensagem, e o cliente voltou APENAS com uma saudação curta ("oi", "bom dia", "boa tarde", "boa noite", "tudo bem").\n- Isso é RETOMADA DE CONVERSA ANTIGA, não continuação instantânea. Trate como reencontro.\n- PROIBIDO emendar automaticamente na mesma mensagem qualquer pergunta pendente do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link, preço). Mesmo que exista uma pergunta sua pendente logo acima no histórico, NÃO a repita agora.\n- Responda APENAS retribuindo a saudação de forma calorosa e curta, e se colocando à disposição. Exemplos: "Boa tarde! Como posso ajudar?" / "Oi! Tudo bem por aí? Como posso te ajudar hoje?" / "Boa tarde! Vamos continuar de onde paramos, me conta o que você precisa 😊".\n- AGUARDE a próxima mensagem do cliente antes de retomar qualquer pergunta pendente. Só volte ao funil quando o cliente sinalizar o que quer.`
       : "",
     // EXEMPLO_MODELO_DISPARO agora vive na identidade compartilhada (buildSharedRules).
     !isInbound ? `REFINAMENTOS DE TOM CONSULTIVO (aplicam ao EXEMPLO_MODELO_DISPARO da identidade):\n\n1) INTERESSE INICIAL APÓS ABERTURA:\n- Se o cliente respondeu positivamente à pergunta de abertura do disparo, vá direto para a pergunta de rede.\n- Não faça pergunta pessoal intermediária. Não pergunte se vive disso, se está começando, ou se ainda está montando público.\n\n2) VALIDAÇÃO EMOCIONAL CURTA:\n- Se o cliente compartilhar algo pessoal ou vulnerável depois de já estar conversando, valide em uma frase curta e siga para o próximo passo útil.\n- Use ===SPLIT=== só quando a validação precisar ficar separada da próxima pergunta.\n\n3) ANCORAGEM DE PREÇO:\n- Ao informar preço, ofereça primeiro a menor quantidade real do catálogo daquele serviço.\n- Estrutura: "Pra começar sem compromisso, [MÍNIMO REAL] sai [PREÇO REAL]. Já dá pra sentir o resultado, e se quiser ir de mais também tem, é só me falar."\n- Nunca use valores fixos de exemplo. O preço real sempre sai do catálogo.\n\n4) PROVA SOCIAL SUTIL, SEM INVENTAR NÚMEROS:\n- Permitido: "Muita gente começa assim", "Costuma ajudar bastante", "É um bom primeiro empurrão".\n- Proibido inventar estatísticas, quantidade de clientes, porcentagens ou resultados médios.\n\n5) QUANTIDADE SEMPRE VEM COM PREÇO DE ÂNCORA:\n- Sempre que apresentar opção de quantidade, inclua a menor quantidade real + preço real na mesma mensagem.\n- Não pergunte "quantas você quer?" sem dar uma referência de valor junto.` : "",

@@ -593,3 +593,68 @@ describe("14) Suporte/pós-venda: 'obrigado' + 'ok' NÃO dispara pergunta de red
     ).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 15) Reengajamento após hiato — saudação no dia seguinte NÃO retoma funil
+// ---------------------------------------------------------------------------
+describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente", () => {
+  it("gap > 3h + saudação → prompt injeta MODO REENGAJAMENTO e não pergunta priorização", async () => {
+    const yesterday = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(); // ~20h atrás
+    const now = new Date().toISOString();
+    const neutralReply = "Boa tarde! Como posso te ajudar?";
+    const fetchMock = mockAnthropic(neutralReply);
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    const res = await generateAgentReplyWithMeta({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        {
+          sender: "agente",
+          body: "Show! O que você sente mais necessidade de crescer no seu canal atualmente?",
+          created_at: yesterday,
+        },
+        { sender: "cliente", body: "Boa tarde", created_at: now },
+      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
+      isInbound: true,
+      freeTestServices: [],
+      userId: null,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      /MODO REENGAJAMENTO/i.test(body.system),
+      "FALHOU: prompt não contém o bloco MODO REENGAJAMENTO APÓS HIATO",
+    ).toBe(true);
+    expect(
+      /PROIBIDO emendar automaticamente/i.test(body.system),
+      "FALHOU: prompt não proíbe emendar pergunta pendente após saudação de reencontro",
+    ).toBe(true);
+    expect(
+      /qual\s+desses|priorizar|views.*inscritos|inscritos.*curtidas/i.test(res.text),
+      `FALHOU: resposta emendou pergunta pendente do funil: "${res.text}"`,
+    ).toBe(false);
+  });
+
+  it("sem gap de tempo (mesmo minuto) → NÃO ativa reengajamento", async () => {
+    const t = new Date().toISOString();
+    const fetchMock = mockAnthropic("Bom dia! Posso te mostrar como acelerar suas redes?");
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    await generateAgentReplyWithMeta({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: OPENING, created_at: t },
+        { sender: "cliente", body: "bom dia", created_at: t },
+      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
+      isInbound: false,
+      freeTestServices: [],
+      userId: null,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      /MODO REENGAJAMENTO/i.test(body.system),
+      "FALHOU: prompt ativou MODO REENGAJAMENTO sem hiato de tempo",
+    ).toBe(false);
+  });
+});
