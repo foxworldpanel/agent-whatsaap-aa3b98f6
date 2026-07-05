@@ -1707,6 +1707,39 @@ export type Database = {
         }
         Relationships: []
       }
+      workspaces: {
+        Row: {
+          cor: string
+          created_at: string
+          icone: string
+          id: string
+          is_default: boolean
+          nome: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          icone?: string
+          id?: string
+          is_default?: boolean
+          nome: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          icone?: string
+          id?: string
+          is_default?: boolean
+          nome?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1731,6 +1764,7 @@ export type Database = {
           whatsapp_number_id: string
         }[]
       }
+      user_owns_workspace: { Args: { _workspace_id: string }; Returns: boolean }
     }
     Enums: {
       campaign_state: "parado" | "rodando" | "pausado"
