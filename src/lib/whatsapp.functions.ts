@@ -82,7 +82,6 @@ export const sendManualMessage = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
     const userIds = await getSharedUazapiUserIds(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -120,6 +119,7 @@ export const sendManualMessage = createServerFn({ method: "POST" })
     const now = new Date().toISOString();
     const { error: msgErr } = await supabaseAdmin.from("messages").insert({
       user_id: conv.user_id,
+      workspace_id: context.workspaceId,
       conversation_id: data.conversationId,
       sender: "agente",
       kind: "texto",
@@ -134,7 +134,8 @@ export const sendManualMessage = createServerFn({ method: "POST" })
         last_message_at: now,
         status: "aguardando",
       })
-      .eq("id", data.conversationId);
+      .eq("id", data.conversationId)
+      .eq("workspace_id", context.workspaceId);
 
     return { ok: true };
   });
