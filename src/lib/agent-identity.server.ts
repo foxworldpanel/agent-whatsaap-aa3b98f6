@@ -137,13 +137,33 @@ export function invalidateAgentIdentityCache(userId: string) {
 type BuildSharedRulesCtx = {
   freeTestServices?: Array<{ service_name: string; category: string; quantity: number }>;
   minRechargeBRL?: number;
+  /**
+   * Passo 3 do refactor safety-vs-brand: os 3 blocos brand-específicos
+   * (respostas padronizadas, MQ/HQ, autoridade rede→serviço→preço) NÃO
+   * moram mais no código como fallback universal. Cada workspace injeta
+   * seu conteúdo via `agent_config.brand_blocks`. Workspace sem seed vira
+   * "genérico com safety" — os 3 blocos ficam vazios no prompt.
+   */
+  brandBlocks?: AgentBrandBlocks | null;
 };
 
-// Respostas padronizadas e regras de terminologia adicionais.
-// NÃO vêm do banco — são regras fixas da identidade que devem estar SEMPRE
-// presentes no prompt (evita respostas variantes/contraditórias para
-// perguntas frequentes específicas).
-export const RESPOSTAS_PADRAO_BLOCK = `RESPOSTAS PADRONIZADAS (ABSOLUTAS — usar sempre a MESMA estrutura de frase):
+export type AgentBrandBlocks = {
+  respostas_padrao?: string;
+  regra_mq_hq?: string;
+  regra_autoridade?: string;
+};
+
+export const BRAND_BLOCK_KEYS: Array<keyof AgentBrandBlocks> = [
+  "respostas_padrao",
+  "regra_mq_hq",
+  "regra_autoridade",
+];
+
+// Templates Mind — usados para (a) seedar o workspace Mind em
+// `agent_config.brand_blocks` e (b) diagnósticos/testes que precisam do
+// conteúdo brand-específico. Em RUNTIME esses blocos vêm 100% do banco
+// via loadBrandBlocks(); workspace sem seed roda com brandBlocks vazio.
+export const MIND_RESPOSTAS_PADRAO_BLOCK = `RESPOSTAS PADRONIZADAS (ABSOLUTAS — usar sempre a MESMA estrutura de frase):
 
 1) CLIENTE PERGUNTOU PREÇO DE PLAYS (Spotify) SEM ESPECIFICAR PAÍS/REGIÃO:
 Responda EXATAMENTE nesta estrutura (adaptando o valor real do catálogo se mudar):
@@ -179,7 +199,7 @@ Responda com o TEMPLATE abaixo, preenchendo os valores SEMPRE com os preços REA
 
 FORMATAÇÃO OBRIGATÓRIA: mantenha os asteriscos nos nomes das redes (*Spotify:*), a ordem exata (Spotify → Instagram → TikTok → YouTube) e uma linha por item. NÃO adicione comentários no meio da tabela.`;
 
-export const REGRA_MQ_HQ_BLOCK = `REGRA DE TERMINOLOGIA MQ / HQ (ABSOLUTA):
+export const MIND_REGRA_MQ_HQ_BLOCK = `REGRA DE TERMINOLOGIA MQ / HQ (ABSOLUTA):
 
 POR INICIATIVA PRÓPRIA a Júlia NUNCA usa as siglas "MQ" ou "HQ" ao oferecer opções de qualidade. Sempre linguagem simples e direta:
 - Em vez de "MQ" → "qualidade padrão" ou "entrega mais rápida"
@@ -195,7 +215,7 @@ HQ é qualidade alta, entrega mais devagar, porém muito mais estável e duradou
 
 Depois dessa explicação, pergunte qual das duas o cliente prefere — nunca emenda preço na mesma mensagem (preço só depois da escolha, consultando o catálogo real).`;
 
-export const REGRA_AUTORIDADE_BLOCK = `FLUXO CONSULTIVO REDE → SERVIÇO → PREÇO (ABSOLUTO — TODAS AS REDES):
+export const MIND_REGRA_AUTORIDADE_BLOCK = `FLUXO CONSULTIVO REDE → SERVIÇO → PREÇO (ABSOLUTO — TODAS AS REDES):
 
 Depois que o cliente escolher a rede, a Júlia NUNCA vai direto pro preço. Segue SEMPRE esta ordem, valendo IGUAL pra Spotify, YouTube, TikTok e Instagram:
 
@@ -242,6 +262,52 @@ REGRAS DE APLICAÇÃO (ABSOLUTAS):
 - Só fala de preço depois que o cliente CONFIRMAR interesse no serviço apresentado, ou pedir o valor diretamente.
 - Se o cliente pedir preço ANTES dessa explicação toda (ex: "quanto custa?"), ainda assim a Júlia dá uma explicação BREVE de benefício ANTES do valor — nunca só o número seco.
 - PERGUNTA FINAL SEMPRE ABERTA: após a explicação de autoridade, adicione uma segunda frase reforçando um benefício complementar (credibilidade/confiança/prova social) e feche com uma pergunta ABERTA tipo "O que você sente mais necessidade de crescer/melhorar no seu [rede] atualmente?". PROIBIDO pergunta fechada listando opções específicas do catálogo (ex: "seguidores, views ou curtidas?") — isso vira preenchimento de formulário. O cliente descreve a necessidade com as próprias palavras e a Júlia identifica depois qual serviço do catálogo atende. Vale IGUAL pras 4 redes (Instagram, Spotify, YouTube, TikTok).`;
+
+export const MIND_BRAND_BLOCKS: AgentBrandBlocks = {
+  respostas_padrao: MIND_RESPOSTAS_PADRAO_BLOCK,
+  regra_mq_hq: MIND_REGRA_MQ_HQ_BLOCK,
+  regra_autoridade: MIND_REGRA_AUTORIDADE_BLOCK,
+};
+
+// Cache curto (30s) por user_id para agent_config.brand_blocks.
+type BrandCacheEntry = { value: AgentBrandBlocks; expiresAt: number };
+const brandBlocksCache = new Map<string, BrandCacheEntry>();
+
+export async function loadBrandBlocks(
+  userId: string | null | undefined,
+): Promise<AgentBrandBlocks> {
+  if (!userId) return {};
+  const now = Date.now();
+  const cached = brandBlocksCache.get(userId);
+  if (cached && cached.expiresAt > now) return cached.value;
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
+      .from("agent_config")
+      .select("brand_blocks")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    const raw = (data?.brand_blocks ?? {}) as Record<string, unknown>;
+    const out: AgentBrandBlocks = {};
+    for (const key of BRAND_BLOCK_KEYS) {
+      const v = raw[key];
+      if (typeof v === "string" && v.trim().length > 0) out[key] = v;
+    }
+    brandBlocksCache.set(userId, { value: out, expiresAt: now + CACHE_TTL_MS });
+    return out;
+  } catch (err) {
+    console.warn(
+      "[agent-brand-blocks] falling back to empty:",
+      err instanceof Error ? err.message : err,
+    );
+    return {};
+  }
+}
+
+export function invalidateBrandBlocksCache(userId: string) {
+  brandBlocksCache.delete(userId);
+}
 
 export const REGRA_COMPRA_PAGA_BLOCK = `REGRA CRÍTICA — NUNCA CONFUNDIR TESTE GRÁTIS COM COMPRA PAGA (ABSOLUTA — RISCO FINANCEIRO DIRETO):
 
@@ -342,9 +408,9 @@ export function buildSharedRules(
     identity.regra_encerramento,
     identity.regra_estilo_escrita,
     identity.exemplo_disparo,
-    RESPOSTAS_PADRAO_BLOCK,
-    REGRA_MQ_HQ_BLOCK,
-    REGRA_AUTORIDADE_BLOCK,
+    ctx.brandBlocks?.respostas_padrao ?? "",
+    ctx.brandBlocks?.regra_mq_hq ?? "",
+    ctx.brandBlocks?.regra_autoridade ?? "",
     REGRA_COMPRA_PAGA_BLOCK,
     REGRA_AUTO_GREETING_BLOCK,
     buildRegraFechamentoTutorialBlock(ctx.minRechargeBRL ?? 5),
