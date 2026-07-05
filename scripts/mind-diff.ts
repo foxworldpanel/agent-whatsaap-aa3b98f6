@@ -1,25 +1,33 @@
-import { buildSharedRules, mergeIdentity, MIND_BRAND_BLOCKS, MIND_BRAND_TEMPLATE, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks } from "@/lib/agent-identity.server";
+import { buildSharedRules, loadAgentIdentity, loadBrandBlocks, MIND_BRAND_BLOCKS } from "@/lib/agent-identity.server";
 
 const MIND_USER_ID = "09f4dee9-0a1b-4c43-b083-75cc64feb99d";
 
-// Referência: mescla safety-defaults + MIND_BRAND_TEMPLATE + MIND_BRAND_BLOCKS.
-const reference = buildSharedRules(mergeIdentity(MIND_BRAND_TEMPLATE), { brandBlocks: MIND_BRAND_BLOCKS });
+const [ident, dbBlocks] = await Promise.all([
+  loadAgentIdentity(MIND_USER_ID),
+  loadBrandBlocks(MIND_USER_ID),
+]);
 
-// Runtime real: lê do banco.
-const [ident, blocks] = await Promise.all([loadAgentIdentity(MIND_USER_ID), loadBrandBlocks(MIND_USER_ID)]);
-const runtime = buildSharedRules(ident, { brandBlocks: blocks });
+// Pre-Passo-3 (blocos hardcoded via MIND_BRAND_BLOCKS)
+const pre  = buildSharedRules(ident, { brandBlocks: MIND_BRAND_BLOCKS });
+// Post-Passo-3 runtime (blocos vindos do DB)
+const post = buildSharedRules(ident, { brandBlocks: dbBlocks });
 
 console.log(JSON.stringify({
-  refLen: reference.length,
-  runLen: runtime.length,
-  identical: reference === runtime,
-  brandKeys: Object.keys(blocks),
+  preLen: pre.length,
+  postLen: post.length,
+  identical: pre === post,
+  dbBlockKeys: Object.keys(dbBlocks).sort(),
+  templateKeys: Object.keys(MIND_BRAND_BLOCKS).sort(),
+  perBlockEqual: {
+    respostas_padrao: dbBlocks.respostas_padrao === MIND_BRAND_BLOCKS.respostas_padrao,
+    regra_mq_hq:      dbBlocks.regra_mq_hq      === MIND_BRAND_BLOCKS.regra_mq_hq,
+    regra_autoridade: dbBlocks.regra_autoridade === MIND_BRAND_BLOCKS.regra_autoridade,
+  },
 }));
-
-if (reference !== runtime) {
-  // Show first divergence
-  let i = 0; while (i < Math.min(reference.length, runtime.length) && reference[i] === runtime[i]) i++;
+if (pre !== post) {
+  let i = 0;
+  while (i < Math.min(pre.length, post.length) && pre[i] === post[i]) i++;
   console.log("first diff at", i);
-  console.log("REF:", JSON.stringify(reference.slice(Math.max(0,i-80), i+80)));
-  console.log("RUN:", JSON.stringify(runtime.slice(Math.max(0,i-80), i+80)));
+  console.log("PRE :", JSON.stringify(pre.slice(Math.max(0, i - 80), i + 80)));
+  console.log("POST:", JSON.stringify(post.slice(Math.max(0, i - 80), i + 80)));
 }
