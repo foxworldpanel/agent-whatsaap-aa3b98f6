@@ -358,7 +358,8 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
     const { error: convErr } = await supabaseAdmin
       .from("conversations")
       .update(patch)
-      .in("user_id", userIds);
+      .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId);
     if (convErr) throw new Error(convErr.message);
     return { ok: true, agent_enabled: saved.agent_enabled };
   });
@@ -388,6 +389,7 @@ export const setConversationAgentEnabled = createServerFn({ method: "POST" })
       })
       .eq("id", data.conversationId)
       .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId)
       .select("id, agent_enabled, contact_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -425,6 +427,7 @@ export const reactivateConversation = createServerFn({ method: "POST" })
       })
       .eq("id", data.conversationId)
       .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId)
       .select("id, contact_id")
       .maybeSingle();
     if (convErr) throw new Error(convErr.message);
@@ -456,6 +459,7 @@ export const blockConversation = createServerFn({ method: "POST" })
       })
       .eq("id", data.conversationId)
       .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId)
       .select("id, contact_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -477,6 +481,7 @@ export const countConversationsToReview = createServerFn({ method: "GET" })
       .from("conversations")
       .select("id", { count: "exact", head: true })
       .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId)
       .eq("needs_review", true);
     if (error) throw new Error(error.message);
     return { count: count ?? 0 };

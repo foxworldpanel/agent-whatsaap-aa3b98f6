@@ -9,6 +9,7 @@ import { listConversations, listMessages, sendManualMessage, clearConversation }
 import { setConversationAgentEnabled, reactivateConversation, blockConversation } from "@/lib/agent.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { syncWhatsappMessages } from "@/lib/sync.functions";
+import { useWorkspace } from "@/contexts/workspace-context";
 
 export const Route = createFileRoute("/_authenticated/conversas")({
   ssr: false,
@@ -109,6 +110,7 @@ function isConversationBlocked(conversation: Conv | null): boolean {
 
 function Conversas() {
   const qc = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const fetchConvs = useServerFn(listConversations);
   const fetchMsgs = useServerFn(listMessages);
   const sendFn = useServerFn(sendManualMessage);
@@ -125,20 +127,31 @@ function Conversas() {
   const [syncStatus, setSyncStatus] = useState<"live" | "syncing" | "error">("live");
 
   const numbersQ = useQuery({
-    queryKey: ["whatsapp_numbers"],
+    queryKey: ["whatsapp_numbers", activeWorkspaceId],
     queryFn: () => fetchNumbers(),
+    enabled: !!activeWorkspaceId,
   });
   const numbers = (numbersQ.data ?? []) as Array<{ id: string; nome: string; status: string }>;
 
   const convsQ = useQuery({
-    queryKey: ["conversations", filterNumberId],
+    queryKey: ["conversations", activeWorkspaceId, filterNumberId],
     queryFn: () => fetchConvs({ data: { numberId: filterNumberId } }),
+    enabled: !!activeWorkspaceId,
     refetchInterval: 2000,
     refetchIntervalInBackground: true,
   });
   const conversations = (convsQ.data ?? []) as unknown as Conv[];
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  useEffect(() => {
+    setFilterNumberId(null);
+    setActiveId(null);
+  }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    setActiveId(null);
+  }, [filterNumberId]);
+
   useEffect(() => {
     if (!activeId && conversations.length) setActiveId(conversations[0].id);
   }, [activeId, conversations]);
@@ -150,9 +163,9 @@ function Conversas() {
   const activeBlocked = isConversationBlocked(active);
 
   const msgsQ = useQuery({
-    queryKey: ["messages", activeId],
+    queryKey: ["messages", activeWorkspaceId, activeId],
     queryFn: () => fetchMsgs({ data: { conversationId: activeId! } }),
-    enabled: !!activeId,
+    enabled: !!activeWorkspaceId && !!activeId,
     refetchInterval: activeId ? 2000 : false,
     refetchIntervalInBackground: true,
   });
@@ -166,7 +179,7 @@ function Conversas() {
     mutationFn: (body: string) => sendFn({ data: { conversationId: activeId!, text: body } }),
     onSuccess: () => {
       setText("");
-      qc.invalidateQueries({ queryKey: ["messages", activeId] });
+      qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, activeId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
@@ -209,7 +222,7 @@ function Conversas() {
   const clearMut = useMutation({
     mutationFn: () => clearFn({ data: { conversationId: activeId! } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["messages", activeId] });
+      qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, activeId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
@@ -273,7 +286,7 @@ function Conversas() {
       setSyncStatus("live");
       if (res?.inserted > 0) {
         toast.success(`${res.inserted} nova(s) mensagem(ns) sincronizada(s)`);
-        qc.invalidateQueries({ queryKey: ["messages", activeId] });
+        qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, activeId] });
         qc.invalidateQueries({ queryKey: ["conversations"] });
       }
     },
@@ -288,6 +301,7 @@ function Conversas() {
 
   // Realtime: refresh on insert/update + reconexão automática a cada 5s
   useEffect(() => {
+    if (!activeWorkspaceId) return;
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let retry: ReturnType<typeof setTimeout> | null = null;
@@ -295,14 +309,19 @@ function Conversas() {
     const connect = () => {
       if (cancelled) return;
       channel = supabase
-        .channel(`conv-rt-${Math.random().toString(36).slice(2)}`)
+        .channel(`conv-rt-${activeWorkspaceId}`)
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "messages" },
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `workspace_id=eq.${activeWorkspaceId}`,
+          },
           (payload) => {
             const row = (payload.new ?? {}) as { conversation_id?: string };
             qc.invalidateQueries({ queryKey: ["conversations"] });
-            qc.invalidateQueries({ queryKey: ["messages", row.conversation_id] });
+            qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, row.conversation_id] });
             // Auto-foca a conversa que recebeu a mensagem nova
             if (row.conversation_id) setActiveId(row.conversation_id);
             setSyncStatus("live");
@@ -311,7 +330,12 @@ function Conversas() {
         )
         .on(
           "postgres_changes",
-          { event: "*", schema: "public", table: "conversations" },
+          {
+            event: "*",
+            schema: "public",
+            table: "conversations",
+            filter: `workspace_id=eq.${activeWorkspaceId}`,
+          },
           () => qc.invalidateQueries({ queryKey: ["conversations"] }),
         )
         .subscribe((status) => {
@@ -339,7 +363,7 @@ function Conversas() {
       if (retry) clearTimeout(retry);
       if (channel) supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [qc, activeWorkspaceId]);
 
   return (
     <div className="flex h-[calc(100dvh-4rem)] min-h-0 flex-col gap-4">

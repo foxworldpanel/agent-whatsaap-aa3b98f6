@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 
-type Conv = { id: string; user_id: string; contact_id: string; contact_phone: string };
+type Conv = { id: string; user_id: string; workspace_id: string; contact_id: string; contact_phone: string };
 
 export const syncWhatsappMessages = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
@@ -28,8 +28,9 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
     // Load active conversations (cap to most-recent 50 to keep request fast)
     const { data: convsRaw } = await supabaseAdmin
       .from("conversations")
-      .select("id, user_id, contact_id, contact:contacts(telefone)")
+      .select("id, user_id, workspace_id, contact_id, contact:contacts(telefone)")
       .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId)
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(50);
 
@@ -37,6 +38,7 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
       .map((c: any) => ({
         id: c.id,
         user_id: c.user_id,
+        workspace_id: c.workspace_id,
         contact_id: c.contact_id,
         contact_phone: c.contact?.telefone ?? "",
       }))
@@ -55,6 +57,7 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
           .from("messages")
           .select("external_id")
           .eq("conversation_id", conv.id)
+          .eq("workspace_id", context.workspaceId)
           .in("external_id", ids);
         const have = new Set((existing ?? []).map((r: any) => r.external_id));
 
@@ -62,6 +65,7 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
           .filter((m) => !have.has(m.external_id) && m.text)
           .map((m) => ({
             user_id: conv.user_id,
+            workspace_id: conv.workspace_id,
             conversation_id: conv.id,
             sender: (m.from_me ? "agente" : "cliente") as "agente" | "cliente",
             kind: (m.type === "audio" || m.type === "audioMessage" ? "audio" : "texto") as "audio" | "texto",
@@ -86,7 +90,8 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
             last_message_preview: (newest.text ?? "").slice(0, 120),
             last_message_at: newest.timestamp,
           })
-          .eq("id", conv.id);
+          .eq("id", conv.id)
+          .eq("workspace_id", context.workspaceId);
       } catch {
         // ignore per-conv errors
       }
