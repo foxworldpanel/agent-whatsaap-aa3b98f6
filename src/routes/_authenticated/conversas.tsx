@@ -316,7 +316,6 @@ function Conversas() {
             event: "INSERT",
             schema: "public",
             table: "messages",
-            filter: `workspace_id=eq.${activeWorkspaceId}`,
           },
           (payload) => {
             const row = (payload.new ?? {}) as { conversation_id?: string };
@@ -334,7 +333,6 @@ function Conversas() {
             event: "*",
             schema: "public",
             table: "conversations",
-            filter: `workspace_id=eq.${activeWorkspaceId}`,
           },
           () => qc.invalidateQueries({ queryKey: ["conversations"] }),
         )
