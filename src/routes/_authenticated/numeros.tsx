@@ -19,6 +19,7 @@ import {
   deleteWelcomeFunnel,
 } from "@/lib/welcome-funnels.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/workspace-context";
 
 export const Route = createFileRoute("/_authenticated/numeros")({
   ssr: false,
@@ -74,6 +75,7 @@ function StatusDot({ status }: { status: string }) {
 
 function NumerosPage() {
   const qc = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const fetchList = useServerFn(listNumbers);
   const createFn = useServerFn(createNumber);
   const connectFn = useServerFn(connectNumber);
@@ -83,7 +85,7 @@ function NumerosPage() {
   const updateFn = useServerFn(updateNumberToggles);
 
   const numsQ = useQuery({
-    queryKey: ["whatsapp_numbers"],
+    queryKey: ["whatsapp_numbers", activeWorkspaceId],
     queryFn: () => fetchList(),
     refetchInterval: 5000,
   });
