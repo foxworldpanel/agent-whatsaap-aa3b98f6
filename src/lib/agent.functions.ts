@@ -481,6 +481,19 @@ export const countConversationsToReview = createServerFn({ method: "GET" })
     return { count: count ?? 0 };
   });
 
+export const countAgentErrors = createServerFn({ method: "GET" })
+  .middleware([withWorkspaceScope])
+  .handler(async ({ context }) => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await context.supabase
+      .from("agent_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("level", "error")
+      .gte("created_at", since);
+    if (error) throw new Error(error.message);
+    return { count: count ?? 0 };
+  });
+
 export const getIntegrations = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {

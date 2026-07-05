@@ -7,7 +7,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getAgentConfig, setAgentGlobalEnabled, countConversationsToReview } from "@/lib/agent.functions";
+import { getAgentConfig, setAgentGlobalEnabled, countConversationsToReview, countAgentErrors } from "@/lib/agent.functions";
 import { toast } from "sonner";
 
 const nav = [
@@ -29,6 +29,7 @@ export function AppShell() {
   const fetchAgent = useServerFn(getAgentConfig);
   const toggleGlobal = useServerFn(setAgentGlobalEnabled);
   const fetchReviewCount = useServerFn(countConversationsToReview);
+  const fetchErrorCount = useServerFn(countAgentErrors);
   const [hasSession, setHasSession] = useState(false);
   useEffect(() => {
     let mounted = true;
@@ -58,18 +59,12 @@ export function AppShell() {
   const reviewCount = (reviewQ.data as { count?: number } | undefined)?.count ?? 0;
   const errorCountQ = useQuery({
     queryKey: ["agent_logs_error_count"],
-    queryFn: async () => {
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count } = await supabase
-        .from("agent_logs")
-        .select("id", { count: "exact", head: true })
-        .eq("level", "error")
-        .gte("created_at", since);
-      return count ?? 0;
-    },
+    queryFn: () => fetchErrorCount(),
     refetchInterval: 15000,
+    enabled: hasSession,
+    retry: false,
   });
-  const errorCount = errorCountQ.data ?? 0;
+  const errorCount = (errorCountQ.data as { count?: number } | undefined)?.count ?? 0;
   const enabled = (agentQ.data as { agent_enabled?: boolean } | null | undefined)?.agent_enabled !== false;
   const toggleMut = useMutation({
     mutationFn: (next: boolean) => toggleGlobal({ data: { enabled: next } }),

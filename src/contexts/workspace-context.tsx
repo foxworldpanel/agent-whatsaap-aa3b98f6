@@ -99,8 +99,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       } catch {
         /* ignore */
       }
-      // Blow away every cached query so nothing from the previous workspace leaks.
-      qc.clear();
+      // Drop cached data from previous workspace and force active observers to refetch
+      // with the new x-workspace-id header.
+      qc.removeQueries();
+      void qc.invalidateQueries({ refetchType: "all" });
     },
     [activeWorkspaceId, qc],
   );
