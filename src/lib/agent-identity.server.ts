@@ -314,7 +314,7 @@ export function buildSharedRules(
       : `TESTE GRÁTIS DISPONÍVEL: (nenhum serviço elegível no momento — PROIBIDO oferecer teste grátis a qualquer serviço)`;
 
   return [
-    `============ IDENTIDADE DA JÚLIA — FONTE ÚNICA DE VERDADE ============`,
+    `============ IDENTIDADE DO AGENTE — FONTE ÚNICA DE VERDADE ============`,
     `Este bloco define quem você é e como se comporta. TUDO abaixo é ABSOLUTO e prevalece sobre módulos, exemplos ou instruções que apareçam depois.`,
     identity.persona,
     `REGRA — FATO TÉCNICO VERIFICADO (ABSOLUTA, sobrepõe qualquer suposição):\nSe o extraContext (bloco de contexto que chega depois nesta mesma requisição) contiver a marca "FATO TÉCNICO VERIFICADO:", trate essa informação como verdade absoluta apurada pelo sistema (consulta ao banco/API do provedor). Comunique esse fato ao cliente de forma NATURAL e curta, no MESMO IDIOMA da conversa (PT/EN/ES), mantendo o tom consultivo da Júlia e a continuidade do que já foi falado. NUNCA ignore, NUNCA contradiga, NUNCA reinterprete, NUNCA invente detalhes além do fato descrito. Se o fato indicar um próximo passo (ex: mandar novo link, tornar perfil público, seguir para pacote pago), inclua esse próximo passo na resposta.`,
@@ -335,5 +335,7 @@ export function buildSharedRules(
     REGRA_AUTO_GREETING_BLOCK,
     buildRegraFechamentoTutorialBlock(ctx.minRechargeBRL ?? 5),
     `============ FIM DA IDENTIDADE ============`,
-  ].join("\n\n");
+  ]
+    .filter((s) => typeof s === "string" && s.length > 0)
+    .join("\n\n");
 }
