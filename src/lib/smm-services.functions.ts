@@ -29,9 +29,10 @@ export const syncSmmServices = createServerFn({ method: "POST" })
     try {
       const { smmFetchServices } = await import("@/lib/smm.server");
       const list = await smmFetchServices({ url, key });
-      // Persiste no catálogo em cache (substitui o catálogo anterior do usuário)
+      // Persiste no catálogo em cache preservando o flag `hidden` (serviços
+      // marcados manualmente como indisponíveis não voltam a aparecer numa
+      // nova sincronização).
       try {
-        await supabaseAdmin.from("catalog_cache").delete().eq("user_id", context.userId);
         if (list.length > 0) {
           const rows = list.map((s) => ({
             user_id: context.userId,
@@ -42,10 +43,22 @@ export const syncSmmServices = createServerFn({ method: "POST" })
             minimo: parseInt(s.min, 10) || 0,
             maximo: parseInt(s.max, 10) || 0,
           }));
-          // Insere em lotes de 500 para evitar payloads gigantes
+          // Upsert em lotes de 500 (preserva `hidden` porque a coluna não é
+          // enviada no payload; onConflict apenas atualiza os campos do painel).
           for (let i = 0; i < rows.length; i += 500) {
-            await supabaseAdmin.from("catalog_cache").insert(rows.slice(i, i + 500));
+            await supabaseAdmin
+              .from("catalog_cache")
+              .upsert(rows.slice(i, i + 500), { onConflict: "user_id,service_id" });
           }
+          // Remove serviços que sumiram do painel (não estão mais na resposta).
+          const activeIds = rows.map((r) => r.service_id);
+          await supabaseAdmin
+            .from("catalog_cache")
+            .delete()
+            .eq("user_id", context.userId)
+            .not("service_id", "in", `(${activeIds.map((id) => `"${id.replace(/"/g, '')}"`).join(",")})`);
+        } else {
+          await supabaseAdmin.from("catalog_cache").delete().eq("user_id", context.userId);
         }
       } catch (e) {
         console.error("catalog_cache persist failed", e);
