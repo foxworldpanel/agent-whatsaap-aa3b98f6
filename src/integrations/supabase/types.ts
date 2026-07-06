@@ -35,6 +35,13 @@ export type Database = {
           panel_screenshot_mobile_url: string | null
           panel_screenshots_desktop: Json
           panel_screenshots_mobile: Json
+          playlist_ecletica_links: string[] | null
+          playlist_ecletica_service_id: string | null
+          playlist_eletronica_links: string[] | null
+          playlist_eletronica_service_id: string | null
+          playlist_pix_holder: string | null
+          playlist_pix_key: string | null
+          playlist_price: number | null
           price_query_instruction: string
           response_delay_max_sec: number
           response_delay_min_sec: number
@@ -69,6 +76,13 @@ export type Database = {
           panel_screenshot_mobile_url?: string | null
           panel_screenshots_desktop?: Json
           panel_screenshots_mobile?: Json
+          playlist_ecletica_links?: string[] | null
+          playlist_ecletica_service_id?: string | null
+          playlist_eletronica_links?: string[] | null
+          playlist_eletronica_service_id?: string | null
+          playlist_pix_holder?: string | null
+          playlist_pix_key?: string | null
+          playlist_price?: number | null
           price_query_instruction?: string
           response_delay_max_sec?: number
           response_delay_min_sec?: number
@@ -103,6 +117,13 @@ export type Database = {
           panel_screenshot_mobile_url?: string | null
           panel_screenshots_desktop?: Json
           panel_screenshots_mobile?: Json
+          playlist_ecletica_links?: string[] | null
+          playlist_ecletica_service_id?: string | null
+          playlist_eletronica_links?: string[] | null
+          playlist_eletronica_service_id?: string | null
+          playlist_pix_holder?: string | null
+          playlist_pix_key?: string | null
+          playlist_price?: number | null
           price_query_instruction?: string
           response_delay_max_sec?: number
           response_delay_min_sec?: number
@@ -1761,6 +1782,78 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      playlist_sales: {
+        Row: {
+          amount_expected: number
+          amount_paid: number | null
+          completed_at: string | null
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          last_checked_at: string | null
+          music_link: string | null
+          pacote: string
+          pix_proof_valid: boolean | null
+          playlists_sent_at: string | null
+          raw_response: Json | null
+          smm_order_id: string | null
+          smm_service_id: string | null
+          status: string
+          status_message: string | null
+          telefone: string
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          amount_expected?: number
+          amount_paid?: number | null
+          completed_at?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          last_checked_at?: string | null
+          music_link?: string | null
+          pacote: string
+          pix_proof_valid?: boolean | null
+          playlists_sent_at?: string | null
+          raw_response?: Json | null
+          smm_order_id?: string | null
+          smm_service_id?: string | null
+          status?: string
+          status_message?: string | null
+          telefone: string
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          amount_expected?: number
+          amount_paid?: number | null
+          completed_at?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          last_checked_at?: string | null
+          music_link?: string | null
+          pacote?: string
+          pix_proof_valid?: boolean | null
+          playlists_sent_at?: string | null
+          raw_response?: Json | null
+          smm_order_id?: string | null
+          smm_service_id?: string | null
+          status?: string
+          status_message?: string | null
+          telefone?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: []
       }
       processed_messages: {
         Row: {

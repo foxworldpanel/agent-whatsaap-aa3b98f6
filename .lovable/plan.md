@@ -1,59 +1,85 @@
-# Deletar TESTE-ISO + Wizard de Criação de Workspace
+## Fluxo de Compra de Pacote Playlist via WhatsApp
 
-## 1. Remoção do workspace TESTE-ISO
-Migração de dados (via insert tool):
-- Confirma que TESTE-ISO não tem números, conversas, contatos, mensagens, blast_campaigns próprios.
-- `DELETE FROM public.workspaces WHERE nome = 'TESTE-ISO' AND user_id = <dono>` (via cascade limpa filhos vazios).
-- Remove também a linha de debug temporária adicionada em `numeros.tsx` (do turno anterior).
+Implementação do fluxo completo end-to-end para venda automatizada dos Pacotes Eclética e Eletrônica pelo agente.
 
-## 2. Server functions novas em `src/lib/workspaces.functions.ts`
+### 1. Banco de dados (migração)
 
-- **`createWorkspace({ nome, icone?, cor? })`** — insere workspace novo (não-default), retorna `{ id, nome }`. Usa `withWorkspaceScope` só pra pegar `userId`, mas **não** força `x-workspace-id` (é criação).
-- **`deleteWorkspace({ id })`** — bloqueia se `is_default=true`; deleta workspace (cascade cuida do resto).
+**Nova tabela `playlist_sales`:**
+- `id` uuid PK, `user_id`, `workspace_id`
+- `contact_id`, `conversation_id`, `phone` (texto)
+- `pacote` enum (`ecletica` | `eletronica`)
+- `music_link` text
+- `smm_order_id` text
+- `amount_paid` numeric (default 49.90)
+- `status` text (`aguardando_link` | `enviado` | `processando` | `completo` | `erro`)
+- `pix_proof_valid` boolean, `pix_amount_detected` numeric
+- `playlists_sent_at`, `completed_at`, `created_at`, `updated_at`
+- RLS por `user_id` + GRANTs padrão
 
-Categoria inicial é criada via `contact_categories` (já tem `createCategory` em `src/lib/categories.functions.ts` — reaproveitar).
+**Extender `agent_config`** com colunas:
+- `playlist_pix_key` text (default `24981222957`)
+- `playlist_pix_holder` text (default `Eliseu Mendes Oliveira`)
+- `playlist_price` numeric (default 49.90)
+- `playlist_ecletica_service_id` text
+- `playlist_eletronica_service_id` text
+- `playlist_ecletica_links` text[] (URLs das playlists para enviar ao cliente)
+- `playlist_eletronica_links` text[]
 
-## 3. Wizard UI
+### 2. Detecção de estado no agente (`src/lib/ai.server.ts`)
 
-Novo componente: `src/components/CreateWorkspaceWizard.tsx` — Dialog com 4 passos e stepper.
+Adicionar detector de "compra de pacote playlist em andamento":
+- Consulta a última `playlist_sales` aberta da conversa
+- Se `status = aguardando_comprovante`: cria o `image_present` handler para analisar comprovante (Sonnet já é usado quando há imagem)
+- Se `status = aguardando_link`: quando detectar link do Spotify no texto, dispara `smmAddOrder` com o `service` correto e persiste `smm_order_id`
 
-```
-Passo 1 — Nome
-  [input "Nome do workspace"] + [ícone emoji opcional]
-Passo 2 — Números do WhatsApp
-  Explica: "Você pode conectar agora ou depois na tela Números."
-  Ação principal: "Pular por agora e conectar depois" (leva direto pra tela Números após finalizar)
-  (não replica o fluxo de conexão inteiro — reutiliza a tela Números já ativa no novo workspace)
-Passo 3 — Identidade do agente
-  Mostra 3 campos BRAND vazios: persona, terminologia_redes, exemplo_disparo (textareas).
-  Toggle: [ ] "Usar template Mind como ponto de partida (editável)"
-    → quando marcado, chama `seedMindBrand({ workspaceId })` no submit final.
-  Se preencher manual, salva via `updateAgentIdentity` no submit final.
-Passo 4 — Categoria inicial
-  Lista com uma categoria default sugerida ("Leads") + botão "+ adicionar outra".
-  Cada linha: nome, emoji, cor (ou só nome pra simplificar).
-```
+### 3. Análise de comprovante (Sonnet)
 
-Fluxo do submit final:
-1. `createWorkspace({ nome, icone })` → recebe `workspaceId`.
-2. `switchWorkspace(workspaceId)` no contexto (para próximas chamadas irem com header correto).
-3. Se toggle "usar template Mind" marcado: `seedMindBrand()`. Senão: `updateAgentIdentity({ persona, terminologia_redes, exemplo_disparo })` com o que foi digitado.
-4. Para cada categoria: `createCategory({ nome, cor, icone })`.
-5. Fecha modal, toast "Workspace criado!", `router.invalidate()`.
+No caminho já existente de análise de imagem, quando há venda de playlist em curso:
+- Adicionar instrução no system para extrair: `is_pix_receipt`, `amount_brl`
+- Se `amount_brl == playlist_price` → responde "Recebi R$49,90! Me manda o link da música…" e atualiza `status = aguardando_link`
+- Se valor menor → cobra a diferença
+- Se não é comprovante → pede reenvio
 
-## 4. Botão no `WorkspaceSwitcher`
-Adiciona `DropdownMenuItem` "+ Criar novo workspace" abaixo da lista, abre o wizard.
+### 4. Detecção de link de música e disparo de pedido
 
-## 5. Validação
-- `bun run test:agent` → 46/46 (não mexemos em ai.server nem tests).
-- Manual smoke: criar TESTE-ISO-2 pelo wizard, confirmar telas vazias, voltar pra Mind confirmar tudo intacto.
-- Após validado, aviso o usuário pra criar a Smoke Music de verdade.
+Novo módulo `src/lib/playlist-sales.server.ts`:
+- `detectSpotifyTrack(text)` → valida `open.spotify.com/track/…`
+- `placePlaylistOrder({ sale, creds, serviceId, link })` → chama `smmAddOrder`
+- Atualiza sale com `smm_order_id` e `status = processando`
 
-## Arquivos alterados/criados
-- `supabase migration` — DELETE de TESTE-ISO (via insert tool).
-- `src/lib/workspaces.functions.ts` — adiciona `createWorkspace`, `deleteWorkspace`.
-- `src/components/CreateWorkspaceWizard.tsx` — **novo**.
-- `src/components/WorkspaceSwitcher.tsx` — botão "+ Criar novo workspace".
-- `src/routes/_authenticated/numeros.tsx` — remove linha de debug temporária.
+### 5. Poll de status
 
-Confirma pra eu executar?
+Estender `src/routes/api/public/hooks/smm-poll.ts` (ou novo hook):
+- A cada execução, buscar `playlist_sales` com `status = processando`
+- `smmOrderStatus` → se `Completed`:
+  - Envia via UAZAPI ao contato: "Sua música foi adicionada! 🎵" + links das playlists configuradas
+  - `status = completo`, `completed_at = now()`
+
+### 6. UI de configuração
+
+Novo card em `/agente` (`src/components/agente/PlaylistCard.tsx`):
+- Chave PIX + titular + valor
+- Service ID Eclética / Eletrônica (select do catálogo)
+- Textarea para links das playlists (1 por linha) de cada pacote
+
+Server fns em `src/lib/agent-identity.functions.ts` (ou novo `playlist-config.functions.ts`) para load/save.
+
+### 7. Atualização do módulo `playlist_promo`
+
+Refletir chave PIX, valor e links vindos da config editável (injetar no prompt via `agent_config`).
+
+### Detalhes técnicos
+
+- `smmAddOrder` já existe em `src/lib/smm.server.ts` — reutilizar
+- Sonnet vs Haiku: manter roteamento atual (`image_present` já força Sonnet)
+- Envio de mensagens ao cliente: usar helper existente que fala com UAZAPI (mesmo caminho do agente)
+- Cron: `pg_cron` chamando `/api/public/hooks/smm-poll` a cada 5 min já cobre — só adicionar ramo para `playlist_sales`
+
+### Ordem de execução
+
+1. Migração (`playlist_sales` + colunas em `agent_config`)
+2. `playlist-sales.server.ts` (detect + place order + poll handler)
+3. Estender `smm-poll.ts` para incluir vendas de playlist
+4. Instruções no `ai.server.ts` (fluxo de comprovante + link)
+5. UI `PlaylistCard.tsx` + server fns de config
+6. Reforço no módulo `playlist_promo` puxando valores dinâmicos

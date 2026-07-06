@@ -254,8 +254,119 @@ export const Route = createFileRoute("/api/public/hooks/smm-poll")({
           }
         }
 
-        return Response.json({ processed });
+        // ====== Playlist sales polling ======
+        const playlistProcessed = await pollPlaylistSales();
+
+        return Response.json({ processed, playlistProcessed });
       },
     },
   },
 });
+
+async function pollPlaylistSales(): Promise<number> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { smmOrderStatus } = await import("@/lib/smm.server");
+  const { uazapiSendText } = await import("@/lib/uazapi.server");
+
+  const { data: sales, error } = await supabaseAdmin
+    .from("playlist_sales")
+    .select("*")
+    .eq("status", "processando")
+    .not("smm_order_id", "is", null)
+    .limit(100);
+  if (error || !sales || sales.length === 0) return 0;
+
+  const userIds = Array.from(new Set(sales.map((s) => s.user_id)));
+  const { data: integs } = await supabaseAdmin
+    .from("integrations")
+    .select("user_id, uazapi_url, uazapi_token, smm_api_key, smm_panel_url")
+    .in("user_id", userIds);
+  const integByUser = new Map((integs ?? []).map((i) => [i.user_id, i]));
+
+  const { data: cfgs } = await supabaseAdmin
+    .from("agent_config")
+    .select("user_id, workspace_id, playlist_ecletica_links, playlist_eletronica_links")
+    .in("user_id", userIds);
+  const cfgKey = (u: string, w: string | null) => `${u}::${w ?? ""}`;
+  const cfgByKey = new Map(
+    (cfgs ?? []).map((c) => [cfgKey(c.user_id as string, c.workspace_id as string | null), c]),
+  );
+
+  let processed = 0;
+  for (const sale of sales) {
+    const integ = integByUser.get(sale.user_id);
+    if (!integ?.smm_api_key) continue;
+    try {
+      const res = await smmOrderStatus(
+        { url: integ.smm_panel_url ?? "https://mindsmmpanel.com/smmpanel/api/v1", key: integ.smm_api_key },
+        sale.smm_order_id!,
+      );
+      const status = (res.status ?? "").toLowerCase();
+      const checkedAt = new Date().toISOString();
+      if (status === "completed" || status === "complete") {
+        const cfg = cfgByKey.get(cfgKey(sale.user_id, sale.workspace_id as string | null));
+        const links =
+          sale.pacote === "eletronica"
+            ? (cfg?.playlist_eletronica_links ?? [])
+            : (cfg?.playlist_ecletica_links ?? []);
+        const linksBlock =
+          Array.isArray(links) && links.length > 0
+            ? "\n" + (links as string[]).join("\n")
+            : "";
+        const msg =
+          `Sua música foi adicionada nas playlists! 🎵\n` +
+          `Ela já está disponível e aparece na primeira posição.` +
+          (linksBlock ? `\n\nAqui estão os links das playlists onde sua música está:${linksBlock}` : "");
+        try {
+          await uazapiSendText(
+            { uazapi_url: integ.uazapi_url ?? "", uazapi_token: integ.uazapi_token ?? "" },
+            sale.telefone,
+            msg,
+          );
+        } catch (e) {
+          console.error("[smm-poll:playlist] uazapi send failed", e);
+        }
+        await supabaseAdmin
+          .from("playlist_sales")
+          .update({
+            status: "completo",
+            completed_at: checkedAt,
+            playlists_sent_at: checkedAt,
+            last_checked_at: checkedAt,
+            raw_response: res.raw as never,
+          })
+          .eq("id", sale.id);
+        if (sale.conversation_id) {
+          await supabaseAdmin.from("messages").insert({
+            user_id: sale.user_id,
+            conversation_id: sale.conversation_id,
+            sender: "agente",
+            kind: "texto",
+            body: msg,
+          });
+          await supabaseAdmin
+            .from("conversations")
+            .update({
+              last_message_preview: msg.slice(0, 120),
+              last_message_at: checkedAt,
+              status: "aguardando",
+            })
+            .eq("id", sale.conversation_id);
+        }
+      } else {
+        await supabaseAdmin
+          .from("playlist_sales")
+          .update({
+            last_checked_at: checkedAt,
+            status_message: status,
+            raw_response: res.raw as never,
+          })
+          .eq("id", sale.id);
+      }
+      processed++;
+    } catch (e) {
+      console.error("[smm-poll:playlist] status check failed", e);
+    }
+  }
+  return processed;
+}
