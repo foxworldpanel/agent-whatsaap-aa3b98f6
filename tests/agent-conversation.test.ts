@@ -14,6 +14,7 @@ import {
   guardFreeTrialOffer,
   humanizePunctuation,
   buildSystemPrompt,
+  sanitizeSystemLeaks,
 } from "@/lib/ai.server";
 import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts } from "@/lib/message-splitter";
