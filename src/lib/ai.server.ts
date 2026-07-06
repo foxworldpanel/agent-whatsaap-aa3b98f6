@@ -178,24 +178,21 @@ export function sanitizeSystemLeaks(
   opts: { isInbound?: boolean; reengagementGreeting?: boolean } = {},
 ): { text: string; leaked: boolean; removed: string[] } {
   if (!reply) return { text: reply, leaked: false, removed: [] };
-  const segments = reply.split(/(===SPLIT===)/); // preserva o separador
   const removed: string[] = [];
-  const cleanedSegments = segments.map((seg) => {
-    if (seg === "===SPLIT===") return seg;
-    const lines = seg.split(/\n/);
-    const keptLines = lines.filter((line) => {
-      const hit = INTERNAL_MARKER_PATTERNS.some((rx) => rx.test(line));
-      if (hit) removed.push(line.trim());
-      return !hit;
-    });
-    return keptLines.join("\n");
-  });
-  // Reconstrói e limpa separadores órfãos (===SPLIT=== sem conteúdo antes/depois).
-  let cleaned = cleanedSegments.join("");
-  cleaned = cleaned
-    .replace(/(?:^|\n)\s*===SPLIT===\s*(?=\n|$)/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  // Scrub por bolha (===SPLIT===) e depois por linha, para que uma bolha
+  // inteira composta só de instrução de sistema seja descartada por completo.
+  const parts = reply.split("===SPLIT===");
+  const cleanedParts = parts
+    .map((part) => {
+      const keptLines = part.split(/\n/).filter((line) => {
+        const hit = INTERNAL_MARKER_PATTERNS.some((rx) => rx.test(line));
+        if (hit) removed.push(line.trim());
+        return !hit;
+      });
+      return keptLines.join("\n").trim();
+    })
+    .filter((p) => p.length > 0);
+  const cleaned = cleanedParts.join("\n===SPLIT===\n").replace(/\n{3,}/g, "\n\n").trim();
   const leaked = removed.length > 0;
   if (!cleaned) {
     // Se depois de remover marcadores não sobrou nada, devolve fallback seguro
