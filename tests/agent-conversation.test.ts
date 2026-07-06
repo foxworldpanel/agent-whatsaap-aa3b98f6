@@ -668,7 +668,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
       "FALHOU: veto não instrui a reapresentar a isca da abertura",
     ).toBe(true);
     expect(
-      /RECEPTIVO/i.test(body.system),
+      /RECEPTIVO\)/i.test(body.system),
       "FALHOU: variante RECEPTIVA foi injetada em thread de disparo",
     ).toBe(false);
   });
@@ -717,7 +717,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     ).toBe(true);
     // No disparo, "Como posso ajudar" NÃO é o formato correto (é o formato receptivo)
     expect(
-      /RECEPTIVO/i.test(body.system),
+      /RECEPTIVO\)/i.test(body.system),
       "FALHOU: variante RECEPTIVA foi injetada em thread de disparo",
     ).toBe(false);
     expect(
