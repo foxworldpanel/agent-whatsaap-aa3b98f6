@@ -210,10 +210,19 @@ function makeKey(periodo: string, s: number, l: number, p: number) {
   return `${periodo}:${s}:${l}:${p}`;
 }
 
-function subst(tpl: string, nome: string, instagram: string) {
+function subst(tpl: string, _nome: string, instagram: string) {
+  // REGRA FIXA da abertura de DISPARO: nunca usar o campo "nome" do contato,
+  // independente do que estiver preenchido (nome real, @usuário do Instagram,
+  // nome de dupla/marca). O campo `nome` é só para exibição interna (Contatos
+  // e Conversas). Se algum template (default ou editado no banco) contiver
+  // {nome}, ele é removido silenciosamente e espaços/pontuação órfãos são
+  // limpos, para nunca sair uma abertura tipo "Oi , tudo bem?".
   return (tpl ?? "")
-    .replace(/\{nome\}/gi, nome ?? "")
-    .replace(/\{instagram\}/gi, instagram ?? "");
+    .replace(/\{nome\}/gi, "")
+    .replace(/\{instagram\}/gi, instagram ?? "")
+    .replace(/\s+([,.!?;:])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 export function montarMensagemDisparo(
