@@ -137,6 +137,27 @@ export function isNeutralGreetingAfterBlastOpening(history: Msg[]): boolean {
   return isBlastOpeningQuestion(lastAgent.body);
 }
 
+// Detecta por CONTEÚDO se essa thread é de disparo (Júlia iniciou o contato),
+// independente da flag técnica `isInbound`. Basta uma das primeiras mensagens
+// da agente casar com o padrão de abertura de disparo (pergunta-isca ou
+// menção clara a "peguei seu contato" / "vi seu perfil" / "@handle").
+// Necessário porque conversas antigas / reunificadas podem chegar como
+// `isInbound=true` mesmo tendo sido abertas pela Júlia via disparo, e nesse
+// caso o veto de reengajamento cai no ramo RECEPTIVO ("Como posso ajudar?")
+// em vez do ramo DISPARO ("reapresenta a isca").
+export function historyLooksLikeBlast(history: Msg[]): boolean {
+  if (!history?.length) return false;
+  const firstAgentMsgs = history
+    .filter((m) => m.sender === "agente" && m.body?.trim())
+    .slice(0, 3);
+  const blastMarkerRx =
+    /(peguei\s+o?\s*seu\s+contato|vi\s+seu\s+perfil|@[a-z0-9._]+|adorei\s+o\s+(conte[uú]do|estilo|perfil))/i;
+  for (const m of firstAgentMsgs) {
+    if (isBlastOpeningQuestion(m.body) || blastMarkerRx.test(m.body)) return true;
+  }
+  return false;
+}
+
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
 // que está na lista de teste grátis liberado. Chave = token que aparece no
 // texto; valor = família de serviço.
