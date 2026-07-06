@@ -1,5 +1,6 @@
 // Server-only Claude (Anthropic) call to generate the agent reply.
 import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks, mergeIdentity, type AgentBrandBlocks } from "@/lib/agent-identity.server";
+import { DEFAULT_MODULES } from "@/lib/agent-modules";
 
 type AgentConfig = {
   agent_name: string;
@@ -319,7 +320,8 @@ const ESSENTIAL_MODULES = [
 
 // Mapa de gatilhos → módulos relevantes
 const MODULE_TRIGGERS: Array<{ rx: RegExp; modules: string[] }> = [
-  { rx: /spotify|playlist|ouvintes?|saves?|m[uú]sica|artista|soundon/i, modules: ["spotify", "musica_cliente"] },
+  { rx: /spotify|playlist|ouvintes?|saves?|m[uú]sica|artista|soundon/i, modules: ["spotify", "musica_cliente", "playlist_promo"] },
+  { rx: /playlist|pacote|promo|ecl[eé]tic|eletr[oô]nic/i, modules: ["playlist_promo"] },
   { rx: /youtube|yt|inscritos?|view(s|er)?|monetiza|4000h|shorts?/i, modules: ["youtube"] },
   { rx: /instagram|insta|\big\b|reels?|stories?|seguidor/i, modules: ["instagram"] },
   { rx: /tiktok|tt\b/i, modules: ["tiktok"] },
@@ -327,7 +329,7 @@ const MODULE_TRIGGERS: Array<{ rx: RegExp; modules: string[] }> = [
   { rx: /facebook|fb\b|\bface\b/i, modules: ["facebook"] },
   { rx: /google|seo|maps|gmb|avalia[çc][aã]o/i, modules: ["seo_google"] },
   { rx: /pre[çc]o|valor|quanto custa|custa|tabela|or[çc]amento|cota[çc][aã]o|\br\$/i, modules: ["calculo_preco", "ancoragem_valor"] },
-  { rx: /desconto|barato|caro|promo/i, modules: ["desconto_niveis", "objecoes", "ancoragem_valor"] },
+  { rx: /desconto|barato|caro|promo/i, modules: ["desconto_niveis", "objecoes", "ancoragem_valor", "playlist_promo"] },
   { rx: /pix|pagar|pagamento|boleto|cart[aã]o|cripto|usdt|d[oó]lar|exterior|estrangeir/i, modules: ["pagamentos", "estrangeiros"] },
   { rx: /teste|gr[aá]tis|free|amostra/i, modules: ["teste_gratis"] },
   { rx: /problema|n[aã]o funcionou|n[aã]o recebi|atras|suporte|ticket|reclama|refil/i, modules: ["suporte", "historico_refil", "inteligencia_emocional"] },
@@ -697,9 +699,11 @@ export async function generateAgentReplyWithMeta(params: {
     `Tom de voz: ${agent.tone}.`,
     agent.base_instruction,
     (() => {
-      const mods = (agent as { modules?: Record<string, string> }).modules;
+      const stored = (agent as { modules?: Record<string, string> }).modules;
       const enabled = (agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {};
-      if (!mods || typeof mods !== "object") return "";
+      // Fallback aos DEFAULT_MODULES (ex.: playlist_promo) quando o usuário
+      // ainda não salvou aquele módulo no agent_config.
+      const mods: Record<string, string> = { ...DEFAULT_MODULES, ...(stored && typeof stored === "object" ? stored : {}) };
       const active = selectActiveModules(mods, enabled, latestClientMessage);
       if (active.length === 0) return "";
       return `==== BASE DE CONHECIMENTO MODULAR (use como instruções obrigatórias de comportamento e conteúdo) ====\n\n${active
