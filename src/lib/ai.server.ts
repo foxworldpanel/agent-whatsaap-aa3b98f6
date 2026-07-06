@@ -137,6 +137,27 @@ export function isNeutralGreetingAfterBlastOpening(history: Msg[]): boolean {
   return isBlastOpeningQuestion(lastAgent.body);
 }
 
+// Detecta por CONTEÚDO se essa thread é de disparo (Júlia iniciou o contato),
+// independente da flag técnica `isInbound`. Basta uma das primeiras mensagens
+// da agente casar com o padrão de abertura de disparo (pergunta-isca ou
+// menção clara a "peguei seu contato" / "vi seu perfil" / "@handle").
+// Necessário porque conversas antigas / reunificadas podem chegar como
+// `isInbound=true` mesmo tendo sido abertas pela Júlia via disparo, e nesse
+// caso o veto de reengajamento cai no ramo RECEPTIVO ("Como posso ajudar?")
+// em vez do ramo DISPARO ("reapresenta a isca").
+export function historyLooksLikeBlast(history: Msg[]): boolean {
+  if (!history?.length) return false;
+  const firstAgentMsgs = history
+    .filter((m) => m.sender === "agente" && m.body?.trim())
+    .slice(0, 3);
+  const blastMarkerRx =
+    /(peguei\s+o?\s*seu\s+contato|vi\s+seu\s+perfil|@[a-z0-9._]+|adorei\s+o\s+(conte[uú]do|estilo|perfil))/i;
+  for (const m of firstAgentMsgs) {
+    if (isBlastOpeningQuestion(m.body) || blastMarkerRx.test(m.body)) return true;
+  }
+  return false;
+}
+
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
 // que está na lista de teste grátis liberado. Chave = token que aparece no
 // texto; valor = família de serviço.
@@ -601,13 +622,21 @@ export async function generateAgentReplyWithMeta(params: {
 
   const supportContext = isSupportOrPostSaleContext(history);
   const reengagementGreeting = isReengagementGreeting(history);
+  // Detecção por CONTEÚDO: se o histórico começa com uma abertura de disparo
+  // (pergunta-isca, "peguei seu contato", "@handle"), tratamos como disparo
+  // mesmo que a flag técnica `isInbound` esteja errada (thread reunificada,
+  // conversa antiga, webhook classificado como inbound, etc). Sem isso o
+  // ramo RECEPTIVO ("Como posso ajudar?") sequestra respostas que deveriam
+  // reapresentar a isca.
+  const blastByContent = historyLooksLikeBlast(history);
+  const effectiveBlast = !isInbound || blastByContent;
   // Cortesia neutra em resposta imediata à abertura de disparo: MESMA resposta
   // do MODO REENGAJAMENTO DISPARO, disparada sem depender de gap de tempo.
   const neutralGreetingAfterBlastOpening =
-    !isInbound && isNeutralGreetingAfterBlastOpening(history);
+    effectiveBlast && isNeutralGreetingAfterBlastOpening(history);
   const blastReengagementVeto =
-    (!isInbound && reengagementGreeting) || neutralGreetingAfterBlastOpening;
-  const inboundReengagementVeto = isInbound && reengagementGreeting;
+    (effectiveBlast && reengagementGreeting) || neutralGreetingAfterBlastOpening;
+  const inboundReengagementVeto = !effectiveBlast && reengagementGreeting;
   const anyReengagementVeto = blastReengagementVeto || inboundReengagementVeto;
 
   // O fluxo de disparo agora vem exclusivamente de buildSharedRules(identity).
@@ -655,7 +684,7 @@ export async function generateAgentReplyWithMeta(params: {
     // reengajamento está ativo — do contrário competem com o veto e o modelo
     // volta a emendar a pergunta pendente. Fluxo normal de disparo (sem gap)
     // continua recebendo esses refinamentos exatamente como antes.
-    !isInbound && !blastReengagementVeto
+    effectiveBlast && !blastReengagementVeto
       ? `REFINAMENTOS DE TOM CONSULTIVO (aplicam ao EXEMPLO_MODELO_DISPARO da identidade):\n\n1) INTERESSE INICIAL APÓS ABERTURA:\n- Se o cliente respondeu positivamente à pergunta de abertura do disparo, vá direto para a pergunta de rede.\n- Não faça pergunta pessoal intermediária. Não pergunte se vive disso, se está começando, ou se ainda está montando público.\n\n2) VALIDAÇÃO EMOCIONAL CURTA:\n- Se o cliente compartilhar algo pessoal ou vulnerável depois de já estar conversando, valide em uma frase curta e siga para o próximo passo útil.\n- Use ===SPLIT=== só quando a validação precisar ficar separada da próxima pergunta.\n\n3) ANCORAGEM DE PREÇO:\n- Ao informar preço, ofereça primeiro a menor quantidade real do catálogo daquele serviço.\n- Estrutura: "Pra começar sem compromisso, [MÍNIMO REAL] sai [PREÇO REAL]. Já dá pra sentir o resultado, e se quiser ir de mais também tem, é só me falar."\n- Nunca use valores fixos de exemplo. O preço real sempre sai do catálogo.\n\n4) PROVA SOCIAL SUTIL, SEM INVENTAR NÚMEROS:\n- Permitido: "Muita gente começa assim", "Costuma ajudar bastante", "É um bom primeiro empurrão".\n- Proibido inventar estatísticas, quantidade de clientes, porcentagens ou resultados médios.\n\n5) QUANTIDADE SEMPRE VEM COM PREÇO DE ÂNCORA:\n- Sempre que apresentar opção de quantidade, inclua a menor quantidade real + preço real na mesma mensagem.\n- Não pergunte "quantas você quer?" sem dar uma referência de valor junto.`
       : "",
     // REGRA CENTRAL DE INTERESSE agora vive na identidade compartilhada.
