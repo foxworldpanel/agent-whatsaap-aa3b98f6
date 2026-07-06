@@ -852,6 +852,7 @@ export type Database = {
         Row: {
           categoria: string
           created_at: string
+          hidden: boolean
           id: string
           maximo: number
           minimo: number
@@ -865,6 +866,7 @@ export type Database = {
         Insert: {
           categoria?: string
           created_at?: string
+          hidden?: boolean
           id?: string
           maximo?: number
           minimo?: number
@@ -878,6 +880,7 @@ export type Database = {
         Update: {
           categoria?: string
           created_at?: string
+          hidden?: boolean
           id?: string
           maximo?: number
           minimo?: number
