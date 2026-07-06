@@ -98,8 +98,12 @@ export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean
       : Date.now();
   if (!Number.isFinite(agentTs) || !Number.isFinite(clientTs)) return false;
   const gapMs = clientTs - agentTs;
-  const THREE_HOURS = 3 * 60 * 60 * 1000;
-  return gapMs >= THREE_HOURS;
+  // Limiar reduzido de 3h → 1h para pegar gaps intermediários (ex.: cliente
+  // some 1h e volta com "oi"): validado em investigação da conversa
+  // fd475562 — vários turnos de 1-2h nunca disparavam o veto e a Júlia
+  // ficava reformulando a mesma pergunta pendente do funil.
+  const REENGAGEMENT_GAP_MS = 60 * 60 * 1000;
+  return gapMs >= REENGAGEMENT_GAP_MS;
 }
 
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
@@ -378,10 +382,15 @@ export function pickClaudeModel(opts: {
   hasImage: boolean;
   inputKind?: "texto" | "audio";
   latestMessage?: string | null;
+  reengagementGreeting?: boolean;
 }): { model: "claude-sonnet-4-5" | "claude-haiku-4-5"; reason: string } {
   const msg = (opts.latestMessage ?? "").trim();
   if (opts.hasImage) return { model: "claude-sonnet-4-5", reason: "image_present" };
   if (opts.inputKind === "audio") return { model: "claude-sonnet-4-5", reason: "audio_input" };
+  // Reengajamento após hiato: força Sonnet. Haiku ignora o veto de prioridade
+  // máxima quando compete com script concreto (ver investigação fd475562).
+  // Evento raro (só dispara com gap ≥1h + saudação seca), custo desprezível.
+  if (opts.reengagementGreeting) return { model: "claude-sonnet-4-5", reason: "reengagement_greeting" };
   if (msg.length > 400) return { model: "claude-sonnet-4-5", reason: "long_message" };
   const complexRe = /(reclama|problema|n[aã]o funcion|nunca funcion|reembolso|cancelar|golpe|an[aá]lise|analisa|print|comprovante|preju[ií]zo|erro|urgente|processo|proced|jur[ií]dic)/i;
   if (complexRe.test(msg)) return { model: "claude-sonnet-4-5", reason: "complex_keywords" };
