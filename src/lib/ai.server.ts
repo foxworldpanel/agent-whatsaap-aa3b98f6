@@ -833,7 +833,23 @@ export async function generateAgentReplyWithMeta(params: {
       allowedServices: freeTestServices.map((s) => s.service_name),
     });
   }
-  return { text: guarded.text, model, routingReason };
+  // GUARD FINAL — nunca deixa cabeçalho/instrução de sistema vazar para o
+  // cliente, aconteça o que acontecer na geração (modelo ecoou, parser bugou,
+  // etc). É a última barreira antes de o texto virar mensagem no WhatsApp.
+  const scrubbed = sanitizeSystemLeaks(guarded.text, {
+    isInbound,
+    reengagementGreeting,
+  });
+  if (scrubbed.leaked) {
+    console.error("[agent-ai] GUARD: vazamento de prompt interno bloqueado", {
+      removedPreview: scrubbed.removed.slice(0, 3).map((s) => s.slice(0, 200)),
+      originalPreview: guarded.text.slice(0, 300),
+      finalPreview: scrubbed.text.slice(0, 200),
+      isInbound,
+      reengagementGreeting,
+    });
+  }
+  return { text: scrubbed.text, model, routingReason };
 }
 
 // ----- Transcrição (Whisper via Lovable AI Gateway, sem chave do usuário) -----
