@@ -151,25 +151,18 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
             });
 
             if (status === "enviado") {
-              // cria/atualiza conversation + message
-              let { data: conv } = await supabaseAdmin
-                .from("conversations")
-                .select("id")
-                .eq("user_id", camp.user_id)
-                .eq("contact_id", contact.id)
-                .maybeSingle();
-              if (!conv) {
-                const ins = await supabaseAdmin
-                  .from("conversations")
-                  .insert({
-                    user_id: camp.user_id,
-                    contact_id: contact.id,
-                    status: "aguardando",
-                  })
-                  .select("id")
-                  .single();
-                conv = ins.data;
-              }
+              // cria/reusa a conversa de forma atômica: 1 contato = 1 conversa
+              const { data: convRows, error: convErr } = await (supabaseAdmin as any).rpc(
+                "get_or_create_active_conversation",
+                {
+                  _user_id: camp.user_id,
+                  _contact_id: contact.id,
+                  _whatsapp_number_id: null,
+                  _initial_status: "aguardando",
+                },
+              );
+              if (convErr) throw new Error(`conversation rpc failed: ${convErr.message}`);
+              const conv = convRows?.[0] ?? null;
               if (conv) {
                 const nowIso = new Date().toISOString();
                 await supabaseAdmin.from("messages").insert({
