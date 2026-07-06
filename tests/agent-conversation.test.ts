@@ -920,3 +920,28 @@ describe("Sanitização de vazamento de prompt interno (sanitizeSystemLeaks)", (
     expect(res.text).toContain("Bom dia");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Menu numerado de WhatsApp Business — regra deve estar ativa no prompt
+// ---------------------------------------------------------------------------
+describe("Detecção de mensagem automática de WhatsApp Business (saudação + menu)", () => {
+  it("prompt contém sinais de MENU NUMERADO e proíbe pedido de desculpa", () => {
+    const prompt = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: OPENING },
+        {
+          sender: "cliente",
+          body:
+            "Olá, aqui é o Paulo (Responsável pela Banda Paulinho e Fábio no Bailão). Digite qual seu interesse: *Digite (01)* - Contratações *Digite (02)* - Composições *Digite (03)* - Vinhetas",
+        },
+      ],
+      isInbound: true,
+    });
+    expect(/MENU NUMERADO|Digite \(01\)/i.test(prompt)).toBe(true);
+    expect(/NUNCA responda escolhendo uma opção do menu/i.test(prompt)).toBe(true);
+    expect(/acho que houve uma confus[aã]o/i.test(prompt)).toBe(true);
+    expect(/respons[aá]vel por/i.test(prompt)).toBe(true);
+  });
+});
