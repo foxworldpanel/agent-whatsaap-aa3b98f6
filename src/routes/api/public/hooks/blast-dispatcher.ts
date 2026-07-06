@@ -82,6 +82,39 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
         for (const camp of camps ?? []) {
           let claimedBlastContactId: string | null = null;
           try {
+            // Recuperação de contatos "presos": se um envio anterior travou no
+            // meio (worker morreu entre partes do opening, timeout de rede,
+            // etc), o contato fica em `enviando_*` para sempre e a campanha
+            // nunca mais volta nele. Antes de escolher o próximo, devolve para
+            // `pendente` qualquer contato deste usuário parado em `enviando_*`
+            // há mais de 3 minutos, para retry automático.
+            {
+              const stuckCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+              const { data: unstuck } = await supabaseAdmin
+                .from("blast_contacts")
+                .update({ status: "pendente", updated_at: new Date().toISOString() } as never)
+                .eq("user_id", camp.user_id)
+                .in("status", ["enviando_opening", "enviando_d3", "enviando_d7"])
+                .lt("updated_at", stuckCutoff)
+                .select("id, telefone, nome, status");
+              if (unstuck && unstuck.length > 0) {
+                await logEvent({
+                  userId: camp.user_id,
+                  type: "blast_stuck_recovered",
+                  level: "warn",
+                  summary: `🔁 Recuperados ${unstuck.length} contato(s) travados em envio → pendente para retry`,
+                  metadata: {
+                    origem: "disparo",
+                    direcao: "enviado",
+                    tipo: "recuperacao",
+                    campaign_id: camp.id,
+                    count: unstuck.length,
+                    contacts: unstuck.map((c: { id: string; telefone: string; nome: string }) => ({ id: c.id, telefone: c.telefone, nome: c.nome })),
+                  } as never,
+                });
+              }
+            }
+
             if (opts.campaignId || bypass) {
               await logEvent({
                 userId: camp.user_id,
