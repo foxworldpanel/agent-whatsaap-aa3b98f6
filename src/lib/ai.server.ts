@@ -703,8 +703,6 @@ export async function generateAgentReplyWithMeta(params: {
       const enabled = (agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {};
       // Fallback aos DEFAULT_MODULES (ex.: playlist_promo) quando o usuário
       // ainda não salvou aquele módulo no agent_config.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { DEFAULT_MODULES } = require("@/lib/agent-modules") as typeof import("@/lib/agent-modules");
       const mods: Record<string, string> = { ...DEFAULT_MODULES, ...(stored && typeof stored === "object" ? stored : {}) };
       const active = selectActiveModules(mods, enabled, latestClientMessage);
       if (active.length === 0) return "";
