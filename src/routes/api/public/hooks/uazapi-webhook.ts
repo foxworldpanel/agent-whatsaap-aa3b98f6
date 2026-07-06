@@ -1558,7 +1558,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .insert({
                     user_id: userId,
                     conversation_id: conv.id,
-                    contact_id: conv.contact_id ?? null,
                     telefone: phone,
                     pacote,
                     status: "aguardando_link",
