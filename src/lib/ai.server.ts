@@ -700,6 +700,7 @@ export async function generateAgentReplyWithMeta(params: {
     hasImage,
     inputKind,
     latestMessage: latestClientMessage,
+    reengagementGreeting,
   });
   console.info("[agent-ai] Roteamento modelo:", { model, routingReason });
 
