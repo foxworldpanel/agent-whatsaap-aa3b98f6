@@ -622,13 +622,21 @@ export async function generateAgentReplyWithMeta(params: {
 
   const supportContext = isSupportOrPostSaleContext(history);
   const reengagementGreeting = isReengagementGreeting(history);
+  // Detecção por CONTEÚDO: se o histórico começa com uma abertura de disparo
+  // (pergunta-isca, "peguei seu contato", "@handle"), tratamos como disparo
+  // mesmo que a flag técnica `isInbound` esteja errada (thread reunificada,
+  // conversa antiga, webhook classificado como inbound, etc). Sem isso o
+  // ramo RECEPTIVO ("Como posso ajudar?") sequestra respostas que deveriam
+  // reapresentar a isca.
+  const blastByContent = historyLooksLikeBlast(history);
+  const effectiveBlast = !isInbound || blastByContent;
   // Cortesia neutra em resposta imediata à abertura de disparo: MESMA resposta
   // do MODO REENGAJAMENTO DISPARO, disparada sem depender de gap de tempo.
   const neutralGreetingAfterBlastOpening =
-    !isInbound && isNeutralGreetingAfterBlastOpening(history);
+    effectiveBlast && isNeutralGreetingAfterBlastOpening(history);
   const blastReengagementVeto =
-    (!isInbound && reengagementGreeting) || neutralGreetingAfterBlastOpening;
-  const inboundReengagementVeto = isInbound && reengagementGreeting;
+    (effectiveBlast && reengagementGreeting) || neutralGreetingAfterBlastOpening;
+  const inboundReengagementVeto = !effectiveBlast && reengagementGreeting;
   const anyReengagementVeto = blastReengagementVeto || inboundReengagementVeto;
 
   // O fluxo de disparo agora vem exclusivamente de buildSharedRules(identity).
