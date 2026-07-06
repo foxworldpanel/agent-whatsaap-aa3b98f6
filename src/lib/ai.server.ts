@@ -106,6 +106,37 @@ export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean
   return gapMs >= REENGAGEMENT_GAP_MS;
 }
 
+// Detecta o análogo IMEDIATO do REENGAJAMENTO em thread de disparo, SEM
+// depender de gap de tempo: a última mensagem do agente é a PERGUNTA DE
+// ABERTURA do disparo e o cliente respondeu apenas com saudação/cortesia
+// neutra ("olá tudo bem?", "bom dia", ...). Nesses casos a Júlia precisa
+// retribuir a saudação E REAPRESENTAR A ISCA (pergunta de abertura), em vez
+// de cair na resposta genérica de receptivo/suporte ("Como posso te ajudar?").
+// Fica unificado com o MODO REENGAJAMENTO — mesma resposta, disparado por
+// hiato de tempo OU por resposta neutra logo após a abertura.
+export function isNeutralGreetingAfterBlastOpening(history: Msg[]): boolean {
+  if (!history?.length) return false;
+  let clientIdx = -1;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i].sender === "cliente" && history[i].body?.trim()) {
+      clientIdx = i;
+      break;
+    }
+  }
+  if (clientIdx < 0) return false;
+  const clientBody = (history[clientIdx].body ?? "").trim();
+  if (!isBlastNeutralGreeting(clientBody)) return false;
+  let lastAgent: Msg | null = null;
+  for (let i = clientIdx - 1; i >= 0; i -= 1) {
+    if (history[i].sender === "agente" && history[i].body?.trim()) {
+      lastAgent = history[i];
+      break;
+    }
+  }
+  if (!lastAgent) return false;
+  return isBlastOpeningQuestion(lastAgent.body);
+}
+
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
 // que está na lista de teste grátis liberado. Chave = token que aparece no
 // texto; valor = família de serviço.
