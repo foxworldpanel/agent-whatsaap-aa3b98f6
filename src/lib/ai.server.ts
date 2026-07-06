@@ -149,6 +149,67 @@ export function humanizePunctuation(input: string): string {
   return out;
 }
 
+// GUARD DETERMINÍSTICO CONTRA VAZAMENTO DE PROMPT INTERNO.
+// Se o modelo ecoar (ou um bug de parsing empurrar) qualquer trecho de bloco
+// de sistema para o texto de saída, o segmento é removido antes de virar
+// mensagem no WhatsApp. Marcadores são strings que SÓ existem no prompt
+// interno (cabeçalhos de veto, nomes de modo, tokens de identidade). Nunca
+// deveriam aparecer numa resposta legítima da Júlia.
+const INTERNAL_MARKER_PATTERNS: RegExp[] = [
+  /⛔/,
+  /VETO DE PRIORIDADE/i,
+  /PRIORIDADE M[ÁA]XIMA/i,
+  /MODO REENGAJAMENTO/i,
+  /MODO [ÁA]UDIO/i,
+  /MODO SUPORTE/i,
+  /OBRIGA[ÇC][ÕO]ES desta resposta/i,
+  /FORMATO OBRIGAT[ÓO]RIO/i,
+  /EXEMPLO_MODELO_DISPARO/,
+  /REFINAMENTOS DE TOM/i,
+  /REGRA ABSOLUTA DE CONTEXTO/i,
+  /SOBRESCREVE/,
+  /buildSharedRules/,
+  /\[sistema\]/i,
+  /system prompt/i,
+];
+
+export function sanitizeSystemLeaks(
+  reply: string,
+  opts: { isInbound?: boolean; reengagementGreeting?: boolean } = {},
+): { text: string; leaked: boolean; removed: string[] } {
+  if (!reply) return { text: reply, leaked: false, removed: [] };
+  const segments = reply.split(/(===SPLIT===)/); // preserva o separador
+  const removed: string[] = [];
+  const cleanedSegments = segments.map((seg) => {
+    if (seg === "===SPLIT===") return seg;
+    const lines = seg.split(/\n/);
+    const keptLines = lines.filter((line) => {
+      const hit = INTERNAL_MARKER_PATTERNS.some((rx) => rx.test(line));
+      if (hit) removed.push(line.trim());
+      return !hit;
+    });
+    return keptLines.join("\n");
+  });
+  // Reconstrói e limpa separadores órfãos (===SPLIT=== sem conteúdo antes/depois).
+  let cleaned = cleanedSegments.join("");
+  cleaned = cleaned
+    .replace(/(?:^|\n)\s*===SPLIT===\s*(?=\n|$)/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  const leaked = removed.length > 0;
+  if (!cleaned) {
+    // Se depois de remover marcadores não sobrou nada, devolve fallback seguro
+    // por contexto — nunca deixa o cliente sem resposta nem envia string vazia.
+    const fallback = opts.reengagementGreeting
+      ? opts.isInbound
+        ? "Oi! Como posso ajudar?"
+        : "Oi! Posso te mostrar como acelerar suas redes?"
+      : "Oi! Como posso ajudar?";
+    return { text: fallback, leaked: true, removed };
+  }
+  return { text: cleaned, leaked, removed };
+}
+
 export function guardFreeTrialOffer(params: {
   reply: string;
   freeTestServices: Array<{ service_name: string; category: string }>;
