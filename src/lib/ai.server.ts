@@ -106,6 +106,37 @@ export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean
   return gapMs >= REENGAGEMENT_GAP_MS;
 }
 
+// Detecta o análogo IMEDIATO do REENGAJAMENTO em thread de disparo, SEM
+// depender de gap de tempo: a última mensagem do agente é a PERGUNTA DE
+// ABERTURA do disparo e o cliente respondeu apenas com saudação/cortesia
+// neutra ("olá tudo bem?", "bom dia", ...). Nesses casos a Júlia precisa
+// retribuir a saudação E REAPRESENTAR A ISCA (pergunta de abertura), em vez
+// de cair na resposta genérica de receptivo/suporte ("Como posso te ajudar?").
+// Fica unificado com o MODO REENGAJAMENTO — mesma resposta, disparado por
+// hiato de tempo OU por resposta neutra logo após a abertura.
+export function isNeutralGreetingAfterBlastOpening(history: Msg[]): boolean {
+  if (!history?.length) return false;
+  let clientIdx = -1;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i].sender === "cliente" && history[i].body?.trim()) {
+      clientIdx = i;
+      break;
+    }
+  }
+  if (clientIdx < 0) return false;
+  const clientBody = (history[clientIdx].body ?? "").trim();
+  if (!isBlastNeutralGreeting(clientBody)) return false;
+  let lastAgent: Msg | null = null;
+  for (let i = clientIdx - 1; i >= 0; i -= 1) {
+    if (history[i].sender === "agente" && history[i].body?.trim()) {
+      lastAgent = history[i];
+      break;
+    }
+  }
+  if (!lastAgent) return false;
+  return isBlastOpeningQuestion(lastAgent.body);
+}
+
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
 // que está na lista de teste grátis liberado. Chave = token que aparece no
 // texto; valor = família de serviço.
@@ -570,6 +601,14 @@ export async function generateAgentReplyWithMeta(params: {
 
   const supportContext = isSupportOrPostSaleContext(history);
   const reengagementGreeting = isReengagementGreeting(history);
+  // Cortesia neutra em resposta imediata à abertura de disparo: MESMA resposta
+  // do MODO REENGAJAMENTO DISPARO, disparada sem depender de gap de tempo.
+  const neutralGreetingAfterBlastOpening =
+    !isInbound && isNeutralGreetingAfterBlastOpening(history);
+  const blastReengagementVeto =
+    (!isInbound && reengagementGreeting) || neutralGreetingAfterBlastOpening;
+  const inboundReengagementVeto = isInbound && reengagementGreeting;
+  const anyReengagementVeto = blastReengagementVeto || inboundReengagementVeto;
 
   // O fluxo de disparo agora vem exclusivamente de buildSharedRules(identity).
   const system = [
@@ -578,25 +617,30 @@ export async function generateAgentReplyWithMeta(params: {
     // refinamento de tom consultivo. Sem isso, em threads de disparo o modelo
     // reencaixa a próxima pergunta do funil mesmo depois de horas de hiato +
     // saudação seca do cliente.
-    reengagementGreeting
-      ? (isInbound
+    anyReengagementVeto
+      ? (inboundReengagementVeto
           // CASO 1 — RECEPTIVO / SUPORTE: cliente iniciou o contato. Reengajar
           // com "como posso ajudar" — não existe "isca" a reapresentar.
           ? `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER lógica de disparo/blast/funil de vendas.\n\nCondição detectada: passaram VÁRIAS HORAS (ou virou o dia) desde a sua última mensagem, e o cliente voltou APENAS com uma saudação curta ("oi", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem"). Esta conversa é RECEPTIVA (o cliente iniciou o contato originalmente).\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação e se coloque à disposição de forma neutra. FORMATO OBRIGATÓRIO: "<Saudação equivalente à do cliente>! Como posso ajudar?" (ex: "Boa tarde! Como posso ajudar?" / "Oi! Tudo bem por aí? Como posso te ajudar hoje?").\n2) PROIBIDO emendar automaticamente/repetir/reformular QUALQUER pergunta pendente do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem).\n3) AGUARDE a próxima mensagem do cliente antes de retomar qualquer coisa.\n4) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço, NÃO faça pergunta de negócio nesta resposta.`
           // CASO 2 — DISPARO / BLAST: a Júlia iniciou o contato via abordagem
           // fria. Reengajar REAPRESENTANDO A ISCA (pergunta final da abertura)
-          // de forma resumida — o cliente pode ter esquecido o assunto.
-          : `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (DISPARO) ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER pergunta pendente do funil que exista no histórico.\n\nCondição detectada: passaram VÁRIAS HORAS (ou virou o dia) desde a sua última mensagem em uma thread de DISPARO (VOCÊ iniciou o contato via abordagem fria), e o cliente voltou APENAS com uma saudação curta. Ele pode ter esquecido completamente do que se tratava — precisa reancorar o interesse.\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação e REAPRESENTE A ISCA — a pergunta FINAL da abertura de disparo, de forma RESUMIDA. FORMATO OBRIGATÓRIO em UMA ÚNICA mensagem curta: "<Saudação equivalente à do cliente>! Posso te mostrar como acelerar suas redes?" (variações válidas: "...como turbinar suas redes?" / "...como impulsionar seu perfil?"). Nada além disso.\n2) PROIBIDO repetir a abertura COMPLETA — NÃO diga "Peguei seu contato no perfil @...", NÃO cite o @ do Instagram, NÃO cumprimente pelo nome como se fosse a primeira mensagem, NÃO diga "adorei o conteúdo/estilo". Só a pergunta-isca final, resumida.\n3) PROIBIDO emendar/repetir/reformular a pergunta PENDENTE do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem). Você está VOLTANDO para a pergunta-isca da abertura, NÃO avançando o funil.\n4) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço nesta resposta.\n5) Depois desta resposta, se o cliente responder de novo com interesse ("sim", "pode", "manda", "claro"), a PRÓXIMA resposta CONTINUA o funil de onde parou (retomar a pergunta pendente — ex: rede social) SEM repetir a abertura completa novamente.`)
+          // de forma resumida. Vale para AMBOS os gatilhos:
+          //   (a) hiato de tempo (várias horas / virou o dia), OU
+          //   (b) cliente respondeu à abertura só com saudação/cortesia neutra
+          //       (sem hiato — regressão real observada em produção onde a
+          //       Júlia caía no genérico de suporte "Como posso te ajudar?").
+          : `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO / CORTESIA EM DISPARO ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER pergunta pendente do funil que exista no histórico.\n\nCondição detectada: você está em uma thread de DISPARO (VOCÊ iniciou o contato via abordagem fria) e o cliente respondeu à sua abertura APENAS com saudação/cortesia neutra ("oi", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem?", "olá, tudo bem?"), SEM responder à pergunta da abertura. Isso vale tanto quando passaram várias horas desde a sua última mensagem (hiato) quanto quando a resposta veio poucos minutos depois (sem hiato). Em ambos os casos, a resposta correta é a MESMA: retribuir a saudação e REAPRESENTAR A ISCA da abertura — NUNCA cair na resposta genérica de receptivo/suporte "Oi! Como posso te ajudar?".\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação de forma calorosa e REAPRESENTE A ISCA — a pergunta FINAL da abertura de disparo, de forma RESUMIDA. FORMATO OBRIGATÓRIO em UMA ÚNICA mensagem curta: "<Saudação equivalente à do cliente>, espero que esteja bem também. Posso te mostrar como dar uma acelerada nas suas redes?" (variações válidas do fim: "Posso te mostrar como acelerar suas redes?" / "Posso te mostrar como turbinar suas redes?" / "...como impulsionar seu perfil?"). Nada além disso.\n2) PROIBIDO ABSOLUTO responder com "Como posso te ajudar?", "Como posso ajudar?", "Em que posso ajudar?" ou qualquer variação de suporte/receptivo genérico — essa é a resposta de conversa RECEPTIVA e NÃO se aplica a disparo. Aqui a Júlia iniciou o contato com uma isca clara e precisa reapresentá-la.\n3) PROIBIDO repetir a abertura COMPLETA — NÃO diga "Peguei seu contato no perfil @...", NÃO cite o @ do Instagram, NÃO cumprimente pelo nome como se fosse a primeira mensagem, NÃO diga "adorei o conteúdo/estilo". Só a saudação de volta + a pergunta-isca final, resumida.\n4) PROIBIDO emendar/repetir/reformular a pergunta PENDENTE do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem). Você está VOLTANDO para a pergunta-isca da abertura, NÃO avançando o funil.\n5) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço nesta resposta.\n6) Depois desta resposta, se o cliente responder com interesse ("sim", "pode", "manda", "claro"), a PRÓXIMA resposta CONTINUA o funil de onde parou (retomar a pergunta pendente — ex: rede social) SEM repetir a abertura completa novamente.`)
       : "",
     buildSharedRules(identity, {
       freeTestServices,
       brandBlocks,
-      // A: quando o veto de reengajamento está ativo, remove o
-      // EXEMPLO_MODELO_DISPARO da identidade para o veto ("REAPRESENTE A ISCA")
+      // Quando qualquer veto de reengajamento (hiato OU cortesia imediata em
+      // disparo) está ativo, remove o EXEMPLO_MODELO_DISPARO da identidade
+      // para o veto ("REAPRESENTE A ISCA")
       // ser a única instrução de fluxo no prompt — sem competir com o script
       // completo de vendas (rede → serviço → preço) que fazia o Haiku
       // reformular a pergunta pendente em vez de reapresentar a isca.
-      suppressExemploDisparo: reengagementGreeting,
+      suppressExemploDisparo: anyReengagementVeto,
     }),
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
@@ -611,7 +655,7 @@ export async function generateAgentReplyWithMeta(params: {
     // reengajamento está ativo — do contrário competem com o veto e o modelo
     // volta a emendar a pergunta pendente. Fluxo normal de disparo (sem gap)
     // continua recebendo esses refinamentos exatamente como antes.
-    !isInbound && !reengagementGreeting
+    !isInbound && !blastReengagementVeto
       ? `REFINAMENTOS DE TOM CONSULTIVO (aplicam ao EXEMPLO_MODELO_DISPARO da identidade):\n\n1) INTERESSE INICIAL APÓS ABERTURA:\n- Se o cliente respondeu positivamente à pergunta de abertura do disparo, vá direto para a pergunta de rede.\n- Não faça pergunta pessoal intermediária. Não pergunte se vive disso, se está começando, ou se ainda está montando público.\n\n2) VALIDAÇÃO EMOCIONAL CURTA:\n- Se o cliente compartilhar algo pessoal ou vulnerável depois de já estar conversando, valide em uma frase curta e siga para o próximo passo útil.\n- Use ===SPLIT=== só quando a validação precisar ficar separada da próxima pergunta.\n\n3) ANCORAGEM DE PREÇO:\n- Ao informar preço, ofereça primeiro a menor quantidade real do catálogo daquele serviço.\n- Estrutura: "Pra começar sem compromisso, [MÍNIMO REAL] sai [PREÇO REAL]. Já dá pra sentir o resultado, e se quiser ir de mais também tem, é só me falar."\n- Nunca use valores fixos de exemplo. O preço real sempre sai do catálogo.\n\n4) PROVA SOCIAL SUTIL, SEM INVENTAR NÚMEROS:\n- Permitido: "Muita gente começa assim", "Costuma ajudar bastante", "É um bom primeiro empurrão".\n- Proibido inventar estatísticas, quantidade de clientes, porcentagens ou resultados médios.\n\n5) QUANTIDADE SEMPRE VEM COM PREÇO DE ÂNCORA:\n- Sempre que apresentar opção de quantidade, inclua a menor quantidade real + preço real na mesma mensagem.\n- Não pergunte "quantas você quer?" sem dar uma referência de valor junto.`
       : "",
     // REGRA CENTRAL DE INTERESSE agora vive na identidade compartilhada.
@@ -758,7 +802,10 @@ export async function generateAgentReplyWithMeta(params: {
     hasImage,
     inputKind,
     latestMessage: latestClientMessage,
-    reengagementGreeting,
+    // Força Sonnet também quando a cortesia neutra em disparo dispara o veto
+    // (sem hiato de tempo). Mesmo motivo do reengajamento: Haiku ignora o
+    // veto quando compete com o script completo do disparo.
+    reengagementGreeting: reengagementGreeting || neutralGreetingAfterBlastOpening,
   });
   console.info("[agent-ai] Roteamento modelo:", { model, routingReason });
 

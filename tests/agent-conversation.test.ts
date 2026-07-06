@@ -639,7 +639,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     ).toBe(false);
   });
 
-  it("sem gap de tempo (mesmo minuto) → NÃO ativa reengajamento", async () => {
+  it("sem gap de tempo (mesmo minuto) + cortesia neutra em disparo → ATIVA veto (mesma resposta do reengajamento)", async () => {
     const t = new Date().toISOString();
     const fetchMock = mockAnthropic("Bom dia! Posso te mostrar como acelerar suas redes?");
     vi.stubGlobal("fetch", fetchMock);
@@ -656,9 +656,20 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
       userId: null,
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    // Regressão fix: cortesia neutra em resposta imediata à abertura de
+    // disparo agora dispara o MESMO veto do MODO REENGAJAMENTO — sem depender
+    // de gap de tempo. Antes caía no genérico "Como posso te ajudar?".
     expect(
-      /MODO REENGAJAMENTO/i.test(body.system),
-      "FALHOU: prompt ativou MODO REENGAJAMENTO sem hiato de tempo",
+      /MODO REENGAJAMENTO \/ CORTESIA EM DISPARO/i.test(body.system),
+      "FALHOU: veto de cortesia em disparo não foi injetado (deveria disparar mesmo sem hiato)",
+    ).toBe(true);
+    expect(
+      /REAPRESENTE A ISCA/i.test(body.system),
+      "FALHOU: veto não instrui a reapresentar a isca da abertura",
+    ).toBe(true);
+    expect(
+      /RECEPTIVO\)/i.test(body.system),
+      "FALHOU: variante RECEPTIVA foi injetada em thread de disparo",
     ).toBe(false);
   });
 
@@ -706,7 +717,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     ).toBe(true);
     // No disparo, "Como posso ajudar" NÃO é o formato correto (é o formato receptivo)
     expect(
-      /RECEPTIVO/i.test(body.system),
+      /RECEPTIVO\)/i.test(body.system),
       "FALHOU: variante RECEPTIVA foi injetada em thread de disparo",
     ).toBe(false);
     expect(
