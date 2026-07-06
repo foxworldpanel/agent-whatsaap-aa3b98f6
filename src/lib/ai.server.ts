@@ -149,6 +149,64 @@ export function humanizePunctuation(input: string): string {
   return out;
 }
 
+// GUARD DETERMINÍSTICO CONTRA VAZAMENTO DE PROMPT INTERNO.
+// Se o modelo ecoar (ou um bug de parsing empurrar) qualquer trecho de bloco
+// de sistema para o texto de saída, o segmento é removido antes de virar
+// mensagem no WhatsApp. Marcadores são strings que SÓ existem no prompt
+// interno (cabeçalhos de veto, nomes de modo, tokens de identidade). Nunca
+// deveriam aparecer numa resposta legítima da Júlia.
+const INTERNAL_MARKER_PATTERNS: RegExp[] = [
+  /⛔/,
+  /VETO DE PRIORIDADE/i,
+  /PRIORIDADE M[ÁA]XIMA/i,
+  /MODO REENGAJAMENTO/i,
+  /MODO [ÁA]UDIO/i,
+  /MODO SUPORTE/i,
+  /OBRIGA[ÇC][ÕO]ES desta resposta/i,
+  /FORMATO OBRIGAT[ÓO]RIO/i,
+  /EXEMPLO_MODELO_DISPARO/,
+  /REFINAMENTOS DE TOM/i,
+  /REGRA ABSOLUTA DE CONTEXTO/i,
+  /SOBRESCREVE/,
+  /buildSharedRules/,
+  /\[sistema\]/i,
+  /system prompt/i,
+];
+
+export function sanitizeSystemLeaks(
+  reply: string,
+  opts: { isInbound?: boolean; reengagementGreeting?: boolean } = {},
+): { text: string; leaked: boolean; removed: string[] } {
+  if (!reply) return { text: reply, leaked: false, removed: [] };
+  const removed: string[] = [];
+  // Scrub por bolha (===SPLIT===) e depois por linha, para que uma bolha
+  // inteira composta só de instrução de sistema seja descartada por completo.
+  const parts = reply.split("===SPLIT===");
+  const cleanedParts = parts
+    .map((part) => {
+      const keptLines = part.split(/\n/).filter((line) => {
+        const hit = INTERNAL_MARKER_PATTERNS.some((rx) => rx.test(line));
+        if (hit) removed.push(line.trim());
+        return !hit;
+      });
+      return keptLines.join("\n").trim();
+    })
+    .filter((p) => p.length > 0);
+  const cleaned = cleanedParts.join("\n===SPLIT===\n").replace(/\n{3,}/g, "\n\n").trim();
+  const leaked = removed.length > 0;
+  if (!cleaned) {
+    // Se depois de remover marcadores não sobrou nada, devolve fallback seguro
+    // por contexto — nunca deixa o cliente sem resposta nem envia string vazia.
+    const fallback = opts.reengagementGreeting
+      ? opts.isInbound
+        ? "Oi! Como posso ajudar?"
+        : "Oi! Posso te mostrar como acelerar suas redes?"
+      : "Oi! Como posso ajudar?";
+    return { text: fallback, leaked: true, removed };
+  }
+  return { text: cleaned, leaked, removed };
+}
+
 export function guardFreeTrialOffer(params: {
   reply: string;
   freeTestServices: Array<{ service_name: string; category: string }>;
@@ -772,7 +830,23 @@ export async function generateAgentReplyWithMeta(params: {
       allowedServices: freeTestServices.map((s) => s.service_name),
     });
   }
-  return { text: guarded.text, model, routingReason };
+  // GUARD FINAL — nunca deixa cabeçalho/instrução de sistema vazar para o
+  // cliente, aconteça o que acontecer na geração (modelo ecoou, parser bugou,
+  // etc). É a última barreira antes de o texto virar mensagem no WhatsApp.
+  const scrubbed = sanitizeSystemLeaks(guarded.text, {
+    isInbound,
+    reengagementGreeting,
+  });
+  if (scrubbed.leaked) {
+    console.error("[agent-ai] GUARD: vazamento de prompt interno bloqueado", {
+      removedPreview: scrubbed.removed.slice(0, 3).map((s) => s.slice(0, 200)),
+      originalPreview: guarded.text.slice(0, 300),
+      finalPreview: scrubbed.text.slice(0, 200),
+      isInbound,
+      reengagementGreeting,
+    });
+  }
+  return { text: scrubbed.text, model, routingReason };
 }
 
 // ----- Transcrição (Whisper via Lovable AI Gateway, sem chave do usuário) -----

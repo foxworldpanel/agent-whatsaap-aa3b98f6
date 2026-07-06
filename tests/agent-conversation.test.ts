@@ -14,6 +14,7 @@ import {
   guardFreeTrialOffer,
   humanizePunctuation,
   buildSystemPrompt,
+  sanitizeSystemLeaks,
 } from "@/lib/ai.server";
 import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts } from "@/lib/message-splitter";
@@ -844,5 +845,78 @@ describe("Áudio ininteligível / sem conteúdo claro", () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(/MODO ÁUDIO/i.test(body.system)).toBe(false);
     expect(/ÁUDIO ININTELIGÍVEL/i.test(body.system)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Guard determinístico contra vazamento de PROMPT INTERNO para o cliente.
+// Cabeçalhos de blocos de sistema (⛔ VETO, MODO REENGAJAMENTO, etc.) nunca
+// podem virar mensagem real no WhatsApp, aconteça o que acontecer na geração.
+// ---------------------------------------------------------------------------
+describe("Sanitização de vazamento de prompt interno (sanitizeSystemLeaks)", () => {
+  const INTERNAL_MARKERS = [
+    "⛔",
+    "VETO DE PRIORIDADE",
+    "PRIORIDADE MÁXIMA",
+    "MODO REENGAJAMENTO",
+    "MODO ÁUDIO",
+    "MODO SUPORTE",
+    "FORMATO OBRIGATÓRIO",
+    "EXEMPLO_MODELO_DISPARO",
+    "REFINAMENTOS DE TOM",
+    "SOBRESCREVE",
+  ];
+
+  it("remove cabeçalho de VETO ecoado pelo LLM e mantém texto legítimo", () => {
+    const dirty =
+      "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nBom dia! Como posso ajudar?";
+    const out = sanitizeSystemLeaks(dirty, { isInbound: true, reengagementGreeting: true });
+    expect(out.leaked).toBe(true);
+    expect(out.text).toBe("Bom dia! Como posso ajudar?");
+    for (const m of INTERNAL_MARKERS) {
+      expect(out.text.includes(m)).toBe(false);
+    }
+  });
+
+  it("devolve fallback seguro quando resposta era 100% instrução interna (receptivo)", () => {
+    const dirty =
+      "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nOBRIGAÇÕES desta resposta:\nFORMATO OBRIGATÓRIO: ...";
+    const out = sanitizeSystemLeaks(dirty, { isInbound: true, reengagementGreeting: true });
+    expect(out.leaked).toBe(true);
+    expect(out.text).toBe("Oi! Como posso ajudar?");
+  });
+
+  it("devolve fallback de disparo (reapresenta a isca) quando tudo era instrução em thread de blast", () => {
+    const dirty =
+      "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (DISPARO) ⛔\nOBRIGAÇÕES desta resposta:\nSOBRESCREVE tudo abaixo.";
+    const out = sanitizeSystemLeaks(dirty, { isInbound: false, reengagementGreeting: true });
+    expect(out.leaked).toBe(true);
+    expect(out.text).toBe("Oi! Posso te mostrar como acelerar suas redes?");
+  });
+
+  it("não altera resposta legítima da Júlia (sem falsos positivos)", () => {
+    const clean =
+      "Boa tarde! Posso te mostrar como acelerar suas redes?\n===SPLIT===\nR$97 pra 10 playlists por 30 dias.";
+    const out = sanitizeSystemLeaks(clean, { isInbound: false, reengagementGreeting: false });
+    expect(out.leaked).toBe(false);
+    expect(out.text).toBe(clean.trim());
+  });
+
+  it("pipeline generateAgentReplyWithMeta bloqueia vazamento antes de retornar texto ao caller", async () => {
+    const leaked =
+      "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nBom dia! Como posso ajudar?";
+    const res = await callAgent({
+      history: [
+        { sender: "cliente", body: "oi, tudo bem?" },
+        { sender: "agente", body: "Boa tarde! Como posso ajudar?" },
+        { sender: "cliente", body: "bom dia" },
+      ],
+      mockReply: leaked,
+      isInbound: true,
+    });
+    for (const m of INTERNAL_MARKERS) {
+      expect(res.text.includes(m)).toBe(false);
+    }
+    expect(res.text).toContain("Bom dia");
   });
 });
