@@ -51,6 +51,16 @@ export const MODULE_LIST: AgentModuleDef[] = [
 export const DEFAULT_MODULES: Record<string, string> = {
   playlist_promo: `MÓDULO PLAYLIST — PROMOÇÃO ATIVA
 
+SERVIÇOS SPOTIFY ATIVOS NO MOMENTO (IMPORTANTE — plays + ouvintes VOLTOU A FUNCIONAR):
+
+- 1 Música em 10 Playlists — R$ 49,90
+- 1000 Seguidores — R$ 30,00
+- 1000 Plays + Ouvintes Brasil [Super Lento — entrega 50 plays por dia] — R$ 15,00
+- 1000 Plays + Ouvintes USA [Rápido — entrega 500 a 1000 por dia] — R$ 15,00
+- 1000 Save — R$ 10,00
+
+REGRA: sempre que o cliente perguntar por plays, ouvintes, streams ou "plays + ouvintes" no Spotify, confirmar que o serviço está ATIVO e funcionando normalmente. Nunca dizer que está fora do ar / indisponível / com problema.
+
 SERVIÇOS DISPONÍVEIS:
 
 PACOTE ECLÉTICA (todos os gêneros):
