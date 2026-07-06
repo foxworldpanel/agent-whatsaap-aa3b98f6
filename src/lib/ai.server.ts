@@ -98,8 +98,12 @@ export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean
       : Date.now();
   if (!Number.isFinite(agentTs) || !Number.isFinite(clientTs)) return false;
   const gapMs = clientTs - agentTs;
-  const THREE_HOURS = 3 * 60 * 60 * 1000;
-  return gapMs >= THREE_HOURS;
+  // Limiar reduzido de 3h → 1h para pegar gaps intermediários (ex.: cliente
+  // some 1h e volta com "oi"): validado em investigação da conversa
+  // fd475562 — vários turnos de 1-2h nunca disparavam o veto e a Júlia
+  // ficava reformulando a mesma pergunta pendente do funil.
+  const REENGAGEMENT_GAP_MS = 60 * 60 * 1000;
+  return gapMs >= REENGAGEMENT_GAP_MS;
 }
 
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
@@ -378,10 +382,15 @@ export function pickClaudeModel(opts: {
   hasImage: boolean;
   inputKind?: "texto" | "audio";
   latestMessage?: string | null;
+  reengagementGreeting?: boolean;
 }): { model: "claude-sonnet-4-5" | "claude-haiku-4-5"; reason: string } {
   const msg = (opts.latestMessage ?? "").trim();
   if (opts.hasImage) return { model: "claude-sonnet-4-5", reason: "image_present" };
   if (opts.inputKind === "audio") return { model: "claude-sonnet-4-5", reason: "audio_input" };
+  // Reengajamento após hiato: força Sonnet. Haiku ignora o veto de prioridade
+  // máxima quando compete com script concreto (ver investigação fd475562).
+  // Evento raro (só dispara com gap ≥1h + saudação seca), custo desprezível.
+  if (opts.reengagementGreeting) return { model: "claude-sonnet-4-5", reason: "reengagement_greeting" };
   if (msg.length > 400) return { model: "claude-sonnet-4-5", reason: "long_message" };
   const complexRe = /(reclama|problema|n[aã]o funcion|nunca funcion|reembolso|cancelar|golpe|an[aá]lise|analisa|print|comprovante|preju[ií]zo|erro|urgente|processo|proced|jur[ií]dic)/i;
   if (complexRe.test(msg)) return { model: "claude-sonnet-4-5", reason: "complex_keywords" };
@@ -521,7 +530,16 @@ export async function generateAgentReplyWithMeta(params: {
           // de forma resumida — o cliente pode ter esquecido o assunto.
           : `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (DISPARO) ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER pergunta pendente do funil que exista no histórico.\n\nCondição detectada: passaram VÁRIAS HORAS (ou virou o dia) desde a sua última mensagem em uma thread de DISPARO (VOCÊ iniciou o contato via abordagem fria), e o cliente voltou APENAS com uma saudação curta. Ele pode ter esquecido completamente do que se tratava — precisa reancorar o interesse.\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação e REAPRESENTE A ISCA — a pergunta FINAL da abertura de disparo, de forma RESUMIDA. FORMATO OBRIGATÓRIO em UMA ÚNICA mensagem curta: "<Saudação equivalente à do cliente>! Posso te mostrar como acelerar suas redes?" (variações válidas: "...como turbinar suas redes?" / "...como impulsionar seu perfil?"). Nada além disso.\n2) PROIBIDO repetir a abertura COMPLETA — NÃO diga "Peguei seu contato no perfil @...", NÃO cite o @ do Instagram, NÃO cumprimente pelo nome como se fosse a primeira mensagem, NÃO diga "adorei o conteúdo/estilo". Só a pergunta-isca final, resumida.\n3) PROIBIDO emendar/repetir/reformular a pergunta PENDENTE do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem). Você está VOLTANDO para a pergunta-isca da abertura, NÃO avançando o funil.\n4) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço nesta resposta.\n5) Depois desta resposta, se o cliente responder de novo com interesse ("sim", "pode", "manda", "claro"), a PRÓXIMA resposta CONTINUA o funil de onde parou (retomar a pergunta pendente — ex: rede social) SEM repetir a abertura completa novamente.`)
       : "",
-    buildSharedRules(identity, { freeTestServices, brandBlocks }),
+    buildSharedRules(identity, {
+      freeTestServices,
+      brandBlocks,
+      // A: quando o veto de reengajamento está ativo, remove o
+      // EXEMPLO_MODELO_DISPARO da identidade para o veto ("REAPRESENTE A ISCA")
+      // ser a única instrução de fluxo no prompt — sem competir com o script
+      // completo de vendas (rede → serviço → preço) que fazia o Haiku
+      // reformular a pergunta pendente em vez de reapresentar a isca.
+      suppressExemploDisparo: reengagementGreeting,
+    }),
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
     `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a primeira mensagem sua tem padrão de abertura de disparo, menciona "Peguei o seu contato", "Vi seu perfil", "@" de instagram, ou uma pergunta inicial do tipo "Posso te apresentar/mostrar uma forma de impulsionar...", trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. O conteúdo real da conversa prevalece sobre metadados técnicos.`,
@@ -682,6 +700,7 @@ export async function generateAgentReplyWithMeta(params: {
     hasImage,
     inputKind,
     latestMessage: latestClientMessage,
+    reengagementGreeting,
   });
   console.info("[agent-ai] Roteamento modelo:", { model, routingReason });
 
