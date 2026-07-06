@@ -145,6 +145,14 @@ type BuildSharedRulesCtx = {
    * "genérico com safety" — os 3 blocos ficam vazios no prompt.
    */
   brandBlocks?: AgentBrandBlocks | null;
+  /**
+   * Quando true, suprime o EXEMPLO_MODELO_DISPARO (few-shot que dita a
+   * ORDEM OBRIGATÓRIA: rede → serviço → preço → objeção). Usado durante o
+   * turno de MODO REENGAJAMENTO APÓS HIATO para o veto no topo do prompt
+   * ficar sozinho, sem competir com o script completo de vendas — Haiku
+   * demonstrou ignorar o veto quando o script concreto compete por atenção.
+   */
+  suppressExemploDisparo?: boolean;
 };
 
 export type AgentBrandBlocks = {
@@ -407,7 +415,7 @@ export function buildSharedRules(
     freeTestBlock,
     identity.regra_encerramento,
     identity.regra_estilo_escrita,
-    identity.exemplo_disparo,
+    ctx.suppressExemploDisparo ? "" : identity.exemplo_disparo,
     ctx.brandBlocks?.respostas_padrao ?? "",
     ctx.brandBlocks?.regra_mq_hq ?? "",
     ctx.brandBlocks?.regra_autoridade ?? "",
