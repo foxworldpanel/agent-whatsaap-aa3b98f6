@@ -1205,8 +1205,29 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         if (convLookupErr) return new Response(convLookupErr.message, { status: 500 });
 
         let conv: ConversationRow | null = ((convRows ?? [])[0] ?? null) as ConversationRow | null;
-        let threadConversationIds = conv?.id ? [conv.id] : [];
         if (!conv) return new Response("conversation missing", { status: 500 });
+        // Contexto unificado por CONTATO: bases legadas (antes do RPC atômico
+        // get_or_create_active_conversation) têm várias conversas duplicadas
+        // para o mesmo contato — em números diferentes, ou criadas por race
+        // condition. O agente perde contexto quando lê só a conversa ativa
+        // ("camadas" reportadas em produção). Aqui juntamos TODAS as
+        // conversations desse contato no histórico. Writes continuam indo
+        // só para conv.id (a ativa), então nada dispersa daqui pra frente.
+        let threadConversationIds: string[] = [conv.id];
+        try {
+          const { data: siblingConvs } = await supabaseAdmin
+            .from("conversations")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("contact_id", contact.id);
+          const siblingIds = (siblingConvs ?? [])
+            .map((r) => (r as { id: string }).id)
+            .filter((id) => !!id);
+          const merged = new Set<string>([conv.id, ...siblingIds]);
+          threadConversationIds = Array.from(merged);
+        } catch {
+          // Se falhar, cai no comportamento anterior (só a conversa ativa).
+        }
         const authoritativeNumberId = numberId ?? blastReplyNumberId;
         if (authoritativeNumberId && contact.whatsapp_number_id !== authoritativeNumberId) {
           await supabaseAdmin
