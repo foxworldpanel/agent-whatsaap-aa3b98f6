@@ -802,7 +802,10 @@ export async function generateAgentReplyWithMeta(params: {
     hasImage,
     inputKind,
     latestMessage: latestClientMessage,
-    reengagementGreeting,
+    // Força Sonnet também quando a cortesia neutra em disparo dispara o veto
+    // (sem hiato de tempo). Mesmo motivo do reengajamento: Haiku ignora o
+    // veto quando compete com o script completo do disparo.
+    reengagementGreeting: reengagementGreeting || neutralGreetingAfterBlastOpening,
   });
   console.info("[agent-ai] Roteamento modelo:", { model, routingReason });
 
