@@ -1511,6 +1511,87 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // foto em vez de Reel, erro do provedor). Substitui as respostas fixas
         // antigas — o Claude formula a mensagem no idioma/tom da conversa.
         let technicalFactContext: string | null = null;
+
+        // ===== PACOTE PLAYLIST: cliente enviou link do Spotify =====
+        // Se houver uma venda aberta em `aguardando_link` para esta conversa
+        // (ou se o histórico recente do agente ofereceu Pacote Playlist),
+        // dispara o pedido no painel Mind automaticamente.
+        try {
+          const {
+            extractSpotifyTrackLink,
+            detectPacoteFromText,
+            placePlaylistOrder,
+          } = await import("@/lib/playlist-sales.server");
+          const trackLink = extractSpotifyTrackLink(inboundBody);
+          if (trackLink) {
+            const { data: openSale } = await supabaseAdmin
+              .from("playlist_sales")
+              .select("id, pacote, status, workspace_id")
+              .eq("user_id", userId)
+              .eq("conversation_id", conv.id)
+              .in("status", ["aguardando_comprovante", "aguardando_link"])
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            let saleId = openSale?.id as string | undefined;
+            let pacote = openSale?.pacote as "ecletica" | "eletronica" | undefined;
+
+            if (!saleId) {
+              // Sem venda aberta: só cria se o histórico recente do agente
+              // sinalizou oferta de Pacote Playlist (R$49,90 + palavras-chave).
+              const { data: recentMsgs } = await supabaseAdmin
+                .from("messages")
+                .select("body, sender, created_at")
+                .eq("conversation_id", conv.id)
+                .eq("sender", "agente")
+                .order("created_at", { ascending: false })
+                .limit(10);
+              const joined = (recentMsgs ?? []).map((m) => m.body ?? "").join(" \n ");
+              const mentionedPacote =
+                /R\$\s*49[,.]?90/.test(joined) &&
+                /(playlist|pacote|ecl[eé]tic|eletr[oô]nic)/i.test(joined);
+              if (mentionedPacote) {
+                pacote = detectPacoteFromText(joined) ?? "ecletica";
+                const { data: created } = await supabaseAdmin
+                  .from("playlist_sales")
+                  .insert({
+                    user_id: userId,
+                    conversation_id: conv.id,
+                    contact_id: conv.contact_id ?? null,
+                    telefone: phone,
+                    pacote,
+                    status: "aguardando_link",
+                    music_link: trackLink,
+                  })
+                  .select("id")
+                  .single();
+                saleId = created?.id as string | undefined;
+              }
+            }
+
+            if (saleId && pacote) {
+              const orderRes = await placePlaylistOrder({
+                saleId,
+                userId,
+                pacote,
+                musicLink: trackLink,
+              });
+              if (orderRes.ok) {
+                technicalFactContext =
+                  (technicalFactContext ? technicalFactContext + "\n" : "") +
+                  `FATO TÉCNICO VERIFICADO: pedido do Pacote Playlist (${pacote}) foi disparado automaticamente no painel Mind (order ${orderRes.orderId}). Confirme ao cliente que a música foi enviada para as playlists e que o Spotify demora até 72h para atualizar os plays.`;
+              } else {
+                technicalFactContext =
+                  (technicalFactContext ? technicalFactContext + "\n" : "") +
+                  `FATO TÉCNICO VERIFICADO: tentei disparar o pedido do Pacote Playlist mas falhou (${orderRes.error}). Peça desculpas de forma natural e informe que a equipe vai processar manualmente.`;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("[playlist-sales] hook failed", e);
+        }
+
         if (integ.free_trial_enabled && integ.smm_api_key) {
           const { detectSocialLink, normalizeSocialLink, smmAddOrder, smmOrderStatus } = await import("@/lib/smm.server");
 
