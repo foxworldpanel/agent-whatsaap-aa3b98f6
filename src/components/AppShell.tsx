@@ -101,7 +101,9 @@ export function AppShell() {
             <p className="text-xs text-muted-foreground">Vendedor IA</p>
           </div>
         </div>
-        <WorkspaceSwitcher />
+        <div className="mb-4">
+          <WorkspaceSwitcher />
+        </div>
         <nav className="flex-1 space-y-1 px-3">
           {nav.map((item) => {
             const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
