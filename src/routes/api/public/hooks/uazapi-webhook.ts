@@ -2489,6 +2489,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .from("catalog_cache")
               .select("service_id, nome, categoria, preco_por_1000, minimo, maximo")
               .eq("user_id", userId)
+              .eq("hidden", false)
               .limit(500);
             const all = (cacheRows ?? []).map((r) => ({
               service: r.service_id as string,
