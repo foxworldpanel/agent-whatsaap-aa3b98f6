@@ -18,6 +18,12 @@ import {
 } from "@/lib/ai.server";
 import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts } from "@/lib/message-splitter";
+import {
+  detectVerboseLoop,
+  looksLikeConcreteAction,
+  VERBOSE_LOOP_REVIEW_REASON,
+  VERBOSE_LOOP_FAREWELL,
+} from "@/lib/verbose-loop-guard.server";
 
 const OPENING =
   "Oi, bom dia Romulo! Peguei o seu contato no perfil @sourcee, achei muito bom o conteúdo! Posso te mostrar algo que pode acelerar o crescimento das suas redes?";
@@ -1031,5 +1037,93 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
       EXEMPLO_BODY_SIGNATURE.test(body.system),
       "FALHOU: system prompt em conversa organic carregou o few-shot de disparo",
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Trava de custo: cliente muito leigo em loop de reexplicação sem avanço
+// (verbose-loop-guard). Cenário real: idoso, leigo, repetindo a mesma
+// dúvida por 15+ mensagens — antes queimava chamadas Anthropic infinitas.
+// ---------------------------------------------------------------------------
+describe("Verbose loop guard — trava de custo", () => {
+  it("cenário real (idoso leigo em loop de 15+ mensagens sem avanço) dispara a trava", () => {
+    const layman = [
+      { sender: "cliente" as const, body: "oi, tudo bem?" },
+      { sender: "agente" as const, body: "Boa tarde! Como posso ajudar?" },
+      { sender: "cliente" as const, body: "queria entender como funciona esse negocio ai" },
+      { sender: "agente" as const, body: "Claro! Funciona assim: você escolhe a plataforma (Spotify, YouTube, Instagram) e a gente impulsiona." },
+      { sender: "cliente" as const, body: "sou meio leigo com essas coisas, sabe" },
+      { sender: "agente" as const, body: "Sem problema! É bem simples. Basicamente você cria uma conta no painel e coloca saldo via PIX." },
+      { sender: "cliente" as const, body: "sou de uma epoca em que tinha só tv preto e branco, essas coisas modernas eu não entendo muito bem" },
+      { sender: "agente" as const, body: "Fica tranquilo! Vou explicar de novo: primeiro você escolhe qual rede social quer impulsionar, Spotify, YouTube ou Instagram." },
+      { sender: "cliente" as const, body: "sim mas como que faz o pagamento" },
+      { sender: "agente" as const, body: "O pagamento é via PIX, direto no painel. Você cria conta, coloca saldo e escolhe o pacote." },
+      { sender: "cliente" as const, body: "e como que funciona esse negocio ai de painel" },
+      { sender: "agente" as const, body: "O painel é o nosso site! Você entra, cria uma conta, coloca saldo via PIX e escolhe o serviço." },
+      { sender: "cliente" as const, body: "não sou muito bom nisso não, na minha epoca era tudo mais simples, era só ligar pro telefone e pronto, hoje em dia é tudo pela internet e eu me confundo com essas coisas" },
+      { sender: "agente" as const, body: "Sem problema! Se preferir eu te explico com calma. É só criar sua conta no nosso painel, colocar saldo via PIX e escolher a plataforma." },
+      { sender: "cliente" as const, body: "mas o que é esse painel mesmo" },
+    ];
+    const det = detectVerboseLoop({
+      history: layman,
+      latestClientBody: "mas o que é esse painel mesmo",
+    });
+    expect(det.triggered, `FALHOU: sinais detectados = ${det.signals.join(",")}`).toBe(true);
+    expect(det.signals.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("conversa LONGA mas PROGREDINDO (cliente faz perguntas novas, cita valores) NÃO dispara", () => {
+    const engaged = [
+      { sender: "cliente" as const, body: "oi, queria saber sobre views no YouTube" },
+      { sender: "agente" as const, body: "Claro! Quantas views você tá pensando?" },
+      { sender: "cliente" as const, body: "quanto sai pra 10000 views?" },
+      { sender: "agente" as const, body: "10000 views sai R$45. Topa?" },
+      { sender: "cliente" as const, body: "e pra 50000?" },
+      { sender: "agente" as const, body: "50000 views sai R$210." },
+      { sender: "cliente" as const, body: "e Instagram, tem seguidor brasileiro?" },
+      { sender: "agente" as const, body: "Tem sim! 1000 seguidores BR sai R$50." },
+      { sender: "cliente" as const, body: "prazo pra entregar?" },
+      { sender: "agente" as const, body: "Começa em até 30min, entrega gradual em 24-48h." },
+      { sender: "cliente" as const, body: "e se cair, tem reposição?" },
+      { sender: "agente" as const, body: "Tem sim, garantia de 30 dias." },
+      { sender: "cliente" as const, body: "beleza, vou pensar e te retorno" },
+      { sender: "agente" as const, body: "Fechado! Qualquer coisa me chama." },
+      { sender: "cliente" as const, body: "só uma dúvida: aceita cripto?" },
+    ];
+    const det = detectVerboseLoop({
+      history: engaged,
+      latestClientBody: "só uma dúvida: aceita cripto?",
+    });
+    expect(det.triggered, `FALHOU: sinais = ${det.signals.join(",")}`).toBe(false);
+  });
+
+  it("cliente volta com AÇÃO CONCRETA (link do Spotify) — reativa", () => {
+    expect(looksLikeConcreteAction("https://open.spotify.com/track/xxxxxx")).toBe(true);
+    expect(looksLikeConcreteAction("quero comprar 10000 views")).toBe(true);
+    expect(looksLikeConcreteAction("ID do pedido 123456")).toBe(true);
+  });
+
+  it("saudação neutra ou dúvida genérica NÃO conta como ação concreta", () => {
+    expect(looksLikeConcreteAction("oi, tudo bem?")).toBe(false);
+    expect(looksLikeConcreteAction("me explica de novo por favor")).toBe(false);
+  });
+
+  it("mesmo com 'sou leigo' + conversa curta, NÃO dispara (precisa 2+ sinais)", () => {
+    const shortLayman = [
+      { sender: "cliente" as const, body: "oi" },
+      { sender: "agente" as const, body: "Oi! Como posso ajudar?" },
+      { sender: "cliente" as const, body: "sou meio leigo, me explica como funciona" },
+    ];
+    const det = detectVerboseLoop({
+      history: shortLayman,
+      latestClientBody: "sou meio leigo, me explica como funciona",
+    });
+    expect(det.triggered).toBe(false);
+  });
+
+  it("constantes exportadas batem com o spec (farewell + reason)", () => {
+    expect(VERBOSE_LOOP_FAREWELL).toMatch(/suporte pode te ajudar/i);
+    expect(VERBOSE_LOOP_FAREWELL).toMatch(/quando quiser começar/i);
+    expect(VERBOSE_LOOP_REVIEW_REASON).toMatch(/Suporte humanizado/i);
   });
 });
