@@ -139,24 +139,28 @@ export function isNeutralGreetingAfterBlastOpening(history: Msg[]): boolean {
 }
 
 // Detecta por CONTEÚDO se essa thread é de disparo (Júlia iniciou o contato),
-// independente da flag técnica `isInbound`. Basta uma das primeiras mensagens
-// da agente casar com o padrão de abertura de disparo (pergunta-isca ou
-// menção clara a "peguei seu contato" / "vi seu perfil" / "@handle").
-// Necessário porque conversas antigas / reunificadas podem chegar como
-// `isInbound=true` mesmo tendo sido abertas pela Júlia via disparo, e nesse
-// caso o veto de reengajamento cai no ramo RECEPTIVO ("Como posso ajudar?")
-// em vez do ramo DISPARO ("reapresenta a isca").
+// independente da flag técnica `isInbound`. Necessário porque conversas antigas /
+// reunificadas podem chegar como `isInbound=true` mesmo tendo sido abertas pela
+// Júlia via disparo, e nesse caso o veto de reengajamento cai no ramo RECEPTIVO
+// em vez do ramo DISPARO.
+//
+// STRICT MODE (regressão real: um agente RECEPTIVO/orgânico teve o
+// EXEMPLO_MODELO_DISPARO promovido a script porque um "@" qualquer no histórico
+// bateu no marker antigo). Regras endurecidas:
+//   1) Só olha a PRIMEIRA mensagem do agente (a abertura). Frases similares que
+//      apareçam depois no meio de uma conversa longa não contam.
+//   2) Precisa de DOIS sinais fortes juntos: a pergunta-isca de abertura
+//      (isBlastOpeningQuestion) OU uma frase de coleta explícita ("peguei seu
+//      contato" / "vi seu perfil"). Handles avulsos "@algo" e "adorei o
+//      conteúdo" NÃO mais promovem a conversa para disparo — geravam falso
+//      positivo em conversas orgânicas.
 export function historyLooksLikeBlast(history: Msg[]): boolean {
   if (!history?.length) return false;
-  const firstAgentMsgs = history
-    .filter((m) => m.sender === "agente" && m.body?.trim())
-    .slice(0, 3);
-  const blastMarkerRx =
-    /(peguei\s+o?\s*seu\s+contato|vi\s+seu\s+perfil|@[a-z0-9._]+|adorei\s+o\s+(conte[uú]do|estilo|perfil))/i;
-  for (const m of firstAgentMsgs) {
-    if (isBlastOpeningQuestion(m.body) || blastMarkerRx.test(m.body)) return true;
-  }
-  return false;
+  const firstAgent = history.find((m) => m.sender === "agente" && m.body?.trim());
+  if (!firstAgent) return false;
+  const strongOpenerMarker =
+    /(peguei\s+o?\s*seu\s+contato|vi\s+seu\s+perfil)/i;
+  return isBlastOpeningQuestion(firstAgent.body) || strongOpenerMarker.test(firstAgent.body);
 }
 
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
@@ -443,13 +447,22 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
   // Nota: buildSystemPrompt é síncrono (só usado por diagnostics como preview).
   // O prompt real de produção usa generateAgentReplyWithMeta, que carrega
   // a identidade do banco. Aqui usamos defaults + `buildSharedRules` sem I/O.
-  const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), { freeTestServices, brandBlocks });
+  const effectiveBlastPreview = !isInbound || historyLooksLikeBlast(history);
+  const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), {
+    freeTestServices,
+    brandBlocks,
+    // Espelha o gate do runtime real (generateAgentReplyWithMeta): só expõe o
+    // EXEMPLO_MODELO_DISPARO quando a conversa é efetivamente disparo.
+    suppressExemploDisparo: !effectiveBlastPreview,
+  });
   const latestClientMessage = getLatestClientMessage(history);
   const system = [
     sharedRules,
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
-    `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a primeira mensagem sua tem padrão de abertura de disparo, menciona "Peguei o seu contato", "Vi seu perfil", "@" de instagram, ou uma pergunta inicial do tipo "Posso te apresentar/mostrar uma forma de impulsionar...", trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. O conteúdo real da conversa prevalece sobre metadados técnicos.`,
+    effectiveBlastPreview
+      ? `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a PRIMEIRA mensagem sua tem padrão de abertura de disparo (frases como "Peguei o seu contato" / "Vi seu perfil" combinadas com uma pergunta-isca do tipo "Posso te apresentar/mostrar uma forma de impulsionar..."), trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. Handle "@algo" avulso, sem essas frases, NÃO é sinal suficiente. O conteúdo real da conversa prevalece sobre metadados técnicos.`
+      : "",
     `PRIORIDADE ABSOLUTA PARA PERGUNTAS DIRETAS: se a última mensagem do cliente contém uma pergunta direta (nome, preço, serviço específico, prazo, cadastro, pagamento, link ou qualquer dúvida objetiva), responda essa pergunta imediatamente. NUNCA ignore uma pergunta direta e NUNCA troque por explicação genérica da MIND/plataforma. Se o cliente perguntou seu nome, responda algo curto e natural como: "Meu nome é Júlia, e o seu?" ou "Sou a Júlia, como posso te ajudar?" — sem emoji.`,
     `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
@@ -695,17 +708,24 @@ export async function generateAgentReplyWithMeta(params: {
     buildSharedRules(identity, {
       freeTestServices,
       brandBlocks,
-      // Quando qualquer veto de reengajamento (hiato OU cortesia imediata em
-      // disparo) está ativo, remove o EXEMPLO_MODELO_DISPARO da identidade
-      // para o veto ("REAPRESENTE A ISCA")
-      // ser a única instrução de fluxo no prompt — sem competir com o script
-      // completo de vendas (rede → serviço → preço) que fazia o Haiku
-      // reformular a pergunta pendente em vez de reapresentar a isca.
-      suppressExemploDisparo: anyReengagementVeto,
+      // Duas razões pra suprimir o EXEMPLO_MODELO_DISPARO:
+      // 1) Reengajamento ativo (hiato ou cortesia imediata em disparo) — o veto
+      //    do topo precisa ficar sozinho sem competir com o script de vendas.
+      // 2) Conversa NÃO é (efetivamente) de disparo — em thread orgânica /
+      //    receptiva o modelo NÃO deve ter o few-shot com placeholders
+      //    fictícios ({handle_instagram_exemplo}) disponível, senão pode
+      //    copiá-lo literalmente no meio de uma conversa real (regressão
+      //    observada em produção com "@sourcee" vazando pra cliente real).
+      suppressExemploDisparo: anyReengagementVeto || !effectiveBlast,
     }),
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
-    `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a primeira mensagem sua tem padrão de abertura de disparo, menciona "Peguei o seu contato", "Vi seu perfil", "@" de instagram, ou uma pergunta inicial do tipo "Posso te apresentar/mostrar uma forma de impulsionar...", trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. O conteúdo real da conversa prevalece sobre metadados técnicos.`,
+    // Backup textual só entra em conversas efetivamente de disparo. Antes
+    // ficava fixo no prompt e induzia o modelo a "detectar disparo" em
+    // conversa orgânica só porque tinha um "@" qualquer no histórico.
+    effectiveBlast
+      ? `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a PRIMEIRA mensagem sua tem padrão de abertura de disparo (frases como "Peguei o seu contato" / "Vi seu perfil" combinadas com uma pergunta-isca do tipo "Posso te apresentar/mostrar uma forma de impulsionar..."), trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. Handle "@algo" avulso, sem essas frases, NÃO é sinal suficiente. O conteúdo real da conversa prevalece sobre metadados técnicos.`
+      : "",
     supportContext
       ? `MODO SUPORTE / PÓS-VENDA (ABSOLUTA — sobrescreve qualquer regra de "interesse amplo" pós-abertura):\n- Esta conversa JÁ passou do momento de abertura de disparo. Você já perguntou sobre rede/serviço, OU já falou sobre pedido, status, painel, saldo, ticket, pagamento etc.\n- PROIBIDO tratar respostas curtas do cliente ("ok", "blz", "beleza", "certo", "obrigado", "vlw", "👍") como INTERESSE INICIAL pós-abertura. NÃO reinicie o funil de vendas. NÃO pergunte "qual rede social você quer impulsionar" nem equivalente.\n- Antes de tratar qualquer resposta curta e afirmativa como sinal de avançar o funil, verifique o CONTEXTO: se essa resposta vem depois de explicação de status, agradecimento, ou pergunta de suporte, ela é apenas uma CONFIRMAÇÃO — reconheça de forma neutra e curta ("Fechado!", "😊", "Qualquer coisa me chama") e PARE. Sem pergunta de venda, sem CTA, sem link.\n- A regra de "interesse amplo" (qualquer resposta não-negativa avança pro funil) só vale LOGO DEPOIS da pergunta literal de abertura de disparo ("posso te mostrar algo que pode acelerar suas redes?"), e SOMENTE quando ainda não houve nenhuma outra pergunta/resposta comercial depois. Fora dessa janela, ela NÃO se aplica.`
       : "",
