@@ -41,6 +41,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
           DEFAULT_DDI_LANGUAGE_MAP,
         } = await import("@/lib/blast-variations");
         const { _toTemplates } = await import("@/lib/opening-templates.functions");
+        const { getOpeningKind, templateParts } = await import("@/lib/opening-kinds");
 
         // Body opcional: { campaignId?, now?: boolean }
         let opts: { campaignId?: string; now?: boolean } = {};
@@ -286,7 +287,10 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // Variação de saudação por horário na abertura de um disparo ativo.
             // Independe do rótulo do número — usa variação em qualquer opening
             // de campanha (inclusive remarketing para leads antigos).
-            const useVariacao = next.stage === "opening";
+            const kind = getOpeningKind((camp as { opening_kind?: string }).opening_kind);
+            const useVariacao = next.stage === "opening" && kind.useVariations;
+            const useFixedKindTemplate =
+              next.stage === "opening" && !kind.useVariations && kind.template.length > 0;
 
             // Carrega templates editáveis do usuário
             let templates = DEFAULT_TEMPLATES;
@@ -331,9 +335,14 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 })
               : null;
             const messageParts: string[] = next.stage === "opening"
-              ? pick
-                ? normalizeOpeningParts(pick.parts.join("\n\n"), pick.parts)
-                : normalizeOpeningParts(renderTemplate(next.template, next.contact))
+              ? useFixedKindTemplate
+                ? (() => {
+                    const parts = templateParts(kind).map((p) => renderTemplate(p, next.contact));
+                    return normalizeOpeningParts(parts.join("\n\n"), parts);
+                  })()
+                : pick
+                  ? normalizeOpeningParts(pick.parts.join("\n\n"), pick.parts)
+                  : normalizeOpeningParts(renderTemplate(next.template, next.contact))
               : [renderTemplate(next.template, next.contact).trim()].filter(Boolean);
 
             // Claim atômico do contato ANTES de enviar. Sem isso, cron + clique
