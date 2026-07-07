@@ -66,6 +66,44 @@ export function isSupportOrPostSaleContext(history: Msg[]): boolean {
 const GREETING_ONLY_RX =
   /^\s*(oi+|ol[aá]+|opa+|eae|e\s*a[ií]|hey|hi|hello|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem\??|tudo\s*bom\??|blz\??|beleza\??)\s*[.!?…]*\s*$/i;
 
+// Detecta qual saudação retributiva usar em MODO REENGAJAMENTO.
+// Prioriza a saudação que o cliente usou na última mensagem ("Boa tarde" →
+// "Boa tarde!"). Se o cliente usou algo genérico ("oi", "olá", "tudo bem"),
+// escolhe pelo período do dia atual. Retorna a saudação SEM pontuação final.
+export function pickReengagementGreeting(
+  latestClientMsg: string,
+  nowDate: Date = new Date(),
+): string {
+  const s = (latestClientMsg ?? "").toLowerCase();
+  if (/\bbom\s*dia\b/.test(s)) return "Bom dia";
+  if (/\bboa\s*tarde\b/.test(s)) return "Boa tarde";
+  if (/\bboa\s*noite\b/.test(s)) return "Boa noite";
+  // Fallback pelo horário local do servidor (BR/UTC-3 aproximado).
+  const hourBr = (nowDate.getUTCHours() - 3 + 24) % 24;
+  if (hourBr >= 5 && hourBr < 12) return "Bom dia";
+  if (hourBr >= 12 && hourBr < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+// GUARD FINAL do MODO REENGAJAMENTO: se por qualquer motivo o LLM omitiu a
+// saudação de volta como primeiras palavras ("Como posso ajudar?" cru), este
+// guard prepende a saudação correspondente à do cliente. Determinístico e
+// testável — pega a regressão antes de chegar em produção.
+const REENG_GREETING_START_RX =
+  /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite|oi+|ol[aá]+|opa|eae|e\s*a[ií]|hey|hi|hello)\b/i;
+
+export function enforceReengagementGreeting(
+  text: string,
+  latestClientMsg: string,
+  nowDate: Date = new Date(),
+): { text: string; prepended: boolean } {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed) return { text: trimmed, prepended: false };
+  if (REENG_GREETING_START_RX.test(trimmed)) return { text: trimmed, prepended: false };
+  const greeting = pickReengagementGreeting(latestClientMsg, nowDate);
+  return { text: `${greeting}! ${trimmed}`, prepended: true };
+}
+
 export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean {
   if (!history?.length) return false;
   // Última mensagem da agente
