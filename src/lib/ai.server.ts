@@ -447,13 +447,22 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
   // Nota: buildSystemPrompt é síncrono (só usado por diagnostics como preview).
   // O prompt real de produção usa generateAgentReplyWithMeta, que carrega
   // a identidade do banco. Aqui usamos defaults + `buildSharedRules` sem I/O.
-  const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), { freeTestServices, brandBlocks });
+  const effectiveBlastPreview = !isInbound || historyLooksLikeBlast(history);
+  const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), {
+    freeTestServices,
+    brandBlocks,
+    // Espelha o gate do runtime real (generateAgentReplyWithMeta): só expõe o
+    // EXEMPLO_MODELO_DISPARO quando a conversa é efetivamente disparo.
+    suppressExemploDisparo: !effectiveBlastPreview,
+  });
   const latestClientMessage = getLatestClientMessage(history);
   const system = [
     sharedRules,
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
-    `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a primeira mensagem sua tem padrão de abertura de disparo, menciona "Peguei o seu contato", "Vi seu perfil", "@" de instagram, ou uma pergunta inicial do tipo "Posso te apresentar/mostrar uma forma de impulsionar...", trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. O conteúdo real da conversa prevalece sobre metadados técnicos.`,
+    effectiveBlastPreview
+      ? `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a PRIMEIRA mensagem sua tem padrão de abertura de disparo (frases como "Peguei o seu contato" / "Vi seu perfil" combinadas com uma pergunta-isca do tipo "Posso te apresentar/mostrar uma forma de impulsionar..."), trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. Handle "@algo" avulso, sem essas frases, NÃO é sinal suficiente. O conteúdo real da conversa prevalece sobre metadados técnicos.`
+      : "",
     `PRIORIDADE ABSOLUTA PARA PERGUNTAS DIRETAS: se a última mensagem do cliente contém uma pergunta direta (nome, preço, serviço específico, prazo, cadastro, pagamento, link ou qualquer dúvida objetiva), responda essa pergunta imediatamente. NUNCA ignore uma pergunta direta e NUNCA troque por explicação genérica da MIND/plataforma. Se o cliente perguntou seu nome, responda algo curto e natural como: "Meu nome é Júlia, e o seu?" ou "Sou a Júlia, como posso te ajudar?" — sem emoji.`,
     `Você é ${agent.agent_name}, atendente humana de um painel SMM.`,
     `Tom de voz: ${agent.tone}.`,
