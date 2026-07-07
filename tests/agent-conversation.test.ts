@@ -20,6 +20,10 @@ import {
   isReengagementGreeting,
   isNeutralGreetingAfterBlastOpening,
 } from "@/lib/ai.server";
+import {
+  enforceReengagementGreeting,
+  pickReengagementGreeting,
+} from "@/lib/ai.server";
 import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 import {
