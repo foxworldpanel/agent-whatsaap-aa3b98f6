@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 import { limitEmojiFrequency } from "@/lib/emoji-limiter";
+import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
@@ -1986,7 +1987,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             if (replyText) {
             try {
               if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial)");
-              await uazapiSendText(creds, phone, replyText);
+              const _sent = await sendAgentTextGuarded(creds, phone, replyText, {
+                conversationId: conv.id,
+                source: "free_trial_success",
+              });
+              replyText = _sent.transformed;
             } catch (e) {
               console.error("uazapi send (trial) failed", e);
             }
@@ -2174,8 +2179,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 delayMs: clampDelayMs(s.welcome_text.delay_seconds),
                 run: async () => {
                   if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
-                  await uazapiSendText(creds, phone, text);
-                  return { kind: "texto", body: text };
+                  const sent = await sendAgentTextGuarded(creds, phone, text, {
+                    conversationId: conv.id,
+                    source: "welcome_funnel_welcome_text",
+                  });
+                  return { kind: "texto", body: sent.transformed };
                 },
               });
             }
@@ -2196,8 +2204,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 delayMs: clampDelayMs(s.panel_text.delay_seconds),
                 run: async () => {
                   if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
-                  await uazapiSendText(creds, phone, text);
-                  return { kind: "texto", body: text };
+                  const sent = await sendAgentTextGuarded(creds, phone, text, {
+                    conversationId: conv.id,
+                    source: "welcome_funnel_panel_text",
+                  });
+                  return { kind: "texto", body: sent.transformed };
                 },
               });
             }
@@ -2219,8 +2230,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 delayMs: clampDelayMs(s.services_text.delay_seconds),
                 run: async () => {
                   if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
-                  await uazapiSendText(creds, phone, text);
-                  return { kind: "texto", body: text };
+                  const sent = await sendAgentTextGuarded(creds, phone, text, {
+                    conversationId: conv.id,
+                    source: "welcome_funnel_services_text",
+                  });
+                  return { kind: "texto", body: sent.transformed };
                 },
               });
             }
@@ -2397,14 +2411,18 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const nowT = new Date().toISOString();
             try {
               if (await isAutoReplyAllowed()) {
-                const { uazapiSendText } = await import("@/lib/uazapi.server");
-                await uazapiSendText(replySendCreds, phone, VERBOSE_LOOP_FAREWELL);
+                const sent = await sendAgentTextGuarded(
+                  replySendCreds,
+                  phone,
+                  VERBOSE_LOOP_FAREWELL,
+                  { conversationId: conv.id, source: "verbose_loop_farewell" },
+                );
                 await supabaseAdmin.from("messages").insert({
                   user_id: userId,
                   conversation_id: conv.id,
                   sender: "agente",
                   kind: "texto",
-                  body: VERBOSE_LOOP_FAREWELL,
+                  body: sent.transformed,
                 });
               }
             } catch (e) {
