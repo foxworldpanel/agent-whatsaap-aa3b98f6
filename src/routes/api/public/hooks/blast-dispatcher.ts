@@ -239,7 +239,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             // Escolher próximo contato e estágio ANTES das travas para que o
             // painel/log informe a causa real (sem contato vs limite/agente) e
             // para números de teste poderem ignorar limites/blacklist.
-            const next = await pickNext(supabaseAdmin, camp);
+            const campKind = getOpeningKind((camp as { opening_kind?: string }).opening_kind);
+            const next = await pickNext(supabaseAdmin, camp, { allowResend: campKind.allowResend });
             if (!next) {
               console.log(`[blast-dispatcher] ${camp.name}: sem contatos elegíveis (list_id=${camp.contact_list_id ?? "null"})`);
               results.push({ campaign: camp.name, sent: 0, skipped: "sem contatos elegíveis" });
@@ -682,6 +683,7 @@ type Camp = {
   opening_message: string;
   followup_day3_message: string;
   followup_day7_message: string;
+  opening_kind?: string | null;
 };
 type BlastContact = {
   id: string;
@@ -696,6 +698,7 @@ type BlastContact = {
 async function pickNext(
   admin: Awaited<ReturnType<typeof getAdmin>>,
   camp: Camp,
+  opts: { allowResend?: boolean } = {},
 ): Promise<{ contact: BlastContact; stage: "opening" | "d3" | "d7"; template: string } | null> {
   let catIds = (camp.categoria_ids ?? []).filter(Boolean);
   // Base unificada: se a campanha antiga ainda estiver presa a Lista A/B ou
@@ -747,7 +750,7 @@ async function pickNext(
   void listFilter;
 
   for (const c of pend ?? []) {
-    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id, listOrigem)) continue;
+    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id, listOrigem, opts.allowResend)) continue;
     return { contact: c as BlastContact, stage: "opening", template: camp.opening_message };
   }
 
@@ -759,7 +762,7 @@ async function pickNext(
     .order("last_sent_at", { ascending: true })
     .limit(20);
   for (const c of d3 ?? []) {
-    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id, listOrigem)) continue;
+    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id, listOrigem, opts.allowResend)) continue;
     return { contact: c as BlastContact, stage: "d3", template: camp.followup_day3_message };
   }
 
@@ -771,7 +774,7 @@ async function pickNext(
     .order("last_sent_at", { ascending: true })
     .limit(20);
   for (const c of d7 ?? []) {
-    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id, listOrigem)) continue;
+    if (await shouldSkip(admin, camp.user_id, c.telefone, c.id, listOrigem, opts.allowResend)) continue;
     return { contact: c as BlastContact, stage: "d7", template: camp.followup_day7_message };
   }
 
@@ -784,6 +787,7 @@ async function shouldSkip(
   phone: string,
   blastContactId: string,
   listOrigem: "meta_ads" | "instagram" | null = null,
+  allowResend: boolean = false,
 ): Promise<boolean> {
   // Números cadastrados como teste nunca devem ser filtrados por travas de
   // blacklist/status convertido/cross-list. A checagem global cobre bases
@@ -806,7 +810,9 @@ async function shouldSkip(
   }
   // Cross-list protection: ao disparar Lista B (instagram), pula se o número
   // já está na Lista A (meta_ads) ou já respondeu/foi enviado em qualquer campanha.
-  if (listOrigem === "instagram") {
+  // Bypass total quando a campanha é do tipo "reativação" (allowResend=true):
+  // por definição reabordamos leads que já foram contactados antes.
+  if (listOrigem === "instagram" && !allowResend) {
     const { data: cross } = await admin
       .from("blast_contacts")
       .select("id, status, origem")
