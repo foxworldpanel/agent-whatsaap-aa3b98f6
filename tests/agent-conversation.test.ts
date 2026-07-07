@@ -89,7 +89,7 @@ function mockAnthropic(reply: string) {
  * quanto o novo formato com prompt caching (array de blocos com cache_control).
  */
 function sysText(body: { system: string | Array<{ text?: string }> }): string {
-  const s = sysText(body);
+  const s = body.system;
   if (typeof s === "string") return s;
   return s.map((b) => b?.text ?? "").join("\n");
 }
