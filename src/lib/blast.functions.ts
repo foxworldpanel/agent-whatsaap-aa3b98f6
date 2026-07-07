@@ -272,7 +272,7 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
 
     const { data: camp, error: campErr } = await context.supabase
       .from("blast_campaigns")
-      .select("id, user_id, whatsapp_number_id, opening_message")
+      .select("id, user_id, whatsapp_number_id, opening_message, opening_kind")
       .eq("id", data.campaignId)
       .eq("user_id", context.userId)
       .maybeSingle();
@@ -303,12 +303,18 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
     }
     if (!url || !token) throw new Error("Uazapi não configurado para este número");
 
-    const rendered = (camp.opening_message ?? "")
-      .replace(/\{nome\}/gi, "Teste")
-      .replace(/\{instagram\}/gi, "teste");
-
-    // Abertura SEMPRE em bolhas separadas (mesma regra do dispatcher).
-    const messageParts = splitOpeningParts(rendered);
+    // Escolhe o roteiro conforme o "tipo de abertura" da campanha.
+    const kind = getOpeningKind((camp as { opening_kind?: string }).opening_kind);
+    let messageParts: string[];
+    if (!kind.useVariations && kind.template) {
+      messageParts = templateParts(kind);
+    } else {
+      const rendered = (camp.opening_message ?? "")
+        .replace(/\{nome\}/gi, "Teste")
+        .replace(/\{instagram\}/gi, "teste");
+      // Abertura SEMPRE em bolhas separadas (mesma regra do dispatcher).
+      messageParts = splitOpeningParts(rendered);
+    }
     if (messageParts.length === 0) throw new Error("Mensagem de abertura vazia");
 
     const { uazapiSendText } = await import("@/lib/uazapi.server");
