@@ -631,6 +631,49 @@ describe("9c) Trava determinística de emoji nas respostas do agente", () => {
     expect(out).toContain("===SPLIT===");
     expect(containsEmoji(out)).toBe(false);
   });
+
+  // REGRESSÃO REAL (17:00 → 17:06, mesma conversa):
+  //   17:00 Júlia: "Como posso ajudar? 😊"
+  //   17:06 Júlia: "Ótimo! Qualquer dúvida ... 😊"  ← deveria ter emoji removido
+  // Reproduz o cenário exato — 2 respostas sequenciais que TENTAM usar emoji.
+  it("REGRESSÃO 17:00→17:06: 2ª resposta tem emoji removido quando a 1ª já tinha", () => {
+    const primeiraResposta = "Como posso ajudar? 😊";
+    // Simula o histórico como o webhook monta: filtra sender=agente e passa
+    // como recentAgentBodies pra limitEmojiFrequency.
+    const historyAgentes = [primeiraResposta];
+    const segundaBruta = "Ótimo! Qualquer dúvida durante o processo é só me chamar que eu te ajudo 😊";
+    const segundaLimpa = limitEmojiFrequency(segundaBruta, {
+      recentAgentBodies: historyAgentes,
+      window: 3,
+    });
+    expect(
+      containsEmoji(segundaLimpa),
+      `FALHOU: 2ª resposta manteve emoji apesar da 1ª ter emoji: "${segundaLimpa}"`,
+    ).toBe(false);
+    expect(segundaLimpa).toContain("Qualquer dúvida");
+    expect(segundaLimpa).toContain("me chamar");
+  });
+
+  // GUARD COMBINADO: enforceReengagementGreeting (prepende saudação) +
+  // limitEmojiFrequency (remove emoji consecutivo) precisam funcionar juntos
+  // sem um sobrescrever/atrapalhar o outro.
+  it("guard de reengajamento + limitEmojiFrequency funcionam em conjunto", () => {
+    // Simula: LLM devolveu "Como posso ajudar? 😊" cru, e a msg anterior do
+    // agente já tinha emoji. Depois do pipeline final:
+    //   1) limitEmojiFrequency remove o emoji (consecutivo);
+    //   2) enforceReengagementGreeting prepende "Boa tarde!".
+    const bruta = "Como posso ajudar? 😊";
+    const semEmoji = limitEmojiFrequency(bruta, {
+      recentAgentBodies: ["Oi! Tudo bem? 😊"],
+      window: 3,
+    });
+    expect(containsEmoji(semEmoji)).toBe(false);
+    const comSaudacao = enforceReengagementGreeting(semEmoji, "Boa tarde");
+    expect(comSaudacao.prepended).toBe(true);
+    expect(/^boa tarde!/i.test(comSaudacao.text)).toBe(true);
+    expect(containsEmoji(comSaudacao.text)).toBe(false);
+    expect(comSaudacao.text).toContain("Como posso ajudar?");
+  });
 });
 
 // ---------------------------------------------------------------------------
