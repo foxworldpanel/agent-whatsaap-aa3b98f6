@@ -2378,6 +2378,66 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           messagesCount: history?.length ?? 0,
         });
 
+        // ===== Trava de custo: verbose loop / suporte humanizado =====
+        // Cliente muito leigo em loop de reexplicação sem avanço queima muitas
+        // chamadas Anthropic. Se 2+ sinais dispararem, envia um farewell
+        // caloroso, marca a conversa como "Revisar — Suporte humanizado" e sai
+        // ANTES de chamar o Claude. Reativação silenciosa acontece lá em cima
+        // (needsReview + ação concreta do cliente).
+        try {
+          const { detectVerboseLoop, VERBOSE_LOOP_REVIEW_REASON, VERBOSE_LOOP_FAREWELL } =
+            await import("@/lib/verbose-loop-guard.server");
+          const loopMsgs = (history ?? []).map((m) => ({ sender: m.sender, body: m.body ?? "" }));
+          const detection = detectVerboseLoop({
+            history: loopMsgs,
+            latestClientBody: inboundBody ?? "",
+          });
+          if (detection.triggered && !isBlastThread && !isTestNumber) {
+            const nowT = new Date().toISOString();
+            try {
+              if (await isAutoReplyAllowed()) {
+                const { uazapiSendText } = await import("@/lib/uazapi.server");
+                await uazapiSendText(replySendCreds, phone, VERBOSE_LOOP_FAREWELL);
+                await supabaseAdmin.from("messages").insert({
+                  user_id: userId,
+                  conversation_id: conv.id,
+                  sender: "agente",
+                  kind: "texto",
+                  body: VERBOSE_LOOP_FAREWELL,
+                });
+              }
+            } catch (e) {
+              console.error("[verbose-loop] farewell send failed", e);
+            }
+            await supabaseAdmin
+              .from("conversations")
+              .update({
+                needs_review: true,
+                review_reason: VERBOSE_LOOP_REVIEW_REASON,
+                auto_paused_at: nowT,
+                last_message_preview: VERBOSE_LOOP_FAREWELL.slice(0, 120),
+                last_message_at: nowT,
+                status: "aguardando",
+              })
+              .eq("id", conv.id);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                userId,
+                phone,
+                conversationId: conv.id,
+                type: "verbose_loop_pause",
+                level: "warn",
+                summary: `Conversa pausada por loop de reexplicação (${detection.signals.join(", ")})`,
+                metadata: { signals: detection.signals, historyLen: history?.length ?? 0 },
+              });
+            } catch {}
+            return new Response("ok (verbose loop → paused)");
+          }
+        } catch (e) {
+          console.error("[verbose-loop] detection failed", e);
+        }
+
         const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
 
         // ===== Coalescência de mensagens rápidas do cliente =====
