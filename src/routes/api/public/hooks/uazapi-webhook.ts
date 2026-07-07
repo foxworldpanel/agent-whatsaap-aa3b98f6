@@ -1987,7 +1987,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             if (replyText) {
             try {
               if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before free trial)");
-              await uazapiSendText(creds, phone, replyText);
+              const _sent = await sendAgentTextGuarded(creds, phone, replyText, {
+                conversationId: conv.id,
+                source: "free_trial_success",
+              });
+              replyText = _sent.transformed;
             } catch (e) {
               console.error("uazapi send (trial) failed", e);
             }
