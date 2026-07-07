@@ -2042,34 +2042,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             `FATO TÉCNICO VERIFICADO: o cliente mandou APENAS emoji/reação (sem texto), pela ${emojiStreak}ª vez seguida, e NÃO respondeu à sua última pergunta pendente. PROIBIDO ecoar emoji de volta ("😊", "👍", etc.) — isso vira loop. Em UMA única mensagem curta, reconecte de forma leve com a pergunta pendente do funil (ex.: "Show! 😊 Então, [pergunta pendente resumida]?"). Se não houver pergunta pendente identificável no histórico, mande UMA única mensagem curta reengajando ("😊 Me conta um pouco mais pra eu te ajudar?"). NÃO use ===SPLIT===. Uma bolha só, curta.`;
           // cai pro fluxo normal do Claude
         }
-        // Bloco antigo (mantido para referência histórica — o fast-path "😊"
-        // foi substituído pelo tratamento anti-loop acima):
-        if (false) {
-          const directReply = "😊";
-          if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before emoji reply)");
-          if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
-            const { uazapiSendText } = await import("@/lib/uazapi.server");
-            memMarkSent(phone, directReply);
-            await uazapiSendText(replySendCreds, phone, directReply);
-            const stamp = new Date().toISOString();
-            await supabaseAdmin.from("messages").insert({
-              user_id: userId, conversation_id: conv.id, sender: "agente", kind: "texto", body: directReply,
-            });
-            await supabaseAdmin
-              .from("conversations")
-              .update({ last_message_preview: directReply, last_message_at: stamp, status: "aguardando" })
-              .eq("id", conv.id);
-            await supabaseAdmin
-              .from("contacts")
-              .update({ last_interaction_at: stamp, status: "em_conversa" })
-              .eq("id", contact.id);
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({ userId, phone, conversationId: conv.id, type: "minimal_reply", level: "info", summary: "Emoji/figurinha respondido sem chamar Claude", metadata: { kind, inboundBody } });
-            } catch {}
-          }
-          return new Response("ok (emoji reply)");
-        }
+        // (fast-path antigo "😊" removido: substituído pelo tratamento
+        // anti-loop acima, que deixa o Claude reconectar com a pergunta
+        // pendente nas 1ª/2ª ocorrências e pausa a conversa a partir da 3ª.)
 
         // ===== Resposta a disparo: agente Júlia assume =====
         // Recusa de disparo agora é decidida pelo Claude via `regra_encerramento`
