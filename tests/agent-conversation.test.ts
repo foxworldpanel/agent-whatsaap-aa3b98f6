@@ -1040,6 +1040,108 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     ).toBe(false);
   });
 
+  // ANTI-REGRESSÃO ESPECÍFICA: resposta gerada no MODO REENGAJAMENTO
+  // (receptivo E disparo) SEMPRE precisa começar com saudação de volta.
+  // Se o LLM devolver "Como posso ajudar?" cru, o guard prepende a saudação
+  // correspondente à do cliente. Falha o teste se a saudação estiver ausente.
+  describe("GUARD de saudação em reengajamento (unit + e2e)", () => {
+    it("pickReengagementGreeting espelha a saudação do cliente", () => {
+      expect(pickReengagementGreeting("Boa tarde")).toBe("Boa tarde");
+      expect(pickReengagementGreeting("bom dia!")).toBe("Bom dia");
+      expect(pickReengagementGreeting("Boa noite")).toBe("Boa noite");
+    });
+
+    it("enforceReengagementGreeting prepende quando falta saudação", () => {
+      const out = enforceReengagementGreeting("Como posso ajudar?", "Boa tarde");
+      expect(out.prepended).toBe(true);
+      expect(out.text).toBe("Boa tarde! Como posso ajudar?");
+      expect(/^boa tarde/i.test(out.text)).toBe(true);
+    });
+
+    it("enforceReengagementGreeting NÃO duplica quando já tem saudação", () => {
+      const out = enforceReengagementGreeting("Boa tarde! Como posso ajudar?", "Boa tarde");
+      expect(out.prepended).toBe(false);
+      expect(out.text).toBe("Boa tarde! Como posso ajudar?");
+    });
+
+    it("RECEPTIVO: LLM devolve 'Como posso ajudar?' cru → resposta final começa com 'Boa tarde!'", async () => {
+      const longAgo = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
+      const now = new Date().toISOString();
+      // Simula EXATAMENTE a regressão reportada em produção.
+      const fetchMock = mockAnthropic("Como posso ajudar?");
+      vi.stubGlobal("fetch", fetchMock);
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      const res = await generateAgentReplyWithMeta({
+        agent: baseAgent(),
+        contact: baseContact(),
+        history: [
+          { sender: "cliente", body: "Oi, quero saber sobre seguidores", created_at: longAgo },
+          { sender: "agente", body: "Show! Quantos seguidores você tá pensando?", created_at: longAgo },
+          { sender: "cliente", body: "Boa tarde", created_at: now },
+        ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
+        isInbound: true,
+        freeTestServices: [],
+        userId: null,
+      });
+      expect(
+        /^(bom dia|boa tarde|boa noite|oi|ol[aá])/i.test(res.text),
+        `FALHOU: resposta de reengajamento receptivo não começa com saudação: "${res.text}"`,
+      ).toBe(true);
+      expect(/^boa tarde!/i.test(res.text)).toBe(true);
+    });
+
+    it.each([
+      ["Bom dia", /^bom dia/i],
+      ["Boa tarde", /^boa tarde/i],
+      ["Boa noite", /^boa noite/i],
+    ])("RECEPTIVO: cliente diz '%s' → resposta espelha a saudação", async (clientGreeting, expectedRx) => {
+      const longAgo = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
+      const now = new Date().toISOString();
+      const fetchMock = mockAnthropic("Como posso ajudar?");
+      vi.stubGlobal("fetch", fetchMock);
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      const res = await generateAgentReplyWithMeta({
+        agent: baseAgent(),
+        contact: baseContact(),
+        history: [
+          { sender: "cliente", body: "Oi", created_at: longAgo },
+          { sender: "agente", body: "Oi! Como posso ajudar?", created_at: longAgo },
+          { sender: "cliente", body: clientGreeting, created_at: now },
+        ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
+        isInbound: true,
+        freeTestServices: [],
+        userId: null,
+      });
+      expect(
+        expectedRx.test(res.text),
+        `FALHOU: cliente '${clientGreeting}' → resposta '${res.text}' não espelha saudação`,
+      ).toBe(true);
+    });
+
+    it("DISPARO: LLM omite saudação → guard prepende também no ramo de disparo", async () => {
+      const t = new Date().toISOString();
+      const fetchMock = mockAnthropic("Posso te mostrar como acelerar suas redes?");
+      vi.stubGlobal("fetch", fetchMock);
+      process.env.ANTHROPIC_API_KEY = "test-key";
+      const res = await generateAgentReplyWithMeta({
+        agent: baseAgent(),
+        contact: baseContact(),
+        history: [
+          { sender: "agente", body: OPENING, created_at: t },
+          { sender: "cliente", body: "boa noite", created_at: t },
+        ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
+        isInbound: false,
+        freeTestServices: [],
+        userId: null,
+      });
+      expect(
+        /^(bom dia|boa tarde|boa noite|oi|ol[aá])/i.test(res.text),
+        `FALHOU: resposta de reengajamento em disparo não começa com saudação: "${res.text}"`,
+      ).toBe(true);
+      expect(/^boa noite!/i.test(res.text)).toBe(true);
+    });
+  });
+
   // Garantia anti-regressão: fluxo de disparo NORMAL (sem gap) continua
   // recebendo os refinamentos e avança direto para a pergunta de rede como
   // sempre fez — o veto SÓ atua quando o gap é real.
