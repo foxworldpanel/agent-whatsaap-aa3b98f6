@@ -853,7 +853,13 @@ export async function generateAgentReplyWithMeta(params: {
     .filter(Boolean)
     .join("\n\n");
 
-  const messages = history.slice(-8).map((m) => ({
+  // Janela de histórico: normalmente 8 turnos bastam, mas quando o cliente
+  // manda IMAGEM o modelo Vision tende a colar no que vê e "esquecer" o
+  // resto da conversa (rede, serviço, quantidade, cadastro já combinados).
+  // Para print de painel/pagamento no meio de conversa avançada, precisamos
+  // que o histórico completo do funil chegue junto — expande pra 20 turnos.
+  const historyWindow = imageBase64 ? 20 : 8;
+  const messages = history.slice(-historyWindow).map((m) => ({
     role: m.sender === "cliente" ? "user" : "assistant",
     content: m.body,
   }));
@@ -922,7 +928,16 @@ export async function generateAgentReplyWithMeta(params: {
     };
     const textBlock = {
       type: "text" as const,
-      text: `Analise essa imagem no contexto da conversa: ${baseText}`,
+      text:
+        `Analise essa imagem COMO CONTEXTO ADICIONAL da conversa que já está em andamento — NÃO como um reset.\n` +
+        `\n` +
+        `REGRAS OBRIGATÓRIAS ao responder com imagem:\n` +
+        `1) Considere TODO o histórico acima antes de responder. Se rede, serviço, quantidade, cadastro, pagamento ou qualquer etapa JÁ FORAM combinados/respondidos na conversa, é PROIBIDO voltar a perguntar. NUNCA faça pergunta de descoberta ("qual rede", "qual estilo/gênero", "qual serviço", "qual quantidade") sobre algo que já apareceu no histórico.\n` +
+        `2) Se a imagem mostrar tela de PAGAMENTO / CHECKOUT / PIX / QR Code / botão "Confirmar pedido" / "Finalizar compra" / valor a pagar no painel: o cliente está PRESTES A FECHAR. Responda AJUDANDO A CONCLUIR — confirme o valor/serviço que aparece na tela, oriente o próximo clique específico visível (ex: "É só clicar em Confirmar / gerar o PIX / colar o link do vídeo"), e reforce que está tudo certo. NUNCA volte pra descoberta nesse momento.\n` +
+        `3) Se a imagem for print de ERRO no painel, siga o fluxo de suporte (regra própria acima).\n` +
+        `4) Se a imagem for comprovante de pagamento, siga a regra de COMPROVANTE (parabeniza + orienta pedido no painel).\n` +
+        `\n` +
+        `Última mensagem do cliente junto com a imagem: ${baseText}`,
     };
     const merged = { role: "user" as const, content: [imageBlock, textBlock] };
     if (lastUserIdx >= 0) finalMessages[lastUserIdx] = merged;
