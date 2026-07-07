@@ -16,6 +16,10 @@ import {
   buildSystemPrompt,
   sanitizeSystemLeaks,
 } from "@/lib/ai.server";
+import {
+  isReengagementGreeting,
+  isNeutralGreetingAfterBlastOpening,
+} from "@/lib/ai.server";
 import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts } from "@/lib/message-splitter";
 import {
@@ -352,6 +356,74 @@ describe("8b) Não repete descoberta após 'já tem cadastro?'", () => {
     expect(
       /j[aá]\s+tem\s+cadastro/i.test(prompt) && /vai DIRETO/i.test(prompt),
       "FALHOU: instrução de ir direto ao fechamento após 'já tem cadastro' ausente",
+    ).toBe(true);
+  });
+});
+
+describe("8c) Reengajamento respeita burst de mensagens (saudação + pergunta real)", () => {
+  const HOUR = 60 * 60 * 1000;
+  const now = Date.now();
+  const iso = (offsetMs: number) => new Date(now - offsetMs).toISOString();
+
+  it("burst RECEPTIVO: 'Boa noite' + 'Poderia me passar informações?' NÃO é reengajamento", () => {
+    const history = [
+      { sender: "agente" as const, body: "Perfeito! No Instagram o que quer priorizar?", created_at: iso(48 * HOUR) },
+      { sender: "cliente" as const, body: "Boa noite", created_at: iso(2 * 60 * 1000) },
+      { sender: "cliente" as const, body: "Poderia me passar informações sobre o trabalho?", created_at: iso(60 * 1000) },
+    ];
+    expect(
+      isReengagementGreeting(history),
+      "FALHOU: burst com pergunta real foi classificado como reengajamento (deveria ser conversa normal)",
+    ).toBe(false);
+  });
+
+  it("burst DISPARO: 'Boa noite' + pergunta real NÃO é cortesia pura pós-abertura", () => {
+    const history = [
+      { sender: "agente" as const, body: "Posso te mostrar algo que pode acelerar o crescimento das suas redes?" },
+      { sender: "cliente" as const, body: "Boa noite" },
+      { sender: "cliente" as const, body: "Poderia me passar informações sobre o trabalho?" },
+    ];
+    expect(
+      isNeutralGreetingAfterBlastOpening(history),
+      "FALHOU: burst pós-abertura com pergunta real virou 'saudação neutra' e engatilharia reapresentação da isca",
+    ).toBe(false);
+  });
+
+  it("cenário original preservado: só 'Boa noite' pura continua sendo reengajamento (com hiato)", () => {
+    const history = [
+      { sender: "agente" as const, body: "Perfeito! No Instagram o que quer priorizar?", created_at: iso(48 * HOUR) },
+      { sender: "cliente" as const, body: "Boa noite", created_at: iso(60 * 1000) },
+    ];
+    expect(
+      isReengagementGreeting(history),
+      "FALHOU: saudação pura após hiato deixou de disparar reengajamento",
+    ).toBe(true);
+  });
+
+  it("cenário original DISPARO: só 'Boa noite' pós-abertura continua sendo cortesia neutra", () => {
+    const history = [
+      { sender: "agente" as const, body: "Posso te mostrar algo que pode acelerar o crescimento das suas redes?" },
+      { sender: "cliente" as const, body: "Boa noite" },
+    ];
+    expect(
+      isNeutralGreetingAfterBlastOpening(history),
+      "FALHOU: saudação pura pós-abertura deixou de ser detectada como cortesia neutra",
+    ).toBe(true);
+  });
+
+  it("template DISPARO exige saudação de volta como PRIMEIRAS PALAVRAS", async () => {
+    const { fetchMock } = await callAgent({
+      history: [
+        { sender: "agente", body: "Posso te mostrar algo que pode acelerar o crescimento das suas redes?" },
+        { sender: "cliente", body: "Boa noite" },
+      ],
+      mockReply: "Boa noite! Espero que esteja bem também. Posso te mostrar como acelerar suas redes?",
+      isInbound: false,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      /PROIBIDO ABSOLUTO omitir a sauda[çc][aã]o de volta/i.test(body.system),
+      "FALHOU: template não proíbe começar sem saudação de volta",
     ).toBe(true);
   });
 });

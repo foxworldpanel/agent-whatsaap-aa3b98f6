@@ -68,29 +68,34 @@ const GREETING_ONLY_RX =
 
 export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean {
   if (!history?.length) return false;
-  // Última mensagem do cliente
-  let clientIdx = -1;
+  // Última mensagem da agente
+  let lastAgentIdx = -1;
   for (let i = history.length - 1; i >= 0; i -= 1) {
-    if (history[i].sender === "cliente" && history[i].body?.trim()) {
-      clientIdx = i;
-      break;
-    }
-  }
-  if (clientIdx < 0) return false;
-  const clientMsg = history[clientIdx];
-  const body = (clientMsg.body ?? "").trim();
-  // Saudação/cortesia curta (até ~30 chars) e sem sinal de intenção comercial
-  if (body.length > 30) return false;
-  if (!GREETING_ONLY_RX.test(body)) return false;
-  // Última mensagem da agente ANTES dessa do cliente
-  let agentBefore: Msg | null = null;
-  for (let i = clientIdx - 1; i >= 0; i -= 1) {
     if (history[i].sender === "agente" && history[i].body?.trim()) {
-      agentBefore = history[i];
+      lastAgentIdx = i;
       break;
     }
   }
-  if (!agentBefore) return false;
+  if (lastAgentIdx < 0) return false;
+  // TODAS as mensagens do cliente depois da última do agente. Precisa haver
+  // ao menos uma, e TODAS elas têm que ser saudação curta pura. Se qualquer
+  // uma tiver conteúdo real (ex.: cliente mandou "Boa noite" + "poderia me
+  // passar informações?" em burst), NÃO é reengajamento — o modelo tem que
+  // responder à pergunta real, não aplicar o template genérico.
+  const clientMsgsAfter: Msg[] = [];
+  for (let i = lastAgentIdx + 1; i < history.length; i += 1) {
+    if (history[i].sender === "cliente" && history[i].body?.trim()) {
+      clientMsgsAfter.push(history[i]);
+    }
+  }
+  if (clientMsgsAfter.length === 0) return false;
+  for (const m of clientMsgsAfter) {
+    const body = (m.body ?? "").trim();
+    if (body.length > 30) return false;
+    if (!GREETING_ONLY_RX.test(body)) return false;
+  }
+  const agentBefore = history[lastAgentIdx];
+  const clientMsg = clientMsgsAfter[clientMsgsAfter.length - 1];
   const agentTs = agentBefore.created_at ? Date.parse(agentBefore.created_at) : NaN;
   const clientTs = clientMsg.created_at
     ? Date.parse(clientMsg.created_at)
@@ -117,25 +122,28 @@ export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean
 // hiato de tempo OU por resposta neutra logo após a abertura.
 export function isNeutralGreetingAfterBlastOpening(history: Msg[]): boolean {
   if (!history?.length) return false;
-  let clientIdx = -1;
+  let lastAgentIdx = -1;
   for (let i = history.length - 1; i >= 0; i -= 1) {
-    if (history[i].sender === "cliente" && history[i].body?.trim()) {
-      clientIdx = i;
-      break;
-    }
-  }
-  if (clientIdx < 0) return false;
-  const clientBody = (history[clientIdx].body ?? "").trim();
-  if (!isBlastNeutralGreeting(clientBody)) return false;
-  let lastAgent: Msg | null = null;
-  for (let i = clientIdx - 1; i >= 0; i -= 1) {
     if (history[i].sender === "agente" && history[i].body?.trim()) {
-      lastAgent = history[i];
+      lastAgentIdx = i;
       break;
     }
   }
-  if (!lastAgent) return false;
-  return isBlastOpeningQuestion(lastAgent.body);
+  if (lastAgentIdx < 0) return false;
+  // Mesma regra do reengajamento: se o cliente mandou saudação + pergunta
+  // real em burst, TODAS as mensagens dele após o agente precisam ser
+  // saudação neutra pura pra classificar como cortesia.
+  const clientMsgsAfter: Msg[] = [];
+  for (let i = lastAgentIdx + 1; i < history.length; i += 1) {
+    if (history[i].sender === "cliente" && history[i].body?.trim()) {
+      clientMsgsAfter.push(history[i]);
+    }
+  }
+  if (clientMsgsAfter.length === 0) return false;
+  for (const m of clientMsgsAfter) {
+    if (!isBlastNeutralGreeting((m.body ?? "").trim())) return false;
+  }
+  return isBlastOpeningQuestion(history[lastAgentIdx].body);
 }
 
 // Detecta por CONTEÚDO se essa thread é de disparo (Júlia iniciou o contato),
@@ -703,7 +711,7 @@ export async function generateAgentReplyWithMeta(params: {
           //   (b) cliente respondeu à abertura só com saudação/cortesia neutra
           //       (sem hiato — regressão real observada em produção onde a
           //       Júlia caía no genérico de suporte "Como posso te ajudar?").
-          : `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO / CORTESIA EM DISPARO ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER pergunta pendente do funil que exista no histórico.\n\nCondição detectada: você está em uma thread de DISPARO (VOCÊ iniciou o contato via abordagem fria) e o cliente respondeu à sua abertura APENAS com saudação/cortesia neutra ("oi", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem?", "olá, tudo bem?"), SEM responder à pergunta da abertura. Isso vale tanto quando passaram várias horas desde a sua última mensagem (hiato) quanto quando a resposta veio poucos minutos depois (sem hiato). Em ambos os casos, a resposta correta é a MESMA: retribuir a saudação e REAPRESENTAR A ISCA da abertura — NUNCA cair na resposta genérica de receptivo/suporte "Oi! Como posso te ajudar?".\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação de forma calorosa e REAPRESENTE A ISCA — a pergunta FINAL da abertura de disparo, de forma RESUMIDA. FORMATO OBRIGATÓRIO em UMA ÚNICA mensagem curta: "<Saudação equivalente à do cliente>, espero que esteja bem também. Posso te mostrar como dar uma acelerada nas suas redes?" (variações válidas do fim: "Posso te mostrar como acelerar suas redes?" / "Posso te mostrar como turbinar suas redes?" / "...como impulsionar seu perfil?"). Nada além disso.\n2) PROIBIDO ABSOLUTO responder com "Como posso te ajudar?", "Como posso ajudar?", "Em que posso ajudar?" ou qualquer variação de suporte/receptivo genérico — essa é a resposta de conversa RECEPTIVA e NÃO se aplica a disparo. Aqui a Júlia iniciou o contato com uma isca clara e precisa reapresentá-la.\n3) PROIBIDO repetir a abertura COMPLETA — NÃO diga "Peguei seu contato no perfil @...", NÃO cite o @ do Instagram, NÃO cumprimente pelo nome como se fosse a primeira mensagem, NÃO diga "adorei o conteúdo/estilo". Só a saudação de volta + a pergunta-isca final, resumida.\n4) PROIBIDO emendar/repetir/reformular a pergunta PENDENTE do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem). Você está VOLTANDO para a pergunta-isca da abertura, NÃO avançando o funil.\n5) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço nesta resposta.\n6) Depois desta resposta, se o cliente responder com interesse ("sim", "pode", "manda", "claro"), a PRÓXIMA resposta CONTINUA o funil de onde parou (retomar a pergunta pendente — ex: rede social) SEM repetir a abertura completa novamente.`)
+          : `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO / CORTESIA EM DISPARO ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER pergunta pendente do funil que exista no histórico.\n\nCondição detectada: você está em uma thread de DISPARO (VOCÊ iniciou o contato via abordagem fria) e o cliente respondeu à sua abertura APENAS com saudação/cortesia neutra ("oi", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem?", "olá, tudo bem?"), SEM responder à pergunta da abertura. Isso vale tanto quando passaram várias horas desde a sua última mensagem (hiato) quanto quando a resposta veio poucos minutos depois (sem hiato). Em ambos os casos, a resposta correta é a MESMA: retribuir a saudação e REAPRESENTAR A ISCA da abertura — NUNCA cair na resposta genérica de receptivo/suporte "Oi! Como posso te ajudar?".\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação de forma calorosa e REAPRESENTE A ISCA — a pergunta FINAL da abertura de disparo, de forma RESUMIDA. FORMATO OBRIGATÓRIO em UMA ÚNICA mensagem curta, com DUAS partes NA ORDEM: (a) SAUDAÇÃO DE VOLTA equivalente à do cliente ("Bom dia!", "Boa tarde!", "Boa noite!", "Oi!") — OBRIGATÓRIA como primeiras palavras da resposta; (b) opcional "espero que esteja bem também" + a pergunta-isca. Exemplo: "Boa noite! Espero que esteja bem também. Posso te mostrar como dar uma acelerada nas suas redes?" (variações válidas do fim: "Posso te mostrar como acelerar suas redes?" / "Posso te mostrar como turbinar suas redes?" / "Posso te mostrar como impulsionar seu perfil?").\n2) PROIBIDO ABSOLUTO omitir a saudação de volta como primeiras palavras — começar direto com "Espero que esteja bem também" SEM "Bom dia/Boa tarde/Boa noite/Oi" antes é ERRADO e quebra o padrão.\n3) PROIBIDO ABSOLUTO responder com "Como posso te ajudar?", "Como posso ajudar?", "Em que posso ajudar?" ou qualquer variação de suporte/receptivo genérico — essa é a resposta de conversa RECEPTIVA e NÃO se aplica a disparo. Aqui a Júlia iniciou o contato com uma isca clara e precisa reapresentá-la.\n4) PROIBIDO repetir a abertura COMPLETA — NÃO diga "Peguei seu contato no perfil @...", NÃO cite o @ do Instagram, NÃO cumprimente pelo nome como se fosse a primeira mensagem, NÃO diga "adorei o conteúdo/estilo". Só a saudação de volta + a pergunta-isca final, resumida.\n5) PROIBIDO emendar/repetir/reformular a pergunta PENDENTE do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem). Você está VOLTANDO para a pergunta-isca da abertura, NÃO avançando o funil.\n6) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço nesta resposta.\n7) Depois desta resposta, se o cliente responder com interesse ("sim", "pode", "manda", "claro"), a PRÓXIMA resposta CONTINUA o funil de onde parou (retomar a pergunta pendente — ex: rede social) SEM repetir a abertura completa novamente.`)
       : "",
     buildSharedRules(identity, {
       freeTestServices,
