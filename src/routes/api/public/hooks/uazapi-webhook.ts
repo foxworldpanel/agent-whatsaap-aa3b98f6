@@ -2748,7 +2748,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               max: String(r.maximo ?? 0),
             }));
             if (all.length > 0) {
-              const lowerText = (text ?? "").toLowerCase();
               const platforms: Array<{ key: string; label: string; rx: RegExp }> = [
                 { key: "spotify", label: "SPOTIFY", rx: /spotify|playlist|ouvintes?|saves?/i },
                 { key: "instagram", label: "INSTAGRAM", rx: /instagram|insta|reels?|stories?/i },
@@ -2757,22 +2756,46 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 { key: "kwai", label: "KWAI", rx: /kwai/i },
                 { key: "facebook", label: "FACEBOOK", rx: /facebook|fb\b|\bface\b/i },
               ];
-              const matched = platforms.filter((p) => p.rx.test(lowerText));
+              // Match por mensagem atual + fallback por CONTEXTO da conversa.
+              // Motivo: msgs curtas ("bom dia", "pode sim") não casam nenhuma
+              // plataforma e caía o catálogo inteiro. Se em qualquer turno
+              // anterior (agente OU cliente) uma plataforma foi mencionada,
+              // reaproveita esse contexto. A plataforma mais RECENTE tem
+              // prioridade — se o cliente mudar de Instagram → Spotify no
+              // meio da conversa, o filtro segue a mudança.
+              const lowerText = (text ?? "").toLowerCase();
+              let matched = platforms.filter((p) => p.rx.test(lowerText));
+              let matchSource: "current_msg" | "history" | "none" = matched.length > 0 ? "current_msg" : "none";
+              if (matched.length === 0) {
+                const recentHistory = (history ?? []) as Array<{ body: string }>;
+                // Varre do mais recente pro mais antigo — 1ª plataforma que
+                // aparecer vence (mais recente = intenção mais atual).
+                for (let i = recentHistory.length - 1; i >= 0 && matched.length === 0; i--) {
+                  const line = (recentHistory[i]?.body ?? "").toLowerCase();
+                  matched = platforms.filter((p) => p.rx.test(line));
+                  if (matched.length > 0) matchSource = "history";
+                }
+              }
               let services = all;
               if (onlyRelevant && matched.length > 0) {
                 services = all.filter((s) =>
                   matched.some((p) => new RegExp(p.key, "i").test(`${s.name} ${s.category}`)),
                 );
               }
-              // Hard cap para o prompt não explodir
+              // Cap dinâmico: quando não há match nenhum (contexto vago),
+              // manda só uma amostra representativa (60) em vez de despejar
+              // 200 serviços — economia de ~4-5k tokens por chamada. Quando
+              // há match, mantém cap alto pra não perder variações da rede.
+              const cap = matched.length > 0 ? 200 : 60;
               const baseList = services
-                .slice(0, 200)
+                .slice(0, cap)
                 .map((s) => `ID: ${s.service} | Nome: ${s.name} | Categoria: ${s.category} | Preço por 1000: R$${s.rate} | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`)
                 .join("\n");
               servicesContext = `${baseList}\n\nREGRA: SEMPRE consulte o campo MÍNIMO do catálogo acima antes de responder qualquer quantidade. NUNCA arredonde o mínimo.`;
               try {
                 const { logEvent } = await import("@/lib/agent-logger.server");
-                await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: "info", summary: `💰 Catálogo cache: ${services.length}/${all.length}${matched.length > 0 ? ` (filtrado: ${matched.map((p) => p.label).join(",")})` : ""}`, metadata: { used: services.length, total: all.length, onlyRelevant, matched: matched.map((p) => p.key) } });
+                const usedCount = Math.min(services.length, cap);
+                await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: "info", summary: `💰 Catálogo cache: ${usedCount}/${all.length}${matched.length > 0 ? ` (filtrado: ${matched.map((p) => p.label).join(",")} via ${matchSource})` : ` (sem match, cap=${cap})`}`, metadata: { used: usedCount, total: all.length, cap, onlyRelevant, matched: matched.map((p) => p.key), matchSource } });
               } catch {}
             } else {
               console.warn("[catalog_cache] vazio — usuário precisa sincronizar pelo painel do agente");
