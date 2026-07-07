@@ -939,7 +939,13 @@ export async function generateAgentReplyWithMeta(params: {
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      system,
+      // Prompt caching: o system prompt (~10k tokens) é praticamente idêntico
+      // entre chamadas do mesmo agente. Marcando cache_control:ephemeral,
+      // chamadas subsequentes dentro de ~5 min pagam ~10% do custo de input
+      // desse bloco (cache read) em vez do valor cheio.
+      system: [
+        { type: "text", text: system, cache_control: { type: "ephemeral" } },
+      ],
       messages: finalMessages,
     }),
   });
@@ -951,7 +957,21 @@ export async function generateAgentReplyWithMeta(params: {
 
   const json = (await res.json()) as {
     content?: Array<{ type: string; text?: string }>;
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
   };
+  const usage = json.usage ?? {};
+  console.info("[agent-ai] Claude usage", {
+    model,
+    input_tokens: usage.input_tokens ?? 0,
+    output_tokens: usage.output_tokens ?? 0,
+    cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+    cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+  });
   const text = (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
   const finalText = text || "…";
   // Sanitiza tiques de escrita de IA: em-dash / en-dash no meio de frases
