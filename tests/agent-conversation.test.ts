@@ -301,6 +301,10 @@ describe("8) Fechamento não prematuro (não se despede antes do painel)", () =>
         { sender: "agente", body: "Pra começar, 1000 seguidores sai R$50." },
         { sender: "cliente", body: "ok" },
       ],
+      // Contexto é disparo (Júlia começou o funil de venda). Sem isInbound=false
+      // o EXEMPLO_MODELO_DISPARO (onde MODO FECHAMENTO vive) é suprimido do
+      // prompt — comportamento correto para conversas orgânicas/receptivas.
+      isInbound: false,
       identity: MIND_BRAND_TEMPLATE,
     });
     expect(
@@ -972,7 +976,11 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
     { sender: "cliente" as const, body: "Spotify. Me explica passo a passo por favor" },
   ];
 
-  it("prompt de conversa organic/receptiva NÃO injeta o EXEMPLO_MODELO_DISPARO nem o backup de detecção", () => {
+  // Assinatura do exemplo (frase única, sem placeholders) — se aparecer no
+  // prompt, o few-shot com dados sensíveis foi injetado.
+  const EXEMPLO_BODY_SIGNATURE = /Qual rede social você mais usa hoje em dia/i;
+
+  it("prompt de conversa organic/receptiva NÃO injeta o body do EXEMPLO_MODELO_DISPARO nem o backup de detecção", () => {
     const prompt = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
@@ -981,12 +989,17 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
       identity: MIND_BRAND_TEMPLATE,
     });
     expect(
-      /EXEMPLO_MODELO_DISPARO/.test(prompt),
-      "FALHOU: exemplo de disparo vazou em prompt de conversa organic/receptiva",
+      EXEMPLO_BODY_SIGNATURE.test(prompt),
+      "FALHOU: corpo do exemplo de disparo vazou em prompt de conversa organic/receptiva",
     ).toBe(false);
     expect(
       /Peguei o seu contato/i.test(prompt),
       "FALHOU: frase de coleta de contato ainda presente em conversa organic",
+    ).toBe(false);
+    // Backup textual de detecção também não pode aparecer em organic.
+    expect(
+      /DETEC[ÇC][AÃ]O DE CONTEXTO POR CONTE[ÚU]DO/i.test(prompt),
+      "FALHOU: backup de detecção de disparo apareceu em conversa organic",
     ).toBe(false);
   });
 
@@ -1001,7 +1014,7 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
       isInbound: false,
       identity: MIND_BRAND_TEMPLATE,
     });
-    expect(/EXEMPLO_MODELO_DISPARO/.test(prompt)).toBe(true);
+    expect(EXEMPLO_BODY_SIGNATURE.test(prompt)).toBe(true);
     // E o exemplo já NÃO contém mais nome/handle real hardcoded.
     expect(/Romulo/.test(prompt), "FALHOU: nome real 'Romulo' hardcoded no exemplo").toBe(false);
     expect(/@sourcee/.test(prompt), "FALHOU: handle real '@sourcee' hardcoded no exemplo").toBe(false);
@@ -1015,7 +1028,7 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      /EXEMPLO_MODELO_DISPARO/.test(body.system),
+      EXEMPLO_BODY_SIGNATURE.test(body.system),
       "FALHOU: system prompt em conversa organic carregou o few-shot de disparo",
     ).toBe(false);
   });
