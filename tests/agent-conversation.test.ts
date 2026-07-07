@@ -21,7 +21,7 @@ import {
   isNeutralGreetingAfterBlastOpening,
 } from "@/lib/ai.server";
 import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
-import { autoSplitLongParts } from "@/lib/message-splitter";
+import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 import {
   detectVerboseLoop,
   looksLikeConcreteAction,
@@ -473,6 +473,44 @@ describe("9) Auto-split de mensagens com \\n\\n", () => {
       `FALHOU: esperava 3 partes (2 do split automático + 1 do link), veio ${parts.length}`,
     ).toBe(true);
     expect(parts[2]).toBe("www.mindsmmpanel.com");
+  });
+});
+
+describe("9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)", () => {
+  const ghosts = ["", "   ", "...", "…", ". . .", "..", "!!!", "??", ".", "—", "– –", ",,,"];
+
+  for (const g of ghosts) {
+    it(`descarta bolha só com "${g}"`, () => {
+      expect(
+        isMeaningfulPart(g),
+        `FALHOU: "${g}" foi considerado conteúdo válido`,
+      ).toBe(false);
+    });
+  }
+
+  it("mantém bolha com pelo menos uma palavra real (mesmo com reticências)", () => {
+    expect(isMeaningfulPart("beleza...")).toBe(true);
+    expect(isMeaningfulPart("show!")).toBe(true);
+    expect(isMeaningfulPart("1000 views")).toBe(true);
+  });
+
+  it("autoSplitLongParts remove partes só com reticências / pontuação / vazias", () => {
+    const parts = autoSplitLongParts(["Bom dia!", "...", "   ", "…", "Como posso ajudar?"]);
+    expect(
+      parts.length === 2,
+      `FALHOU: esperava 2 partes válidas, veio ${parts.length}: ${JSON.stringify(parts)}`,
+    ).toBe(true);
+    expect(parts.every((p) => isMeaningfulPart(p))).toBe(true);
+  });
+
+  it("autoSplitLongParts remove parágrafo-fantasma dentro de bloco com \\n\\n", () => {
+    const msg = "Bom dia!\n\n...\n\nComo posso te ajudar hoje?";
+    const parts = autoSplitLongParts([msg]);
+    expect(
+      parts.length === 2,
+      `FALHOU: parágrafo só com "..." deveria ser descartado; veio ${parts.length} partes`,
+    ).toBe(true);
+    expect(parts.every((p) => isMeaningfulPart(p))).toBe(true);
   });
 });
 
