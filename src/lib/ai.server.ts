@@ -66,6 +66,44 @@ export function isSupportOrPostSaleContext(history: Msg[]): boolean {
 const GREETING_ONLY_RX =
   /^\s*(oi+|ol[aá]+|opa+|eae|e\s*a[ií]|hey|hi|hello|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem\??|tudo\s*bom\??|blz\??|beleza\??)\s*[.!?…]*\s*$/i;
 
+// Detecta qual saudação retributiva usar em MODO REENGAJAMENTO.
+// Prioriza a saudação que o cliente usou na última mensagem ("Boa tarde" →
+// "Boa tarde!"). Se o cliente usou algo genérico ("oi", "olá", "tudo bem"),
+// escolhe pelo período do dia atual. Retorna a saudação SEM pontuação final.
+export function pickReengagementGreeting(
+  latestClientMsg: string,
+  nowDate: Date = new Date(),
+): string {
+  const s = (latestClientMsg ?? "").toLowerCase();
+  if (/\bbom\s*dia\b/.test(s)) return "Bom dia";
+  if (/\bboa\s*tarde\b/.test(s)) return "Boa tarde";
+  if (/\bboa\s*noite\b/.test(s)) return "Boa noite";
+  // Fallback pelo horário local do servidor (BR/UTC-3 aproximado).
+  const hourBr = (nowDate.getUTCHours() - 3 + 24) % 24;
+  if (hourBr >= 5 && hourBr < 12) return "Bom dia";
+  if (hourBr >= 12 && hourBr < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+// GUARD FINAL do MODO REENGAJAMENTO: se por qualquer motivo o LLM omitiu a
+// saudação de volta como primeiras palavras ("Como posso ajudar?" cru), este
+// guard prepende a saudação correspondente à do cliente. Determinístico e
+// testável — pega a regressão antes de chegar em produção.
+const REENG_GREETING_START_RX =
+  /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite|oi+|ol[aá]+|opa|eae|e\s*a[ií]|hey|hi|hello)\b/i;
+
+export function enforceReengagementGreeting(
+  text: string,
+  latestClientMsg: string,
+  nowDate: Date = new Date(),
+): { text: string; prepended: boolean } {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed) return { text: trimmed, prepended: false };
+  if (REENG_GREETING_START_RX.test(trimmed)) return { text: trimmed, prepended: false };
+  const greeting = pickReengagementGreeting(latestClientMsg, nowDate);
+  return { text: `${greeting}! ${trimmed}`, prepended: true };
+}
+
 export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean {
   if (!history?.length) return false;
   // Última mensagem da agente
@@ -703,7 +741,7 @@ export async function generateAgentReplyWithMeta(params: {
       ? (inboundReengagementVeto
           // CASO 1 — RECEPTIVO / SUPORTE: cliente iniciou o contato. Reengajar
           // com "como posso ajudar" — não existe "isca" a reapresentar.
-          ? `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER lógica de disparo/blast/funil de vendas.\n\nCondição detectada: passaram VÁRIAS HORAS (ou virou o dia) desde a sua última mensagem, e o cliente voltou APENAS com uma saudação curta ("oi", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem"). Esta conversa é RECEPTIVA (o cliente iniciou o contato originalmente).\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação e se coloque à disposição de forma neutra. FORMATO OBRIGATÓRIO: "<Saudação equivalente à do cliente>! Como posso ajudar?" (ex: "Boa tarde! Como posso ajudar?" / "Oi! Tudo bem por aí? Como posso te ajudar hoje?").\n2) PROIBIDO emendar automaticamente/repetir/reformular QUALQUER pergunta pendente do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem).\n3) AGUARDE a próxima mensagem do cliente antes de retomar qualquer coisa.\n4) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço, NÃO faça pergunta de negócio nesta resposta.`
+          ? `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER lógica de disparo/blast/funil de vendas.\n\nCondição detectada: passaram VÁRIAS HORAS (ou virou o dia) desde a sua última mensagem, e o cliente voltou APENAS com uma saudação curta ("oi", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem"). Esta conversa é RECEPTIVA (o cliente iniciou o contato originalmente).\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação e se coloque à disposição de forma neutra. FORMATO OBRIGATÓRIO em UMA ÚNICA mensagem curta, com DUAS partes NA ORDEM: (a) SAUDAÇÃO DE VOLTA equivalente à do cliente ("Bom dia!", "Boa tarde!", "Boa noite!", "Oi!") — OBRIGATÓRIA como PRIMEIRAS PALAVRAS LITERAIS da resposta; (b) "Como posso ajudar?" (ou variação curta: "Como posso te ajudar hoje?", "Tudo bem por aí? Como posso ajudar?"). Exemplos corretos: "Boa tarde! Como posso ajudar?" / "Bom dia! Como posso te ajudar hoje?" / "Oi! Tudo bem por aí? Como posso ajudar?".\n2) REGRA LITERAL DE ESPELHO DA SAUDAÇÃO: se o cliente disse "Bom dia" → sua resposta COMEÇA com "Bom dia!"; se disse "Boa tarde" → COMEÇA com "Boa tarde!"; se disse "Boa noite" → COMEÇA com "Boa noite!"; se disse "Oi"/"Olá"/"Opa" → COMEÇA com "Oi!" (ou a saudação do período atual do dia). NUNCA responda "Como posso ajudar?" cru, sem a saudação de volta — omitir a saudação de volta é ERRADO e QUEBRA O PADRÃO, é a regressão que já foi corrigida antes.\n3) PROIBIDO emendar automaticamente/repetir/reformular QUALQUER pergunta pendente do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem).\n4) AGUARDE a próxima mensagem do cliente antes de retomar qualquer coisa.\n5) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço, NÃO faça pergunta de negócio nesta resposta.`
           // CASO 2 — DISPARO / BLAST: a Júlia iniciou o contato via abordagem
           // fria. Reengajar REAPRESENTANDO A ISCA (pergunta final da abertura)
           // de forma resumida. Vale para AMBOS os gatilhos:
@@ -1023,7 +1061,23 @@ export async function generateAgentReplyWithMeta(params: {
       reengagementGreeting,
     });
   }
-  return { text: scrubbed.text, model, routingReason };
+  // GUARD FINAL de saudação no MODO REENGAJAMENTO: se ativou o veto (hiato
+  // receptivo OU cortesia neutra em disparo) e a resposta ainda começa sem
+  // saudação de volta ("Como posso ajudar?" cru), prepende a saudação
+  // correspondente à do cliente. Determinístico — pega regressão em prod.
+  let outText = scrubbed.text;
+  if (reengagementGreeting || neutralGreetingAfterBlastOpening) {
+    const enforced = enforceReengagementGreeting(outText, latestClientMessage);
+    if (enforced.prepended) {
+      console.warn("[agent-ai] GUARD: saudação de reengajamento prependida", {
+        clientMsgPreview: latestClientMessage.slice(0, 60),
+        before: outText.slice(0, 80),
+        after: enforced.text.slice(0, 80),
+      });
+    }
+    outText = enforced.text;
+  }
+  return { text: outText, model, routingReason };
 }
 
 // ----- Transcrição (Whisper via Lovable AI Gateway, sem chave do usuário) -----
