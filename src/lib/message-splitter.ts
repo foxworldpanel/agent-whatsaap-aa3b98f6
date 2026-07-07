@@ -16,6 +16,22 @@
  */
 export const LONG_MESSAGE_THRESHOLD = 350;
 
+/**
+ * Retorna true se a parte tem conteúdo substantivo (não é vazia nem só
+ * reticências / pontuação isolada). Usado para descartar "bolhas fantasmas"
+ * que às vezes vêm do modelo ou de resíduos de split.
+ *
+ * Exemplos que retornam false: "", "   ", "...", "…", "... ...", ".", "!!!",
+ * "— —", ",,,". Qualquer parte com pelo menos uma letra ou dígito é mantida.
+ */
+export function isMeaningfulPart(raw: string): boolean {
+  if (!raw) return false;
+  const trimmed = raw.trim();
+  if (!trimmed) return false;
+  // Precisa ter ao menos uma letra (inclui acentos) ou dígito.
+  return /[\p{L}\p{N}]/u.test(trimmed);
+}
+
 export function autoSplitLongParts(
   parts: string[],
   _threshold: number = LONG_MESSAGE_THRESHOLD,
@@ -23,7 +39,7 @@ export function autoSplitLongParts(
   const out: string[] = [];
   for (const raw of parts) {
     const part = raw.trim();
-    if (!part) continue;
+    if (!isMeaningfulPart(part)) continue;
     if (!/\n\s*\n/.test(part)) {
       out.push(part);
       continue;
@@ -31,7 +47,7 @@ export function autoSplitLongParts(
     const paragraphs = part
       .split(/\n\s*\n+/)
       .map((p) => p.trim())
-      .filter((p) => p.length > 0);
+      .filter((p) => isMeaningfulPart(p));
     if (paragraphs.length <= 1) {
       out.push(part);
       continue;
