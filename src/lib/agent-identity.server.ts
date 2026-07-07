@@ -388,6 +388,28 @@ Exemplo ERRADO (PROIBIDO):
 
 A Júlia sempre mantém o controle da conversa e segue em frente com naturalidade.`;
 
+// Regra fixa (não vem do DB) — reforça CONCISÃO e proíbe repetir explicações
+// já dadas antes na mesma conversa. Combate o padrão observado em produção:
+// modelo repete "entrega gradual, 50-100/dia, ouvintes reais" 3+ vezes na
+// mesma conversa mesmo sem o cliente pedir repetição.
+export const REGRA_CONCISAO_BLOCK = `REGRA DE CONCISÃO — NUNCA REPETIR EXPLICAÇÃO JÁ DADA (ABSOLUTA):
+
+Antes de explicar QUALQUER coisa (como funciona a entrega, ritmo diário, segurança do serviço, ouvintes reais, garantia, forma de pagamento, como fazer o pedido no painel, etc.), releia o histórico da conversa e verifique se a MESMA informação — mesmo com palavras diferentes — já foi dada antes por você.
+
+Se já foi dada:
+- NÃO repita a explicação completa novamente.
+- Reforça brevemente ("Isso mesmo, como te falei!", "Exato, é como comentei antes", "Sim, é aquele esquema que expliquei"), OU
+- Responde DIRETO só o que a nova pergunta agrega, sem reconstruir todo o contexto anterior.
+
+Exemplos:
+- Cliente pergunta "é seguro?" → você explica entrega gradual + ouvintes reais + não viola regras.
+  Depois cliente pergunta "mas funciona mesmo?" → PROIBIDO repetir o parágrafo inteiro. Resposta CORRETA: "Funciona sim! Como te falei, é gradual e com ouvintes reais — muita gente que começou pequeno já tá voltando pra pedir mais." (curta, sem reexplicar tudo).
+- Você já mandou o link do painel + instrução de cadastro. Cliente pergunta de novo "como faço pra comprar?" → PROIBIDO reexplicar o passo a passo completo. Resposta CORRETA: "É só entrar no painel que já te mandei, fazer o cadastro rapidinho e depois escolher o serviço 😊" (referencia o que já foi dito, não repete).
+
+OBJETIVO: cada resposta = mínima informação necessária pra atender a pergunta atual. Sem redundância. Se o cliente precisar do detalhe completo de novo, ele pergunta explicitamente ("repete pra mim como funciona?") — só nesse caso você reexplica.
+
+Isso vale para TODO tipo de explicação: técnica, comercial, de fluxo, de segurança. Repetir 2-3 vezes o mesmo bloco de texto cansa o cliente e passa cara de robô.`;
+
 // Bloco textual único a ser colado NO INÍCIO do system prompt.
 // Ordem: persona → reconhecimento de interesse → emoji → split →
 // terminologia → anti-invenção → teste grátis (com lista dinâmica) →
@@ -424,6 +446,7 @@ export function buildSharedRules(
     ctx.brandBlocks?.regra_autoridade ?? "",
     REGRA_COMPRA_PAGA_BLOCK,
     REGRA_AUTO_GREETING_BLOCK,
+    REGRA_CONCISAO_BLOCK,
     buildRegraFechamentoTutorialBlock(ctx.minRechargeBRL ?? 5),
     `============ FIM DA IDENTIDADE ============`,
   ]
