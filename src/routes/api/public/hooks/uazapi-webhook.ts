@@ -2179,8 +2179,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 delayMs: clampDelayMs(s.welcome_text.delay_seconds),
                 run: async () => {
                   if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
-                  await uazapiSendText(creds, phone, text);
-                  return { kind: "texto", body: text };
+                  const sent = await sendAgentTextGuarded(creds, phone, text, {
+                    conversationId: conv.id,
+                    source: "welcome_funnel_welcome_text",
+                  });
+                  return { kind: "texto", body: sent.transformed };
                 },
               });
             }
@@ -2201,8 +2204,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 delayMs: clampDelayMs(s.panel_text.delay_seconds),
                 run: async () => {
                   if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
-                  await uazapiSendText(creds, phone, text);
-                  return { kind: "texto", body: text };
+                  const sent = await sendAgentTextGuarded(creds, phone, text, {
+                    conversationId: conv.id,
+                    source: "welcome_funnel_panel_text",
+                  });
+                  return { kind: "texto", body: sent.transformed };
                 },
               });
             }
@@ -2224,8 +2230,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 delayMs: clampDelayMs(s.services_text.delay_seconds),
                 run: async () => {
                   if (!(await isAutoReplyAllowed())) throw new Error("__auto_reply_disabled__");
-                  await uazapiSendText(creds, phone, text);
-                  return { kind: "texto", body: text };
+                  const sent = await sendAgentTextGuarded(creds, phone, text, {
+                    conversationId: conv.id,
+                    source: "welcome_funnel_services_text",
+                  });
+                  return { kind: "texto", body: sent.transformed };
                 },
               });
             }
