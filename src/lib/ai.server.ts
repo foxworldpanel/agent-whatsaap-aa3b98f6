@@ -139,24 +139,28 @@ export function isNeutralGreetingAfterBlastOpening(history: Msg[]): boolean {
 }
 
 // Detecta por CONTEÚDO se essa thread é de disparo (Júlia iniciou o contato),
-// independente da flag técnica `isInbound`. Basta uma das primeiras mensagens
-// da agente casar com o padrão de abertura de disparo (pergunta-isca ou
-// menção clara a "peguei seu contato" / "vi seu perfil" / "@handle").
-// Necessário porque conversas antigas / reunificadas podem chegar como
-// `isInbound=true` mesmo tendo sido abertas pela Júlia via disparo, e nesse
-// caso o veto de reengajamento cai no ramo RECEPTIVO ("Como posso ajudar?")
-// em vez do ramo DISPARO ("reapresenta a isca").
+// independente da flag técnica `isInbound`. Necessário porque conversas antigas /
+// reunificadas podem chegar como `isInbound=true` mesmo tendo sido abertas pela
+// Júlia via disparo, e nesse caso o veto de reengajamento cai no ramo RECEPTIVO
+// em vez do ramo DISPARO.
+//
+// STRICT MODE (regressão real: um agente RECEPTIVO/orgânico teve o
+// EXEMPLO_MODELO_DISPARO promovido a script porque um "@" qualquer no histórico
+// bateu no marker antigo). Regras endurecidas:
+//   1) Só olha a PRIMEIRA mensagem do agente (a abertura). Frases similares que
+//      apareçam depois no meio de uma conversa longa não contam.
+//   2) Precisa de DOIS sinais fortes juntos: a pergunta-isca de abertura
+//      (isBlastOpeningQuestion) OU uma frase de coleta explícita ("peguei seu
+//      contato" / "vi seu perfil"). Handles avulsos "@algo" e "adorei o
+//      conteúdo" NÃO mais promovem a conversa para disparo — geravam falso
+//      positivo em conversas orgânicas.
 export function historyLooksLikeBlast(history: Msg[]): boolean {
   if (!history?.length) return false;
-  const firstAgentMsgs = history
-    .filter((m) => m.sender === "agente" && m.body?.trim())
-    .slice(0, 3);
-  const blastMarkerRx =
-    /(peguei\s+o?\s*seu\s+contato|vi\s+seu\s+perfil|@[a-z0-9._]+|adorei\s+o\s+(conte[uú]do|estilo|perfil))/i;
-  for (const m of firstAgentMsgs) {
-    if (isBlastOpeningQuestion(m.body) || blastMarkerRx.test(m.body)) return true;
-  }
-  return false;
+  const firstAgent = history.find((m) => m.sender === "agente" && m.body?.trim());
+  if (!firstAgent) return false;
+  const strongOpenerMarker =
+    /(peguei\s+o?\s*seu\s+contato|vi\s+seu\s+perfil)/i;
+  return isBlastOpeningQuestion(firstAgent.body) || strongOpenerMarker.test(firstAgent.body);
 }
 
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
