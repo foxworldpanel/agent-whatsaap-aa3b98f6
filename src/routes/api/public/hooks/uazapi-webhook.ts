@@ -3067,6 +3067,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        // Trava DETERMINÍSTICA de emoji: se alguma das últimas respostas do
+        // agente nessa conversa já continha emoji, remove os emojis desta
+        // resposta antes de dividir/enviar. Independe do modelo lembrar da
+        // regra_emoji do prompt. Aplica aqui (fluxo de resposta a inbound);
+        // a abertura de disparo é enviada pelo blast dispatcher e não passa
+        // por esse ponto, então continua livre para usar emoji.
+        {
+          const recentAgentBodies = ((aiHistory ?? []) as Array<{ sender: string; body: string }>)
+            .filter((m) => m.sender === "agente")
+            .map((m) => m.body ?? "");
+          reply = limitEmojiFrequency(reply, { recentAgentBodies, window: 3 });
+        }
+
         // Divide a resposta em partes quando o agente usa "===SPLIT===" (link separado).
         // Além disso, se uma parte for genuinamente longa (>350 chars) e tiver
         // parágrafos separados por \n\n, quebramos em mensagens independentes —
