@@ -956,3 +956,67 @@ describe("Detecção de mensagem automática de WhatsApp Business (saudação + 
     expect(/respons[aá]vel por/i.test(prompt)).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regressão: conversa ORGÂNICA/receptiva NÃO deve receber o
+// EXEMPLO_MODELO_DISPARO no prompt. Regressão real: cliente falando sobre
+// a banda dele, no meio da conversa apareceu "Oi, bom dia Romulo!" +
+// "Peguei o seu contato no perfil @sourcee" (few-shot literal do exemplo).
+// ---------------------------------------------------------------------------
+describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
+  const ORGANIC_HISTORY = [
+    { sender: "cliente" as const, body: "oi, tudo bem? vi vocês no instagram" },
+    { sender: "agente" as const, body: "Boa tarde! Como posso ajudar?" },
+    { sender: "cliente" as const, body: "queria entender como funciona pra minha banda" },
+    { sender: "agente" as const, body: "Claro! Você quer impulsionar Spotify ou Instagram?" },
+    { sender: "cliente" as const, body: "Spotify. Me explica passo a passo por favor" },
+  ];
+
+  it("prompt de conversa organic/receptiva NÃO injeta o EXEMPLO_MODELO_DISPARO nem o backup de detecção", () => {
+    const prompt = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: ORGANIC_HISTORY,
+      isInbound: true,
+      identity: MIND_BRAND_TEMPLATE,
+    });
+    expect(
+      /EXEMPLO_MODELO_DISPARO/.test(prompt),
+      "FALHOU: exemplo de disparo vazou em prompt de conversa organic/receptiva",
+    ).toBe(false);
+    expect(
+      /Peguei o seu contato/i.test(prompt),
+      "FALHOU: frase de coleta de contato ainda presente em conversa organic",
+    ).toBe(false);
+  });
+
+  it("prompt de disparo real (isInbound=false + abertura com pergunta-isca) CONTINUA carregando o EXEMPLO_MODELO_DISPARO", () => {
+    const prompt = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: OPENING },
+        { sender: "cliente", body: "sim" },
+      ],
+      isInbound: false,
+      identity: MIND_BRAND_TEMPLATE,
+    });
+    expect(/EXEMPLO_MODELO_DISPARO/.test(prompt)).toBe(true);
+    // E o exemplo já NÃO contém mais nome/handle real hardcoded.
+    expect(/Romulo/.test(prompt), "FALHOU: nome real 'Romulo' hardcoded no exemplo").toBe(false);
+    expect(/@sourcee/.test(prompt), "FALHOU: handle real '@sourcee' hardcoded no exemplo").toBe(false);
+  });
+
+  it("pipeline runtime (generateAgentReplyWithMeta) em conversa organic também NÃO injeta o exemplo", async () => {
+    const { fetchMock } = await callAgent({
+      history: ORGANIC_HISTORY,
+      mockReply: "Claro! O Spotify funciona assim: você cria uma conta e...",
+      isInbound: true,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(
+      /EXEMPLO_MODELO_DISPARO/.test(body.system),
+      "FALHOU: system prompt em conversa organic carregou o few-shot de disparo",
+    ).toBe(false);
+  });
+});
