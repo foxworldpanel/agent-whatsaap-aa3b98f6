@@ -1298,6 +1298,7 @@ function BlastCampaignCard({
           followup_day3_message,
           followup_day7_message,
           dispatch_mode,
+          opening_kind,
         },
       }),
     onSuccess: onChanged,
@@ -1386,6 +1387,7 @@ function BlastCampaignCard({
         followup_day3_message,
         followup_day7_message,
         dispatch_mode,
+        opening_kind,
       },
     }).then(() => stateMut.mutate("rodando", {
       onSuccess: async () => {
@@ -1444,6 +1446,7 @@ function BlastCampaignCard({
           followup_day3_message,
           followup_day7_message,
           dispatch_mode,
+          opening_kind,
         },
       });
       // Garante que a campanha esteja rodando (senão dispatcher ignora).
