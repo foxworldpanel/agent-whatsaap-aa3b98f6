@@ -16,6 +16,7 @@ import {
   getAgentIdentity,
   updateAgentIdentity,
 } from "@/lib/agent-identity.functions";
+import { useWorkspace } from "@/contexts/workspace-context";
 
 const FIELDS = [
   { key: "persona", label: "1. Persona" },
@@ -43,10 +44,11 @@ const BRAND_FIELDS: ReadonlyArray<FieldKey> = [
 
 export function IdentidadeCard() {
   const qc = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const fetchFn = useServerFn(getAgentIdentity);
   const saveFn = useServerFn(updateAgentIdentity);
   const { data } = useQuery({
-    queryKey: ["agent_identity"],
+    queryKey: ["agent_identity", activeWorkspaceId],
     queryFn: () => fetchFn(),
   });
 
