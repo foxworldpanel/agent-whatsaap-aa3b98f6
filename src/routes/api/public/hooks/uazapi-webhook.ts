@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { autoSplitLongParts } from "@/lib/message-splitter";
+import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
@@ -3073,11 +3073,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const rawParts = reply
           .split(/===SPLIT===/i)
           .map((s) => s.trim())
-          .filter((s) => s.length > 0);
+          .filter((s) => isMeaningfulPart(s));
         const replyParts = collapseRedundantWaitingParts(
           autoSplitLongParts(rawParts),
           inboundBody,
-        );
+        ).filter((s) => isMeaningfulPart(s));
 
         const replyForPreview = replyParts.join("\n");
 
