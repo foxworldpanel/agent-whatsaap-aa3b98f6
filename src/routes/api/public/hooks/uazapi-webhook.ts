@@ -2411,14 +2411,18 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const nowT = new Date().toISOString();
             try {
               if (await isAutoReplyAllowed()) {
-                const { uazapiSendText } = await import("@/lib/uazapi.server");
-                await uazapiSendText(replySendCreds, phone, VERBOSE_LOOP_FAREWELL);
+                const sent = await sendAgentTextGuarded(
+                  replySendCreds,
+                  phone,
+                  VERBOSE_LOOP_FAREWELL,
+                  { conversationId: conv.id, source: "verbose_loop_farewell" },
+                );
                 await supabaseAdmin.from("messages").insert({
                   user_id: userId,
                   conversation_id: conv.id,
                   sender: "agente",
                   kind: "texto",
-                  body: VERBOSE_LOOP_FAREWELL,
+                  body: sent.transformed,
                 });
               }
             } catch (e) {
