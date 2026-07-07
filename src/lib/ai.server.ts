@@ -68,29 +68,34 @@ const GREETING_ONLY_RX =
 
 export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean {
   if (!history?.length) return false;
-  // Última mensagem do cliente
-  let clientIdx = -1;
+  // Última mensagem da agente
+  let lastAgentIdx = -1;
   for (let i = history.length - 1; i >= 0; i -= 1) {
-    if (history[i].sender === "cliente" && history[i].body?.trim()) {
-      clientIdx = i;
-      break;
-    }
-  }
-  if (clientIdx < 0) return false;
-  const clientMsg = history[clientIdx];
-  const body = (clientMsg.body ?? "").trim();
-  // Saudação/cortesia curta (até ~30 chars) e sem sinal de intenção comercial
-  if (body.length > 30) return false;
-  if (!GREETING_ONLY_RX.test(body)) return false;
-  // Última mensagem da agente ANTES dessa do cliente
-  let agentBefore: Msg | null = null;
-  for (let i = clientIdx - 1; i >= 0; i -= 1) {
     if (history[i].sender === "agente" && history[i].body?.trim()) {
-      agentBefore = history[i];
+      lastAgentIdx = i;
       break;
     }
   }
-  if (!agentBefore) return false;
+  if (lastAgentIdx < 0) return false;
+  // TODAS as mensagens do cliente depois da última do agente. Precisa haver
+  // ao menos uma, e TODAS elas têm que ser saudação curta pura. Se qualquer
+  // uma tiver conteúdo real (ex.: cliente mandou "Boa noite" + "poderia me
+  // passar informações?" em burst), NÃO é reengajamento — o modelo tem que
+  // responder à pergunta real, não aplicar o template genérico.
+  const clientMsgsAfter: Msg[] = [];
+  for (let i = lastAgentIdx + 1; i < history.length; i += 1) {
+    if (history[i].sender === "cliente" && history[i].body?.trim()) {
+      clientMsgsAfter.push(history[i]);
+    }
+  }
+  if (clientMsgsAfter.length === 0) return false;
+  for (const m of clientMsgsAfter) {
+    const body = (m.body ?? "").trim();
+    if (body.length > 30) return false;
+    if (!GREETING_ONLY_RX.test(body)) return false;
+  }
+  const agentBefore = history[lastAgentIdx];
+  const clientMsg = clientMsgsAfter[clientMsgsAfter.length - 1];
   const agentTs = agentBefore.created_at ? Date.parse(agentBefore.created_at) : NaN;
   const clientTs = clientMsg.created_at
     ? Date.parse(clientMsg.created_at)
@@ -117,25 +122,28 @@ export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean
 // hiato de tempo OU por resposta neutra logo após a abertura.
 export function isNeutralGreetingAfterBlastOpening(history: Msg[]): boolean {
   if (!history?.length) return false;
-  let clientIdx = -1;
+  let lastAgentIdx = -1;
   for (let i = history.length - 1; i >= 0; i -= 1) {
-    if (history[i].sender === "cliente" && history[i].body?.trim()) {
-      clientIdx = i;
-      break;
-    }
-  }
-  if (clientIdx < 0) return false;
-  const clientBody = (history[clientIdx].body ?? "").trim();
-  if (!isBlastNeutralGreeting(clientBody)) return false;
-  let lastAgent: Msg | null = null;
-  for (let i = clientIdx - 1; i >= 0; i -= 1) {
     if (history[i].sender === "agente" && history[i].body?.trim()) {
-      lastAgent = history[i];
+      lastAgentIdx = i;
       break;
     }
   }
-  if (!lastAgent) return false;
-  return isBlastOpeningQuestion(lastAgent.body);
+  if (lastAgentIdx < 0) return false;
+  // Mesma regra do reengajamento: se o cliente mandou saudação + pergunta
+  // real em burst, TODAS as mensagens dele após o agente precisam ser
+  // saudação neutra pura pra classificar como cortesia.
+  const clientMsgsAfter: Msg[] = [];
+  for (let i = lastAgentIdx + 1; i < history.length; i += 1) {
+    if (history[i].sender === "cliente" && history[i].body?.trim()) {
+      clientMsgsAfter.push(history[i]);
+    }
+  }
+  if (clientMsgsAfter.length === 0) return false;
+  for (const m of clientMsgsAfter) {
+    if (!isBlastNeutralGreeting((m.body ?? "").trim())) return false;
+  }
+  return isBlastOpeningQuestion(history[lastAgentIdx].body);
 }
 
 // Detecta por CONTEÚDO se essa thread é de disparo (Júlia iniciou o contato),
