@@ -54,6 +54,7 @@ import { listCategories } from "@/lib/categories.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 import { BlastFlowBuilder } from "@/components/BlastFlowBuilder";
 import { Switch } from "@/components/ui/switch";
+import { OPENING_KINDS, DEFAULT_OPENING_KIND, getOpeningKind, templateParts } from "@/lib/opening-kinds";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
   ssr: false,
@@ -1131,6 +1132,7 @@ type BlastCampaign = {
   followup_day7_message: string;
   state: "parado" | "rodando" | "pausado";
   dispatch_mode?: "agente_livre" | "fluxo_visual" | null;
+  opening_kind?: string | null;
 };
 
 type CsvRow = {
