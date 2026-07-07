@@ -1454,7 +1454,55 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // (teste grátis, funil, IA, áudio, etc.).
         const globalEnabled = (agent as { agent_enabled?: boolean }).agent_enabled !== false;
         const convEnabled = conv.agent_enabled !== false;
-        const needsReview = (conv as { needs_review?: boolean }).needs_review === true;
+        let needsReview = (conv as { needs_review?: boolean }).needs_review === true;
+
+        // Reativação silenciosa da trava "verbose loop / suporte humanizado":
+        // se a conversa foi pausada por loop de reexplicação e o cliente
+        // voltou com uma AÇÃO CONCRETA (link de música, confirmação de compra,
+        // ID de pedido, pergunta objetiva de preço), destrava sem novo aviso.
+        if (needsReview) {
+          try {
+            const { data: convReason } = await supabaseAdmin
+              .from("conversations")
+              .select("review_reason")
+              .eq("id", conv.id)
+              .maybeSingle();
+            const {
+              VERBOSE_LOOP_REVIEW_REASON,
+              looksLikeConcreteAction,
+            } = await import("@/lib/verbose-loop-guard.server");
+            if (
+              convReason?.review_reason === VERBOSE_LOOP_REVIEW_REASON &&
+              looksLikeConcreteAction(inboundBody)
+            ) {
+              await supabaseAdmin
+                .from("conversations")
+                .update({
+                  needs_review: false,
+                  review_reason: null,
+                  agent_enabled: true,
+                })
+                .eq("id", conv.id);
+              needsReview = false;
+              (conv as { agent_enabled?: boolean | null; needs_review?: boolean | null }).agent_enabled = true;
+              (conv as { needs_review?: boolean | null }).needs_review = false;
+              try {
+                const { logEvent } = await import("@/lib/agent-logger.server");
+                await logEvent({
+                  userId,
+                  phone,
+                  conversationId: conv.id,
+                  type: "verbose_loop_reactivated",
+                  level: "info",
+                  summary: "Trava de verbose loop destravada por ação concreta do cliente",
+                  metadata: { inboundBody: inboundBody?.slice(0, 200) ?? "" },
+                });
+              } catch {}
+            }
+          } catch (e) {
+            console.error("[verbose-loop] reactivation check failed", e);
+          }
+        }
         const isAutoReplyAllowed = async (): Promise<boolean> => {
           if (isTestNumber || isBlastThread) return true;
           const { data: latestAgent } = await supabaseAdmin
