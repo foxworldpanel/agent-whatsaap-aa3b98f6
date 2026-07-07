@@ -18,6 +18,12 @@ import {
 } from "@/lib/ai.server";
 import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts } from "@/lib/message-splitter";
+import {
+  detectVerboseLoop,
+  looksLikeConcreteAction,
+  VERBOSE_LOOP_REVIEW_REASON,
+  VERBOSE_LOOP_FAREWELL,
+} from "@/lib/verbose-loop-guard.server";
 
 const OPENING =
   "Oi, bom dia Romulo! Peguei o seu contato no perfil @sourcee, achei muito bom o conteúdo! Posso te mostrar algo que pode acelerar o crescimento das suas redes?";
