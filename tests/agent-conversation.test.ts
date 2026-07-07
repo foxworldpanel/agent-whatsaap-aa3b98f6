@@ -99,6 +99,8 @@ async function callAgent(opts: {
   mockReply: string;
   freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
   isInbound?: boolean;
+  imageBase64?: string | null;
+  imageMediaType?: string | null;
 }) {
   const fetchMock = mockAnthropic(opts.mockReply);
   vi.stubGlobal("fetch", fetchMock);
@@ -110,6 +112,8 @@ async function callAgent(opts: {
     isInbound: opts.isInbound ?? false,
     freeTestServices: opts.freeTestServices ?? [],
     userId: null,
+    imageBase64: opts.imageBase64 ?? null,
+    imageMediaType: opts.imageMediaType ?? null,
   });
   return { ...res, fetchMock };
 }
@@ -1378,5 +1382,81 @@ describe("Verbose loop guard — trava de custo", () => {
     expect(VERBOSE_LOOP_FAREWELL).toMatch(/suporte pode te ajudar/i);
     expect(VERBOSE_LOOP_FAREWELL).toMatch(/quando quiser começar/i);
     expect(VERBOSE_LOOP_REVIEW_REASON).toMatch(/Suporte humanizado/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 16) Imagem no MEIO de conversa avançada — não pode resetar pra descoberta
+// ---------------------------------------------------------------------------
+describe("16) Imagem em conversa avançada — histórico completo + regra de fechamento", () => {
+  const advancedHistory = [
+    { sender: "agente" as const, body: OPENING },
+    { sender: "cliente" as const, body: "pode sim" },
+    { sender: "agente" as const, body: "Qual rede social você mais usa hoje?" },
+    { sender: "cliente" as const, body: "Spotify" },
+    { sender: "agente" as const, body: "Show! Quer plays, ouvintes ou saves?" },
+    { sender: "cliente" as const, body: "plays" },
+    { sender: "agente" as const, body: "Qual estilo/gênero da sua música?" },
+    { sender: "cliente" as const, body: "Piseiro sertanejo" },
+    { sender: "agente" as const, body: "Show! 1000 plays sai R$10, 5000 sai R$40, 10000 sai R$70. Qual você quer?" },
+    { sender: "cliente" as const, body: "1000" },
+    { sender: "agente" as const, body: "Fechado! Já tem cadastro no painel?" },
+    { sender: "cliente" as const, body: "já tenho" },
+    { sender: "agente" as const, body: "Perfeito! É só entrar em Depositar, adicionar R$10 via PIX e depois escolher o serviço." },
+    { sender: "cliente" as const, body: "[imagem: tela de gerar PIX do painel com valor R$10]" },
+  ];
+
+  it("com imagem: histórico enviado ao Claude expande pra 20 turnos (não corta em 8)", async () => {
+    const { fetchMock } = await callAgent({
+      history: advancedHistory,
+      mockReply: "Perfeito! É só clicar em gerar PIX e pagar os R$10 😊",
+      imageBase64: "fake-base64-data",
+      imageMediaType: "image/jpeg",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    // Confirma que o histórico inteiro (14 turnos) chegou ao Claude — antes cortava em 8
+    const msgsSerialized = JSON.stringify(body.messages);
+    expect(msgsSerialized).toMatch(/Spotify/i);
+    expect(msgsSerialized).toMatch(/Piseiro/i);
+    expect(msgsSerialized).toMatch(/1000/);
+    expect(msgsSerialized).toMatch(/já tenho/i);
+  });
+
+  it("com imagem: system prompt injeta bloco 'IMAGEM NA CONVERSA' com regra de fechamento", async () => {
+    const { fetchMock } = await callAgent({
+      history: advancedHistory,
+      mockReply: "Perfeito! É só clicar em gerar PIX 😊",
+      imageBase64: "fake-base64-data",
+      imageMediaType: "image/jpeg",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const sys = sysText(body);
+    expect(/IMAGEM NA CONVERSA/i.test(sys), "FALHOU: bloco 'IMAGEM NA CONVERSA' não injetado").toBe(true);
+    expect(/PAGAMENTO|CHECKOUT|PIX|AJUDANDO A CONCLUIR/i.test(sys)).toBe(true);
+    expect(/PROIBIDO voltar a pergunta de descoberta/i.test(sys)).toBe(true);
+  });
+
+  it("sem imagem: bloco 'IMAGEM NA CONVERSA' NÃO é injetado", async () => {
+    const { fetchMock } = await callAgent({
+      history: advancedHistory,
+      mockReply: "Beleza!",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(/IMAGEM NA CONVERSA \(ABSOLUTA/i.test(sysText(body))).toBe(false);
+  });
+
+  it("com imagem: text block anexado à última msg inclui instrução de não resetar", async () => {
+    const { fetchMock } = await callAgent({
+      history: advancedHistory,
+      mockReply: "ok",
+      imageBase64: "fake-base64-data",
+      imageMediaType: "image/jpeg",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const lastUser = [...body.messages].reverse().find((m: { role: string }) => m.role === "user");
+    const parts = Array.isArray(lastUser?.content) ? lastUser.content : [];
+    const textPart = parts.find((p: { type: string }) => p.type === "text");
+    expect(textPart?.text).toMatch(/NÃO como um reset/i);
+    expect(textPart?.text).toMatch(/PAGAMENTO|CHECKOUT/i);
   });
 });
