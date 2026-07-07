@@ -411,19 +411,18 @@ describe("8c) Reengajamento respeita burst de mensagens (saudação + pergunta r
     ).toBe(true);
   });
 
-  it("template DISPARO exige saudação de volta como PRIMEIRAS PALAVRAS", () => {
-    const prompt = buildSystemPrompt({
-      agent: baseAgent(),
-      contact: baseContact(),
+  it("template DISPARO exige saudação de volta como PRIMEIRAS PALAVRAS", async () => {
+    const { fetchMock } = await callAgent({
       history: [
         { sender: "agente", body: "Posso te mostrar algo que pode acelerar o crescimento das suas redes?" },
         { sender: "cliente", body: "Boa noite" },
       ],
+      mockReply: "Boa noite! Espero que esteja bem também. Posso te mostrar como acelerar suas redes?",
       isInbound: false,
-      identity: MIND_BRAND_TEMPLATE,
     });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      /PROIBIDO ABSOLUTO omitir a sauda[çc][aã]o de volta/i.test(prompt),
+      /PROIBIDO ABSOLUTO omitir a sauda[çc][aã]o de volta/i.test(body.system),
       "FALHOU: template não proíbe começar sem saudação de volta",
     ).toBe(true);
   });
