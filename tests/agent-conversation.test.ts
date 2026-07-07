@@ -21,7 +21,7 @@ import {
   isNeutralGreetingAfterBlastOpening,
 } from "@/lib/ai.server";
 import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
-import { autoSplitLongParts } from "@/lib/message-splitter";
+import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 import {
   detectVerboseLoop,
   looksLikeConcreteAction,
