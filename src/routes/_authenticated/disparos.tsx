@@ -1251,6 +1251,7 @@ function BlastCampaignCard({
   const [dispatch_mode, setDispatchMode] = useState<"agente_livre" | "fluxo_visual">(
     (camp.dispatch_mode as "agente_livre" | "fluxo_visual") ?? "agente_livre",
   );
+  const [opening_kind, setOpeningKind] = useState<string>(camp.opening_kind ?? DEFAULT_OPENING_KIND);
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [csvName, setCsvName] = useState<string>("");
   const [testPhone, setTestPhone] = useState("");
