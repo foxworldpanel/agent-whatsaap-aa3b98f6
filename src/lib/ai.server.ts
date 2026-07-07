@@ -1061,7 +1061,23 @@ export async function generateAgentReplyWithMeta(params: {
       reengagementGreeting,
     });
   }
-  return { text: scrubbed.text, model, routingReason };
+  // GUARD FINAL de saudação no MODO REENGAJAMENTO: se ativou o veto (hiato
+  // receptivo OU cortesia neutra em disparo) e a resposta ainda começa sem
+  // saudação de volta ("Como posso ajudar?" cru), prepende a saudação
+  // correspondente à do cliente. Determinístico — pega regressão em prod.
+  let outText = scrubbed.text;
+  if (reengagementGreeting || neutralGreetingAfterBlastOpening) {
+    const enforced = enforceReengagementGreeting(outText, latestClientMessage);
+    if (enforced.prepended) {
+      console.warn("[agent-ai] GUARD: saudação de reengajamento prependida", {
+        clientMsgPreview: latestClientMessage.slice(0, 60),
+        before: outText.slice(0, 80),
+        after: enforced.text.slice(0, 80),
+      });
+    }
+    outText = enforced.text;
+  }
+  return { text: outText, model, routingReason };
 }
 
 // ----- Transcrição (Whisper via Lovable AI Gateway, sem chave do usuário) -----
