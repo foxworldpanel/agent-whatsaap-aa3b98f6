@@ -1982,6 +1982,69 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // custo real, zero risco de decisão de venda). Agradecimento, adiamento
         // e confirmações curtas passam pelo Claude, que aplica a identidade.
         if (isEmojiOnly(inboundBody) || (kind === "sticker" && (inboundBody ?? "").trim() === "[figurinha recebida]")) {
+          // Conta quantos emojis-puro/figurinhas o cliente mandou EM SEQUÊNCIA
+          // (contando a atual). A ideia é evitar loops onde a Júlia fica só
+          // ecoando "😊" pra cada emoji do cliente, gastando chamada de API
+          // e parecendo pouco profissional.
+          let emojiStreak = 1;
+          try {
+            const { data: recentMsgs } = await supabaseAdmin
+              .from("messages")
+              .select("sender, kind, body, created_at")
+              .eq("conversation_id", conv.id)
+              .order("created_at", { ascending: false })
+              .limit(30);
+            for (const m of recentMsgs ?? []) {
+              const sender = (m as { sender?: string }).sender;
+              if (sender === "agente") continue; // respostas nossas não quebram a série
+              if (sender !== "cliente") break;
+              const mBody = (m as { body?: string | null }).body ?? "";
+              const mKind = (m as { kind?: string | null }).kind ?? "";
+              const mIsEmoji =
+                isEmojiOnly(mBody) ||
+                (mKind === "sticker" && mBody.trim() === "[figurinha recebida]");
+              if (mIsEmoji) emojiStreak += 1;
+              else break;
+            }
+          } catch {}
+
+          // 3+ emojis seguidos sem resposta real: aplica a mesma regra de
+          // "comportamento inadequado" (para de responder + marca revisão).
+          if (emojiStreak >= 3) {
+            const nowT = new Date().toISOString();
+            await supabaseAdmin
+              .from("conversations")
+              .update({
+                needs_review: true,
+                review_reason: `Loop de emoji sem resposta (${emojiStreak} mensagens seguidas só de emoji/reação)`,
+                auto_paused_at: nowT,
+              })
+              .eq("id", conv.id);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                userId,
+                phone,
+                conversationId: conv.id,
+                type: "emoji_loop_pause",
+                level: "warn",
+                summary: `Conversa pausada silenciosamente após ${emojiStreak} emojis seguidos do cliente`,
+                metadata: { emojiStreak, kind, inboundBody },
+              });
+            } catch {}
+            return new Response("ok (emoji loop → paused)");
+          }
+
+          // 1ª/2ª vez: NÃO ecoa emoji. Injeta fato técnico e deixa o Claude
+          // responder reconectando com a pergunta pendente do funil.
+          technicalFactContext =
+            (technicalFactContext ? technicalFactContext + "\n\n" : "") +
+            `FATO TÉCNICO VERIFICADO: o cliente mandou APENAS emoji/reação (sem texto), pela ${emojiStreak}ª vez seguida, e NÃO respondeu à sua última pergunta pendente. PROIBIDO ecoar emoji de volta ("😊", "👍", etc.) — isso vira loop. Em UMA única mensagem curta, reconecte de forma leve com a pergunta pendente do funil (ex.: "Show! 😊 Então, [pergunta pendente resumida]?"). Se não houver pergunta pendente identificável no histórico, mande UMA única mensagem curta reengajando ("😊 Me conta um pouco mais pra eu te ajudar?"). NÃO use ===SPLIT===. Uma bolha só, curta.`;
+          // cai pro fluxo normal do Claude
+        }
+        // Bloco antigo (mantido para referência histórica — o fast-path "😊"
+        // foi substituído pelo tratamento anti-loop acima):
+        if (false) {
           const directReply = "😊";
           if (!(await isAutoReplyAllowed())) return new Response("ok (auto-reply disabled before emoji reply)");
           if (!(memWasRecentlySent(phone, directReply) || await wasRecentlySent(conv.id, directReply))) {
