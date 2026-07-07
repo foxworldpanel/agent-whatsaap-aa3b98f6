@@ -1460,3 +1460,36 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
     expect(textPart?.text).toMatch(/PAGAMENTO|CHECKOUT/i);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 17) REGRA DE CONCISÃO — nunca repetir explicação já dada
+// ---------------------------------------------------------------------------
+describe("17) REGRA DE CONCISÃO — bloco injetado no system prompt", () => {
+  it("system prompt inclui o bloco REGRA DE CONCISÃO com anti-repetição", async () => {
+    const { fetchMock } = await callAgent({
+      history: [
+        { sender: "agente", body: OPENING },
+        { sender: "cliente", body: "é seguro?" },
+      ],
+      mockReply: "É seguro sim!",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const sys = sysText(body);
+    expect(/REGRA DE CONCISÃO/i.test(sys)).toBe(true);
+    expect(/NUNCA REPETIR EXPLICAÇÃO JÁ DADA/i.test(sys)).toBe(true);
+    expect(/PROIBIDO repetir/i.test(sys)).toBe(true);
+  });
+
+  it("bloco lista os tipos cobertos (entrega, segurança, pagamento, painel)", async () => {
+    const { fetchMock } = await callAgent({
+      history: [
+        { sender: "agente", body: OPENING },
+        { sender: "cliente", body: "ok" },
+      ],
+      mockReply: "Show!",
+    });
+    const sys = sysText(JSON.parse(fetchMock.mock.calls[0][1].body));
+    expect(/entrega|ritmo|segurança|painel|pagamento/i.test(sys)).toBe(true);
+    expect(/como te falei|como comentei|como expliquei/i.test(sys)).toBe(true);
+  });
+});
