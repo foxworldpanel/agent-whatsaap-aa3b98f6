@@ -23,6 +23,13 @@ import {
 import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 import {
+  containsEmoji,
+  countEmojis,
+  keepFirstEmojiOnly,
+  limitEmojiFrequency,
+  stripEmojis,
+} from "@/lib/emoji-limiter";
+import {
   detectVerboseLoop,
   looksLikeConcreteAction,
   VERBOSE_LOOP_REVIEW_REASON,
