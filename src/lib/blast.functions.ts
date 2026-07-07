@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
+import { getOpeningKind, templateParts, OPENING_KINDS } from "@/lib/opening-kinds";
 
 const SEED_NAME = "Músicos e Artistas";
 const SEED_OPENING =
@@ -62,6 +63,9 @@ export const updateBlastCampaign = createServerFn({ method: "POST" })
         followup_day3_message: z.string().max(4000).optional(),
         followup_day7_message: z.string().max(4000).optional(),
         dispatch_mode: z.enum(["agente_livre", "fluxo_visual"]).optional(),
+        opening_kind: z
+          .enum(OPENING_KINDS.map((k) => k.key) as [string, ...string[]])
+          .optional(),
       })
       .parse(d),
   )
@@ -268,7 +272,7 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
 
     const { data: camp, error: campErr } = await context.supabase
       .from("blast_campaigns")
-      .select("id, user_id, whatsapp_number_id, opening_message")
+      .select("id, user_id, whatsapp_number_id, opening_message, opening_kind")
       .eq("id", data.campaignId)
       .eq("user_id", context.userId)
       .maybeSingle();
@@ -299,12 +303,18 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
     }
     if (!url || !token) throw new Error("Uazapi não configurado para este número");
 
-    const rendered = (camp.opening_message ?? "")
-      .replace(/\{nome\}/gi, "Teste")
-      .replace(/\{instagram\}/gi, "teste");
-
-    // Abertura SEMPRE em bolhas separadas (mesma regra do dispatcher).
-    const messageParts = splitOpeningParts(rendered);
+    // Escolhe o roteiro conforme o "tipo de abertura" da campanha.
+    const kind = getOpeningKind((camp as { opening_kind?: string }).opening_kind);
+    let messageParts: string[];
+    if (!kind.useVariations && kind.template) {
+      messageParts = templateParts(kind);
+    } else {
+      const rendered = (camp.opening_message ?? "")
+        .replace(/\{nome\}/gi, "Teste")
+        .replace(/\{instagram\}/gi, "teste");
+      // Abertura SEMPRE em bolhas separadas (mesma regra do dispatcher).
+      messageParts = splitOpeningParts(rendered);
+    }
     if (messageParts.length === 0) throw new Error("Mensagem de abertura vazia");
 
     const { uazapiSendText } = await import("@/lib/uazapi.server");

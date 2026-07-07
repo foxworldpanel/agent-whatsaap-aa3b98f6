@@ -54,6 +54,7 @@ import { listCategories } from "@/lib/categories.functions";
 import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 import { BlastFlowBuilder } from "@/components/BlastFlowBuilder";
 import { Switch } from "@/components/ui/switch";
+import { OPENING_KINDS, DEFAULT_OPENING_KIND, getOpeningKind, templateParts } from "@/lib/opening-kinds";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
   ssr: false,
@@ -1131,6 +1132,7 @@ type BlastCampaign = {
   followup_day7_message: string;
   state: "parado" | "rodando" | "pausado";
   dispatch_mode?: "agente_livre" | "fluxo_visual" | null;
+  opening_kind?: string | null;
 };
 
 type CsvRow = {
@@ -1249,6 +1251,7 @@ function BlastCampaignCard({
   const [dispatch_mode, setDispatchMode] = useState<"agente_livre" | "fluxo_visual">(
     (camp.dispatch_mode as "agente_livre" | "fluxo_visual") ?? "agente_livre",
   );
+  const [opening_kind, setOpeningKind] = useState<string>(camp.opening_kind ?? DEFAULT_OPENING_KIND);
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [csvName, setCsvName] = useState<string>("");
   const [testPhone, setTestPhone] = useState("");
@@ -1295,6 +1298,7 @@ function BlastCampaignCard({
           followup_day3_message,
           followup_day7_message,
           dispatch_mode,
+          opening_kind,
         },
       }),
     onSuccess: onChanged,
@@ -1383,6 +1387,7 @@ function BlastCampaignCard({
         followup_day3_message,
         followup_day7_message,
         dispatch_mode,
+        opening_kind,
       },
     }).then(() => stateMut.mutate("rodando", {
       onSuccess: async () => {
@@ -1441,6 +1446,7 @@ function BlastCampaignCard({
           followup_day3_message,
           followup_day7_message,
           dispatch_mode,
+          opening_kind,
         },
       });
       // Garante que a campanha esteja rodando (senão dispatcher ignora).
@@ -1666,6 +1672,64 @@ function BlastCampaignCard({
 
       <div className="space-y-3">
         {/* <VariationInfoCard /> — oculto a pedido */}
+        <div className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
+          <div>
+            <h4 className="font-semibold text-sm">Roteiro de abertura</h4>
+            <p className="text-xs text-muted-foreground">
+              Escolha qual script de mensagem inicial a campanha usa quando aborda o lead pela primeira vez.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {OPENING_KINDS.map((k) => {
+              const on = opening_kind === k.key;
+              return (
+                <button
+                  key={k.key}
+                  type="button"
+                  onClick={() => setOpeningKind(k.key)}
+                  title={
+                    (k.useVariations
+                      ? k.description
+                      : `${k.description}\n\n— Prévia —\n${templateParts(k).join("\n\n")}`)
+                  }
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ${
+                    on
+                      ? "border-primary bg-primary/15 text-foreground font-medium"
+                      : "border-border bg-card text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span>{k.emoji}</span>
+                  <span>{k.label}</span>
+                  {on && <span className="text-primary">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+          {(() => {
+            const k = getOpeningKind(opening_kind);
+            const parts = k.useVariations ? [] : templateParts(k);
+            return (
+              <div className="rounded border border-border/60 bg-background/60 p-3 space-y-2">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">{k.description}</p>
+                {parts.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Prévia das bolhas enviadas</p>
+                    {parts.map((p, i) => (
+                      <div key={i} className="rounded bg-muted/40 px-2 py-1.5 text-xs whitespace-pre-wrap">
+                        {p}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {k.allowResend && (
+                  <p className="text-[11px] text-warning">
+                    ⚠️ Este tipo <strong>permite reenvio</strong> para contatos já abordados em outras campanhas.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
         <div className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>

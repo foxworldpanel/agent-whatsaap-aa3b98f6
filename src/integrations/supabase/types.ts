@@ -455,6 +455,7 @@ export type Database = {
           id: string
           last_dispatch_at: string | null
           name: string
+          opening_kind: string
           opening_message: string
           start_time: string
           state: string
@@ -477,6 +478,7 @@ export type Database = {
           id?: string
           last_dispatch_at?: string | null
           name: string
+          opening_kind?: string
           opening_message?: string
           start_time?: string
           state?: string
@@ -499,6 +501,7 @@ export type Database = {
           id?: string
           last_dispatch_at?: string | null
           name?: string
+          opening_kind?: string
           opening_message?: string
           start_time?: string
           state?: string
