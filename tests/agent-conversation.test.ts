@@ -324,6 +324,38 @@ describe("8) Fechamento não prematuro (não se despede antes do painel)", () =>
   });
 });
 
+describe("8b) Não repete descoberta após 'já tem cadastro?'", () => {
+  it("prompt contém PROGRESSO DO FUNIL proibindo reperguntar rede/serviço/quantidade", () => {
+    const prompt = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "cliente", body: "quero views no youtube" },
+        { sender: "agente", body: "Pra começar sem compromisso, 1000 views sai R$10. Quer fechar com 1000?" },
+        { sender: "cliente", body: "começa com 1000, dando resultado eu fecho mais" },
+        { sender: "agente", body: "Perfeito! Você já tem cadastro no painel ou precisa criar agora?" },
+        { sender: "cliente", body: "tenho, não é o meu primeiro contato" },
+      ],
+      // Cenário RECEPTIVO (cliente iniciou) — regra precisa valer mesmo aqui,
+      // onde o EXEMPLO_MODELO_DISPARO está suprimido.
+      isInbound: true,
+      identity: MIND_BRAND_TEMPLATE,
+    });
+    expect(
+      /PROGRESSO DO FUNIL/i.test(prompt),
+      "FALHOU: regra PROGRESSO DO FUNIL ausente do prompt em conversa receptiva",
+    ).toBe(true);
+    expect(
+      /NUNCA REPETIR DESCOBERTA/i.test(prompt),
+      "FALHOU: proibição de reperguntar rede/serviço/quantidade ausente",
+    ).toBe(true);
+    expect(
+      /j[aá]\s+tem\s+cadastro/i.test(prompt) && /vai DIRETO/i.test(prompt),
+      "FALHOU: instrução de ir direto ao fechamento após 'já tem cadastro' ausente",
+    ).toBe(true);
+  });
+});
+
 describe("9) Auto-split de mensagens com \\n\\n", () => {
   it("resposta sem \\n\\n NÃO divide", () => {
     const single = "Show, qual seu objetivo?";
