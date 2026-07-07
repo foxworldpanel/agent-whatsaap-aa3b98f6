@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
+import { getOpeningKind, templateParts, OPENING_KINDS } from "@/lib/opening-kinds";
 
 const SEED_NAME = "Músicos e Artistas";
 const SEED_OPENING =
@@ -62,6 +63,9 @@ export const updateBlastCampaign = createServerFn({ method: "POST" })
         followup_day3_message: z.string().max(4000).optional(),
         followup_day7_message: z.string().max(4000).optional(),
         dispatch_mode: z.enum(["agente_livre", "fluxo_visual"]).optional(),
+        opening_kind: z
+          .enum(OPENING_KINDS.map((k) => k.key) as [string, ...string[]])
+          .optional(),
       })
       .parse(d),
   )
