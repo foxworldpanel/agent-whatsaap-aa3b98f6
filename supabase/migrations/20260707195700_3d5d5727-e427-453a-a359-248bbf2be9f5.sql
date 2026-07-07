@@ -1,0 +1,1 @@
+ALTER TABLE public.blast_campaigns ADD COLUMN IF NOT EXISTS opening_kind text NOT NULL DEFAULT 'instagram_frio';
