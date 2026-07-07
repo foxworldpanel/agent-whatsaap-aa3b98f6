@@ -522,6 +522,100 @@ describe("9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)", ()
 });
 
 // ---------------------------------------------------------------------------
+// 9c) Trava determinística de frequência de emoji (limitEmojiFrequency)
+// ---------------------------------------------------------------------------
+describe("9c) Trava determinística de emoji nas respostas do agente", () => {
+  it("detecta emojis básicos e sequências ZWJ / variation selector", () => {
+    expect(containsEmoji("Tudo bem 😊")).toBe(true);
+    expect(containsEmoji("Show 👍🏽")).toBe(true);
+    expect(containsEmoji("❤️ opa")).toBe(true);
+    expect(containsEmoji("Sem emoji aqui")).toBe(false);
+    expect(countEmojis("😊 oi 😊")).toBe(2);
+  });
+
+  it("stripEmojis remove emojis e não quebra pontuação", () => {
+    expect(stripEmojis("Tá bom! Qualquer coisa me chama 😊")).toBe(
+      "Tá bom! Qualquer coisa me chama",
+    );
+    expect(stripEmojis("De nada! Fico à disposição 😊")).toBe(
+      "De nada! Fico à disposição",
+    );
+  });
+
+  it("keepFirstEmojiOnly mantém só o primeiro emoji", () => {
+    expect(keepFirstEmojiOnly("Oi 😊 tudo bem 👍 show 🎉")).toBe(
+      "Oi 😊 tudo bem show",
+    );
+  });
+
+  it("remove emoji da resposta atual se a última resposta do agente tinha emoji", () => {
+    const reply = "De nada! Fico à disposição 😊";
+    const out = limitEmojiFrequency(reply, {
+      recentAgentBodies: ["Tá bom! Qualquer coisa me chama 😊"],
+    });
+    expect(containsEmoji(out)).toBe(false);
+    expect(out).toContain("Fico à disposição");
+  });
+
+  it("permite 1 emoji se nenhuma das últimas respostas tinha emoji", () => {
+    const reply = "Show! Bora fechar então 😊";
+    const out = limitEmojiFrequency(reply, {
+      recentAgentBodies: ["Perfeito, qual rede social você usa?", "Beleza, e a quantidade?"],
+    });
+    expect(out).toBe(reply);
+  });
+
+  it("mantém no máximo 1 emoji quando o modelo abusa (mesmo sem histórico com emoji)", () => {
+    const out = limitEmojiFrequency("Show 😊 muito bom 🎉 fechado 👍", {
+      recentAgentBodies: ["oi tudo bem?"],
+    });
+    expect(countEmojis(out)).toBe(1);
+  });
+
+  it("garante que emoji NUNCA aparece em 2 respostas consecutivas ao longo de uma conversa", () => {
+    // Simula 5 respostas do agente onde o modelo insiste em usar emoji toda vez.
+    const modelReplies = [
+      "Oi! Tudo bem? 😊",
+      "Show! E qual rede você usa? 😊",
+      "Perfeito, 1000 views sai R$10 👍",
+      "Beleza, te mando o link 🎉",
+      "Qualquer coisa me chama 😊",
+    ];
+    const sent: string[] = [];
+    for (const raw of modelReplies) {
+      const cleaned = limitEmojiFrequency(raw, { recentAgentBodies: sent, window: 3 });
+      sent.push(cleaned);
+    }
+    // Nenhum par consecutivo pode ter emoji.
+    for (let i = 1; i < sent.length; i++) {
+      const both = containsEmoji(sent[i - 1]) && containsEmoji(sent[i]);
+      expect(
+        both,
+        `FALHOU: emoji apareceu em 2 respostas seguidas: "${sent[i - 1]}" | "${sent[i]}"`,
+      ).toBe(false);
+    }
+  });
+
+  it("respeita EXCEÇÃO de abertura de disparo (não mexe no emoji)", () => {
+    const opening = "Oi Rômulo! 😊 vi seu perfil e curti demais 🎉";
+    const out = limitEmojiFrequency(opening, {
+      recentAgentBodies: ["msg anterior 😊"],
+      isBlastOpening: true,
+    });
+    expect(out).toBe(opening);
+  });
+
+  it("preserva marcador ===SPLIT=== ao limpar emojis", () => {
+    const reply = "Beleza, segue o link 😊===SPLIT===https://painel.exemplo.com 👍";
+    const out = limitEmojiFrequency(reply, {
+      recentAgentBodies: ["oi tudo bem? 😊"],
+    });
+    expect(out).toContain("===SPLIT===");
+    expect(containsEmoji(out)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 10) Objeção com "?" NUNCA é tratada como recusa
 // ---------------------------------------------------------------------------
 describe('10) "Não é golpe?" e afins — objeção, nunca encerramento', () => {
