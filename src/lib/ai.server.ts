@@ -224,7 +224,35 @@ const INTERNAL_MARKER_PATTERNS: RegExp[] = [
   /buildSharedRules/,
   /\[sistema\]/i,
   /system prompt/i,
+  // Rótulos de classificação/contexto ecoados pelo modelo como se fossem
+  // conteúdo. Formato "Chave: valor" com chaves internas. Ex.:
+  // "Categoria: vendas", "Urgência: alta", "Rede: YouTube", "Lead: quente".
+  /^\s*(rede|categoria|urg[eê]ncia|classifica[cç][aã]o|prioridade|contexto|lead|temperatura|tag|etiqueta|status)\s*:/i,
+  // Marcadores explícitos de "fato técnico"/prompt que o modelo por vezes ecoa.
+  /FATO T[ÉE]CNICO VERIFICADO/i,
+  /CONTEXTO PERSISTENTE DA CONVERSA/i,
 ];
+
+// Heurística: bolha curta (2–5 tokens) sem pontuação de frase, contendo
+// uma palavra em CAIXA ALTA (≥3 letras, provável nome próprio) + palavra
+// típica de rótulo interno (rede, urgência, tempo). Ex.: "YouTube FELIPE hoje",
+// "Instagram JOÃO urgente", "Spotify MARIA agora" — não são respostas
+// legítimas da Júlia, são rótulos de classificação vazando.
+function looksLikeInternalTagLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.length > 80) return false;
+  if (/[.!?,;]/.test(trimmed)) return false;
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens.length < 2 || tokens.length > 5) return false;
+  const CAPS_ALLOWLIST = new Set(["PIX", "CPF", "CNPJ", "MEI", "OK", "TTS", "IA", "SMM", "R$", "URL", "ID"]);
+  const hasAllCapsName = tokens.some(
+    (t) => /^[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]{3,}$/.test(t) && !CAPS_ALLOWLIST.has(t),
+  );
+  if (!hasAllCapsName) return false;
+  const TAG_WORDS = /^(hoje|ontem|agora|urgente|urg[êe]ncia|hj|agr|frio|morno|quente|lead|prioridade|alta|baixa|m[eé]dia|novo|antigo|rede|categoria|instagram|youtube|tiktok|spotify|kwai|facebook)$/i;
+  const hasTagWord = tokens.some((t) => TAG_WORDS.test(t));
+  return hasTagWord;
+}
 
 export function sanitizeSystemLeaks(
   reply: string,
@@ -238,7 +266,9 @@ export function sanitizeSystemLeaks(
   const cleanedParts = parts
     .map((part) => {
       const keptLines = part.split(/\n/).filter((line) => {
-        const hit = INTERNAL_MARKER_PATTERNS.some((rx) => rx.test(line));
+        const hit =
+          INTERNAL_MARKER_PATTERNS.some((rx) => rx.test(line)) ||
+          looksLikeInternalTagLine(line);
         if (hit) removed.push(line.trim());
         return !hit;
       });
