@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 import { limitEmojiFrequency } from "@/lib/emoji-limiter";
+import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
