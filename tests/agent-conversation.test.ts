@@ -99,6 +99,8 @@ async function callAgent(opts: {
   mockReply: string;
   freeTestServices?: Array<{ service_id: string; service_name: string; category: string; quantity: number }>;
   isInbound?: boolean;
+  imageBase64?: string | null;
+  imageMediaType?: string | null;
 }) {
   const fetchMock = mockAnthropic(opts.mockReply);
   vi.stubGlobal("fetch", fetchMock);
@@ -110,6 +112,8 @@ async function callAgent(opts: {
     isInbound: opts.isInbound ?? false,
     freeTestServices: opts.freeTestServices ?? [],
     userId: null,
+    imageBase64: opts.imageBase64 ?? null,
+    imageMediaType: opts.imageMediaType ?? null,
   });
   return { ...res, fetchMock };
 }
