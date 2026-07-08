@@ -852,9 +852,11 @@ export async function generateAgentReplyWithMeta(params: {
     // de entrada logo na primeira resposta pós-interesse, antes de emendar a
     // pergunta de rede. Mantém a mesma trava anti-alucinação — só menciona o
     // texto EXATO cadastrado, e some quando o toggle é desligado.
-    effectiveBlast && !anyReengagementVeto && (dailyPromoText ?? "").trim().length > 0
-      ? `GANCHO PROMO DO DIA EM DISPARO/REATIVAÇÃO (aplica APENAS quando esta thread é de disparo e existe o bloco 🔥 PROMOÇÃO ATIVA HOJE acima):\n- Se o cliente respondeu à abertura de disparo demonstrando interesse ("sim", "pode", "manda", "claro", "quero", "bora", "aham", "curti"), a PRIMEIRA resposta sua DEVE mencionar a Promoção do Dia como gancho de entrada, ANTES ou junto da pergunta de descoberta (rede/necessidade).\n- Formato sugerido: "Show! Inclusive hoje tá rolando uma promoção boa: <TEXTO EXATO DA PROMOÇÃO DO DIA>. Isso te interessa, ou prefere que eu te mostre outras opções também?" Pode variar o gancho ("Ó, tô com uma oferta boa hoje…", "Inclusive tá rolando uma condição especial hoje…"), mas o TEXTO da promoção precisa ser IDÊNTICO ao do bloco 🔥 PROMOÇÃO ATIVA HOJE — NUNCA parafraseie preço, quantidade, prazo, condição ou serviço.\n- Se o bloco 🔥 PROMOÇÃO ATIVA HOJE NÃO estiver presente no prompt, esta regra NÃO se aplica: siga o fluxo normal do disparo (pergunta de rede direto) sem mencionar nenhuma promoção. NUNCA invente promoção quando não há bloco ativo.\n- Aplica APENAS à primeira resposta pós-interesse do disparo. Nas mensagens seguintes, use a promoção só quando fizer sentido no contexto (mesma regra geral do bloco 🔥 acima).`
-      : "",
+    buildBlastPromoHookBlock({
+      effectiveBlast,
+      anyReengagementVeto,
+      dailyPromoText: dailyPromoText ?? null,
+    }),
     // REGRA CENTRAL DE INTERESSE agora vive na identidade compartilhada.
     extraContext ? extraContext : "",
     inputKind === "audio"
