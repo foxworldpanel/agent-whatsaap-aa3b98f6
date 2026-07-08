@@ -67,53 +67,7 @@ export const OPENING_KINDS: OpeningKind[] = [
       ],
     },
   },
-  {
-    key: "spotify_playlist_reativacao",
-    label: "Spotify — Reativação Playlist",
-    emoji: "🎵",
-    description:
-      'Reativação de leads que chegaram por campanha antiga do Spotify com o gatilho "Olá! Tenho interesse em divulgar minha música." A pergunta final menciona a Promoção do Dia ativa (aluguel de playlist) e, se não houver promoção ativa, cai no preço padrão sem citar promoção. Permite reenvio para quem já foi contactado antes.',
-    useVariations: true,
-    allowResend: true,
-    template: "",
-    variations: {
-      saudacoes: {
-        manha: ["Oi, bom dia!", "Olá, bom dia!", "Bom dia, tudo bem?"],
-        tarde: ["Oi, boa tarde!", "Olá, boa tarde!", "Boa tarde, tudo bem?"],
-        noite: ["Oi, boa noite!", "Olá, boa noite!", "Boa noite, tudo bem?"],
-      },
-      linha2: [
-        "Aqui é a Júlia, da Mind! Vi que você já demonstrou interesse em divulgar sua música com a gente.",
-        "Sou a Júlia, da Mind! Você chegou até a gente um tempo atrás querendo divulgar sua música.",
-        "Aqui é a Júlia! Lembrei de você que já tinha interesse em impulsionar sua música.",
-      ],
-      // Fallback (sem promoção ativa): preço padrão R$97, sem citar "promoção".
-      // Quando houver Promoção do Dia ativa, o dispatcher substitui essas
-      // perguntas pelas variantes de promo em `SPOTIFY_REATIVACAO_PERGUNTAS_PROMO`.
-      perguntas: [
-        "Trabalhamos com aluguel de playlist no Spotify: sua música em 10 playlists por 30 dias por R$97. Quer que eu te passe os detalhes?",
-        "A gente tem o aluguel de playlist no Spotify — 10 playlists por 30 dias, R$97. Bora conversar sobre?",
-        "Rodamos aluguel de playlist no Spotify: 10 playlists por 30 dias, R$97. Topa dar uma olhada?",
-      ],
-    },
-  },
 ];
-
-// Variações de pergunta final quando a Promoção do Dia está ativa.
-// {PRECO} é substituído em runtime pelo preço extraído do texto da promo.
-export const SPOTIFY_REATIVACAO_PERGUNTAS_PROMO: string[] = [
-  "Tá rolando uma promoção boa agora: aluguel de playlist no Spotify saindo por {PRECO} (era R$97). Sua música entra em 10 playlists por 30 dias. Bora aproveitar?",
-  "Surgiu uma condição especial: playlist no Spotify por {PRECO} ao invés de R$97, 10 playlists por 30 dias. Quer saber mais?",
-  "Tem uma promoção rolando: sua música em 10 playlists por 30 dias por {PRECO}. Topa dar uma olhada?",
-];
-
-// Extrai o primeiro preço no formato "R$ 49,90" / "R$49.90" do texto livre da
-// promoção do dia. Retorna null quando não encontra padrão reconhecível.
-export function extractPromoPrice(text: string | null | undefined): string | null {
-  if (!text) return null;
-  const m = text.match(/R\$\s*\d+(?:[.,]\d{2})?/i);
-  return m ? m[0].replace(/\s+/g, "") : null;
-}
 
 export function getOpeningKind(key: string | null | undefined): OpeningKind {
   return OPENING_KINDS.find((k) => k.key === key) ?? OPENING_KINDS[0];
