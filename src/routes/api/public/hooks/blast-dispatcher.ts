@@ -546,6 +546,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   last_sent_at: new Date().toISOString(),
                   last_variation_key: pick ? pick.key : next.contact.last_variation_key,
                   sent_via_number_id: numberRow.id,
+                  // Reset do contador para a próxima etapa (d3/d7) começar do 0.
+                  parts_sent: 0,
                 })
                 .eq("id", next.contact.id);
               await supabaseAdmin
