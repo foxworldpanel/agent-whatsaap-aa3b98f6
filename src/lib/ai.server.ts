@@ -412,6 +412,53 @@ export function guardFreeTrialOffer(params: {
   };
 }
 
+export const SPOTIFY_UNAVAILABLE_SAFE_REPLY =
+  "Esse serviço está passando por uma atualização no momento. No Spotify, hoje trabalhamos com aluguel de playlist e seguidores. Posso te mostrar essas opções?";
+
+const SPOTIFY_UNAVAILABLE_TOPIC_RX =
+  /\bplays?\b|\bplay\s*\+\s*(ouvintes?|listeners?)\b|\bouvintes?\b|\blisteners?\b|\bmonthly\s+listeners?\b|\bouvintes\s+mensais\b|\bsaves?\b|\bsalvamentos?\b|\bstreams?\b/i;
+const SPOTIFY_CONTEXT_RX = /spotify|open\.spotify\.com|spotify\.link|m[uú]sica|artista|playlist/i;
+const SPOTIFY_SALES_LEAK_RX =
+  /\br\$\s*\d|\b\d+[\s.]*(plays?|ouvintes?|listeners?|saves?|streams?)\b|\b(min[ií]mo|m[aá]ximo|pre[çc]o|valor|custa|sai|pacote|temos|trabalhamos|dispon[ií]vel|ativo|funcionando|entrega|por\s+dia|distribui|algoritmo|recomenda|reais|regi[aã]o|global|brasil|usa|eua)\b/i;
+
+function servicesContextHasActiveSpotifyRestrictedService(servicesContext?: string | null): boolean {
+  const ctx = servicesContext ?? "";
+  if (!ctx.trim()) return false;
+  return ctx
+    .split(/\n+/)
+    .some((line) => /spotify/i.test(line) && SPOTIFY_UNAVAILABLE_TOPIC_RX.test(line));
+}
+
+export function guardSpotifyUnavailableOffer(params: {
+  reply: string;
+  latestClientMessage?: string | null;
+  history?: Msg[];
+  servicesContext?: string | null;
+}): { text: string; replaced: boolean; reason?: string } {
+  const reply = params.reply ?? "";
+  if (!SPOTIFY_UNAVAILABLE_TOPIC_RX.test(reply)) return { text: reply, replaced: false };
+  if (servicesContextHasActiveSpotifyRestrictedService(params.servicesContext)) {
+    return { text: reply, replaced: false };
+  }
+
+  const recentConversation = [
+    params.latestClientMessage ?? "",
+    ...(params.history ?? []).slice(-8).map((m) => m.body ?? ""),
+  ].join("\n");
+  const spotifyContext = SPOTIFY_CONTEXT_RX.test(`${reply}\n${recentConversation}`);
+  if (!spotifyContext) return { text: reply, replaced: false };
+
+  const latestClientAskedRestricted = SPOTIFY_UNAVAILABLE_TOPIC_RX.test(params.latestClientMessage ?? "");
+  const salesLeak = SPOTIFY_SALES_LEAK_RX.test(reply);
+  if (!latestClientAskedRestricted && !salesLeak) return { text: reply, replaced: false };
+
+  return {
+    text: SPOTIFY_UNAVAILABLE_SAFE_REPLY,
+    replaced: true,
+    reason: "spotify_restricted_service_unavailable",
+  };
+}
+
 function pickScript(cfg: AgentConfig, perfil: Contact["perfil"]): string {
   return perfil === "ativo"
     ? cfg.script_ativo

@@ -12,9 +12,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   generateAgentReplyWithMeta,
   guardFreeTrialOffer,
+  guardSpotifyUnavailableOffer,
   humanizePunctuation,
   buildSystemPrompt,
   sanitizeSystemLeaks,
+  SPOTIFY_UNAVAILABLE_SAFE_REPLY,
 } from "@/lib/ai.server";
 import {
   isReengagementGreeting,
