@@ -803,6 +803,18 @@ function ExtractionPanel({
                 </select>
               )}
             </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={sendMetaAds} onChange={(e) => setSendMetaAds(e.target.checked)} />
+                <span className="inline-flex items-center gap-1">
+                  <Megaphone className="h-4 w-4 text-primary" />
+                  Enviar também para a lista <strong>Meta Ads</strong> (menu Disparos)
+                </span>
+              </label>
+              <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                Os contatos ficam disponíveis na lista de disparo Meta Ads pra usar na campanha “Meta Ads — Reativação”. Duplicados já existentes são ignorados.
+              </p>
+            </div>
             <div className="mt-auto flex gap-2 border-t border-border pt-4">
               <button onClick={() => setShowOptions(false)}
                 className="rounded-lg border border-border bg-card px-4 py-2.5 text-sm hover:bg-muted">Voltar</button>
