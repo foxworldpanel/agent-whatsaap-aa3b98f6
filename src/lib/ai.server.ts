@@ -438,7 +438,39 @@ function selectActiveModules(
     // definido na instrução base, sem forçar "bom dia/boa tarde/boa noite".
     if (k === "tom_horario") return false;
     return wanted.has(k);
-  });
+  }).map(([k, v]) => [k, stripEmojiRuleDuplicates(k, v)] as [string, string]);
+}
+
+// ETAPA 1 — dedup fonte única de emoji. A regra canônica vive em
+// identity.regra_emoji (buildSharedRules, topo do prompt) + trava
+// determinística limitEmojiFrequency. Qualquer instrução sobre EMOJI
+// que o usuário tenha escrito dentro de módulos editáveis (ex.:
+// regras_gerais) é redundante e infla token — removemos parágrafos que
+// mencionam "emoji" antes de injetar. Preserva o resto do módulo.
+// Identidade NÃO passa por aqui (não é módulo, é bloco compartilhado).
+const EMOJI_MENTION_RE = /emoji|emojis/i;
+export function stripEmojiRuleDuplicates(moduleKey: string, content: string): string {
+  if (!content) return content;
+  // Split por parágrafo (linha em branco). Se um parágrafo menciona emoji,
+  // dropamos ele inteiro — evita meia-frase órfã.
+  const paragraphs = content.split(/\n\s*\n/);
+  const kept: string[] = [];
+  let dropped = 0;
+  for (const p of paragraphs) {
+    if (EMOJI_MENTION_RE.test(p)) {
+      dropped++;
+      continue;
+    }
+    kept.push(p);
+  }
+  if (dropped > 0) {
+    console.info("[dedup-emoji] paragraphs stripped from module", {
+      module: moduleKey,
+      dropped,
+      keptChars: kept.join("\n\n").length,
+    });
+  }
+  return kept.join("\n\n");
 }
 
 // Detecta o contexto principal da conversa com base na última mensagem
