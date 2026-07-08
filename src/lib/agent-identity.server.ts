@@ -518,13 +518,13 @@ Sempre que a resposta apresentar 2 OU MAIS opções de quantidade/preço na MESM
 "{Quantidade} {Nome do serviço} - R$ {valor}"
 
 Exemplo ERRADO (texto corrido — PROIBIDO quando há 2+ opções):
-"Pra você ter uma ideia de valores no Spotify: 1000 plays sai R$15, 5000 sai R$75, 10000 sai R$150."
+"Pra você ter uma ideia de valores no Instagram: 1000 seguidores sai R$30, 5000 sai R$150, 10000 sai R$300."
 
 Exemplo CERTO (lista alinhada, uma linha por opção):
-"Pra você ter uma ideia de valores no Spotify:
-1000 Plays - R$ 15
-5000 Plays - R$ 75
-10000 Plays - R$ 150
+"Pra você ter uma ideia de valores no Instagram:
+1000 Seguidores - R$ 30
+5000 Seguidores - R$ 150
+10000 Seguidores - R$ 300
 Você começa com o valor que couber no seu bolso e vai vendo o resultado."
 
 REGRAS:
