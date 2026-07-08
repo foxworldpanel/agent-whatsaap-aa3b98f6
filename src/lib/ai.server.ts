@@ -565,9 +565,9 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
     (() => {
       const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
       if (!Array.isArray(faqs) || faqs.length === 0) return "";
-      const sel = selectRelevantFaqs(faqs, latestClientMessage);
+      const sel = selectRelevantFaqs(faqs as Array<{ q: string; a: string }>, latestClientMessage);
       if (sel.length === 0) return "";
-      return `FAQ (${sel.length}/${faqs.length}):\n${sel.map((f) => `- ${f.q} → ${f.a}`).join("\n")}`;
+      return `FAQ (${sel.length}/${faqs.length}):\n${sel.map((f: { q: string; a: string }) => `- ${f.q} → ${f.a}`).join("\n")}`;
     })(),
     servicesContext
       ? `CATÁLOGO DE SERVIÇOS DO PAINEL (atualizado agora). Formato:\nID: <id> | Nome: <nome> | Categoria: <cat> | Preço por 1000: R$<rate> | MÍNIMO: <min> | MÁXIMO: <max>\n\n${servicesContext}\n\nREGRAS DE PREÇO: SEMPRE consulte MÍNIMO antes de informar quantidade. Se cliente pedir abaixo do MÍNIMO, ofereça o MÍNIMO.`
