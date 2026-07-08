@@ -2478,9 +2478,16 @@ function ContactListsSection() {
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
-  // Base de disparo: NÃO inclui listas de Meta Ads.
-  // Meta Ads é carregado separadamente quando o usuário decidir mudar de campanha.
-  const sortedLists = [...lists].filter((l) => l.origem !== "meta_ads");
+  // Base de disparo: inclui TODAS as listas (Instagram + Meta Ads), pra que a lista
+  // Meta Ads extraída apareça no painel e permita analisar o disparo.
+  const sortedLists = [...lists].sort((a, b) => {
+    // Instagram primeiro (mantém o card "Importar Contatos" apontando pra ele),
+    // Meta Ads depois — mas ambos aparecem no ListsContactsPanel abaixo.
+    if (a.origem === b.origem) return 0;
+    if (a.origem === "meta_ads") return 1;
+    if (b.origem === "meta_ads") return -1;
+    return 0;
+  });
 
   // Visão geral agregada (Lista A + Lista B)
   const overview = sortedLists.reduce(
