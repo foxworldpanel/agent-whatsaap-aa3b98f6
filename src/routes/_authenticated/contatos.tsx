@@ -398,6 +398,23 @@ function Contatos() {
                 );
               })}
             </FilterRow>
+
+            {catMap.categorias.length > 0 && (
+              <FilterRow label="Categoria">
+                {catMap.categorias
+                  .filter((cat) => Object.values(catMap.byPhone).includes(cat.id))
+                  .map((cat) => {
+                    const active = categoriaFilter.has(cat.id);
+                    const count = Object.values(catMap.byPhone).filter((id) => id === cat.id).length;
+                    return (
+                      <FilterChip key={cat.id} active={active} onClick={() => toggleSet(setCategoriaFilter, cat.id)}>
+                        <span>{cat.icone}</span> {cat.nome}
+                        <span className="ml-1 text-[10px] opacity-70">({count})</span>
+                      </FilterChip>
+                    );
+                  })}
+              </FilterRow>
+            )}
           </div>
 
           {/* Bulk actions bar */}
