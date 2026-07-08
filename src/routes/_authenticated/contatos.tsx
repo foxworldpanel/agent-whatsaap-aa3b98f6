@@ -405,7 +405,7 @@ function Contatos() {
                   return match ? n + 1 : n;
                 }, 0);
                 return (
-                  <FilterChip key={o.key} active={active} onClick={() => toggleSet(setOrigemFilter, o.key)}>
+                  <FilterChip key={o.key} active={active} onClick={() => toggleSet<string>(setOrigemFilter, o.key)}>
                     <span>{o.emoji}</span> {o.label}
                     <span className="ml-1 text-[10px] opacity-70">({count})</span>
                   </FilterChip>
