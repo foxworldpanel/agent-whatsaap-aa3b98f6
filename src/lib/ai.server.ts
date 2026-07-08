@@ -1,6 +1,25 @@
 // Server-only Claude (Anthropic) call to generate the agent reply.
 import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks, mergeIdentity, type AgentBrandBlocks } from "@/lib/agent-identity.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
+import { selectRelevantKnowledge } from "@/lib/kb-relevance";
+
+// ETAPA 4 — FAQ sob demanda. Reaproveita o scoring keyword-based do KB
+// (mesma taxonomia de tópicos + overlap de tokens). Trata a pergunta da
+// FAQ como "context" e a resposta como "content" (é onde o vocabulário
+// específico costuma estar). Cap default 5 FAQs (mais que isso vira ruído).
+export function selectRelevantFaqs(
+  faqs: Array<{ q: string; a: string }>,
+  latestClientMessage: string,
+  max = 5,
+): Array<{ q: string; a: string }> {
+  if (!Array.isArray(faqs) || faqs.length === 0) return [];
+  const rows = faqs.map((f) => ({ context: f.q, content: `${f.q}\n${f.a}` }));
+  const sel = selectRelevantKnowledge(rows, latestClientMessage, { max });
+  if (sel.selected.length === 0) return [];
+  // Reconstroi ordem preservada + mapeia de volta pro par original.
+  const selectedQuestions = new Set(sel.selected.map((r) => r.context));
+  return faqs.filter((f) => selectedQuestions.has(f.q)).slice(0, max);
+}
 
 type AgentConfig = {
   agent_name: string;
@@ -564,9 +583,10 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
     agent.how_it_works ? `COMO FUNCIONA O PAINEL:\n${agent.how_it_works}` : "",
     (() => {
       const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
-      return Array.isArray(faqs) && faqs.length > 0
-        ? `FAQ (${faqs.length}):\n${faqs.map((f) => `- ${f.q} → ${f.a}`).join("\n")}`
-        : "";
+      if (!Array.isArray(faqs) || faqs.length === 0) return "";
+      const sel = selectRelevantFaqs(faqs as Array<{ q: string; a: string }>, latestClientMessage);
+      if (sel.length === 0) return "";
+      return `FAQ (${sel.length}/${faqs.length}):\n${sel.map((f: { q: string; a: string }) => `- ${f.q} → ${f.a}`).join("\n")}`;
     })(),
     servicesContext
       ? `CATÁLOGO DE SERVIÇOS DO PAINEL (atualizado agora). Formato:\nID: <id> | Nome: <nome> | Categoria: <cat> | Preço por 1000: R$<rate> | MÍNIMO: <min> | MÁXIMO: <max>\n\n${servicesContext}\n\nREGRAS DE PREÇO: SEMPRE consulte MÍNIMO antes de informar quantidade. Se cliente pedir abaixo do MÍNIMO, ofereça o MÍNIMO.`
@@ -868,9 +888,12 @@ export async function generateAgentReplyWithMeta(params: {
     })(),
     (() => {
       const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
-      return Array.isArray(faqs) && faqs.length > 0
-        ? `FAQ INTERNO — APENAS PARA VOCÊ ENTENDER COMO A MIND FUNCIONA. NÃO é fonte de resposta.\n${faqs.map((f) => `- ${f.q} → ${f.a}`).join("\n")}\n\nRegras OBRIGATÓRIAS sobre o FAQ:\n1. USE este FAQ SOMENTE quando o cliente perguntar especificamente sobre o funcionamento da plataforma MIND (como cadastrar, como funciona o painel, o que é serviço, como pagar, etc.).\n2. NUNCA use o FAQ para responder perguntas que não são sobre o funcionamento da MIND. Exemplos do que NÃO responder com FAQ: "qual seu nome?", "tudo bem?", "oi", "você é robô?", saudações, conversas pessoais — nessas, responda naturalmente sem mencionar a plataforma.\n3. NUNCA copie o texto literal do FAQ. Reformule com suas palavras, curto e humano (máx 2 linhas).\n4. Se o cliente disse SIM, avance — não repita explicação anterior.`
-        : "";
+      if (!Array.isArray(faqs) || faqs.length === 0) return "";
+      const sel = selectRelevantFaqs(faqs, latestClientMessage);
+      if (sel.length === 0) return "";
+      // ETAPA 4 — só entra as FAQs relevantes; preâmbulo enxuto (o filtro
+      // determinístico já eliminou o risco que o LLM assumia antes).
+      return `FAQ INTERNO (${sel.length}/${faqs.length} — pré-filtradas por relevância à pergunta atual):\n${sel.map((f) => `- ${f.q} → ${f.a}`).join("\n")}\n\nRegras:\n1. Reformule com suas palavras, curto e humano (máx 2 linhas).\n2. Se nenhuma das FAQs acima realmente responde a pergunta, IGNORE e responda naturalmente.\n3. Nunca copie literalmente.`;
     })(),
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
     `QUEM PROCESSA O PEDIDO É O CLIENTE (regra absoluta):\n- VOCÊ NUNCA pede link "para processar o pedido". Quem faz o pedido é o CLIENTE, dentro do painel: ele adiciona saldo, escolhe o serviço, cola o link e confirma.\n- Quando o cliente disser que está comprando, fazendo PIX, cadastrando ou adicionando saldo, responda exatamente nesse tom: "Ótimo! Quando o saldo cair na conta é só escolher o serviço no painel, colar o link do seu vídeo e confirmar. Qualquer dúvida me chama!"\n- PROIBIDO dizer: "me manda o link que eu processo pra você", "me passa o link que eu faço o pedido", "manda o link aqui que eu cuido". Você NUNCA processa pedido manualmente.\n- A única situação em que você pede link é para TESTE GRÁTIS (regra própria abaixo) — nunca para pedido pago.`,
