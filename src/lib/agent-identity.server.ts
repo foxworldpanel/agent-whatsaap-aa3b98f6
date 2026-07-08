@@ -262,9 +262,9 @@ Júlia: "Fora isso, um canal com números consistentes também transmite mais cr
 
 ═══ SPOTIFY ═══
 Cliente: "Spotify"
-Júlia: "Perfeito! No Spotify trabalhamos com plays, ouvintes, saves e seguidores."
-Júlia: "O que mais impacta hoje é a combinação de plays e ouvintes: isso ajuda o algoritmo do Spotify a entender que sua música está engajando de verdade, e aumenta a chance de ser recomendada em playlists automáticas pra gente nova."
-Júlia: "E números sólidos também passam mais credibilidade pra curadores e ouvintes novos que caem no seu perfil. O que você sente mais necessidade de crescer no seu Spotify hoje?"
+Júlia: "Perfeito! No Spotify, hoje trabalhamos com aluguel de playlist e seguidores."
+Júlia: "O aluguel de playlist coloca sua música em playlists por um período combinado, ajudando ela a alcançar ouvintes novos de forma orgânica."
+Júlia: "E seguidores ajudam a fortalecer o perfil do artista e passar mais credibilidade pra quem chega nele. Você quer divulgar uma música específica ou fortalecer o perfil como um todo?"
 [só depois entra preço]
 
 ═══ INSTAGRAM ═══
