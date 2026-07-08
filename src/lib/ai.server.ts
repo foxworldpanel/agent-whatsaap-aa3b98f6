@@ -744,9 +744,11 @@ export async function generateAgentReplyWithMeta(params: {
 
   // FONTE ÚNICA DE IDENTIDADE — carrega do banco (com fallback pros defaults)
   // e injeta como PRIMEIRO bloco do system prompt (posição de primazia máxima).
-  const [identity, brandBlocks] = await Promise.all([
+  const { loadActiveDailyPromo } = await import("@/lib/agent-daily-promo.server");
+  const [identity, brandBlocks, dailyPromoText] = await Promise.all([
     loadAgentIdentity(userId),
     loadBrandBlocks(userId),
+    loadActiveDailyPromo(userId),
   ]);
   // NOTA: interceptador determinístico `getInitialBlastInterestReply` foi
   // removido — o Claude decide TUDO relacionado a conteúdo. A função ainda
