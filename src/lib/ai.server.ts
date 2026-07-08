@@ -413,7 +413,7 @@ export function guardFreeTrialOffer(params: {
 }
 
 export const SPOTIFY_UNAVAILABLE_SAFE_REPLY =
-  "Esse serviço está passando por uma atualização no momento. No Spotify, hoje trabalhamos com aluguel de playlist e seguidores. Posso te mostrar essas opções?";
+  "No Spotify, hoje a gente entrega plays e ouvintes através do aluguel de playlist 😊 Funciona assim: você escolhe quantas músicas quer divulgar, a gente insere elas em playlists reais e ativas, e durante o período contratado sua música recebe exposição pros ouvintes dessas playlists. Quantas músicas você pretende divulgar?";
 
 const SPOTIFY_UNAVAILABLE_TOPIC_RX =
   /\bplays?\b|\bplay\s*\+\s*(ouvintes?|listeners?)\b|\bouvintes?\b|\blisteners?\b|\bmonthly\s+listeners?\b|\bouvintes\s+mensais\b|\bsaves?\b|\bsalvamentos?\b|\bstreams?\b/i;
@@ -452,6 +452,15 @@ export function guardSpotifyUnavailableOffer(params: {
 
   const salesLeak = SPOTIFY_SALES_LEAK_RX.test(reply);
   if (!latestClientAskedRestricted && !salesLeak) return { text: reply, replaced: false };
+
+  // Se a resposta já redireciona pro serviço disponível (aluguel de
+  // playlist) SEM vazar quantidade/preço de plays/ouvintes, deixa passar.
+  // Isso evita substituir explicações consultivas legítimas ("plays
+  // chegam via aluguel de playlist, funciona assim...") pelo canned.
+  const redirectsToPlaylistRental = /playlist|aluguel/i.test(reply);
+  if (redirectsToPlaylistRental && !salesLeak) {
+    return { text: reply, replaced: false };
+  }
 
   return {
     text: SPOTIFY_UNAVAILABLE_SAFE_REPLY,
