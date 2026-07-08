@@ -646,6 +646,7 @@ type BlastContact = {
   status: string;
   last_sent_at: string | null;
   last_variation_key: string | null;
+  parts_sent?: number | null;
 };
 
 async function pickNext(
@@ -681,7 +682,7 @@ async function pickNext(
       ? q.eq("contact_list_id", camp.contact_list_id)
       : q.eq("campaign_id", camp.id);
 
-  const SELECT = "id, nome, telefone, instagram, status, last_sent_at, last_variation_key";
+  const SELECT = "id, nome, telefone, instagram, status, last_sent_at, last_variation_key, parts_sent";
   const baseQ = () => {
     if (useCats) {
       return admin
