@@ -194,14 +194,14 @@ export const importBlastContacts = createServerFn({ method: "POST" })
       return true;
     });
 
-    // 3) dedup against existing blast_contacts in same campaign
+    // 3) dedup against ALL existing blast_contacts of this user (global rule).
+    //    Um número já presente em qualquer campanha/lista NUNCA é reenviado.
     let dupExisting = 0;
     if (uniq.length > 0) {
       const { data: existing } = await context.supabase
         .from("blast_contacts")
         .select("telefone")
         .eq("user_id", context.userId)
-        .eq("campaign_id", data.campaignId)
         .in("telefone", uniq.map((r) => r.telefone));
       const exSet = new Set((existing ?? []).map((r) => r.telefone as string));
       const filtered = uniq.filter((r) => {

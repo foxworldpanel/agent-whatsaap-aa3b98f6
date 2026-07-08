@@ -99,10 +99,15 @@ function Contatos() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [search, setSearch] = useState("");
-  const [origemFilter, setOrigemFilter] = useState<Set<Origem>>(new Set());
+  // Origem chips agora são baseados em categoria (slug), não mais no campo
+  // legado `source` do contato. Chaves possíveis:
+  //   "meta_ads_all"     → qualquer categoria cujo slug começa com "meta_ads"
+  //   "meta_ads_spotify" → slug === "meta_ads_spotify"
+  //   "meta_ads_youtube" → slug === "meta_ads_youtube"
+  //   "instagram_csv"    → slug === "lead_instagram"
+  const [origemFilter, setOrigemFilter] = useState<Set<string>>(new Set());
   const [tempFilter, setTempFilter] = useState<Set<Temperatura>>(new Set());
   const [statusFilter, setStatusFilter] = useState<Set<StatusCRM>>(new Set());
-  const [categoriaFilter, setCategoriaFilter] = useState<Set<string>>(new Set());
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"table" | "kanban">("table");
@@ -180,30 +185,45 @@ function Contatos() {
     return m;
   }, [groupData.members]);
 
+  // Build a map: contact phone -> categoria slug (via byPhone + categorias)
+  const slugByPhone = useMemo(() => {
+    const bySlug: Record<string, string> = {};
+    for (const c of catMap.categorias) bySlug[c.id] = c.slug;
+    const out: Record<string, string> = {};
+    for (const [phone, cid] of Object.entries(catMap.byPhone)) {
+      const s = bySlug[cid];
+      if (s) out[phone] = s;
+    }
+    return out;
+  }, [catMap.categorias, catMap.byPhone]);
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return contacts.filter((c) => {
       if (activeGroup && !membersByContact.get(c.id)?.has(activeGroup)) return false;
       if (origemFilter.size > 0) {
-        const o = normOrigem(c.source);
-        if (!o || !origemFilter.has(o)) return false;
+        const slug = slugByPhone[c.telefone] ?? null;
+        const legacy = normOrigem(c.source);
+        const matches = (
+          (origemFilter.has("meta_ads_all")     && ((slug?.startsWith("meta_ads")) || legacy === "meta_ads")) ||
+          (origemFilter.has("meta_ads_spotify") && slug === "meta_ads_spotify") ||
+          (origemFilter.has("meta_ads_youtube") && slug === "meta_ads_youtube") ||
+          (origemFilter.has("instagram_csv")    && (slug === "lead_instagram" || legacy === "instagram_csv"))
+        );
+        if (!matches) return false;
       }
       if (tempFilter.size > 0) {
         const t = (c.temperatura ?? "frio") as Temperatura;
         if (!tempFilter.has(t)) return false;
       }
       if (statusFilter.size > 0 && !statusFilter.has(c.status as StatusCRM)) return false;
-      if (categoriaFilter.size > 0) {
-        const cid = catMap.byPhone[c.telefone];
-        if (!cid || !categoriaFilter.has(cid)) return false;
-      }
       if (s) {
         const hay = `${c.nome} ${c.telefone} ${c.instagram ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
       return true;
     });
-  }, [contacts, activeGroup, membersByContact, origemFilter, tempFilter, statusFilter, categoriaFilter, catMap.byPhone, search]);
+  }, [contacts, activeGroup, membersByContact, origemFilter, slugByPhone, tempFilter, statusFilter, search]);
 
   function toggleSet<T>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) {
     setter((prev) => {
@@ -367,11 +387,27 @@ function Contatos() {
             </div>
 
             <FilterRow label="Origem">
-              {(Object.keys(origemMeta) as Origem[]).map((o) => {
-                const active = origemFilter.has(o);
+              {([
+                { key: "meta_ads_all",     label: "Meta Ads (Todos)",  emoji: "📣" },
+                { key: "meta_ads_spotify", label: "Meta Ads - Spotify", emoji: "🎵" },
+                { key: "meta_ads_youtube", label: "Meta Ads - YouTube", emoji: "📺" },
+                { key: "instagram_csv",    label: "Instagram (CSV)",    emoji: "📱" },
+              ] as const).map((o) => {
+                const active = origemFilter.has(o.key);
+                const count = contacts.reduce((n, c) => {
+                  const slug = slugByPhone[c.telefone] ?? null;
+                  const legacy = normOrigem(c.source);
+                  const match =
+                    (o.key === "meta_ads_all"     && ((slug?.startsWith("meta_ads")) || legacy === "meta_ads")) ||
+                    (o.key === "meta_ads_spotify" && slug === "meta_ads_spotify") ||
+                    (o.key === "meta_ads_youtube" && slug === "meta_ads_youtube") ||
+                    (o.key === "instagram_csv"    && (slug === "lead_instagram" || legacy === "instagram_csv"));
+                  return match ? n + 1 : n;
+                }, 0);
                 return (
-                  <FilterChip key={o} active={active} onClick={() => toggleSet(setOrigemFilter, o)}>
-                    <span>{origemMeta[o].emoji}</span> {origemMeta[o].label}
+                  <FilterChip key={o.key} active={active} onClick={() => toggleSet<string>(setOrigemFilter, o.key)}>
+                    <span>{o.emoji}</span> {o.label}
+                    <span className="ml-1 text-[10px] opacity-70">({count})</span>
                   </FilterChip>
                 );
               })}
@@ -399,22 +435,6 @@ function Contatos() {
               })}
             </FilterRow>
 
-            {catMap.categorias.length > 0 && (
-              <FilterRow label="Categoria">
-                {catMap.categorias
-                  .filter((cat) => Object.values(catMap.byPhone).includes(cat.id))
-                  .map((cat) => {
-                    const active = categoriaFilter.has(cat.id);
-                    const count = Object.values(catMap.byPhone).filter((id) => id === cat.id).length;
-                    return (
-                      <FilterChip key={cat.id} active={active} onClick={() => toggleSet(setCategoriaFilter, cat.id)}>
-                        <span>{cat.icone}</span> {cat.nome}
-                        <span className="ml-1 text-[10px] opacity-70">({count})</span>
-                      </FilterChip>
-                    );
-                  })}
-              </FilterRow>
-            )}
           </div>
 
           {/* Bulk actions bar */}
