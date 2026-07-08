@@ -153,6 +153,14 @@ type BuildSharedRulesCtx = {
    * demonstrou ignorar o veto quando o script concreto compete por atenção.
    */
   suppressExemploDisparo?: boolean;
+  /**
+   * Texto da "Promoção do Dia" ativa (workspace-scoped). Quando presente,
+   * injeta o bloco 🔥 PROMOÇÃO ATIVA HOJE no prompt com trava anti-invenção
+   * ("nunca invente outra promoção além dessa"). Quando null/vazio,
+   * NENHUM bloco é injetado — a Júlia mantém a regra normal de "nunca
+   * dar desconto manual".
+   */
+  dailyPromoText?: string | null;
 };
 
 export type AgentBrandBlocks = {
@@ -559,6 +567,11 @@ export function buildSharedRules(
     REGRA_SUPORTE_PROBLEMA_BLOCK,
     REGRA_FORMATO_LISTA_PRECOS_BLOCK,
     REGRA_MUSICA_NAO_DISTRIBUIDA_BLOCK,
+    (() => {
+      const t = (ctx.dailyPromoText ?? "").trim();
+      if (t.length === 0) return "";
+      return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta. Se esta promoção não estiver no bloco (bloco ausente do prompt), NUNCA mencione nenhuma promoção — mantém a regra normal de "nunca dar desconto manual".`;
+    })(),
     buildRegraFechamentoTutorialBlock(ctx.minRechargeBRL ?? 5),
     `============ FIM DA IDENTIDADE ============`,
   ]
