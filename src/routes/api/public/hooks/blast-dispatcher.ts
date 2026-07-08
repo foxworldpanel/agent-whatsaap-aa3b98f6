@@ -293,9 +293,20 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const useFixedKindTemplate =
               next.stage === "opening" && !kind.useVariations && kind.template.length > 0;
 
-            // Carrega templates editáveis do usuário
+            // Carrega templates. Se o kind trouxer seu próprio pack de
+            // variações (ex.: Meta Ads reativação), usa esse pack em PT e
+            // ignora o opening_templates do usuário (que é dedicado ao
+            // Instagram frio). Caso contrário, carrega o editável do usuário.
             let templates = DEFAULT_TEMPLATES;
-            if (useVariacao) {
+            const kindHasOwnPack = useVariacao && !!kind.variations;
+            if (kindHasOwnPack) {
+              const pack = kind.variations!;
+              templates = {
+                saudacoes: pack.saudacoes,
+                linha2: pack.linha2,
+                perguntas: pack.perguntas,
+              } as typeof DEFAULT_TEMPLATES;
+            } else if (useVariacao) {
               const { data: tplRow } = await supabaseAdmin
                 .from("opening_templates")
                 .select(
@@ -321,7 +332,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               avoidSaudacaoIdx = saudacaoIdxFromKey(lastSent?.[0]?.last_variation_key ?? null);
             }
 
-            const language = useVariacao
+            const language = useVariacao && !kindHasOwnPack
               ? detectLanguageFromPhone(
                   next.contact.telefone,
                   templates.ddiMap ?? DEFAULT_DDI_LANGUAGE_MAP,
