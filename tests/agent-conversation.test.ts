@@ -26,7 +26,7 @@ import {
   enforceReengagementGreeting,
   pickReengagementGreeting,
 } from "@/lib/ai.server";
-import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
+import { MIND_BRAND_BLOCKS, MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 import {
   containsEmoji,
@@ -285,6 +285,7 @@ describe("4.1) Spotify plays/ouvintes/saves indisponíveis", () => {
       contact: baseContact(),
       history: [{ sender: "cliente", body: "Spotify" }],
       identity: MIND_BRAND_TEMPLATE,
+      brandBlocks: MIND_BRAND_BLOCKS,
     });
     expect(prompt).not.toMatch(/No Spotify trabalhamos com plays, ouvintes, saves/i);
   });

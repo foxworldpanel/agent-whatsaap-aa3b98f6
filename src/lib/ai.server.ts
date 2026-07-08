@@ -436,7 +436,9 @@ export function guardSpotifyUnavailableOffer(params: {
   servicesContext?: string | null;
 }): { text: string; replaced: boolean; reason?: string } {
   const reply = params.reply ?? "";
-  if (!SPOTIFY_UNAVAILABLE_TOPIC_RX.test(reply)) return { text: reply, replaced: false };
+  const latestClientAskedRestricted = SPOTIFY_UNAVAILABLE_TOPIC_RX.test(params.latestClientMessage ?? "");
+  const replyMentionsRestricted = SPOTIFY_UNAVAILABLE_TOPIC_RX.test(reply);
+  if (!replyMentionsRestricted && !latestClientAskedRestricted) return { text: reply, replaced: false };
   if (servicesContextHasActiveSpotifyRestrictedService(params.servicesContext)) {
     return { text: reply, replaced: false };
   }
@@ -448,7 +450,6 @@ export function guardSpotifyUnavailableOffer(params: {
   const spotifyContext = SPOTIFY_CONTEXT_RX.test(`${reply}\n${recentConversation}`);
   if (!spotifyContext) return { text: reply, replaced: false };
 
-  const latestClientAskedRestricted = SPOTIFY_UNAVAILABLE_TOPIC_RX.test(params.latestClientMessage ?? "");
   const salesLeak = SPOTIFY_SALES_LEAK_RX.test(reply);
   if (!latestClientAskedRestricted && !salesLeak) return { text: reply, replaced: false };
 
