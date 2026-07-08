@@ -387,11 +387,27 @@ function Contatos() {
             </div>
 
             <FilterRow label="Origem">
-              {(Object.keys(origemMeta) as Origem[]).map((o) => {
-                const active = origemFilter.has(o);
+              {([
+                { key: "meta_ads_all",     label: "Meta Ads (Todos)",  emoji: "📣" },
+                { key: "meta_ads_spotify", label: "Meta Ads - Spotify", emoji: "🎵" },
+                { key: "meta_ads_youtube", label: "Meta Ads - YouTube", emoji: "📺" },
+                { key: "instagram_csv",    label: "Instagram (CSV)",    emoji: "📱" },
+              ] as const).map((o) => {
+                const active = origemFilter.has(o.key);
+                const count = contacts.reduce((n, c) => {
+                  const slug = slugByPhone[c.telefone] ?? null;
+                  const legacy = normOrigem(c.source);
+                  const match =
+                    (o.key === "meta_ads_all"     && ((slug?.startsWith("meta_ads")) || legacy === "meta_ads")) ||
+                    (o.key === "meta_ads_spotify" && slug === "meta_ads_spotify") ||
+                    (o.key === "meta_ads_youtube" && slug === "meta_ads_youtube") ||
+                    (o.key === "instagram_csv"    && (slug === "lead_instagram" || legacy === "instagram_csv"));
+                  return match ? n + 1 : n;
+                }, 0);
                 return (
-                  <FilterChip key={o} active={active} onClick={() => toggleSet(setOrigemFilter, o)}>
-                    <span>{origemMeta[o].emoji}</span> {origemMeta[o].label}
+                  <FilterChip key={o.key} active={active} onClick={() => toggleSet(setOrigemFilter, o.key)}>
+                    <span>{o.emoji}</span> {o.label}
+                    <span className="ml-1 text-[10px] opacity-70">({count})</span>
                   </FilterChip>
                 );
               })}
@@ -419,22 +435,6 @@ function Contatos() {
               })}
             </FilterRow>
 
-            {catMap.categorias.length > 0 && (
-              <FilterRow label="Categoria">
-                {catMap.categorias
-                  .filter((cat) => Object.values(catMap.byPhone).includes(cat.id))
-                  .map((cat) => {
-                    const active = categoriaFilter.has(cat.id);
-                    const count = Object.values(catMap.byPhone).filter((id) => id === cat.id).length;
-                    return (
-                      <FilterChip key={cat.id} active={active} onClick={() => toggleSet(setCategoriaFilter, cat.id)}>
-                        <span>{cat.icone}</span> {cat.nome}
-                        <span className="ml-1 text-[10px] opacity-70">({count})</span>
-                      </FilterChip>
-                    );
-                  })}
-              </FilterRow>
-            )}
           </div>
 
           {/* Bulk actions bar */}
