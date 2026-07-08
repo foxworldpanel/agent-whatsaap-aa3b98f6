@@ -161,6 +161,18 @@ type BuildSharedRulesCtx = {
    * dar desconto manual".
    */
   dailyPromoText?: string | null;
+  /**
+   * Catálogo REAL de playlists do workspace (URLs cadastradas em
+   * agent_config.playlist_{ecletica,eletronica}_links). Quando presente,
+   * a Júlia mostra a lista diretamente ao cliente em vez de mandar
+   * "abre um ticket" (regressão real de 08/07). Quando vazio, ela
+   * responde honestamente que vai buscar/confirmar e NUNCA inventa
+   * ticket como caminho para essa informação.
+   */
+  playlistCatalog?: {
+    ecletica?: string[] | null;
+    eletronica?: string[] | null;
+  } | null;
 };
 
 export type AgentBrandBlocks = {
