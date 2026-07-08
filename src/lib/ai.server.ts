@@ -888,9 +888,12 @@ export async function generateAgentReplyWithMeta(params: {
     })(),
     (() => {
       const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
-      return Array.isArray(faqs) && faqs.length > 0
-        ? `FAQ INTERNO — APENAS PARA VOCÊ ENTENDER COMO A MIND FUNCIONA. NÃO é fonte de resposta.\n${faqs.map((f) => `- ${f.q} → ${f.a}`).join("\n")}\n\nRegras OBRIGATÓRIAS sobre o FAQ:\n1. USE este FAQ SOMENTE quando o cliente perguntar especificamente sobre o funcionamento da plataforma MIND (como cadastrar, como funciona o painel, o que é serviço, como pagar, etc.).\n2. NUNCA use o FAQ para responder perguntas que não são sobre o funcionamento da MIND. Exemplos do que NÃO responder com FAQ: "qual seu nome?", "tudo bem?", "oi", "você é robô?", saudações, conversas pessoais — nessas, responda naturalmente sem mencionar a plataforma.\n3. NUNCA copie o texto literal do FAQ. Reformule com suas palavras, curto e humano (máx 2 linhas).\n4. Se o cliente disse SIM, avance — não repita explicação anterior.`
-        : "";
+      if (!Array.isArray(faqs) || faqs.length === 0) return "";
+      const sel = selectRelevantFaqs(faqs, latestClientMessage);
+      if (sel.length === 0) return "";
+      // ETAPA 4 — só entra as FAQs relevantes; preâmbulo enxuto (o filtro
+      // determinístico já eliminou o risco que o LLM assumia antes).
+      return `FAQ INTERNO (${sel.length}/${faqs.length} — pré-filtradas por relevância à pergunta atual):\n${sel.map((f) => `- ${f.q} → ${f.a}`).join("\n")}\n\nRegras:\n1. Reformule com suas palavras, curto e humano (máx 2 linhas).\n2. Se nenhuma das FAQs acima realmente responde a pergunta, IGNORE e responda naturalmente.\n3. Nunca copie literalmente.`;
     })(),
     `Quando o cliente confirmar uma compra ou pagamento (mencionar PIX enviado, comprovante, "paguei", "fechei", confirmar pedido), trate-o como Cliente daqui em diante.`,
     `QUEM PROCESSA O PEDIDO É O CLIENTE (regra absoluta):\n- VOCÊ NUNCA pede link "para processar o pedido". Quem faz o pedido é o CLIENTE, dentro do painel: ele adiciona saldo, escolhe o serviço, cola o link e confirma.\n- Quando o cliente disser que está comprando, fazendo PIX, cadastrando ou adicionando saldo, responda exatamente nesse tom: "Ótimo! Quando o saldo cair na conta é só escolher o serviço no painel, colar o link do seu vídeo e confirmar. Qualquer dúvida me chama!"\n- PROIBIDO dizer: "me manda o link que eu processo pra você", "me passa o link que eu faço o pedido", "manda o link aqui que eu cuido". Você NUNCA processa pedido manualmente.\n- A única situação em que você pede link é para TESTE GRÁTIS (regra própria abaixo) — nunca para pedido pago.`,
