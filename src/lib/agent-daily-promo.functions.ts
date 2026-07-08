@@ -18,7 +18,19 @@ export type DailyPromoRow = {
 export const getDailyPromo = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+    // Tabela criada em migração nova; tipos ainda não regenerados.
+    const db = context.supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (k: string, v: string) => {
+            eq: (k: string, v: string) => {
+              maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>;
+            };
+          };
+        };
+      };
+    };
+    const { data, error } = await db
       .from("agent_daily_promo")
       .select("promo_text, active, expires_at, updated_at")
       .eq("user_id", context.userId)
@@ -47,7 +59,15 @@ export const saveDailyPromo = createServerFn({ method: "POST" })
           ? data.expires_at
           : null,
     };
-    const { error } = await context.supabase
+    const db = context.supabase as unknown as {
+      from: (t: string) => {
+        upsert: (
+          r: unknown,
+          o: { onConflict: string },
+        ) => Promise<{ error: { message: string } | null }>;
+      };
+    };
+    const { error } = await db
       .from("agent_daily_promo")
       .upsert(row, { onConflict: "user_id,workspace_id" });
     if (error) throw new Error(error.message);
