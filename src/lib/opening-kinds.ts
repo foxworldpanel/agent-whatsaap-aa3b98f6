@@ -3,6 +3,8 @@
 // campanha de indicação), basta acrescentar uma nova entrada aqui — a UI e o
 // dispatcher passam a suportar automaticamente.
 
+import type { LangTemplates } from "@/lib/blast-variations";
+
 export type OpeningKind = {
   key: string;
   label: string;
@@ -18,6 +20,11 @@ export type OpeningKind = {
   // Template usado quando useVariations = false. Cada bloco separado por
   // linha em branco vira uma bolha independente.
   template: string;
+  // Pack de variações próprio (PT) usado quando useVariations = true e o
+  // kind NÃO deve reaproveitar o opening_templates editável do usuário
+  // (que é dedicado ao Instagram frio). Se ausente, cai no template do
+  // usuário. Fornecido para reativação Meta Ads, etc.
+  variations?: LangTemplates;
 };
 
 export const DEFAULT_OPENING_KIND = "instagram_frio";
@@ -38,11 +45,27 @@ export const OPENING_KINDS: OpeningKind[] = [
     label: "Meta Ads — Reativação",
     emoji: "🎯",
     description:
-      "Reabordagem de leads que já chegaram via anúncio. Permite reenvio para quem já foi contactado antes.",
-    useVariations: false,
+      "Reabordagem de leads que já chegaram via anúncio. Usa variações (saudação por período + linha 2 + pergunta final) para evitar padrão repetitivo. Permite reenvio para quem já foi contactado antes.",
+    useVariations: true,
     allowResend: true,
-    template:
-      "Oi, tudo bem? Aqui é a Júlia da Mind 😊\n\nFaz um tempo que você chegou até a gente através do nosso anúncio, e eu queria saber se ainda tem interesse em impulsionar suas redes.\n\nA gente tem novidades boas, inclusive um serviço novo para Instagram, Youtube, TikTok e playlist no Spotify que tá bombando. Bora dar uma conversada de novo?",
+    template: "",
+    variations: {
+      saudacoes: {
+        manha: ["Oi, bom dia!", "Olá, bom dia!", "Bom dia, tudo bem?"],
+        tarde: ["Oi, boa tarde!", "Olá, boa tarde!", "Boa tarde, tudo bem?"],
+        noite: ["Oi, boa noite!", "Olá, boa noite!", "Boa noite, tudo bem?"],
+      },
+      linha2: [
+        "Aqui é a Júlia da Mind! Faz um tempo que você chegou até a gente através do nosso anúncio.",
+        "Aqui é a Júlia da Mind! Você chegou até a gente há um tempo através do nosso anúncio.",
+        "Sou a Júlia, da Mind! Você entrou em contato com a gente faz um tempo, através do nosso anúncio.",
+      ],
+      perguntas: [
+        "Ainda tem interesse em impulsionar suas redes? A gente tem novidades boas, inclusive pra Instagram, YouTube, TikTok e playlist no Spotify. Bora conversar de novo?",
+        "Queria saber se ainda tem interesse em crescer suas redes! Temos novidades em Instagram, YouTube, TikTok e Spotify. Topa dar uma conversada?",
+        "Continua com interesse em impulsionar seu perfil? Tem coisa nova rolando pra Instagram, YouTube, TikTok e Spotify. Vamos conversar?",
+      ],
+    },
   },
 ];
 
