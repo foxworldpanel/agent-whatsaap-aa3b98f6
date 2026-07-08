@@ -1718,6 +1718,59 @@ export type Database = {
           },
         ]
       }
+      meta_ads_trigger_rules: {
+        Row: {
+          active: boolean
+          category_cor: string
+          category_icone: string
+          category_nome: string
+          category_slug: string
+          created_at: string
+          id: string
+          pattern: string
+          priority: number
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          category_cor?: string
+          category_icone?: string
+          category_nome: string
+          category_slug: string
+          created_at?: string
+          id?: string
+          pattern: string
+          priority?: number
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          category_cor?: string
+          category_icone?: string
+          category_nome?: string
+          category_slug?: string
+          created_at?: string
+          id?: string
+          pattern?: string
+          priority?: number
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_ads_trigger_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opening_templates: {
         Row: {
           created_at: string
