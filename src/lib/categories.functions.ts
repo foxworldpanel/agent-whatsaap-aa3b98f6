@@ -76,3 +76,33 @@ export const createCategory = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return row as ContactCategory;
   });
+
+// Retorna categorias + um mapa telefone -> categoria_id derivado de
+// blast_contacts (que é onde a categorização de leads Meta Ads vive).
+// Usado pela tela Contatos pra permitir filtrar por sub-categoria (ex.:
+// "Meta Ads - Spotify", "Meta Ads - YouTube").
+export const listContactCategoryMap = createServerFn({ method: "GET" })
+  .middleware([withWorkspaceScope])
+  .handler(async ({ context }) => {
+    const sb = context.supabase as unknown as import("@supabase/supabase-js").SupabaseClient<import("@/integrations/supabase/types").Database>;
+    await ensureDefaults(sb, context.userId);
+    const [catsRes, mapRes] = await Promise.all([
+      sb.from("contact_categories")
+        .select("id, nome, cor, icone, slug, is_system")
+        .eq("user_id", context.userId)
+        .order("is_system", { ascending: false })
+        .order("nome", { ascending: true }),
+      sb.from("blast_contacts")
+        .select("telefone, categoria_id")
+        .eq("user_id", context.userId)
+        .not("categoria_id", "is", null),
+    ]);
+    const byPhone: Record<string, string> = {};
+    for (const r of (mapRes.data ?? []) as Array<{ telefone: string | null; categoria_id: string | null }>) {
+      if (r.telefone && r.categoria_id) byPhone[r.telefone] = r.categoria_id;
+    }
+    return {
+      categorias: (catsRes.data ?? []) as ContactCategory[],
+      byPhone,
+    };
+  });

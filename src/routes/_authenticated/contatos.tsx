@@ -16,6 +16,7 @@ import {
 import { extractChatsFromNumber, importExtractedContacts, sendExtractedToMetaAdsList } from "@/lib/extraction.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { listWelcomeFunnels } from "@/lib/welcome-funnels.functions";
+import { listContactCategoryMap } from "@/lib/categories.functions";
 
 export const Route = createFileRoute("/_authenticated/contatos")({
   ssr: false,
@@ -94,12 +95,14 @@ function Contatos() {
   const sendToMetaAds = useServerFn(sendExtractedToMetaAdsList);
   const numbersList = useServerFn(listNumbers);
   const funnelsList = useServerFn(listWelcomeFunnels);
+  const catMapFn = useServerFn(listContactCategoryMap);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [search, setSearch] = useState("");
   const [origemFilter, setOrigemFilter] = useState<Set<Origem>>(new Set());
   const [tempFilter, setTempFilter] = useState<Set<Temperatura>>(new Set());
   const [statusFilter, setStatusFilter] = useState<Set<StatusCRM>>(new Set());
+  const [categoriaFilter, setCategoriaFilter] = useState<Set<string>>(new Set());
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"table" | "kanban">("table");
@@ -115,6 +118,11 @@ function Contatos() {
   const { data: groupData = { groups: [], members: [] } } = useQuery({
     queryKey: ["contact-groups"],
     queryFn: () => groupsList(),
+  });
+
+  const { data: catMap = { categorias: [], byPhone: {} } } = useQuery({
+    queryKey: ["contact-category-map"],
+    queryFn: () => catMapFn(),
   });
 
   const invalidateAll = () => {
@@ -185,13 +193,17 @@ function Contatos() {
         if (!tempFilter.has(t)) return false;
       }
       if (statusFilter.size > 0 && !statusFilter.has(c.status as StatusCRM)) return false;
+      if (categoriaFilter.size > 0) {
+        const cid = catMap.byPhone[c.telefone];
+        if (!cid || !categoriaFilter.has(cid)) return false;
+      }
       if (s) {
         const hay = `${c.nome} ${c.telefone} ${c.instagram ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
       return true;
     });
-  }, [contacts, activeGroup, membersByContact, origemFilter, tempFilter, statusFilter, search]);
+  }, [contacts, activeGroup, membersByContact, origemFilter, tempFilter, statusFilter, categoriaFilter, catMap.byPhone, search]);
 
   function toggleSet<T>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) {
     setter((prev) => {
@@ -386,6 +398,23 @@ function Contatos() {
                 );
               })}
             </FilterRow>
+
+            {catMap.categorias.length > 0 && (
+              <FilterRow label="Categoria">
+                {catMap.categorias
+                  .filter((cat) => Object.values(catMap.byPhone).includes(cat.id))
+                  .map((cat) => {
+                    const active = categoriaFilter.has(cat.id);
+                    const count = Object.values(catMap.byPhone).filter((id) => id === cat.id).length;
+                    return (
+                      <FilterChip key={cat.id} active={active} onClick={() => toggleSet(setCategoriaFilter, cat.id)}>
+                        <span>{cat.icone}</span> {cat.nome}
+                        <span className="ml-1 text-[10px] opacity-70">({count})</span>
+                      </FilterChip>
+                    );
+                  })}
+              </FilterRow>
+            )}
           </div>
 
           {/* Bulk actions bar */}

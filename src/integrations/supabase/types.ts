@@ -683,6 +683,24 @@ export type Database = {
           },
         ]
       }
+      blast_contacts_categoria_backup_20260708: {
+        Row: {
+          backed_up_at: string | null
+          categoria_id_antigo: string | null
+          id: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          categoria_id_antigo?: string | null
+          id?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          categoria_id_antigo?: string | null
+          id?: string | null
+        }
+        Relationships: []
+      }
       blast_flows: {
         Row: {
           campaign_id: string
