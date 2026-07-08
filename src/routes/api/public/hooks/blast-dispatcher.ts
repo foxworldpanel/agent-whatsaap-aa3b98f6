@@ -428,6 +428,45 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               if (!mirrorConversationId) throw new Error("mirror conversation missing after rpc");
             }
 
+            // Respeita o toggle por conversa: se o operador desligou o agente
+            // nessa conversa (suporte humanizado), NÃO envia disparo/reativação.
+            // Marca o contato como pulado para não voltar no pickNext.
+            {
+              const { data: convFlags } = await supabaseAdmin
+                .from("conversations")
+                .select("agent_enabled")
+                .eq("id", mirrorConversationId)
+                .maybeSingle();
+              if (convFlags && (convFlags as { agent_enabled?: boolean }).agent_enabled === false) {
+                await supabaseAdmin
+                  .from("blast_contacts")
+                  .update({
+                    status: "pulado",
+                    skip_reason: "agente desativado na conversa",
+                    updated_at: new Date().toISOString(),
+                  } as never)
+                  .eq("id", next.contact.id);
+                claimedBlastContactId = null;
+                results.push({ campaign: camp.name, sent: 0, skipped: "agente desativado na conversa" });
+                await logEvent({
+                  userId: camp.user_id,
+                  type: "blast_skipped",
+                  level: "info",
+                  summary: "🚀 Disparo pulado — agente desativado na conversa (suporte humanizado)",
+                  metadata: {
+                    origem: "disparo",
+                    direcao: "enviado",
+                    tipo: "bloqueio",
+                    campaign_id: camp.id,
+                    contact_id: next.contact.id,
+                    conversation_id: mirrorConversationId,
+                    reason: "conversation.agent_enabled=false",
+                  },
+                });
+                continue;
+              }
+            }
+
             let status: "sent" | "failed" = "sent";
             let errMsg: string | undefined;
             // Retomada idempotente: se um envio anterior travou no meio
