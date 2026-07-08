@@ -811,6 +811,7 @@ export async function generateAgentReplyWithMeta(params: {
     buildSharedRules(identity, {
       freeTestServices,
       brandBlocks,
+      dailyPromoText,
       // Duas razões pra suprimir o EXEMPLO_MODELO_DISPARO:
       // 1) Reengajamento ativo (hiato ou cortesia imediata em disparo) — o veto
       //    do topo precisa ficar sozinho sem competir com o script de vendas.
