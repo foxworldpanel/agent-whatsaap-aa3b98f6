@@ -2718,7 +2718,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }));
             if (all.length > 0) {
               const platforms: Array<{ key: string; label: string; rx: RegExp }> = [
-                { key: "spotify", label: "SPOTIFY", rx: /spotify|playlist|ouvintes?|saves?/i },
+                { key: "spotify", label: "SPOTIFY", rx: /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly/i },
                 { key: "instagram", label: "INSTAGRAM", rx: /instagram|insta|reels?|stories?/i },
                 { key: "youtube", label: "YOUTUBE", rx: /youtube|yt\b|inscritos?|view(s|er)?|monetiza|shorts?/i },
                 { key: "tiktok", label: "TIKTOK", rx: /tiktok|tt\b/i },

@@ -12,9 +12,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   generateAgentReplyWithMeta,
   guardFreeTrialOffer,
+  guardSpotifyUnavailableOffer,
   humanizePunctuation,
   buildSystemPrompt,
   sanitizeSystemLeaks,
+  SPOTIFY_UNAVAILABLE_SAFE_REPLY,
 } from "@/lib/ai.server";
 import {
   isReengagementGreeting,
@@ -24,7 +26,7 @@ import {
   enforceReengagementGreeting,
   pickReengagementGreeting,
 } from "@/lib/ai.server";
-import { MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
+import { MIND_BRAND_BLOCKS, MIND_BRAND_TEMPLATE } from "@/lib/agent-identity.server";
 import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 import {
   containsEmoji,
@@ -240,6 +242,52 @@ describe("4) Teste grátis só se elegível (guardFreeTrialOffer)", () => {
       ],
     });
     expect(out.replaced, "FALHOU: guard bloqueou oferta válida").toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.1) Spotify plays/ouvintes/saves desativados — guard determinístico
+// ---------------------------------------------------------------------------
+describe("4.1) Spotify plays/ouvintes/saves indisponíveis", () => {
+  it("guard reescreve oferta de plays quando catálogo ativo não contém plays", () => {
+    const out = guardSpotifyUnavailableOffer({
+      latestClientMessage: "Tenho um álbum com 12 músicas, queria 1000 plays por dia. Quanto fica?",
+      history: [
+        { sender: "cliente", body: "Spotify" },
+        { sender: "cliente", body: "Tenho um álbum com 12 músicas, queria plays" },
+      ],
+      servicesContext:
+        "ID: 299 | Nome: Spotify - Aluguel de Playlist [10 Playlists Eletrônica - 30 dias] - 1 Música | Categoria: Spotify - Aluguel de Playlist | Preço por 1000: R$97 | MÍNIMO: 1000 | MÁXIMO: 1000",
+      reply:
+        "Dá sim! Podemos distribuir 1000 plays por dia entre as 12 músicas, ou fazer 30.000 plays totais. O pacote sai R$450.",
+    });
+    expect(out.replaced).toBe(true);
+    expect(out.text).toBe(SPOTIFY_UNAVAILABLE_SAFE_REPLY);
+    expect(out.text).not.toMatch(/1000|30\.000|distribuir|R\$/i);
+  });
+
+  it("pipeline generateAgentReplyWithMeta bloqueia vazamento de plays antes de retornar", async () => {
+    const res = await callAgent({
+      history: [
+        { sender: "cliente", body: "Spotify" },
+        { sender: "cliente", body: "Tenho 12 músicas, queria colocar 1000 plays por dia em cada uma" },
+      ],
+      mockReply:
+        "Show! A gente pode fazer 1000 plays por dia distribuídos nas 12 músicas. 30.000 plays totais sai R$450.",
+      isInbound: true,
+    });
+    expect(res.text).toBe(SPOTIFY_UNAVAILABLE_SAFE_REPLY);
+  });
+
+  it("prompt não contém mais roteiro padrão oferecendo plays/ouvintes/saves no Spotify", () => {
+    const prompt = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [{ sender: "cliente", body: "Spotify" }],
+      identity: MIND_BRAND_TEMPLATE,
+      brandBlocks: MIND_BRAND_BLOCKS,
+    });
+    expect(prompt).not.toMatch(/No Spotify trabalhamos com plays, ouvintes, saves/i);
   });
 });
 
@@ -1575,12 +1623,12 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
     { sender: "agente" as const, body: OPENING },
     { sender: "cliente" as const, body: "pode sim" },
     { sender: "agente" as const, body: "Qual rede social você mais usa hoje?" },
-    { sender: "cliente" as const, body: "Spotify" },
-    { sender: "agente" as const, body: "Show! Quer plays, ouvintes ou saves?" },
-    { sender: "cliente" as const, body: "plays" },
-    { sender: "agente" as const, body: "Qual estilo/gênero da sua música?" },
-    { sender: "cliente" as const, body: "Piseiro sertanejo" },
-    { sender: "agente" as const, body: "Show! 1000 plays sai R$10, 5000 sai R$40, 10000 sai R$70. Qual você quer?" },
+    { sender: "cliente" as const, body: "Instagram" },
+    { sender: "agente" as const, body: "Show! Quer seguidores, curtidas ou views?" },
+    { sender: "cliente" as const, body: "seguidores" },
+    { sender: "agente" as const, body: "Qual o @ do perfil?" },
+    { sender: "cliente" as const, body: "@piseirosertanejo" },
+    { sender: "agente" as const, body: "Show! 1000 seguidores sai R$10, 5000 sai R$40, 10000 sai R$70. Qual você quer?" },
     { sender: "cliente" as const, body: "1000" },
     { sender: "agente" as const, body: "Fechado! Já tem cadastro no painel?" },
     { sender: "cliente" as const, body: "já tenho" },
@@ -1598,8 +1646,8 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     // Confirma que o histórico inteiro (14 turnos) chegou ao Claude — antes cortava em 8
     const msgsSerialized = JSON.stringify(body.messages);
-    expect(msgsSerialized).toMatch(/Spotify/i);
-    expect(msgsSerialized).toMatch(/Piseiro/i);
+    expect(msgsSerialized).toMatch(/Instagram/i);
+    expect(msgsSerialized).toMatch(/@piseirosertanejo/i);
     expect(msgsSerialized).toMatch(/1000/);
     expect(msgsSerialized).toMatch(/já tenho/i);
   });
