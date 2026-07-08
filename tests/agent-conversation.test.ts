@@ -1646,8 +1646,8 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     // Confirma que o histórico inteiro (14 turnos) chegou ao Claude — antes cortava em 8
     const msgsSerialized = JSON.stringify(body.messages);
-    expect(msgsSerialized).toMatch(/Spotify/i);
-    expect(msgsSerialized).toMatch(/Piseiro/i);
+    expect(msgsSerialized).toMatch(/Instagram/i);
+    expect(msgsSerialized).toMatch(/@piseirosertanejo/i);
     expect(msgsSerialized).toMatch(/1000/);
     expect(msgsSerialized).toMatch(/já tenho/i);
   });
