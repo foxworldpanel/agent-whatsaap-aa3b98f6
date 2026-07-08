@@ -2637,10 +2637,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           });
         }
 
-        // Load Panel Guide screens (Mind SMM) so the agent can step the customer through.
-        // If the owner uploaded new screenshots through the Agent IA card, we analyze
-        // them with Claude Vision only when the customer asks something about the panel.
-        const shouldUsePanelGuide = /painel|cadastro|cadastrar|conta|login|entrar|saldo|dep[oó]sito|pix|pedido|servi[çc]o|menu|bot[aã]o|onde clic|como faço|como usar/i.test(inboundBody ?? "");
+        // ETAPA 3 — Panel Guide sob demanda.
+        // shouldUsePanelGuide agora considera a msg atual + últimas 3 msgs do
+        // cliente (contexto operacional em andamento). O mesmo sinal decide:
+        //  a) se rodamos Vision pra extrair prints novos (comportamento antigo)
+        //  b) se o extracted_content já persistido vai pro prompt (novo)
+        // Fora desse contexto: panelScreens=[] no prompt → economia de 3k-15k
+        // chars por chamada em conversas de venda pura.
+        const { isPanelGuideRelevant } = await import("@/lib/panel-guide-relevance");
+        const recentClientMsgs = (history ?? [])
+          .filter((m) => m.sender === "cliente")
+          .slice(-3)
+          .map((m) => m.body ?? "");
+        const shouldUsePanelGuide = isPanelGuideRelevant(inboundBody ?? "", recentClientMsgs);
         const { data: pgRows } = await supabaseAdmin
           .from("panel_guide")
           .select("id, name, description, image_url, extracted_content, storage_path")
