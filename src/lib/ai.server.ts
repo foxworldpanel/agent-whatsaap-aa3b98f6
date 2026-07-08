@@ -228,6 +228,20 @@ export function historyLooksLikeBlast(history: Msg[]): boolean {
   return isBlastOpeningQuestion(firstAgent.body) || strongOpenerMarker.test(firstAgent.body);
 }
 
+// Bloco "gancho da Promoção do Dia" em disparo/reativação. Só entra no prompt
+// quando (a) é contexto de disparo efetivo, (b) NÃO está em veto de
+// reengajamento e (c) há uma Promoção do Dia ATIVA cadastrada. Exportado
+// separadamente pra ficar unit-testável.
+export function buildBlastPromoHookBlock(params: {
+  effectiveBlast: boolean;
+  anyReengagementVeto: boolean;
+  dailyPromoText: string | null;
+}): string {
+  const text = (params.dailyPromoText ?? "").trim();
+  if (!params.effectiveBlast || params.anyReengagementVeto || text.length === 0) return "";
+  return `GANCHO PROMO DO DIA EM DISPARO/REATIVAÇÃO (aplica APENAS quando esta thread é de disparo e existe o bloco 🔥 PROMOÇÃO ATIVA HOJE acima):\n- Se o cliente respondeu à abertura de disparo demonstrando interesse ("sim", "pode", "manda", "claro", "quero", "bora", "aham", "curti"), a PRIMEIRA resposta sua DEVE mencionar a Promoção do Dia como gancho de entrada, ANTES ou junto da pergunta de descoberta (rede/necessidade).\n- Formato sugerido: "Show! Inclusive hoje tá rolando uma promoção boa: <TEXTO EXATO DA PROMOÇÃO DO DIA>. Isso te interessa, ou prefere que eu te mostre outras opções também?" Pode variar o gancho ("Ó, tô com uma oferta boa hoje…", "Inclusive tá rolando uma condição especial hoje…"), mas o TEXTO da promoção precisa ser IDÊNTICO ao do bloco 🔥 PROMOÇÃO ATIVA HOJE — NUNCA parafraseie preço, quantidade, prazo, condição ou serviço.\n- Se o bloco 🔥 PROMOÇÃO ATIVA HOJE NÃO estiver presente no prompt, esta regra NÃO se aplica: siga o fluxo normal do disparo (pergunta de rede direto) sem mencionar nenhuma promoção. NUNCA invente promoção quando não há bloco ativo.\n- Aplica APENAS à primeira resposta pós-interesse do disparo. Nas mensagens seguintes, use a promoção só quando fizer sentido no contexto (mesma regra geral do bloco 🔥 acima).`;
+}
+
 // Vocabulário canônico de "serviços" para casar tópicos de conversa/reply com o
 // que está na lista de teste grátis liberado. Chave = token que aparece no
 // texto; valor = família de serviço.
