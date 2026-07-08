@@ -24,9 +24,29 @@ describe("REGRA_FORMATO_LISTA_PRECOS_BLOCK — lista alinhada de preços", () =>
   it("traz exemplo ERRADO (texto corrido) e CERTO (lista alinhada)", () => {
     expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/Exemplo ERRADO/);
     expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/Exemplo CERTO/);
-    expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/1000 Seguidores - R\$ 30/);
-    expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/5000 Seguidores - R\$ 150/);
-    expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/10000 Seguidores - R\$ 300/);
+
+    // Valida a ESTRUTURA dos exemplos, não valores específicos (que podem
+    // mudar conforme tabela de preços real).
+    const errado = REGRA_FORMATO_LISTA_PRECOS_BLOCK.match(
+      /Exemplo ERRADO[^\n]*\n+"([^"]+)"/,
+    )?.[1];
+    const certo = REGRA_FORMATO_LISTA_PRECOS_BLOCK.match(
+      /Exemplo CERTO[^\n]*\n+"([\s\S]+?)"/,
+    )?.[1];
+
+    expect(errado, "trecho do Exemplo ERRADO não encontrado").toBeDefined();
+    expect(certo, "trecho do Exemplo CERTO não encontrado").toBeDefined();
+
+    // ERRADO: texto corrido — 2+ pares "R$ <valor>" numa única linha.
+    const erradoPrecos = (errado!.match(/R\$\s?\d+/g) ?? []).length;
+    expect(erradoPrecos).toBeGreaterThanOrEqual(2);
+    expect(errado!.split("\n").length).toBe(1);
+
+    // CERTO: lista alinhada — 2+ linhas no padrão "<quantidade> <serviço> - R$ <valor>".
+    const linhasLista = certo!
+      .split("\n")
+      .filter((l) => /^\s*\d+\s+\S.*-\s*R\$\s?\d+/.test(l));
+    expect(linhasLista.length).toBeGreaterThanOrEqual(2);
   });
 
   it("vale para qualquer rede, não só Spotify", () => {
