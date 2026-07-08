@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import {
   REGRA_CONCISAO_BLOCK_EXTRA,
   buildSharedRules,
-  MIND_BRAND_TEMPLATE,
+  DEFAULT_IDENTITY,
 } from "@/lib/agent-identity.server";
 
 describe("REGRA_CONCISAO_BLOCK_EXTRA — não-repetição", () => {
@@ -36,7 +36,7 @@ describe("REGRA_CONCISAO_BLOCK_EXTRA — não-repetição", () => {
   });
 
   it("está incluído no system prompt montado por buildSharedRules", () => {
-    const shared = buildSharedRules(MIND_BRAND_TEMPLATE);
+    const shared = buildSharedRules(DEFAULT_IDENTITY);
     expect(shared).toContain(REGRA_CONCISAO_BLOCK_EXTRA);
     // sanity — o bloco original de concisão continua presente também
     expect(shared).toMatch(/REGRA DE CONCISÃO/);
