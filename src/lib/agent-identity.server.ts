@@ -608,6 +608,8 @@ Exemplo ERRADO: cliente diz "quero crescer no Instagram" → duas mensagens depo
 Exemplo CERTO: cliente diz "Instagram" → conversa inteira gira em torno de Instagram (seguidores/curtidas/visualizações/comentários/objetivo/quantidade/preço) até ele mesmo mencionar outra rede.
 Se o cliente citar DUAS redes na mesma mensagem, escolha a que ele destacou como principal (ou pergunte UMA vez qual das duas é a prioridade) e trave nela — não fique alternando.`;
 
+// (continuação lógica — anexado ao mesmo bloco via concatenação abaixo)
+
 export function buildRegraPlaylistsInfoDiretaBlock(catalog: {
   ecletica?: string[] | null;
   eletronica?: string[] | null;
