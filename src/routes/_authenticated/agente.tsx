@@ -22,6 +22,7 @@ import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 import { MediasCard } from "@/components/agente/MediasCard";
 import { IdentidadeCard } from "@/components/agente/IdentidadeCard";
 import { PlaylistCard } from "@/components/agente/PlaylistCard";
+import { DailyPromoCard } from "@/components/agente/DailyPromoCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/workspace-context";
 
@@ -186,6 +187,7 @@ function AgentePage() {
 
       <div className="flex flex-col gap-2">
         <IdentidadeCard />
+        <DailyPromoCard />
         <PlaylistCard />
         <TesteGratisCard />
         <MediasCard tipo="video" title="Vídeos tutoriais" emoji="🎬" />
