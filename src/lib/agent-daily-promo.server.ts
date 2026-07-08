@@ -43,7 +43,26 @@ export async function loadActiveDailyPromo(
   if (cached && cached.expiresAt > now) return cached.value;
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data, error } = await supabaseAdmin
+    const db = supabaseAdmin as unknown as {
+      from: (t: string) => {
+        select: (c: string) => {
+          eq: (k: string, v: string) => {
+            order: (
+              c: string,
+              o: { ascending: boolean },
+            ) => {
+              limit: (n: number) => {
+                maybeSingle: () => Promise<{
+                  data: unknown;
+                  error: { message: string } | null;
+                }>;
+              };
+            };
+          };
+        };
+      };
+    };
+    const { data, error } = await db
       .from("agent_daily_promo")
       .select("promo_text, active, expires_at")
       .eq("user_id", userId)
