@@ -1090,6 +1090,42 @@ export async function generateAgentReplyWithMeta(params: {
   // "[agent-ai-metrics]" no painel de logs pra extrair.
   // Não altera comportamento.
   // ============================================================
+  // Recompute cheap: nomes dos módulos ativos + FAQs selecionadas.
+  // Não altera o prompt — só espelha o que já foi injetado.
+  let activeModuleNames: string[] = [];
+  let faqsSelectedCount = 0;
+  try {
+    const stored = (agent as { modules?: Record<string, string> }).modules;
+    const enabled = (agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {};
+    const mods: Record<string, string> = { ...DEFAULT_MODULES, ...(stored && typeof stored === "object" ? stored : {}) };
+    activeModuleNames = selectActiveModules(mods, enabled, latestClientMessage).map(([k]) => k);
+    const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
+    if (Array.isArray(faqs) && faqs.length > 0) {
+      faqsSelectedCount = selectRelevantFaqs(faqs, latestClientMessage).length;
+    }
+  } catch { /* best-effort */ }
+
+  const promptMetricsSnapshot: {
+    totalChars: number; estTokens: number;
+    kbExamplesCount: number; panelScreensCount: number;
+    forbiddenRulesCount: number; freeTestServicesCount: number;
+    activeModulesCount: number; activeModuleNames: string[];
+    faqsSelectedCount: number; historyCount: number;
+    contextoDetectado: string;
+  } = {
+    totalChars: system.length,
+    estTokens: Math.round(system.length / 4),
+    kbExamplesCount: knowledgeExamples?.length ?? 0,
+    panelScreensCount: panelScreens?.length ?? 0,
+    forbiddenRulesCount: forbiddenRules?.length ?? 0,
+    freeTestServicesCount: freeTestServices?.length ?? 0,
+    activeModulesCount: activeModuleNames.length,
+    activeModuleNames,
+    faqsSelectedCount,
+    historyCount: history.length,
+    contextoDetectado,
+  };
+
   try {
     const kbBlockChars = (knowledgeExamples ?? []).reduce(
       (n, ex) => n + (ex.content?.length ?? 0) + (ex.context?.length ?? 0),
@@ -1104,20 +1140,12 @@ export async function generateAgentReplyWithMeta(params: {
       0,
     );
     const servicesChars = (servicesContext ?? "").length;
-    const totalChars = system.length;
     console.info("[agent-ai-metrics] prompt-size", {
-      totalChars,
-      estTokens: Math.round(totalChars / 4),
+      ...promptMetricsSnapshot,
       kbBlockChars,
-      kbExamplesCount: knowledgeExamples?.length ?? 0,
       panelBlockChars,
-      panelScreensCount: panelScreens?.length ?? 0,
       forbiddenBlockChars,
-      forbiddenRulesCount: forbiddenRules?.length ?? 0,
       servicesChars,
-      freeTestServicesCount: freeTestServices?.length ?? 0,
-      historyCount: history.length,
-      contextoDetectado,
     });
   } catch (e) {
     console.warn("[agent-ai-metrics] failed to log prompt-size", e);
@@ -1175,6 +1203,7 @@ export async function generateAgentReplyWithMeta(params: {
     else finalMessages.push(merged);
   }
 
+  const claudeStartedAt = Date.now();
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -1211,13 +1240,46 @@ export async function generateAgentReplyWithMeta(params: {
     };
   };
   const usage = json.usage ?? {};
+  const durationMs = Date.now() - claudeStartedAt;
   console.info("[agent-ai] Claude usage", {
     model,
     input_tokens: usage.input_tokens ?? 0,
     output_tokens: usage.output_tokens ?? 0,
     cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
     cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+    duration_ms: durationMs,
   });
+
+  // Persistência best-effort das métricas — alimenta o agregado 24h
+  // (ver getAgentPromptStats24h em agent-metrics.functions.ts). Falhas
+  // não impactam a resposta ao cliente.
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("agent_prompt_metrics").insert({
+      user_id: userId,
+      model,
+      routing_reason: routingReason,
+      total_chars: promptMetricsSnapshot.totalChars,
+      est_tokens: promptMetricsSnapshot.estTokens,
+      input_tokens: usage.input_tokens ?? 0,
+      output_tokens: usage.output_tokens ?? 0,
+      cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+      cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+      duration_ms: durationMs,
+      active_modules_count: promptMetricsSnapshot.activeModulesCount,
+      active_module_names: promptMetricsSnapshot.activeModuleNames,
+      kb_examples_count: promptMetricsSnapshot.kbExamplesCount,
+      panel_screens_count: promptMetricsSnapshot.panelScreensCount,
+      faqs_selected_count: promptMetricsSnapshot.faqsSelectedCount,
+      forbidden_rules_count: promptMetricsSnapshot.forbiddenRulesCount,
+      free_test_services_count: promptMetricsSnapshot.freeTestServicesCount,
+      history_count: promptMetricsSnapshot.historyCount,
+      contexto_detectado: promptMetricsSnapshot.contextoDetectado,
+    });
+  } catch (e) {
+    console.warn("[agent-ai-metrics] failed to persist metrics row", e);
+  }
+
   const text = (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
   const finalText = text || "…";
   // Sanitiza tiques de escrita de IA: em-dash / en-dash no meio de frases
