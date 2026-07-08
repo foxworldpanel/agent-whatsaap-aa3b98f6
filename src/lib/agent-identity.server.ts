@@ -630,6 +630,8 @@ export function buildSharedRules(
     REGRA_SUPORTE_PROBLEMA_BLOCK,
     REGRA_FORMATO_LISTA_PRECOS_BLOCK,
     REGRA_MUSICA_NAO_DISTRIBUIDA_BLOCK,
+    REGRA_AMBIGUIDADE_DUPLA_ESCOLHA_BLOCK,
+    buildRegraPlaylistsInfoDiretaBlock(ctx.playlistCatalog ?? null),
     (() => {
       const t = (ctx.dailyPromoText ?? "").trim();
       if (t.length === 0) return "";
