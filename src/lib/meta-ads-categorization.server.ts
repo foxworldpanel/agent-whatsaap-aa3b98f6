@@ -37,38 +37,16 @@ export async function resolveMetaAdsCategoryId(
   messageText: string | null | undefined,
 ): Promise<string | undefined> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const admin = supabaseAdmin as unknown as {
-    from: (t: string) => {
-      select: (c: string) => {
-        eq: (
-          k: string,
-          v: string,
-        ) => Promise<{ data: unknown; error: unknown }> & {
-          eq: (k: string, v: string) => {
-            maybeSingle: () => Promise<{ data: { id?: string } | null }>;
-          };
-        };
-      };
-      insert: (row: Record<string, unknown>) => {
-        select: (c: string) => {
-          single: () => Promise<{ data: { id?: string } | null }>;
-        };
-      };
-    };
-  };
 
-  // 1) Busca regras ativas do usuário
-  const rulesResp = (await admin
-    .from("meta_ads_trigger_rules")
+  const { data: rulesRaw } = await supabaseAdmin
+    .from("meta_ads_trigger_rules" as never)
     .select(
       "pattern, category_slug, category_nome, category_cor, category_icone, priority, active",
     )
-    .eq("user_id", userId)) as { data: TriggerRule[] | null };
-  const rulesRaw = rulesResp.data;
+    .eq("user_id", userId);
 
-  const match = matchTriggerRule(messageText, rulesRaw ?? []);
+  const match = matchTriggerRule(messageText, (rulesRaw as TriggerRule[] | null) ?? []);
 
-  // Slug / nome / cor / ícone: match específico ou fallback "meta_ads"
   const target = match
     ? {
         slug: match.category_slug,
@@ -78,8 +56,7 @@ export async function resolveMetaAdsCategoryId(
       }
     : { slug: "meta_ads", nome: "Meta Ads", cor: "blue", icone: "📣" };
 
-  // 2) Resolve categoria (cria se ainda não existir)
-  const { data: cat } = await admin
+  const { data: cat } = await supabaseAdmin
     .from("contact_categories")
     .select("id")
     .eq("user_id", userId)
@@ -87,7 +64,7 @@ export async function resolveMetaAdsCategoryId(
     .maybeSingle();
   if (cat?.id) return cat.id;
 
-  const ins = await admin
+  const ins = await supabaseAdmin
     .from("contact_categories")
     .insert({
       user_id: userId,
@@ -99,5 +76,5 @@ export async function resolveMetaAdsCategoryId(
     })
     .select("id")
     .single();
-  return ins.data?.id;
+  return ins.data?.id ?? undefined;
 }
