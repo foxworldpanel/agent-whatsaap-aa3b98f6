@@ -1008,23 +1008,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .eq("telefone", phone)
                   .maybeSingle();
                 if (!dup) {
-                  // Resolve categoria "Meta Ads" (cria se ainda não existir)
-                  let metaCatId: string | undefined;
-                  const { data: metaCat } = await supabaseAdmin
-                    .from("contact_categories")
-                    .select("id")
-                    .eq("user_id", userId)
-                    .eq("slug", "meta_ads")
-                    .maybeSingle();
-                  metaCatId = metaCat?.id;
-                  if (!metaCatId) {
-                    const insCat = await supabaseAdmin
-                      .from("contact_categories")
-                      .insert({ user_id: userId, nome: "Meta Ads", cor: "blue", icone: "📣", slug: "meta_ads", is_system: true })
-                      .select("id")
-                      .single();
-                    metaCatId = insCat.data?.id;
-                  }
+                  // Auto-categorização: casa o texto da 1ª mensagem contra a
+                  // tabela editável `meta_ads_trigger_rules` (Spotify, YouTube,
+                  // etc.). Se nada bater, cai na categoria genérica "Meta Ads".
+                  const { resolveMetaAdsCategoryId } = await import(
+                    "@/lib/meta-ads-categorization.server"
+                  );
+                  const metaCatId = await resolveMetaAdsCategoryId(userId, text);
                   await supabaseAdmin.from("blast_contacts").insert({
                     user_id: userId,
                     contact_list_id: listAId,
