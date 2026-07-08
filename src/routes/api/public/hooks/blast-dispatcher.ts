@@ -306,6 +306,23 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 linha2: pack.linha2,
                 perguntas: pack.perguntas,
               } as typeof DEFAULT_TEMPLATES;
+              // Kind "Spotify — Reativação Playlist": se houver Promoção do Dia
+              // ativa e conseguirmos extrair um preço do texto, troca as
+              // perguntas fallback pelas variantes de promo com esse preço.
+              // Sem promo ativa → mantém as perguntas padrão (R$97, sem citar
+              // "promoção"), preservando honestidade comercial.
+              if (kind.key === "spotify_playlist_reativacao") {
+                const { loadActiveDailyPromo } = await import("@/lib/agent-daily-promo.server");
+                const { SPOTIFY_REATIVACAO_PERGUNTAS_PROMO, extractPromoPrice } = await import("@/lib/opening-kinds");
+                const promoText = await loadActiveDailyPromo(camp.user_id);
+                const preco = extractPromoPrice(promoText);
+                if (preco) {
+                  templates = {
+                    ...templates,
+                    perguntas: SPOTIFY_REATIVACAO_PERGUNTAS_PROMO.map((p) => p.replace(/\{PRECO\}/g, preco)),
+                  } as typeof DEFAULT_TEMPLATES;
+                }
+              }
             } else if (useVariacao) {
               const { data: tplRow } = await supabaseAdmin
                 .from("opening_templates")
