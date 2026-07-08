@@ -390,7 +390,7 @@ export const setConversationAgentEnabled = createServerFn({ method: "POST" })
       })
       .eq("id", data.conversationId)
       .in("user_id", userIds)
-      .eq("workspace_id", context.workspaceId)
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
       .select("id, agent_enabled, contact_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -428,7 +428,7 @@ export const reactivateConversation = createServerFn({ method: "POST" })
       })
       .eq("id", data.conversationId)
       .in("user_id", userIds)
-      .eq("workspace_id", context.workspaceId)
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
       .select("id, contact_id")
       .maybeSingle();
     if (convErr) throw new Error(convErr.message);
@@ -460,7 +460,7 @@ export const blockConversation = createServerFn({ method: "POST" })
       })
       .eq("id", data.conversationId)
       .in("user_id", userIds)
-      .eq("workspace_id", context.workspaceId)
+      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
       .select("id, contact_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
