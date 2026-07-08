@@ -2744,6 +2744,20 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         await appendConfigScreens("mobile", (agent as { panel_screenshots_mobile?: unknown }).panel_screenshots_mobile);
         await appendConfigScreens("desktop", (agent as { panel_screenshots_desktop?: unknown }).panel_screenshots_desktop);
 
+        // ETAPA 3 — sob demanda: se a msg atual + últimas 3 do cliente não
+        // indicam dúvida operacional, o extracted_content não vai pro prompt.
+        // Preserva panelScreens carregados só pra rodar/persistir a Vision
+        // (que já é gated por shouldUsePanelGuide dentro dos loops acima).
+        const panelScreensBeforeGate = panelScreens.length;
+        if (!shouldUsePanelGuide) {
+          panelScreens.length = 0;
+        }
+        console.info("[panel-guide-relevance]", {
+          shouldUsePanelGuide,
+          loaded: panelScreensBeforeGate,
+          injected: panelScreens.length,
+        });
+
         // Load forbidden rules so the agent always deflects without breaking them.
         const { data: frRows } = await supabaseAdmin
           .from("forbidden_rules")
