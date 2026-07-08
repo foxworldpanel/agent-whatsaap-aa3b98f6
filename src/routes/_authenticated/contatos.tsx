@@ -703,6 +703,7 @@ function ExtractionPanel({
   const [perfil, setPerfil] = useState<ContactProfile>("frio");
   const [linkCampaign, setLinkCampaign] = useState(false);
   const [funnelId, setFunnelId] = useState<string>("");
+  const [sendMetaAds, setSendMetaAds] = useState(false);
   const [summary, setSummary] = useState<{ new_imported: number; already_existed: number } | null>(null);
 
   const { data: numbers = [] } = useQuery({ queryKey: ["numbers-extract"], queryFn: () => numbersList() });
@@ -721,7 +722,18 @@ function ExtractionPanel({
       const list = (chats ?? []).filter((c) => selected.has(c.phone));
       return importExtract({ data: { whatsapp_number_id: numberId, perfil, welcome_funnel_id: linkCampaign && funnelId ? funnelId : null, contacts: list } });
     },
-    onSuccess: (r) => { setSummary(r); onImported(); },
+    onSuccess: async (r) => {
+      if (sendMetaAds) {
+        const list = (chats ?? []).filter((c) => selected.has(c.phone));
+        try {
+          await sendToMetaAds({ data: { contacts: list.map((c) => ({ phone: c.phone, name: c.name })) } });
+        } catch (e) {
+          console.error("send to meta ads failed", e);
+        }
+      }
+      setSummary(r);
+      onImported();
+    },
   });
 
   const filtered = (chats ?? []).filter((c) => {
