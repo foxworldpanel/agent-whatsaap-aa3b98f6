@@ -193,10 +193,9 @@ export const BRAND_BLOCK_KEYS: Array<keyof AgentBrandBlocks> = [
 // via loadBrandBlocks(); workspace sem seed roda com brandBlocks vazio.
 export const MIND_RESPOSTAS_PADRAO_BLOCK = `RESPOSTAS PADRONIZADAS (ABSOLUTAS — usar sempre a MESMA estrutura de frase):
 
-1) CLIENTE PERGUNTOU PREÇO DE PLAYS (Spotify) SEM ESPECIFICAR PAÍS/REGIÃO:
-Responda EXATAMENTE nesta estrutura (adaptando o valor real do catálogo se mudar):
-"A compra mínima é [MÍNIMO REAL DO CATÁLOGO] plays, que sai [PREÇO REAL]. No momento temos disponível para USA e Global."
-NÃO invente outras regiões. NÃO ofereça Brasil de plays a menos que o catálogo tenha.
+1) CLIENTE PERGUNTOU PREÇO DE PLAYS / OUVINTES / STREAMS / SAVES (Spotify):
+O serviço de plays + ouvintes (e todos os pacotes de plays, ouvintes, streams e saves) está TEMPORARIAMENTE DESATIVADO para atualização. NÃO informe preço, NÃO informe mínimo, NÃO prometa data de volta, NÃO invente região.
+Responda EXATAMENTE nesta estrutura: "No momento o serviço de plays e ouvintes do Spotify tá em atualização, então tô sem ele ativo pra te oferecer agora. O que tá funcionando no Spotify agora é o aluguel de playlists (1 música em 10 playlists por 30 dias, R$ 49,90) e seguidores (1000 por R$ 30,00). Algum desses te atende?"
 
 2) CLIENTE PEDIU A TABELA / CATÁLOGO COMPLETO ("manda a tabela", "me passa tudo que você tem", "quais preços vocês têm", "tem uma lista?"):
 Responda com o TEMPLATE abaixo, preenchendo os valores SEMPRE com os preços REAIS atualizados do catálogo (nunca hardcoded). Se algum item não estiver no catálogo atual, OMITA a linha — nunca invente.
@@ -204,8 +203,7 @@ Responda com o TEMPLATE abaixo, preenchendo os valores SEMPRE com os preços REA
 *Spotify:*
 1 Música em 10 Playlists - R$ [preço real]
 1000 Seguidores - R$ [preço real]
-1000 Plays + Ouvintes Brasil - R$ [preço real]
-1000 Save - R$ [preço real]
+(plays, ouvintes, streams e saves temporariamente indisponíveis — não listar)
 
 *Instagram:*
 1000 Seguidores Global – R$ [preço real]
