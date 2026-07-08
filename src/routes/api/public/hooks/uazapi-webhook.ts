@@ -3185,25 +3185,45 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return false;
         };
 
-        // Quando o cliente manda áudio, respondemos por áudio sempre que houver
-        // ElevenLabs configurado e a PRIMEIRA parte da resposta for falável.
-        // As demais partes (geralmente o link após "===SPLIT===") seguem como texto.
+        // ETAPA 5 — Gate texto vs áudio. Antes: se cliente mandou áudio e
+        // ElevenLabs configurado → SEMPRE áudio. Agora: bloqueia áudio
+        // quando a primeira parte tem conteúdo estruturado (URL/preço/
+        // lista/tutorial numerado) ou é longa (>250 chars). Reduz custo
+        // ElevenLabs + evita tutorial narrado (péssimo pra cliente seguir).
         const isAudioMessage = kind === "audio";
-        const respondWithAudio =
-          isAudioMessage &&
-          !!integ.elevenlabs_api_key &&
-          !!integ.elevenlabs_voice_id &&
-          replyParts.length > 0;
-        console.log(`🎤 Mensagem original era áudio: ${isAudioMessage} → usando ElevenLabs: ${respondWithAudio}`);
+        const { decideAudioOut } = await import("@/lib/audio-out-gate");
+        const audioDecision = decideAudioOut({
+          clientSentAudio: isAudioMessage,
+          hasElevenLabsKey: !!integ.elevenlabs_api_key,
+          hasVoiceId: !!integ.elevenlabs_voice_id,
+          firstReplyPart: replyParts[0],
+        });
+        const respondWithAudio = audioDecision.audio;
         console.log("🎙️ Audio decision:", {
           inputKind: kind,
           clienteSendouAudio: isAudioMessage,
           hasElevenLabsKey: !!integ.elevenlabs_api_key,
           hasVoiceId: !!integ.elevenlabs_voice_id,
           replyPartsCount: replyParts.length,
+          firstPartChars: audioDecision.firstPartChars,
           firstPartPreview: replyParts[0]?.slice(0, 60),
+          reason: audioDecision.reason,
           respondWithAudio,
         });
+        if (isAudioMessage && !respondWithAudio && audioDecision.reason !== "no-tts-config" && audioDecision.reason !== "empty-reply") {
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv.id,
+              type: "elevenlabs_tts",
+              level: "info",
+              summary: `TTS bloqueado por gate (${audioDecision.reason}, ${audioDecision.firstPartChars} chars) — resposta vai por texto`,
+              response: replyParts[0]?.slice(0, 300) ?? null,
+            });
+          } catch {}
+        }
         if (kind === "audio" && !respondWithAudio) {
           try {
             const { logEvent } = await import("@/lib/agent-logger.server");
