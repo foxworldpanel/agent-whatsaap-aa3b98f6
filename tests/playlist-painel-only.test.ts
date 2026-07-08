@@ -28,10 +28,13 @@ describe("Playlist voltou ao fluxo painel-only", () => {
     expect(mod).not.toMatch(/chave PIX é o número/i);
     expect(mod).not.toMatch(/24981222957/);
     expect(mod).not.toMatch(/Eliseu Mendes Oliveira/i);
-    expect(mod).not.toMatch(/Cliente envia comprovante/i);
-    expect(mod).not.toMatch(/eu j[áa] processo pra voc[êe]/i);
-    expect(mod).not.toMatch(/Recebi o pagamento/i);
-    expect(mod).not.toMatch(/Agente analisa o comprovante/i);
+    // Cliente envia comprovante / Recebi o pagamento / Agente analisa
+    // são frases do fluxo antigo (passo-a-passo). Confirma que sumiram
+    // como instrução — presença dentro da lista "PROIBIDO ABSOLUTO"
+    // do novo módulo é OK e desejada.
+    expect(mod).not.toMatch(/Cliente envia comprovante/);
+    expect(mod).not.toMatch(/Agente analisa o comprovante/);
+    expect(mod).not.toMatch(/Via WhatsApp \(SOMENTE pacote de playlists/i);
   });
 
   it("2) módulo playlist_promo declara explicitamente que toda compra é no painel", () => {
