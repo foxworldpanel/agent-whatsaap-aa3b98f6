@@ -13,7 +13,7 @@ import {
   listContactGroups, createContactGroup, deleteContactGroup,
   assignContactsToGroup, bulkUpdateContacts, updateContactFields,
 } from "@/lib/contacts-crm.functions";
-import { extractChatsFromNumber, importExtractedContacts } from "@/lib/extraction.functions";
+import { extractChatsFromNumber, importExtractedContacts, sendExtractedToMetaAdsList } from "@/lib/extraction.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { listWelcomeFunnels } from "@/lib/welcome-funnels.functions";
 
@@ -91,6 +91,7 @@ function Contatos() {
   const updateFields = useServerFn(updateContactFields);
   const extract = useServerFn(extractChatsFromNumber);
   const importExtract = useServerFn(importExtractedContacts);
+  const sendToMetaAds = useServerFn(sendExtractedToMetaAdsList);
   const numbersList = useServerFn(listNumbers);
   const funnelsList = useServerFn(listWelcomeFunnels);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -542,6 +543,7 @@ function Contatos() {
           funnelsList={funnelsList}
           extract={extract}
           importExtract={importExtract}
+          sendToMetaAds={sendToMetaAds}
           onImported={invalidateAll}
         />
       )}
