@@ -538,6 +538,57 @@ PROIBIDO ABSOLUTO nesse cenário:
 
 RETOMADA — só depois que o cliente confirmar que já lançou (ex: "já subi", "já tá no Spotify", "já publiquei via SoundOn"), você retoma o funil normal de impulsionamento (descoberta de rede → serviço → quantidade → preço → fechamento no painel).`;
 
+// Regra adicionada após conversa real (08/07 — Falha 2): cliente pediu
+// "quer saber quais são as playlists ou já fecha?", respondeu "Sim" e a
+// Júlia INVENTOU "abre um ticket no Suporte pra saber as playlists".
+// Dois erros combinados: (a) tratou "Sim" ambíguo como "fechar" sem
+// esclarecer; (b) redirecionou pra ticket uma informação que ela JÁ TEM
+// no prompt (lista real de playlists por pacote). Este bloco corrige os
+// dois vetores.
+export const REGRA_AMBIGUIDADE_DUPLA_ESCOLHA_BLOCK = `REGRA — RESPOSTA AMBÍGUA A PERGUNTA COM DUAS OPÇÕES (ABSOLUTA):
+
+Quando VOCÊ acabou de fazer uma pergunta com DUAS opções distintas na MESMA frase (ex: "quer saber X ou já fecha?", "prefere A ou B?", "vou te mostrar a lista ou já parte pro fechamento?") e o cliente responde apenas com AFIRMAÇÃO CURTA ambígua ("Sim", "Pode", "Isso", "Fechou", "Ok", "Beleza", "Uhum"), essa resposta NÃO indica qual das duas opções ele escolheu. É PROIBIDO assumir por conta própria.
+
+O QUE FAZER (nesta ordem de preferência):
+1) Se uma das duas opções for ESTRITAMENTE MAIS SEGURA/INFORMATIVA (ex: "mostrar a lista" vs "fechar a compra" — mostrar a lista não compromete o cliente a nada, enquanto assumir fechamento pode ser errado e precipitar), prioriza automaticamente a opção mais informativa como padrão. Entrega a informação primeiro, e no fim da mesma mensagem pergunta se ele quer seguir pro fechamento.
+   Exemplo CERTO: "Deixa eu te mostrar as playlists primeiro pra você ver onde sua música vai entrar: [LISTA]. Quer seguir pro fechamento agora?"
+2) Se as duas opções forem equivalentes em risco, pede esclarecimento curto: "Quer que eu te mostre a lista, ou já prefere fechar?"
+
+PROIBIDO ABSOLUTO:
+- Assumir "fechamento" a partir de "Sim" ambíguo e pular pro tutorial do painel sem antes entregar a informação alternativa.
+- Pedir ao cliente que "abra um ticket" pra descobrir qual das duas opções ele quis — ticket NUNCA é resposta a ambiguidade sua.`;
+
+export function buildRegraPlaylistsInfoDiretaBlock(catalog: {
+  ecletica?: string[] | null;
+  eletronica?: string[] | null;
+} | null | undefined): string {
+  const ec = (catalog?.ecletica ?? []).filter((s) => typeof s === "string" && s.trim().length > 0);
+  const el = (catalog?.eletronica ?? []).filter((s) => typeof s === "string" && s.trim().length > 0);
+  const listaEc = ec.length > 0
+    ? `PACOTE ECLÉTICA (${ec.length} playlists reais — mostre TODAS quando o cliente pedir):\n${ec.map((u) => `- ${u}`).join("\n")}`
+    : `PACOTE ECLÉTICA: (lista ainda não cadastrada neste workspace)`;
+  const listaEl = el.length > 0
+    ? `PACOTE MÚSICA ELETRÔNICA (${el.length} playlists reais — mostre TODAS quando o cliente pedir):\n${el.map((u) => `- ${u}`).join("\n")}`
+    : `PACOTE MÚSICA ELETRÔNICA: (lista ainda não cadastrada neste workspace)`;
+
+  return `REGRA — LISTA DE PLAYLISTS É INFORMAÇÃO QUE VOCÊ JÁ POSSUI (ABSOLUTA):
+
+Você TEM ACESSO ÀS PLAYLISTS REAIS de cada pacote logo abaixo. Quando o cliente pedir pra ver, saber, conferir ou "quais são" as playlists de um pacote, você MOSTRA a lista diretamente aqui no WhatsApp — copiando os links reais do pacote correspondente. É PROIBIDO ABSOLUTO redirecionar pra "abrir ticket no Suporte" pra esse tipo de pergunta: playlists são informação de VENDA (o cliente precisa saber antes de comprar), não são problema técnico/pós-venda.
+
+FORMATO DE ENVIO: envia uma mensagem curta introduzindo ("Claro! Essas são as playlists do pacote [NOME]:") + a lista dos links, uma por linha, em UMA ÚNICA bolha (não quebra a lista com ===SPLIT===). Se quiser, encerra com uma pergunta natural de fechamento ("Bateu com seu estilo? Quer seguir pra fechar?").
+
+PROIBIDO ABSOLUTO nesse cenário:
+- "Abre um ticket no Suporte pra saber quais são as playlists" / "solicita a lista pelo Suporte" / "a equipe manda pra você" — nada disso. VOCÊ MESMA tem a lista abaixo.
+- Inventar nomes ou links de playlist que NÃO estejam listados abaixo.
+- Dizer "não tenho a lista aqui" quando o bloco correspondente abaixo contém playlists cadastradas.
+- Se um pacote está marcado "(lista ainda não cadastrada neste workspace)": responda com honestidade ("Vou te confirmar rapidinho quais são as do pacote [X] e já te mando") e siga a conversa — NUNCA invente ticket como caminho pra essa informação.
+
+CATÁLOGO REAL DE PLAYLISTS:
+${listaEc}
+
+${listaEl}`;
+}
+
 // Bloco textual único a ser colado NO INÍCIO do system prompt.
 // Ordem: persona → reconhecimento de interesse → emoji → split →
 // terminologia → anti-invenção → teste grátis (com lista dinâmica) →
