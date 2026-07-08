@@ -13,7 +13,7 @@ import {
   listContactGroups, createContactGroup, deleteContactGroup,
   assignContactsToGroup, bulkUpdateContacts, updateContactFields,
 } from "@/lib/contacts-crm.functions";
-import { extractChatsFromNumber, importExtractedContacts } from "@/lib/extraction.functions";
+import { extractChatsFromNumber, importExtractedContacts, sendExtractedToMetaAdsList } from "@/lib/extraction.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { listWelcomeFunnels } from "@/lib/welcome-funnels.functions";
 
@@ -91,6 +91,7 @@ function Contatos() {
   const updateFields = useServerFn(updateContactFields);
   const extract = useServerFn(extractChatsFromNumber);
   const importExtract = useServerFn(importExtractedContacts);
+  const sendToMetaAds = useServerFn(sendExtractedToMetaAdsList);
   const numbersList = useServerFn(listNumbers);
   const funnelsList = useServerFn(listWelcomeFunnels);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -542,6 +543,7 @@ function Contatos() {
           funnelsList={funnelsList}
           extract={extract}
           importExtract={importExtract}
+          sendToMetaAds={sendToMetaAds}
           onImported={invalidateAll}
         />
       )}
@@ -684,13 +686,14 @@ type ChatRow = {
 };
 
 function ExtractionPanel({
-  onClose, numbersList, funnelsList, extract, importExtract, onImported,
+  onClose, numbersList, funnelsList, extract, importExtract, sendToMetaAds, onImported,
 }: {
   onClose: () => void;
   numbersList: () => Promise<Array<{ id: string; nome: string; status: string | null }>>;
   funnelsList: (args: { data: { whatsapp_number_id: string } }) => Promise<Array<{ id: string; name: string }>>;
   extract: (args: { data: { whatsapp_number_id: string } }) => Promise<{ chats: ChatRow[] }>;
   importExtract: (args: { data: { whatsapp_number_id: string; perfil: ContactProfile; welcome_funnel_id: string | null; contacts: ChatRow[] } }) => Promise<{ new_imported: number; already_existed: number }>;
+  sendToMetaAds: (args: { data: { contacts: Array<{ phone: string; name: string | null }> } }) => Promise<{ inserted: number; ignored_existing: number; invalid: number }>;
   onImported: () => void;
 }) {
   const [numberId, setNumberId] = useState<string>("");
@@ -701,6 +704,7 @@ function ExtractionPanel({
   const [perfil, setPerfil] = useState<ContactProfile>("frio");
   const [linkCampaign, setLinkCampaign] = useState(false);
   const [funnelId, setFunnelId] = useState<string>("");
+  const [sendMetaAds, setSendMetaAds] = useState(false);
   const [summary, setSummary] = useState<{ new_imported: number; already_existed: number } | null>(null);
 
   const { data: numbers = [] } = useQuery({ queryKey: ["numbers-extract"], queryFn: () => numbersList() });
@@ -719,7 +723,18 @@ function ExtractionPanel({
       const list = (chats ?? []).filter((c) => selected.has(c.phone));
       return importExtract({ data: { whatsapp_number_id: numberId, perfil, welcome_funnel_id: linkCampaign && funnelId ? funnelId : null, contacts: list } });
     },
-    onSuccess: (r) => { setSummary(r); onImported(); },
+    onSuccess: async (r) => {
+      if (sendMetaAds) {
+        const list = (chats ?? []).filter((c) => selected.has(c.phone));
+        try {
+          await sendToMetaAds({ data: { contacts: list.map((c) => ({ phone: c.phone, name: c.name })) } });
+        } catch (e) {
+          console.error("send to meta ads failed", e);
+        }
+      }
+      setSummary(r);
+      onImported();
+    },
   });
 
   const filtered = (chats ?? []).filter((c) => {
@@ -787,6 +802,18 @@ function ExtractionPanel({
                   {funnels.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
                 </select>
               )}
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={sendMetaAds} onChange={(e) => setSendMetaAds(e.target.checked)} />
+                <span className="inline-flex items-center gap-1">
+                  <Megaphone className="h-4 w-4 text-primary" />
+                  Enviar também para a lista <strong>Meta Ads</strong> (menu Disparos)
+                </span>
+              </label>
+              <p className="mt-1 pl-6 text-xs text-muted-foreground">
+                Os contatos ficam disponíveis na lista de disparo Meta Ads pra usar na campanha “Meta Ads — Reativação”. Duplicados já existentes são ignorados.
+              </p>
             </div>
             <div className="mt-auto flex gap-2 border-t border-border pt-4">
               <button onClick={() => setShowOptions(false)}

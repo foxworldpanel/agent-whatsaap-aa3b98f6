@@ -167,3 +167,126 @@ export const listExtractionLogs = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return data ?? [];
   });
+
+function normalizePhone(raw: string): string {
+  return raw.replace(/\D+/g, "");
+}
+
+// Envia contatos extraídos direto para a lista "Meta Ads" do menu de Disparos,
+// pra ficarem disponíveis pra campanha de reativação (Meta Ads — Reativação).
+// Garante lista + categoria system "meta_ads" (cria se faltar), respeita a
+// mesma anti-duplicata global do importContactsToList.
+export const sendExtractedToMetaAdsList = createServerFn({ method: "POST" })
+  .middleware([withWorkspaceScope])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        contacts: z
+          .array(
+            z.object({
+              phone: z.string().min(5),
+              name: z.string().nullable().optional(),
+            }),
+          )
+          .min(1)
+          .max(5000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    // 1) Garantir lista "meta_ads"
+    let { data: list } = await context.supabase
+      .from("contact_lists")
+      .select("id, origem")
+      .eq("user_id", context.userId)
+      .eq("origem", "meta_ads")
+      .maybeSingle();
+    if (!list) {
+      const { data: inserted, error: e1 } = await context.supabase
+        .from("contact_lists")
+        .insert({ user_id: context.userId, name: "Lista A — Meta Ads", origem: "meta_ads" })
+        .select("id, origem")
+        .single();
+      if (e1) throw new Error(e1.message);
+      list = inserted;
+    }
+
+    // 2) Garantir categoria system "meta_ads"
+    let { data: cat } = await context.supabase
+      .from("contact_categories")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("slug", "meta_ads")
+      .maybeSingle();
+    if (!cat) {
+      const { data: inserted, error: e2 } = await context.supabase
+        .from("contact_categories")
+        .insert({
+          user_id: context.userId,
+          nome: "Meta Ads",
+          cor: "blue",
+          icone: "📣",
+          slug: "meta_ads",
+          is_system: true,
+        })
+        .select("id")
+        .single();
+      if (e2) throw new Error(e2.message);
+      cat = inserted;
+    }
+
+    // 3) Normalizar e deduplicar in-batch
+    let invalid = 0;
+    const normalized = data.contacts
+      .map((r) => ({ nome: (r.name ?? "").trim() || r.phone, telefone: normalizePhone(r.phone) }))
+      .filter((r) => {
+        const ok = r.telefone.length >= 10 && r.telefone.length <= 15;
+        if (!ok) invalid++;
+        return ok;
+      });
+    const seen = new Set<string>();
+    let dupBatch = 0;
+    const uniq = normalized.filter((r) => {
+      if (seen.has(r.telefone)) { dupBatch++; return false; }
+      seen.add(r.telefone);
+      return true;
+    });
+
+    // 4) Anti-duplicata global (mesma lógica de importContactsToList)
+    let dupGlobal = 0;
+    if (uniq.length > 0) {
+      const phones = uniq.map((r) => r.telefone);
+      const { data: ex } = await context.supabase
+        .from("blast_contacts")
+        .select("telefone")
+        .eq("user_id", context.userId)
+        .in("telefone", phones);
+      const exSet = new Set((ex ?? []).map((r) => r.telefone as string));
+      const filtered = uniq.filter((r) => {
+        if (exSet.has(r.telefone)) { dupGlobal++; return false; }
+        return true;
+      });
+      uniq.length = 0;
+      uniq.push(...filtered);
+    }
+
+    if (uniq.length === 0) {
+      return { inserted: 0, ignored_existing: dupGlobal + dupBatch, invalid };
+    }
+
+    const payload = uniq.map((r) => ({
+      user_id: context.userId,
+      contact_list_id: list!.id,
+      categoria_id: cat!.id,
+      origem: "meta_ads" as const,
+      nome: r.nome,
+      telefone: r.telefone,
+      instagram: "",
+      status: "pendente" as const,
+    }));
+    const { error, count } = await context.supabase
+      .from("blast_contacts")
+      .insert(payload, { count: "exact" });
+    if (error) throw new Error(error.message);
+    return { inserted: count ?? payload.length, ignored_existing: dupGlobal + dupBatch, invalid };
+  });
