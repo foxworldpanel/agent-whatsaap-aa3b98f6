@@ -1,10 +1,10 @@
 /**
- * Guardrail textual da REGRA_SUPORTE_PROBLEMA_BLOCK e do template Mind.
+ * Guardrail da REGRA_SUPORTE_PROBLEMA_BLOCK (versão simplificada).
  *
- * Cobre 3 regras vindas de conversa real:
- *  1) Saudação + conteúdo (cliente manda "Ola, sumiu" → Júlia SAÚDA antes de investigar).
- *  2) NUNCA pedir "ID do pedido" isolado por texto — só PRINT do painel.
- *  3) Escalação: 1ª menção → print; 2ª+ ou sem print → ticket direto.
+ * Regra atual: qualquer reclamação de pedido/entrega/reposição → ticket
+ * direto na primeira menção. Sem pedir print antes, sem investigar via
+ * WhatsApp. Print continua valendo para OUTROS contextos (pagamento,
+ * erro no cadastro, dúvida de UI).
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -15,29 +15,27 @@ import {
   mergeIdentity,
 } from "@/lib/agent-identity.server";
 
-describe("REGRA_SUPORTE_PROBLEMA_BLOCK", () => {
-  it("1) cobre saudação + conteúdo com exemplo do incidente real", () => {
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/SAUDA[ÇC][ÃA]O COM CONTE[ÚU]DO/i);
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/Ola\s*,\s*sumil/);
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/Boa noite!/);
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/NUNCA pule direto/i);
+describe("REGRA_SUPORTE_PROBLEMA_BLOCK (ticket direto)", () => {
+  it("orienta ticket JÁ NA PRIMEIRA RESPOSTA", () => {
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/PRIMEIRA (RESPOSTA|MENÇÃO)/i);
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/abre um ticket no menu Suporte/i);
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/informa o ID do pedido/i);
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/reposição ou reembolso em saldo/i);
   });
 
-  it("2) proíbe pedir 'ID do pedido' como texto isolado", () => {
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/NUNCA PE[ÇC]A "ID DO PEDIDO"/i);
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/me manda o ID do pedido/i);
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/qual o n[úu]mero do seu pedido/i);
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/pe[çc]a PRINT/i);
+  it("proíbe pedir print para investigar reclamação de pedido", () => {
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/PROIBIDO ABSOLUTO/i);
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/Pedir PRINT do pedido/i);
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/sem pedir print antes/i);
   });
 
-  it("2b) permite explicitamente incluir ID DENTRO de um ticket (não é o mesmo problema)", () => {
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/DENTRO de um ticket[^]*PERMITIDO/i);
+  it("preserva análise de imagem para outros contextos operacionais", () => {
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/EXCEÇÃO IMPORTANTE/i);
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/pagamento|cadastro\/login|UI do painel/i);
   });
 
-  it("3) escalação: 1ª menção pede print; sem print / 2+ insistências vai direto pro ticket", () => {
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/1[ªa]\s*menção[^]*PRINT/i);
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/2\+\s*vezes/i);
-    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/abrir ticket no Suporte do painel DIRETAMENTE/i);
+  it("mantém política de reembolso só em saldo", () => {
+    expect(REGRA_SUPORTE_PROBLEMA_BLOCK).toMatch(/nunca em dinheiro/i);
   });
 
   it("está injetado no system prompt via buildSharedRules", () => {
@@ -46,27 +44,21 @@ describe("REGRA_SUPORTE_PROBLEMA_BLOCK", () => {
   });
 });
 
-describe("MIND_BRAND_TEMPLATE.persona — sem instrução problemática de ID isolado", () => {
-  it("template atualizado NÃO instrui mais 'informando o ID do pedido' como texto", () => {
-    expect(MIND_BRAND_TEMPLATE.persona).not.toMatch(/informando o ID do pedido/i);
+describe("MIND_BRAND_TEMPLATE.persona alinhado com ticket direto", () => {
+  it("persona não instrui mais pedir print antes do ticket em reclamação de pedido", () => {
+    expect(MIND_BRAND_TEMPLATE.persona).not.toMatch(/primeiro peça PRINT do histórico/i);
+    expect(MIND_BRAND_TEMPLATE.persona).not.toMatch(/Me manda um print do pedido no histórico/i);
   });
 
-  it("template preserva menção factual a 'número do pedido' como CAMPO do painel", () => {
-    // Cliente vê no painel: número do pedido, data, contagem inicial, link, status.
-    // Isso é descrição de UI, não pedido pra passar por texto — pode continuar.
-    expect(MIND_BRAND_TEMPLATE.persona).toMatch(/n[úu]mero do pedido, data e hora, contagem inicial/i);
+  it("persona orienta ticket direto informando o ID dentro do ticket", () => {
+    expect(MIND_BRAND_TEMPLATE.persona).toMatch(/JÁ NA PRIMEIRA RESPOSTA/i);
+    expect(MIND_BRAND_TEMPLATE.persona).toMatch(/ID do pedido DENTRO do ticket/i);
   });
 
-  it("template agora orienta PRINT primeiro em queda/reposição, ticket como escalação", () => {
-    expect(MIND_BRAND_TEMPLATE.persona).toMatch(/PRINT do hist[óo]rico do painel/i);
-    expect(MIND_BRAND_TEMPLATE.persona).toMatch(/nunca peça o número do pedido isolado/i);
-  });
-
-  it("shared prompt (persona Mind mesclada) não contém mais 'informando o ID do pedido'", () => {
+  it("shared prompt (persona Mind mesclada) contém a regra simplificada", () => {
     const identity = mergeIdentity({ persona: MIND_BRAND_TEMPLATE.persona });
     const shared = buildSharedRules(identity);
-    expect(shared).not.toMatch(/informando o ID do pedido/i);
-    // regra de suporte deve estar presente pra reforçar o comportamento
-    expect(shared).toMatch(/NUNCA PE[ÇC]A "ID DO PEDIDO"/i);
+    expect(shared).toMatch(/abre um ticket no menu Suporte/i);
+    expect(shared).not.toMatch(/primeiro peça PRINT do histórico/i);
   });
 });
