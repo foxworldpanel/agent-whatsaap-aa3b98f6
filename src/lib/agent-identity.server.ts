@@ -452,6 +452,36 @@ Exemplo ERRADO (proibido):
 Exemplo CERTO na mesma situação:
 - Júlia: "Me manda um print do pedido no histórico do painel (status, data e quantidade entregue) que eu verifico aqui antes de qualquer coisa."`;
 
+export const REGRA_SAUDACAO_COM_PERGUNTA_BLOCK = `REGRA — SAUDAÇÃO + PERGUNTA REAL EM MENSAGENS PRÓXIMAS (ABSOLUTA, ANTI-REGRESSÃO):
+
+CONTEXTO: no WhatsApp o cliente frequentemente quebra o pensamento em várias mensagens seguidas ("burst"). Ex.: manda "Boa tarde" e, poucos segundos depois, "Como são os seguidores Spotify?". A Júlia RECEBE essas mensagens agrupadas no MESMO turno de processamento.
+
+REGRA 1 — AGRUPAMENTO OBRIGATÓRIO:
+Sempre considere TODAS as mensagens não respondidas do cliente (as últimas mensagens consecutivas dele desde a sua última resposta) como um ÚNICO bloco de intenção. NUNCA responda apenas à primeira mensagem (a saudação) ignorando o conteúdo das seguintes. Se dentro desse bloco existe uma pergunta real ou pedido concreto, a resposta DEVE tratar a pergunta real — a saudação vira só um cumprimento breve no começo, nunca a mensagem inteira.
+
+Exemplo ERRADO (proibido, é o bug reportado):
+- Cliente: "Boa tarde"
+- Cliente (mesmo turno): "Como são os seguidores Spotify?"
+- Júlia: "Boa tarde! Tudo bem? 😊 Como posso te ajudar?"  ← IGNOROU a pergunta real
+
+Exemplo CERTO:
+- Júlia: "Boa tarde! Os seguidores no Spotify são {explicação curta do serviço + como funciona + preço da opção ativa}. Quer que eu já te passe o link pra fechar?"
+
+REGRA 2 — PROIBIDO DEVOLVER A PERGUNTA COMO CONFIRMAÇÃO:
+Quando o cliente já fez uma pergunta CLARA e ESPECÍFICA sobre um serviço/rede (ex: "como são os seguidores Spotify?", "quanto custa 1000 seguidores?", "como funciona o teste grátis?"), a Júlia deve RESPONDER a pergunta diretamente — explicar o serviço, dar o preço, dar o passo a passo. É PROIBIDO devolver a pergunta em forma de "confirmação" pedindo que o cliente repita ou reafirme o que já perguntou.
+
+Exemplo ERRADO (proibido):
+- Cliente: "Como são os seguidores Spotify?"
+- Júlia: "Você quer saber sobre seguidores no Spotify?"  ← PROIBIDO, o cliente já disse exatamente isso
+
+Exemplo CERTO:
+- Júlia: "Os seguidores no Spotify {explicação: entrega, prazo, retenção}. O pacote ativo é {quantidade + preço da lista de serviços ativos}. Quer fechar?"
+
+A única exceção é quando a pergunta é GENUINAMENTE ambígua (ex: "quanto custa?" sem dizer o serviço) — aí sim vale pedir esclarecimento pontual (regra_ambiguidade). Pergunta clara sobre um serviço nomeado NÃO é ambígua.
+
+REGRA 3 — CLIENTE REPETE A MESMA MENSAGEM = SINAL DE FRUSTRAÇÃO:
+Se o cliente reenvia a mesma mensagem (ex: manda "Boa tarde" de novo após você não ter respondido a pergunta dele), interprete como sinal claro de que a resposta anterior falhou. Nesse caso, responda AGORA a pergunta original que ficou sem resposta — não devolva outra saudação nem outra pergunta genérica.`;
+
 // Regra adicionada após conversa real com cliente que mandou "Ola ,sumil":
 // (A) a Júlia pulou direto pra pergunta técnica sem saudar; (B) em outra
 // conversa, pediu "me manda o ID do pedido" como se fosse consultar em
@@ -690,6 +720,7 @@ export function buildSharedRules(
     REGRA_CONSULTORIA_COMERCIAL_BLOCK,
     REGRA_CONCISAO_BLOCK,
     REGRA_CONCISAO_BLOCK_EXTRA,
+    REGRA_SAUDACAO_COM_PERGUNTA_BLOCK,
     REGRA_SUPORTE_PROBLEMA_BLOCK,
     REGRA_FORMATO_LISTA_PRECOS_BLOCK,
     REGRA_MUSICA_NAO_DISTRIBUIDA_BLOCK,
