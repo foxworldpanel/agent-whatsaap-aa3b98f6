@@ -99,10 +99,15 @@ function Contatos() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [search, setSearch] = useState("");
-  const [origemFilter, setOrigemFilter] = useState<Set<Origem>>(new Set());
+  // Origem chips agora são baseados em categoria (slug), não mais no campo
+  // legado `source` do contato. Chaves possíveis:
+  //   "meta_ads_all"     → qualquer categoria cujo slug começa com "meta_ads"
+  //   "meta_ads_spotify" → slug === "meta_ads_spotify"
+  //   "meta_ads_youtube" → slug === "meta_ads_youtube"
+  //   "instagram_csv"    → slug === "lead_instagram"
+  const [origemFilter, setOrigemFilter] = useState<Set<string>>(new Set());
   const [tempFilter, setTempFilter] = useState<Set<Temperatura>>(new Set());
   const [statusFilter, setStatusFilter] = useState<Set<StatusCRM>>(new Set());
-  const [categoriaFilter, setCategoriaFilter] = useState<Set<string>>(new Set());
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"table" | "kanban">("table");
