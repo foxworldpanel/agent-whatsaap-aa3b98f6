@@ -451,26 +451,29 @@ function selectActiveModules(
 const EMOJI_MENTION_RE = /emoji|emojis/i;
 export function stripEmojiRuleDuplicates(moduleKey: string, content: string): string {
   if (!content) return content;
-  // Split por parágrafo (linha em branco). Se um parágrafo menciona emoji,
-  // dropamos ele inteiro — evita meia-frase órfã.
-  const paragraphs = content.split(/\n\s*\n/);
+  // Estratégia menos agressiva: linha a linha. Uma linha que menciona
+  // "emoji" é considerada duplicata da regra canônica (identity.regra_emoji)
+  // e é removida. Preserva o resto do bloco intacto — zero risco de
+  // comportamento pra outras instruções vizinhas.
+  const lines = content.split(/\r?\n/);
   const kept: string[] = [];
   let dropped = 0;
-  for (const p of paragraphs) {
-    if (EMOJI_MENTION_RE.test(p)) {
+  for (const line of lines) {
+    if (EMOJI_MENTION_RE.test(line)) {
       dropped++;
       continue;
     }
-    kept.push(p);
+    kept.push(line);
   }
   if (dropped > 0) {
-    console.info("[dedup-emoji] paragraphs stripped from module", {
+    console.info("[dedup-emoji] lines stripped from module", {
       module: moduleKey,
-      dropped,
-      keptChars: kept.join("\n\n").length,
+      droppedLines: dropped,
+      keptChars: kept.join("\n").length,
     });
   }
-  return kept.join("\n\n");
+  // Colapsa 3+ quebras consecutivas em uma quebra dupla (evita buracos).
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 // Detecta o contexto principal da conversa com base na última mensagem
