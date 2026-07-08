@@ -185,30 +185,45 @@ function Contatos() {
     return m;
   }, [groupData.members]);
 
+  // Build a map: contact phone -> categoria slug (via byPhone + categorias)
+  const slugByPhone = useMemo(() => {
+    const bySlug: Record<string, string> = {};
+    for (const c of catMap.categorias) bySlug[c.id] = c.slug;
+    const out: Record<string, string> = {};
+    for (const [phone, cid] of Object.entries(catMap.byPhone)) {
+      const s = bySlug[cid];
+      if (s) out[phone] = s;
+    }
+    return out;
+  }, [catMap.categorias, catMap.byPhone]);
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return contacts.filter((c) => {
       if (activeGroup && !membersByContact.get(c.id)?.has(activeGroup)) return false;
       if (origemFilter.size > 0) {
-        const o = normOrigem(c.source);
-        if (!o || !origemFilter.has(o)) return false;
+        const slug = slugByPhone[c.telefone] ?? null;
+        const legacy = normOrigem(c.source);
+        const matches = (
+          (origemFilter.has("meta_ads_all")     && ((slug?.startsWith("meta_ads")) || legacy === "meta_ads")) ||
+          (origemFilter.has("meta_ads_spotify") && slug === "meta_ads_spotify") ||
+          (origemFilter.has("meta_ads_youtube") && slug === "meta_ads_youtube") ||
+          (origemFilter.has("instagram_csv")    && (slug === "lead_instagram" || legacy === "instagram_csv"))
+        );
+        if (!matches) return false;
       }
       if (tempFilter.size > 0) {
         const t = (c.temperatura ?? "frio") as Temperatura;
         if (!tempFilter.has(t)) return false;
       }
       if (statusFilter.size > 0 && !statusFilter.has(c.status as StatusCRM)) return false;
-      if (categoriaFilter.size > 0) {
-        const cid = catMap.byPhone[c.telefone];
-        if (!cid || !categoriaFilter.has(cid)) return false;
-      }
       if (s) {
         const hay = `${c.nome} ${c.telefone} ${c.instagram ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
       return true;
     });
-  }, [contacts, activeGroup, membersByContact, origemFilter, tempFilter, statusFilter, categoriaFilter, catMap.byPhone, search]);
+  }, [contacts, activeGroup, membersByContact, origemFilter, slugByPhone, tempFilter, statusFilter, search]);
 
   function toggleSet<T>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) {
     setter((prev) => {
