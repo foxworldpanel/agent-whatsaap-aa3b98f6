@@ -40,22 +40,31 @@ export async function resolveMetaAdsCategoryId(
   const admin = supabaseAdmin as unknown as {
     from: (t: string) => {
       select: (c: string) => {
-        eq: (k: string, v: string) => {
-          eq?: (k: string, v: unknown) => unknown;
-          maybeSingle: () => Promise<{ data: { id?: string } | null }>;
-        } & Promise<{ data: Array<TriggerRule & { id: string }> | null }>;
+        eq: (
+          k: string,
+          v: string,
+        ) => Promise<{ data: unknown; error: unknown }> & {
+          eq: (k: string, v: string) => {
+            maybeSingle: () => Promise<{ data: { id?: string } | null }>;
+          };
+        };
       };
       insert: (row: Record<string, unknown>) => {
-        select: (c: string) => { single: () => Promise<{ data: { id?: string } | null }> };
+        select: (c: string) => {
+          single: () => Promise<{ data: { id?: string } | null }>;
+        };
       };
     };
   };
 
   // 1) Busca regras ativas do usuário
-  const { data: rulesRaw } = (await admin
+  const rulesResp = (await admin
     .from("meta_ads_trigger_rules")
-    .select("pattern, category_slug, category_nome, category_cor, category_icone, priority, active")
+    .select(
+      "pattern, category_slug, category_nome, category_cor, category_icone, priority, active",
+    )
     .eq("user_id", userId)) as { data: TriggerRule[] | null };
+  const rulesRaw = rulesResp.data;
 
   const match = matchTriggerRule(messageText, rulesRaw ?? []);
 
