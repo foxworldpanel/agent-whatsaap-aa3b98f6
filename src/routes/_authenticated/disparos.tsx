@@ -1645,6 +1645,34 @@ function BlastCampaignCard({
               Nenhuma categoria cadastrada.
             </span>
           )}
+          {(() => {
+            const metaIds = categories.filter((c) => c.slug?.startsWith("meta_ads")).map((c) => c.id);
+            if (metaIds.length < 2) return null;
+            const allOn = metaIds.every((id) => categoria_ids.includes(id));
+            const totalCount = metaIds.reduce((n, id) => n + ((catCounts as Record<string, number>)[id] ?? 0), 0);
+            return (
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoriaIds((cur) => {
+                    const set = new Set(cur);
+                    if (allOn) metaIds.forEach((id) => set.delete(id));
+                    else metaIds.forEach((id) => set.add(id));
+                    return [...set];
+                  });
+                }}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                  allOn
+                    ? "border-primary bg-primary/15 text-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <span>📣</span>
+                <span>Meta Ads (Todos) <span className="opacity-70">({totalCount})</span></span>
+                {allOn && <span className="text-primary">✓</span>}
+              </button>
+            );
+          })()}
           {categories.map((c) => {
             const on = categoria_ids.includes(c.id);
             const count = (catCounts as Record<string, number>)[c.id] ?? 0;
