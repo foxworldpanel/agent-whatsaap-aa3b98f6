@@ -1,6 +1,25 @@
 // Server-only Claude (Anthropic) call to generate the agent reply.
 import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks, mergeIdentity, type AgentBrandBlocks } from "@/lib/agent-identity.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
+import { selectRelevantKnowledge } from "@/lib/kb-relevance";
+
+// ETAPA 4 — FAQ sob demanda. Reaproveita o scoring keyword-based do KB
+// (mesma taxonomia de tópicos + overlap de tokens). Trata a pergunta da
+// FAQ como "context" e a resposta como "content" (é onde o vocabulário
+// específico costuma estar). Cap default 5 FAQs (mais que isso vira ruído).
+export function selectRelevantFaqs(
+  faqs: Array<{ q: string; a: string }>,
+  latestClientMessage: string,
+  max = 5,
+): Array<{ q: string; a: string }> {
+  if (!Array.isArray(faqs) || faqs.length === 0) return [];
+  const rows = faqs.map((f) => ({ context: f.q, content: `${f.q}\n${f.a}` }));
+  const sel = selectRelevantKnowledge(rows, latestClientMessage, { max });
+  if (sel.selected.length === 0) return [];
+  // Reconstroi ordem preservada + mapeia de volta pro par original.
+  const selectedQuestions = new Set(sel.selected.map((r) => r.context));
+  return faqs.filter((f) => selectedQuestions.has(f.q)).slice(0, max);
+}
 
 type AgentConfig = {
   agent_name: string;
