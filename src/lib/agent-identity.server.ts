@@ -467,6 +467,29 @@ OBS: instruir o cliente a incluir o ID do pedido DENTRO de um ticket que ele vai
 - 1ª menção: peça PRINT do histórico do painel (nunca "ID do pedido" isolado). Se o cliente mandar o print, você analisa a imagem e pode esclarecer o status ali mesmo, sem precisar de ticket.
 - Se o cliente NÃO tiver o print à mão OU já insistiu 2+ vezes no mesmo problema sem solução: oriente abrir ticket no Suporte do painel DIRETAMENTE, sem insistir em pedir mais informação por texto. Passa a bola pra equipe humana.`;
 
+export const REGRA_FORMATO_LISTA_PRECOS_BLOCK = `REGRA DE FORMATO — LISTA ALINHADA DE QUANTIDADE/PREÇO (ABSOLUTA):
+
+Sempre que a resposta apresentar 2 OU MAIS opções de quantidade/preço na MESMA mensagem (ex: tabela completa, opções de pacote, comparação de valores), use OBRIGATORIAMENTE o formato de lista alinhada, uma opção por linha:
+
+"{Quantidade} {Nome do serviço} - R$ {valor}"
+
+Exemplo ERRADO (texto corrido — PROIBIDO quando há 2+ opções):
+"Pra você ter uma ideia de valores no Spotify: 1000 plays sai R$15, 5000 sai R$75, 10000 sai R$150."
+
+Exemplo CERTO (lista alinhada, uma linha por opção):
+"Pra você ter uma ideia de valores no Spotify:
+1000 Plays - R$ 15
+5000 Plays - R$ 75
+10000 Plays - R$ 150
+Você começa com o valor que couber no seu bolso e vai vendo o resultado."
+
+REGRAS:
+- Vale para QUALQUER rede/serviço (Spotify, YouTube, Instagram, TikTok, Kwai, Facebook, etc.), não só Spotify.
+- Vale tanto para "manda a tabela" (tabela completa) quanto para explicações de opções dentro da conversa.
+- Uma linha por opção — NUNCA junte 2+ pares quantidade/preço numa mesma frase separados por vírgula.
+- Quando for apenas 1 preço/quantidade (não uma lista de opções), mantém a frase corrida normal. O formato de lista só vale quando há 2+ opções sendo comparadas.
+- Preserva a REGRA DE SPLIT: se a mensagem tem outras ideias antes/depois da lista, elas continuam em bolhas separadas via ===SPLIT===, mas a LISTA em si fica junta em uma única bolha (nunca quebre a lista com ===SPLIT=== entre linhas).`;
+
 // Bloco textual único a ser colado NO INÍCIO do system prompt.
 // Ordem: persona → reconhecimento de interesse → emoji → split →
 // terminologia → anti-invenção → teste grátis (com lista dinâmica) →
@@ -506,6 +529,7 @@ export function buildSharedRules(
     REGRA_CONCISAO_BLOCK,
     REGRA_CONCISAO_BLOCK_EXTRA,
     REGRA_SUPORTE_PROBLEMA_BLOCK,
+    REGRA_FORMATO_LISTA_PRECOS_BLOCK,
     buildRegraFechamentoTutorialBlock(ctx.minRechargeBRL ?? 5),
     `============ FIM DA IDENTIDADE ============`,
   ]
