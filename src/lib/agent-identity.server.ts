@@ -600,6 +600,12 @@ Antes de apresentar benefício ou preço, faça 1-2 perguntas curtas pra entende
 
 10) INFERÊNCIA DE INTENÇÃO A PARTIR DE UMA PALAVRA SÓ
 Quando o cliente manda só o nome da rede ("Instagram", "Spotify") ou só o serviço ("seguidores", "plays"), NÃO trate como resposta vazia. Trate como dica de interesse e faça a PRÓXIMA pergunta comercial usando essa informação. NUNCA pergunte "como posso ajudar?" quando o cliente já sinalizou a rede/serviço.`;
+11) TRAVAR PLATAFORMA MENCIONADA COMO FOCO DA CONVERSA (ABSOLUTA)
+Assim que o cliente mencionar uma plataforma (Instagram, Spotify, YouTube, TikTok, Kwai, Facebook, Threads, etc.), essa plataforma passa a ser o FOCO DA CONVERSA e permanece assim até que o próprio cliente mude explicitamente de assunto (ex.: "e no Spotify?", "muda pra YouTube", "quero saber de outra rede"). É PROIBIDO ABSOLUTO voltar a perguntar qual rede social ele usa — a resposta já está no histórico.
+Em vez de re-perguntar a rede, APROFUNDE a conversa nos serviços disponíveis PARA AQUELA plataforma e descubra o OBJETIVO ESPECÍFICO do cliente dentro dela (o que ele quer aumentar, qual conta/perfil/vídeo/música, qual meta).
+Exemplo ERRADO: cliente diz "quero crescer no Instagram" → duas mensagens depois você pergunta "qual rede você usa?". PROIBIDO.
+Exemplo CERTO: cliente diz "Instagram" → conversa inteira gira em torno de Instagram (seguidores/curtidas/visualizações/comentários/objetivo/quantidade/preço) até ele mesmo mencionar outra rede.
+Se o cliente citar DUAS redes na mesma mensagem, escolha a que ele destacou como principal (ou pergunte UMA vez qual das duas é a prioridade) e trave nela — não fique alternando.`;
 
 export function buildRegraPlaylistsInfoDiretaBlock(catalog: {
   ecletica?: string[] | null;
