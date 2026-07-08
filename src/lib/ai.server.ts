@@ -1177,12 +1177,25 @@ export async function generateAgentReplyWithMeta(params: {
   // Guarda pós-geração: se o LLM tentou oferecer teste grátis de um serviço
   // que não está na lista de elegíveis (freeTestServicesRaw filtrado), o
   // texto é substituído por uma deflexão segura para evitar risco financeiro.
-  const guarded = guardFreeTrialOffer({ reply: humanized, freeTestServices });
-  if (guarded.replaced) {
+  const guardedFreeTrial = guardFreeTrialOffer({ reply: humanized, freeTestServices });
+  if (guardedFreeTrial.replaced) {
     console.error("[agent-ai] GUARD: oferta de teste grátis bloqueada", {
-      reason: guarded.reason,
+      reason: guardedFreeTrial.reason,
       originalPreview: humanized.slice(0, 200),
       allowedServices: freeTestServices.map((s) => s.service_name),
+    });
+  }
+  const guarded = guardSpotifyUnavailableOffer({
+    reply: guardedFreeTrial.text,
+    latestClientMessage,
+    history,
+    servicesContext,
+  });
+  if (guarded.replaced) {
+    console.error("[agent-ai] GUARD: Spotify indisponível bloqueado", {
+      reason: guarded.reason,
+      originalPreview: guardedFreeTrial.text.slice(0, 300),
+      finalPreview: guarded.text,
     });
   }
   // GUARD FINAL — nunca deixa cabeçalho/instrução de sistema vazar para o

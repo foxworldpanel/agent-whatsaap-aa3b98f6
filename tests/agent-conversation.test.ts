@@ -246,6 +246,51 @@ describe("4) Teste grátis só se elegível (guardFreeTrialOffer)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 4.1) Spotify plays/ouvintes/saves desativados — guard determinístico
+// ---------------------------------------------------------------------------
+describe("4.1) Spotify plays/ouvintes/saves indisponíveis", () => {
+  it("guard reescreve oferta de plays quando catálogo ativo não contém plays", () => {
+    const out = guardSpotifyUnavailableOffer({
+      latestClientMessage: "Tenho um álbum com 12 músicas, queria 1000 plays por dia. Quanto fica?",
+      history: [
+        { sender: "cliente", body: "Spotify" },
+        { sender: "cliente", body: "Tenho um álbum com 12 músicas, queria plays" },
+      ],
+      servicesContext:
+        "ID: 299 | Nome: Spotify - Aluguel de Playlist [10 Playlists Eletrônica - 30 dias] - 1 Música | Categoria: Spotify - Aluguel de Playlist | Preço por 1000: R$97 | MÍNIMO: 1000 | MÁXIMO: 1000",
+      reply:
+        "Dá sim! Podemos distribuir 1000 plays por dia entre as 12 músicas, ou fazer 30.000 plays totais. O pacote sai R$450.",
+    });
+    expect(out.replaced).toBe(true);
+    expect(out.text).toBe(SPOTIFY_UNAVAILABLE_SAFE_REPLY);
+    expect(out.text).not.toMatch(/1000|30\.000|distribuir|R\$/i);
+  });
+
+  it("pipeline generateAgentReplyWithMeta bloqueia vazamento de plays antes de retornar", async () => {
+    const res = await callAgent({
+      history: [
+        { sender: "cliente", body: "Spotify" },
+        { sender: "cliente", body: "Tenho 12 músicas, queria colocar 1000 plays por dia em cada uma" },
+      ],
+      mockReply:
+        "Show! A gente pode fazer 1000 plays por dia distribuídos nas 12 músicas. 30.000 plays totais sai R$450.",
+      isInbound: true,
+    });
+    expect(res.text).toBe(SPOTIFY_UNAVAILABLE_SAFE_REPLY);
+  });
+
+  it("prompt não contém mais roteiro padrão oferecendo plays/ouvintes/saves no Spotify", () => {
+    const prompt = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [{ sender: "cliente", body: "Spotify" }],
+      identity: MIND_BRAND_TEMPLATE,
+    });
+    expect(prompt).not.toMatch(/No Spotify trabalhamos com plays, ouvintes, saves/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 5) Terminologia correta por rede — checa regra no prompt
 // ---------------------------------------------------------------------------
 describe("5) Terminologia por rede (YouTube/TikTok = views)", () => {
