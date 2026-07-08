@@ -148,6 +148,41 @@ export type Database = {
           },
         ]
       }
+      agent_daily_promo: {
+        Row: {
+          active: boolean
+          expires_at: string | null
+          promo_text: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          active?: boolean
+          expires_at?: string | null
+          promo_text?: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          active?: boolean
+          expires_at?: string | null
+          promo_text?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_daily_promo_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_generation_locks: {
         Row: {
           acquired_at: string
