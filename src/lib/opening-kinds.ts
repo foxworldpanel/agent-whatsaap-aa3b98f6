@@ -42,7 +42,7 @@ export const OPENING_KINDS: OpeningKind[] = [
     useVariations: false,
     allowResend: true,
     template:
-      "Oi, tudo bem? Aqui é a Júlia da Mind 😊\n\nFaz um tempo que você chegou até a gente através do nosso anúncio, e eu queria saber se ainda tem interesse em impulsionar suas redes.\n\nA gente tem novidades boas, inclusive um serviço novo de playlist no Spotify que tá bombando. Bora dar uma conversada de novo?",
+      "Oi, tudo bem? Aqui é a Júlia da Mind 😊\n\nFaz um tempo que você chegou até a gente através do nosso anúncio, e eu queria saber se ainda tem interesse em impulsionar suas redes.\n\nA gente tem novidades boas, inclusive um serviço novo para Instagram, Youtube, TikTok e playlist no Spotify que tá bombando. Bora dar uma conversada de novo?",
   },
 ];
 
