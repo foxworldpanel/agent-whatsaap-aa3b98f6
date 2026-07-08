@@ -367,6 +367,78 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_prompt_metrics: {
+        Row: {
+          active_module_names: string[]
+          active_modules_count: number
+          cache_creation_input_tokens: number
+          cache_read_input_tokens: number
+          contexto_detectado: string | null
+          created_at: string
+          duration_ms: number
+          est_tokens: number
+          faqs_selected_count: number
+          forbidden_rules_count: number
+          free_test_services_count: number
+          history_count: number
+          id: string
+          input_tokens: number
+          kb_examples_count: number
+          model: string
+          output_tokens: number
+          panel_screens_count: number
+          routing_reason: string | null
+          total_chars: number
+          user_id: string | null
+        }
+        Insert: {
+          active_module_names?: string[]
+          active_modules_count?: number
+          cache_creation_input_tokens?: number
+          cache_read_input_tokens?: number
+          contexto_detectado?: string | null
+          created_at?: string
+          duration_ms?: number
+          est_tokens?: number
+          faqs_selected_count?: number
+          forbidden_rules_count?: number
+          free_test_services_count?: number
+          history_count?: number
+          id?: string
+          input_tokens?: number
+          kb_examples_count?: number
+          model: string
+          output_tokens?: number
+          panel_screens_count?: number
+          routing_reason?: string | null
+          total_chars?: number
+          user_id?: string | null
+        }
+        Update: {
+          active_module_names?: string[]
+          active_modules_count?: number
+          cache_creation_input_tokens?: number
+          cache_read_input_tokens?: number
+          contexto_detectado?: string | null
+          created_at?: string
+          duration_ms?: number
+          est_tokens?: number
+          faqs_selected_count?: number
+          forbidden_rules_count?: number
+          free_test_services_count?: number
+          history_count?: number
+          id?: string
+          input_tokens?: number
+          kb_examples_count?: number
+          model?: string
+          output_tokens?: number
+          panel_screens_count?: number
+          routing_reason?: string | null
+          total_chars?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       auto_campaign_runs: {
         Row: {
           auto_campaign_id: string
@@ -2295,6 +2367,7 @@ export type Database = {
     }
     Functions: {
       cleanup_old_agent_logs: { Args: never; Returns: undefined }
+      cleanup_old_agent_prompt_metrics: { Args: never; Returns: undefined }
       current_workspace_id: { Args: never; Returns: string }
       effective_workspace_id: { Args: { _user_id: string }; Returns: string }
       get_or_create_active_conversation: {
