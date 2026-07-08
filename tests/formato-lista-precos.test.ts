@@ -21,12 +21,12 @@ describe("REGRA_FORMATO_LISTA_PRECOS_BLOCK — lista alinhada de preços", () =>
     );
   });
 
-  it("traz exemplo ERRADO (texto corrido) e CERTO (lista alinhada com Spotify)", () => {
+  it("traz exemplo ERRADO (texto corrido) e CERTO (lista alinhada)", () => {
     expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/Exemplo ERRADO/);
     expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/Exemplo CERTO/);
-    expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/1000 Plays - R\$ 15/);
-    expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/5000 Plays - R\$ 75/);
-    expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/10000 Plays - R\$ 150/);
+    expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/1000 Seguidores - R\$ 30/);
+    expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/5000 Seguidores - R\$ 150/);
+    expect(REGRA_FORMATO_LISTA_PRECOS_BLOCK).toMatch(/10000 Seguidores - R\$ 300/);
   });
 
   it("vale para qualquer rede, não só Spotify", () => {
