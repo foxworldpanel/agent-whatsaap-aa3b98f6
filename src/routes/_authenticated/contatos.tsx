@@ -686,13 +686,14 @@ type ChatRow = {
 };
 
 function ExtractionPanel({
-  onClose, numbersList, funnelsList, extract, importExtract, onImported,
+  onClose, numbersList, funnelsList, extract, importExtract, sendToMetaAds, onImported,
 }: {
   onClose: () => void;
   numbersList: () => Promise<Array<{ id: string; nome: string; status: string | null }>>;
   funnelsList: (args: { data: { whatsapp_number_id: string } }) => Promise<Array<{ id: string; name: string }>>;
   extract: (args: { data: { whatsapp_number_id: string } }) => Promise<{ chats: ChatRow[] }>;
   importExtract: (args: { data: { whatsapp_number_id: string; perfil: ContactProfile; welcome_funnel_id: string | null; contacts: ChatRow[] } }) => Promise<{ new_imported: number; already_existed: number }>;
+  sendToMetaAds: (args: { data: { contacts: Array<{ phone: string; name: string | null }> } }) => Promise<{ inserted: number; ignored_existing: number; invalid: number }>;
   onImported: () => void;
 }) {
   const [numberId, setNumberId] = useState<string>("");
