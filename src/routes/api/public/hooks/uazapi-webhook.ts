@@ -2611,16 +2611,31 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .maybeSingle();
         const funnelAlreadySent = isTestNumber ? false : !!priorFunnelRun;
 
-        // Load knowledge base examples (text + extracted from images) for this user.
+        // ETAPA 2 — Knowledge Base sob demanda.
+        // Antes: 50 exemplos mais recentes SEMPRE, sem filtro.
+        // Agora: buscamos os 50 mais recentes como pool e filtramos por
+        // relevância keyword-based à mensagem atual (selectRelevantKnowledge).
+        // Se nada bater com a pergunta, prompt vai sem bloco de KB.
         const { data: kbRows } = await supabaseAdmin
           .from("knowledge_base")
           .select("context, content")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(50);
-        const knowledgeExamples = (kbRows ?? [])
+        const kbPool = (kbRows ?? [])
           .filter((r) => (r.content ?? "").trim().length > 0)
           .map((r) => ({ context: r.context, content: r.content as string }));
+        const { selectRelevantKnowledge } = await import("@/lib/kb-relevance");
+        const kbSelection = selectRelevantKnowledge(kbPool, inboundBody ?? "", { max: 10 });
+        const knowledgeExamples = kbSelection.selected;
+        if (kbPool.length > 0) {
+          console.info("[kb-relevance]", {
+            reason: kbSelection.reason,
+            totalCandidates: kbSelection.totalCandidates,
+            selected: knowledgeExamples.length,
+            topicsHit: kbSelection.topicsHit,
+          });
+        }
 
         // Load Panel Guide screens (Mind SMM) so the agent can step the customer through.
         // If the owner uploaded new screenshots through the Agent IA card, we analyze
