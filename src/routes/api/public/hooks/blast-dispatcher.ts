@@ -430,8 +430,18 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
 
             let status: "sent" | "failed" = "sent";
             let errMsg: string | undefined;
+            // Retomada idempotente: se um envio anterior travou no meio
+            // (worker morto entre partes), pulamos as partes já enviadas
+            // usando o contador `parts_sent` persistido a cada bolha.
+            const alreadySent = Math.max(
+              0,
+              Math.min(
+                messageParts.length,
+                (next.contact as { parts_sent?: number | null }).parts_sent ?? 0,
+              ),
+            );
             try {
-              for (let i = 0; i < messageParts.length; i++) {
+              for (let i = alreadySent; i < messageParts.length; i++) {
                 const sendResult = await uazapiSendText(
                   { uazapi_url: url, uazapi_token: token },
                   next.contact.telefone,
@@ -448,6 +458,12 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 if (mirrorInsert.error) {
                   throw new Error(`mirror message insert failed: ${mirrorInsert.error.message}`);
                 }
+                // Persistir progresso imediatamente após cada parte, para
+                // que a retomada saiba exatamente onde parou.
+                await supabaseAdmin
+                  .from("blast_contacts")
+                  .update({ parts_sent: i + 1, updated_at: new Date().toISOString() } as never)
+                  .eq("id", next.contact.id);
                 try {
                   await logEvent({
                     userId: camp.user_id,
