@@ -583,6 +583,7 @@ export type Database = {
           last_variation_key: string | null
           nome: string
           origem: string | null
+          parts_sent: number
           prioridade: number
           replied_at: string | null
           sent_via_number_id: string | null
@@ -607,6 +608,7 @@ export type Database = {
           last_variation_key?: string | null
           nome: string
           origem?: string | null
+          parts_sent?: number
           prioridade?: number
           replied_at?: string | null
           sent_via_number_id?: string | null
@@ -631,6 +633,7 @@ export type Database = {
           last_variation_key?: string | null
           nome?: string
           origem?: string | null
+          parts_sent?: number
           prioridade?: number
           replied_at?: string | null
           sent_via_number_id?: string | null
