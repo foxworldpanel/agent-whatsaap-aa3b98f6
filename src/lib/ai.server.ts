@@ -1083,6 +1083,46 @@ export async function generateAgentReplyWithMeta(params: {
   const contextoDetectado = detectarContexto(latestClientMessage, history);
   console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(system.length / 4));
 
+  // ============================================================
+  // MÉTRICAS DE PROMPT (baseline pré-refatoração).
+  // Fonte única pra medir tokens antes/depois de cada fase da
+  // refatoração arquitetural. Log estruturado — grep por
+  // "[agent-ai-metrics]" no painel de logs pra extrair.
+  // Não altera comportamento.
+  // ============================================================
+  try {
+    const kbBlockChars = (knowledgeExamples ?? []).reduce(
+      (n, ex) => n + (ex.content?.length ?? 0) + (ex.context?.length ?? 0),
+      0,
+    );
+    const panelBlockChars = (panelScreens ?? []).reduce(
+      (n, s) => n + (s.name?.length ?? 0) + (s.description?.length ?? 0) + (s.extracted_content?.length ?? 0),
+      0,
+    );
+    const forbiddenBlockChars = (forbiddenRules ?? []).reduce(
+      (n, r) => n + (r.rule?.length ?? 0) + (r.deflection?.length ?? 0),
+      0,
+    );
+    const servicesChars = (servicesContext ?? "").length;
+    const totalChars = system.length;
+    console.info("[agent-ai-metrics] prompt-size", {
+      totalChars,
+      estTokens: Math.round(totalChars / 4),
+      kbBlockChars,
+      kbExamplesCount: knowledgeExamples?.length ?? 0,
+      panelBlockChars,
+      panelScreensCount: panelScreens?.length ?? 0,
+      forbiddenBlockChars,
+      forbiddenRulesCount: forbiddenRules?.length ?? 0,
+      servicesChars,
+      freeTestServicesCount: freeTestServices?.length ?? 0,
+      historyCount: history.length,
+      contextoDetectado,
+    });
+  } catch (e) {
+    console.warn("[agent-ai-metrics] failed to log prompt-size", e);
+  }
+
   // Modelo dinâmico: Sonnet (com visão) quando há imagem; Haiku para texto/áudio.
   const hasImage = !!imageBase64;
   // Nas primeiras 3 respostas do agente numa conversa de Disparo (isInbound=false),
