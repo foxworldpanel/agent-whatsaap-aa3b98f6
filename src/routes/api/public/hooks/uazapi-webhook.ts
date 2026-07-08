@@ -2944,9 +2944,24 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Safety net: se já houve mensagem anterior do agente na conversa,
           // remove saudações repetidas no início da resposta (Oi/Olá/Bom dia
           // etc.), preservando o conteúdo da mensagem.
+          //
+          // ⚠️ EXCEÇÃO CRÍTICA: no MODO REENGAJAMENTO (hiato longo receptivo
+          // OU cortesia neutra após abertura de disparo), a Júlia PRECISA
+          // retribuir a saudação — o `enforceReengagementGreeting` dentro do
+          // `generateAgentReplyWithMeta` prepende "Bom dia!"/"Boa tarde!" de
+          // propósito. Se esse safety-net rodar depois, ele apaga justamente
+          // a saudação que o guard acabou de garantir (regressão real:
+          // cliente "Bom dia" após +15h → Júlia respondia "Como posso te
+          // ajudar?" sem saudação). Reproduz a mesma detecção do ai.server
+          // pra pular a limpeza nesses casos.
           try {
+            const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
+              await import("@/lib/ai.server");
+            const inReengagementMode =
+              isReengagementGreeting(aiHistory ?? []) ||
+              isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
             const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
-            if (hasPriorAgent && reply) {
+            if (hasPriorAgent && reply && !inReengagementMode) {
               const parts = reply.split("===SPLIT===");
               const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
               parts[0] = parts[0].replace(greetRe, "").trimStart();

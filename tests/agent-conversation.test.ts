@@ -1185,6 +1185,39 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     });
   });
 
+  // ANTI-REGRESSÃO 08/07 — Cliente "Bom dia" após +15h, com histórico prévio
+  // do agente. O guard `enforceReengagementGreeting` prependia "Bom dia!" mas
+  // o safety-net do webhook (uazapi-webhook.ts) rodava DEPOIS e removia
+  // saudações do início da resposta sempre que `hasPriorAgent === true`.
+  // Consertado: o safety-net agora pula quando `isReengagementGreeting`
+  // (ou `isNeutralGreetingAfterBlastOpening`) está ativo.
+  describe("ANTI-REGRESSÃO: safety-net do webhook não pode apagar saudação de reengajamento", () => {
+    // Replica EXATAMENTE o regex usado em src/routes/api/public/hooks/uazapi-webhook.ts
+    const webhookGreetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
+
+    it("gap +15h receptivo com 'Bom dia' → isReengagementGreeting=true e safety-net DEVE ser pulado", () => {
+      const longAgo = new Date(Date.now() - 15 * 60 * 60 * 1000).toISOString();
+      const now = new Date().toISOString();
+      const history = [
+        { sender: "cliente" as const, body: "oi quero saber sobre seguidores", created_at: longAgo },
+        { sender: "agente" as const, body: "Show! Quantos seguidores tá pensando?", created_at: longAgo },
+        { sender: "cliente" as const, body: "Bom dia", created_at: now },
+      ];
+      expect(isReengagementGreeting(history)).toBe(true);
+
+      // Prova que, se o safety-net RODASSE, ele apagaria a saudação prependida:
+      const enforced = enforceReengagementGreeting("Como posso te ajudar?", "Bom dia");
+      expect(enforced.prepended).toBe(true);
+      const stripped = enforced.text.replace(webhookGreetRe, "").trimStart();
+      expect(stripped).toBe("Como posso te ajudar?");
+      expect(/^bom dia/i.test(stripped)).toBe(false);
+
+      // Por isso o webhook precisa pular o safety-net quando reengagement=true.
+      // (A skip real é validada pelo cenário e2e mais acima; aqui só travamos
+      // a invariante lógica que documenta a razão do skip.)
+    });
+  });
+
   // Garantia anti-regressão: fluxo de disparo NORMAL (sem gap) continua
   // recebendo os refinamentos e avança direto para a pergunta de rede como
   // sempre fez — o veto SÓ atua quando o gap é real.
