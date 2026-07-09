@@ -898,6 +898,19 @@ export async function generateAgentReplyWithMeta(params: {
   // Precisa da MESMA garantia de saudação retribuída antes do "Como
   // posso ajudar?".
   const firstColdGreeting = isFirstColdGreeting(history);
+
+  // Anti-loop de canned Spotify: se a resposta padrão de "Spotify plays
+  // indisponíveis" já foi enviada nos últimos turnos do agente, injeta
+  // uma instrução dedicada para o LLM RECONHECER o contexto novo do
+  // cliente (ex.: "eu fazia através do link, adicionava saldo...") e
+  // AVANÇAR a conversa em vez de repetir o texto idêntico. Mantém a
+  // proibição absoluta de plays/quantidade/preço fixo — a proteção
+  // anti-alucinação segue ativa via regra "SPOTIFY — PLAYS / OUVINTES".
+  const spotifyCannedAlreadyDelivered = history
+    .slice(-12)
+    .some(
+      (m) => m.sender === "agente" && (m.body ?? "").includes(SPOTIFY_UNAVAILABLE_SAFE_REPLY.slice(0, 60)),
+    );
   // Detecção por CONTEÚDO: se o histórico começa com uma abertura de disparo
   // (pergunta-isca, "peguei seu contato", "@handle"), tratamos como disparo
   // mesmo que a flag técnica `isInbound` esteja errada (thread reunificada,
