@@ -1702,37 +1702,6 @@ function BlastCampaignCard({
         {/* <VariationInfoCard /> — oculto a pedido */}
         <div className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
           <div>
-            <h4 className="font-semibold text-sm">Lista de contatos</h4>
-            <p className="text-xs text-muted-foreground">
-              Escolha de qual lista a campanha puxa os contatos. Use <strong>Meta Ads</strong> para disparar para a base extraída do WhatsApp/Meta.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={contact_list_id}
-              onChange={(e) => setListId(e.target.value)}
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Todas as listas / categorias abaixo</option>
-              {lists.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.origem === "meta_ads" ? "📣 " : "📷 "}{l.name} · {l.total} contatos
-                </option>
-              ))}
-            </select>
-            {contact_list_id && (
-              <button
-                type="button"
-                onClick={() => setListId("")}
-                className="text-xs text-muted-foreground hover:text-foreground underline"
-              >
-                Limpar
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
-          <div>
             <h4 className="font-semibold text-sm">Roteiro de abertura</h4>
             <p className="text-xs text-muted-foreground">
               Escolha qual script de mensagem inicial a campanha usa quando aborda o lead pela primeira vez.
