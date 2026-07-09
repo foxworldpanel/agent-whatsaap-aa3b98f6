@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { listConversations, listMessages, sendManualMessage, clearConversation } from "@/lib/whatsapp.functions";
 import { setConversationAgentEnabled, reactivateConversation, blockConversation } from "@/lib/agent.functions";
+import { updateContactFields } from "@/lib/contacts-crm.functions";
 import { listNumbers } from "@/lib/numbers.functions";
 import { syncWhatsappMessages } from "@/lib/sync.functions";
 import { useWorkspace } from "@/contexts/workspace-context";
@@ -120,6 +121,7 @@ function Conversas() {
   const syncFn = useServerFn(syncWhatsappMessages);
   const reactivateFn = useServerFn(reactivateConversation);
   const blockFn = useServerFn(blockConversation);
+  const updateContactFn = useServerFn(updateContactFields);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -288,6 +290,32 @@ function Conversas() {
       qc.invalidateQueries({ queryKey: ["conversations_review_count"] });
     },
     onError: (e) => toast.error((e as Error).message || "Falha ao bloquear"),
+  });
+
+  const updateTempMut = useMutation({
+    mutationFn: (temperatura: TempKey) =>
+      updateContactFn({ data: { id: active!.contact!.id, temperatura } }),
+    onMutate: async (temperatura: TempKey) => {
+      await qc.cancelQueries({ queryKey: ["conversations"] });
+      const previous = qc.getQueriesData({ queryKey: ["conversations"] });
+      qc.setQueriesData<Conv[]>({ queryKey: ["conversations"] }, (old) =>
+        old?.map((c) =>
+          c.id === activeId && c.contact
+            ? { ...c, contact: { ...c.contact, temperatura } }
+            : c,
+        ) ?? old,
+      );
+      return { previous };
+    },
+    onError: (err, _v, ctx) => {
+      ctx?.previous?.forEach(([key, data]) => qc.setQueryData(key, data));
+      toast.error((err as Error).message || "Falha ao atualizar temperatura");
+    },
+    onSuccess: () => {
+      toast.success("Temperatura atualizada");
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+    },
   });
 
   const syncMut = useMutation({
@@ -617,6 +645,26 @@ function Conversas() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {active?.contact && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-[11px] font-medium text-neutral-500">Temperatura:</label>
+                  <select
+                    value={(active.contact.temperatura ?? "frio") as TempKey}
+                    onChange={(e) => updateTempMut.mutate(e.target.value as TempKey)}
+                    disabled={updateTempMut.isPending}
+                    className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium outline-none transition disabled:opacity-60 ${
+                      tempTag[(active.contact.temperatura ?? "frio") as TempKey].cls
+                    }`}
+                    title="Alterar temperatura do contato manualmente"
+                  >
+                    {(Object.keys(tempTag) as TempKey[]).map((k) => (
+                      <option key={k} value={k}>
+                        {tempTag[k].emoji} {tempTag[k].label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {active && (
                 <button
                   type="button"
