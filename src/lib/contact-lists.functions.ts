@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
+import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
 import { z } from "zod";
 
 function normalizePhone(raw: string): string {
@@ -36,13 +37,14 @@ export const listContactLists = createServerFn({ method: "GET" })
       contatados: number; respondeu: number; convertido: number;
     }> = [];
     for (const l of lists) {
-      const { data: rows } = await context.supabase
-        .from("blast_contacts")
-        .select("status")
-        .eq("user_id", context.userId)
-        .eq("contact_list_id", l.id)
-        .range(0, 199999);
-      const list = rows ?? [];
+      const list = await fetchAllSupabaseRows<{ status: string | null }>((from, to) =>
+        context.supabase
+          .from("blast_contacts")
+          .select("status")
+          .eq("user_id", context.userId)
+          .eq("contact_list_id", l.id)
+          .range(from, to),
+      );
       const sent = ["enviado_abertura","enviado_d3","enviado_d7","respondeu","convertido"];
       out.push({
         id: l.id,
@@ -210,16 +212,27 @@ export const exportContactList = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ listId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: rows } = await context.supabase
-      .from("blast_contacts")
-      .select("nome, telefone, instagram, status, last_sent_at, replied_at, origem")
-      .eq("user_id", context.userId)
-      .eq("contact_list_id", data.listId)
-      .order("created_at", { ascending: false });
+    const rows = await fetchAllSupabaseRows<{
+      nome: string | null;
+      telefone: string | null;
+      instagram: string | null;
+      status: string | null;
+      last_sent_at: string | null;
+      replied_at: string | null;
+      origem: string | null;
+    }>((from, to) =>
+      context.supabase
+        .from("blast_contacts")
+        .select("nome, telefone, instagram, status, last_sent_at, replied_at, origem")
+        .eq("user_id", context.userId)
+        .eq("contact_list_id", data.listId)
+        .order("created_at", { ascending: false })
+        .range(from, to),
+    );
     const header = "nome,telefone,instagram,status,last_sent_at,replied_at,origem";
-    const body = (rows ?? []).map((r) =>
+    const body = rows.map((r) =>
       [r.nome, r.telefone, r.instagram, r.status, r.last_sent_at ?? "", r.replied_at ?? "", r.origem ?? ""]
         .map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","),
     ).join("\n");
-    return { csv: header + "\n" + body, count: (rows ?? []).length };
+    return { csv: header + "\n" + body, count: rows.length };
   });

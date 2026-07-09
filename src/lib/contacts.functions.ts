@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
+import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
+import type { Database } from "@/integrations/supabase/types";
 import { z } from "zod";
+
+type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
 
 const profileEnum = z.enum(["ativo", "frio", "inativo"]);
 const statusEnum = z.enum(["nao_abordado", "em_conversa", "convertido", "sem_resposta", "bloqueado"]);
@@ -8,13 +12,34 @@ const statusEnum = z.enum(["nao_abordado", "em_conversa", "convertido", "sem_res
 export const listContacts = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
-      .from("contacts")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .range(0, 199999);
-    if (error) throw new Error(error.message);
-    return data ?? [];
+    const baseRows = await fetchAllSupabaseRows<{ telefone: string | null; created_at: string | null }>((from, to) =>
+      context.supabase
+        .from("blast_contacts")
+        .select("telefone, created_at")
+        .eq("user_id", context.userId)
+        .order("created_at", { ascending: false })
+        .range(from, to),
+    );
+    const phones = Array.from(new Set(baseRows.map((r) => r.telefone).filter(Boolean) as string[]));
+    if (phones.length === 0) return [];
+
+    const rows: ContactRow[] = [];
+    for (let i = 0; i < phones.length; i += 500) {
+      const chunk = phones.slice(i, i + 500);
+      const { data, error } = await context.supabase
+        .from("contacts")
+        .select("*")
+        .eq("user_id", context.userId)
+        .in("telefone", chunk);
+      if (error) throw new Error(error.message);
+      rows.push(...((data ?? []) as ContactRow[]));
+    }
+
+    const byPhone = new Map<string, ContactRow>();
+    for (const row of rows) {
+      if (row.telefone) byPhone.set(row.telefone, row);
+    }
+    return phones.map((phone) => byPhone.get(phone)).filter((row): row is ContactRow => Boolean(row));
   });
 
 export const createContact = createServerFn({ method: "POST" })

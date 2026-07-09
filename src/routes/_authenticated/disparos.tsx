@@ -55,6 +55,7 @@ import { profileLabel, type ContactProfile } from "@/lib/mock-data";
 import { BlastFlowBuilder } from "@/components/BlastFlowBuilder";
 import { Switch } from "@/components/ui/switch";
 import { OPENING_KINDS, DEFAULT_OPENING_KIND, getOpeningKind, templateParts } from "@/lib/opening-kinds";
+import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
 
 export const Route = createFileRoute("/_authenticated/disparos")({
   ssr: false,
@@ -293,15 +294,16 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
     queryKey: ["panel_contacts", "unified", listIds.join(",")],
     enabled: listIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
-        .from("blast_contacts")
-        .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id, categoria_id, skip_reason, created_at")
-        .in("contact_list_id", listIds)
-        .order("replied_at", { ascending: false, nullsFirst: false })
-        .order("last_sent_at", { ascending: false, nullsFirst: false })
-        .order("updated_at", { ascending: false })
-        .range(0, 199999);
-      return (data ?? []) as PanelContactRow[];
+      return fetchAllSupabaseRows<PanelContactRow>((from, to) =>
+        supabase
+          .from("blast_contacts")
+          .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id, categoria_id, skip_reason, created_at")
+          .in("contact_list_id", listIds)
+          .order("replied_at", { ascending: false, nullsFirst: false })
+          .order("last_sent_at", { ascending: false, nullsFirst: false })
+          .order("updated_at", { ascending: false })
+          .range(from, to),
+      );
     },
   });
 
@@ -1243,10 +1245,12 @@ function BlastCampaignCard({
   const { data: catCounts = {} } = useQuery({
     queryKey: ["contact_categories_counts"],
     queryFn: async () => {
-      const { data } = await supabase.from("blast_contacts").select("categoria_id").limit(100000);
+      const data = await fetchAllSupabaseRows<{ categoria_id: string | null }>((from, to) =>
+        supabase.from("blast_contacts").select("categoria_id").range(from, to),
+      );
       const map: Record<string, number> = {};
-      for (const r of data ?? []) {
-        const k = (r as { categoria_id: string | null }).categoria_id;
+      for (const r of data) {
+        const k = r.categoria_id;
         if (!k) continue;
         map[k] = (map[k] ?? 0) + 1;
       }
@@ -1993,16 +1997,18 @@ function NumbersCard() {
     queryFn: async () => {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
-      const { data } = await supabase
-        .from("blast_contacts")
-        .select("sent_via_number_id, last_sent_at")
-        .not("sent_via_number_id", "is", null)
-        .not("last_sent_at", "is", null)
-        .gte("last_sent_at", startOfDay.toISOString())
-        .order("last_sent_at", { ascending: false })
-        .limit(2000);
+      const data = await fetchAllSupabaseRows<{ sent_via_number_id: string | null; last_sent_at: string | null }>((from, to) =>
+        supabase
+          .from("blast_contacts")
+          .select("sent_via_number_id, last_sent_at")
+          .not("sent_via_number_id", "is", null)
+          .not("last_sent_at", "is", null)
+          .gte("last_sent_at", startOfDay.toISOString())
+          .order("last_sent_at", { ascending: false })
+          .range(from, to),
+      );
       const stats: Record<string, { count: number; last: string | null }> = {};
-      for (const r of (data ?? []) as Array<{ sent_via_number_id: string | null; last_sent_at: string | null }>) {
+      for (const r of data) {
         if (!r.sent_via_number_id) continue;
         const s = stats[r.sent_via_number_id] ?? { count: 0, last: null };
         s.count += 1;
@@ -2415,13 +2421,15 @@ function ContactListsSection() {
   const { data: catCounts = {} } = useQuery({
     queryKey: ["contact_categories_counts"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("blast_contacts")
-        .select("categoria_id")
-        .limit(100000);
+      const data = await fetchAllSupabaseRows<{ categoria_id: string | null }>((from, to) =>
+        supabase
+          .from("blast_contacts")
+          .select("categoria_id")
+          .range(from, to),
+      );
       const map: Record<string, number> = {};
-      for (const r of data ?? []) {
-        const k = (r as { categoria_id: string | null }).categoria_id;
+      for (const r of data) {
+        const k = r.categoria_id;
         if (!k) continue;
         map[k] = (map[k] ?? 0) + 1;
       }
@@ -2433,12 +2441,14 @@ function ContactListsSection() {
   const { data: catStats = {} } = useQuery({
     queryKey: ["contact_categories_status_counts"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("blast_contacts")
-        .select("categoria_id, status")
-        .limit(100000);
+      const data = await fetchAllSupabaseRows<{ categoria_id: string | null; status: string | null }>((from, to) =>
+        supabase
+          .from("blast_contacts")
+          .select("categoria_id, status")
+          .range(from, to),
+      );
       const map: Record<string, { total: number; enviados: number; restam: number }> = {};
-      for (const r of (data ?? []) as Array<{ categoria_id: string | null; status: string }>) {
+      for (const r of data) {
         if (!r.categoria_id) continue;
         const s = map[r.categoria_id] ?? { total: 0, enviados: 0, restam: 0 };
         s.total += 1;
