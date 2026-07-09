@@ -634,6 +634,38 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
                 )}
               </div>
             )}
+
+            {/* Próximo na fila */}
+            {nextInLine && (
+              <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-sm">
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-primary via-primary/60 to-transparent" />
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold shadow-md">
+                    {initials(nextInLine.nome)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">Próximo</span>
+                      <span className="text-sm font-semibold">{nextInLine.nome}</span>
+                      {nextInLine.instagram && (
+                        <span className="text-xs text-muted-foreground">@{String(nextInLine.instagram).replace(/^@/, "")}</span>
+                      )}
+                    </div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      ⏱️ Enviando em{" "}
+                      <span className="font-mono font-semibold text-foreground tabular-nums">
+                        {nextInSec !== null ? `${Math.floor(nextInSec / 60)}m ${nextInSec % 60}s` : "aguardando janela"}
+                      </span>
+                    </div>
+                    {campaign?.opening_message && (
+                      <div className="mt-2 rounded-lg border border-border/40 bg-background/60 p-2.5 text-[11px] italic text-muted-foreground line-clamp-3">
+                        "{campaign.opening_message.slice(0, 180)}{campaign.opening_message.length > 180 ? "…" : ""}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -694,38 +726,6 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
           </div>
         );
       })()}
-
-      {/* Próximo na fila */}
-      {nextInLine && (
-        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/5 p-4 shadow-sm">
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-primary via-primary/60 to-transparent" />
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold shadow-md">
-              {initials(nextInLine.nome)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">Próximo</span>
-                <span className="text-sm font-semibold">{nextInLine.nome}</span>
-                {nextInLine.instagram && (
-                  <span className="text-xs text-muted-foreground">@{String(nextInLine.instagram).replace(/^@/, "")}</span>
-                )}
-              </div>
-              <div className="mt-1 text-[11px] text-muted-foreground">
-                ⏱️ Enviando em{" "}
-                <span className="font-mono font-semibold text-foreground tabular-nums">
-                  {nextInSec !== null ? `${Math.floor(nextInSec / 60)}m ${nextInSec % 60}s` : "aguardando janela"}
-                </span>
-              </div>
-              {campaign?.opening_message && (
-                <div className="mt-2 rounded-lg border border-border/40 bg-background/60 p-2.5 text-[11px] italic text-muted-foreground line-clamp-3">
-                  "{campaign.opening_message.slice(0, 180)}{campaign.opening_message.length > 180 ? "…" : ""}"
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Filtros + busca */}
       <div className="flex flex-wrap items-center gap-2">
