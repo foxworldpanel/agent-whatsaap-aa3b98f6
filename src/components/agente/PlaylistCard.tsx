@@ -19,6 +19,7 @@ import {
   savePlaylistPackageConfig,
   listPlaylistSales,
 } from "@/lib/playlist-config.functions";
+import { useWorkspace } from "@/contexts/workspace-context";
 
 type Cfg = {
   playlist_pix_key: string;
@@ -32,12 +33,13 @@ type Cfg = {
 
 export function PlaylistCard() {
   const qc = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const fetchCfg = useServerFn(getPlaylistPackageConfig);
   const saveCfg = useServerFn(savePlaylistPackageConfig);
   const fetchSales = useServerFn(listPlaylistSales);
 
-  const { data } = useQuery({ queryKey: ["playlist_pkg_cfg"], queryFn: () => fetchCfg() });
-  const { data: sales } = useQuery({ queryKey: ["playlist_sales_recent"], queryFn: () => fetchSales() });
+  const { data } = useQuery({ queryKey: ["playlist_pkg_cfg", activeWorkspaceId], queryFn: () => fetchCfg() });
+  const { data: sales } = useQuery({ queryKey: ["playlist_sales_recent", activeWorkspaceId], queryFn: () => fetchSales() });
 
   const [open, setOpen] = useState(false);
   const [cfg, setCfg] = useState<Cfg | null>(null);
