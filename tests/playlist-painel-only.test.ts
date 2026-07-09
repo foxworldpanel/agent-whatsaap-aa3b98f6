@@ -45,11 +45,14 @@ describe("Playlist voltou ao fluxo painel-only", () => {
     expect(mod).toMatch(/NUNCA fecha pedido diretamente pelo WhatsApp/i);
   });
 
-  it("2b) preserva conteúdo comercial legítimo (pacotes, preço, promoção)", () => {
+  it("2b) preserva pacotes e promoção — SEM preço hardcoded (catálogo é a fonte única)", () => {
     expect(mod).toMatch(/PACOTE ECL[ÉE]TICA/i);
     expect(mod).toMatch(/PACOTE M[ÚU]SICA ELETR[ÔO]NICA/i);
-    expect(mod).toMatch(/R\$\s*49[,.]?90/);
     expect(mod).toMatch(/PROMOÇÃO ATIVA/i);
+    // Preço vem do catálogo real (servicesContext) — nunca hardcoded no módulo
+    expect(mod).toMatch(/\[preço real do catálogo\]/);
+    expect(mod).not.toMatch(/R\$\s*49[,.]?90/);
+    expect(mod).not.toMatch(/R\$\s*97/);
   });
 
   it("3) webhook não importa mais o hook auto-dispatch de playlist-sales", () => {

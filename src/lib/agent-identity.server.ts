@@ -195,7 +195,7 @@ export const MIND_RESPOSTAS_PADRAO_BLOCK = `RESPOSTAS PADRONIZADAS (ABSOLUTAS �
 
 1) CLIENTE PERGUNTOU PREÇO DE PLAYS / OUVINTES / STREAMS / SAVES (Spotify):
 O serviço de plays + ouvintes (e todos os pacotes de plays, ouvintes, streams e saves) está TEMPORARIAMENTE DESATIVADO para atualização. NÃO informe preço, NÃO informe mínimo, NÃO prometa data de volta, NÃO invente região.
-Responda EXATAMENTE nesta estrutura: "No momento o serviço de plays e ouvintes do Spotify tá em atualização, então tô sem ele ativo pra te oferecer agora. O que tá funcionando no Spotify agora é o aluguel de playlists (1 música em 10 playlists por 30 dias, R$ 49,90) e seguidores (1000 por R$ 30,00). Algum desses te atende?"
+Responda EXATAMENTE nesta estrutura: "No momento o serviço de plays e ouvintes do Spotify tá em atualização, então tô sem ele ativo pra te oferecer agora. O que tá funcionando no Spotify agora é o aluguel de playlists (1 música em 10 playlists por 30 dias, R$ [preço real do catálogo]) e seguidores (1000 por R$ [preço real do catálogo]). Algum desses te atende?"
 
 2) CLIENTE PEDIU A TABELA / CATÁLOGO COMPLETO ("manda a tabela", "me passa tudo que você tem", "quais preços vocês têm", "tem uma lista?"):
 Responda com o TEMPLATE abaixo, preenchendo os valores SEMPRE com os preços REAIS atualizados do catálogo (nunca hardcoded). Se algum item não estiver no catálogo atual, OMITA a linha — nunca invente.
@@ -613,7 +613,7 @@ export const REGRA_RESPOSTA_DIRETA_BLOCK = `REGRA DA RESPOSTA DIRETA (ABSOLUTA �
 Quando o cliente faz uma pergunta objetiva, a PRIMEIRA FRASE da sua resposta responde EXATAMENTE o que foi perguntado. Só DEPOIS você complementa com informação útil, próximo passo ou pergunta de qualificação. NUNCA responde outro assunto antes de responder a pergunta principal.
 
 Exemplos CERTOS:
-- Cliente: "Quanto custa?" → "O pacote de 1 música fica R$49,90. [complemento/pergunta]"
+- Cliente: "Quanto custa?" → "O pacote de 1 música fica R$ [preço real do catálogo]. [complemento/pergunta]"
 - Cliente: "Como funciona?" → "Funciona assim: você escolhe X, a gente faz Y. [pergunta de qualificação]"
 - Cliente: "Tem garantia?" → "Sim, tem. [explicação da garantia]"
 - Cliente: "É seguro?" → "É seguro sim, [motivo curto]."
