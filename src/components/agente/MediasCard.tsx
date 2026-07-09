@@ -16,23 +16,25 @@ import {
   type AgentMediaTipo,
 } from "@/lib/agent-medias.functions";
 import { MediaFormDialog } from "./MediaFormDialog";
+import { useWorkspace } from "@/contexts/workspace-context";
 
 export function MediasCard({ tipo, title, emoji }: { tipo: AgentMediaTipo; title: string; emoji: string }) {
   const qc = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const listFn = useServerFn(listAgentMedias);
   const upsertFn = useServerFn(upsertAgentMedia);
   const delFn = useServerFn(deleteAgentMedia);
   const toggleFn = useServerFn(toggleAgentMedia);
 
   const { data = [] } = useQuery({
-    queryKey: ["agent_medias", tipo],
+    queryKey: ["agent_medias", tipo, activeWorkspaceId],
     queryFn: () => listFn({ data: { tipo } }) as Promise<AgentMedia[]>,
   });
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AgentMedia | null>(null);
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["agent_medias", tipo] });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["agent_medias", tipo, activeWorkspaceId] });
 
   const toggle = useMutation({
     mutationFn: (v: { id: string; ativo: boolean }) => toggleFn({ data: v }),
