@@ -1222,7 +1222,7 @@ function BlastCampaignCard({
   // UI da "Lista de contatos" foi removida — a campanha agora sempre puxa
   // pelas categorias selecionadas. Mantemos o state zerado pra que as
   // gravações não persistam um contact_list_id legado.
-  const [contact_list_id, setListId] = useState<string>("");
+  const [contact_list_id] = useState<string>("");
   const listListsFn = useServerFn(listContactLists);
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listListsFn() });
   const listCatsFn = useServerFn(listCategories);
