@@ -1,7 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
+import type { Database } from "@/integrations/supabase/types";
 import { z } from "zod";
+
+type ContactRow = Database["public"]["Tables"]["contacts"]["Row"];
 
 const profileEnum = z.enum(["ativo", "frio", "inativo"]);
 const statusEnum = z.enum(["nao_abordado", "em_conversa", "convertido", "sem_resposta", "bloqueado"]);
@@ -20,7 +23,7 @@ export const listContacts = createServerFn({ method: "GET" })
     const phones = Array.from(new Set(baseRows.map((r) => r.telefone).filter(Boolean) as string[]));
     if (phones.length === 0) return [];
 
-    const rows: unknown[] = [];
+    const rows: ContactRow[] = [];
     for (let i = 0; i < phones.length; i += 500) {
       const chunk = phones.slice(i, i + 500);
       const { data, error } = await context.supabase
@@ -29,14 +32,14 @@ export const listContacts = createServerFn({ method: "GET" })
         .eq("user_id", context.userId)
         .in("telefone", chunk);
       if (error) throw new Error(error.message);
-      rows.push(...(data ?? []));
+      rows.push(...((data ?? []) as ContactRow[]));
     }
 
-    const byPhone = new Map<string, unknown>();
-    for (const row of rows as Array<{ telefone: string | null }>) {
+    const byPhone = new Map<string, ContactRow>();
+    for (const row of rows) {
       if (row.telefone) byPhone.set(row.telefone, row);
     }
-    return phones.map((phone) => byPhone.get(phone)).filter(Boolean);
+    return phones.map((phone) => byPhone.get(phone)).filter((row): row is ContactRow => Boolean(row));
   });
 
 export const createContact = createServerFn({ method: "POST" })
