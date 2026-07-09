@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Bot, Trash2, RefreshCw, Ban, ShieldCheck } from "lucide-react";
+import { Send, Bot, Trash2, RefreshCw, Ban, ShieldCheck, Search, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -122,6 +122,7 @@ function Conversas() {
   const blockFn = useServerFn(blockConversation);
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<"live" | "syncing" | "error">("live");
@@ -141,6 +142,17 @@ function Conversas() {
     refetchIntervalInBackground: true,
   });
   const conversations = (convsQ.data ?? []) as unknown as Conv[];
+
+  const filteredConversations = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return conversations;
+    return conversations.filter((c) => {
+      const nome = c.contact?.nome?.toLowerCase() ?? "";
+      const tel = c.contact?.telefone?.toLowerCase() ?? "";
+      const preview = c.last_message_preview?.toLowerCase() ?? "";
+      return nome.includes(q) || tel.includes(q) || preview.includes(q);
+    });
+  }, [conversations, searchTerm]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   useEffect(() => {
@@ -434,8 +446,28 @@ function Conversas() {
       <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-xl border border-border shadow-sm md:grid-cols-[360px_minmax(0,1fr)]">
         {/* === LISTA (lado esquerdo, fundo branco) === */}
         <aside className="min-h-0 overflow-hidden border-r border-border bg-white md:flex md:flex-col">
-          <div className="border-b border-border px-4 py-3">
+          <div className="space-y-2 border-b border-border px-4 py-3">
             <h2 className="text-base font-semibold text-neutral-800">Conversas</h2>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por nome, telefone ou mensagem…"
+                className="w-full rounded-lg border border-border bg-white py-1.5 pl-8 pr-8 text-xs text-neutral-700 outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+                  title="Limpar busca"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
           </div>
           <div className="max-h-56 overflow-y-auto md:max-h-none md:min-h-0 md:flex-1">
             {convsQ.isLoading && (
@@ -446,7 +478,12 @@ function Conversas() {
                 Nenhuma conversa ainda. Quando um contato responder no WhatsApp, ela aparece aqui.
               </p>
             )}
-            {conversations.map((c) => {
+            {!convsQ.isLoading && conversations.length > 0 && filteredConversations.length === 0 && (
+              <p className="p-4 text-sm text-neutral-500">
+                Nenhuma conversa encontrada para "{searchTerm}".
+              </p>
+            )}
+            {filteredConversations.map((c) => {
               const sel = c.id === activeId;
               const name = c.contact?.nome ?? "—";
               const photo = c.contact?.photo_url;
