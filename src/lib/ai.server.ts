@@ -440,8 +440,16 @@ export const SPOTIFY_UNAVAILABLE_SAFE_REPLY =
 const SPOTIFY_UNAVAILABLE_TOPIC_RX =
   /\bplays?\b|\bplay\s*\+\s*(ouvintes?|listeners?)\b|\bouvintes?\b|\blisteners?\b|\bmonthly\s+listeners?\b|\bouvintes\s+mensais\b|\bsaves?\b|\bsalvamentos?\b|\bstreams?\b/i;
 const SPOTIFY_CONTEXT_RX = /spotify|open\.spotify\.com|spotify\.link|m[uú]sica|artista|playlist/i;
+// Vazamento REAL: só considera leak quando há preço/quantidade explícita
+// ligada aos serviços restritos. Antes o regex pegava soft-words como
+// "temos|trabalhamos|entrega|global|brasil" e disparava a canned em
+// contextos de reclamação de outra empresa (falso positivo real 09/07).
 const SPOTIFY_SALES_LEAK_RX =
-  /\br\$\s*\d|\b\d+[\s.]*(plays?|ouvintes?|listeners?|saves?|streams?)\b|\b(min[ií]mo|m[aá]ximo|pre[çc]o|valor|custa|sai|pacote|temos|trabalhamos|dispon[ií]vel|ativo|funcionando|entrega|por\s+dia|distribui|algoritmo|recomenda|reais|regi[aã]o|global|brasil|usa|eua)\b/i;
+  /\br\$\s*\d|\b\d+[\s.,]*(plays?|ouvintes?|listeners?|saves?|streams?)\b|\b(plays?|ouvintes?|listeners?|saves?|streams?)\b[^.\n]{0,25}\br\$\s*\d/i;
+// Reclamação sobre OUTRA empresa/plataforma. Nunca substitui pela canned:
+// o cliente está desabafando, não pedindo serviço restrito.
+const OTHER_COMPANY_COMPLAINT_RX =
+  /\b(outra\s+empresa|outro\s+site|outro\s+painel|outra\s+plataforma|comprei\s+de\s+(outro|outra)|me\s+venderam|fui\s+enganad[oa]|perdi\s+(a\s+)?compra|golp(e|earam))\b/i;
 
 function servicesContextHasActiveSpotifyRestrictedService(servicesContext?: string | null): boolean {
   const ctx = servicesContext ?? "";
@@ -462,6 +470,11 @@ export function guardSpotifyUnavailableOffer(params: {
   const replyMentionsRestricted = SPOTIFY_UNAVAILABLE_TOPIC_RX.test(reply);
   if (!replyMentionsRestricted && !latestClientAskedRestricted) return { text: reply, replaced: false };
   if (servicesContextHasActiveSpotifyRestrictedService(params.servicesContext)) {
+    return { text: reply, replaced: false };
+  }
+  // Cliente está reclamando de OUTRA empresa/plataforma — NUNCA despeja
+  // canned de Spotify aqui. Deixa o LLM responder com empatia.
+  if (OTHER_COMPANY_COMPLAINT_RX.test(params.latestClientMessage ?? "")) {
     return { text: reply, replaced: false };
   }
 
