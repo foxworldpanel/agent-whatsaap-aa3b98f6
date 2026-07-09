@@ -4,6 +4,7 @@ import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 
 import { z } from "zod";
 import { getSharedUazapiUserIds } from "@/lib/agent-shared.server";
+import { mergeAgentModulesForSave } from "@/lib/agent-modules";
 
 type PanelShot = { url: string; path?: string; label?: string };
 
@@ -138,9 +139,26 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    let patch = data;
+    if (data.modules) {
+      const { data: existing, error: readError } = await context.supabase
+        .from("agent_config")
+        .select("modules")
+        .eq("user_id", context.userId)
+        .eq("workspace_id", context.workspaceId)
+        .maybeSingle();
+      if (readError) throw new Error(readError.message);
+      patch = {
+        ...data,
+        modules: mergeAgentModulesForSave(
+          (existing?.modules ?? null) as Record<string, string> | null,
+          data.modules,
+        ),
+      };
+    }
     const { error } = await context.supabase
       .from("agent_config")
-      .upsert({ user_id: context.userId, workspace_id: context.workspaceId, ...data }, { onConflict: "user_id,workspace_id" });
+      .upsert({ user_id: context.userId, workspace_id: context.workspaceId, ...patch }, { onConflict: "user_id,workspace_id" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -154,11 +172,29 @@ export const saveAgentModules = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { data: existing, error: readError } = await context.supabase
+      .from("agent_config")
+      .select("modules, modules_enabled")
+      .eq("user_id", context.userId)
+      .eq("workspace_id", context.workspaceId)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+
     const payload = {
       user_id: context.userId,
       workspace_id: context.workspaceId,
-      modules: data.modules,
-      ...(data.modules_enabled ? { modules_enabled: data.modules_enabled } : {}),
+      modules: mergeAgentModulesForSave(
+        (existing?.modules ?? null) as Record<string, string> | null,
+        data.modules,
+      ),
+      ...(data.modules_enabled
+        ? {
+            modules_enabled: {
+              ...(((existing?.modules_enabled ?? {}) as Record<string, boolean>) || {}),
+              ...data.modules_enabled,
+            },
+          }
+        : {}),
     };
     const { error } = await context.supabase
       .from("agent_config")
