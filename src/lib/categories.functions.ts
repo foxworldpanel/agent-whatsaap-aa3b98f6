@@ -21,8 +21,8 @@ async function ensureDefaults(
     .eq("user_id", userId);
   const have = new Set((data ?? []).map((r) => r.slug as string));
   const missing: Array<{ user_id: string; nome: string; cor: string; icone: string; slug: string; is_system: boolean }> = [];
-  if (!have.has("meta_ads")) missing.push({ user_id: userId, nome: "Meta Ads", cor: "blue", icone: "📣", slug: "meta_ads", is_system: true });
-  if (!have.has("lead_instagram")) missing.push({ user_id: userId, nome: "Instagram (CSV)", cor: "pink", icone: "📱", slug: "lead_instagram", is_system: true });
+  if (!have.has("meta_ads")) missing.push({ user_id: userId, nome: "Meta ADS [Geral]", cor: "blue", icone: "📣", slug: "meta_ads", is_system: true });
+  if (!have.has("lead_instagram")) missing.push({ user_id: userId, nome: "Instagram CSV", cor: "pink", icone: "📷", slug: "lead_instagram", is_system: true });
   if (missing.length) await supabase.from("contact_categories").insert(missing);
 }
 

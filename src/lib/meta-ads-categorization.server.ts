@@ -54,7 +54,7 @@ export async function resolveMetaAdsCategoryId(
         cor: match.category_cor,
         icone: match.category_icone,
       }
-    : { slug: "meta_ads", nome: "Meta Ads", cor: "blue", icone: "📣" };
+    : { slug: "meta_ads", nome: "Meta ADS [Geral]", cor: "blue", icone: "📣" };
 
   const { data: cat } = await supabaseAdmin
     .from("contact_categories")
