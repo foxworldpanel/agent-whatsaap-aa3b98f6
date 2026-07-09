@@ -2547,14 +2547,6 @@ function ContactListsSection() {
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-primary" />
-        <h2 className="font-semibold">Listas de Contatos</h2>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Base de contatos do número de disparo. Importe por CSV para adicionar novos leads.
-        Números duplicados dentro da base são bloqueados automaticamente.
-      </p>
 
       {/* Base de Contatos é a única fonte de verdade — os stats aparecem no painel abaixo. */}
 
