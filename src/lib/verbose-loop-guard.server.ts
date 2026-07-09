@@ -87,6 +87,17 @@ const CONCRETE_ACTION_PATTERNS: RegExp[] = [
   /\b\d{5,}\b/, // provável ID de pedido
   /\bquanto\s+(custa|sai|fica)\s+(pra|para)\s+\d+/i,
   /\br\$\s*\d+/i,
+  // Confirmação de escolha de pacote/oferta ("quero esse", "fecho com esse",
+  // "pode ser esse mesmo", "vou querer esse aí", "fico com o de 1000",
+  // "esse pacote", "esse mesmo", "esse aí"). Se o cliente aponta pra uma
+  // opção que a Júlia apresentou, é sinal claro de fechamento — nunca
+  // é loop de reexplicação.
+  /\b(quero|fecho|fico|vou\s+(querer|ficar|pegar)|pode\s+ser|prefiro|escolho|opto|topo|bora|manda)\s+(com\s+)?(esse|essa|esses|essas|aquele|o|a)\b/i,
+  /\besse\s+(pacote|plano|combo|kit|mesmo|a[ií])\b/i,
+  /\bessa\s+(op[cç][ãa]o|oferta|promo(?:c[ãa]o)?)\b/i,
+  // Valor em pt-BR sem R$ ("de 49,90", "pacote de 97", "o de 1000").
+  /\bde\s+\d{1,3}(?:[.,]\d{2,3})?\b/i,
+  /\bo\s+de\s+\d+/i,
 ];
 
 export function looksLikeConcreteAction(text: string | null | undefined): boolean {
