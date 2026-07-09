@@ -297,6 +297,8 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         .from("blast_contacts")
         .select("id, nome, telefone, instagram, status, last_sent_at, replied_at, converted_at, ultima_interacao, error_message, sent_via_number_id, categoria_id, skip_reason, created_at")
         .in("contact_list_id", listIds)
+        .order("replied_at", { ascending: false, nullsFirst: false })
+        .order("last_sent_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
         .limit(2000);
       return (data ?? []) as PanelContactRow[];
