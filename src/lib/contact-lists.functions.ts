@@ -40,7 +40,8 @@ export const listContactLists = createServerFn({ method: "GET" })
         .from("blast_contacts")
         .select("status")
         .eq("user_id", context.userId)
-        .eq("contact_list_id", l.id);
+        .eq("contact_list_id", l.id)
+        .range(0, 199999);
       const list = rows ?? [];
       const sent = ["enviado_abertura","enviado_d3","enviado_d7","respondeu","convertido"];
       out.push({
