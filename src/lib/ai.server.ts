@@ -892,6 +892,12 @@ export async function generateAgentReplyWithMeta(params: {
 
   const supportContext = isSupportOrPostSaleContext(history);
   const reengagementGreeting = isReengagementGreeting(history);
+  // Primeira mensagem "fria" da conversa: cliente inicia com saudação
+  // pura e não há histórico do agente ainda. Não é reengajamento (não
+  // tem gap), nem cortesia pós-abertura de disparo (não tem abertura).
+  // Precisa da MESMA garantia de saudação retribuída antes do "Como
+  // posso ajudar?".
+  const firstColdGreeting = isFirstColdGreeting(history);
   // Detecção por CONTEÚDO: se o histórico começa com uma abertura de disparo
   // (pergunta-isca, "peguei seu contato", "@handle"), tratamos como disparo
   // mesmo que a flag técnica `isInbound` esteja errada (thread reunificada,
