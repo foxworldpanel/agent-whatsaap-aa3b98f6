@@ -11,7 +11,8 @@ export const listContacts = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("contacts")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(0, 199999);
     if (error) throw new Error(error.message);
     return data ?? [];
   });
