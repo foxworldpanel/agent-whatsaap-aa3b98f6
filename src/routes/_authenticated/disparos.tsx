@@ -387,6 +387,12 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
   const dailyLimit = campaign?.daily_limit ?? 0;
   const sentToday = rows.filter((r) => {
     if (!r.last_sent_at) return false;
+    // Só conta como "enviado hoje" quando o contato realmente ficou marcado
+    // como enviado/respondeu/convertido. Assim o número bate com o "Resumo
+    // por número" (que também exige status de enviado) e ignora updates
+    // colaterais de last_sent_at feitos por testes do agente.
+    const isSent = r.status.startsWith("enviado_") || r.status === "respondeu" || r.status === "convertido";
+    if (!isSent) return false;
     const d = new Date(r.last_sent_at);
     const now = new Date();
     return d.toDateString() === now.toDateString();
