@@ -440,8 +440,16 @@ export const SPOTIFY_UNAVAILABLE_SAFE_REPLY =
 const SPOTIFY_UNAVAILABLE_TOPIC_RX =
   /\bplays?\b|\bplay\s*\+\s*(ouvintes?|listeners?)\b|\bouvintes?\b|\blisteners?\b|\bmonthly\s+listeners?\b|\bouvintes\s+mensais\b|\bsaves?\b|\bsalvamentos?\b|\bstreams?\b/i;
 const SPOTIFY_CONTEXT_RX = /spotify|open\.spotify\.com|spotify\.link|m[uú]sica|artista|playlist/i;
+// Vazamento REAL: só considera leak quando há preço/quantidade explícita
+// ligada aos serviços restritos. Antes o regex pegava soft-words como
+// "temos|trabalhamos|entrega|global|brasil" e disparava a canned em
+// contextos de reclamação de outra empresa (falso positivo real 09/07).
 const SPOTIFY_SALES_LEAK_RX =
-  /\br\$\s*\d|\b\d+[\s.]*(plays?|ouvintes?|listeners?|saves?|streams?)\b|\b(min[ií]mo|m[aá]ximo|pre[çc]o|valor|custa|sai|pacote|temos|trabalhamos|dispon[ií]vel|ativo|funcionando|entrega|por\s+dia|distribui|algoritmo|recomenda|reais|regi[aã]o|global|brasil|usa|eua)\b/i;
+  /\br\$\s*\d|\b\d+[\s.,]*(plays?|ouvintes?|listeners?|saves?|streams?)\b|\b(plays?|ouvintes?|listeners?|saves?|streams?)\b[^.\n]{0,25}\br\$\s*\d/i;
+// Reclamação sobre OUTRA empresa/plataforma. Nunca substitui pela canned:
+// o cliente está desabafando, não pedindo serviço restrito.
+const OTHER_COMPANY_COMPLAINT_RX =
+  /\b(outra\s+empresa|outro\s+site|outro\s+painel|outra\s+plataforma|comprei\s+de\s+(outro|outra)|me\s+venderam|fui\s+enganad[oa]|perdi\s+(a\s+)?compra|golp(e|earam))\b/i;
 
 function servicesContextHasActiveSpotifyRestrictedService(servicesContext?: string | null): boolean {
   const ctx = servicesContext ?? "";
@@ -462,6 +470,11 @@ export function guardSpotifyUnavailableOffer(params: {
   const replyMentionsRestricted = SPOTIFY_UNAVAILABLE_TOPIC_RX.test(reply);
   if (!replyMentionsRestricted && !latestClientAskedRestricted) return { text: reply, replaced: false };
   if (servicesContextHasActiveSpotifyRestrictedService(params.servicesContext)) {
+    return { text: reply, replaced: false };
+  }
+  // Cliente está reclamando de OUTRA empresa/plataforma — NUNCA despeja
+  // canned de Spotify aqui. Deixa o LLM responder com empatia.
+  if (OTHER_COMPANY_COMPLAINT_RX.test(params.latestClientMessage ?? "")) {
     return { text: reply, replaced: false };
   }
 
@@ -1097,6 +1110,8 @@ export async function generateAgentReplyWithMeta(params: {
     // Regras de ouro de teste grátis: fonte única em identity.regra_teste_gratis.
     `COMPROVANTE DE PAGAMENTO (PIX / CRYPTO) — REGRA ABSOLUTA:\n- Quando o cliente mandar um comprovante de PIX ou Crypto (imagem de transferência, recibo, print de pagamento), QUEM PAGOU JÁ TEM CADASTRO. NUNCA peça para "fazer cadastro", "criar conta" ou "se cadastrar".\n- Resposta obrigatória em DUAS mensagens (use ===SPLIT===):\n  1) "Ótimo! Vi aqui que você enviou R$[valor visto no comprovante] 😊"\n  2) "Agora é só acessar o painel, escolher o serviço, colar o link e confirmar! mindsmmpanel.com"\n- Confirme SEMPRE o valor que aparece no comprovante. Oriente DIRETO para fazer o PEDIDO no painel — nunca para cadastro. O cadastro já foi feito antes do pagamento.\n- Se não conseguir ler o valor com clareza, pergunte: "Consegue me confirmar o valor que você enviou?" e depois siga o fluxo acima.`,
     `SPOTIFY — PLAYS / OUVINTES / STREAMS / SAVES DESATIVADOS (ABSOLUTA): se o cliente pedir plays, ouvintes, streams, monthly listeners ou saves no Spotify e esses serviços NÃO aparecerem no CATÁLOGO ativo, responda exatamente: "${SPOTIFY_UNAVAILABLE_SAFE_REPLY}". NÃO direcione para Global/EUA, NÃO informe preço, NÃO fale quantidade por dia, NÃO calcule distribuição entre músicas e NÃO trate como serviço disponível.`,
+    `PACOTE POR GÊNERO — ELETRÔNICA vs ECLÉTICA (ABSOLUTA):\n- O pacote MÚSICA ELETRÔNICA é EXCLUSIVO pra estilos eletrônicos (eletrônica, house, techno, trance, deep house, EDM, psytrance, dnb).\n- Pra QUALQUER outro gênero (sertanejo, funk, pagode, samba, rock, pop, rap, MPB, gospel, forró, piseiro, arrocha, indie, jazz, blues, reggae, clássica, infantil, axé, brega, romântica, country, latina, etc.) ofereça SOMENTE o pacote ECLÉTICA (Todos os Gêneros). NUNCA mencione o pacote Eletrônica como opção nesses casos — nem como comparação, nem como "além disso tem também".\n- Se o cliente não disse o gênero ainda, pergunte antes de listar pacotes. Nunca dispare os dois pacotes "pra ele escolher".`,
+    `NUNCA INVENTAR "MENSAGEM NÃO CHEGOU" (ABSOLUTA):\n- É PROIBIDO abrir mensagem com frases como "Ué, acho que a mensagem anterior não chegou direito", "acho que não chegou", "parece que sumiu", "o WhatsApp deu bug", "vou reenviar porque não chegou". Você não tem como saber se uma mensagem foi entregue ou lida.\n- Se por algum motivo você precisar reforçar/completar uma informação anterior, faça-o naturalmente ("Só complementando..." / "Deixa eu te dar mais um detalhe:") SEM inventar causa técnica.\n- Se o cliente reclamar que não recebeu algo, peça pra ele confirmar o que apareceu no chat dele — nunca invente que o sistema falhou.`,
     spotifyCannedAlreadyDelivered
       ? `SPOTIFY — CANNED JÁ ENTREGUE (evolução obrigatória): a resposta padrão sobre "plays via aluguel de playlist" JÁ FOI enviada nesta conversa. NÃO repita esse texto palavra por palavra. A nova mensagem do cliente TRAZ CONTEXTO NOVO (ex.: "eu fazia através do link, adicionava saldo e colocava o número de plays") — RECONHEÇA esse contexto e AVANÇA a conversa. Formato correto: (a) valide o que o cliente descreveu ("Isso mesmo!" / "Exato!"), (b) confirme que plays direto NÃO estão mais disponíveis, (c) explique em UMA frase curta que o aluguel de playlist funciona parecido (você escolhe quantas músicas, o sistema insere em playlists reais), (d) faça a próxima pergunta do funil ("Quantas músicas você quer divulgar?"). PROIBIÇÕES mantidas: NÃO cite preço fixo, NÃO cite quantidade de plays/dia, NÃO invente distribuição entre músicas, NÃO prometa métricas específicas. Máximo 2-3 frases curtas.`
       : "",
