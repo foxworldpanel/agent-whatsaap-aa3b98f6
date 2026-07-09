@@ -124,15 +124,6 @@ function Disparos() {
           <p className="text-sm text-muted-foreground">Campanhas</p>
           <h1 className="text-3xl font-bold tracking-tight">Disparos</h1>
         </div>
-        {activeTab === "ativo" && (
-          <button
-            onClick={() => setShowAdd((s) => !s)}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]"
-            style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
-          >
-            <Plus className="h-4 w-4" /> Nova campanha
-          </button>
-        )}
       </header>
 
       <div className="flex gap-2 border-b border-border">
