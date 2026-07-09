@@ -794,7 +794,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
       )}
 
       {/* Tabela */}
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="max-h-[70vh] overflow-auto rounded-lg border border-border">
         <table className="w-full text-xs">
           <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
             <tr>
