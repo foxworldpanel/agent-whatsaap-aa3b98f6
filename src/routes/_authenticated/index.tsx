@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Users, MessagesSquare, TrendingUp, CheckCircle2, Send, Activity, Megaphone, Flame, Thermometer, Snowflake } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { Users, MessagesSquare, TrendingUp, CheckCircle2, Activity, Megaphone, Flame, Thermometer, Snowflake } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getDashboardStats } from "@/lib/dashboard.functions";
