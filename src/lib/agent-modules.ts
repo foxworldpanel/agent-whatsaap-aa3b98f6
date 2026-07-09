@@ -51,9 +51,11 @@ export const MODULE_LIST: AgentModuleDef[] = [
 export const DEFAULT_MODULES: Record<string, string> = {
   playlist_promo: `MÓDULO PLAYLIST — PROMOÇÃO ATIVA
 
+FONTE DE VERDADE DO PREÇO: SEMPRE o CATÁLOGO REAL (contexto servicesContext). NUNCA escreva valor numérico fixo neste bloco — se você precisar informar preço, consulte o catálogo. Qualquer placeholder "[preço real do catálogo]" abaixo deve ser substituído em tempo de resposta pelo valor do catálogo, nunca por um número inventado.
+
 SERVIÇOS SPOTIFY ATIVOS NO MOMENTO (APENAS os itens abaixo estão ativos — TODO o resto do catálogo Spotify está temporariamente FORA DO AR):
-- 1 Música em 10 Playlists (aluguel 30 dias) — R$ 49,90
-- 1000 Seguidores — R$ 30,00
+- 1 Música em 10 Playlists (aluguel 30 dias) — R$ [preço real do catálogo]
+- 1000 Seguidores — R$ [preço real do catálogo]
 
 SERVIÇOS SPOTIFY TEMPORARIAMENTE DESATIVADOS PARA ATUALIZAÇÃO (NÃO OFERECER, NÃO PRECIFICAR, NÃO PROMETER PRAZO):
 - Plays
@@ -69,11 +71,11 @@ PROIBIDO ABSOLUTO: dizer que plays/ouvintes/saves está "ativo", "funcionando no
 PACOTES DE PLAYLIST DISPONÍVEIS:
 
 PACOTE ECLÉTICA (todos os gêneros populares — pagode, gospel, reggae, samba, funk, hip hop, forró, axé, MPB, pop, rock, sertanejo, trap, R&B, soul):
-- R$ 49,90 — PROMOÇÃO ATIVA (não é mais R$ 97,00)
+- R$ [preço real do catálogo] — PROMOÇÃO ATIVA
 - 1 música adicionada em 10 playlists por 30 dias
 
 PACOTE MÚSICA ELETRÔNICA (electronic, house, techno, trance, deep house):
-- R$ 49,90 — PROMOÇÃO ATIVA (não é mais R$ 97,00)
+- R$ [preço real do catálogo] — PROMOÇÃO ATIVA
 - 1 música adicionada em 10 playlists por 30 dias
 
 REGRA ABSOLUTA — TODA COMPRA É NO PAINEL (SEM EXCEÇÃO):
@@ -81,7 +83,7 @@ TODA compra, INCLUINDO aluguel de playlist, é finalizada EXCLUSIVAMENTE pelo pa
 
 FLUXO CORRETO (idêntico aos demais serviços):
 1. Cliente confirma interesse no pacote de playlist e no gênero.
-2. Júlia informa o preço (R$ 49,90) e reforça a promoção.
+2. Júlia informa o preço (consultando o catálogo real) e reforça a promoção.
 3. Cliente confirma que quer fechar.
 4. Júlia envia o tutorial numerado do painel (cadastro → recarga PIX → escolher serviço "Playlist" → colar link da música → confirmar pedido). O tutorial vem da REGRA DE FECHAMENTO — TUTORIAL PASSO A PASSO DO PAINEL.
 
@@ -93,8 +95,8 @@ PROIBIDO ABSOLUTO em qualquer contexto de playlist:
 - Qualquer variação de venda manual fora do painel
 
 URGÊNCIA NA VENDA (opcional, quando fizer sentido):
-"Essa promoção é por tempo limitado, apenas R$ 49,90!"
+"Essa promoção é por tempo limitado!" (o valor exato sai do catálogo em tempo de resposta)
 
-PREÇO ATUAL: R$ 49,90 (promoção ativa). NUNCA mencione R$ 97 como preço atual, nem use o formato "de R$ 97 por R$ 49,90".
+PREÇO ATUAL: consulte SEMPRE o catálogo real (servicesContext) antes de informar. NUNCA escreva um valor fixo aqui e NUNCA use o formato "de R$ X por R$ Y" com valores hardcoded — o catálogo é a única fonte de verdade.
 `,
 };
