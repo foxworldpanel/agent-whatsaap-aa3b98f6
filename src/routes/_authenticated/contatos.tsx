@@ -481,9 +481,19 @@ function Contatos() {
           )}
 
           {view === "table" ? (
-            <div className="overflow-hidden rounded-xl border border-border" style={{ background: "var(--gradient-card)" }}>
+            <div className="rounded-xl border border-border" style={{ background: "var(--gradient-card)" }}>
+              <div className="flex items-center justify-between border-b border-border px-4 py-2.5 text-xs text-muted-foreground">
+                <span>
+                  Exibindo <span className="font-semibold text-foreground">{filtered.length}</span> de{" "}
+                  <span className="font-semibold text-foreground">{contacts.length}</span> contatos
+                </span>
+                {selected.size > 0 && (
+                  <span>{selected.size} selecionado{selected.size > 1 ? "s" : ""}</span>
+                )}
+              </div>
+              <div className="max-h-[calc(100vh-360px)] min-h-[400px] overflow-y-auto rounded-b-xl">
               <table className="w-full text-sm">
-                <thead className="border-b border-border bg-muted/30 text-xs uppercase tracking-wider text-muted-foreground">
+                <thead className="sticky top-0 z-10 border-b border-border bg-muted/80 backdrop-blur text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th className="w-10 px-4 py-3">
                       <input type="checkbox"
@@ -578,6 +588,7 @@ function Contatos() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           ) : (
             <KanbanView contacts={filtered} onMove={(id, temp) => updateMut.mutate({ id, temperatura: temp })} />
