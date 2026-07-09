@@ -1219,7 +1219,10 @@ function BlastCampaignCard({
   const testFn = useServerFn(testBlastCampaign);
 
   const [whatsapp_number_id, setNum] = useState<string>(camp.whatsapp_number_id ?? "");
-  const [contact_list_id, setListId] = useState<string>(camp.contact_list_id ?? "");
+  // UI da "Lista de contatos" foi removida — a campanha agora sempre puxa
+  // pelas categorias selecionadas. Mantemos o state zerado pra que as
+  // gravações não persistam um contact_list_id legado.
+  const [contact_list_id, setListId] = useState<string>("");
   const listListsFn = useServerFn(listContactLists);
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listListsFn() });
   const listCatsFn = useServerFn(listCategories);
