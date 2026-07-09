@@ -11,7 +11,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
 
     const [contactsRes, activeConvRes, sentTodayRes, recvTodayRes, convertedRes, recentLogsRes, sourcesRes, tempTodayRes] =
       await Promise.all([
-        sb.from("contacts").select("id", { count: "exact", head: true }),
+        sb.from("blast_contacts").select("id", { count: "exact", head: true }),
         sb
           .from("conversations")
           .select("id", { count: "exact", head: true })
