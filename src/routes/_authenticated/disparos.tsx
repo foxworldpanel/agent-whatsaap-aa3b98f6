@@ -1222,7 +1222,7 @@ function BlastCampaignCard({
   const { data: catCounts = {} } = useQuery({
     queryKey: ["contact_categories_counts"],
     queryFn: async () => {
-      const { data } = await supabase.from("blast_contacts").select("categoria_id");
+      const { data } = await supabase.from("blast_contacts").select("categoria_id").limit(100000);
       const map: Record<string, number> = {};
       for (const r of data ?? []) {
         const k = (r as { categoria_id: string | null }).categoria_id;
