@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
+import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
 import { z } from "zod";
 
 export type ContactCategory = {
@@ -86,20 +87,22 @@ export const listContactCategoryMap = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const sb = context.supabase as unknown as import("@supabase/supabase-js").SupabaseClient<import("@/integrations/supabase/types").Database>;
     await ensureDefaults(sb, context.userId);
-    const [catsRes, mapRes] = await Promise.all([
+    const [catsRes, mapRows] = await Promise.all([
       sb.from("contact_categories")
         .select("id, nome, cor, icone, slug, is_system")
         .eq("user_id", context.userId)
         .order("is_system", { ascending: false })
         .order("nome", { ascending: true }),
-      sb.from("blast_contacts")
-        .select("telefone, categoria_id")
-        .eq("user_id", context.userId)
-        .not("categoria_id", "is", null)
-        .range(0, 199999),
+      fetchAllSupabaseRows<{ telefone: string | null; categoria_id: string | null }>((from, to) =>
+        sb.from("blast_contacts")
+          .select("telefone, categoria_id")
+          .eq("user_id", context.userId)
+          .not("categoria_id", "is", null)
+          .range(from, to),
+      ),
     ]);
     const byPhone: Record<string, string> = {};
-    for (const r of (mapRes.data ?? []) as Array<{ telefone: string | null; categoria_id: string | null }>) {
+    for (const r of mapRows) {
       if (r.telefone && r.categoria_id) byPhone[r.telefone] = r.categoria_id;
     }
     return {

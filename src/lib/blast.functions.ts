@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
+import { fetchAllSupabaseRows } from "@/lib/supabase-pagination";
 import { z } from "zod";
 import { getOpeningKind, templateParts, OPENING_KINDS } from "@/lib/opening-kinds";
 
@@ -594,31 +595,39 @@ export const listBlastContacts = createServerFn({ method: "GET" })
         .in("slug", ["lead_instagram", "meta_ads"]);
       catIds = (defaults ?? []).map((c) => c.id as string).filter(Boolean);
     }
-    let q = context.supabase
-      .from("blast_contacts")
-      .select(SELECT)
-      .eq("user_id", context.userId)
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (catIds.length > 0) q = q.in("categoria_id", catIds);
-    else if (camp?.contact_list_id) q = q.eq("contact_list_id", camp.contact_list_id);
-    else q = q.eq("campaign_id", data.campaignId);
-
-    let { data: rows, error } = await q;
-    if (!error && (rows ?? []).length === 0 && (catIds.length > 0 || camp?.contact_list_id)) {
-      // Fallback para campanhas antigas migradas: a base unificada pode não ter
-      // campaign_id/list_id compatível, mas os contatos pertencem ao mesmo usuário.
-      const fallback = await context.supabase
+    const buildQuery = (from: number, to: number) => {
+      let q = context.supabase
         .from("blast_contacts")
         .select(SELECT)
         .eq("user_id", context.userId)
         .order("created_at", { ascending: false })
-        .limit(200);
-      rows = fallback.data;
-      error = fallback.error;
+        .range(from, to);
+      if (catIds.length > 0) q = q.in("categoria_id", catIds);
+      else if (camp?.contact_list_id) q = q.eq("contact_list_id", camp.contact_list_id);
+      else q = q.eq("campaign_id", data.campaignId);
+      return q;
+    };
+    let rows: Array<{ id: string; nome: string | null; telefone: string | null; instagram: string | null; status: string | null; last_sent_at: string | null; replied_at: string | null }> = [];
+    let error: Error | null = null;
+    try {
+      rows = await fetchAllSupabaseRows((from, to) => buildQuery(from, to));
+    } catch (e) {
+      error = e as Error;
+    }
+    if (!error && rows.length === 0 && (catIds.length > 0 || camp?.contact_list_id)) {
+      // Fallback para campanhas antigas migradas: a base unificada pode não ter
+      // campaign_id/list_id compatível, mas os contatos pertencem ao mesmo usuário.
+      rows = await fetchAllSupabaseRows((from, to) =>
+        context.supabase
+          .from("blast_contacts")
+          .select(SELECT)
+          .eq("user_id", context.userId)
+          .order("created_at", { ascending: false })
+          .range(from, to),
+      );
     }
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    return rows;
   });
 
 export const getBlastReport = createServerFn({ method: "GET" })
@@ -642,25 +651,35 @@ export const getBlastReport = createServerFn({ method: "GET" })
         .in("slug", ["lead_instagram", "meta_ads"]);
       catIds = (defaults ?? []).map((c) => c.id as string).filter(Boolean);
     }
-    let q = context.supabase
-      .from("blast_contacts")
-      .select("status")
-      .eq("user_id", context.userId);
-    if (catIds.length > 0) q = q.in("categoria_id", catIds);
-    else if (camp?.contact_list_id) q = q.eq("contact_list_id", camp.contact_list_id);
-    else q = q.eq("campaign_id", data.campaignId);
-
-    let { data: rows, error } = await q;
-    if (!error && (rows ?? []).length === 0 && (catIds.length > 0 || camp?.contact_list_id)) {
-      const fallback = await context.supabase
+    const buildQuery = (from: number, to: number) => {
+      let q = context.supabase
         .from("blast_contacts")
         .select("status")
-        .eq("user_id", context.userId);
-      rows = fallback.data;
-      error = fallback.error;
+        .eq("user_id", context.userId)
+        .range(from, to);
+      if (catIds.length > 0) q = q.in("categoria_id", catIds);
+      else if (camp?.contact_list_id) q = q.eq("contact_list_id", camp.contact_list_id);
+      else q = q.eq("campaign_id", data.campaignId);
+      return q;
+    };
+    let rows: Array<{ status: string | null }> = [];
+    let error: Error | null = null;
+    try {
+      rows = await fetchAllSupabaseRows((from, to) => buildQuery(from, to));
+    } catch (e) {
+      error = e as Error;
+    }
+    if (!error && rows.length === 0 && (catIds.length > 0 || camp?.contact_list_id)) {
+      rows = await fetchAllSupabaseRows((from, to) =>
+        context.supabase
+          .from("blast_contacts")
+          .select("status")
+          .eq("user_id", context.userId)
+          .range(from, to),
+      );
     }
     if (error) throw new Error(error.message);
-    const list = rows ?? [];
+    const list = rows;
     const total = list.length;
     const sent = list.filter((r) =>
       ["enviado_abertura", "enviado_d3", "enviado_d7", "respondeu", "convertido"].includes(r.status as string),
