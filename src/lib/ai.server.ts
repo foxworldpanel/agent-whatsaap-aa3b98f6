@@ -1386,13 +1386,18 @@ export async function generateAgentReplyWithMeta(params: {
   // saudação de volta ("Como posso ajudar?" cru), prepende a saudação
   // correspondente à do cliente. Determinístico — pega regressão em prod.
   let outText = scrubbed.text;
-  if (reengagementGreeting || neutralGreetingAfterBlastOpening) {
+  if (reengagementGreeting || neutralGreetingAfterBlastOpening || firstColdGreeting) {
     const enforced = enforceReengagementGreeting(outText, latestClientMessage);
     if (enforced.prepended) {
       console.warn("[agent-ai] GUARD: saudação de reengajamento prependida", {
         clientMsgPreview: latestClientMessage.slice(0, 60),
         before: outText.slice(0, 80),
         after: enforced.text.slice(0, 80),
+        trigger: reengagementGreeting
+          ? "reengagement"
+          : neutralGreetingAfterBlastOpening
+            ? "neutral_after_blast"
+            : "first_cold_greeting",
       });
     }
     outText = enforced.text;
