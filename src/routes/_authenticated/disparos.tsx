@@ -300,7 +300,7 @@ function ListsContactsPanel({ lists }: { lists: PanelListRow[] }) {
         .order("replied_at", { ascending: false, nullsFirst: false })
         .order("last_sent_at", { ascending: false, nullsFirst: false })
         .order("updated_at", { ascending: false })
-        .limit(2000);
+        .range(0, 199999);
       return (data ?? []) as PanelContactRow[];
     },
   });
