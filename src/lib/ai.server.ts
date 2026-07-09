@@ -123,6 +123,28 @@ export function enforceReengagementGreeting(
   return { text: `${greeting}! ${trimmed}`, prepended: true };
 }
 
+// Detecta o cenário "primeira mensagem de conversa nova, saudação pura,
+// sem histórico do agente". Ex.: cliente cai na conversa direto com
+// "Bom dia" (sem funil de boas-vindas, sem abertura de disparo prévia)
+// e a Júlia responde "Como posso te ajudar?" cru — perdendo a saudação
+// de volta. Complemento ao `isReengagementGreeting` (que exige
+// histórico + gap) e ao `isNeutralGreetingAfterBlastOpening` (que exige
+// abertura de disparo anterior).
+export function isFirstColdGreeting(history: Msg[]): boolean {
+  if (!history?.length) return false;
+  const hasPriorAgentMsg = history.some(
+    (m) => m.sender === "agente" && m.body?.trim(),
+  );
+  if (hasPriorAgentMsg) return false;
+  const lastClient = [...history].reverse().find(
+    (m) => m.sender === "cliente" && m.body?.trim(),
+  );
+  if (!lastClient) return false;
+  const body = (lastClient.body ?? "").trim();
+  if (body.length > 30) return false;
+  return GREETING_ONLY_RX.test(body);
+}
+
 export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean {
   if (!history?.length) return false;
   // Última mensagem da agente
@@ -441,6 +463,33 @@ export function guardSpotifyUnavailableOffer(params: {
   if (!replyMentionsRestricted && !latestClientAskedRestricted) return { text: reply, replaced: false };
   if (servicesContextHasActiveSpotifyRestrictedService(params.servicesContext)) {
     return { text: reply, replaced: false };
+  }
+
+  // ANTI-LOOP: se a canned já foi entregue recentemente (últimos 6
+  // agent turns) e o cliente respondeu com CONTEXTO NOVO (não é apenas
+  // repetição da mesma pergunta restrita), NÃO despeja o mesmo texto
+  // idêntico de novo. Nesse ponto:
+  //   - a proteção anti-alucinação de preço/quantidade continua ativa
+  //     via LLM (regra "SPOTIFY — PLAYS / OUVINTES..." no system prompt);
+  //   - mas o guarda determinístico não pode congelar a conversa
+  //     repetindo texto idêntico a cada turno com a palavra "plays".
+  // Só bloqueia se o próprio LLM regenerou o canned literal OU vazou
+  // preço/quantidade concreta (SPOTIFY_SALES_LEAK_RX + números).
+  const cannedAlreadyInHistory = (params.history ?? [])
+    .slice(-12)
+    .some(
+      (m) => m.sender === "agente" && (m.body ?? "").includes(SPOTIFY_UNAVAILABLE_SAFE_REPLY.slice(0, 60)),
+    );
+  if (cannedAlreadyInHistory) {
+    // Se o LLM regenerou o canned literal, deixa passar (é o mesmo
+    // texto que já foi enviado — o dedupe de mensagens do webhook
+    // cuida disso ou o próximo turno diverge). Se contém preço em R$
+    // com número explícito, aí sim bloqueia com canned como último
+    // recurso — é vazamento financeiro real.
+    const hardMonetaryLeak = /\br\$\s*\d/i.test(reply);
+    if (!hardMonetaryLeak) {
+      return { text: reply, replaced: false };
+    }
   }
 
   const recentConversation = [
@@ -843,6 +892,25 @@ export async function generateAgentReplyWithMeta(params: {
 
   const supportContext = isSupportOrPostSaleContext(history);
   const reengagementGreeting = isReengagementGreeting(history);
+  // Primeira mensagem "fria" da conversa: cliente inicia com saudação
+  // pura e não há histórico do agente ainda. Não é reengajamento (não
+  // tem gap), nem cortesia pós-abertura de disparo (não tem abertura).
+  // Precisa da MESMA garantia de saudação retribuída antes do "Como
+  // posso ajudar?".
+  const firstColdGreeting = isFirstColdGreeting(history);
+
+  // Anti-loop de canned Spotify: se a resposta padrão de "Spotify plays
+  // indisponíveis" já foi enviada nos últimos turnos do agente, injeta
+  // uma instrução dedicada para o LLM RECONHECER o contexto novo do
+  // cliente (ex.: "eu fazia através do link, adicionava saldo...") e
+  // AVANÇAR a conversa em vez de repetir o texto idêntico. Mantém a
+  // proibição absoluta de plays/quantidade/preço fixo — a proteção
+  // anti-alucinação segue ativa via regra "SPOTIFY — PLAYS / OUVINTES".
+  const spotifyCannedAlreadyDelivered = history
+    .slice(-12)
+    .some(
+      (m) => m.sender === "agente" && (m.body ?? "").includes(SPOTIFY_UNAVAILABLE_SAFE_REPLY.slice(0, 60)),
+    );
   // Detecção por CONTEÚDO: se o histórico começa com uma abertura de disparo
   // (pergunta-isca, "peguei seu contato", "@handle"), tratamos como disparo
   // mesmo que a flag técnica `isInbound` esteja errada (thread reunificada,
@@ -1029,6 +1097,9 @@ export async function generateAgentReplyWithMeta(params: {
     // Regras de ouro de teste grátis: fonte única em identity.regra_teste_gratis.
     `COMPROVANTE DE PAGAMENTO (PIX / CRYPTO) — REGRA ABSOLUTA:\n- Quando o cliente mandar um comprovante de PIX ou Crypto (imagem de transferência, recibo, print de pagamento), QUEM PAGOU JÁ TEM CADASTRO. NUNCA peça para "fazer cadastro", "criar conta" ou "se cadastrar".\n- Resposta obrigatória em DUAS mensagens (use ===SPLIT===):\n  1) "Ótimo! Vi aqui que você enviou R$[valor visto no comprovante] 😊"\n  2) "Agora é só acessar o painel, escolher o serviço, colar o link e confirmar! mindsmmpanel.com"\n- Confirme SEMPRE o valor que aparece no comprovante. Oriente DIRETO para fazer o PEDIDO no painel — nunca para cadastro. O cadastro já foi feito antes do pagamento.\n- Se não conseguir ler o valor com clareza, pergunte: "Consegue me confirmar o valor que você enviou?" e depois siga o fluxo acima.`,
     `SPOTIFY — PLAYS / OUVINTES / STREAMS / SAVES DESATIVADOS (ABSOLUTA): se o cliente pedir plays, ouvintes, streams, monthly listeners ou saves no Spotify e esses serviços NÃO aparecerem no CATÁLOGO ativo, responda exatamente: "${SPOTIFY_UNAVAILABLE_SAFE_REPLY}". NÃO direcione para Global/EUA, NÃO informe preço, NÃO fale quantidade por dia, NÃO calcule distribuição entre músicas e NÃO trate como serviço disponível.`,
+    spotifyCannedAlreadyDelivered
+      ? `SPOTIFY — CANNED JÁ ENTREGUE (evolução obrigatória): a resposta padrão sobre "plays via aluguel de playlist" JÁ FOI enviada nesta conversa. NÃO repita esse texto palavra por palavra. A nova mensagem do cliente TRAZ CONTEXTO NOVO (ex.: "eu fazia através do link, adicionava saldo e colocava o número de plays") — RECONHEÇA esse contexto e AVANÇA a conversa. Formato correto: (a) valide o que o cliente descreveu ("Isso mesmo!" / "Exato!"), (b) confirme que plays direto NÃO estão mais disponíveis, (c) explique em UMA frase curta que o aluguel de playlist funciona parecido (você escolhe quantas músicas, o sistema insere em playlists reais), (d) faça a próxima pergunta do funil ("Quantas músicas você quer divulgar?"). PROIBIÇÕES mantidas: NÃO cite preço fixo, NÃO cite quantidade de plays/dia, NÃO invente distribuição entre músicas, NÃO prometa métricas específicas. Máximo 2-3 frases curtas.`
+      : "",
     `CONSISTÊNCIA ÁUDIO ↔ TEXTO (ABSOLUTA):\n- Quando a resposta for dividida em áudio (antes do ===SPLIT===) e texto (depois do ===SPLIT===), a INFORMAÇÃO precisa ser idêntica nos dois.\n- Se o áudio mencionar uma quantidade ou preço de serviço ATIVO, o texto após ===SPLIT=== deve repetir a MESMA quantidade com o MESMO preço.\n- NUNCA contradiga no texto algo que você acabou de falar no áudio. O texto só complementa com dado bruto (link, preço numérico, lista), nunca corrige nem altera o que foi dito.\n- Antes de finalizar a resposta, releia mentalmente: "o número/preço que falei no áudio é IGUAL ao que escrevi no texto?". Se não for, corrija o texto para bater com o áudio.`,
     `COMO FUNCIONA A DIVULGAÇÃO (ABSOLUTA):\n- NUNCA responda "a gente não divulga", "não fazemos divulgação", "não trabalhamos com isso" ou qualquer variação defensiva quando o cliente perguntar como funciona pra divulgar / impulsionar / promover.\n- Resposta natural e padrão: "Você escolhe o serviço no painel, cola o link da sua música (ou vídeo/perfil) e a gente impulsiona direto! 😊"\n- Adapte o exemplo do link conforme o contexto da conversa (música no Spotify, vídeo no YouTube/TikTok/Reels, perfil para seguidores).`,
     `NÃO REPETIR ORIENTAÇÃO (ABSOLUTA):\n- Quando o cliente disser "pronto", "ok", "feito", "beleza", "já paguei", "paguei", "fiz" — VERIFIQUE o histórico da conversa antes de responder.\n- Se você JÁ explicou como fazer o pedido (painel, escolher serviço, colar link), NÃO repita a mesma instrução.\n- "pronto" / "ok" / "feito" → "Ótimo! Qualquer dúvida me chama 😊"\n- "já paguei" / "paguei" → resposta em duas mensagens (use ===SPLIT===):\n  1) "Perfeito! Agora é só fazer o pedido no painel!"\n  2) "mindsmmpanel.com"\n- NUNCA mande a mesma instrução completa duas vezes na mesma conversa. Confirmações curtas são suficientes depois que a orientação já foi dada.`,
@@ -1331,13 +1402,18 @@ export async function generateAgentReplyWithMeta(params: {
   // saudação de volta ("Como posso ajudar?" cru), prepende a saudação
   // correspondente à do cliente. Determinístico — pega regressão em prod.
   let outText = scrubbed.text;
-  if (reengagementGreeting || neutralGreetingAfterBlastOpening) {
+  if (reengagementGreeting || neutralGreetingAfterBlastOpening || firstColdGreeting) {
     const enforced = enforceReengagementGreeting(outText, latestClientMessage);
     if (enforced.prepended) {
       console.warn("[agent-ai] GUARD: saudação de reengajamento prependida", {
         clientMsgPreview: latestClientMessage.slice(0, 60),
         before: outText.slice(0, 80),
         after: enforced.text.slice(0, 80),
+        trigger: reengagementGreeting
+          ? "reengagement"
+          : neutralGreetingAfterBlastOpening
+            ? "neutral_after_blast"
+            : "first_cold_greeting",
       });
     }
     outText = enforced.text;
