@@ -465,6 +465,33 @@ export function guardSpotifyUnavailableOffer(params: {
     return { text: reply, replaced: false };
   }
 
+  // ANTI-LOOP: se a canned já foi entregue recentemente (últimos 6
+  // agent turns) e o cliente respondeu com CONTEXTO NOVO (não é apenas
+  // repetição da mesma pergunta restrita), NÃO despeja o mesmo texto
+  // idêntico de novo. Nesse ponto:
+  //   - a proteção anti-alucinação de preço/quantidade continua ativa
+  //     via LLM (regra "SPOTIFY — PLAYS / OUVINTES..." no system prompt);
+  //   - mas o guarda determinístico não pode congelar a conversa
+  //     repetindo texto idêntico a cada turno com a palavra "plays".
+  // Só bloqueia se o próprio LLM regenerou o canned literal OU vazou
+  // preço/quantidade concreta (SPOTIFY_SALES_LEAK_RX + números).
+  const cannedAlreadyInHistory = (params.history ?? [])
+    .slice(-12)
+    .some(
+      (m) => m.sender === "agente" && (m.body ?? "").includes(SPOTIFY_UNAVAILABLE_SAFE_REPLY.slice(0, 60)),
+    );
+  if (cannedAlreadyInHistory) {
+    // Se o LLM regenerou o canned literal, deixa passar (é o mesmo
+    // texto que já foi enviado — o dedupe de mensagens do webhook
+    // cuida disso ou o próximo turno diverge). Se contém preço em R$
+    // com número explícito, aí sim bloqueia com canned como último
+    // recurso — é vazamento financeiro real.
+    const hardMonetaryLeak = /\br\$\s*\d/i.test(reply);
+    if (!hardMonetaryLeak) {
+      return { text: reply, replaced: false };
+    }
+  }
+
   const recentConversation = [
     params.latestClientMessage ?? "",
     ...(params.history ?? []).slice(-8).map((m) => m.body ?? ""),
