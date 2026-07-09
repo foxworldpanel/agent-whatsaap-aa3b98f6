@@ -645,6 +645,26 @@ function Conversas() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {active?.contact && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-[11px] font-medium text-neutral-500">Temperatura:</label>
+                  <select
+                    value={(active.contact.temperatura ?? "frio") as TempKey}
+                    onChange={(e) => updateTempMut.mutate(e.target.value as TempKey)}
+                    disabled={updateTempMut.isPending}
+                    className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium outline-none transition disabled:opacity-60 ${
+                      tempTag[(active.contact.temperatura ?? "frio") as TempKey].cls
+                    }`}
+                    title="Alterar temperatura do contato manualmente"
+                  >
+                    {(Object.keys(tempTag) as TempKey[]).map((k) => (
+                      <option key={k} value={k}>
+                        {tempTag[k].emoji} {tempTag[k].label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {active && (
                 <button
                   type="button"
