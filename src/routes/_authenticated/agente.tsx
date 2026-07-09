@@ -20,7 +20,6 @@ import { Label } from "@/components/ui/label";
 import { DEFAULT_MODULES, MODULE_LIST } from "@/lib/agent-modules";
 import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 import { MediasCard } from "@/components/agente/MediasCard";
-import { IdentidadeCard } from "@/components/agente/IdentidadeCard";
 import { PlaylistCard } from "@/components/agente/PlaylistCard";
 import { DailyPromoCard } from "@/components/agente/DailyPromoCard";
 import { supabase } from "@/integrations/supabase/client";
