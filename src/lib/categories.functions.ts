@@ -95,7 +95,8 @@ export const listContactCategoryMap = createServerFn({ method: "GET" })
       sb.from("blast_contacts")
         .select("telefone, categoria_id")
         .eq("user_id", context.userId)
-        .not("categoria_id", "is", null),
+        .not("categoria_id", "is", null)
+        .range(0, 199999),
     ]);
     const byPhone: Record<string, string> = {};
     for (const r of (mapRes.data ?? []) as Array<{ telefone: string | null; categoria_id: string | null }>) {
