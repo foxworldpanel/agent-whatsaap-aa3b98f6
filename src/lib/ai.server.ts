@@ -123,6 +123,28 @@ export function enforceReengagementGreeting(
   return { text: `${greeting}! ${trimmed}`, prepended: true };
 }
 
+// Detecta o cenário "primeira mensagem de conversa nova, saudação pura,
+// sem histórico do agente". Ex.: cliente cai na conversa direto com
+// "Bom dia" (sem funil de boas-vindas, sem abertura de disparo prévia)
+// e a Júlia responde "Como posso te ajudar?" cru — perdendo a saudação
+// de volta. Complemento ao `isReengagementGreeting` (que exige
+// histórico + gap) e ao `isNeutralGreetingAfterBlastOpening` (que exige
+// abertura de disparo anterior).
+export function isFirstColdGreeting(history: Msg[]): boolean {
+  if (!history?.length) return false;
+  const hasPriorAgentMsg = history.some(
+    (m) => m.sender === "agente" && m.body?.trim(),
+  );
+  if (hasPriorAgentMsg) return false;
+  const lastClient = [...history].reverse().find(
+    (m) => m.sender === "cliente" && m.body?.trim(),
+  );
+  if (!lastClient) return false;
+  const body = (lastClient.body ?? "").trim();
+  if (body.length > 30) return false;
+  return GREETING_ONLY_RX.test(body);
+}
+
 export function isReengagementGreeting(history: Msg[], nowIso?: string): boolean {
   if (!history?.length) return false;
   // Última mensagem da agente
