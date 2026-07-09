@@ -37,14 +37,6 @@ function Index() {
           <p className="text-sm text-muted-foreground">Visão geral</p>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         </div>
-        <Link
-          to="/disparos"
-          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02]"
-          style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
-        >
-          <Send className="h-4 w-4" />
-          Nova campanha
-        </Link>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
