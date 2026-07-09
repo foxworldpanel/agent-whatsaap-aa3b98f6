@@ -21,6 +21,7 @@ import {
 } from "@/lib/smm-services.functions";
 import { listFreeTrials } from "@/lib/free-trials.functions";
 import { getAgentConfig, setCatalogFlags } from "@/lib/agent.functions";
+import { useWorkspace } from "@/contexts/workspace-context";
 
 const STATUS_STYLE: Record<string, string> = {
   pending: "bg-warning/20 text-warning",
@@ -48,6 +49,7 @@ function detectPlatform(name: string, category: string) {
 
 export function TesteGratisCard() {
   const qc = useQueryClient();
+  const { activeWorkspaceId } = useWorkspace();
   const [open, setOpen] = useState(true);
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [filter, setFilter] = useState("");
@@ -64,7 +66,7 @@ export function TesteGratisCard() {
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const { data: cfg } = useQuery({
-    queryKey: ["agent_config"],
+    queryKey: ["agent_config", activeWorkspaceId],
     queryFn: () => getCfg(),
   });
   const catalogInPrompt = (cfg as { catalog_in_prompt?: boolean } | undefined)?.catalog_in_prompt ?? true;
@@ -77,14 +79,14 @@ export function TesteGratisCard() {
   });
 
   const { data: ftsListRaw } = useQuery({
-    queryKey: ["free_test_services"],
+    queryKey: ["free_test_services", activeWorkspaceId],
     queryFn: () => listFts(),
     enabled: open,
   });
   const ftsList = useMemo(() => ftsListRaw ?? [], [ftsListRaw]);
   // Carrega catálogo em cache ao abrir
   useQuery({
-    queryKey: ["catalog_cache"],
+    queryKey: ["catalog_cache", activeWorkspaceId],
     enabled: open,
     queryFn: async () => {
       const res = await listCacheFn();
@@ -94,7 +96,7 @@ export function TesteGratisCard() {
     },
   });
   const { data: trialsRaw } = useQuery({
-    queryKey: ["free-trials"],
+    queryKey: ["free-trials", activeWorkspaceId],
     queryFn: () => listTrialsFn(),
     enabled: open,
     refetchInterval: open ? 30000 : false,
