@@ -20,7 +20,7 @@ import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
  */
 
 const MIND_USER_ID = "09f4dee9-0a1b-4c43-b083-75cc64feb99d";
-const MIND_WORKSPACE_ID = "4765a1c9-96e3-44db-b6e2-56ed85343be6";
+const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
 
 export const seedMindBrand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
