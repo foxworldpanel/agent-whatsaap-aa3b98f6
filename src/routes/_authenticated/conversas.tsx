@@ -584,8 +584,8 @@ function Conversas() {
           className="min-h-0 overflow-hidden flex flex-col"
           style={{ backgroundColor: "#ECE5DD" }}
         >
-          <header className="flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-3">
-            <div className="flex items-center gap-3">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-3">
+            <div className="flex min-w-0 items-center gap-3">
               {active?.contact ? (
                 active.contact.photo_url ? (
                   <img
@@ -644,11 +644,9 @@ function Conversas() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {active?.contact && (
-                <div className="flex items-center gap-1.5">
-                  <label className="text-[11px] font-medium text-neutral-500">Temperatura:</label>
-                  <select
+                <select
                     value={(active.contact.temperatura ?? "frio") as TempKey}
                     onChange={(e) => updateTempMut.mutate(e.target.value as TempKey)}
                     disabled={updateTempMut.isPending}
@@ -663,7 +661,6 @@ function Conversas() {
                       </option>
                     ))}
                   </select>
-                </div>
               )}
               {active && (
                 <button
@@ -704,52 +701,49 @@ function Conversas() {
                     : `Agente ${active.agent_enabled ? "ativo" : "desligado"}`}
                 </button>
               )}
-              <button className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50">
-                <Bot className="h-3.5 w-3.5" /> Intervir manualmente
-              </button>
               {active && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!activeId || clearMut.isPending) return;
-                    if (confirm("Apagar todo o histórico desta conversa? O agente começará do zero na próxima mensagem.")) {
-                      clearMut.mutate();
-                    }
-                  }}
-                  disabled={clearMut.isPending}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
-                  title="Apaga o histórico de mensagens e reseta o contexto do agente para este contato"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> {clearMut.isPending ? "Limpando…" : "Limpar conversa"}
-                </button>
-              )}
-              {active && (
-                activeBlocked ? (
-                  <button
-                    type="button"
-                    onClick={() => reactivateMut.mutate()}
-                    disabled={reactivateMut.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
-                    title="Desbloquear conversa e reativar o agente"
-                  >
-                    <ShieldCheck className="h-3.5 w-3.5" /> {reactivateMut.isPending ? "Desbloqueando…" : "Desbloquear"}
-                  </button>
-                ) : (
+                <div className="ml-1 flex items-center overflow-hidden rounded-lg border border-neutral-200 bg-white">
                   <button
                     type="button"
                     onClick={() => {
-                      if (!activeId || blockMut.isPending) return;
-                      if (confirm("Bloquear esta conversa? O agente para de responder e o contato fica marcado como bloqueado.")) {
-                        blockMut.mutate();
+                      if (!activeId || clearMut.isPending) return;
+                      if (confirm("Apagar todo o histórico desta conversa? O agente começará do zero na próxima mensagem.")) {
+                        clearMut.mutate();
                       }
                     }}
-                    disabled={blockMut.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
-                    title="Bloquear conversa — pausa o agente e marca o contato como bloqueado"
+                    disabled={clearMut.isPending}
+                    className="inline-flex h-8 w-8 items-center justify-center border-r border-neutral-200 text-neutral-600 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-60"
+                    title="Limpar conversa — apaga o histórico e reseta o contexto do agente"
                   >
-                    <Ban className="h-3.5 w-3.5" /> {blockMut.isPending ? "Bloqueando…" : "Bloquear"}
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                )
+                  {activeBlocked ? (
+                    <button
+                      type="button"
+                      onClick={() => reactivateMut.mutate()}
+                      disabled={reactivateMut.isPending}
+                      className="inline-flex h-8 w-8 items-center justify-center text-emerald-600 transition hover:bg-emerald-50 disabled:opacity-60"
+                      title="Desbloquear conversa e reativar o agente"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!activeId || blockMut.isPending) return;
+                        if (confirm("Bloquear esta conversa? O agente para de responder e o contato fica marcado como bloqueado.")) {
+                          blockMut.mutate();
+                        }
+                      }}
+                      disabled={blockMut.isPending}
+                      className="inline-flex h-8 w-8 items-center justify-center text-neutral-600 transition hover:bg-neutral-100 disabled:opacity-60"
+                      title="Bloquear conversa — pausa o agente e marca o contato como bloqueado"
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </header>
