@@ -1219,7 +1219,10 @@ function BlastCampaignCard({
   const testFn = useServerFn(testBlastCampaign);
 
   const [whatsapp_number_id, setNum] = useState<string>(camp.whatsapp_number_id ?? "");
-  const [contact_list_id, setListId] = useState<string>(camp.contact_list_id ?? "");
+  // UI da "Lista de contatos" foi removida — a campanha agora sempre puxa
+  // pelas categorias selecionadas. Mantemos o state zerado pra que as
+  // gravações não persistam um contact_list_id legado.
+  const [contact_list_id] = useState<string>("");
   const listListsFn = useServerFn(listContactLists);
   const { data: lists = [] } = useQuery({ queryKey: ["contact_lists"], queryFn: () => listListsFn() });
   const listCatsFn = useServerFn(listCategories);
@@ -1700,37 +1703,6 @@ function BlastCampaignCard({
 
       <div className="space-y-3">
         {/* <VariationInfoCard /> — oculto a pedido */}
-        <div className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
-          <div>
-            <h4 className="font-semibold text-sm">Lista de contatos</h4>
-            <p className="text-xs text-muted-foreground">
-              Escolha de qual lista a campanha puxa os contatos. Use <strong>Meta Ads</strong> para disparar para a base extraída do WhatsApp/Meta.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={contact_list_id}
-              onChange={(e) => setListId(e.target.value)}
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            >
-              <option value="">Todas as listas / categorias abaixo</option>
-              {lists.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.origem === "meta_ads" ? "📣 " : "📷 "}{l.name} · {l.total} contatos
-                </option>
-              ))}
-            </select>
-            {contact_list_id && (
-              <button
-                type="button"
-                onClick={() => setListId("")}
-                className="text-xs text-muted-foreground hover:text-foreground underline"
-              >
-                Limpar
-              </button>
-            )}
-          </div>
-        </div>
         <div className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
           <div>
             <h4 className="font-semibold text-sm">Roteiro de abertura</h4>
