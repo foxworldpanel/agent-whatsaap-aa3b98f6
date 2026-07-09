@@ -1654,41 +1654,33 @@ function BlastCampaignCard({
             </span>
           )}
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
           {categories.length === 0 && (
             <span className="text-xs text-muted-foreground px-1 py-1">
               Nenhuma categoria cadastrada.
             </span>
           )}
           {(() => {
-            const metaIds = categories.filter((c) => c.slug?.startsWith("meta_ads")).map((c) => c.id);
-            if (metaIds.length < 2) return null;
-            const allOn = metaIds.every((id) => categoria_ids.includes(id));
-            const totalCount = metaIds.reduce((n, id) => n + ((catCounts as Record<string, number>)[id] ?? 0), 0);
+            const visible = categories.filter((c) => !c.slug?.startsWith("debug_"));
+            const allIds = visible.map((c) => c.id);
+            const allOn = allIds.length > 0 && allIds.every((id) => categoria_ids.includes(id));
+            const totalCount = allIds.reduce((n, id) => n + ((catCounts as Record<string, number>)[id] ?? 0), 0);
             return (
               <button
                 type="button"
-                onClick={() => {
-                  setCategoriaIds((cur) => {
-                    const set = new Set(cur);
-                    if (allOn) metaIds.forEach((id) => set.delete(id));
-                    else metaIds.forEach((id) => set.add(id));
-                    return [...set];
-                  });
-                }}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                onClick={() => setCategoriaIds(allOn ? [] : allIds)}
+                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition ${
                   allOn
-                    ? "border-primary bg-primary/15 text-foreground"
+                    ? "border-primary/40 bg-primary/5 text-primary"
                     : "border-border bg-card text-muted-foreground hover:bg-muted"
                 }`}
               >
-                <span>📣</span>
-                <span>Meta Ads (Todos) <span className="opacity-70">({totalCount})</span></span>
-                {allOn && <span className="text-primary">✓</span>}
+                <Users className="h-4 w-4" /> Todas as categorias
+                <span className="ml-1 text-[10px] opacity-80">({totalCount})</span>
               </button>
             );
           })()}
-          {categories.map((c) => {
+          {categories.filter((c) => !c.slug?.startsWith("debug_")).map((c) => {
             const on = categoria_ids.includes(c.id);
             const count = (catCounts as Record<string, number>)[c.id] ?? 0;
             return (
@@ -1696,17 +1688,14 @@ function BlastCampaignCard({
                 key={c.id}
                 type="button"
                 onClick={() => toggleCategoria(c.id)}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition ${
                   on
-                    ? "border-primary bg-primary/15 text-foreground"
+                    ? "border-primary/40 bg-primary/5 text-primary"
                     : "border-border bg-card text-muted-foreground hover:bg-muted"
                 }`}
               >
-                <span>{c.icone}</span>
-                <span>
-                  {c.nome} <span className="opacity-70">({count})</span>
-                </span>
-                {on && <span className="text-primary">✓</span>}
+                <span>{c.icone}</span> {c.nome}
+                <span className="ml-1 text-[10px] opacity-80">({count})</span>
               </button>
             );
           })}
