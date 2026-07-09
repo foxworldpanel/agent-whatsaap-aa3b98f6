@@ -717,6 +717,36 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         if (!text && kind !== "audio" && kind !== "image") return new Response("empty");
 
+        // ===== Filtro de mensagens não descriptografadas (WhatsApp E2E) =====
+        // Quando o WhatsApp não consegue descriptografar (chave dessincronizada),
+        // o Uazapi entrega placeholders tipo "[Undecryptable]" / "Waiting for this
+        // message". Não faz sentido gerar resposta com o Claude — ele improvisa
+        // texto de erro ("Opa, deu um erro aí com a mensagem 📱..."), gastando
+        // tokens à toa. O cliente costuma reenviar sozinho quando a chave
+        // resincroniza. Loga e ignora.
+        if (kind === "texto" && text) {
+          const t = text.trim().toLowerCase();
+          const undecryptable =
+            t === "[undecryptable]" ||
+            t.includes("undecryptable") ||
+            t.includes("waiting for this message") ||
+            t.includes("aguardando esta mensagem") ||
+            t.includes("aguardando essa mensagem");
+          if (undecryptable) {
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                phone: extractPhone(payload.message?.chatid, payload.message?.sender),
+                type: "message_undecryptable_ignored",
+                level: "warn",
+                summary: `🔒 Mensagem não descriptografada ignorada (aguardando reenvio): ${text.slice(0, 60)}`,
+                metadata: { messageId, raw: text.slice(0, 200) },
+              });
+            } catch {}
+            return new Response("ignored: undecryptable");
+          }
+        }
+
         // Áudios muito curtos (<1s) são ruído acidental — ignora sem responder
         if (kind === "audio") {
           const secs = extractAudioSeconds(payload);
