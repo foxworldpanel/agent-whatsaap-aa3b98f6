@@ -1542,6 +1542,32 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .maybeSingle();
           return latestContact?.status !== "bloqueado";
         };
+        // ⛔ Agente em CONVERSAS desativado globalmente (decisão de produto).
+        // Só os disparos/funis (blast-dispatcher, campaign-dispatcher,
+        // auto-campaign-dispatcher) continuam enviando openers e passos
+        // sequenciais programados. Nenhuma resposta automática a mensagens
+        // recebidas — nem Claude, nem canned, nem teste grátis, nem áudio.
+        // Números de teste (isTestNumber) continuam respondendo pra
+        // permitir QA sem publicar.
+        if (!isTestNumber) {
+          await supabaseAdmin
+            .from("conversations")
+            .update({ status: "aguardando" })
+            .eq("id", conv.id);
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv.id,
+              type: "agent_disabled",
+              level: "info",
+              summary: "Agente em conversas desativado — apenas funis de disparo continuam ativos",
+              metadata: { globalEnabled, convEnabled, needsReview, reason: "conversations_agent_off" },
+            });
+          } catch {}
+          return new Response("ok (conversations agent disabled)");
+        }
         if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber) {
           await supabaseAdmin
             .from("conversations")
