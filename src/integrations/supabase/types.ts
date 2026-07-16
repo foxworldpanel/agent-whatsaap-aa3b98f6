@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       agent_config: {
         Row: {
+          agent_brain_version: Database["public"]["Enums"]["agent_brain_version"]
           agent_enabled: boolean
           agent_name: string
           audio_enabled: boolean
@@ -35,6 +36,7 @@ export type Database = {
           panel_screenshot_mobile_url: string | null
           panel_screenshots_desktop: Json
           panel_screenshots_mobile: Json
+          pilot_phone_numbers: string[]
           playlist_ecletica_links: string[] | null
           playlist_ecletica_service_id: string | null
           playlist_eletronica_links: string[] | null
@@ -57,6 +59,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          agent_brain_version?: Database["public"]["Enums"]["agent_brain_version"]
           agent_enabled?: boolean
           agent_name?: string
           audio_enabled?: boolean
@@ -76,6 +79,7 @@ export type Database = {
           panel_screenshot_mobile_url?: string | null
           panel_screenshots_desktop?: Json
           panel_screenshots_mobile?: Json
+          pilot_phone_numbers?: string[]
           playlist_ecletica_links?: string[] | null
           playlist_ecletica_service_id?: string | null
           playlist_eletronica_links?: string[] | null
@@ -98,6 +102,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          agent_brain_version?: Database["public"]["Enums"]["agent_brain_version"]
           agent_enabled?: boolean
           agent_name?: string
           audio_enabled?: boolean
@@ -117,6 +122,7 @@ export type Database = {
           panel_screenshot_mobile_url?: string | null
           panel_screenshots_desktop?: Json
           panel_screenshots_mobile?: Json
+          pilot_phone_numbers?: string[]
           playlist_ecletica_links?: string[] | null
           playlist_ecletica_service_id?: string | null
           playlist_eletronica_links?: string[] | null
@@ -316,6 +322,95 @@ export type Database = {
           },
         ]
       }
+      agent_logs_v2: {
+        Row: {
+          cache_creation_input_tokens: number | null
+          cache_read_input_tokens: number | null
+          conversation_id: string
+          created_at: string
+          current_message: string
+          duration_ms: number | null
+          estimated_cost: number | null
+          execution_mode: Database["public"]["Enums"]["execution_mode"]
+          id: string
+          input_tokens: number | null
+          intent: string | null
+          mode: string
+          model: string | null
+          network: string | null
+          output_tokens: number | null
+          prompt_final: string | null
+          response_v2: string | null
+          routing_reason: string | null
+          selected_modules: string[] | null
+          selected_tools: string[] | null
+          sent_to_customer: boolean
+          service: string | null
+          state: Json
+          workspace_id: string
+        }
+        Insert: {
+          cache_creation_input_tokens?: number | null
+          cache_read_input_tokens?: number | null
+          conversation_id: string
+          created_at?: string
+          current_message: string
+          duration_ms?: number | null
+          estimated_cost?: number | null
+          execution_mode: Database["public"]["Enums"]["execution_mode"]
+          id?: string
+          input_tokens?: number | null
+          intent?: string | null
+          mode: string
+          model?: string | null
+          network?: string | null
+          output_tokens?: number | null
+          prompt_final?: string | null
+          response_v2?: string | null
+          routing_reason?: string | null
+          selected_modules?: string[] | null
+          selected_tools?: string[] | null
+          sent_to_customer?: boolean
+          service?: string | null
+          state: Json
+          workspace_id: string
+        }
+        Update: {
+          cache_creation_input_tokens?: number | null
+          cache_read_input_tokens?: number | null
+          conversation_id?: string
+          created_at?: string
+          current_message?: string
+          duration_ms?: number | null
+          estimated_cost?: number | null
+          execution_mode?: Database["public"]["Enums"]["execution_mode"]
+          id?: string
+          input_tokens?: number | null
+          intent?: string | null
+          mode?: string
+          model?: string | null
+          network?: string | null
+          output_tokens?: number | null
+          prompt_final?: string | null
+          response_v2?: string | null
+          routing_reason?: string | null
+          selected_modules?: string[] | null
+          selected_tools?: string[] | null
+          sent_to_customer?: boolean
+          service?: string | null
+          state?: Json
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_logs_v2_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_medias: {
         Row: {
           ativo: boolean
@@ -371,69 +466,102 @@ export type Database = {
         Row: {
           active_module_names: string[]
           active_modules_count: number
+          brain_version: Database["public"]["Enums"]["agent_brain_version"]
+          builder_version: string | null
           cache_creation_input_tokens: number
           cache_read_input_tokens: number
           contexto_detectado: string | null
           created_at: string
           duration_ms: number
           est_tokens: number
+          estimated_cost: number | null
+          execution_mode: Database["public"]["Enums"]["execution_mode"]
           faqs_selected_count: number
           forbidden_rules_count: number
           free_test_services_count: number
           history_count: number
           id: string
           input_tokens: number
+          intent: string | null
           kb_examples_count: number
           model: string
+          network: string | null
           output_tokens: number
           panel_screens_count: number
+          prompt_block_tokens: Json | null
           routing_reason: string | null
+          selected_modules: string[] | null
+          selected_tools: string[] | null
+          sent_to_customer: boolean
+          service: string | null
           total_chars: number
           user_id: string | null
         }
         Insert: {
           active_module_names?: string[]
           active_modules_count?: number
+          brain_version?: Database["public"]["Enums"]["agent_brain_version"]
+          builder_version?: string | null
           cache_creation_input_tokens?: number
           cache_read_input_tokens?: number
           contexto_detectado?: string | null
           created_at?: string
           duration_ms?: number
           est_tokens?: number
+          estimated_cost?: number | null
+          execution_mode?: Database["public"]["Enums"]["execution_mode"]
           faqs_selected_count?: number
           forbidden_rules_count?: number
           free_test_services_count?: number
           history_count?: number
           id?: string
           input_tokens?: number
+          intent?: string | null
           kb_examples_count?: number
           model: string
+          network?: string | null
           output_tokens?: number
           panel_screens_count?: number
+          prompt_block_tokens?: Json | null
           routing_reason?: string | null
+          selected_modules?: string[] | null
+          selected_tools?: string[] | null
+          sent_to_customer?: boolean
+          service?: string | null
           total_chars?: number
           user_id?: string | null
         }
         Update: {
           active_module_names?: string[]
           active_modules_count?: number
+          brain_version?: Database["public"]["Enums"]["agent_brain_version"]
+          builder_version?: string | null
           cache_creation_input_tokens?: number
           cache_read_input_tokens?: number
           contexto_detectado?: string | null
           created_at?: string
           duration_ms?: number
           est_tokens?: number
+          estimated_cost?: number | null
+          execution_mode?: Database["public"]["Enums"]["execution_mode"]
           faqs_selected_count?: number
           forbidden_rules_count?: number
           free_test_services_count?: number
           history_count?: number
           id?: string
           input_tokens?: number
+          intent?: string | null
           kb_examples_count?: number
           model?: string
+          network?: string | null
           output_tokens?: number
           panel_screens_count?: number
+          prompt_block_tokens?: Json | null
           routing_reason?: string | null
+          selected_modules?: string[] | null
+          selected_tools?: string[] | null
+          sent_to_customer?: boolean
+          service?: string | null
           total_chars?: number
           user_id?: string | null
         }
@@ -2419,6 +2547,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_agent_v2_logs: { Args: never; Returns: undefined }
       cleanup_old_agent_logs: { Args: never; Returns: undefined }
       cleanup_old_agent_prompt_metrics: { Args: never; Returns: undefined }
       current_workspace_id: { Args: never; Returns: string }
@@ -2444,6 +2573,7 @@ export type Database = {
       user_owns_workspace: { Args: { _workspace_id: string }; Returns: boolean }
     }
     Enums: {
+      agent_brain_version: "v1" | "v2_shadow" | "v2_pilot" | "v2"
       campaign_state: "parado" | "rodando" | "pausado"
       contact_profile: "ativo" | "frio" | "inativo"
       contact_status:
@@ -2462,6 +2592,7 @@ export type Database = {
         | "aguardando"
         | "convertido"
         | "encerrada"
+      execution_mode: "production" | "shadow" | "pilot"
       funnel_status: "not_started" | "running" | "completed"
       log_status: "enviado" | "respondido" | "falha"
       message_kind: "texto" | "audio"
@@ -2593,6 +2724,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      agent_brain_version: ["v1", "v2_shadow", "v2_pilot", "v2"],
       campaign_state: ["parado", "rodando", "pausado"],
       contact_profile: ["ativo", "frio", "inativo"],
       contact_status: [
@@ -2613,6 +2745,7 @@ export const Constants = {
         "convertido",
         "encerrada",
       ],
+      execution_mode: ["production", "shadow", "pilot"],
       funnel_status: ["not_started", "running", "completed"],
       log_status: ["enviado", "respondido", "falha"],
       message_kind: ["texto", "audio"],

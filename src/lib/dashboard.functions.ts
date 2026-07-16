@@ -9,7 +9,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     startOfDay.setHours(0, 0, 0, 0);
     const startIso = startOfDay.toISOString();
 
-    const [contactsRes, activeConvRes, sentTodayRes, recvTodayRes, convertedRes, recentLogsRes, sourcesRes, tempTodayRes] =
+    const [contactsRes, activeConvRes, sentTodayRes, recvTodayRes, convertedRes, recentLogsRes, sourcesRes, tempTodayRes, metricsRes] =
       await Promise.all([
         sb.from("blast_contacts").select("id", { count: "exact", head: true }),
         sb
@@ -42,6 +42,12 @@ export const getDashboardStats = createServerFn({ method: "GET" })
           .from("contacts")
           .select("temperatura")
           .gte("temperatura_updated_at", startIso),
+        sb
+          .from("agent_prompt_metrics")
+          .select("input_tokens, output_tokens, estimated_cost")
+          .eq("sent_to_customer", true)
+          .eq("execution_mode", "production")
+          .gte("created_at", startIso),
       ]);
 
     const totalContacts = contactsRes.count ?? 0;
@@ -70,6 +76,14 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       if (t && t in tempToday) tempToday[t] += 1;
     }
 
+    const costsToday = (metricsRes.data ?? []).reduce(
+      (acc, m) => ({
+        tokens: acc.tokens + (m.input_tokens || 0) + (m.output_tokens || 0),
+        cost: acc.cost + Number(m.estimated_cost || 0),
+      }),
+      { tokens: 0, cost: 0 }
+    );
+
     return {
       totalContacts,
       activeConversations,
@@ -80,5 +94,6 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       recentLogs: recentLogsRes.data ?? [],
       leadsBySource,
       tempToday,
+      costsToday,
     };
   });

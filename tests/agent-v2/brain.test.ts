@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { AgentBrainV2 } from '../brain';
+import { AgentBrainV2 } from '@/lib/agent-v2/brain';
+
 
 describe('AgentBrainV2', () => {
   it('should initialize in shadow mode and return stub response', async () => {

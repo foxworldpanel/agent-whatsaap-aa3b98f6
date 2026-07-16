@@ -2,8 +2,9 @@
  * Agent Mind V2 - Tipos Base
  */
 
-export type BrainVersion = 'v1' | 'v2';
+export type BrainVersion = 'v1' | 'v2_shadow' | 'v2_pilot' | 'v2';
 export type ExecutionMode = 'production' | 'shadow' | 'pilot';
+
 
 export interface AgentV2State {
   version: BrainVersion;
