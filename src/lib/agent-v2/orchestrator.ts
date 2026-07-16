@@ -268,8 +268,10 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       promptTokens: 0,
       cacheablePrefixTokens: 0,
       estimatedCost: costResult.cost,
+      currency: 'USD',
       durationMs: metrics.durationMs,
       guardViolations: guardResult?.violations.map(v => typeof v === 'string' ? v : v.guard) || [],
+
       guardsTriggered: guardResult?.triggeredGuards || [],
 
       regenerationCount: metrics.regenerationCount,
