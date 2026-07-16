@@ -1,6 +1,7 @@
 -- Analytics Engine V2 - Database Schema
--- Definitivo para migração e auditoria automática.
+-- Definitivo, Integral e Auditável.
 
+-- 0. Requisitos Prévios
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- 1. Model Pricing Configuration
@@ -36,12 +37,14 @@ CREATE TABLE public.agent_v2_model_pricing (
         model WITH =, 
         tstzrange(effective_from, COALESCE(effective_until, 'infinity'::timestamptz), '[)') WITH &&
     )
+
 );
 
 -- Pricing Security
-REVOKE ALL ON public.agent_v2_model_pricing FROM anon, authenticated;
+REVOKE ALL ON public.agent_v2_model_pricing FROM anon, authenticated, public;
 GRANT ALL ON public.agent_v2_model_pricing TO service_role;
 ALTER TABLE public.agent_v2_model_pricing ENABLE ROW LEVEL SECURITY;
+-- Sem policy para authenticated.
 
 CREATE INDEX idx_agent_v2_pricing_lookup ON public.agent_v2_model_pricing(provider, model, effective_from DESC);
 
@@ -120,7 +123,7 @@ CREATE TABLE public.agent_v2_turn_analytics (
 );
 
 -- Turn Security
-REVOKE ALL ON public.agent_v2_turn_analytics FROM anon, authenticated;
+REVOKE ALL ON public.agent_v2_turn_analytics FROM anon, authenticated, public;
 GRANT SELECT ON public.agent_v2_turn_analytics TO authenticated;
 GRANT ALL ON public.agent_v2_turn_analytics TO service_role;
 ALTER TABLE public.agent_v2_turn_analytics ENABLE ROW LEVEL SECURITY;
@@ -132,11 +135,12 @@ CREATE POLICY agent_v2_turn_select ON public.agent_v2_turn_analytics
         WHERE wm.workspace_id = agent_v2_turn_analytics.workspace_id AND wm.user_id = auth.uid()
     ));
 
+-- Índices Turnos
 CREATE INDEX idx_turn_v2_workspace_created ON public.agent_v2_turn_analytics(workspace_id, created_at DESC);
 CREATE INDEX idx_turn_v2_workspace_mode_created ON public.agent_v2_turn_analytics(workspace_id, execution_mode, created_at DESC);
-CREATE INDEX idx_turn_v2_workspace_network_created ON public.agent_v2_turn_analytics(workspace_id, network, created_at DESC);
-CREATE INDEX idx_turn_v2_workspace_stage_created ON public.agent_v2_turn_analytics(workspace_id, customer_stage, created_at DESC);
 CREATE INDEX idx_turn_v2_conversation ON public.agent_v2_turn_analytics(workspace_id, conversation_id);
+CREATE INDEX idx_turn_v2_network ON public.agent_v2_turn_analytics(workspace_id, network, created_at DESC);
+CREATE INDEX idx_turn_v2_stage ON public.agent_v2_turn_analytics(workspace_id, customer_stage, created_at DESC);
 CREATE INDEX idx_turn_v2_prompt_metric ON public.agent_v2_turn_analytics(prompt_metric_id) WHERE prompt_metric_id IS NOT NULL;
 
 -- 3. Conversation Analytics (Aggregated)
@@ -213,7 +217,7 @@ CREATE TABLE public.agent_v2_conversation_analytics (
 );
 
 -- Conversation Security
-REVOKE ALL ON public.agent_v2_conversation_analytics FROM anon, authenticated;
+REVOKE ALL ON public.agent_v2_conversation_analytics FROM anon, authenticated, public;
 GRANT SELECT ON public.agent_v2_conversation_analytics TO authenticated;
 GRANT ALL ON public.agent_v2_conversation_analytics TO service_role;
 ALTER TABLE public.agent_v2_conversation_analytics ENABLE ROW LEVEL SECURITY;
@@ -225,11 +229,12 @@ CREATE POLICY agent_v2_conversation_select ON public.agent_v2_conversation_analy
         WHERE wm.workspace_id = agent_v2_conversation_analytics.workspace_id AND wm.user_id = auth.uid()
     ));
 
+-- Índices Conversas
 CREATE INDEX idx_conv_v2_workspace_updated ON public.agent_v2_conversation_analytics(workspace_id, updated_at DESC);
 CREATE INDEX idx_conv_v2_network ON public.agent_v2_conversation_analytics(workspace_id, primary_network);
 CREATE INDEX idx_conv_v2_stage ON public.agent_v2_conversation_analytics(workspace_id, conversion_stage);
 
--- 4. Retention Function
+-- 4. Função de Cleanup (Retenção)
 CREATE OR REPLACE FUNCTION public.cleanup_agent_v2_analytics()
 RETURNS void
 LANGUAGE plpgsql
@@ -237,18 +242,16 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-    -- Limpeza de turnos após 30 dias
+    -- Limpeza de turnos detalhados após 30 dias
     DELETE FROM public.agent_v2_turn_analytics
     WHERE created_at < now() - interval '30 days';
     
-    -- Limpeza de conversas agregadas somente inativas há 12 meses
+    -- Limpeza de conversas agregadas inativas há 12 meses
     DELETE FROM public.agent_v2_conversation_analytics
     WHERE ended_at IS NOT NULL
       AND COALESCE(ended_at, updated_at) < now() - interval '12 months';
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM anon;
-REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM authenticated;
+REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.cleanup_agent_v2_analytics() TO service_role;
