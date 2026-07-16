@@ -4,7 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getDashboardStats } from "@/lib/dashboard.functions";
 
+import { createFileRoute, redirect } from "@tanstack/react-router";
+
 export const Route = createFileRoute("/_authenticated/")({
+  beforeLoad: () => {
+    throw redirect({
+      to: "/agente",
+    });
+  },
+
   ssr: false,
   head: () => ({
     meta: [
