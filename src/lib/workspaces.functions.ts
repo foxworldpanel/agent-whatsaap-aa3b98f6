@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 export const listWorkspaces = createServerFn({ method: "GET" })
-  .middleware([withWorkspaceScope])
+  .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("workspaces")
@@ -16,7 +16,7 @@ export const listWorkspaces = createServerFn({ method: "GET" })
   });
 
 export const getDefaultWorkspace = createServerFn({ method: "GET" })
-  .middleware([withWorkspaceScope])
+  .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("workspaces")
