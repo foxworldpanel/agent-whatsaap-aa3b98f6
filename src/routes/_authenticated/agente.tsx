@@ -242,9 +242,7 @@ function AgentePage() {
                 <span>💰</span> Consultar preços em tempo real
               </div>
               <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-                Quando ligado, o agente busca a lista de serviços e preços atualizada
-                no painel SMM antes de responder sobre preço. Requer API Key do painel
-                cadastrada em Configurações.
+                Busca serviços e preços via API antes de responder. Economiza tokens e evita confusão se desativado (priorizando a tabela manual).
               </p>
             </div>
             <Switch

@@ -98,7 +98,7 @@ export function PriceTableCard() {
             <div>
               <div className="font-medium">Tabela de Preços Manual</div>
               <div className="text-xs text-muted-foreground">
-                Define os serviços e preços que o agente deve usar. Ignora a API quando configurada.
+                Tabela editável com serviços, preços e limites. O Agente prioriza estes valores sobre a consulta automática.
               </div>
             </div>
           </div>
@@ -207,7 +207,7 @@ export function PriceTableCard() {
               </Button>
               <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
                 <Save className="mr-2 h-4 w-4" />
-                {save.isPending ? "Salvando..." : "Salvar tabela"}
+                {save.isPending ? "Salvando..." : "Atualizar agente"}
               </Button>
             </div>
           </div>

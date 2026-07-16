@@ -8,7 +8,7 @@ import { getDashboardStats } from "@/lib/dashboard.functions";
 export const Route = createFileRoute("/_authenticated/")({
   beforeLoad: () => {
     throw redirect({
-      to: "/agente",
+      to: "/_authenticated/agente",
     });
   },
 
