@@ -42,6 +42,12 @@ export const getDashboardStats = createServerFn({ method: "GET" })
           .from("contacts")
           .select("temperatura")
           .gte("temperatura_updated_at", startIso),
+        sb
+          .from("agent_prompt_metrics")
+          .select("input_tokens, output_tokens, estimated_cost")
+          .eq("sent_to_customer", true)
+          .eq("execution_mode", "production")
+          .gte("created_at", startIso),
       ]);
 
     const totalContacts = contactsRes.count ?? 0;
@@ -71,15 +77,14 @@ export const getDashboardStats = createServerFn({ method: "GET" })
     }
 
     const costsToday = (metricsRes.data ?? []).reduce(
-73:       (acc, m) => ({
-74:         tokens: acc.tokens + (m.input_tokens || 0) + (m.output_tokens || 0),
-75:         cost: acc.cost + Number(m.estimated_cost || 0),
-76:       }),
-77:       { tokens: 0, cost: 0 }
-78:     );
-79: 
-80:     return {
+      (acc, m) => ({
+        tokens: acc.tokens + (m.input_tokens || 0) + (m.output_tokens || 0),
+        cost: acc.cost + Number(m.estimated_cost || 0),
+      }),
+      { tokens: 0, cost: 0 }
+    );
 
+    return {
       totalContacts,
       activeConversations,
       sentToday,
@@ -89,5 +94,6 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       recentLogs: recentLogsRes.data ?? [],
       leadsBySource,
       tempToday,
+      costsToday,
     };
   });
