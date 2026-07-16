@@ -285,7 +285,7 @@ function AgentePage() {
                 <span>💰</span> Consultar preços em tempo real
               </div>
               <p className="text-xs text-muted-foreground mt-1 max-w-xl">
-                Busca serviços e preços via API antes de responder. Economiza tokens e evita confusão se desativado (priorizando a tabela manual).
+                Remove o toggle 'Consultar preços em tempo real' e para de buscar serviços da API antes de cada mensagem. Isso economiza tokens e evita confusão.
               </p>
             </div>
             <Switch
