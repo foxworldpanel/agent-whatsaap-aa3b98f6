@@ -49,57 +49,48 @@ function Index() {
 
       {/* V2 oficial — V1 desativada */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground">Integração Agente Mind V2</h2>
+        <h2 className="text-xl font-bold text-foreground">Implementação Fase 2 — Conexão V2 Runtime</h2>
         <div className="mt-4 space-y-4 text-sm text-muted-foreground leading-relaxed">
           <p>
-            Vamos iniciar a integração da arquitetura V2. A auditoria mostrou que toda a arquitetura já existe. 
-            O problema é que ela não está conectada ao fluxo de produção.
+            O dashboard e o plano já estão aprovados. Agora execute a implementação da Fase 2. Não quero apenas atualizar telas, documentos ou status do projeto. Quero conectar efetivamente a arquitetura V2 ao fluxo real do WhatsApp.
           </p>
-          <div className="bg-primary/5 p-3 rounded border border-primary/10">
-            <p className="font-bold text-primary">OBJETIVO: Substituir gradualmente o fluxo atual pelo fluxo V2.</p>
-            <p className="mt-1 font-semibold text-foreground italic">IMPORTANTE: Não quero reescrever a V2. Ela já existe. Quero apenas conectá-la.</p>
-          </div>
-          
-          <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 1 — ORCHESTRATOR</h3>
-            <p className="mb-2">Integrar o Orchestrator V2 ao webhook.</p>
-            <div className="flex items-center gap-4 text-xs font-mono bg-muted p-2 rounded">
-              <div className="text-destructive">Hoje: Webhook ↓ generateAgentReplyWithMeta()</div>
-              <div className="text-muted-foreground">→</div>
-              <div className="text-success">Quero: Webhook ↓ runAgentV2Turn()</div>
-            </div>
-          </div>
 
           <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 2 — EXECUÇÃO</h3>
-            <p>Dentro do Orchestrator garantir a execução desta ordem:</p>
-            <p className="mt-2 font-medium text-primary text-center bg-muted/50 p-2 rounded italic">
-              Conversation State ↓ Module Router ↓ Prompt Builder ↓ Model Router ↓ Claude ↓ Guard Engine ↓ Analytics ↓ Resposta
-            </p>
-          </div>
-
-          <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 3 — MENU AGENTE IA</h3>
-            <p>Atualizar o menu "Agente IA". O menu deve refletir exatamente os módulos utilizados pela arquitetura V2. Não utilizar mais a lista antiga do V1.</p>
-          </div>
-
-          <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 4 — VALIDAÇÃO</h3>
-            <p className="mb-2">Após integrar, executar um turno real e mostrar:</p>
-            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 list-none ml-2 text-xs">
-              <li>• arquivo chamado</li>
-              <li>• ordem da execução</li>
-              <li>• módulos carregados</li>
-              <li>• prompt builder utilizado</li>
-              <li>• model router utilizado</li>
-              <li>• guard engine utilizado</li>
-              <li>• analytics utilizado</li>
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">REQUISITOS CRÍTICOS</h3>
+            <ul className="list-decimal list-inside space-y-2">
+              <li>No webhook <code className="bg-muted px-1 rounded text-foreground">uazapi-webhook.ts</code>, para o número autorizado, substituir <code className="bg-muted px-1 rounded text-foreground">generateAgentReplyWithMeta()</code> por <code className="bg-muted px-1 rounded text-foreground">runAgentV2Turn()</code>.</li>
+              <li>Turno real deve processar: <b>Conversation State → Module Router → Prompt Builder → Model Router → Modelo → Guard Engine → Analytics V2 → WhatsApp</b>.</li>
+              <li>Manter V1 intacta no código, mas sem execução pelo número autorizado.</li>
+              <li>Apenas o número autorizado executa IA (V2).</li>
+              <li>Criar <b>Rollback simples por configuração</b> (fallback explícito, não silencioso).</li>
+              <li>Se a V2 falhar, registrar erro e <b>não usar o cérebro antigo</b>.</li>
             </ul>
           </div>
 
-          <div className="pt-4 border-t border-border/50 bg-muted/30 p-4 rounded-lg border border-dashed border-border">
-            <p className="font-bold text-foreground text-xs uppercase mb-1">Nota Técnica:</p>
-            <p className="italic">Não remover nenhum código V1. Somente deixar o fluxo antigo sem uso. A limpeza será feita somente após validação.</p>
+          <div className="pt-4 border-t border-border/50">
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">EVIDÊNCIAS NECESSÁRIAS</h3>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-2">• Diff do webhook alterado</div>
+              <div className="flex items-center gap-2">• Call stack de mensagem real</div>
+              <div className="flex items-center gap-2">• Turn ID & runAgentV2Turn log</div>
+              <div className="flex items-center gap-2">• Módulos & Modelo selecionado</div>
+              <div className="flex items-center gap-2">• Registro Analytics V2</div>
+              <div className="flex items-center gap-2">• Confirmação de envio WhatsApp</div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-border/50 bg-primary/5 p-4 rounded-lg border border-primary/20">
+            <h3 className="font-bold text-primary uppercase tracking-wider text-xs mb-2">CRITÉRIO DE CONCLUSÃO</h3>
+            <p className="italic">
+              Conclusão real apenas com execução comprovada: <code className="text-foreground">uazapi-webhook.ts</code> → <code className="text-foreground">runAgentV2Turn()</code> → ... → WhatsApp.
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-1 text-[10px] font-mono uppercase">
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>IMPLEMENTADO EM RUNTIME:</span> <span className="font-bold">AGUARDANDO</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>TESTADO COM MENSAGEM REAL:</span> <span className="font-bold">AGUARDANDO</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>V1 CHAMADA NO TURNO:</span> <span className="font-bold">AGUARDANDO</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>ANALYTICS V2 PERSISTIDO:</span> <span className="font-bold">AGUARDANDO</span></div>
+              <div className="flex justify-between"><span>ROLLBACK DISPONÍVEL:</span> <span className="font-bold">AGUARDANDO</span></div>
+            </div>
           </div>
         </div>
       </div>
