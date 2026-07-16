@@ -36,7 +36,8 @@ async function runAnalyticsTests() {
   const h3 = hashPhoneNumber(phone, 'ws-B');
   
   console.log(`- Telefone original: ${phone}`);
-  console.log(`- Hash (Workspace A): ${h1.substring(0, 10)}...`);
+  console.log(`- Hash (Workspace A): ${h1?.substring(0, 10)}...`);
+
   console.log(`- Hash (Workspace A - Repetido): ${h1 === h2 ? 'IDÊNTICO' : 'ERRO'}`);
   console.log(`- Hash (Workspace B - Diferente): ${h1 !== h3 ? 'DIFERENTE (OK)' : 'ERRO'}`);
   console.log(`- SHA Simples: NÃO UTILIZADO. Utilizando HMAC com segredo e escopo por workspace.`);
