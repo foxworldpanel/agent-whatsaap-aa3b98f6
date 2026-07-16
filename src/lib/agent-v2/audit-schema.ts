@@ -19,7 +19,8 @@ function auditSchema() {
     { name: 'Pricing: check cache read >= 0', regex: /pricing_positive_cache_read CHECK \(cache_read_price_per_million >= 0\)/i },
     { name: 'Pricing: check valid period', regex: /pricing_valid_period CHECK \(effective_until IS NULL OR effective_until > effective_from\)/i },
     { name: 'Pricing: check empty fields', regex: /pricing_provider_not_empty|pricing_model_not_empty|pricing_source_not_empty|pricing_currency_not_empty/i },
-    { name: 'Pricing: exclusion constraint [)', regex: /EXCLUDE USING gist \(.*tstzrange\(effective_from, COALESCE\(effective_until, 'infinity'::timestamptz\), '\[\)'\) WITH &&\)/is },
+    // Regex relaxada para o GiST (evitando problemas de newline)
+    { name: 'Pricing: exclusion constraint [)', regex: /EXCLUDE USING gist\s*\(\s*provider WITH =,\s*model WITH =,\s*tstzrange\(effective_from, COALESCE\(effective_until, 'infinity'::timestamptz\), '\[\)'\) WITH &&\s*\)/is },
     { name: 'Pricing: RLS enabled', regex: /ALTER TABLE public\.agent_v2_model_pricing ENABLE ROW LEVEL SECURITY/i },
     { name: 'Pricing: revoke public access', regex: /REVOKE ALL ON public\.agent_v2_model_pricing FROM anon, authenticated, public/i },
 
@@ -49,8 +50,8 @@ function auditSchema() {
     // Retention
     { name: 'Cleanup: SECURITY DEFINER', regex: /SECURITY DEFINER/i },
     { name: 'Cleanup: search_path', regex: /SET search_path = public/i },
-    { name: 'Cleanup: Turn retention 30 days', regex: /DELETE FROM public\.agent_v2_turn_analytics WHERE created_at < now\(\) - interval '30 days'/i },
-    { name: 'Cleanup: Conv retention 12 months', regex: /DELETE FROM public\.agent_v2_conversation_analytics WHERE ended_at IS NOT NULL AND COALESCE\(ended_at, updated_at\) < now\(\) - interval '12 months'/i },
+    { name: 'Cleanup: Turn retention 30 days', regex: /DELETE FROM public\.agent_v2_turn_analytics\s+WHERE created_at < now\(\) - interval '30 days'/is },
+    { name: 'Cleanup: Conv retention 12 months', regex: /DELETE FROM public\.agent_v2_conversation_analytics\s+WHERE ended_at IS NOT NULL\s+AND COALESCE\(ended_at, updated_at\) < now\(\) - interval '12 months'/is },
     { name: 'Cleanup: Grant execute', regex: /GRANT EXECUTE ON FUNCTION public\.cleanup_agent_v2_analytics\(\) TO service_role/i }
   ];
 
