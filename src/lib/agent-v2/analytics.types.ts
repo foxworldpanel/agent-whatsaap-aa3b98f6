@@ -71,7 +71,7 @@ export interface AgentV2TurnAnalytics {
   updatedAt?: string;
   brainVersion: string;
   builderVersion: string;
-  executionMode: 'isolated_test' | 'shadow' | 'pilot' | 'production';
+  executionMode: 'isolated_test' | 'shadow' | 'pilot' | 'production' | 'real';
   sentToCustomer: boolean;
   mode: 'receptive' | 'outbound';
   network: string;
