@@ -163,7 +163,7 @@ function applyIntentRouting(
       selectedModules.add('panel');
       selectedModules.add('tutorials');
       if (msg.includes('cadastro') || msg.includes('conta')) selectedTutorials.add('registration');
-      if (msg.includes('saldo') || msg.includes('recarga')) selectedTutorials.add('recharge');
+      if (msg.includes('saldo') || msg.includes('recarga') || msg.includes('coloco')) selectedTutorials.add('recharge');
       if (msg.includes('pedido') || msg.includes('comprar')) selectedTutorials.add('order');
       break;
 
