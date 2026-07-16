@@ -234,7 +234,7 @@ async function simulateModelCall(prompt: any, model: string, instruction?: strin
   if (lastUserMessage.includes('divulgar minha música')) {
     return "Claro! Em qual plataforma você deseja divulgar? Trabalhamos com Spotify, YouTube e várias outras.";
   }
-  if (lastUserMessage.includes('spotify')) {
+  if (lastUserMessage.includes('spotify') && !stateSummary.includes('rede: spotify')) {
     return "Ótima escolha! Para o Spotify, você busca seguidores para o seu perfil ou plays em uma playlist específica?";
   }
   if (lastUserMessage.includes('playlist')) {
@@ -249,12 +249,19 @@ async function simulateModelCall(prompt: any, model: string, instruction?: strin
   if (lastUserMessage.includes('medo de comprar')) {
     return "Entendo perfeitamente sua preocupação. Para você ver como o sistema funciona na prática, eu posso liberar um teste grátis para você. O que acha?";
   }
-  if (lastUserMessage.includes('quero')) {
+  if (lastUserMessage.includes('quero') && !stateSummary.includes('teste grátis: offered')) {
     return "Combinado! Para ativar seu teste, por favor, me envie o link da sua música ou perfil do Spotify.";
   }
   if (lastUserMessage.includes('spotify.com')) {
     return "Link recebido! Já solicitei o seu teste grátis aqui no sistema. Agora é só aguardar um pouquinho que ele será processado.";
   }
   
+  if (stateSummary.includes('rede: spotify')) {
+    if (stateSummary.includes('serviço: playlist')) {
+      return "Deseja contratar a playlist para Spotify agora?";
+    }
+    return "Qual serviço do Spotify você deseja?";
+  }
+
   return "Como posso te ajudar com nossos serviços hoje?";
 }
