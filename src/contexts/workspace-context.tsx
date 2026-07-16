@@ -75,10 +75,20 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // Ensure activeWorkspaceId is valid; fall back to default.
   useEffect(() => {
     if (!workspaces.length) return;
+    const mindWorkspace = workspaces.find((w) => /mind/i.test(w.nome));
+    if (mindWorkspace && activeWorkspaceId !== mindWorkspace.id) {
+      setActiveWorkspaceId(mindWorkspace.id);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, mindWorkspace.id);
+      } catch {
+        /* ignore */
+      }
+      void qc.invalidateQueries({ refetchType: "all" });
+      return;
+    }
     const stored = activeWorkspaceId;
     const isValid = stored && workspaces.some((w) => w.id === stored);
     if (!isValid) {
-      const mindWorkspace = workspaces.find((w) => /mind/i.test(w.nome));
       const def = mindWorkspace ?? workspaces.find((w) => w.is_default) ?? workspaces[0];
       if (def) {
         setActiveWorkspaceId(def.id);
@@ -89,7 +99,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         }
       }
     }
-  }, [workspaces, activeWorkspaceId]);
+  }, [workspaces, activeWorkspaceId, qc]);
 
   const switchWorkspace = useCallback(
     (id: string) => {

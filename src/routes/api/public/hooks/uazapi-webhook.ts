@@ -921,6 +921,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           numberUazapiUrl = integLegacy.uazapi_url;
         }
 
+        if (!selectedWorkspaceId) {
+          console.error("❌ Workspace não resolvido para a instância WhatsApp — bloqueando processamento");
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              type: "workspace_missing",
+              level: "error",
+              summary: "Webhook bloqueado: instância WhatsApp sem workspace válido",
+              metadata: { numberId, origem: "uazapi-webhook" },
+            });
+          } catch {}
+          return new Response("workspace missing for WhatsApp instance", { status: 409 });
+        }
+
         // Log de diagnóstico: qual número recebeu a mensagem e em qual modo
         const modoLabel = disparosMode ? "disparos" : metaAdsEnabled ? "meta_ads" : "agente";
         console.log(
@@ -1237,6 +1253,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           last_media_sent?: unknown | null;
           last_message_at?: string | null;
           created_at?: string | null;
+          workspace_id?: string | null;
         };
         // Conversas são isoladas por número conectado. Mesmo se o contato tem
         // histórico de disparo em outro chip, a resposta deve ficar no número
