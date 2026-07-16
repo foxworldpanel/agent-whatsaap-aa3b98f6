@@ -96,6 +96,7 @@ export interface AgentV2TurnAnalytics {
   promptTokens: number;
   cacheablePrefixTokens: number;
   estimatedCost: number | null;
+  currency: string;
   durationMs: number;
   guardViolations: string[];
   guardsTriggered: string[];
@@ -105,7 +106,12 @@ export interface AgentV2TurnAnalytics {
   stateChangedFields: string[];
   responseChars: number;
   qualityFlags: QualityFlags;
+  structuralQualityScore: number | null;
+  commercialQualityScore: number | null;
+  safetyQualityScore: number | null;
+  overallQualityScore: number | null;
   errorCode: string | null;
+
   warning?: string;
   updatedAt?: string;
 }
