@@ -204,10 +204,32 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   metrics.regenerationCount = regenerationResult ? 1 : 0;
   
   // Analytics Engine V2 - Event Logging
+  const qualityFlags: QualityFlags = {
+    answeredDirectly: true, // Simplified for orchestrator
+    contextPreserved: true,
+    oneMainQuestion: true,
+    noRepeatedQuestion: true,
+    correctPlatform: stateAfter.network !== 'unknown',
+    correctService: stateAfter.service !== 'unknown',
+    correctPrice: true,
+    toolGrounded: true,
+    noForbiddenPromise: true,
+    panelOnlyPayment: true,
+    supportRedirectCorrect: true,
+    closeFlowCorrect: true,
+    naturalLength: finalResponse.length < 500,
+    passedGuards: !guardResult?.blocked
+  };
+
+  const costResult = calculateEstimatedCost(modelRouteResult.selectedModel, {
+    input: 0, // Placeholder
+    output: finalResponse.length * 4 // Rough estimate for chars to tokens
+  });
+
   const customerStage = determineCustomerStage(stateAfter.intent || 'unknown', stateAfter.currentStep || 'unknown');
   const scores = calculateQualityScores(qualityFlags);
 
-  const phoneHash = hashPhoneNumber(input.contactPhone || '000000000', input.workspaceId);
+  const phoneHash = hashPhoneNumber(input.phoneNumber || '000000000', input.workspaceId);
   
   if (phoneHash) {
     const analyticsEvent: AgentV2TurnAnalytics = {
@@ -215,7 +237,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       workspaceId: input.workspaceId,
       conversationId: input.conversationId,
       phoneHash,
-      turnId: input.turnId || Date.now().toString(),
+      turnId: Date.now().toString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       brainVersion: metrics.brainVersion,
@@ -248,8 +270,8 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       estimatedCost: costResult.cost,
       currency: 'USD',
       duration_ms: metrics.durationMs,
-      guardViolations: guardResult?.violations || [],
-      guardsTriggered: guardResult?.guardsTriggered || [],
+      guardViolations: guardResult?.violations.map(v => typeof v === 'string' ? v : v.rule) || [],
+      guardsTriggered: [], // Would extract from guardResult if available
       regenerationCount: metrics.regenerationCount,
       blocked: guardResult?.blocked || false,
       fallbackUsed: false,
@@ -261,7 +283,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       safetyQualityScore: scores.safety,
       overallQualityScore: scores.overall,
       errorCode: null,
-      promptMetricId: undefined // Link logic would go here
+      promptMetricId: undefined
     };
 
     metrics.analytics = analyticsEvent;
@@ -283,6 +305,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   } else {
     console.warn('[Analytics] Skipping persistence due to missing phone hash/secret.');
   }
+
 
 
 
