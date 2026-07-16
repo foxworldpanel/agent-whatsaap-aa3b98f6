@@ -98,7 +98,7 @@ export function PriceTableCard() {
             <div>
               <div className="font-medium">Tabela de Preços Manual</div>
               <div className="text-xs text-muted-foreground">
-                Define os serviços e preços que o agente deve usar. Ignora a API quando configurada.
+                Tabela editável com serviços, preços e limites. O Agente prioriza estes valores sobre a consulta automática.
               </div>
             </div>
           </div>
