@@ -3013,8 +3013,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           const _claudeStart = Date.now();
           
           // Fase 2 Runtime: Conexão V2
-          // Ativa V2 se o modo for explícito no agente ou via query param (fallback manual)
-          const useV2 = !!(agent as any).v2_enabled;
+          // Ativa V2 se o telefone for autorizado. Fallback para V1 via configuração do agente.
+          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
+          const useV2 = isAuthorizedV2Phone(phone) && (agent as any).v2_enabled !== false;
           
           if (useV2) {
             console.log('🚀 [Agente V2] Turno iniciado');
@@ -3101,6 +3102,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
             } catch {}
           }
+
 
           // Persistência de fatos duráveis (comum a V1 e V2 se aplicável)
           if (isImage && reply && reply.trim()) {
