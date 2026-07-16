@@ -49,105 +49,58 @@ function Index() {
 
       {/* Analytics Engine V2 - Smoke Test Briefing */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground">A preparação do Shadow Mode foi aprovada parcialmente.</h2>
-        <p className="mt-2 text-lg font-semibold text-primary">Agora execute somente: SMOKE TEST DA PERSISTÊNCIA ANALYTICS V2 EM PRODUÇÃO</p>
+        <h2 className="text-xl font-bold text-foreground">APROVADO.</h2>
+        <p className="mt-2 text-lg font-semibold text-primary">Pode executar o SMOKE TEST DA PERSISTÊNCIA ANALYTICS V2 EM PRODUÇÃO.</p>
+        <p className="text-sm text-muted-foreground">Autorização limitada somente aos testes de infraestrutura.</p>
         
-        <div className="mt-4 grid gap-6 md:grid-cols-2">
+        <div className="mt-6 space-y-4">
           <div className="space-y-3">
             <h3 className="font-bold text-destructive flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-destructive" />
-              BLOQUEIOS RÍGIDOS
+              REFORÇOS OBRIGATÓRIOS
             </h3>
-            <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-              <li>Não integrar o Shadow ao webhook ainda.</li>
-              <li>Não executar a V2 com mensagens reais.</li>
-              <li>Não chamar Claude.</li>
-              <li>Não alterar agent_brain_version.</li>
-              <li>Não enviar nenhuma resposta V2.</li>
-              <li>Não executar ferramentas de escrita (teste grátis, áudio).</li>
+            <ul className="list-decimal list-inside text-sm space-y-2 text-muted-foreground">
+              <li>
+                Sempre que possível execute os testes dentro de uma transação.
+                <ul className="ml-6 list-disc text-xs mt-1">
+                  <li>Se algum teste falhar: rollback automático, nenhum dado temporário permanece, nenhuma tabela fica alterada.</li>
+                </ul>
+              </li>
+              <li>
+                Registrar métricas de performance:
+                <ul className="ml-6 list-disc text-xs mt-1">
+                  <li>Tempo do insert, upsert, agregação, cleanup e total da suíte.</li>
+                </ul>
+              </li>
+              <li>
+                Registrar também:
+                <ul className="ml-6 list-disc text-xs mt-1">
+                  <li>Quantidade de queries executadas, linhas inseridas, atualizadas e removidas.</li>
+                </ul>
+              </li>
+              <li>Todos os dados criados devem possuir um identificador único de smoke test para permitir limpeza completa.</li>
+              <li>
+                Ao finalizar, confirmar explicitamente:
+                <ul className="ml-6 list-disc text-xs mt-1">
+                  <li>Zero registros temporários restantes, webhook sem integração V2, nenhum cliente processado, nenhuma chamada ao Claude e nenhum custo de IA gerado.</li>
+                </ul>
+              </li>
+              <li>
+                Entregar um relatório contendo:
+                <ul className="ml-6 list-disc text-xs mt-1">
+                  <li>Resultado de cada teste, tempos de execução, desempenho da RPC e agregação, resultado do cleanup e conclusão (APROVADO, APROVADO COM RESSALVAS ou BLOQUEADO).</li>
+                </ul>
+              </li>
             </ul>
           </div>
-
-          <div className="space-y-3">
-            <h3 className="font-bold text-foreground flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-primary" />
-              1. VALIDAR CONFIGURAÇÃO
-            </h3>
-            <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-              <li>ANALYTICS_MODE=supabase (backend only).</li>
-              <li>PHONE_HASH_SECRET configurado.</li>
-              <li>v2_shadow_phone_numbers com número autorizado.</li>
-              <li>Workspaces permanecem em v1.</li>
-              <li>Webhook intocado.</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-8 space-y-6 border-t pt-6">
-          <section className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="font-bold text-foreground">2. DADOS TEMPORÁRIOS</h3>
-              <p className="text-sm text-muted-foreground mt-1">Identificadores isolados:</p>
-              <div className="mt-2 rounded-lg border p-3 bg-muted/50 text-xs font-mono">
-                <p>execution_mode: isolated_test</p>
-                <p>sent_to_customer: false</p>
-                <p>conversation_id: analytics-v2-production-smoke-*</p>
-              </div>
-            </div>
-            <div>
-              <h3 className="font-bold text-foreground">3. REPOSITÓRIO REAL</h3>
-              <ul className="mt-2 list-disc list-inside text-xs text-muted-foreground space-y-1">
-                <li>Persistência, consulta e upsert real.</li>
-                <li>Agregação de conversa via banco.</li>
-                <li>Não usar repositório em memória.</li>
-              </ul>
-            </div>
-          </section>
-
-          <section className="bg-muted/30 p-4 rounded-lg">
-            <h3 className="font-bold text-foreground">4. TESTAR IDEMPOTÊNCIA</h3>
-            <div className="mt-2 grid grid-cols-2 gap-4 text-xs">
-              <div>
-                <p className="font-semibold">Gravação 1:</p>
-                <p className="text-muted-foreground">regeneration=0, tool_calls=1, sent=false</p>
-              </div>
-              <div>
-                <p className="font-semibold">Gravação 2 (mesmo ID):</p>
-                <p className="text-muted-foreground">regeneration=1, tool_calls=2, blocked=true</p>
-              </div>
-            </div>
-            <p className="mt-2 text-[10px] text-muted-foreground italic uppercase">
-              Validar: Linha única, regeneration=1, tool_calls=2, blocked=true, created_at original.
-            </p>
-          </section>
-
-          <section className="grid md:grid-cols-3 gap-6">
-            <div>
-              <h3 className="font-bold text-foreground">5. TESTAR HMAC</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Workspace A vs B gera hashes diferentes. Telefone puro nunca vaza.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-bold text-foreground">6. FALHA SEM SEGREDO</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Simular ausência de segredo: erro seguro, persistência ignorada, fluxo não fatal.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-bold text-foreground">7. TESTAR RLS</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Permissões: service_role ok, owner ok, anon/outro workspace bloqueado.
-              </p>
-            </div>
-          </section>
 
           <div className="flex items-center justify-between border-t pt-4">
             <div className="text-xs font-bold text-warning uppercase tracking-widest">
-              Aguardando aprovação do Smoke Test
+              Fase: Smoke Test Autorizado
             </div>
-            <div className="text-xs text-muted-foreground">
-              Não integrar ao webhook neste commit.
+            <div className="text-xs text-muted-foreground flex gap-4">
+              <span>Não alterar o webhook neste commit.</span>
+              <span>Não iniciar Shadow Mode neste commit.</span>
             </div>
           </div>
         </div>
