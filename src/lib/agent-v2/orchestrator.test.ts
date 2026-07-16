@@ -6,7 +6,7 @@ import { runAgentV2Turn } from './orchestrator.ts';
 import { ConversationStateV2, V2Network } from './conversation-state.types.ts';
 import { AgentV2E2EInput } from './orchestrator.types.ts';
 
-const INITIAL_STATE: ConversationStateV2 = {
+export const INITIAL_STATE: ConversationStateV2 = {
   conversationId: 'test-e2e',
   workspaceId: 'ws-test',
   phoneNumber: '5511999999999',
@@ -149,7 +149,7 @@ async function runE2ETests() {
   console.log("\n=== HOMOLOGAÇÃO E2E CONCLUÍDA ===\n");
 }
 
-function createInput(state: ConversationStateV2, message: string, fixtures: any = {}): AgentV2E2EInput {
+export function createInput(state: ConversationStateV2, message: string, fixtures: any = {}): AgentV2E2EInput {
   return {
     workspaceId: state.workspaceId,
     conversationId: state.conversationId,
@@ -163,7 +163,7 @@ function createInput(state: ConversationStateV2, message: string, fixtures: any 
   };
 }
 
-function printResult(result: any) {
+export function printResult(result: any) {
   console.log(`DETALHES DO TURNO:`);
   console.log(`- Cliente: "${result.stateBefore.lastAnswer || ''}" -> "${result.finalResponse}"`);
   console.log(`- stateBefore: network=${result.stateBefore.network}, service=${result.stateBefore.service}, intent=${result.stateBefore.intent}, step=${result.stateBefore.currentStep}`);
