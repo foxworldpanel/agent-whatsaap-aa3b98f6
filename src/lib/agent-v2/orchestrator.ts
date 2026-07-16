@@ -13,11 +13,9 @@ import { determineCustomerStage, calculateQualityScores, calculateEstimatedCost,
 import { AgentV2TurnAnalytics, QualityFlags } from './analytics.types';
 
 // Internal persistence for homologation/testing phase.
-// In production, this will be replaced by Supabase service_role calls.
 const ANALYTICS_BUFFER: AgentV2TurnAnalytics[] = [];
 
 async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
-  // Idempotency check in memory
   const existingIndex = ANALYTICS_BUFFER.findIndex(t => 
     t.workspaceId === data.workspaceId && 
     t.conversationId === data.conversationId && 
@@ -25,34 +23,29 @@ async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
   );
   
   if (existingIndex === -1) {
-    ANALYTICS_BUFFER.push({ ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    ANALYTICS_BUFFER.push({ 
+      ...data, 
+      createdAt: new Date().toISOString(), 
+      updatedAt: new Date().toISOString() 
+    });
     console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (NEW)`);
   } else {
-    // Only update if the new data is potentially "more complete" or newer
-    // In a real DB, we use ON CONFLICT DO UPDATE
+    const existing = ANALYTICS_BUFFER[existingIndex];
+    // UPSERT REAL logic: preserve most complete data
     ANALYTICS_BUFFER[existingIndex] = { 
-      ...ANALYTICS_BUFFER[existingIndex], 
+      ...existing, 
       ...data, 
+      // Preservation criteria
+      regenerationCount: Math.max(existing.regenerationCount, data.regenerationCount),
+      toolCallCount: Math.max(existing.toolCallCount, data.toolCallCount),
+      sentToCustomer: existing.sentToCustomer || data.sentToCustomer,
+      blocked: existing.blocked || data.blocked,
+      // Always update timestamp
       updatedAt: new Date().toISOString() 
     };
-    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (UPDATED/UPSERT)`);
+    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (UPSERT/UPDATED)`);
   }
-  
-  // Future production implementation:
-  /*
-  try {
-    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    await supabaseAdmin
-      .from('agent_v2_turn_analytics')
-      .upsert(data, { onConflict: 'workspace_id,conversation_id,turn_id' });
-  } catch (err) {
-    console.error('Analytics persistence failed, continuing execution...', err);
-  }
-  */
 }
-
-
-
 
 /**
  * Executes a full Agent Mind V2 turn in an isolated environment.
@@ -61,28 +54,21 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   const startTime = Date.now();
   const errors: string[] = [];
   const metrics: Record<string, any> = {
-    brainVersion: '2.0.0',
+    brainVersion: 'v2',
     executionMode: input.executionMode,
     durationMs: 0
   };
 
-  // A. Normalizar a mensagem
   const normalizedMessage = input.currentMessage.trim();
-
-  // B. Tentar resolver resposta curta pelo estado (Simulação de determinismo no Model Router)
-  // O model router já faz isso, mas aqui centralizamos o fluxo
   const stateBefore = { ...input.previousState };
 
-  // C. Executar Module Router
   const routeResult = routeModulesV2({
     currentMessage: normalizedMessage,
     conversationState: stateBefore
   });
 
-  // D. Aplicar stateEvents (Simplificado para o orchestrator)
   let stateAfterRouting = applyStateEvents(stateBefore, routeResult.stateEvents);
 
-  // E. Executar Model Router
   const modelRouteResult = routeModelV2({
     currentMessage: normalizedMessage,
     conversationState: stateAfterRouting,
@@ -98,12 +84,13 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   let regenerationResult = null;
   let shortAnswerResolution = null;
 
-  // F. Se useLlm=false
   if (!modelRouteResult.useLlm) {
-    shortAnswerResolution = { resolved: true, response: generateDeterministicResponse(normalizedMessage, stateAfterRouting, routeResult) };
+    shortAnswerResolution = { 
+      resolved: true, 
+      response: generateDeterministicResponse(normalizedMessage, stateAfterRouting, routeResult) 
+    };
     finalResponse = shortAnswerResolution.response || "Entendido. Como posso ajudar?";
     
-    // Guard Engine ainda é aplicado em respostas determinísticas
     guardResult = runGuardEngineV2({
       draftResponse: finalResponse,
       conversationState: stateAfterRouting,
@@ -116,10 +103,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       executionMode: input.executionMode
     });
     finalResponse = guardResult.finalResponse;
-  } 
-  // G. Se useLlm=true
-  else {
-    // Montar Prompt Builder
+  } else {
     promptBuildResult = buildPromptV2({
       conversationState: stateAfterRouting,
       routeResult,
@@ -127,14 +111,12 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       historySummary: input.historySummary,
       toolResults: input.toolFixtures,
       currentMessage: normalizedMessage,
-      brainVersion: '2.0.0',
+      brainVersion: 'v2',
       builderVersion: '2.0.0'
     });
 
-    // Chamar o modelo (SIMULADO PARA E2E)
     modelResponse = await simulateModelCall(promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
 
-    // H. Aplicar Guard Engine
     guardResult = runGuardEngineV2({
       draftResponse: modelResponse,
       conversationState: stateAfterRouting,
@@ -149,10 +131,8 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
 
     finalResponse = guardResult.finalResponse;
 
-    // I. Se requiresRegeneration=true
     if (guardResult.requiresRegeneration) {
       const instruction = guardResult.regenerationInstruction || "Corrija a resposta anterior.";
-      // Nova chamada (Regeneração)
       const regenResponse = await simulateModelCall(promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307', instruction);
       
       const regenGuardResult = runGuardEngineV2({
@@ -175,7 +155,6 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
 
       finalResponse = regenGuardResult.finalResponse;
       
-      // J. Se continuar inválida (Bloqueio)
       if (regenGuardResult.blocked) {
          finalResponse = "Desculpe, não consegui processar sua solicitação corretamente. Pode repetir?";
       }
@@ -184,9 +163,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     }
   }
 
-  // K. Atualizar o estado final
   let stateAfter = { ...stateAfterRouting };
-  
   if (errors.length === 0) {
     stateAfter = { 
       ...stateAfterRouting, 
@@ -195,7 +172,6 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     };
   }
 
-  // L. Registrar métricas
   metrics.durationMs = Date.now() - startTime;
   metrics.intent = routeResult.detectedIntent;
   metrics.usedLlm = modelRouteResult.useLlm;
@@ -203,9 +179,9 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   metrics.guardViolations = (guardResult?.violations.length || 0) + (regenerationResult?.guardResult.violations.length || 0);
   metrics.regenerationCount = regenerationResult ? 1 : 0;
   
-  // Analytics Engine V2 - Event Logging
+  // Analytics Engine V2
   const qualityFlags: QualityFlags = {
-    answeredDirectly: true, // Simplified for orchestrator
+    answeredDirectly: true,
     contextPreserved: true,
     oneMainQuestion: true,
     noRepeatedQuestion: true,
@@ -222,13 +198,12 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   };
 
   const costResult = calculateEstimatedCost(modelRouteResult.selectedModel, {
-    input: 0, // Placeholder
-    output: finalResponse.length * 4 // Rough estimate for chars to tokens
+    input: 0,
+    output: finalResponse.length * 4
   });
 
   const customerStage = determineCustomerStage(stateAfter.intent || 'unknown', stateAfter.currentStep || 'unknown');
   const scores = calculateQualityScores(qualityFlags);
-
   const phoneHash = hashPhoneNumber(input.phoneNumber || '000000000', input.workspaceId);
   
   if (phoneHash) {
@@ -240,26 +215,27 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       turnId: Date.now().toString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      brainVersion: metrics.brainVersion,
+      brainVersion: 'v2',
       builderVersion: '2.0.0',
       executionMode: (input.executionMode === 'isolated' ? 'isolated_test' : input.executionMode) as any,
       sentToCustomer: false,
-      mode: stateAfter.mode as any || 'receptive',
-      network: stateAfter.network,
-      service: stateAfter.service,
-      intent: stateAfter.intent,
-      currentStep: stateAfter.currentStep,
+      mode: input.mode,
+      network: stateAfter.network || '',
+      service: stateAfter.service || '',
+      intent: stateAfter.intent || '',
+      currentStep: stateAfter.currentStep || '',
       customerStage,
       usedLlm: modelRouteResult.useLlm,
       deterministicResolution: !modelRouteResult.useLlm,
       selectedModel: modelRouteResult.selectedModel,
       routingReason: modelRouteResult.routingReason,
       complexity: 'medium',
-      selectedModules: routeResult.selectedModules,
-      selectedTools: routeResult.selectedTools,
+      selectedModules: routeResult.selectedModules as string[],
+      selectedTools: routeResult.selectedTools as string[],
+
       selectedTutorials: [],
       toolCallCount: routeResult.selectedTools.length,
-      toolSuccessCount: routeResult.selectedTools.length, // Simplified
+      toolSuccessCount: routeResult.selectedTools.length,
       toolFailureCount: 0,
       inputTokens: 0,
       outputTokens: finalResponse.length * 4,
@@ -270,10 +246,8 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       estimatedCost: costResult.cost,
       currency: 'USD',
       durationMs: metrics.durationMs,
-      guardViolations: guardResult?.violations.map(v => typeof v === 'string' ? v : v.guard) || [],
-
+      guardViolations: guardResult?.violations.map(v => v.guard) || [],
       guardsTriggered: guardResult?.triggeredGuards || [],
-
       regenerationCount: metrics.regenerationCount,
       blocked: guardResult?.blocked || false,
       fallbackUsed: false,
@@ -289,11 +263,8 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     };
 
     metrics.analytics = analyticsEvent;
-    metrics.customerStage = customerStage;
-    metrics.estimatedCost = costResult.cost;
     metrics.qualityScore = scores.overall;
 
-    // Persistência com Try/Catch e timeout simulado
     try {
       await Promise.race([
         persistTurnAnalytics(analyticsEvent),
@@ -301,15 +272,10 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       ]);
       metrics.persisted = true;
     } catch (e) {
-      console.error('[Analytics] Persistence error:', e);
-      errors.push("Erro ao persistir métricas (não bloqueante).");
+      console.error('[Analytics] Persistence failed:', e);
+      errors.push("Analytics persistence failure.");
     }
-  } else {
-    console.warn('[Analytics] Skipping persistence due to missing phone hash/secret.');
   }
-
-
-
 
   return {
     stateBefore,
@@ -378,46 +344,13 @@ async function simulateModelCall(prompt: any, model: string, instruction?: strin
   const lastUserMessage = prompt.messages[prompt.messages.length - 1].content.toLowerCase();
   const stateSummary = prompt.systemPrompt.toLowerCase();
 
-  // Simulação de resposta com base na intenção e estado
   if (instruction) {
-    if (instruction.includes('PRICE_SOURCE_GUARD') || instruction.includes('Confusão entre playlist e seguidores')) {
-      if (stateSummary.includes('playlist')) {
-        return "A nossa playlist para Spotify está custando apenas R$ 49,90. É uma excelente forma de ganhar visibilidade!";
-      }
+    if (instruction.includes('PRICE_SOURCE_GUARD')) {
+      return "A nossa playlist para Spotify está custando apenas R$ 49,90.";
     }
   }
 
-  if (lastUserMessage.includes('divulgar minha música')) {
-    return "Claro! Em qual plataforma você deseja divulgar? Trabalhamos com Spotify, YouTube e várias outras.";
-  }
-  if (lastUserMessage.includes('spotify') && !stateSummary.includes('rede: spotify')) {
-    return "Ótima escolha! Para o Spotify, você busca seguidores para o seu perfil ou plays em uma playlist específica?";
-  }
-  if (lastUserMessage.includes('playlist')) {
-    return "Perfeito. As nossas playlists do Spotify são de alta qualidade. Gostaria de saber os preços?";
-  }
-  if (lastUserMessage.includes('quanto custa')) {
-    return "A nossa playlist para Spotify está custando apenas R$ 49,90. Quantas você gostaria de contratar?";
-  }
-  if (lastUserMessage.includes('vamos fechar')) {
-    return "Excelente! Você já possui cadastro no nosso painel de pedidos?";
-  }
-  if (lastUserMessage.includes('medo de comprar')) {
-    return "Entendo perfeitamente sua preocupação. Para você ver como o sistema funciona na prática, eu posso liberar um teste grátis para você. O que acha?";
-  }
-  if (lastUserMessage.includes('quero') && !stateSummary.includes('teste grátis: offered')) {
-    return "Combinado! Para ativar seu teste, por favor, me envie o link da sua música ou perfil do Spotify.";
-  }
-  if (lastUserMessage.includes('spotify.com')) {
-    return "Link recebido! Já solicitei o seu teste grátis aqui no sistema. Agora é só aguardar um pouquinho que ele será processado.";
-  }
-  
-  if (stateSummary.includes('rede: spotify')) {
-    if (stateSummary.includes('serviço: playlist')) {
-      return "Deseja contratar a playlist para Spotify agora?";
-    }
-    return "Qual serviço do Spotify você deseja?";
-  }
-
-  return "Como posso te ajudar com nossos serviços hoje?";
+  if (lastUserMessage.includes('divulgar minha música')) return "Plataforma?";
+  if (lastUserMessage.includes('spotify')) return "Seguidores ou plays?";
+  return "Como posso ajudar?";
 }

@@ -1,9 +1,5 @@
 -- Analytics Engine V2 - Database Schema
--- Revisão integral para aprovação final de migração.
-
--- 0. Requisitos Prévios
--- GiST EXCLUDE requer btree_gist extension.
--- CREATE EXTENSION IF NOT EXISTS btree_gist;
+-- Final Revision for Migration Approval
 
 -- 1. Model Pricing Configuration
 CREATE TABLE public.agent_v2_model_pricing (
@@ -22,7 +18,10 @@ CREATE TABLE public.agent_v2_model_pricing (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     
-    -- Constraints de Validação
+    -- Constraints
+    CONSTRAINT pricing_provider_not_empty CHECK (length(trim(provider)) > 0),
+    CONSTRAINT pricing_model_not_empty CHECK (length(trim(model)) > 0),
+    CONSTRAINT pricing_source_not_empty CHECK (length(trim(source)) > 0),
     CONSTRAINT pricing_positive_input_price CHECK (input_price_per_million >= 0),
     CONSTRAINT pricing_positive_output_price CHECK (output_price_per_million >= 0),
     CONSTRAINT pricing_positive_cache_creation_price CHECK (cache_creation_price_per_million >= 0),
@@ -30,7 +29,6 @@ CREATE TABLE public.agent_v2_model_pricing (
     CONSTRAINT pricing_valid_period CHECK (effective_until IS NULL OR effective_until > effective_from),
     CONSTRAINT pricing_currency_not_empty CHECK (length(currency) > 0),
     
-    -- Prevenção de períodos sobrepostos (Uso de [) para permitir adjacência exata)
     CONSTRAINT no_overlapping_prices EXCLUDE USING gist (
         provider WITH =, 
         model WITH =, 
@@ -38,15 +36,13 @@ CREATE TABLE public.agent_v2_model_pricing (
     )
 );
 
--- Segurança Pricing
-REVOKE ALL ON public.agent_v2_model_pricing FROM anon;
-REVOKE ALL ON public.agent_v2_model_pricing FROM authenticated;
-GRANT SELECT ON public.agent_v2_model_pricing TO authenticated;
+-- Pricing Security
+REVOKE ALL ON public.agent_v2_model_pricing FROM anon, authenticated;
 GRANT ALL ON public.agent_v2_model_pricing TO service_role;
 ALTER TABLE public.agent_v2_model_pricing ENABLE ROW LEVEL SECURITY;
+-- No SELECT policy for authenticated - pricing used by backend only.
 
-CREATE POLICY agent_v2_model_pricing_select ON public.agent_v2_model_pricing
-    FOR SELECT TO authenticated USING (true);
+CREATE INDEX idx_agent_v2_pricing_lookup ON public.agent_v2_model_pricing(provider, model, effective_from DESC);
 
 -- 2. Turn Analytics
 CREATE TABLE public.agent_v2_turn_analytics (
@@ -58,7 +54,7 @@ CREATE TABLE public.agent_v2_turn_analytics (
     phone_hash text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    brain_version text NOT NULL,
+    brain_version text NOT NULL DEFAULT 'v2',
     builder_version text NOT NULL,
     execution_mode text NOT NULL,
     sent_to_customer boolean NOT NULL DEFAULT false,
@@ -73,29 +69,29 @@ CREATE TABLE public.agent_v2_turn_analytics (
     selected_model text,
     routing_reason text,
     complexity text,
-    selected_modules text[],
-    selected_tools text[],
-    selected_tutorials text[],
-    tool_call_count integer DEFAULT 0,
-    tool_success_count integer DEFAULT 0,
-    tool_failure_count integer DEFAULT 0,
-    input_tokens integer DEFAULT 0,
-    output_tokens integer DEFAULT 0,
-    cache_creation_input_tokens integer DEFAULT 0,
-    cache_read_input_tokens integer DEFAULT 0,
-    prompt_tokens integer DEFAULT 0,
-    cacheable_prefix_tokens integer DEFAULT 0,
+    selected_modules text[] NOT NULL DEFAULT '{}',
+    selected_tools text[] NOT NULL DEFAULT '{}',
+    selected_tutorials text[] NOT NULL DEFAULT '{}',
+    tool_call_count integer NOT NULL DEFAULT 0,
+    tool_success_count integer NOT NULL DEFAULT 0,
+    tool_failure_count integer NOT NULL DEFAULT 0,
+    input_tokens integer NOT NULL DEFAULT 0,
+    output_tokens integer NOT NULL DEFAULT 0,
+    cache_creation_input_tokens integer NOT NULL DEFAULT 0,
+    cache_read_input_tokens integer NOT NULL DEFAULT 0,
+    prompt_tokens integer NOT NULL DEFAULT 0,
+    cacheable_prefix_tokens integer NOT NULL DEFAULT 0,
     estimated_cost numeric,
-    currency text DEFAULT 'USD',
+    currency text NOT NULL DEFAULT 'USD',
     duration_ms integer NOT NULL DEFAULT 0,
-    guard_violations text[],
-    guards_triggered text[],
-    regeneration_count integer DEFAULT 0,
-    blocked boolean DEFAULT false,
-    fallback_used boolean DEFAULT false,
-    state_changed_fields text[],
-    response_chars integer DEFAULT 0,
-    quality_flags jsonb DEFAULT '{}'::jsonb,
+    guard_violations text[] NOT NULL DEFAULT '{}',
+    guards_triggered text[] NOT NULL DEFAULT '{}',
+    regeneration_count integer NOT NULL DEFAULT 0,
+    blocked boolean NOT NULL DEFAULT false,
+    fallback_used boolean NOT NULL DEFAULT false,
+    state_changed_fields text[] NOT NULL DEFAULT '{}',
+    response_chars integer NOT NULL DEFAULT 0,
+    quality_flags jsonb NOT NULL DEFAULT '{}'::jsonb,
     structural_quality_score integer,
     commercial_quality_score integer,
     safety_quality_score integer,
@@ -103,12 +99,14 @@ CREATE TABLE public.agent_v2_turn_analytics (
     error_code text,
     prompt_metric_id uuid REFERENCES public.agent_prompt_metrics(id) ON DELETE SET NULL,
     
-    -- Constraints de Validação
+    -- Constraints
     CONSTRAINT turn_valid_execution_mode CHECK (execution_mode IN ('isolated_test', 'shadow', 'pilot', 'production')),
-    CONSTRAINT turn_valid_brain_version CHECK (brain_version LIKE 'v2%'),
-    CONSTRAINT turn_positive_tokens CHECK (input_tokens >= 0 AND output_tokens >= 0 AND cache_creation_input_tokens >= 0 AND cache_read_input_tokens >= 0),
+    CONSTRAINT turn_valid_brain_version CHECK (brain_version = 'v2'),
+    CONSTRAINT turn_positive_tokens CHECK (input_tokens >= 0 AND output_tokens >= 0 AND cache_creation_input_tokens >= 0 AND cache_read_input_tokens >= 0 AND prompt_tokens >= 0 AND cacheable_prefix_tokens >= 0),
     CONSTRAINT turn_positive_duration CHECK (duration_ms >= 0),
+    CONSTRAINT turn_positive_chars CHECK (response_chars >= 0),
     CONSTRAINT turn_positive_counts CHECK (tool_call_count >= 0 AND tool_success_count >= 0 AND tool_failure_count >= 0),
+    CONSTRAINT turn_tool_coherence CHECK (tool_success_count + tool_failure_count <= tool_call_count),
     CONSTRAINT turn_valid_regeneration CHECK (regeneration_count BETWEEN 0 AND 1),
     CONSTRAINT turn_valid_scores CHECK (
         (structural_quality_score IS NULL OR structural_quality_score BETWEEN 0 AND 100) AND
@@ -117,28 +115,27 @@ CREATE TABLE public.agent_v2_turn_analytics (
         (overall_quality_score IS NULL OR overall_quality_score BETWEEN 0 AND 100)
     ),
     CONSTRAINT turn_positive_cost CHECK (estimated_cost IS NULL OR estimated_cost >= 0),
+    CONSTRAINT turn_currency_not_empty CHECK (currency <> ''),
     
-    -- Idempotência: workspace + conversation + turn
     CONSTRAINT turn_analytics_unique_turn UNIQUE (workspace_id, conversation_id, turn_id)
 );
 
--- Segurança Turn Analytics
-REVOKE ALL ON public.agent_v2_turn_analytics FROM anon;
-REVOKE ALL ON public.agent_v2_turn_analytics FROM authenticated;
+-- Turn Security
+REVOKE ALL ON public.agent_v2_turn_analytics FROM anon, authenticated;
 GRANT SELECT ON public.agent_v2_turn_analytics TO authenticated;
 GRANT ALL ON public.agent_v2_turn_analytics TO service_role;
 ALTER TABLE public.agent_v2_turn_analytics ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY agent_v2_turn_analytics_select ON public.agent_v2_turn_analytics
+CREATE POLICY agent_v2_turn_select ON public.agent_v2_turn_analytics
     FOR SELECT TO authenticated
-    USING (workspace_id IN (SELECT workspace_id FROM public.workspace_members WHERE user_id = auth.uid()));
+    USING (EXISTS (
+        SELECT 1 FROM public.workspace_members wm 
+        WHERE wm.workspace_id = agent_v2_turn_analytics.workspace_id AND wm.user_id = auth.uid()
+    ));
 
--- Índices Turnos
-CREATE INDEX idx_turn_v2_workspace_created ON public.agent_v2_turn_analytics(workspace_id, created_at DESC);
 CREATE INDEX idx_turn_v2_workspace_mode_created ON public.agent_v2_turn_analytics(workspace_id, execution_mode, created_at DESC);
-CREATE INDEX idx_turn_v2_conversation ON public.agent_v2_turn_analytics(workspace_id, conversation_id);
-CREATE INDEX idx_turn_v2_network ON public.agent_v2_turn_analytics(workspace_id, network, created_at DESC);
-CREATE INDEX idx_turn_v2_stage ON public.agent_v2_turn_analytics(workspace_id, customer_stage, created_at DESC);
+CREATE INDEX idx_turn_v2_workspace_network_created ON public.agent_v2_turn_analytics(workspace_id, network, created_at DESC);
+CREATE INDEX idx_turn_v2_workspace_stage_created ON public.agent_v2_turn_analytics(workspace_id, customer_stage, created_at DESC);
 CREATE INDEX idx_turn_v2_prompt_metric ON public.agent_v2_turn_analytics(prompt_metric_id) WHERE prompt_metric_id IS NOT NULL;
 
 -- 3. Conversation Analytics (Aggregated)
@@ -152,76 +149,81 @@ CREATE TABLE public.agent_v2_conversation_analytics (
     mode text NOT NULL,
     primary_network text,
     primary_service text,
-    total_turns integer DEFAULT 0,
-    customer_turns integer DEFAULT 0,
-    agent_turns integer DEFAULT 0,
-    llm_calls integer DEFAULT 0,
-    deterministic_turns integer DEFAULT 0,
-    tool_calls integer DEFAULT 0,
-    tool_failures integer DEFAULT 0,
-    model_fallbacks integer DEFAULT 0,
-    guard_violations integer DEFAULT 0,
-    regenerations integer DEFAULT 0,
-    blocked_responses integer DEFAULT 0,
-    repeated_question_count integer DEFAULT 0,
-    wrong_platform_count integer DEFAULT 0,
-    wrong_service_count integer DEFAULT 0,
-    wrong_price_count integer DEFAULT 0,
-    support_redirect_count integer DEFAULT 0,
-    free_test_offered boolean DEFAULT false,
-    free_test_started boolean DEFAULT false,
-    free_test_completed boolean DEFAULT false,
-    panel_guidance_started boolean DEFAULT false,
-    reached_registration boolean DEFAULT false,
-    reached_recharge boolean DEFAULT false,
-    reached_order_step boolean DEFAULT false,
-    panel_journey_completed boolean DEFAULT false,
+    total_turns integer NOT NULL DEFAULT 0,
+    customer_turns integer NOT NULL DEFAULT 0,
+    agent_turns integer NOT NULL DEFAULT 0,
+    llm_calls integer NOT NULL DEFAULT 0,
+    deterministic_turns integer NOT NULL DEFAULT 0,
+    tool_calls integer NOT NULL DEFAULT 0,
+    tool_failures integer NOT NULL DEFAULT 0,
+    model_fallbacks integer NOT NULL DEFAULT 0,
+    guard_violations integer NOT NULL DEFAULT 0,
+    regenerations integer NOT NULL DEFAULT 0,
+    blocked_responses integer NOT NULL DEFAULT 0,
+    repeated_question_count integer NOT NULL DEFAULT 0,
+    wrong_platform_count integer NOT NULL DEFAULT 0,
+    wrong_service_count integer NOT NULL DEFAULT 0,
+    wrong_price_count integer NOT NULL DEFAULT 0,
+    support_redirect_count integer NOT NULL DEFAULT 0,
+    free_test_offered boolean NOT NULL DEFAULT false,
+    free_test_started boolean NOT NULL DEFAULT false,
+    free_test_completed boolean NOT NULL DEFAULT false,
+    panel_guidance_started boolean NOT NULL DEFAULT false,
+    reached_registration boolean NOT NULL DEFAULT false,
+    reached_recharge boolean NOT NULL DEFAULT false,
+    reached_order_step boolean NOT NULL DEFAULT false,
+    panel_journey_completed boolean NOT NULL DEFAULT false,
     final_intent text,
     final_step text,
-    total_input_tokens integer DEFAULT 0,
-    total_output_tokens integer DEFAULT 0,
-    total_cache_creation_tokens integer DEFAULT 0,
-    total_cache_read_tokens integer DEFAULT 0,
-    total_estimated_cost numeric DEFAULT 0,
-    average_duration_ms numeric DEFAULT 0,
-    structural_quality_score integer DEFAULT 0,
-    commercial_quality_score integer DEFAULT 0,
-    safety_quality_score integer DEFAULT 0,
-    overall_quality_score integer DEFAULT 0,
+    total_input_tokens integer NOT NULL DEFAULT 0,
+    total_output_tokens integer NOT NULL DEFAULT 0,
+    total_cache_creation_tokens integer NOT NULL DEFAULT 0,
+    total_cache_read_tokens integer NOT NULL DEFAULT 0,
+    total_estimated_cost numeric NOT NULL DEFAULT 0,
+    average_duration_ms numeric NOT NULL DEFAULT 0,
+    structural_quality_score integer NOT NULL DEFAULT 0,
+    commercial_quality_score integer NOT NULL DEFAULT 0,
+    safety_quality_score integer NOT NULL DEFAULT 0,
+    overall_quality_score integer NOT NULL DEFAULT 0,
     conversion_stage text,
     close_reason text,
     
-    -- Constraints de Validação
+    -- Constraints
     CONSTRAINT conv_positive_turns CHECK (total_turns >= 0 AND customer_turns >= 0 AND agent_turns >= 0),
-    CONSTRAINT conv_positive_tokens CHECK (total_input_tokens >= 0 AND total_output_tokens >= 0),
+    CONSTRAINT conv_positive_llm_calls CHECK (llm_calls >= 0),
+    CONSTRAINT conv_positive_det_turns CHECK (deterministic_turns >= 0),
+    CONSTRAINT conv_positive_tools CHECK (tool_calls >= 0 AND tool_failures >= 0),
+    CONSTRAINT conv_positive_metrics CHECK (model_fallbacks >= 0 AND guard_violations >= 0 AND regenerations >= 0 AND blocked_responses >= 0),
+    CONSTRAINT conv_positive_errors CHECK (repeated_question_count >= 0 AND wrong_platform_count >= 0 AND wrong_service_count >= 0 AND wrong_price_count >= 0 AND support_redirect_count >= 0),
+    CONSTRAINT conv_positive_tokens CHECK (total_input_tokens >= 0 AND total_output_tokens >= 0 AND total_cache_creation_tokens >= 0 AND total_cache_read_tokens >= 0),
     CONSTRAINT conv_positive_cost CHECK (total_estimated_cost >= 0),
-    CONSTRAINT conv_valid_scores CHECK (
-        overall_quality_score BETWEEN 0 AND 100 AND
-        structural_quality_score BETWEEN 0 AND 100 AND
-        commercial_quality_score BETWEEN 0 AND 100 AND
-        safety_quality_score BETWEEN 0 AND 100
-    ),
+    CONSTRAINT conv_positive_duration CHECK (average_duration_ms >= 0),
+    CONSTRAINT conv_valid_scores CHECK (overall_quality_score BETWEEN 0 AND 100 AND structural_quality_score BETWEEN 0 AND 100 AND commercial_quality_score BETWEEN 0 AND 100 AND safety_quality_score BETWEEN 0 AND 100),
+    CONSTRAINT conv_turn_coherence CHECK (llm_calls + deterministic_turns <= total_turns),
+    CONSTRAINT conv_tool_coherence CHECK (tool_failures <= tool_calls),
+    CONSTRAINT conv_valid_period CHECK (ended_at IS NULL OR ended_at >= started_at),
     
     PRIMARY KEY (workspace_id, conversation_id)
 );
 
--- Segurança Conversation Analytics
-REVOKE ALL ON public.agent_v2_conversation_analytics FROM anon;
-REVOKE ALL ON public.agent_v2_conversation_analytics FROM authenticated;
+-- Conversation Security
+REVOKE ALL ON public.agent_v2_conversation_analytics FROM anon, authenticated;
 GRANT SELECT ON public.agent_v2_conversation_analytics TO authenticated;
 GRANT ALL ON public.agent_v2_conversation_analytics TO service_role;
 ALTER TABLE public.agent_v2_conversation_analytics ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY agent_v2_conversation_analytics_select ON public.agent_v2_conversation_analytics
+CREATE POLICY agent_v2_conversation_select ON public.agent_v2_conversation_analytics
     FOR SELECT TO authenticated
-    USING (workspace_id IN (SELECT workspace_id FROM public.workspace_members WHERE user_id = auth.uid()));
+    USING (EXISTS (
+        SELECT 1 FROM public.workspace_members wm 
+        WHERE wm.workspace_id = agent_v2_conversation_analytics.workspace_id AND wm.user_id = auth.uid()
+    ));
 
--- Índices Conversas
 CREATE INDEX idx_conv_v2_workspace_updated ON public.agent_v2_conversation_analytics(workspace_id, updated_at DESC);
 CREATE INDEX idx_conv_v2_network ON public.agent_v2_conversation_analytics(workspace_id, primary_network);
 CREATE INDEX idx_conv_v2_stage ON public.agent_v2_conversation_analytics(workspace_id, conversion_stage);
 
--- 4. Função de Cleanup (Retenção)
+-- 4. Retention Function
 CREATE OR REPLACE FUNCTION public.cleanup_agent_v2_analytics()
 RETURNS void
 LANGUAGE plpgsql
@@ -229,24 +231,16 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-    -- 1. Limpeza de turnos detalhados após 30 dias
-    DELETE FROM public.agent_v2_turn_analytics 
+    DELETE FROM public.agent_v2_turn_analytics
     WHERE created_at < now() - interval '30 days';
     
-    -- 2. Limpeza de conversas agregadas após 12 meses
-    -- Somente se a conversa não estiver mais ativa (ended_at ou updated_at antigo)
     DELETE FROM public.agent_v2_conversation_analytics
-    WHERE COALESCE(ended_at, updated_at) < now() - interval '12 months';
+    WHERE ended_at IS NOT NULL
+      AND COALESCE(ended_at, updated_at) < now() - interval '12 months';
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM public;
+REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM anon;
+REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.cleanup_agent_v2_analytics() TO service_role;
-
--- 5. Rollback Script (Manual)
-/*
-DROP FUNCTION IF EXISTS public.cleanup_agent_v2_analytics();
-DROP TABLE IF EXISTS public.agent_v2_conversation_analytics;
-DROP TABLE IF EXISTS public.agent_v2_turn_analytics;
-DROP TABLE IF EXISTS public.agent_v2_model_pricing;
-*/
