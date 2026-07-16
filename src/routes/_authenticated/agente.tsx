@@ -23,7 +23,9 @@ import { MediasCard } from "@/components/agente/MediasCard";
 import { PlaylistCard } from "@/components/agente/PlaylistCard";
 import { DailyPromoCard } from "@/components/agente/DailyPromoCard";
 import { IdentidadeCard } from "@/components/agente/IdentidadeCard";
+import { PriceTableCard } from "@/components/agente/PriceTableCard";
 import { supabase } from "@/integrations/supabase/client";
+
 import { useWorkspace } from "@/contexts/workspace-context";
 
 export const Route = createFileRoute("/_authenticated/agente")({
@@ -190,6 +192,8 @@ function AgentePage() {
         <IdentidadeCard />
         <PlaylistCard />
         <TesteGratisCard />
+        <PriceTableCard />
+
         <MediasCard tipo="video" title="Vídeos tutoriais" emoji="🎬" />
         <MediasCard tipo="imagem" title="Artes e promoções" emoji="🖼️" />
         <Card className="p-4">

@@ -343,6 +343,71 @@ export const setServicesRealtime = createServerFn({ method: "POST" })
     return { ok: true, services_realtime: data.enabled };
   });
 
+export const getPriceTable = createServerFn({ method: "GET" })
+  .middleware([withWorkspaceScope])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("price_table")
+      .select("*")
+      .eq("workspace_id", context.workspaceId)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data || [];
+  });
+
+export const savePriceTable = createServerFn({ method: "POST" })
+  .middleware([withWorkspaceScope])
+  .inputValidator((d: unknown) =>
+    z.object({
+      rows: z.array(
+        z.object({
+          id: z.string().uuid().optional(),
+          platform: z.string().min(1),
+          service: z.string().min(1),
+          audience: z.string().min(1),
+          price_per_1000: z.number().min(0),
+          min_quantity: z.number().int().min(0),
+          max_quantity: z.number().int().min(0),
+          is_active: z.boolean(),
+        }),
+      ),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    // 1. Delete rows not in the incoming data (if they have IDs)
+    const incomingIds = data.rows.map((r) => r.id).filter(Boolean) as string[];
+    
+    if (incomingIds.length > 0) {
+      const { error: delError } = await context.supabase
+        .from("price_table")
+        .delete()
+        .eq("workspace_id", context.workspaceId)
+        .not("id", "in", `(${incomingIds.map(id => `"${id}"`).join(",")})`);
+      if (delError) throw new Error(delError.message);
+    } else {
+      const { error: delError } = await context.supabase
+        .from("price_table")
+        .delete()
+        .eq("workspace_id", context.workspaceId);
+      if (delError) throw new Error(delError.message);
+    }
+
+    // 2. Upsert the current rows
+    const toUpsert = data.rows.map((r) => ({
+      ...r,
+      user_id: context.userId,
+      workspace_id: context.workspaceId,
+    }));
+
+    if (toUpsert.length > 0) {
+      const { error } = await context.supabase.from("price_table").upsert(toUpsert);
+      if (error) throw new Error(error.message);
+    }
+
+    return { ok: true };
+  });
+
+
 // Toggles do catálogo em cache
 export const setCatalogFlags = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])

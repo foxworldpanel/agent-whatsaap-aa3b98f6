@@ -46,7 +46,9 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "musica_cliente", title: "Música do Cliente", emoji: "🎧" },
   { key: "aprendizado_continuo", title: "Aprendizado Contínuo", emoji: "📚" },
   { key: "playlist_promo", title: "Pacotes de Playlist (Promoção)", emoji: "🎼" },
+  { key: "tabela_precos", title: "Tabela de Preços Manual", emoji: "🏷️" },
 ];
+
 
 export const DEFAULT_MODULES: Record<string, string> = {
   identidade: `MÓDULO IDENTIDADE
@@ -610,7 +612,19 @@ URGÊNCIA NA VENDA (opcional, quando fizer sentido):
 
 PREÇO ATUAL: consulte SEMPRE o catálogo real (servicesContext) antes de informar. NUNCA escreva um valor fixo aqui e NUNCA use o formato "de R$ X por R$ Y" com valores hardcoded — o catálogo é a única fonte de verdade.
 `,
+
+  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
+
+Esta é a tabela COMPLETA de serviços disponíveis. O que não estiver aqui NÃO existe no painel. Quando cliente perguntar sobre serviço que não está na tabela responde: No momento não temos esse serviço disponível.
+
+Regras:
+- NUNCA mencione siglas BQ, MQ, HQ — use apenas os serviços listados na tabela.
+- NUNCA invente preço — use apenas os valores desta tabela.
+- NUNCA confirme quantidade abaixo do mínimo listado.
+- Se o cliente perguntar algo que não está na tabela, seja direto: "No momento não temos esse serviço disponível."
+`,
 };
+
 
 export function mergeAgentModulesForSave(
   existing?: Record<string, string> | null,
