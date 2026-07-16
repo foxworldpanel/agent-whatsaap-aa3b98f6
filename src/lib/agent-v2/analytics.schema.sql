@@ -1,5 +1,9 @@
 -- Analytics Engine V2 - Database Schema
--- Revisão completa para aprovação de migração.
+-- Revisão integral para aprovação final de migração.
+
+-- 0. Requisitos Prévios
+-- GiST EXCLUDE requer btree_gist extension.
+-- CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- 1. Model Pricing Configuration
 CREATE TABLE public.agent_v2_model_pricing (
@@ -7,58 +11,58 @@ CREATE TABLE public.agent_v2_model_pricing (
     provider text NOT NULL,
     model text NOT NULL,
     effective_from timestamptz NOT NULL DEFAULT now(),
-    effective_until timestamptz, -- Nullable, for historical versioning
-    input_price_per_million numeric NOT NULL,
-    output_price_per_million numeric NOT NULL,
-    cache_creation_price_per_million numeric NOT NULL,
-    cache_read_price_per_million numeric NOT NULL,
+    effective_until timestamptz,
+    input_price_per_million numeric NOT NULL DEFAULT 0,
+    output_price_per_million numeric NOT NULL DEFAULT 0,
+    cache_creation_price_per_million numeric NOT NULL DEFAULT 0,
+    cache_read_price_per_million numeric NOT NULL DEFAULT 0,
     currency text NOT NULL DEFAULT 'USD',
     source text NOT NULL DEFAULT 'official',
-    source_url text, -- Official reference URL
+    source_url text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     
-    -- Prevent overlapping configurations for the same provider/model and period
+    -- Constraints de Validação
+    CONSTRAINT pricing_positive_input_price CHECK (input_price_per_million >= 0),
+    CONSTRAINT pricing_positive_output_price CHECK (output_price_per_million >= 0),
+    CONSTRAINT pricing_positive_cache_creation_price CHECK (cache_creation_price_per_million >= 0),
+    CONSTRAINT pricing_positive_cache_read_price CHECK (cache_read_price_per_million >= 0),
+    CONSTRAINT pricing_valid_period CHECK (effective_until IS NULL OR effective_until > effective_from),
+    CONSTRAINT pricing_currency_not_empty CHECK (length(currency) > 0),
+    
+    -- Prevenção de períodos sobrepostos (Uso de [) para permitir adjacência exata)
     CONSTRAINT no_overlapping_prices EXCLUDE USING gist (
         provider WITH =, 
         model WITH =, 
-        tstzrange(effective_from, COALESCE(effective_until, 'infinity')) WITH &&
+        tstzrange(effective_from, COALESCE(effective_until, 'infinity'::timestamptz), '[)') WITH &&
     )
 );
 
--- Note: GiST EXCLUDE requires btree_gist extension. 
--- In managed Supabase/Lovable Cloud, this usually requires: CREATE EXTENSION IF NOT EXISTS btree_gist;
-
+-- Segurança Pricing
+REVOKE ALL ON public.agent_v2_model_pricing FROM anon;
+REVOKE ALL ON public.agent_v2_model_pricing FROM authenticated;
 GRANT SELECT ON public.agent_v2_model_pricing TO authenticated;
 GRANT ALL ON public.agent_v2_model_pricing TO service_role;
 ALTER TABLE public.agent_v2_model_pricing ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Admins can manage pricing"
-ON public.agent_v2_model_pricing
-FOR ALL
-TO authenticated
-USING (public.has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Users can read pricing"
-ON public.agent_v2_model_pricing
-FOR SELECT
-TO authenticated
-USING (true);
+CREATE POLICY agent_v2_model_pricing_select ON public.agent_v2_model_pricing
+    FOR SELECT TO authenticated USING (true);
 
 -- 2. Turn Analytics
 CREATE TABLE public.agent_v2_turn_analytics (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    event_id text NOT NULL, -- Logical event ID from orchestrator
+    event_id text NOT NULL,
     workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
     conversation_id text NOT NULL,
-    turn_id text NOT NULL, -- Unique turn sequence ID within conversation
-    phone_hash text NOT NULL, -- Irreversible HMAC hash
+    turn_id text NOT NULL,
+    phone_hash text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
     brain_version text NOT NULL,
     builder_version text NOT NULL,
-    execution_mode text NOT NULL, -- isolated_test, shadow, pilot, production
+    execution_mode text NOT NULL,
     sent_to_customer boolean NOT NULL DEFAULT false,
-    mode text NOT NULL, -- receptive, outbound
+    mode text NOT NULL,
     network text,
     service text,
     intent text,
@@ -81,9 +85,9 @@ CREATE TABLE public.agent_v2_turn_analytics (
     cache_read_input_tokens integer DEFAULT 0,
     prompt_tokens integer DEFAULT 0,
     cacheable_prefix_tokens integer DEFAULT 0,
-    estimated_cost numeric, -- Calculated at creation, null if pricing missing
+    estimated_cost numeric,
     currency text DEFAULT 'USD',
-    duration_ms integer NOT NULL,
+    duration_ms integer NOT NULL DEFAULT 0,
     guard_violations text[],
     guards_triggered text[],
     regeneration_count integer DEFAULT 0,
@@ -91,35 +95,51 @@ CREATE TABLE public.agent_v2_turn_analytics (
     fallback_used boolean DEFAULT false,
     state_changed_fields text[],
     response_chars integer DEFAULT 0,
-    quality_flags jsonb, -- Map of boolean flags
-    structural_quality_score integer, -- 0-100
-    commercial_quality_score integer, -- 0-100
-    safety_quality_score integer, -- 0-100
-    overall_quality_score integer, -- 0-100
+    quality_flags jsonb DEFAULT '{}'::jsonb,
+    structural_quality_score integer,
+    commercial_quality_score integer,
+    safety_quality_score integer,
+    overall_quality_score integer,
     error_code text,
-    prompt_metric_id uuid, -- Link to legacy agent_prompt_metrics if applicable
+    prompt_metric_id uuid REFERENCES public.agent_prompt_metrics(id) ON DELETE SET NULL,
     
-    -- Idempotency constraint: workspace + conversation + turn
+    -- Constraints de Validação
+    CONSTRAINT turn_valid_execution_mode CHECK (execution_mode IN ('isolated_test', 'shadow', 'pilot', 'production')),
+    CONSTRAINT turn_valid_brain_version CHECK (brain_version LIKE 'v2%'),
+    CONSTRAINT turn_positive_tokens CHECK (input_tokens >= 0 AND output_tokens >= 0 AND cache_creation_input_tokens >= 0 AND cache_read_input_tokens >= 0),
+    CONSTRAINT turn_positive_duration CHECK (duration_ms >= 0),
+    CONSTRAINT turn_positive_counts CHECK (tool_call_count >= 0 AND tool_success_count >= 0 AND tool_failure_count >= 0),
+    CONSTRAINT turn_valid_regeneration CHECK (regeneration_count BETWEEN 0 AND 1),
+    CONSTRAINT turn_valid_scores CHECK (
+        (structural_quality_score IS NULL OR structural_quality_score BETWEEN 0 AND 100) AND
+        (commercial_quality_score IS NULL OR commercial_quality_score BETWEEN 0 AND 100) AND
+        (safety_quality_score IS NULL OR safety_quality_score BETWEEN 0 AND 100) AND
+        (overall_quality_score IS NULL OR overall_quality_score BETWEEN 0 AND 100)
+    ),
+    CONSTRAINT turn_positive_cost CHECK (estimated_cost IS NULL OR estimated_cost >= 0),
+    
+    -- Idempotência: workspace + conversation + turn
     CONSTRAINT turn_analytics_unique_turn UNIQUE (workspace_id, conversation_id, turn_id)
 );
 
+-- Segurança Turn Analytics
+REVOKE ALL ON public.agent_v2_turn_analytics FROM anon;
+REVOKE ALL ON public.agent_v2_turn_analytics FROM authenticated;
 GRANT SELECT ON public.agent_v2_turn_analytics TO authenticated;
 GRANT ALL ON public.agent_v2_turn_analytics TO service_role;
 ALTER TABLE public.agent_v2_turn_analytics ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can see their workspace analytics"
-ON public.agent_v2_turn_analytics
-FOR SELECT
-TO authenticated
-USING (workspace_id IN (SELECT workspace_id FROM public.workspace_members WHERE user_id = auth.uid()));
+CREATE POLICY agent_v2_turn_analytics_select ON public.agent_v2_turn_analytics
+    FOR SELECT TO authenticated
+    USING (workspace_id IN (SELECT workspace_id FROM public.workspace_members WHERE user_id = auth.uid()));
 
-CREATE INDEX idx_turn_v2_workspace_created ON public.agent_v2_turn_analytics(workspace_id, created_at);
-CREATE INDEX idx_turn_v2_conversation ON public.agent_v2_turn_analytics(conversation_id);
-CREATE INDEX idx_turn_v2_execution_mode ON public.agent_v2_turn_analytics(execution_mode);
-CREATE INDEX idx_turn_v2_intent ON public.agent_v2_turn_analytics(intent);
-CREATE INDEX idx_turn_v2_selected_model ON public.agent_v2_turn_analytics(selected_model);
-CREATE INDEX idx_turn_v2_blocked ON public.agent_v2_turn_analytics(blocked) WHERE blocked = true;
-CREATE INDEX idx_turn_v2_quality ON public.agent_v2_turn_analytics(overall_quality_score);
+-- Índices Turnos
+CREATE INDEX idx_turn_v2_workspace_created ON public.agent_v2_turn_analytics(workspace_id, created_at DESC);
+CREATE INDEX idx_turn_v2_workspace_mode_created ON public.agent_v2_turn_analytics(workspace_id, execution_mode, created_at DESC);
+CREATE INDEX idx_turn_v2_conversation ON public.agent_v2_turn_analytics(workspace_id, conversation_id);
+CREATE INDEX idx_turn_v2_network ON public.agent_v2_turn_analytics(workspace_id, network, created_at DESC);
+CREATE INDEX idx_turn_v2_stage ON public.agent_v2_turn_analytics(workspace_id, customer_stage, created_at DESC);
+CREATE INDEX idx_turn_v2_prompt_metric ON public.agent_v2_turn_analytics(prompt_metric_id) WHERE prompt_metric_id IS NOT NULL;
 
 -- 3. Conversation Analytics (Aggregated)
 CREATE TABLE public.agent_v2_conversation_analytics (
@@ -127,6 +147,8 @@ CREATE TABLE public.agent_v2_conversation_analytics (
     conversation_id text NOT NULL,
     started_at timestamptz NOT NULL,
     ended_at timestamptz,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz NOT NULL DEFAULT now(),
     mode text NOT NULL,
     primary_network text,
     primary_service text,
@@ -168,32 +190,38 @@ CREATE TABLE public.agent_v2_conversation_analytics (
     overall_quality_score integer DEFAULT 0,
     conversion_stage text,
     close_reason text,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
+    
+    -- Constraints de Validação
+    CONSTRAINT conv_positive_turns CHECK (total_turns >= 0 AND customer_turns >= 0 AND agent_turns >= 0),
+    CONSTRAINT conv_positive_tokens CHECK (total_input_tokens >= 0 AND total_output_tokens >= 0),
+    CONSTRAINT conv_positive_cost CHECK (total_estimated_cost >= 0),
+    CONSTRAINT conv_valid_scores CHECK (
+        overall_quality_score BETWEEN 0 AND 100 AND
+        structural_quality_score BETWEEN 0 AND 100 AND
+        commercial_quality_score BETWEEN 0 AND 100 AND
+        safety_quality_score BETWEEN 0 AND 100
+    ),
     
     PRIMARY KEY (workspace_id, conversation_id)
 );
 
+-- Segurança Conversation Analytics
+REVOKE ALL ON public.agent_v2_conversation_analytics FROM anon;
+REVOKE ALL ON public.agent_v2_conversation_analytics FROM authenticated;
 GRANT SELECT ON public.agent_v2_conversation_analytics TO authenticated;
 GRANT ALL ON public.agent_v2_conversation_analytics TO service_role;
 ALTER TABLE public.agent_v2_conversation_analytics ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can see their workspace conversation analytics"
-ON public.agent_v2_conversation_analytics
-FOR SELECT
-TO authenticated
-USING (workspace_id IN (SELECT workspace_id FROM public.workspace_members WHERE user_id = auth.uid()));
+CREATE POLICY agent_v2_conversation_analytics_select ON public.agent_v2_conversation_analytics
+    FOR SELECT TO authenticated
+    USING (workspace_id IN (SELECT workspace_id FROM public.workspace_members WHERE user_id = auth.uid()));
 
--- Relationship with agent_prompt_metrics:
--- agent_v2_turn_analytics is the source of truth for V2 metrics.
--- prompt_metric_id links to legacy agent_prompt_metrics if correlation is needed.
--- Failures in one should not block the other.
+-- Índices Conversas
+CREATE INDEX idx_conv_v2_workspace_updated ON public.agent_v2_conversation_analytics(workspace_id, updated_at DESC);
+CREATE INDEX idx_conv_v2_network ON public.agent_v2_conversation_analytics(workspace_id, primary_network);
+CREATE INDEX idx_conv_v2_stage ON public.agent_v2_conversation_analytics(workspace_id, conversion_stage);
 
--- Retention Strategy:
--- Turn Analytics (detailed): 30 days.
--- Conversation Analytics (aggregated): 12 months.
--- Cleanup function to be called by service role / cron.
-
+-- 4. Função de Cleanup (Retenção)
 CREATE OR REPLACE FUNCTION public.cleanup_agent_v2_analytics()
 RETURNS void
 LANGUAGE plpgsql
@@ -201,15 +229,24 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-    -- Delete old turns (detailed data)
+    -- 1. Limpeza de turnos detalhados após 30 dias
     DELETE FROM public.agent_v2_turn_analytics 
     WHERE created_at < now() - interval '30 days';
     
-    -- Delete old conversations (aggregated data)
+    -- 2. Limpeza de conversas agregadas após 12 meses
+    -- Somente se a conversa não estiver mais ativa (ended_at ou updated_at antigo)
     DELETE FROM public.agent_v2_conversation_analytics
-    WHERE created_at < now() - interval '12 months';
+    WHERE COALESCE(ended_at, updated_at) < now() - interval '12 months';
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM public;
 GRANT EXECUTE ON FUNCTION public.cleanup_agent_v2_analytics() TO service_role;
 
+-- 5. Rollback Script (Manual)
+/*
+DROP FUNCTION IF EXISTS public.cleanup_agent_v2_analytics();
+DROP TABLE IF EXISTS public.agent_v2_conversation_analytics;
+DROP TABLE IF EXISTS public.agent_v2_turn_analytics;
+DROP TABLE IF EXISTS public.agent_v2_model_pricing;
+*/

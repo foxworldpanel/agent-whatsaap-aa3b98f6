@@ -68,6 +68,7 @@ export interface AgentV2TurnAnalytics {
   phoneHash: string;
   turnId: string;
   createdAt: string;
+  updatedAt?: string;
   brainVersion: string;
   builderVersion: string;
   executionMode: 'isolated_test' | 'shadow' | 'pilot' | 'production';
@@ -96,6 +97,7 @@ export interface AgentV2TurnAnalytics {
   promptTokens: number;
   cacheablePrefixTokens: number;
   estimatedCost: number | null;
+  currency: string;
   durationMs: number;
   guardViolations: string[];
   guardsTriggered: string[];
@@ -105,8 +107,13 @@ export interface AgentV2TurnAnalytics {
   stateChangedFields: string[];
   responseChars: number;
   qualityFlags: QualityFlags;
+  structuralQualityScore: number | null;
+  commercialQualityScore: number | null;
+  safetyQualityScore: number | null;
+  overallQualityScore: number | null;
   errorCode: string | null;
   warning?: string;
+  promptMetricId?: string;
 }
 
 export interface AgentV2ConversationAnalytics {
@@ -114,6 +121,8 @@ export interface AgentV2ConversationAnalytics {
   conversationId: string;
   startedAt: string;
   endedAt: string | null;
+  updatedAt: string;
+  createdAt: string;
   mode: 'receptive' | 'outbound';
   primaryNetwork: string;
   primaryService: string;
@@ -149,7 +158,6 @@ export interface AgentV2ConversationAnalytics {
   totalCacheReadTokens: number;
   totalEstimatedCost: number;
   averageDurationMs: number;
-  qualityScore: number;
   structuralQualityScore: number;
   commercialQualityScore: number;
   safetyQualityScore: number;

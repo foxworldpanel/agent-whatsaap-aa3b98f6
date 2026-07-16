@@ -18,18 +18,25 @@ const ANALYTICS_BUFFER: AgentV2TurnAnalytics[] = [];
 
 async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
   // Idempotency check in memory
-  const exists = ANALYTICS_BUFFER.some(t => 
+  const existingIndex = ANALYTICS_BUFFER.findIndex(t => 
     t.workspaceId === data.workspaceId && 
     t.conversationId === data.conversationId && 
     t.turnId === data.turnId
   );
   
-  if (!exists) {
-    ANALYTICS_BUFFER.push(data);
+  if (existingIndex === -1) {
+    ANALYTICS_BUFFER.push({ ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (NEW)`);
+  } else {
+    // Only update if the new data is potentially "more complete" or newer
+    // In a real DB, we use ON CONFLICT DO UPDATE
+    ANALYTICS_BUFFER[existingIndex] = { 
+      ...ANALYTICS_BUFFER[existingIndex], 
+      ...data, 
+      updatedAt: new Date().toISOString() 
+    };
+    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (UPDATED/UPSERT)`);
   }
-  
-  // LOGGING ONLY - No DB write until migration is approved
-  console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (Idempotent: ${!exists})`);
   
   // Future production implementation:
   /*
@@ -43,6 +50,7 @@ async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
   }
   */
 }
+
 
 
 
@@ -196,8 +204,6 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   metrics.regenerationCount = regenerationResult ? 1 : 0;
   
   // Analytics Engine V2 - Event Logging
-  const customerStage = determineCustomerStage(stateAfter.intent || 'unknown', stateAfter.currentStep || 'unknown');
-  
   const qualityFlags: QualityFlags = {
     answeredDirectly: true, // Simplified for orchestrator
     contextPreserved: true,
@@ -220,35 +226,89 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     output: finalResponse.length * 4 // Rough estimate for chars to tokens
   });
 
-  const analyticsEvent: Partial<AgentV2TurnAnalytics> = {
-    workspaceId: input.workspaceId,
-    conversationId: input.conversationId,
-    turnId: Date.now().toString(), // Simple turn ID
-    brainVersion: '2.0.0',
-    executionMode: input.executionMode === 'isolated' ? 'isolated_test' : (input.executionMode as any),
-    network: stateAfter.network,
-    service: stateAfter.service,
-    intent: stateAfter.intent,
-    customerStage,
-    usedLlm: modelRouteResult.useLlm,
-    selectedModel: modelRouteResult.selectedModel,
-    routingReason: modelRouteResult.routingReason,
-    estimatedCost: costResult.cost,
-    qualityFlags,
-    blocked: guardResult?.blocked || false
-  };
+  const customerStage = determineCustomerStage(stateAfter.intent || 'unknown', stateAfter.currentStep || 'unknown');
+  const scores = calculateQualityScores(qualityFlags);
 
-  metrics.analytics = analyticsEvent;
-  metrics.customerStage = customerStage;
-  metrics.estimatedCost = costResult.cost;
-  metrics.qualityScore = calculateQualityScores(qualityFlags).overall;
+  const phoneHash = hashPhoneNumber(input.phoneNumber || '000000000', input.workspaceId);
+  
+  if (phoneHash) {
+    const analyticsEvent: AgentV2TurnAnalytics = {
+      eventId: `evt_${Date.now()}`,
+      workspaceId: input.workspaceId,
+      conversationId: input.conversationId,
+      phoneHash,
+      turnId: Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      brainVersion: metrics.brainVersion,
+      builderVersion: '2.0.0',
+      executionMode: (input.executionMode === 'isolated' ? 'isolated_test' : input.executionMode) as any,
+      sentToCustomer: false,
+      mode: stateAfter.mode as any || 'receptive',
+      network: stateAfter.network,
+      service: stateAfter.service,
+      intent: stateAfter.intent,
+      currentStep: stateAfter.currentStep,
+      customerStage,
+      usedLlm: modelRouteResult.useLlm,
+      deterministicResolution: !modelRouteResult.useLlm,
+      selectedModel: modelRouteResult.selectedModel,
+      routingReason: modelRouteResult.routingReason,
+      complexity: 'medium',
+      selectedModules: routeResult.selectedModules,
+      selectedTools: routeResult.selectedTools,
+      selectedTutorials: [],
+      toolCallCount: routeResult.selectedTools.length,
+      toolSuccessCount: routeResult.selectedTools.length, // Simplified
+      toolFailureCount: 0,
+      inputTokens: 0,
+      outputTokens: finalResponse.length * 4,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      promptTokens: 0,
+      cacheablePrefixTokens: 0,
+      estimatedCost: costResult.cost,
+      currency: 'USD',
+      durationMs: metrics.durationMs,
+      guardViolations: guardResult?.violations.map(v => typeof v === 'string' ? v : v.guard) || [],
 
-  // Persistência simulada (E2E Hardening)
-  try {
-    if (metrics.durationMs > 0) metrics.persisted = true;
-  } catch (e) {
-    errors.push("Erro ao persistir métricas.");
+      guardsTriggered: guardResult?.triggeredGuards || [],
+
+      regenerationCount: metrics.regenerationCount,
+      blocked: guardResult?.blocked || false,
+      fallbackUsed: false,
+      stateChangedFields: Object.keys(stateAfterRouting).filter(k => (stateAfterRouting as any)[k] !== (stateBefore as any)[k]),
+      responseChars: finalResponse.length,
+      qualityFlags,
+      structuralQualityScore: scores.structural,
+      commercialQualityScore: scores.commercial,
+      safetyQualityScore: scores.safety,
+      overallQualityScore: scores.overall,
+      errorCode: null,
+      promptMetricId: undefined
+    };
+
+    metrics.analytics = analyticsEvent;
+    metrics.customerStage = customerStage;
+    metrics.estimatedCost = costResult.cost;
+    metrics.qualityScore = scores.overall;
+
+    // Persistência com Try/Catch e timeout simulado
+    try {
+      await Promise.race([
+        persistTurnAnalytics(analyticsEvent),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+      ]);
+      metrics.persisted = true;
+    } catch (e) {
+      console.error('[Analytics] Persistence error:', e);
+      errors.push("Erro ao persistir métricas (não bloqueante).");
+    }
+  } else {
+    console.warn('[Analytics] Skipping persistence due to missing phone hash/secret.');
   }
+
+
 
 
   return {

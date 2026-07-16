@@ -41,7 +41,7 @@ const MODEL_PRICING: ModelPricingConfigV2[] = [
 
 /**
  * Calculates the estimated cost of a turn based on token usage and model pricing.
- * Selection is based on the valid tariff for the call date (simplified here).
+ * Selection is based on the valid tariff for the call date.
  */
 export function calculateEstimatedCost(
   model: string | null,
@@ -55,12 +55,13 @@ export function calculateEstimatedCost(
 ): { cost: number | null; warning?: string } {
   if (!model) return { cost: 0 };
   
-  // Selection logic: filter by model and ensure callDate is within effective range
+  const now = new Date(callDate).getTime();
+  
+  // Selection logic: filter by model and ensure callDate is within effective range [from, until)
   const pricing = MODEL_PRICING.find(p => {
     const from = new Date(p.effectiveFrom).getTime();
     const until = p.effectiveUntil ? new Date(p.effectiveUntil).getTime() : Infinity;
-    const now = new Date(callDate).getTime();
-    return p.model === model && now >= from && now <= until;
+    return p.model === model && now >= from && now < until;
   });
 
   if (!pricing) {
@@ -138,17 +139,20 @@ export function calculateQualityScores(flags: QualityFlags): {
 /**
  * Hashes a phone number for privacy-compliant storage.
  * Uses HMAC-SHA256 with a workspace-scoped secret.
+ * Returns null if the secret is missing to prevent insecure storage.
  */
-export function hashPhoneNumber(phone: string, workspaceId: string): string {
+export function hashPhoneNumber(phone: string, workspaceId: string): string | null {
   const secret = process.env.PHONE_HASH_SECRET;
   if (!secret) {
-    console.warn('[Analytics] PHONE_HASH_SECRET not configured. Using temporary fallback salt.');
+    console.error('[Analytics] CRITICAL: PHONE_HASH_SECRET is missing. Analytics persistence will be skipped.');
+    return null;
   }
   
-  // Hash = HMAC(key=secret+workspaceId, message=phone)
-  const hmacKey = (secret || 'temp_fallback_secret') + workspaceId;
-  return createHmac('sha256', hmacKey)
-    .update(phone)
+  // Normalize phone (simple version)
+  const normalizedPhone = phone.replace(/\D/g, '');
+  
+  // Hash = HMAC_SHA256(key=secret, message=workspaceId + ":" + normalizedPhone)
+  return createHmac('sha256', secret)
+    .update(`${workspaceId}:${normalizedPhone}`)
     .digest('hex');
 }
-
