@@ -567,6 +567,395 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_v2_conversation_analytics: {
+        Row: {
+          agent_turns: number
+          average_duration_ms: number
+          blocked_responses: number
+          close_reason: string | null
+          commercial_quality_score: number
+          conversation_id: string
+          conversion_stage: string | null
+          created_at: string
+          customer_turns: number
+          deterministic_turns: number
+          ended_at: string | null
+          final_intent: string | null
+          final_step: string | null
+          free_test_completed: boolean
+          free_test_offered: boolean
+          free_test_started: boolean
+          guard_violations: number
+          llm_calls: number
+          mode: string
+          model_fallbacks: number
+          overall_quality_score: number
+          panel_guidance_started: boolean
+          panel_journey_completed: boolean
+          primary_network: string | null
+          primary_service: string | null
+          reached_order_step: boolean
+          reached_recharge: boolean
+          reached_registration: boolean
+          regenerations: number
+          repeated_question_count: number
+          safety_quality_score: number
+          started_at: string
+          structural_quality_score: number
+          support_redirect_count: number
+          tool_calls: number
+          tool_failures: number
+          total_cache_creation_tokens: number
+          total_cache_read_tokens: number
+          total_estimated_cost: number
+          total_input_tokens: number
+          total_output_tokens: number
+          total_turns: number
+          updated_at: string
+          workspace_id: string
+          wrong_platform_count: number
+          wrong_price_count: number
+          wrong_service_count: number
+        }
+        Insert: {
+          agent_turns?: number
+          average_duration_ms?: number
+          blocked_responses?: number
+          close_reason?: string | null
+          commercial_quality_score?: number
+          conversation_id: string
+          conversion_stage?: string | null
+          created_at?: string
+          customer_turns?: number
+          deterministic_turns?: number
+          ended_at?: string | null
+          final_intent?: string | null
+          final_step?: string | null
+          free_test_completed?: boolean
+          free_test_offered?: boolean
+          free_test_started?: boolean
+          guard_violations?: number
+          llm_calls?: number
+          mode: string
+          model_fallbacks?: number
+          overall_quality_score?: number
+          panel_guidance_started?: boolean
+          panel_journey_completed?: boolean
+          primary_network?: string | null
+          primary_service?: string | null
+          reached_order_step?: boolean
+          reached_recharge?: boolean
+          reached_registration?: boolean
+          regenerations?: number
+          repeated_question_count?: number
+          safety_quality_score?: number
+          started_at: string
+          structural_quality_score?: number
+          support_redirect_count?: number
+          tool_calls?: number
+          tool_failures?: number
+          total_cache_creation_tokens?: number
+          total_cache_read_tokens?: number
+          total_estimated_cost?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          total_turns?: number
+          updated_at?: string
+          workspace_id: string
+          wrong_platform_count?: number
+          wrong_price_count?: number
+          wrong_service_count?: number
+        }
+        Update: {
+          agent_turns?: number
+          average_duration_ms?: number
+          blocked_responses?: number
+          close_reason?: string | null
+          commercial_quality_score?: number
+          conversation_id?: string
+          conversion_stage?: string | null
+          created_at?: string
+          customer_turns?: number
+          deterministic_turns?: number
+          ended_at?: string | null
+          final_intent?: string | null
+          final_step?: string | null
+          free_test_completed?: boolean
+          free_test_offered?: boolean
+          free_test_started?: boolean
+          guard_violations?: number
+          llm_calls?: number
+          mode?: string
+          model_fallbacks?: number
+          overall_quality_score?: number
+          panel_guidance_started?: boolean
+          panel_journey_completed?: boolean
+          primary_network?: string | null
+          primary_service?: string | null
+          reached_order_step?: boolean
+          reached_recharge?: boolean
+          reached_registration?: boolean
+          regenerations?: number
+          repeated_question_count?: number
+          safety_quality_score?: number
+          started_at?: string
+          structural_quality_score?: number
+          support_redirect_count?: number
+          tool_calls?: number
+          tool_failures?: number
+          total_cache_creation_tokens?: number
+          total_cache_read_tokens?: number
+          total_estimated_cost?: number
+          total_input_tokens?: number
+          total_output_tokens?: number
+          total_turns?: number
+          updated_at?: string
+          workspace_id?: string
+          wrong_platform_count?: number
+          wrong_price_count?: number
+          wrong_service_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_v2_conversation_analytics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_v2_model_pricing: {
+        Row: {
+          cache_creation_price_per_million: number
+          cache_read_price_per_million: number
+          created_at: string
+          currency: string
+          effective_from: string
+          effective_until: string | null
+          id: string
+          input_price_per_million: number
+          model: string
+          output_price_per_million: number
+          provider: string
+          source: string
+          source_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          cache_creation_price_per_million?: number
+          cache_read_price_per_million?: number
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          input_price_per_million?: number
+          model: string
+          output_price_per_million?: number
+          provider: string
+          source?: string
+          source_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cache_creation_price_per_million?: number
+          cache_read_price_per_million?: number
+          created_at?: string
+          currency?: string
+          effective_from?: string
+          effective_until?: string | null
+          id?: string
+          input_price_per_million?: number
+          model?: string
+          output_price_per_million?: number
+          provider?: string
+          source?: string
+          source_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_v2_turn_analytics: {
+        Row: {
+          blocked: boolean
+          brain_version: string
+          builder_version: string
+          cache_creation_input_tokens: number
+          cache_read_input_tokens: number
+          cacheable_prefix_tokens: number
+          commercial_quality_score: number | null
+          complexity: string | null
+          conversation_id: string
+          created_at: string
+          currency: string
+          current_step: string | null
+          customer_stage: string
+          deterministic_resolution: boolean
+          duration_ms: number
+          error_code: string | null
+          estimated_cost: number | null
+          event_id: string
+          execution_mode: string
+          fallback_used: boolean
+          guard_violations: string[]
+          guards_triggered: string[]
+          id: string
+          input_tokens: number
+          intent: string | null
+          mode: string
+          network: string | null
+          output_tokens: number
+          overall_quality_score: number | null
+          phone_hash: string
+          prompt_metric_id: string | null
+          prompt_tokens: number
+          quality_flags: Json
+          regeneration_count: number
+          response_chars: number
+          routing_reason: string | null
+          safety_quality_score: number | null
+          selected_model: string | null
+          selected_modules: string[]
+          selected_tools: string[]
+          selected_tutorials: string[]
+          sent_to_customer: boolean
+          service: string | null
+          state_changed_fields: string[]
+          structural_quality_score: number | null
+          tool_call_count: number
+          tool_failure_count: number
+          tool_success_count: number
+          turn_id: string
+          updated_at: string
+          used_llm: boolean
+          workspace_id: string
+        }
+        Insert: {
+          blocked?: boolean
+          brain_version?: string
+          builder_version: string
+          cache_creation_input_tokens?: number
+          cache_read_input_tokens?: number
+          cacheable_prefix_tokens?: number
+          commercial_quality_score?: number | null
+          complexity?: string | null
+          conversation_id: string
+          created_at?: string
+          currency?: string
+          current_step?: string | null
+          customer_stage: string
+          deterministic_resolution?: boolean
+          duration_ms?: number
+          error_code?: string | null
+          estimated_cost?: number | null
+          event_id: string
+          execution_mode: string
+          fallback_used?: boolean
+          guard_violations?: string[]
+          guards_triggered?: string[]
+          id?: string
+          input_tokens?: number
+          intent?: string | null
+          mode: string
+          network?: string | null
+          output_tokens?: number
+          overall_quality_score?: number | null
+          phone_hash: string
+          prompt_metric_id?: string | null
+          prompt_tokens?: number
+          quality_flags?: Json
+          regeneration_count?: number
+          response_chars?: number
+          routing_reason?: string | null
+          safety_quality_score?: number | null
+          selected_model?: string | null
+          selected_modules?: string[]
+          selected_tools?: string[]
+          selected_tutorials?: string[]
+          sent_to_customer?: boolean
+          service?: string | null
+          state_changed_fields?: string[]
+          structural_quality_score?: number | null
+          tool_call_count?: number
+          tool_failure_count?: number
+          tool_success_count?: number
+          turn_id: string
+          updated_at?: string
+          used_llm: boolean
+          workspace_id: string
+        }
+        Update: {
+          blocked?: boolean
+          brain_version?: string
+          builder_version?: string
+          cache_creation_input_tokens?: number
+          cache_read_input_tokens?: number
+          cacheable_prefix_tokens?: number
+          commercial_quality_score?: number | null
+          complexity?: string | null
+          conversation_id?: string
+          created_at?: string
+          currency?: string
+          current_step?: string | null
+          customer_stage?: string
+          deterministic_resolution?: boolean
+          duration_ms?: number
+          error_code?: string | null
+          estimated_cost?: number | null
+          event_id?: string
+          execution_mode?: string
+          fallback_used?: boolean
+          guard_violations?: string[]
+          guards_triggered?: string[]
+          id?: string
+          input_tokens?: number
+          intent?: string | null
+          mode?: string
+          network?: string | null
+          output_tokens?: number
+          overall_quality_score?: number | null
+          phone_hash?: string
+          prompt_metric_id?: string | null
+          prompt_tokens?: number
+          quality_flags?: Json
+          regeneration_count?: number
+          response_chars?: number
+          routing_reason?: string | null
+          safety_quality_score?: number | null
+          selected_model?: string | null
+          selected_modules?: string[]
+          selected_tools?: string[]
+          selected_tutorials?: string[]
+          sent_to_customer?: boolean
+          service?: string | null
+          state_changed_fields?: string[]
+          structural_quality_score?: number | null
+          tool_call_count?: number
+          tool_failure_count?: number
+          tool_success_count?: number
+          turn_id?: string
+          updated_at?: string
+          used_llm?: boolean
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_v2_turn_analytics_prompt_metric_id_fkey"
+            columns: ["prompt_metric_id"]
+            isOneToOne: false
+            referencedRelation: "agent_prompt_metrics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_v2_turn_analytics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_campaign_runs: {
         Row: {
           auto_campaign_id: string
@@ -2547,6 +2936,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_agent_v2_analytics: { Args: never; Returns: undefined }
       cleanup_agent_v2_logs: { Args: never; Returns: undefined }
       cleanup_old_agent_logs: { Args: never; Returns: undefined }
       cleanup_old_agent_prompt_metrics: { Args: never; Returns: undefined }
@@ -2569,6 +2959,71 @@ export type Database = {
           needs_review: boolean
           whatsapp_number_id: string
         }[]
+      }
+      upsert_agent_v2_turn_analytics: {
+        Args: {
+          p_turn: Database["public"]["Tables"]["agent_v2_turn_analytics"]["Row"]
+        }
+        Returns: {
+          blocked: boolean
+          brain_version: string
+          builder_version: string
+          cache_creation_input_tokens: number
+          cache_read_input_tokens: number
+          cacheable_prefix_tokens: number
+          commercial_quality_score: number | null
+          complexity: string | null
+          conversation_id: string
+          created_at: string
+          currency: string
+          current_step: string | null
+          customer_stage: string
+          deterministic_resolution: boolean
+          duration_ms: number
+          error_code: string | null
+          estimated_cost: number | null
+          event_id: string
+          execution_mode: string
+          fallback_used: boolean
+          guard_violations: string[]
+          guards_triggered: string[]
+          id: string
+          input_tokens: number
+          intent: string | null
+          mode: string
+          network: string | null
+          output_tokens: number
+          overall_quality_score: number | null
+          phone_hash: string
+          prompt_metric_id: string | null
+          prompt_tokens: number
+          quality_flags: Json
+          regeneration_count: number
+          response_chars: number
+          routing_reason: string | null
+          safety_quality_score: number | null
+          selected_model: string | null
+          selected_modules: string[]
+          selected_tools: string[]
+          selected_tutorials: string[]
+          sent_to_customer: boolean
+          service: string | null
+          state_changed_fields: string[]
+          structural_quality_score: number | null
+          tool_call_count: number
+          tool_failure_count: number
+          tool_success_count: number
+          turn_id: string
+          updated_at: string
+          used_llm: boolean
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "agent_v2_turn_analytics"
+          to: "agent_v2_turn_analytics"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       user_owns_workspace: { Args: { _workspace_id: string }; Returns: boolean }
     }
