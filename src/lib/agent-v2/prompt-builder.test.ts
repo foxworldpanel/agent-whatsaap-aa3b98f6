@@ -58,10 +58,11 @@ export async function runBuilderTests() {
       name: 'B) "Spotify"',
       fn: () => {
         const res = runFlow('Quero Spotify', { ...mockState });
-        const hasSpotify = res.systemPrompt.includes('Módulo Spotify');
+        const hasSpotify = res.systemPrompt.includes('Spotify: Visão Geral');
         const hasToolData = res.systemPrompt.includes('# DADOS ATUAIS DA FERRAMENTA');
         return hasSpotify && !hasToolData;
       }
+
     },
     {
       name: 'C) Preço com Tool Fixture',
