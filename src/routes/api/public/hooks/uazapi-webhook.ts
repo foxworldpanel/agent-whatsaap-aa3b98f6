@@ -697,19 +697,31 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // A V1 está desativada. Apenas o número autorizado executa a IA.
         // Qualquer outro número é ignorado ANTES de qualquer chamada
         // ao Claude, prompt, ferramenta ou métrica → zero custo.
+        //
+        // Defesa em DUAS camadas:
+        //   (1) early-return por número autorizado (aqui);
+        //   (2) resolver retorna 'disabled' → segunda barreira mesmo
+        //       que alguém remova acidentalmente o early-return.
         // ============================================================
         {
           const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          if (!msg.fromMe && !isAuthorizedV2Phone(phone)) {
+          const { resolveAgentBrainVersion } = await import("@/lib/agent-v2/resolver");
+          const authorized = isAuthorizedV2Phone(phone);
+          const activeVersion = resolveAgentBrainVersion(null, phone);
+          if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
+            // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
+            const phoneTail = phone.slice(-4);
+            console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
               await logEvent({
-                phone,
                 type: "message_received",
                 level: "info",
-                summary: "🚫 Número não autorizado — IA V2 desativada para este número (V1 arquivada).",
+                summary: "AI disabled for non-authorized contact",
+                metadata: { phoneTail, activeVersion },
               });
             } catch {}
+            // HTTP 200 para evitar retries do provedor.
             return new Response("ok (non-authorized number, AI disabled)");
           }
         }
