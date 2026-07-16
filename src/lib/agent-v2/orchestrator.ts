@@ -32,36 +32,7 @@ async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
   }
 }
 
-  const existingIndex = ANALYTICS_BUFFER.findIndex(t => 
-    t.workspaceId === data.workspaceId && 
-    t.conversationId === data.conversationId && 
-    t.turnId === data.turnId
-  );
-  
-  if (existingIndex === -1) {
-    ANALYTICS_BUFFER.push({ 
-      ...data, 
-      createdAt: new Date().toISOString(), 
-      updatedAt: new Date().toISOString() 
-    });
-    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (NEW)`);
-  } else {
-    const existing = ANALYTICS_BUFFER[existingIndex];
-    // UPSERT REAL logic: preserve most complete data
-    ANALYTICS_BUFFER[existingIndex] = { 
-      ...existing, 
-      ...data, 
-      // Preservation criteria
-      regenerationCount: Math.max(existing.regenerationCount, data.regenerationCount),
-      toolCallCount: Math.max(existing.toolCallCount, data.toolCallCount),
-      sentToCustomer: existing.sentToCustomer || data.sentToCustomer,
-      blocked: existing.blocked || data.blocked,
-      // Always update timestamp
-      updatedAt: new Date().toISOString() 
-    };
-    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (UPSERT/UPDATED)`);
-  }
-}
+
 
 /**
  * Executes a full Agent Mind V2 turn in an isolated environment.
