@@ -97,9 +97,9 @@ export function PriceTableCard() {
             <span className="text-lg">🏷️</span>
             <div>
               <div className="font-medium">Tabela de Preços Manual</div>
-              <div className="text-xs text-muted-foreground">
-                Tabela editável com serviços, preços e limites. O Agente prioriza estes valores sobre a consulta automática.
-              </div>
+                <div className="text-xs text-muted-foreground">
+                  Tabela editável com colunas: Plataforma, Serviço, Público, Preço/1000, Mínimo e Máximo. O Agente prioriza estes valores.
+                </div>
             </div>
           </div>
           <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
