@@ -60,9 +60,13 @@ export async function runBuilderTests() {
         const res = runFlow('Quero Spotify', { ...mockState });
         const hasSpotify = res.systemPrompt.includes('Spotify: Visão Geral');
         const hasToolData = res.systemPrompt.includes('# DADOS ATUAIS DA FERRAMENTA');
+        if (!hasSpotify) {
+          // console.log('DEBUG B systemPrompt:', res.systemPrompt);
+        }
         return hasSpotify && !hasToolData;
       }
     },
+
 
     {
       name: 'C) Preço com Tool Fixture',
