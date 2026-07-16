@@ -47,52 +47,63 @@ function Index() {
         </div>
       </header>
 
-      {/* Auditoria Final de Marca MIND Concluída */}
+      {/* V2 oficial — V1 desativada */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground">Auditoria Final de Marca MIND: CONCLUÍDA</h2>
-        <p className="mt-2 text-lg font-semibold text-success">A Agente Mind V2 agora representa exclusivamente a identidade MIND.</p>
-        
+        <h2 className="text-xl font-bold text-foreground">Agente Mind V2 — Cérebro Oficial e Único</h2>
+        <p className="mt-2 text-lg font-semibold text-success">
+          V1 desativada. Shadow Mode removido. Somente o número autorizado executa a IA.
+        </p>
+
         <div className="mt-6 space-y-4">
           <div className="space-y-3">
             <h3 className="font-bold text-foreground flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-success" />
-              RESULTADOS DA VARREDURA
+              NÚMERO AUTORIZADO
             </h3>
-            <p className="text-sm text-muted-foreground">Foram removidas todas as referências residuais a marcas anteriores:</p>
-            <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground ml-2">
-              <li className="line-through opacity-50">Smoke Music (Removido de placeholders e exemplos)</li>
-              <li className="line-through opacity-50">Sourcee (Removido de comentários técnicos e testes)</li>
-              <li className="line-through opacity-50">Fox World Panel (Sem ocorrências ativas encontradas)</li>
-            </ul>
+            <p className="text-sm font-mono text-foreground">+55 11 97011-6430</p>
+            <p className="text-xs text-muted-foreground">
+              Qualquer outro número é bloqueado no webhook antes de qualquer chamada de IA —
+              zero prompt, zero ferramenta, zero custo.
+            </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-border/50">
             <div className="space-y-3">
-              <h3 className="font-bold text-foreground">IDENTIDADE UNIFICADA</h3>
+              <h3 className="font-bold text-foreground">V1 DESATIVADA</h3>
               <ul className="list-disc list-inside text-xs space-y-2 text-muted-foreground">
-                <li><b>Júlia da MIND:</b> Única identidade permitida.</li>
-                <li><b>Módulos MIND:</b> 46/46 módulos auditados.</li>
-                <li><b>Exemplos:</b> Todos os placeholders são genéricos ou MIND.</li>
+                <li>Nenhum webhook chama o cérebro V1.</li>
+                <li>Nenhum prompt/módulo/métrica da V1 é carregado.</li>
+                <li>Código V1 mantido apenas como contingência técnica.</li>
+                <li>Shadow Mode e comparação V1 x V2 removidos.</li>
               </ul>
             </div>
 
             <div className="space-y-3">
-              <h3 className="font-bold text-foreground">ARQUIVOS ATUALIZADOS</h3>
-              <ul className="text-xs text-muted-foreground space-y-1 font-mono">
-                <li>src/components/CreateWorkspaceWizard.tsx</li>
-                <li>src/lib/ai.server.ts</li>
-                <li>src/lib/opening-kinds.ts</li>
-                <li>tests/agent-conversation.test.ts</li>
+              <h3 className="font-bold text-foreground">V2 ATIVA (número autorizado)</h3>
+              <ul className="list-disc list-inside text-xs space-y-2 text-muted-foreground">
+                <li>Analytics, Guard Engine, Model Router, Conversation State.</li>
+                <li>Envio normal da resposta V2.</li>
+                <li>Consulta de serviços e registro de métricas.</li>
               </ul>
             </div>
           </div>
 
+          <div className="pt-4 border-t border-border/50">
+            <h3 className="font-bold text-foreground text-sm">ARQUIVOS ALTERADOS</h3>
+            <ul className="mt-2 text-xs text-muted-foreground space-y-1 font-mono">
+              <li>src/lib/agent-v2/authorized-phones.ts (novo)</li>
+              <li>src/lib/agent-v2/resolver.ts</li>
+              <li>src/routes/api/public/hooks/uazapi-webhook.ts (gate V2)</li>
+              <li>tests/agent-v2/resolver.test.ts</li>
+            </ul>
+          </div>
+
           <div className="flex items-center justify-between border-t border-border pt-4 mt-4">
             <div className="text-xs font-bold text-success uppercase tracking-widest">
-              AGENTE MIND V2 — 100% EXCLUSIVO
+              Arquitetura V2 — Única Ativa
             </div>
             <div className="text-xs text-muted-foreground">
-              Infraestrutura e Identidade prontas para o Shadow Mode.
+              Nenhum outro número gera custo de IA.
             </div>
           </div>
         </div>
