@@ -46,7 +46,9 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "musica_cliente", title: "Música do Cliente", emoji: "🎧" },
   { key: "aprendizado_continuo", title: "Aprendizado Contínuo", emoji: "📚" },
   { key: "playlist_promo", title: "Pacotes de Playlist (Promoção)", emoji: "🎼" },
+  { key: "tabela_precos", title: "Tabela de Preços Manual", emoji: "🏷️" },
 ];
+
 
 export const DEFAULT_MODULES: Record<string, string> = {
   identidade: `MÓDULO IDENTIDADE
