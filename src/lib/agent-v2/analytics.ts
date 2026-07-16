@@ -9,8 +9,9 @@ import {
   QualityFlags,
   CustomerStage
 } from './analytics.types';
+import { createHmac } from 'crypto';
 
-// Mock config for now - will be replaced by DB queries
+// Mock config for now - will be replaced by DB queries in persistence.server.ts
 const MODEL_PRICING: ModelPricingConfigV2[] = [
   {
     provider: 'anthropic',
@@ -40,6 +41,7 @@ const MODEL_PRICING: ModelPricingConfigV2[] = [
 
 /**
  * Calculates the estimated cost of a turn based on token usage and model pricing.
+ * Selection is based on the valid tariff for the call date (simplified here).
  */
 export function calculateEstimatedCost(
   model: string | null,
@@ -48,11 +50,19 @@ export function calculateEstimatedCost(
     output: number;
     cacheCreation?: number;
     cacheRead?: number;
-  }
+  },
+  callDate: string = new Date().toISOString()
 ): { cost: number | null; warning?: string } {
   if (!model) return { cost: 0 };
   
-  const pricing = MODEL_PRICING.find(p => p.model === model);
+  // Selection logic: filter by model and ensure callDate is within effective range
+  const pricing = MODEL_PRICING.find(p => {
+    const from = new Date(p.effectiveFrom).getTime();
+    const until = p.effectiveUntil ? new Date(p.effectiveUntil).getTime() : Infinity;
+    const now = new Date(callDate).getTime();
+    return p.model === model && now >= from && now <= until;
+  });
+
   if (!pricing) {
     return { cost: null, warning: 'pricing_config_missing' };
   }
@@ -119,7 +129,6 @@ export function calculateQualityScores(flags: QualityFlags): {
   const commercial = calculate(categories.commercial);
   const safety = calculate(categories.safety);
   
-  // Overall is the average of applicable flags across all categories
   const allKeys = [...categories.structural, ...categories.commercial, ...categories.safety];
   const overall = calculate(allKeys);
 
@@ -128,15 +137,18 @@ export function calculateQualityScores(flags: QualityFlags): {
 
 /**
  * Hashes a phone number for privacy-compliant storage.
- * Uses a workspace-specific salt if available to prevent global correlation.
+ * Uses HMAC-SHA256 with a workspace-scoped secret.
  */
-export async function hashPhoneNumber(phone: string, workspaceId?: string): Promise<string> {
-  const encoder = new TextEncoder();
-  // Secret should be a server-side environment variable.
-  // Including workspaceId in salt ensures a phone hash is unique to that workspace.
-  const salt = (process.env.PHONE_HASH_SECRET || 'fallback_secret') + (workspaceId || 'global');
-  const data = encoder.encode(phone + salt);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+export function hashPhoneNumber(phone: string, workspaceId: string): string {
+  const secret = process.env.PHONE_HASH_SECRET;
+  if (!secret) {
+    console.warn('[Analytics] PHONE_HASH_SECRET not configured. Using temporary fallback salt.');
+  }
+  
+  // Hash = HMAC(key=secret+workspaceId, message=phone)
+  const hmacKey = (secret || 'temp_fallback_secret') + workspaceId;
+  return createHmac('sha256', hmacKey)
+    .update(phone)
+    .digest('hex');
 }
+
