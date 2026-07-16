@@ -18,18 +18,25 @@ const ANALYTICS_BUFFER: AgentV2TurnAnalytics[] = [];
 
 async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
   // Idempotency check in memory
-  const exists = ANALYTICS_BUFFER.some(t => 
+  const existingIndex = ANALYTICS_BUFFER.findIndex(t => 
     t.workspaceId === data.workspaceId && 
     t.conversationId === data.conversationId && 
     t.turnId === data.turnId
   );
   
-  if (!exists) {
-    ANALYTICS_BUFFER.push(data);
+  if (existingIndex === -1) {
+    ANALYTICS_BUFFER.push({ ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (NEW)`);
+  } else {
+    // Only update if the new data is potentially "more complete" or newer
+    // In a real DB, we use ON CONFLICT DO UPDATE
+    ANALYTICS_BUFFER[existingIndex] = { 
+      ...ANALYTICS_BUFFER[existingIndex], 
+      ...data, 
+      updatedAt: new Date().toISOString() 
+    };
+    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (UPDATED/UPSERT)`);
   }
-  
-  // LOGGING ONLY - No DB write until migration is approved
-  console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (Idempotent: ${!exists})`);
   
   // Future production implementation:
   /*
@@ -43,6 +50,7 @@ async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
   }
   */
 }
+
 
 
 
