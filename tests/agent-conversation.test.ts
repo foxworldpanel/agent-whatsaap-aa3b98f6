@@ -43,7 +43,7 @@ import {
 } from "@/lib/verbose-loop-guard.server";
 
 const OPENING =
-  "Oi, bom dia Romulo! Peguei o seu contato no perfil @sourcee, achei muito bom o conteúdo! Posso te mostrar algo que pode acelerar o crescimento das suas redes?";
+  "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 
 const FAREWELL_PATTERNS = [
   /de\s+nada/i,
