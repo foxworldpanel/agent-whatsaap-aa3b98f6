@@ -58,7 +58,12 @@ export async function runBuilderTests() {
       name: 'B) "Spotify"',
       fn: () => {
         const res = runFlow('Quero Spotify', { ...mockState });
-        return res.systemPrompt.includes('Módulo Spotify') && !res.systemPrompt.includes('consultar_servicos');
+        const hasSpotify = res.systemPrompt.includes('Módulo Spotify');
+        const hasTools = res.systemPrompt.includes('consultar_servicos');
+        if (!hasSpotify || hasTools) {
+          console.log('   DEBUG B:', { hasSpotify, hasTools, selectedModules: res.selectedModules, selectedTools: res.selectedTools });
+        }
+        return hasSpotify && !hasTools;
       }
     },
     {
