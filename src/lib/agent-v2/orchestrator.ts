@@ -9,6 +9,9 @@ import { buildPromptV2 } from './prompt-builder';
 import { runGuardEngineV2 } from './guard-engine';
 import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
+import { determineCustomerStage, calculateQualityScores, calculateEstimatedCost } from './analytics';
+import { AgentV2TurnAnalytics, QualityFlags } from './analytics.types';
+
 
 /**
  * Executes a full Agent Mind V2 turn in an isolated environment.
