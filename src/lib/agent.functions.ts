@@ -28,6 +28,7 @@ function extractPanelGuideStoragePath(url?: string | null): string | null {
 }
 
 export const getAgentConfig = createServerFn({ method: "GET" })
+
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
