@@ -47,60 +47,61 @@ function Index() {
         </div>
       </header>
 
-      {/* Analytics Engine V2 - Smoke Test Briefing */}
+      {/* Analytics Engine V2 - Brand Audit Briefing */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground">APROVADO.</h2>
-        <p className="mt-2 text-lg font-semibold text-primary">Pode executar o SMOKE TEST DA PERSISTÊNCIA ANALYTICS V2 EM PRODUÇÃO.</p>
-        <p className="text-sm text-muted-foreground">Autorização limitada somente aos testes de infraestrutura.</p>
+        <h2 className="text-xl font-bold text-foreground">Auditoria Final de Marca: Agente Mind V2</h2>
+        <p className="mt-2 text-lg font-semibold text-primary">Objetivo: Garantir exclusividade da identidade MIND.</p>
         
         <div className="mt-6 space-y-4">
           <div className="space-y-3">
             <h3 className="font-bold text-destructive flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-destructive" />
-              REFORÇOS OBRIGATÓRIOS
+              VERIFICAÇÃO DE REFERÊNCIAS
             </h3>
-            <ul className="list-decimal list-inside text-sm space-y-2 text-muted-foreground">
-              <li>
-                Sempre que possível execute os testes dentro de uma transação.
-                <ul className="ml-6 list-disc text-xs mt-1">
-                  <li>Se algum teste falhar: rollback automático, nenhum dado temporário permanece, nenhuma tabela fica alterada.</li>
-                </ul>
-              </li>
-              <li>
-                Registrar métricas de performance:
-                <ul className="ml-6 list-disc text-xs mt-1">
-                  <li>Tempo do insert, upsert, agregação, cleanup e total da suíte.</li>
-                </ul>
-              </li>
-              <li>
-                Registrar também:
-                <ul className="ml-6 list-disc text-xs mt-1">
-                  <li>Quantidade de queries executadas, linhas inseridas, atualizadas e removidas.</li>
-                </ul>
-              </li>
-              <li>Todos os dados criados devem possuir um identificador único de smoke test para permitir limpeza completa.</li>
-              <li>
-                Ao finalizar, confirmar explicitamente:
-                <ul className="ml-6 list-disc text-xs mt-1">
-                  <li>Zero registros temporários restantes, webhook sem integração V2, nenhum cliente processado, nenhuma chamada ao Claude e nenhum custo de IA gerado.</li>
-                </ul>
-              </li>
-              <li>
-                Entregar um relatório contendo:
-                <ul className="ml-6 list-disc text-xs mt-1">
-                  <li>Resultado de cada teste, tempos de execução, desempenho da RPC e agregação, resultado do cleanup e conclusão (APROVADO, APROVADO COM RESSALVAS ou BLOQUEADO).</li>
-                </ul>
-              </li>
+            <p className="text-sm text-muted-foreground">Buscar e remover qualquer menção a marcas anteriores:</p>
+            <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground ml-2">
+              <li>Smoke Music</li>
+              <li>Sourcee</li>
+              <li>Fox World Panel</li>
+              <li>Outras marcas ou domínios legados</li>
             </ul>
           </div>
 
-          <div className="flex items-center justify-between border-t pt-4">
-            <div className="text-xs font-bold text-warning uppercase tracking-widest">
-              Fase: Smoke Test Autorizado
+          <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-border/50">
+            <div className="space-y-3">
+              <h3 className="font-bold text-foreground flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                CHECKLIST DE IDENTIDADE
+              </h3>
+              <ul className="list-disc list-inside text-xs space-y-2 text-muted-foreground">
+                <li>Identidade da IA: Somente <b>Júlia da MIND</b>.</li>
+                <li>Módulos: Pertencimento exclusivo à <b>MIND</b>.</li>
+                <li>Prompts: Limpeza total de referências externas.</li>
+                <li>Exemplos: Todos baseados em serviços <b>MIND</b>.</li>
+                <li>Configurações: Remoção de feature flags órfãs.</li>
+              </ul>
             </div>
-            <div className="text-xs text-muted-foreground flex gap-4">
-              <span>Não alterar o webhook neste commit.</span>
-              <span>Não iniciar Shadow Mode neste commit.</span>
+
+            <div className="space-y-3">
+              <h3 className="font-bold text-foreground flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                PLANO DE AÇÃO
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Se encontrada qualquer referência antiga: remover imediatamente, atualizar os testes e documentar os arquivos alterados no relatório final.
+              </p>
+              <div className="rounded-lg bg-muted p-3 text-[10px] font-mono text-muted-foreground italic">
+                A Agente Mind V2 deve representar exclusivamente a MIND.
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border pt-4 mt-4">
+            <div className="text-xs font-bold text-warning uppercase tracking-widest">
+              Fase: Auditoria de Marca MIND
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Aguardando conclusão da varredura integral.
             </div>
           </div>
         </div>
