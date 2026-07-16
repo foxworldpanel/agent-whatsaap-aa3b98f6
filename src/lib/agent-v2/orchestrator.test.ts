@@ -2,9 +2,9 @@
  * Agent Mind V2 - E2E Tests
  */
 
-import { runAgentV2Turn } from './orchestrator';
-import { ConversationStateV2 } from './conversation-state.types';
-import { AgentV2E2EInput } from './orchestrator.types';
+import { runAgentV2Turn } from './orchestrator.ts';
+import { ConversationStateV2 } from './conversation-state.types.ts';
+import { AgentV2E2EInput } from './orchestrator.types.ts';
 
 const INITIAL_STATE: ConversationStateV2 = {
   conversationId: 'test-e2e',
