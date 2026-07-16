@@ -149,7 +149,7 @@ async function runE2ETests() {
   console.log("\n=== HOMOLOGAÇÃO E2E CONCLUÍDA ===\n");
 }
 
-function createInput(state: ConversationStateV2, message: string, fixtures: any = {}): AgentV2E2EInput {
+export function createInput(state: ConversationStateV2, message: string, fixtures: any = {}): AgentV2E2EInput {
   return {
     workspaceId: state.workspaceId,
     conversationId: state.conversationId,
