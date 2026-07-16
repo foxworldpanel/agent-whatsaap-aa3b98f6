@@ -75,7 +75,7 @@ export function routeModulesV2(input: RouteModulesV2Input): RouteModulesV2Output
       toolCount: selectedTools.size,
       tutorialCount: selectedTutorials.size,
       routingDurationMs: duration,
-      warningsCount: warnings.size ?? warnings.length
+      warningsCount: warnings.length
     }
   };
 }
