@@ -207,7 +207,7 @@ export function PriceTableCard() {
               </Button>
               <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
                 <Save className="mr-2 h-4 w-4" />
-                {save.isPending ? "Salvando..." : "Atualizar agente"}
+                {save.isPending ? "Salvando..." : "Salvar tabela"}
               </Button>
             </div>
           </div>
