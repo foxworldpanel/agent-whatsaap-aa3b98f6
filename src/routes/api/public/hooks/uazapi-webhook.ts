@@ -692,6 +692,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("invalid phone");
         }
 
+        // ============================================================
+        // 🔒 GATE V2: Agente Mind V2 é o cérebro oficial e ÚNICO.
+        // A V1 está desativada. Apenas o número autorizado executa a IA.
+        // Qualquer outro número é ignorado ANTES de qualquer chamada
+        // ao Claude, prompt, ferramenta ou métrica → zero custo.
+        // ============================================================
+        {
+          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
+          if (!msg.fromMe && !isAuthorizedV2Phone(phone)) {
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                phone,
+                type: "message_received",
+                level: "info",
+                summary: "🚫 Número não autorizado — IA V2 desativada para este número (V1 arquivada).",
+              });
+            } catch {}
+            return new Response("ok (non-authorized number, AI disabled)");
+          }
+        }
+
         // 🔍 Log de entrada do webhook (diagnóstico por número)
         console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
 
