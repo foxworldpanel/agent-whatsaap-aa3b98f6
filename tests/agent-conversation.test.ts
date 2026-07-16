@@ -1509,8 +1509,8 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
     });
     expect(EXEMPLO_BODY_SIGNATURE.test(prompt)).toBe(true);
     // E o exemplo já NÃO contém mais nome/handle real hardcoded.
-    expect(/Romulo/.test(prompt), "FALHOU: nome real 'Romulo' hardcoded no exemplo").toBe(false);
-    expect(/@sourcee/.test(prompt), "FALHOU: handle real '@sourcee' hardcoded no exemplo").toBe(false);
+    expect(prompt).not.toContain("Romulo");
+    expect(prompt).not.toContain("@sourcee");
   });
 
   it("pipeline runtime (generateAgentReplyWithMeta) em conversa organic também NÃO injeta o exemplo", async () => {
