@@ -3,6 +3,7 @@ import { runBuilderTests } from './prompt-builder.test';
 import { runSpotifyTests } from './spotify.test';
 import { runFullHomologationSuite } from './homologation.test';
 import { runModelRouterTests } from './model-router.test';
+import { runGuardEngineTests } from './guard-engine.test';
 
 async function main() {
   // Testes de Unidade e Lógica
@@ -10,10 +11,12 @@ async function main() {
   await runBuilderTests();
   await runSpotifyTests();
   await runModelRouterTests();
+  await runGuardEngineTests();
   
   // Testes de Homologação (Fluxos Completos)
   await runFullHomologationSuite();
 }
 
 main().catch(console.error);
+
 
