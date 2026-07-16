@@ -133,7 +133,22 @@ function applyIntentRouting(
   }
 
   // Network module loading
-  if (detectedNetwork !== 'unknown') {
+  if (detectedNetwork === 'spotify') {
+    selectedModules.add('spotify_overview');
+    
+    // Submodule selection for Spotify
+    if (msg.includes('playlist') || msg.includes('música') || state.service === 'playlist') {
+      selectedModules.add('spotify_playlist');
+      if (detectedNetwork === 'spotify' && state.service !== 'playlist') {
+         stateEvents.push({ type: 'service_detected', value: 'playlist' });
+      }
+    } else if (msg.includes('seguidores') || msg.includes('perfil') || msg.includes('artista') || state.service === 'followers') {
+      selectedModules.add('spotify_followers');
+      if (detectedNetwork === 'spotify' && state.service !== 'followers') {
+        stateEvents.push({ type: 'service_detected', value: 'followers' });
+      }
+    }
+  } else if (detectedNetwork !== 'unknown') {
     selectedModules.add(detectedNetwork as V2Module);
   }
 
@@ -152,6 +167,9 @@ function applyIntentRouting(
 
     case 'buy':
       selectedModules.add('panel');
+      if (msg.includes('fechar') || msg.includes('comprar')) {
+        // Conduct to checkout
+      }
       break;
 
     case 'payment':
@@ -161,7 +179,15 @@ function applyIntentRouting(
 
     case 'support':
       selectedModules.add('support');
-      // Remove commercial/network if it's strictly support, unless multi-intent (handled by loop)
+      // If it's strictly support, we might want to remove commercial modules
+      // but in a loop of intents, we just add what's needed.
+      // The instruction says "sem módulo comercial Spotify" when it's a support request about Spotify.
+      if (msg.includes('pedido') || msg.includes('caiu')) {
+        selectedModules.delete('spotify_overview');
+        selectedModules.delete('spotify_playlist');
+        selectedModules.delete('spotify_followers');
+        selectedModules.delete('commercial');
+      }
       break;
 
     case 'tutorial':
@@ -182,14 +208,13 @@ function applyIntentRouting(
       break;
 
     case 'comparison':
-      // If comparing, might need multiple network modules
-      // For now, handled by detectedNetwork logic + extra check
       if (msg.includes('instagram') && msg.includes('tiktok')) {
         selectedModules.add('instagram');
         selectedModules.add('tiktok');
       }
       break;
   }
+
 }
 
 function generateRoutingReason(intents: V2Intent[], network: V2Network): string {
