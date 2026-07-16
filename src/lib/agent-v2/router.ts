@@ -9,7 +9,7 @@ import {
   V2Tool, 
   V2Tutorial 
 } from './router.types';
-import { V2Intent, V2Network, V2StateEvent } from './conversation-state.types';
+import { V2Intent, V2Network, V2StateEvent, ConversationStateV2 } from './conversation-state.types';
 
 /**
  * Pure function to route modules based on input
