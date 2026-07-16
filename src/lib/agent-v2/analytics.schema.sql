@@ -37,6 +37,7 @@ CREATE TABLE public.agent_v2_model_pricing (
         model WITH =, 
         tstzrange(effective_from, COALESCE(effective_until, 'infinity'::timestamptz), '[)') WITH &&
     )
+
 );
 
 -- Pricing Security
