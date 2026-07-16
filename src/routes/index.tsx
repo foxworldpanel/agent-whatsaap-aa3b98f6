@@ -49,61 +49,57 @@ function Index() {
 
       {/* V2 oficial — V1 desativada */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground">Plano de Migração — Agente Mind V2</h2>
+        <h2 className="text-xl font-bold text-foreground">Integração Agente Mind V2</h2>
         <div className="mt-4 space-y-4 text-sm text-muted-foreground leading-relaxed">
           <p>
-            A auditoria foi aprovada. Ela mostrou que a arquitetura V2 existe, porém não está integrada ao fluxo de produção. Vamos seguir pela OPÇÃO A.
+            Vamos iniciar a integração da arquitetura V2. A auditoria mostrou que toda a arquitetura já existe. 
+            O problema é que ela não está conectada ao fluxo de produção.
           </p>
-          <p className="font-bold text-foreground">IMPORTANTENão quero uma migração cega. Quero uma migração controlada, verificável e reversível.</p>
+          <div className="bg-primary/5 p-3 rounded border border-primary/10">
+            <p className="font-bold text-primary">OBJETIVO: Substituir gradualmente o fluxo atual pelo fluxo V2.</p>
+            <p className="mt-1 font-semibold text-foreground italic">IMPORTANTE: Não quero reescrever a V2. Ela já existe. Quero apenas conectá-la.</p>
+          </div>
           
           <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 1 — PLANO DE MIGRAÇÃO</h3>
-            <p className="mb-2">Antes de alterar qualquer código, elaborar um plano técnico contendo:</p>
-            <ol className="list-decimal list-inside space-y-1 ml-2">
-              <li>Fluxo atual (V1)</li>
-              <li>Fluxo futuro (V2)</li>
-              <li>Arquivos que deixarão de ser utilizados</li>
-              <li>Arquivos que passarão a ser utilizados</li>
-              <li>Pontos de integração</li>
-              <li>Ordem da migração</li>
-              <li>Estratégia de rollback</li>
-            </ol>
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 1 — ORCHESTRATOR</h3>
+            <p className="mb-2">Integrar o Orchestrator V2 ao webhook.</p>
+            <div className="flex items-center gap-4 text-xs font-mono bg-muted p-2 rounded">
+              <div className="text-destructive">Hoje: Webhook ↓ generateAgentReplyWithMeta()</div>
+              <div className="text-muted-foreground">→</div>
+              <div className="text-success">Quero: Webhook ↓ runAgentV2Turn()</div>
+            </div>
           </div>
 
           <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 2 — INTEGRAÇÃO DO ORCHESTRATOR</h3>
-            <p>Substituir gradualmente a chamada de <code className="bg-muted px-1 rounded text-foreground">generateAgentReplyWithMeta()</code> pela arquitetura V2. O webhook deve passar a executar:</p>
-            <p className="mt-2 font-medium text-primary text-center">
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 2 — EXECUÇÃO</h3>
+            <p>Dentro do Orchestrator garantir a execução desta ordem:</p>
+            <p className="mt-2 font-medium text-primary text-center bg-muted/50 p-2 rounded italic">
               Conversation State ↓ Module Router ↓ Prompt Builder ↓ Model Router ↓ Claude ↓ Guard Engine ↓ Analytics ↓ Resposta
             </p>
           </div>
 
           <div className="pt-4 border-t border-border/50">
             <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 3 — MENU AGENTE IA</h3>
-            <p>Atualizar completamente o menu. O menu deve representar a arquitetura V2. Não deve mais mostrar módulos exclusivos da V1. Os módulos apresentados devem refletir exatamente o Module Registry V2.</p>
+            <p>Atualizar o menu "Agente IA". O menu deve refletir exatamente os módulos utilizados pela arquitetura V2. Não utilizar mais a lista antiga do V1.</p>
           </div>
 
           <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 4 — ANALYTICS</h3>
-            <p>Fazer os relatórios utilizarem o Analytics V2.</p>
-          </div>
-
-          <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 5 — VALIDAÇÃO</h3>
-            <p className="mb-2">Após integrar:</p>
-            <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>executar testes reais;</li>
-              <li>mostrar logs;</li>
-              <li>mostrar módulos carregados;</li>
-              <li>mostrar Prompt Builder ativo;</li>
-              <li>mostrar Conversation State ativo;</li>
-              <li>mostrar Analytics ativo.</li>
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 4 — VALIDAÇÃO</h3>
+            <p className="mb-2">Após integrar, executar um turno real e mostrar:</p>
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-1 list-none ml-2 text-xs">
+              <li>• arquivo chamado</li>
+              <li>• ordem da execução</li>
+              <li>• módulos carregados</li>
+              <li>• prompt builder utilizado</li>
+              <li>• model router utilizado</li>
+              <li>• guard engine utilizado</li>
+              <li>• analytics utilizado</li>
             </ul>
           </div>
 
-          <div className="pt-4 border-t border-border/50 bg-muted/30 p-4 rounded-lg">
-            <h3 className="font-bold text-destructive uppercase tracking-wider text-xs mb-2">IMPORTANTE</h3>
-            <p>Não remover ainda nenhum arquivo da V1. Somente deixar sem uso. A limpeza ocorrerá somente depois que a V2 estiver validada em produção.</p>
+          <div className="pt-4 border-t border-border/50 bg-muted/30 p-4 rounded-lg border border-dashed border-border">
+            <p className="font-bold text-foreground text-xs uppercase mb-1">Nota Técnica:</p>
+            <p className="italic">Não remover nenhum código V1. Somente deixar o fluxo antigo sem uso. A limpeza será feita somente após validação.</p>
           </div>
         </div>
       </div>
