@@ -106,7 +106,7 @@ export function AppShell() {
         </div>
         <nav className="flex-1 space-y-1 px-3">
           {nav.map((item) => {
-            const active = item.to === "/_authenticated/" ? pathname === "/_authenticated" || pathname === "/_authenticated/" : pathname.startsWith(item.to);
+            const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
             const Icon = item.icon;
             return (
               <Link
