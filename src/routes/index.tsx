@@ -6,6 +6,11 @@ import { getDashboardStats } from "@/lib/dashboard.functions";
 
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    throw redirect({
+      to: "/agente",
+    });
+  },
   ssr: false,
 
   head: () => ({
@@ -16,6 +21,7 @@ export const Route = createFileRoute("/")({
   }),
   component: Index,
 });
+
 
 function Index() {
   const getStats = useServerFn(getDashboardStats);
