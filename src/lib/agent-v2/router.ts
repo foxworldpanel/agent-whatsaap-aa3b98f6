@@ -85,10 +85,12 @@ function detectIntents(msg: string): V2Intent | V2Intent[] {
 
   // Rules based on keywords
   if (/^(oi|olá|bom dia|boa tarde|boa noite|opa|eae)/i.test(msg)) detected.push('greeting');
-  if (/(spotify|instagram|youtube|tiktok|facebook|kwai)/i.test(msg)) detected.push('network_detection' as any); // Transitionary intent or logic
-  if (/(preço|valor|quanto|custa|tabela|promoção)/i.test(msg)) detected.push('price');
+  if (/(spotify|instagram|youtube|tiktok|facebook|kwai|música|artista|playlist|seguidores|plays|ouvintes|reproduções|saves)/i.test(msg)) {
+    detected.push('network_detection' as any);
+  }
+  if (/(preço|valor|quanto|custa|tabela|promoção|custar)/i.test(msg)) detected.push('price');
   if (/(como|melhor|diferença|qual)/i.test(msg)) detected.push('comparison');
-  if (/(comprar|assinar|quero|contratar|pedir)/i.test(msg)) detected.push('buy');
+  if (/(comprar|assinar|quero|contratar|pedir|fechar|assinar)/i.test(msg)) detected.push('buy');
   if (/(pagamento|pix|cartão|pagar|saldo|recarga)/i.test(msg)) detected.push('payment');
   if (/(testar|teste|grátis|gratuito)/i.test(msg)) detected.push('free_test');
   if (/(caiu|erro|problema|ajuda|suporte|não funciona|pedido)/i.test(msg)) detected.push('support');
@@ -107,8 +109,11 @@ function detectNetwork(msg: string, currentNetwork: V2Network): V2Network {
   if (msg.includes('tiktok')) return 'tiktok';
   if (msg.includes('facebook')) return 'facebook';
   if (msg.includes('kwai')) return 'kwai';
+  
+  // If no explicit network but message mentions music/playlist/saves, it might be Spotify (but we don't force it if unknown)
   return currentNetwork || 'unknown';
 }
+
 
 function applyIntentRouting(
   intent: V2Intent,
