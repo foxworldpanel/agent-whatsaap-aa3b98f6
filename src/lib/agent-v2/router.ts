@@ -85,10 +85,12 @@ function detectIntents(msg: string): V2Intent | V2Intent[] {
 
   // Rules based on keywords
   if (/^(oi|olá|bom dia|boa tarde|boa noite|opa|eae)/i.test(msg)) detected.push('greeting');
-  if (/(spotify|instagram|youtube|tiktok|facebook|kwai)/i.test(msg)) detected.push('network_detection' as any); // Transitionary intent or logic
-  if (/(preço|valor|quanto|custa|tabela|promoção)/i.test(msg)) detected.push('price');
+  if (/(spotify|instagram|youtube|tiktok|facebook|kwai|música|artista|playlist|seguidores|plays|ouvintes|reproduções|saves)/i.test(msg)) {
+    detected.push('network_detection' as any);
+  }
+  if (/(preço|valor|quanto|custa|tabela|promoção|custar)/i.test(msg)) detected.push('price');
   if (/(como|melhor|diferença|qual)/i.test(msg)) detected.push('comparison');
-  if (/(comprar|assinar|quero|contratar|pedir)/i.test(msg)) detected.push('buy');
+  if (/(comprar|assinar|quero|contratar|pedir|fechar|assinar)/i.test(msg)) detected.push('buy');
   if (/(pagamento|pix|cartão|pagar|saldo|recarga)/i.test(msg)) detected.push('payment');
   if (/(testar|teste|grátis|gratuito)/i.test(msg)) detected.push('free_test');
   if (/(caiu|erro|problema|ajuda|suporte|não funciona|pedido)/i.test(msg)) detected.push('support');
@@ -107,8 +109,11 @@ function detectNetwork(msg: string, currentNetwork: V2Network): V2Network {
   if (msg.includes('tiktok')) return 'tiktok';
   if (msg.includes('facebook')) return 'facebook';
   if (msg.includes('kwai')) return 'kwai';
+  
+  // If no explicit network but message mentions music/playlist/saves, it might be Spotify (but we don't force it if unknown)
   return currentNetwork || 'unknown';
 }
+
 
 function applyIntentRouting(
   intent: V2Intent,
@@ -128,7 +133,22 @@ function applyIntentRouting(
   }
 
   // Network module loading
-  if (detectedNetwork !== 'unknown') {
+  if (detectedNetwork === 'spotify') {
+    selectedModules.add('spotify_overview');
+    
+    // Submodule selection for Spotify
+    if (msg.includes('playlist') || msg.includes('música') || state.service === 'playlist') {
+      selectedModules.add('spotify_playlist');
+      if (detectedNetwork === 'spotify' && state.service !== 'playlist') {
+         stateEvents.push({ type: 'service_detected', value: 'playlist' });
+      }
+    } else if (msg.includes('seguidores') || msg.includes('perfil') || msg.includes('artista') || state.service === 'followers') {
+      selectedModules.add('spotify_followers');
+      if (detectedNetwork === 'spotify' && state.service !== 'followers') {
+        stateEvents.push({ type: 'service_detected', value: 'followers' });
+      }
+    }
+  } else if (detectedNetwork !== 'unknown') {
     selectedModules.add(detectedNetwork as V2Module);
   }
 
@@ -147,6 +167,9 @@ function applyIntentRouting(
 
     case 'buy':
       selectedModules.add('panel');
+      if (msg.includes('fechar') || msg.includes('comprar')) {
+        // Conduct to checkout
+      }
       break;
 
     case 'payment':
@@ -156,7 +179,15 @@ function applyIntentRouting(
 
     case 'support':
       selectedModules.add('support');
-      // Remove commercial/network if it's strictly support, unless multi-intent (handled by loop)
+      // If it's strictly support, we might want to remove commercial modules
+      // but in a loop of intents, we just add what's needed.
+      // The instruction says "sem módulo comercial Spotify" when it's a support request about Spotify.
+      if (msg.includes('pedido') || msg.includes('caiu')) {
+        selectedModules.delete('spotify_overview');
+        selectedModules.delete('spotify_playlist');
+        selectedModules.delete('spotify_followers');
+        selectedModules.delete('commercial');
+      }
       break;
 
     case 'tutorial':
@@ -177,14 +208,13 @@ function applyIntentRouting(
       break;
 
     case 'comparison':
-      // If comparing, might need multiple network modules
-      // For now, handled by detectedNetwork logic + extra check
       if (msg.includes('instagram') && msg.includes('tiktok')) {
         selectedModules.add('instagram');
         selectedModules.add('tiktok');
       }
       break;
   }
+
 }
 
 function generateRoutingReason(intents: V2Intent[], network: V2Network): string {
