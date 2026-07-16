@@ -230,8 +230,9 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       selectedModel: modelRouteResult.selectedModel,
       routingReason: modelRouteResult.routingReason,
       complexity: 'medium',
-      selectedModules: routeResult.selectedModules.map(m => m.name),
-      selectedTools: routeResult.selectedTools.map(t => t.name),
+      selectedModules: routeResult.selectedModules as string[],
+      selectedTools: routeResult.selectedTools as string[],
+
       selectedTutorials: [],
       toolCallCount: routeResult.selectedTools.length,
       toolSuccessCount: routeResult.selectedTools.length,
