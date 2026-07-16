@@ -47,121 +47,107 @@ function Index() {
         </div>
       </header>
 
-      {/* Analytics Engine V2 - Shadow Mode Briefing */}
+      {/* Analytics Engine V2 - Smoke Test Briefing */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground">A migração da infraestrutura Analytics V2 em produção foi aprovada.</h2>
-        <p className="mt-2 text-lg font-semibold text-primary">Agora execute a próxima fase: SHADOW MODE V2 CONTROLADO — SOMENTE NÚMERO DO PROPRIETÁRIO</p>
+        <h2 className="text-xl font-bold text-foreground">A preparação do Shadow Mode foi aprovada parcialmente.</h2>
+        <p className="mt-2 text-lg font-semibold text-primary">Agora execute somente: SMOKE TEST DA PERSISTÊNCIA ANALYTICS V2 EM PRODUÇÃO</p>
         
         <div className="mt-4 grid gap-6 md:grid-cols-2">
           <div className="space-y-3">
             <h3 className="font-bold text-destructive flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-destructive" />
-              IMPORTANTE
+              BLOQUEIOS RÍGIDOS
             </h3>
             <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-              <li>Não ativar para clientes.</li>
-              <li>Não mudar nenhum workspace inteiro para v2_shadow.</li>
-              <li>Não enviar respostas da V2.</li>
-              <li>A V1 continua sendo a única versão que responde.</li>
-              <li>A V2 deve executar somente quando o número recebido estiver na lista de shadow autorizada.</li>
-              <li>Neste primeiro momento, autorizar apenas o meu número.</li>
-              <li>Não executar teste grátis real.</li>
-              <li>Não criar pedidos.</li>
-              <li>Não alterar o comportamento comercial da V1.</li>
+              <li>Não integrar o Shadow ao webhook ainda.</li>
+              <li>Não executar a V2 com mensagens reais.</li>
+              <li>Não chamar Claude.</li>
+              <li>Não alterar agent_brain_version.</li>
+              <li>Não enviar nenhuma resposta V2.</li>
+              <li>Não executar ferramentas de escrita (teste grátis, áudio).</li>
             </ul>
           </div>
 
           <div className="space-y-3">
             <h3 className="font-bold text-foreground flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-primary" />
-              OBJETIVO
+              1. VALIDAR CONFIGURAÇÃO
             </h3>
-            <p className="text-sm text-muted-foreground">
-              Conectar a V2 ao fluxo real apenas para gerar uma resposta paralela, não enviada, usando mensagens do número autorizado.
-            </p>
-            <div className="rounded-lg bg-muted p-3 text-xs font-mono space-y-1">
-              <p>Fluxo:</p>
-              <p>Mensagem recebida do número autorizado</p>
-              <p>→ V1 continua normalmente</p>
-              <p>→ V2 executa em paralelo</p>
-              <p>→ resposta V2 não é enviada</p>
-              <p>→ Analytics V2 registra o turno</p>
-              <p>→ comparação V1 x V2 fica disponível</p>
-              <p className="mt-2 text-muted-foreground italic">Para qualquer outro número: → somente V1</p>
-            </div>
+            <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+              <li>ANALYTICS_MODE=supabase (backend only).</li>
+              <li>PHONE_HASH_SECRET configurado.</li>
+              <li>v2_shadow_phone_numbers com número autorizado.</li>
+              <li>Workspaces permanecem em v1.</li>
+              <li>Webhook intocado.</li>
+            </ul>
           </div>
         </div>
 
         <div className="mt-8 space-y-6 border-t pt-6">
-          <section>
-            <h3 className="font-bold text-foreground">1. TESTE FINAL DA PERSISTÊNCIA EM PRODUÇÃO</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              Antes de editar o webhook, ativar temporariamente o SupabaseAgentV2AnalyticsRepository apenas em um teste administrativo controlado.
-            </p>
-            <div className="mt-2 rounded-lg border p-3 bg-muted/50 text-xs font-mono">
-              <p>execution_mode=isolated_test</p>
-              <p>sent_to_customer=false</p>
-              <p>conversation_id=analytics-production-smoke-test</p>
-            </div>
-            <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <li>• insert real</li>
-              <li>• RPC upsert_agent_v2_turn_analytics</li>
-              <li>• segundo upsert não cria outra linha</li>
-              <li>• sent_to_customer permanece false</li>
-              <li>• contadores maiores são preservados</li>
-              <li>• agregação da conversa</li>
-              <li>• consulta por service_role</li>
-              <li>• RLS bloqueia usuário de outro workspace</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="font-bold text-foreground">2. PHONE_HASH_SECRET</h3>
-            <p className="text-sm text-muted-foreground mt-1">Configurar exclusivamente no backend de produção.</p>
-            <ul className="mt-2 list-disc list-inside text-xs text-muted-foreground space-y-1">
-              <li>Segredo forte e aleatório; nunca expor ao navegador; nunca registrar em logs.</li>
-              <li>Documentar procedimento de rotação; manter versão ou key_id.</li>
-              <li>Validar: mesmo número + workspace = mesmo hash; telefone puro não aparece.</li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="font-bold text-foreground">3. CONFIGURAÇÃO DE SHADOW POR NÚMERO</h3>
-            <p className="text-sm text-muted-foreground mt-1">Criar a configuração v2_shadow_phone_numbers.</p>
-            <ul className="mt-2 list-disc list-inside text-xs text-muted-foreground space-y-1">
-              <li>Número normalizado; somente meu número inicialmente.</li>
-              <li>Lista vazia por padrão; alteração sem deploy.</li>
-              <li>Não mostrar o número completo em logs ou relatórios.</li>
-            </ul>
-          </section>
-
           <section className="grid md:grid-cols-2 gap-6">
             <div>
-              <h3 className="font-bold text-foreground">4. RESOLUÇÃO DA VERSÃO</h3>
-              <p className="text-sm text-muted-foreground mt-1">Regra: Se v1 e telefone em shadow list → V1 normal + V2 silencioso.</p>
+              <h3 className="font-bold text-foreground">2. DADOS TEMPORÁRIOS</h3>
+              <p className="text-sm text-muted-foreground mt-1">Identificadores isolados:</p>
+              <div className="mt-2 rounded-lg border p-3 bg-muted/50 text-xs font-mono">
+                <p>execution_mode: isolated_test</p>
+                <p>sent_to_customer: false</p>
+                <p>conversation_id: analytics-v2-production-smoke-*</p>
+              </div>
             </div>
             <div>
-              <h3 className="font-bold text-foreground">5. INTEGRAÇÃO NO WEBHOOK</h3>
-              <p className="text-sm text-muted-foreground mt-1">Execução best-effort: falha da V2 não bloqueia V1. Usar timeout.</p>
+              <h3 className="font-bold text-foreground">3. REPOSITÓRIO REAL</h3>
+              <ul className="mt-2 list-disc list-inside text-xs text-muted-foreground space-y-1">
+                <li>Persistência, consulta e upsert real.</li>
+                <li>Agregação de conversa via banco.</li>
+                <li>Não usar repositório em memória.</li>
+              </ul>
             </div>
           </section>
 
           <section className="bg-muted/30 p-4 rounded-lg">
-            <h3 className="font-bold text-foreground flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              9. COMPARAÇÃO V1 X V2
-            </h3>
-            <p className="text-xs text-muted-foreground mt-2">
-              Marcar automaticamente: preço diferente, plataforma diferente, serviço diferente, V2 inventou informação, repetiu pergunta ou perdeu venda.
+            <h3 className="font-bold text-foreground">4. TESTAR IDEMPOTÊNCIA</h3>
+            <div className="mt-2 grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <p className="font-semibold">Gravação 1:</p>
+                <p className="text-muted-foreground">regeneration=0, tool_calls=1, sent=false</p>
+              </div>
+              <div>
+                <p className="font-semibold">Gravação 2 (mesmo ID):</p>
+                <p className="text-muted-foreground">regeneration=1, tool_calls=2, blocked=true</p>
+              </div>
+            </div>
+            <p className="mt-2 text-[10px] text-muted-foreground italic uppercase">
+              Validar: Linha única, regeneration=1, tool_calls=2, blocked=true, created_at original.
             </p>
+          </section>
+
+          <section className="grid md:grid-cols-3 gap-6">
+            <div>
+              <h3 className="font-bold text-foreground">5. TESTAR HMAC</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Workspace A vs B gera hashes diferentes. Telefone puro nunca vaza.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground">6. FALHA SEM SEGREDO</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Simular ausência de segredo: erro seguro, persistência ignorada, fluxo não fatal.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-bold text-foreground">7. TESTAR RLS</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Permissões: service_role ok, owner ok, anon/outro workspace bloqueado.
+              </p>
+            </div>
           </section>
 
           <div className="flex items-center justify-between border-t pt-4">
             <div className="text-xs font-bold text-warning uppercase tracking-widest">
-              Aguardando aprovação do Shadow Mode
+              Aguardando aprovação do Smoke Test
             </div>
             <div className="text-xs text-muted-foreground">
-              Não ativar v2_pilot ainda.
+              Não integrar ao webhook neste commit.
             </div>
           </div>
         </div>
