@@ -41,7 +41,7 @@ export async function runRouterTests() {
       name: 'B) "Spotify"',
       input: 'Quero Spotify',
       state: { ...mockState },
-      expectedModules: ['mission', 'identity', 'guards', 'receptive', 'commercial', 'spotify']
+      expectedModules: ['mission', 'identity', 'guards', 'receptive', 'commercial', 'spotify_overview']
     },
     {
       name: 'D) "Meu pedido caiu"',
