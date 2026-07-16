@@ -64,10 +64,9 @@ export class SupabaseAgentV2AnalyticsRepository implements AgentV2AnalyticsRepos
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     
     // Using the RPC for idempotent upsert with regression prevention
-    const { error } = await supabaseAdmin.rpc('upsert_agent_v2_turn_analytics', {
+    const { error } = await (supabaseAdmin as any).rpc('upsert_agent_v2_turn_analytics', {
       p_turn: {
         ...data,
-        // Ensure arrays are initialized if missing (safety)
         selected_modules: data.selectedModules || [],
         selected_tools: data.selectedTools || [],
         selected_tutorials: data.selectedTutorials || [],
@@ -85,7 +84,7 @@ export class SupabaseAgentV2AnalyticsRepository implements AgentV2AnalyticsRepos
 
   async getConversationTurns(workspaceId: string, conversationId: string): Promise<AgentV2TurnAnalytics[]> {
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (supabaseAdmin as any)
       .from('agent_v2_turn_analytics')
       .select('*')
       .eq('workspace_id', workspaceId)
@@ -97,13 +96,14 @@ export class SupabaseAgentV2AnalyticsRepository implements AgentV2AnalyticsRepos
 
   async persistConversation(data: AgentV2ConversationAnalytics): Promise<void> {
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    const { error } = await supabaseAdmin
+    const { error } = await (supabaseAdmin as any)
       .from('agent_v2_conversation_analytics')
       .upsert(data, { onConflict: 'workspace_id,conversation_id' });
 
     if (error) throw error;
   }
 }
+
 
 /**
  * Noop Repository for Fail-Safe / Disabled Analytics
