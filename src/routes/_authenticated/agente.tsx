@@ -192,6 +192,8 @@ function AgentePage() {
         <IdentidadeCard />
         <PlaylistCard />
         <TesteGratisCard />
+        <PriceTableCard />
+
         <MediasCard tipo="video" title="Vídeos tutoriais" emoji="🎬" />
         <MediasCard tipo="imagem" title="Artes e promoções" emoji="🖼️" />
         <Card className="p-4">
