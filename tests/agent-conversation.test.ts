@@ -1458,7 +1458,7 @@ describe("Detecção de mensagem automática de WhatsApp Business (saudação + 
 // Regressão: conversa ORGÂNICA/receptiva NÃO deve receber o
 // EXEMPLO_MODELO_DISPARO no prompt. Regressão real: cliente falando sobre
 // a banda dele, no meio da conversa apareceu "Oi, bom dia Romulo!" +
-// "Peguei o seu contato no perfil @sourcee" (few-shot literal do exemplo).
+// "Aqui é a Júlia da Mind" (few-shot literal do exemplo).
 // ---------------------------------------------------------------------------
 describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
   const ORGANIC_HISTORY = [
