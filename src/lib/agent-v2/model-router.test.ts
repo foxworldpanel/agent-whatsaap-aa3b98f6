@@ -134,7 +134,7 @@ export async function runModelRouterTests() {
     {
       name: 'J) Comparação Complexa (Strong)',
       input: {
-        currentMessage: 'Qual é melhor, playlist ou seguidores para um lançamento de funk que eu vou fazer agora?',
+        currentMessage: 'Qual é melhor para divulgar meu lançamento: playlist ou seguidores?',
         conversationState: { ...mockState, network: 'spotify' as any },
         routeResult: { ...mockRouteResult, detectedIntent: 'comparison' }
       },
@@ -143,7 +143,49 @@ export async function runModelRouterTests() {
         selectedModel: MODEL_CONFIG_V2.strongModel,
         routingReason: 'objection_complex'
       }
+    },
+    {
+      name: 'F) Áudio curto: "Quero seguidores"',
+      input: {
+        currentMessage: 'Quero seguidores',
+        conversationState: { ...mockState, network: 'spotify' as any },
+        routeResult: { ...mockRouteResult, detectedIntent: 'network_detection' as any },
+        hasAudio: true
+      },
+      expected: {
+        useLlm: true,
+        selectedModel: MODEL_CONFIG_V2.lightweightModel,
+        requiresTranscription: true,
+        routingReason: 'audio_simple'
+      }
+    },
+    {
+      name: 'K) "Meu pedido caiu" (Deterministic)',
+      input: {
+        currentMessage: 'Meu pedido caiu',
+        conversationState: { ...mockState },
+        routeResult: { ...mockRouteResult, detectedIntent: 'support' as any }
+      },
+      expected: {
+        useLlm: false,
+        selectedModel: null,
+        routingReason: 'deterministic_state'
+      }
+    },
+    {
+      name: 'L) Callback de teste concluído',
+      input: {
+        currentMessage: 'teste concluído',
+        conversationState: { ...mockState },
+        routeResult: { ...mockRouteResult, detectedIntent: 'unknown' as any }
+      },
+      expected: {
+        useLlm: false,
+        selectedModel: null,
+        routingReason: 'deterministic_state'
+      }
     }
+
   ];
 
   let passed = 0;
