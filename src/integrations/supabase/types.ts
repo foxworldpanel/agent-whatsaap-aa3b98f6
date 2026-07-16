@@ -2963,71 +2963,27 @@ export type Database = {
           whatsapp_number_id: string
         }[]
       }
-      upsert_agent_v2_turn_analytics: {
-        Args: {
-          p_turn: Database["public"]["Tables"]["agent_v2_turn_analytics"]["Row"]
-        }
-        Returns: {
-          blocked: boolean
-          brain_version: string
-          builder_version: string
-          cache_creation_input_tokens: number
-          cache_read_input_tokens: number
-          cacheable_prefix_tokens: number
-          commercial_quality_score: number | null
-          complexity: string | null
-          conversation_id: string
-          created_at: string
-          currency: string
-          current_step: string | null
-          customer_stage: string
-          deterministic_resolution: boolean
-          duration_ms: number
-          error_code: string | null
-          estimated_cost: number | null
-          event_id: string
-          execution_mode: string
-          fallback_used: boolean
-          guard_violations: string[]
-          guards_triggered: string[]
-          id: string
-          input_tokens: number
-          intent: string | null
-          mode: string
-          network: string | null
-          output_tokens: number
-          overall_quality_score: number | null
-          phone_hash: string
-          prompt_metric_id: string | null
-          prompt_tokens: number
-          quality_flags: Json
-          regeneration_count: number
-          response_chars: number
-          routing_reason: string | null
-          safety_quality_score: number | null
-          selected_model: string | null
-          selected_modules: string[]
-          selected_tools: string[]
-          selected_tutorials: string[]
-          sent_to_customer: boolean
-          service: string | null
-          state_changed_fields: string[]
-          structural_quality_score: number | null
-          tool_call_count: number
-          tool_failure_count: number
-          tool_success_count: number
-          turn_id: string
-          updated_at: string
-          used_llm: boolean
-          workspace_id: string
-        }
-        SetofOptions: {
-          from: "agent_v2_turn_analytics"
-          to: "agent_v2_turn_analytics"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      upsert_agent_v2_turn_analytics:
+        | {
+            Args: {
+              p_turn: Database["public"]["Tables"]["agent_v2_turn_analytics"]["Row"]
+            }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.upsert_agent_v2_turn_analytics(p_turn => jsonb), public.upsert_agent_v2_turn_analytics(p_turn => agent_v2_turn_analytics). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+            SetofOptions: {
+              from: "agent_v2_turn_analytics"
+              to: "agent_v2_turn_analytics"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { p_turn: Json }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.upsert_agent_v2_turn_analytics(p_turn => jsonb), public.upsert_agent_v2_turn_analytics(p_turn => agent_v2_turn_analytics). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
       user_owns_workspace: { Args: { _workspace_id: string }; Returns: boolean }
     }
     Enums: {
