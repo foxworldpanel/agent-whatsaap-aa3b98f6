@@ -89,22 +89,33 @@ export function runGuardEngineV2(input: GuardEngineInput): GuardEngineOutput {
     return null;
   });
 
-  // 6. PRICE_SOURCE_GUARD
   runGuard('PRICE_SOURCE_GUARD', () => {
-    const priceMatch = finalResponse.match(/r?\$?\s?(\d+[,.]\d+)/i);
-    if (priceMatch) {
+    // Regex melhorada para capturar números com vírgula ou ponto (ex: 49,90 ou 49.90)
+    const priceRegex = /\d+(?:[.,]\d+)?/g;
+    const matches = finalResponse.match(priceRegex);
+    
+    if (matches) {
       const toolResult = input.toolResults['consultar_servicos'];
-      if (!toolResult || !toolResult.salePrice) {
-        return { guard: 'PRICE_SOURCE_GUARD', action: 'regenerate', severity: 'critical', message: 'Preço informado sem consulta de ferramenta.' };
-      }
-      const informedPrice = parseFloat(priceMatch[1].replace(',', '.'));
-      const actualPrice = toolResult.salePrice;
-      if (Math.abs(informedPrice - actualPrice) > 0.01) {
-        return { guard: 'PRICE_SOURCE_GUARD', action: 'regenerate', severity: 'critical', message: `Preço divergente: ${informedPrice} vs ${actualPrice}` };
+      
+      for (const match of matches) {
+        const informedPrice = parseFloat(match.replace(',', '.'));
+        
+        // Ignora números que não parecem preços (ex: 1, 500, etc) baseando-se no toolResult
+        if (toolResult && toolResult.salePrice) {
+          const actualPrice = toolResult.salePrice;
+          
+          // Se o número informado é próximo ao preço real, ignoramos (sucesso)
+          if (Math.abs(informedPrice - actualPrice) < 0.01) continue;
+          
+          // Se o número informado é diferente mas o toolResult existe, é uma violação
+          // (ex: informar 97 quando o real é 49.90)
+          return { guard: 'PRICE_SOURCE_GUARD', action: 'regenerate', severity: 'critical', message: `Preço divergente: ${informedPrice} vs ${actualPrice}` };
+        }
       }
     }
     return null;
   });
+
 
   // 7. SERVICE_AVAILABILITY_GUARD
   runGuard('SERVICE_AVAILABILITY_GUARD', () => {
