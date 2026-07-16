@@ -37,6 +37,8 @@ async function runAudit() {
       name: "C1 Spotify e compra", 
       turns: [
         { msg: "Quero divulgar minha música.", fix: {} },
+        { msg: "Quero comprar divulgação para minha música.", fix: {} },
+        { msg: "Spotify e Instagram e YouTube, quero tudo junto mas meu cartão não passa e o suporte não ajuda.", fix: {} },
         { msg: "Spotify.", fix: {} },
         { msg: "Playlist.", fix: {} },
         { msg: "Quanto custa?", fix: { consultar_servicos: { salePrice: 49.90, isActive: true } } },
