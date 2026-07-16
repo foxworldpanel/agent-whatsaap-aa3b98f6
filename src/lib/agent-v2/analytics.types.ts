@@ -162,6 +162,7 @@ export interface AgentV2ConversationAnalytics {
   commercialQualityScore: number;
   safetyQualityScore: number;
   overallQualityScore: number;
+
   conversionStage: CustomerStage;
   closeReason: string | null;
 }
