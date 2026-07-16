@@ -5,7 +5,9 @@ import { RECEPTIVE_V2 } from './core/receptive';
 import { OUTBOUND_V2 } from './core/outbound';
 import { COMMERCIAL_V2 } from './core/commercial';
 import { 
-  SPOTIFY_V2, 
+  SPOTIFY_OVERVIEW,
+  SPOTIFY_PLAYLIST,
+  SPOTIFY_FOLLOWERS,
   INSTAGRAM_V2, 
   YOUTUBE_V2, 
   TIKTOK_V2, 
@@ -16,6 +18,7 @@ import {
   TUTORIALS_V2,
   FREE_TEST_V2,
   SUPPORT_V2
+
 } from './core/placeholders';
 import { V2Module } from './router.types';
 
