@@ -1,4 +1,5 @@
 -- Analytics Engine V2 - Database Schema
+-- Revisão completa para aprovação de migração.
 
 -- 1. Model Pricing Configuration
 CREATE TABLE public.agent_v2_model_pricing (
@@ -6,16 +7,29 @@ CREATE TABLE public.agent_v2_model_pricing (
     provider text NOT NULL,
     model text NOT NULL,
     effective_from timestamptz NOT NULL DEFAULT now(),
+    effective_until timestamptz, -- Nullable, for historical versioning
     input_price_per_million numeric NOT NULL,
     output_price_per_million numeric NOT NULL,
     cache_creation_price_per_million numeric NOT NULL,
     cache_read_price_per_million numeric NOT NULL,
     currency text NOT NULL DEFAULT 'USD',
     source text NOT NULL DEFAULT 'official',
-    updated_at timestamptz NOT NULL DEFAULT now()
+    source_url text, -- Official reference URL
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    
+    -- Prevent overlapping configurations for the same provider/model and period
+    CONSTRAINT no_overlapping_prices EXCLUDE USING gist (
+        provider WITH =, 
+        model WITH =, 
+        tstzrange(effective_from, COALESCE(effective_until, 'infinity')) WITH &&
+    )
 );
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.agent_v2_model_pricing TO authenticated;
+-- Note: GiST EXCLUDE requires btree_gist extension. 
+-- In managed Supabase/Lovable Cloud, this usually requires: CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+GRANT SELECT ON public.agent_v2_model_pricing TO authenticated;
 GRANT ALL ON public.agent_v2_model_pricing TO service_role;
 ALTER TABLE public.agent_v2_model_pricing ENABLE ROW LEVEL SECURITY;
 
@@ -34,16 +48,17 @@ USING (true);
 -- 2. Turn Analytics
 CREATE TABLE public.agent_v2_turn_analytics (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id text NOT NULL, -- Logical event ID from orchestrator
     workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
     conversation_id text NOT NULL,
-    phone_hash text NOT NULL,
-    turn_id text NOT NULL,
+    turn_id text NOT NULL, -- Unique turn sequence ID within conversation
+    phone_hash text NOT NULL, -- Irreversible HMAC hash
     created_at timestamptz NOT NULL DEFAULT now(),
     brain_version text NOT NULL,
     builder_version text NOT NULL,
     execution_mode text NOT NULL, -- isolated_test, shadow, pilot, production
     sent_to_customer boolean NOT NULL DEFAULT false,
-    mode text NOT NULL,
+    mode text NOT NULL, -- receptive, outbound
     network text,
     service text,
     intent text,
@@ -66,7 +81,8 @@ CREATE TABLE public.agent_v2_turn_analytics (
     cache_read_input_tokens integer DEFAULT 0,
     prompt_tokens integer DEFAULT 0,
     cacheable_prefix_tokens integer DEFAULT 0,
-    estimated_cost numeric,
+    estimated_cost numeric, -- Calculated at creation, null if pricing missing
+    currency text DEFAULT 'USD',
     duration_ms integer NOT NULL,
     guard_violations text[],
     guards_triggered text[],
@@ -75,12 +91,19 @@ CREATE TABLE public.agent_v2_turn_analytics (
     fallback_used boolean DEFAULT false,
     state_changed_fields text[],
     response_chars integer DEFAULT 0,
-    quality_flags jsonb,
+    quality_flags jsonb, -- Map of boolean flags
+    structural_quality_score integer, -- 0-100
+    commercial_quality_score integer, -- 0-100
+    safety_quality_score integer, -- 0-100
+    overall_quality_score integer, -- 0-100
     error_code text,
-    warning text
+    prompt_metric_id uuid, -- Link to legacy agent_prompt_metrics if applicable
+    
+    -- Idempotency constraint: workspace + conversation + turn
+    CONSTRAINT turn_analytics_unique_turn UNIQUE (workspace_id, conversation_id, turn_id)
 );
 
-GRANT SELECT, INSERT ON public.agent_v2_turn_analytics TO authenticated;
+GRANT SELECT ON public.agent_v2_turn_analytics TO authenticated;
 GRANT ALL ON public.agent_v2_turn_analytics TO service_role;
 ALTER TABLE public.agent_v2_turn_analytics ENABLE ROW LEVEL SECURITY;
 
@@ -88,16 +111,20 @@ CREATE POLICY "Users can see their workspace analytics"
 ON public.agent_v2_turn_analytics
 FOR SELECT
 TO authenticated
-USING (workspace_id IN (SELECT workspace_id FROM workspace_members WHERE user_id = auth.uid()));
+USING (workspace_id IN (SELECT workspace_id FROM public.workspace_members WHERE user_id = auth.uid()));
 
-CREATE INDEX idx_turn_analytics_workspace ON public.agent_v2_turn_analytics(workspace_id);
-CREATE INDEX idx_turn_analytics_conversation ON public.agent_v2_turn_analytics(conversation_id);
-CREATE INDEX idx_turn_analytics_created ON public.agent_v2_turn_analytics(created_at);
+CREATE INDEX idx_turn_v2_workspace_created ON public.agent_v2_turn_analytics(workspace_id, created_at);
+CREATE INDEX idx_turn_v2_conversation ON public.agent_v2_turn_analytics(conversation_id);
+CREATE INDEX idx_turn_v2_execution_mode ON public.agent_v2_turn_analytics(execution_mode);
+CREATE INDEX idx_turn_v2_intent ON public.agent_v2_turn_analytics(intent);
+CREATE INDEX idx_turn_v2_selected_model ON public.agent_v2_turn_analytics(selected_model);
+CREATE INDEX idx_turn_v2_blocked ON public.agent_v2_turn_analytics(blocked) WHERE blocked = true;
+CREATE INDEX idx_turn_v2_quality ON public.agent_v2_turn_analytics(overall_quality_score);
 
 -- 3. Conversation Analytics (Aggregated)
 CREATE TABLE public.agent_v2_conversation_analytics (
     workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE NOT NULL,
-    conversation_id text PRIMARY KEY,
+    conversation_id text NOT NULL,
     started_at timestamptz NOT NULL,
     ended_at timestamptz,
     mode text NOT NULL,
@@ -135,13 +162,19 @@ CREATE TABLE public.agent_v2_conversation_analytics (
     total_cache_read_tokens integer DEFAULT 0,
     total_estimated_cost numeric DEFAULT 0,
     average_duration_ms numeric DEFAULT 0,
-    quality_score numeric DEFAULT 0,
-    overall_quality_score numeric DEFAULT 0,
+    structural_quality_score integer DEFAULT 0,
+    commercial_quality_score integer DEFAULT 0,
+    safety_quality_score integer DEFAULT 0,
+    overall_quality_score integer DEFAULT 0,
     conversion_stage text,
-    close_reason text
+    close_reason text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    
+    PRIMARY KEY (workspace_id, conversation_id)
 );
 
-GRANT SELECT, INSERT, UPDATE ON public.agent_v2_conversation_analytics TO authenticated;
+GRANT SELECT ON public.agent_v2_conversation_analytics TO authenticated;
 GRANT ALL ON public.agent_v2_conversation_analytics TO service_role;
 ALTER TABLE public.agent_v2_conversation_analytics ENABLE ROW LEVEL SECURITY;
 
@@ -149,13 +182,34 @@ CREATE POLICY "Users can see their workspace conversation analytics"
 ON public.agent_v2_conversation_analytics
 FOR SELECT
 TO authenticated
-USING (workspace_id IN (SELECT workspace_id FROM workspace_members WHERE user_id = auth.uid()));
+USING (workspace_id IN (SELECT workspace_id FROM public.workspace_members WHERE user_id = auth.uid()));
 
 -- Relationship with agent_prompt_metrics:
--- agent_v2_turn_analytics can be linked to agent_prompt_metrics via conversation_id and turn_id/timestamp
--- agent_prompt_metrics already exists and stores raw token data from provider calls.
--- The Analytics Engine aggregates this into cost and quality metrics.
+-- agent_v2_turn_analytics is the source of truth for V2 metrics.
+-- prompt_metric_id links to legacy agent_prompt_metrics if correlation is needed.
+-- Failures in one should not block the other.
 
--- Retention Policy (Conceptual - to be implemented via pg_cron or similar)
--- DELETE FROM public.agent_v2_turn_analytics WHERE created_at < now() - interval '30 days';
--- Agregados (conversation_analytics) permanecem por 12 meses.
+-- Retention Strategy:
+-- Turn Analytics (detailed): 30 days.
+-- Conversation Analytics (aggregated): 12 months.
+-- Cleanup function to be called by service role / cron.
+
+CREATE OR REPLACE FUNCTION public.cleanup_agent_v2_analytics()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    -- Delete old turns (detailed data)
+    DELETE FROM public.agent_v2_turn_analytics 
+    WHERE created_at < now() - interval '30 days';
+    
+    -- Delete old conversations (aggregated data)
+    DELETE FROM public.agent_v2_conversation_analytics
+    WHERE created_at < now() - interval '12 months';
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.cleanup_agent_v2_analytics() TO service_role;
+

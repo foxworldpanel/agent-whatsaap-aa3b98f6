@@ -9,8 +9,41 @@ import { buildPromptV2 } from './prompt-builder';
 import { runGuardEngineV2 } from './guard-engine';
 import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
-import { determineCustomerStage, calculateQualityScores, calculateEstimatedCost } from './analytics';
+import { determineCustomerStage, calculateQualityScores, calculateEstimatedCost, hashPhoneNumber } from './analytics';
 import { AgentV2TurnAnalytics, QualityFlags } from './analytics.types';
+
+// Internal persistence for homologation/testing phase.
+// In production, this will be replaced by Supabase service_role calls.
+const ANALYTICS_BUFFER: AgentV2TurnAnalytics[] = [];
+
+async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
+  // Idempotency check in memory
+  const exists = ANALYTICS_BUFFER.some(t => 
+    t.workspaceId === data.workspaceId && 
+    t.conversationId === data.conversationId && 
+    t.turnId === data.turnId
+  );
+  
+  if (!exists) {
+    ANALYTICS_BUFFER.push(data);
+  }
+  
+  // LOGGING ONLY - No DB write until migration is approved
+  console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (Idempotent: ${!exists})`);
+  
+  // Future production implementation:
+  /*
+  try {
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    await supabaseAdmin
+      .from('agent_v2_turn_analytics')
+      .upsert(data, { onConflict: 'workspace_id,conversation_id,turn_id' });
+  } catch (err) {
+    console.error('Analytics persistence failed, continuing execution...', err);
+  }
+  */
+}
+
 
 
 /**

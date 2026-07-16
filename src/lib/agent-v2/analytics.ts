@@ -128,10 +128,14 @@ export function calculateQualityScores(flags: QualityFlags): {
 
 /**
  * Hashes a phone number for privacy-compliant storage.
+ * Uses a workspace-specific salt if available to prevent global correlation.
  */
-export async function hashPhoneNumber(phone: string): Promise<string> {
+export async function hashPhoneNumber(phone: string, workspaceId?: string): Promise<string> {
   const encoder = new TextEncoder();
-  const data = encoder.encode(phone + (process.env.PHONE_HASH_SALT || 'default_salt'));
+  // Secret should be a server-side environment variable.
+  // Including workspaceId in salt ensures a phone hash is unique to that workspace.
+  const salt = (process.env.PHONE_HASH_SECRET || 'fallback_secret') + (workspaceId || 'global');
+  const data = encoder.encode(phone + salt);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
