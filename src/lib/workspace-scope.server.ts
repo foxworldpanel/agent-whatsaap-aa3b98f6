@@ -40,7 +40,23 @@ export async function resolveWorkspaceId(
 
     if (anyWs?.id) return anyWs.id;
 
-    throw new Error("No default workspace found for user");
+    // Nenhum workspace existe para este usuário → cria um padrão automaticamente.
+    // Isso evita telas em branco no primeiro acesso após o signup.
+    const { data: created, error: createErr } = await supabase
+      .from("workspaces")
+      .insert({
+        user_id: userId,
+        nome: "Meu workspace",
+        is_default: true,
+      })
+      .select("id")
+      .single();
+    if (createErr || !created?.id) {
+      throw new Error(
+        `No default workspace found for user and auto-create failed: ${createErr?.message ?? "unknown"}`,
+      );
+    }
+    return created.id;
   }
   return data.id;
 }
