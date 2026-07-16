@@ -131,8 +131,7 @@ function AgentePage() {
     [enabled],
   );
 
-  return (
-    if (isWsLoading || isCfgLoading) {
+  if (isWsLoading || isCfgLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
