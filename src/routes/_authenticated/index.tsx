@@ -6,13 +6,8 @@ import { getDashboardStats } from "@/lib/dashboard.functions";
 
 
 export const Route = createFileRoute("/_authenticated/")({
-  beforeLoad: () => {
-    throw redirect({
-      to: "/_authenticated/agente",
-    });
-  },
-
   ssr: false,
+
   head: () => ({
     meta: [
       { title: "Dashboard · ZapAgent" },
