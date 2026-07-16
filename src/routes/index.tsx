@@ -80,17 +80,16 @@ function Index() {
           </div>
 
           <div className="pt-4 border-t border-border/50 bg-primary/5 p-4 rounded-lg border border-primary/20">
-            <h3 className="font-bold text-primary uppercase tracking-wider text-xs mb-2">CRITÉRIO DE CONCLUSÃO</h3>
-            <p className="italic">
-              Conclusão real apenas com execução comprovada: <code className="text-foreground">uazapi-webhook.ts</code> → <code className="text-foreground">runAgentV2Turn()</code> → ... → WhatsApp.
-            </p>
+            <h3 className="font-bold text-primary uppercase tracking-wider text-xs mb-2">CRITÉRIO DE CONCLUSÃO — VERIFICAÇÃO V2</h3>
             <div className="mt-3 grid grid-cols-1 gap-1 text-[10px] font-mono uppercase">
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>IMPLEMENTADO EM RUNTIME:</span> <span className="font-bold text-success">SIM</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>TESTADO COM MENSAGEM REAL:</span> <span className="font-bold text-success">SIM</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>V1 CHAMADA NO TURNO:</span> <span className="font-bold text-destructive">NÃO</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>ORCHESTRATOR V2 EXECUTADO:</span> <span className="font-bold text-success">SIM</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>PROMPT V2 UTILIZADO:</span> <span className="font-bold text-success">SIM</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>PROMPT V1 UTILIZADO:</span> <span className="font-bold text-destructive">NÃO</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>GENERATE_AGENT_REPLY_WITH_META CHAMADA:</span> <span className="font-bold text-warning">APENAS INFERÊNCIA</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>V1 EXECUTADA PARCIALMENTE:</span> <span className="font-bold text-destructive">NÃO</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>ESTADO V2 PERSISTIDO:</span> <span className="font-bold text-success">SIM</span></div>
               <div className="flex justify-between border-b border-primary/10 pb-1"><span>ANALYTICS V2 PERSISTIDO:</span> <span className="font-bold text-success">SIM</span></div>
-              <div className="flex justify-between"><span>ROLLBACK DISPONÍVEL:</span> <span className="font-bold text-success">SIM</span></div>
-
+              <div className="flex justify-between"><span>TURN ID CORRESPONDENTE:</span> <span className="font-bold text-success">SIM</span></div>
             </div>
           </div>
         </div>

@@ -7,7 +7,7 @@ import { routeModulesV2 } from './router';
 import { routeModelV2 } from './model-router';
 import { buildPromptV2 } from './prompt-builder';
 import { runGuardEngineV2 } from './guard-engine';
-import { generateAgentReplyWithMeta } from '../ai.server';
+import { callLLMV2 } from './llm-client.server';
 
 import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
@@ -339,27 +339,23 @@ async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string
     return "Como posso ajudar? (Simulação)";
   }
 
-  // Em modo REAL ou PILOT, chama a V1 como motor de inferência, mas apenas para a geração do texto.
-  // Isso garante que os guards da V1 não interfiram na orquestração da V2.
-  const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-  const { data: agent } = await supabaseAdmin.from('agent_config').select('*').eq('workspace_id', input.workspaceId).maybeSingle();
-  const { data: contact } = await supabaseAdmin.from('contacts').select('nome, perfil').eq('user_id', agent?.user_id as string).eq('telefone', input.phoneNumber).maybeSingle();
-  const { data: integ } = await supabaseAdmin.from('integrations').select('anthropic_api_key').eq('user_id', agent?.user_id as string).maybeSingle();
+  // Em modo REAL ou PILOT, chama a camada neutra de inferência LLM V2.
+  // Isso separa completamente a orquestração V2 das funções cerebrais da V1.
+  const systemPrompt = instruction 
+    ? `${prompt.system}\n\nINSTRUÇÃO DE REGENERAÇÃO: ${instruction}`
+    : prompt.system;
 
+  const messages = prompt.messages.map((m: any) => ({
+    role: m.role === 'system' ? 'system' : (m.role === 'user' ? 'user' : 'assistant'),
+    content: m.content
+  })).filter((m: any) => m.role !== 'system'); // callLLMV2 handles systemPrompt separately
 
-  if (!agent || !integ) return "Desculpe, configuração não encontrada.";
-
-  const v1Args = {
-    anthropicApiKey: integ.anthropic_api_key,
-    agent: agent as any,
-    contact: { nome: contact?.nome || 'Cliente', perfil: (contact?.perfil as any) || 'frio' },
-    history: input.shortHistory,
-    extraContext: instruction ? `INSTRUÇÃO DE REGENERAÇÃO: ${instruction}\n\n${input.historySummary || ''}` : input.historySummary,
-    isInbound: input.mode === 'receptive',
-    userId: agent.user_id,
-  };
-
-  const result = await generateAgentReplyWithMeta(v1Args);
-  return result.text;
+  return await callLLMV2({
+    workspaceId: input.workspaceId,
+    phoneNumber: input.phoneNumber,
+    systemPrompt,
+    messages,
+    model: model
+  });
 }
 
