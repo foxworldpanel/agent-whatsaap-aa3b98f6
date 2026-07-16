@@ -1,5 +1,7 @@
 -- Analytics Engine V2 - Database Schema
--- Final Revision for Migration Approval
+-- Definitivo para migração e auditoria automática.
+
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- 1. Model Pricing Configuration
 CREATE TABLE public.agent_v2_model_pricing (
@@ -19,15 +21,15 @@ CREATE TABLE public.agent_v2_model_pricing (
     updated_at timestamptz NOT NULL DEFAULT now(),
     
     -- Constraints
-    CONSTRAINT pricing_provider_not_empty CHECK (length(trim(provider)) > 0),
-    CONSTRAINT pricing_model_not_empty CHECK (length(trim(model)) > 0),
-    CONSTRAINT pricing_source_not_empty CHECK (length(trim(source)) > 0),
-    CONSTRAINT pricing_positive_input_price CHECK (input_price_per_million >= 0),
-    CONSTRAINT pricing_positive_output_price CHECK (output_price_per_million >= 0),
-    CONSTRAINT pricing_positive_cache_creation_price CHECK (cache_creation_price_per_million >= 0),
-    CONSTRAINT pricing_positive_cache_read_price CHECK (cache_read_price_per_million >= 0),
+    CONSTRAINT pricing_provider_not_empty CHECK (trim(provider) <> ''),
+    CONSTRAINT pricing_model_not_empty CHECK (trim(model) <> ''),
+    CONSTRAINT pricing_source_not_empty CHECK (trim(source) <> ''),
+    CONSTRAINT pricing_currency_not_empty CHECK (trim(currency) <> ''),
+    CONSTRAINT pricing_positive_input CHECK (input_price_per_million >= 0),
+    CONSTRAINT pricing_positive_output CHECK (output_price_per_million >= 0),
+    CONSTRAINT pricing_positive_cache_creation CHECK (cache_creation_price_per_million >= 0),
+    CONSTRAINT pricing_positive_cache_read CHECK (cache_read_price_per_million >= 0),
     CONSTRAINT pricing_valid_period CHECK (effective_until IS NULL OR effective_until > effective_from),
-    CONSTRAINT pricing_currency_not_empty CHECK (length(currency) > 0),
     
     CONSTRAINT no_overlapping_prices EXCLUDE USING gist (
         provider WITH =, 
@@ -40,7 +42,6 @@ CREATE TABLE public.agent_v2_model_pricing (
 REVOKE ALL ON public.agent_v2_model_pricing FROM anon, authenticated;
 GRANT ALL ON public.agent_v2_model_pricing TO service_role;
 ALTER TABLE public.agent_v2_model_pricing ENABLE ROW LEVEL SECURITY;
--- No SELECT policy for authenticated - pricing used by backend only.
 
 CREATE INDEX idx_agent_v2_pricing_lookup ON public.agent_v2_model_pricing(provider, model, effective_from DESC);
 
@@ -108,14 +109,12 @@ CREATE TABLE public.agent_v2_turn_analytics (
     CONSTRAINT turn_positive_counts CHECK (tool_call_count >= 0 AND tool_success_count >= 0 AND tool_failure_count >= 0),
     CONSTRAINT turn_tool_coherence CHECK (tool_success_count + tool_failure_count <= tool_call_count),
     CONSTRAINT turn_valid_regeneration CHECK (regeneration_count BETWEEN 0 AND 1),
-    CONSTRAINT turn_valid_scores CHECK (
-        (structural_quality_score IS NULL OR structural_quality_score BETWEEN 0 AND 100) AND
-        (commercial_quality_score IS NULL OR commercial_quality_score BETWEEN 0 AND 100) AND
-        (safety_quality_score IS NULL OR safety_quality_score BETWEEN 0 AND 100) AND
-        (overall_quality_score IS NULL OR overall_quality_score BETWEEN 0 AND 100)
-    ),
+    CONSTRAINT turn_valid_scores_overall CHECK (overall_quality_score IS NULL OR overall_quality_score BETWEEN 0 AND 100),
+    CONSTRAINT turn_valid_scores_structural CHECK (structural_quality_score IS NULL OR structural_quality_score BETWEEN 0 AND 100),
+    CONSTRAINT turn_valid_scores_commercial CHECK (commercial_quality_score IS NULL OR commercial_quality_score BETWEEN 0 AND 100),
+    CONSTRAINT turn_valid_scores_safety CHECK (safety_quality_score IS NULL OR safety_quality_score BETWEEN 0 AND 100),
     CONSTRAINT turn_positive_cost CHECK (estimated_cost IS NULL OR estimated_cost >= 0),
-    CONSTRAINT turn_currency_not_empty CHECK (currency <> ''),
+    CONSTRAINT turn_currency_not_empty CHECK (trim(currency) <> ''),
     
     CONSTRAINT turn_analytics_unique_turn UNIQUE (workspace_id, conversation_id, turn_id)
 );
@@ -133,9 +132,11 @@ CREATE POLICY agent_v2_turn_select ON public.agent_v2_turn_analytics
         WHERE wm.workspace_id = agent_v2_turn_analytics.workspace_id AND wm.user_id = auth.uid()
     ));
 
+CREATE INDEX idx_turn_v2_workspace_created ON public.agent_v2_turn_analytics(workspace_id, created_at DESC);
 CREATE INDEX idx_turn_v2_workspace_mode_created ON public.agent_v2_turn_analytics(workspace_id, execution_mode, created_at DESC);
 CREATE INDEX idx_turn_v2_workspace_network_created ON public.agent_v2_turn_analytics(workspace_id, network, created_at DESC);
 CREATE INDEX idx_turn_v2_workspace_stage_created ON public.agent_v2_turn_analytics(workspace_id, customer_stage, created_at DESC);
+CREATE INDEX idx_turn_v2_conversation ON public.agent_v2_turn_analytics(workspace_id, conversation_id);
 CREATE INDEX idx_turn_v2_prompt_metric ON public.agent_v2_turn_analytics(prompt_metric_id) WHERE prompt_metric_id IS NOT NULL;
 
 -- 3. Conversation Analytics (Aggregated)
@@ -198,7 +199,12 @@ CREATE TABLE public.agent_v2_conversation_analytics (
     CONSTRAINT conv_positive_tokens CHECK (total_input_tokens >= 0 AND total_output_tokens >= 0 AND total_cache_creation_tokens >= 0 AND total_cache_read_tokens >= 0),
     CONSTRAINT conv_positive_cost CHECK (total_estimated_cost >= 0),
     CONSTRAINT conv_positive_duration CHECK (average_duration_ms >= 0),
-    CONSTRAINT conv_valid_scores CHECK (overall_quality_score BETWEEN 0 AND 100 AND structural_quality_score BETWEEN 0 AND 100 AND commercial_quality_score BETWEEN 0 AND 100 AND safety_quality_score BETWEEN 0 AND 100),
+    CONSTRAINT conv_valid_scores CHECK (
+        overall_quality_score BETWEEN 0 AND 100 AND 
+        structural_quality_score BETWEEN 0 AND 100 AND 
+        commercial_quality_score BETWEEN 0 AND 100 AND 
+        safety_quality_score BETWEEN 0 AND 100
+    ),
     CONSTRAINT conv_turn_coherence CHECK (llm_calls + deterministic_turns <= total_turns),
     CONSTRAINT conv_tool_coherence CHECK (tool_failures <= tool_calls),
     CONSTRAINT conv_valid_period CHECK (ended_at IS NULL OR ended_at >= started_at),
@@ -231,9 +237,11 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
+    -- Limpeza de turnos após 30 dias
     DELETE FROM public.agent_v2_turn_analytics
     WHERE created_at < now() - interval '30 days';
     
+    -- Limpeza de conversas agregadas somente inativas há 12 meses
     DELETE FROM public.agent_v2_conversation_analytics
     WHERE ended_at IS NOT NULL
       AND COALESCE(ended_at, updated_at) < now() - interval '12 months';
