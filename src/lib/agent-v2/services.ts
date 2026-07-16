@@ -79,7 +79,7 @@ const FIXTURES: Record<string, ServicePublicInfo[]> = {
  * Função pura de consulta simulada para o commit atual.
  * Futuramente buscará de catalog_cache ou commercial_services.
  */
-export async function consultarServicosV2(input: ConsultarServicosV2Input): Promise<Partial<ServicePublicInfo> | Partial<ServicePublicInfo>[] | { error: string, alternatives?: Partial<ServicePublicInfo>[] }> {
+export async function consultarServicosV2(input: ConsultarServicosV2Input): Promise<any> {
   const { network, service, queryLevel, quantity } = input;
   
   const networkFixtures = FIXTURES[network.toLowerCase()];
