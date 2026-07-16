@@ -7,6 +7,8 @@ import { routeModulesV2 } from './router';
 import { routeModelV2 } from './model-router';
 import { buildPromptV2 } from './prompt-builder';
 import { runGuardEngineV2 } from './guard-engine';
+import { generateAgentReplyWithMeta } from '../ai.server';
+
 import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
 import { determineCustomerStage, calculateQualityScores, calculateEstimatedCost, hashPhoneNumber } from './analytics';
