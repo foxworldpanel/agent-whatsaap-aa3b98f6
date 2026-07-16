@@ -2039,6 +2039,59 @@ export type Database = {
         }
         Relationships: []
       }
+      price_table: {
+        Row: {
+          audience: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          max_quantity: number
+          min_quantity: number
+          platform: string
+          price_per_1000: number
+          service: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          audience: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_quantity: number
+          min_quantity: number
+          platform: string
+          price_per_1000: number
+          service: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          audience?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          max_quantity?: number
+          min_quantity?: number
+          platform?: string
+          price_per_1000?: number
+          service?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_table_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       processed_messages: {
         Row: {
           message_id: string
