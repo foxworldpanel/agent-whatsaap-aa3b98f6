@@ -92,7 +92,7 @@ function detectIntents(msg: string): V2Intent | V2Intent[] {
   if (/(pagamento|pix|cartão|pagar|saldo|recarga)/i.test(msg)) detected.push('payment');
   if (/(testar|teste|grátis|gratuito)/i.test(msg)) detected.push('free_test');
   if (/(caiu|erro|problema|ajuda|suporte|não funciona|pedido)/i.test(msg)) detected.push('support');
-  if (/(cadastro|conta|entrar|login|registrar)/i.test(msg)) detected.push('tutorial');
+  if (/(cadastro|conta|entrar|login|registrar|como)/i.test(msg)) detected.push('tutorial');
   if (/(obrigado|vlw|valeu|show|tchau|até)/i.test(msg)) detected.push('goodbye');
 
   // Handle multi-intent
