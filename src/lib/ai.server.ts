@@ -99,7 +99,7 @@ export function pickReengagementGreeting(
   if (/\bboa\s*noite\b/.test(s)) return "Boa noite";
   // Fallback pelo horário local do servidor (BR/UTC-3 aproximado).
   const hourBr = (nowDate.getUTCHours() - 3 + 24) % 24;
-  if (hourBr >= 5 && hourBr < 12) return "Bom dia";
+  if (hourBr >= 0 && hourBr < 12) return "Bom dia";
   if (hourBr >= 12 && hourBr < 18) return "Boa tarde";
   return "Boa noite";
 }
