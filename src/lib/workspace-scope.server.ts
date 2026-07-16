@@ -30,6 +30,16 @@ export async function resolveWorkspaceId(
     .eq("is_default", true)
     .maybeSingle();
   if (error || !data?.id) {
+    // If no default found, check if ANY workspace exists for this user
+    const { data: anyWs } = await supabase
+      .from("workspaces")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+
+    if (anyWs?.id) return anyWs.id;
+
     throw new Error("No default workspace found for user");
   }
   return data.id;
