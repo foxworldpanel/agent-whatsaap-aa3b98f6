@@ -29,7 +29,13 @@ export interface AnalyticsOverview {
  */
 
 export async function getAgentV2Overview(range: string, workspaceId: string): Promise<AnalyticsOverview> {
-  // Simulate DB query
+  // In production, this would be:
+  // SELECT ... FROM agent_v2_turn_analytics 
+  // WHERE workspace_id = $1 
+  //   AND execution_mode = 'production'
+  //   AND sent_to_customer = true
+  //   AND created_at >= ...
+  
   return {
     totalConversations: 150,
     totalTurns: 850,
@@ -48,6 +54,7 @@ export async function getAgentV2Overview(range: string, workspaceId: string): Pr
     criticalViolations: 2
   };
 }
+
 
 export async function getAgentV2CostBreakdown(range: string, workspaceId: string) {
   return [
