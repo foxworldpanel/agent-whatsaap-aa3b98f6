@@ -59,9 +59,19 @@ export function runGuardEngineV2(input: GuardEngineInput): GuardEngineOutput {
   runGuard('PAYMENT_GUARD', () => {
     const forbidden = ['pix', 'chave', 'carteira', 'senha', 'código', 'seed phrase'];
     const msg = finalResponse.toLowerCase();
+    const customerMsg = input.currentMessage.toLowerCase();
+    
     if (msg.includes('pix') && (msg.includes('chave') || msg.includes('enviar') || msg.includes('fazer'))) {
       if (!msg.includes('painel')) {
-         return { guard: 'PAYMENT_GUARD', action: 'block', severity: 'critical', message: 'Tentativa de pagamento fora do painel.' };
+         const hasIssue = customerMsg.includes('não recebi') || customerMsg.includes('caiu') || customerMsg.includes('erro') || customerMsg.includes('cobrança');
+         
+         if (hasIssue) {
+           finalResponse = "Para analisar problemas com pagamentos, abra um ticket no suporte do painel. Por lá a equipe consegue acessar os dados da transação.";
+           return { guard: 'PAYMENT_GUARD', action: 'replace_minimal', severity: 'critical', message: 'payment_support_redirect' };
+         } else {
+           finalResponse = "O pagamento é feito dentro do painel. Acesse a área de recarga e gere o PIX por lá.";
+           return { guard: 'PAYMENT_GUARD', action: 'replace_minimal', severity: 'critical', message: 'payment_redirect' };
+         }
       }
     }
     return null;

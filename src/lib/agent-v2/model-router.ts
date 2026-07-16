@@ -81,14 +81,18 @@ export function routeModelV2(input: RouteModelV2Input): RouteModelV2Output {
     requiresVision = true;
     selectedModel = MODEL_CONFIG_V2.visionModel;
     routingReason = 'vision_required';
-  } else if (complexity === 'complex' || complexity === 'moderate') {
-    // Só promove para modelo forte se houver complexidade real (multi-intenção ou comparação complexa)
-    if (routeResult.warnings.length > 0 || Array.isArray(routeResult.detectedIntent) && routeResult.detectedIntent.length > 1) {
-      selectedModel = MODEL_CONFIG_V2.strongModel;
-      routingReason = 'multi_intent';
-    } else if (msg.includes('qual é melhor') || msg.includes('diferença')) {
+  } else if (complexity === 'complex') {
+    // Só promove para modelo forte se houver complexidade real (multi-intenção complexa)
+    selectedModel = MODEL_CONFIG_V2.strongModel;
+    routingReason = 'multi_intent';
+  } else if (complexity === 'moderate') {
+    // Para complexidade moderada (comparações), modelo forte é opcional mas recomendado
+    if (msg.includes('qual é melhor') || msg.includes('diferença')) {
       selectedModel = MODEL_CONFIG_V2.strongModel;
       routingReason = 'objection_complex';
+    } else {
+      selectedModel = MODEL_CONFIG_V2.lightweightModel;
+      routingReason = 'simple_commercial';
     }
   } else {
     // Casos de Modelo Leve

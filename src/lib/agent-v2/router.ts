@@ -90,7 +90,7 @@ function detectIntents(msg: string): V2Intent | V2Intent[] {
   }
   if (/(preço|valor|quanto|custa|tabela|promoção|custar)/i.test(msg)) detected.push('price');
   if (/(como|melhor|diferença|qual)/i.test(msg)) detected.push('comparison');
-  if (/(comprar|assinar|quero|contratar|pedir|fechar|assinar)/i.test(msg)) detected.push('buy');
+  if (/(comprar|assinar|contratar|pedir|fechar|quanto \d+|onde pago|manda o painel|como compro)/i.test(msg)) detected.push('buy');
   if (/(pagamento|pix|cartão|pagar|saldo|recarga)/i.test(msg)) detected.push('payment');
   if (/(testar|teste|grátis|gratuito)/i.test(msg)) detected.push('free_test');
   if (/(caiu|erro|problema|ajuda|suporte|não funciona|pedido)/i.test(msg)) detected.push('support');
