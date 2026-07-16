@@ -163,7 +163,7 @@ export function createInput(state: ConversationStateV2, message: string, fixture
   };
 }
 
-function printResult(result: any) {
+export function printResult(result: any) {
   console.log(`DETALHES DO TURNO:`);
   console.log(`- Cliente: "${result.stateBefore.lastAnswer || ''}" -> "${result.finalResponse}"`);
   console.log(`- stateBefore: network=${result.stateBefore.network}, service=${result.stateBefore.service}, intent=${result.stateBefore.intent}, step=${result.stateBefore.currentStep}`);
