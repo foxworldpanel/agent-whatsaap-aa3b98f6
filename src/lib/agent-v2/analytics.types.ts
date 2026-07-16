@@ -149,13 +149,14 @@ export interface AgentV2ConversationAnalytics {
   totalCacheReadTokens: number;
   totalEstimatedCost: number;
   averageDurationMs: number;
-  qualityScore: number;
   structuralQualityScore: number;
   commercialQualityScore: number;
   safetyQualityScore: number;
   overallQualityScore: number;
   conversionStage: CustomerStage;
   closeReason: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ModelPricingConfigV2 {
