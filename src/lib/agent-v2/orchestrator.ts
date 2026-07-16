@@ -219,29 +219,42 @@ function generateDeterministicResponse(message: string, state: ConversationState
 }
 
 async function simulateModelCall(prompt: any, model: string, instruction?: string): Promise<string> {
-  // Simulação baseada no prompt e na instrução de correção
-  const systemPrompt = prompt.systemPrompt.toLowerCase();
   const lastUserMessage = prompt.messages[prompt.messages.length - 1].content.toLowerCase();
+  const stateSummary = prompt.systemPrompt.toLowerCase();
 
-  // Se houver instrução de correção (Regeneração)
+  // Simulação de resposta com base na intenção e estado
   if (instruction) {
-    if (instruction.includes('PRICE_SOURCE_GUARD')) {
-      return "A playlist de Spotify está saindo por apenas R$ 49,90. É um dos nossos melhores serviços para crescer na rede!";
+    if (instruction.includes('PRICE_SOURCE_GUARD') || instruction.includes('Confusão entre playlist e seguidores')) {
+      if (stateSummary.includes('playlist')) {
+        return "A nossa playlist para Spotify está custando apenas R$ 49,90. É uma excelente forma de ganhar visibilidade!";
+      }
     }
   }
 
-  // Lógica de simulação básica para os cenários E2E
-  if (lastUserMessage.includes('divulgar minha música')) return "Claro! Em qual plataforma você deseja divulgar? Trabalhamos com Spotify, YouTube e várias outras.";
-  if (lastUserMessage.includes('spotify')) return "Ótima escolha! Para o Spotify, você busca seguidores para o seu perfil ou plays em uma playlist específica?";
-  if (lastUserMessage.includes('playlist')) return "Perfeito. Já tenho aqui o nosso catálogo de playlists. Gostaria de saber os preços ou tem alguma dúvida específica?";
+  if (lastUserMessage.includes('divulgar minha música')) {
+    return "Claro! Em qual plataforma você deseja divulgar? Trabalhamos com Spotify, YouTube e várias outras.";
+  }
+  if (lastUserMessage.includes('spotify')) {
+    return "Ótima escolha! Para o Spotify, você busca seguidores para o seu perfil ou plays em uma playlist específica?";
+  }
+  if (lastUserMessage.includes('playlist')) {
+    return "Perfeito. As nossas playlists do Spotify são de alta qualidade. Gostaria de saber os preços?";
+  }
   if (lastUserMessage.includes('quanto custa')) {
-    if (systemPrompt.includes('plays inativo')) return "No momento, o serviço de plays no Spotify está em manutenção. No entanto, temos seguidores e playlists ativos com ótimos preços! Gostaria de conhecer?";
     return "A nossa playlist para Spotify está custando apenas R$ 49,90. Quantas você gostaria de contratar?";
   }
-  if (lastUserMessage.includes('vamos fechar')) return "Excelente! Você já possui cadastro no nosso painel de pedidos?";
-  if (lastUserMessage.includes('medo de comprar')) return "Entendo perfeitamente sua preocupação. Para você ver como o sistema funciona na prática, eu posso liberar um teste grátis para você. O que acha?";
-  if (lastUserMessage.includes('quero') && systemPrompt.includes('offered')) return "Combinado! Para ativar seu teste, por favor, me envie o link da sua música ou perfil do Spotify.";
-  if (lastUserMessage.includes('open.spotify.com')) return "Link recebido! Já solicitei o seu teste grátis aqui no sistema. Agora é só aguardar um pouquinho que ele será processado.";
+  if (lastUserMessage.includes('vamos fechar')) {
+    return "Excelente! Você já possui cadastro no nosso painel de pedidos?";
+  }
+  if (lastUserMessage.includes('medo de comprar')) {
+    return "Entendo perfeitamente sua preocupação. Para você ver como o sistema funciona na prática, eu posso liberar um teste grátis para você. O que acha?";
+  }
+  if (lastUserMessage.includes('quero')) {
+    return "Combinado! Para ativar seu teste, por favor, me envie o link da sua música ou perfil do Spotify.";
+  }
+  if (lastUserMessage.includes('spotify.com')) {
+    return "Link recebido! Já solicitei o seu teste grátis aqui no sistema. Agora é só aguardar um pouquinho que ele será processado.";
+  }
   
-  return "Estou analisando sua solicitação para te dar a melhor resposta.";
+  return "Como posso te ajudar com nossos serviços hoje?";
 }
