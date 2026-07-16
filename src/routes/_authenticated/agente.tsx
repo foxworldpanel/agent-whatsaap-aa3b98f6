@@ -26,6 +26,7 @@ import { DailyPromoCard } from "@/components/agente/DailyPromoCard";
 import { IdentidadeCard } from "@/components/agente/IdentidadeCard";
 import { PriceTableCard } from "@/components/agente/PriceTableCard";
 import { listWorkspaces } from "@/lib/workspaces.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 import { useWorkspace } from "@/contexts/workspace-context";
 
@@ -44,6 +45,31 @@ function AgentePage() {
   const saveBehaviorFn = useServerFn(saveBehavior);
   const savePanelShotsFn = useServerFn(savePanelScreenshots);
   const seedTplFn = useServerFn(seedBrandFromMindTemplate);
+  const seedTplMut = useMutation({
+    mutationFn: () => seedTplFn(),
+    onSuccess: (r) => {
+      toast.success(
+        `Template Mind aplicado: ${r.brand_fields} campos brand + ${r.brand_blocks} blocos${
+          r.agent_config_rows_updated === 0 ? " (⚠️ agent_config não existia — só a identidade foi seedada)" : ""
+        }`,
+      );
+      qc.invalidateQueries({ queryKey: ["agent_config"] });
+      qc.invalidateQueries({ queryKey: ["agent_identity"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const confirmAndSeedTemplate = () => {
+    if (
+      window.confirm(
+        "Aplicar o template Mind (Júlia) neste workspace?\n\n" +
+          "Vai SOBRESCREVER apenas os 3 campos brand (persona, terminologia_redes, exemplo_disparo) " +
+          "e os 3 brand_blocks (respostas_padrao, regra_mq_hq, regra_autoridade).\n\n" +
+          "As regras de SAFETY já configuradas neste workspace são preservadas.",
+      )
+    ) {
+      seedTplMut.mutate();
+    }
+  };
 
   const { data: cfgRaw, isLoading: isCfgLoading, error: cfgError } = useQuery({ 
     queryKey: ["agent_config", activeWorkspaceId], 
