@@ -79,6 +79,16 @@ async function runAudit() {
       turns: [{ msg: "Quanto custa? (force_error)", fix: { consultar_servicos: { salePrice: 49.90, isActive: true } } }]
     },
     {
+      name: "C9 testes de falha",
+      turns: [
+        { msg: "falha_modelo_leve", fix: {} },
+        { msg: "falha_ambos_modelos", fix: {} },
+        { msg: "falha_ferramenta", fix: { consultar_servicos: { error: 'Service Unavailable' } } },
+        { msg: "erro_guard", fix: { force_guard_error: true } },
+        { msg: "erro_estado", fix: { force_state_error: true } }
+      ]
+    },
+    {
       name: "C8 encerramento",
       turns: [{ msg: "Obrigado.", fix: {} }]
     }
