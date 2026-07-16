@@ -11,41 +11,28 @@ import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
 import { determineCustomerStage, calculateQualityScores, calculateEstimatedCost, hashPhoneNumber } from './analytics';
 import { AgentV2TurnAnalytics, QualityFlags } from './analytics.types';
-
-// Internal persistence for homologation/testing phase.
-const ANALYTICS_BUFFER: AgentV2TurnAnalytics[] = [];
+import { getAgentV2AnalyticsRepository } from './analytics.repository';
+import { aggregateConversationFromTurns } from './analytics-aggregation';
 
 async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
-  const existingIndex = ANALYTICS_BUFFER.findIndex(t => 
-    t.workspaceId === data.workspaceId && 
-    t.conversationId === data.conversationId && 
-    t.turnId === data.turnId
-  );
+  const repository = getAgentV2AnalyticsRepository();
   
-  if (existingIndex === -1) {
-    ANALYTICS_BUFFER.push({ 
-      ...data, 
-      createdAt: new Date().toISOString(), 
-      updatedAt: new Date().toISOString() 
-    });
-    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (NEW)`);
-  } else {
-    const existing = ANALYTICS_BUFFER[existingIndex];
-    // UPSERT REAL logic: preserve most complete data
-    ANALYTICS_BUFFER[existingIndex] = { 
-      ...existing, 
-      ...data, 
-      // Preservation criteria
-      regenerationCount: Math.max(existing.regenerationCount, data.regenerationCount),
-      toolCallCount: Math.max(existing.toolCallCount, data.toolCallCount),
-      sentToCustomer: existing.sentToCustomer || data.sentToCustomer,
-      blocked: existing.blocked || data.blocked,
-      // Always update timestamp
-      updatedAt: new Date().toISOString() 
-    };
-    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (UPSERT/UPDATED)`);
+  try {
+    await repository.persistTurn(data);
+    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (${repository.constructor.name})`);
+    
+    // Auto-aggregation (best-effort)
+    const turns = await repository.getConversationTurns(data.workspaceId, data.conversationId);
+    if (turns.length > 0) {
+      const aggregated = aggregateConversationFromTurns(data.workspaceId, data.conversationId, turns);
+      await repository.persistConversation(aggregated);
+    }
+  } catch (err) {
+    console.error('[Analytics] Persistence failed, continuing execution...', err);
   }
 }
+
+
 
 /**
  * Executes a full Agent Mind V2 turn in an isolated environment.

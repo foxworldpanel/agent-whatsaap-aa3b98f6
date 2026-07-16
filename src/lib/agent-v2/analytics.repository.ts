@@ -1,0 +1,126 @@
+import { AgentV2TurnAnalytics, AgentV2ConversationAnalytics } from './analytics.types';
+import { hashPhoneNumber } from './analytics';
+
+export interface AgentV2AnalyticsRepository {
+  persistTurn(data: AgentV2TurnAnalytics): Promise<void>;
+  getConversationTurns(workspaceId: string, conversationId: string): Promise<AgentV2TurnAnalytics[]>;
+  persistConversation(data: AgentV2ConversationAnalytics): Promise<void>;
+}
+
+/**
+ * InMemory Repository for Unit Testing
+ */
+export class InMemoryAgentV2AnalyticsRepository implements AgentV2AnalyticsRepository {
+  private turns: AgentV2TurnAnalytics[] = [];
+  private conversations: AgentV2ConversationAnalytics[] = [];
+
+  async persistTurn(data: AgentV2TurnAnalytics): Promise<void> {
+    const idx = this.turns.findIndex(t => 
+      t.workspaceId === data.workspaceId && 
+      t.conversationId === data.conversationId && 
+      t.turnId === data.turnId
+    );
+
+    if (idx === -1) {
+      this.turns.push({ ...data, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    } else {
+      const existing = this.turns[idx];
+      this.turns[idx] = {
+        ...existing,
+        ...data,
+        regenerationCount: Math.max(existing.regenerationCount, data.regenerationCount),
+        toolCallCount: Math.max(existing.toolCallCount, data.toolCallCount),
+        toolSuccessCount: Math.max(existing.toolSuccessCount, data.toolSuccessCount),
+        toolFailureCount: Math.max(existing.toolFailureCount, data.toolFailureCount),
+        sentToCustomer: existing.sentToCustomer || data.sentToCustomer,
+        blocked: existing.blocked || data.blocked,
+        updatedAt: new Date().toISOString()
+      };
+    }
+  }
+
+  async getConversationTurns(workspaceId: string, conversationId: string): Promise<AgentV2TurnAnalytics[]> {
+    return this.turns.filter(t => t.workspaceId === workspaceId && t.conversationId === conversationId);
+  }
+
+  async persistConversation(data: AgentV2ConversationAnalytics): Promise<void> {
+    const idx = this.conversations.findIndex(c => 
+      c.workspaceId === data.workspaceId && 
+      c.conversationId === data.conversationId
+    );
+    if (idx === -1) {
+      this.conversations.push(data);
+    } else {
+      this.conversations[idx] = data;
+    }
+  }
+}
+
+/**
+ * Supabase Repository for Homologation and Production
+ */
+export class SupabaseAgentV2AnalyticsRepository implements AgentV2AnalyticsRepository {
+  async persistTurn(data: AgentV2TurnAnalytics): Promise<void> {
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    
+    // Using the RPC for idempotent upsert with regression prevention
+    const { error } = await (supabaseAdmin as any).rpc('upsert_agent_v2_turn_analytics', {
+      p_turn: {
+        ...data,
+        selected_modules: data.selectedModules || [],
+        selected_tools: data.selectedTools || [],
+        selected_tutorials: data.selectedTutorials || [],
+        guard_violations: data.guardViolations || [],
+        guards_triggered: data.guardsTriggered || [],
+        state_changed_fields: data.stateChangedFields || []
+      }
+    });
+
+    if (error) {
+      console.error('[SupabaseAnalytics] Failed to persist turn:', error);
+      throw error;
+    }
+  }
+
+  async getConversationTurns(workspaceId: string, conversationId: string): Promise<AgentV2TurnAnalytics[]> {
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    const { data, error } = await (supabaseAdmin as any)
+      .from('agent_v2_turn_analytics')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('conversation_id', conversationId);
+
+    if (error) throw error;
+    return data as any[];
+  }
+
+  async persistConversation(data: AgentV2ConversationAnalytics): Promise<void> {
+    const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+    const { error } = await (supabaseAdmin as any)
+      .from('agent_v2_conversation_analytics')
+      .upsert(data, { onConflict: 'workspace_id,conversation_id' });
+
+    if (error) throw error;
+  }
+}
+
+
+/**
+ * Noop Repository for Fail-Safe / Disabled Analytics
+ */
+export class NoopAgentV2AnalyticsRepository implements AgentV2AnalyticsRepository {
+  async persistTurn(): Promise<void> {}
+  async getConversationTurns(): Promise<AgentV2TurnAnalytics[]> { return []; }
+  async persistConversation(): Promise<void> {}
+}
+
+/**
+ * Factory to get the active repository based on environment configuration
+ */
+export function getAgentV2AnalyticsRepository(): AgentV2AnalyticsRepository {
+  const mode = process.env.ANALYTICS_MODE || (process.env.NODE_ENV === 'test' ? 'memory' : 'supabase');
+  
+  if (mode === 'memory') return new InMemoryAgentV2AnalyticsRepository();
+  if (mode === 'supabase') return new SupabaseAgentV2AnalyticsRepository();
+  return new NoopAgentV2AnalyticsRepository();
+}

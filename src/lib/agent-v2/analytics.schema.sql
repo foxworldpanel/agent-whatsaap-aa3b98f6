@@ -255,3 +255,62 @@ $$;
 
 REVOKE ALL ON FUNCTION public.cleanup_agent_v2_analytics() FROM public, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.cleanup_agent_v2_analytics() TO service_role;
+
+-- 5. Função SQL para UPSERT Idempotente (Prevenção de Regressão)
+CREATE OR REPLACE FUNCTION public.upsert_agent_v2_turn_analytics(p_turn public.agent_v2_turn_analytics)
+RETURNS public.agent_v2_turn_analytics
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_result public.agent_v2_turn_analytics;
+BEGIN
+    INSERT INTO public.agent_v2_turn_analytics (
+        event_id, workspace_id, conversation_id, turn_id, phone_hash,
+        brain_version, builder_version, execution_mode, sent_to_customer,
+        mode, network, service, intent, current_step, customer_stage,
+        used_llm, deterministic_resolution, selected_model, routing_reason,
+        complexity, selected_modules, selected_tools, selected_tutorials,
+        tool_call_count, tool_success_count, tool_failure_count,
+        input_tokens, output_tokens, cache_creation_input_tokens,
+        cache_read_input_tokens, prompt_tokens, cacheable_prefix_tokens,
+        estimated_cost, currency, duration_ms, guard_violations,
+        guards_triggered, regeneration_count, blocked, fallback_used,
+        state_changed_fields, response_chars, quality_flags,
+        structural_quality_score, commercial_quality_score,
+        safety_quality_score, overall_quality_score, error_code, prompt_metric_id
+    )
+    VALUES (
+        p_turn.event_id, p_turn.workspace_id, p_turn.conversation_id, p_turn.turn_id, p_turn.phone_hash,
+        p_turn.brain_version, p_turn.builder_version, p_turn.execution_mode, p_turn.sent_to_customer,
+        p_turn.mode, p_turn.network, p_turn.service, p_turn.intent, p_turn.current_step, p_turn.customer_stage,
+        p_turn.used_llm, p_turn.deterministic_resolution, p_turn.selected_model, p_turn.routing_reason,
+        p_turn.complexity, p_turn.selected_modules, p_turn.selected_tools, p_turn.selected_tutorials,
+        p_turn.tool_call_count, p_turn.tool_success_count, p_turn.tool_failure_count,
+        p_turn.input_tokens, p_turn.output_tokens, p_turn.cache_creation_input_tokens,
+        p_turn.cache_read_input_tokens, p_turn.prompt_tokens, p_turn.cacheable_prefix_tokens,
+        p_turn.estimated_cost, p_turn.currency, p_turn.duration_ms, p_turn.guard_violations,
+        p_turn.guards_triggered, p_turn.regeneration_count, p_turn.blocked, p_turn.fallback_used,
+        p_turn.state_changed_fields, p_turn.response_chars, p_turn.quality_flags,
+        p_turn.structural_quality_score, p_turn.commercial_quality_score,
+        p_turn.safety_quality_score, p_turn.overall_quality_score, p_turn.error_code, p_turn.prompt_metric_id
+    )
+    ON CONFLICT (workspace_id, conversation_id, turn_id)
+    DO UPDATE SET
+        updated_at = now(),
+        regeneration_count = GREATEST(agent_v2_turn_analytics.regeneration_count, EXCLUDED.regeneration_count),
+        tool_call_count = GREATEST(agent_v2_turn_analytics.tool_call_count, EXCLUDED.tool_call_count),
+        tool_success_count = GREATEST(agent_v2_turn_analytics.tool_success_count, EXCLUDED.tool_success_count),
+        tool_failure_count = GREATEST(agent_v2_turn_analytics.tool_failure_count, EXCLUDED.tool_failure_count),
+        sent_to_customer = agent_v2_turn_analytics.sent_to_customer OR EXCLUDED.sent_to_customer,
+        blocked = agent_v2_turn_analytics.blocked OR EXCLUDED.blocked,
+        input_tokens = CASE WHEN EXCLUDED.input_tokens > 0 THEN EXCLUDED.input_tokens ELSE agent_v2_turn_analytics.input_tokens END,
+        output_tokens = CASE WHEN EXCLUDED.output_tokens > 0 THEN EXCLUDED.output_tokens ELSE agent_v2_turn_analytics.output_tokens END,
+        estimated_cost = COALESCE(EXCLUDED.estimated_cost, agent_v2_turn_analytics.estimated_cost),
+        prompt_metric_id = COALESCE(agent_v2_turn_analytics.prompt_metric_id, EXCLUDED.prompt_metric_id)
+    RETURNING * INTO v_result;
+
+    RETURN v_result;
+END;
+$$;
