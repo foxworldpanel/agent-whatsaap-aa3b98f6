@@ -68,6 +68,7 @@ export interface AgentV2TurnAnalytics {
   phoneHash: string;
   turnId: string;
   createdAt: string;
+  updatedAt?: string;
   brainVersion: string;
   builderVersion: string;
   executionMode: 'isolated_test' | 'shadow' | 'pilot' | 'production';
@@ -111,9 +112,8 @@ export interface AgentV2TurnAnalytics {
   safetyQualityScore: number | null;
   overallQualityScore: number | null;
   errorCode: string | null;
-
   warning?: string;
-  updatedAt?: string;
+  promptMetricId?: string;
 }
 
 export interface AgentV2ConversationAnalytics {
@@ -121,6 +121,8 @@ export interface AgentV2ConversationAnalytics {
   conversationId: string;
   startedAt: string;
   endedAt: string | null;
+  updatedAt: string;
+  createdAt: string;
   mode: 'receptive' | 'outbound';
   primaryNetwork: string;
   primaryService: string;
@@ -162,8 +164,6 @@ export interface AgentV2ConversationAnalytics {
   overallQualityScore: number;
   conversionStage: CustomerStage;
   closeReason: string | null;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
 export interface ModelPricingConfigV2 {
