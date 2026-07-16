@@ -6,7 +6,7 @@ import { runAgentV2Turn } from './orchestrator.ts';
 import { ConversationStateV2, V2Network } from './conversation-state.types.ts';
 import { AgentV2E2EInput } from './orchestrator.types.ts';
 
-const INITIAL_STATE: ConversationStateV2 = {
+export const INITIAL_STATE: ConversationStateV2 = {
   conversationId: 'test-e2e',
   workspaceId: 'ws-test',
   phoneNumber: '5511999999999',
