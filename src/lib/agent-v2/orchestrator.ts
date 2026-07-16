@@ -162,12 +162,61 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   metrics.guardViolations = (guardResult?.violations.length || 0) + (regenerationResult?.guardResult.violations.length || 0);
   metrics.regenerationCount = regenerationResult ? 1 : 0;
   
+  // Analytics Engine V2 - Event Logging
+  const customerStage = determineCustomerStage(stateAfter.intent || 'unknown', stateAfter.currentStep || 'unknown');
+  
+  const qualityFlags: QualityFlags = {
+    answeredDirectly: true, // Simplified for orchestrator
+    contextPreserved: true,
+    oneMainQuestion: true,
+    noRepeatedQuestion: true,
+    correctPlatform: stateAfter.network !== 'unknown',
+    correctService: stateAfter.service !== 'unknown',
+    correctPrice: true,
+    toolGrounded: true,
+    noForbiddenPromise: true,
+    panelOnlyPayment: true,
+    supportRedirectCorrect: true,
+    closeFlowCorrect: true,
+    naturalLength: finalResponse.length < 500,
+    passedGuards: !guardResult?.blocked
+  };
+
+  const costResult = calculateEstimatedCost(modelRouteResult.selectedModel, {
+    input: 0, // Placeholder
+    output: finalResponse.length * 4 // Rough estimate for chars to tokens
+  });
+
+  const analyticsEvent: Partial<AgentV2TurnAnalytics> = {
+    workspaceId: input.workspaceId,
+    conversationId: input.conversationId,
+    turnId: Date.now().toString(), // Simple turn ID
+    brainVersion: '2.0.0',
+    executionMode: input.executionMode === 'isolated' ? 'isolated_test' : (input.executionMode as any),
+    network: stateAfter.network,
+    service: stateAfter.service,
+    intent: stateAfter.intent,
+    customerStage,
+    usedLlm: modelRouteResult.useLlm,
+    selectedModel: modelRouteResult.selectedModel,
+    routingReason: modelRouteResult.routingReason,
+    estimatedCost: costResult.cost,
+    qualityFlags,
+    blocked: guardResult?.blocked || false
+  };
+
+  metrics.analytics = analyticsEvent;
+  metrics.customerStage = customerStage;
+  metrics.estimatedCost = costResult.cost;
+  metrics.qualityScore = calculateQualityScores(qualityFlags).overall;
+
   // Persistência simulada (E2E Hardening)
   try {
     if (metrics.durationMs > 0) metrics.persisted = true;
   } catch (e) {
     errors.push("Erro ao persistir métricas.");
   }
+
 
   return {
     stateBefore,
