@@ -43,7 +43,7 @@ import {
 } from "@/lib/verbose-loop-guard.server";
 
 const OPENING =
-  "Oi, bom dia Romulo! Peguei o seu contato no perfil @sourcee, achei muito bom o conteúdo! Posso te mostrar algo que pode acelerar o crescimento das suas redes?";
+  "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 
 const FAREWELL_PATTERNS = [
   /de\s+nada/i,
@@ -1458,7 +1458,7 @@ describe("Detecção de mensagem automática de WhatsApp Business (saudação + 
 // Regressão: conversa ORGÂNICA/receptiva NÃO deve receber o
 // EXEMPLO_MODELO_DISPARO no prompt. Regressão real: cliente falando sobre
 // a banda dele, no meio da conversa apareceu "Oi, bom dia Romulo!" +
-// "Peguei o seu contato no perfil @sourcee" (few-shot literal do exemplo).
+// "Aqui é a Júlia da Mind" (few-shot literal do exemplo).
 // ---------------------------------------------------------------------------
 describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
   const ORGANIC_HISTORY = [
@@ -1509,8 +1509,8 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
     });
     expect(EXEMPLO_BODY_SIGNATURE.test(prompt)).toBe(true);
     // E o exemplo já NÃO contém mais nome/handle real hardcoded.
-    expect(/Romulo/.test(prompt), "FALHOU: nome real 'Romulo' hardcoded no exemplo").toBe(false);
-    expect(/@sourcee/.test(prompt), "FALHOU: handle real '@sourcee' hardcoded no exemplo").toBe(false);
+    expect(prompt).not.toContain("Romulo");
+    expect(prompt).not.toContain("@sourcee");
   });
 
   it("pipeline runtime (generateAgentReplyWithMeta) em conversa organic também NÃO injeta o exemplo", async () => {

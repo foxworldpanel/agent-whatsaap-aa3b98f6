@@ -974,7 +974,7 @@ export async function generateAgentReplyWithMeta(params: {
       //    receptiva o modelo NÃO deve ter o few-shot com placeholders
       //    fictícios ({handle_instagram_exemplo}) disponível, senão pode
       //    copiá-lo literalmente no meio de uma conversa real (regressão
-      //    observada em produção com "@sourcee" vazando pra cliente real).
+      //    observada em produção com handle de exemplo vazando pra cliente real).
       suppressExemploDisparo: anyReengagementVeto || !effectiveBlast,
     }),
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,

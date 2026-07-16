@@ -1,6 +1,6 @@
 // Catálogo de "tipos de abertura" (roteiros de mensagem inicial) por campanha
-// de disparo. Extensível: para adicionar um novo tipo (ex.: Smoke Music,
-// campanha de indicação), basta acrescentar uma nova entrada aqui — a UI e o
+// de disparo. Extensível: para adicionar um novo tipo (ex.: campanha de
+// indicação), basta acrescentar uma nova entrada aqui — a UI e o
 // dispatcher passam a suportar automaticamente.
 
 import type { LangTemplates } from "@/lib/blast-variations";
