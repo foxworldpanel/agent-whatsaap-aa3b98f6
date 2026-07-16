@@ -343,8 +343,9 @@ async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string
   // Isso garante que os guards da V1 não interfiram na orquestração da V2.
   const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
   const { data: agent } = await supabaseAdmin.from('agent_config').select('*').eq('workspace_id', input.workspaceId).maybeSingle();
-  const { data: contact } = await supabaseAdmin.from('contacts').select('nome, perfil').eq('user_id', agent?.user_id).eq('telefone', input.phoneNumber).maybeSingle();
-  const { data: integ } = await supabaseAdmin.from('integrations').select('anthropic_api_key').eq('user_id', agent?.user_id).maybeSingle();
+  const { data: contact } = await supabaseAdmin.from('contacts').select('nome, perfil').eq('user_id', agent?.user_id as string).eq('telefone', input.phoneNumber).maybeSingle();
+  const { data: integ } = await supabaseAdmin.from('integrations').select('anthropic_api_key').eq('user_id', agent?.user_id as string).maybeSingle();
+
 
   if (!agent || !integ) return "Desculpe, configuração não encontrada.";
 
