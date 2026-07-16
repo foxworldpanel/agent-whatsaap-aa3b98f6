@@ -162,6 +162,7 @@ export interface ModelPricingConfigV2 {
   provider: string;
   model: string;
   effectiveFrom: string;
+  effectiveUntil?: string | null;
   inputPricePerMillion: number;
   outputPricePerMillion: number;
   cacheCreationPricePerMillion: number;
