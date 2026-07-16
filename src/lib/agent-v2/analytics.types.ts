@@ -107,6 +107,7 @@ export interface AgentV2TurnAnalytics {
   qualityFlags: QualityFlags;
   errorCode: string | null;
   warning?: string;
+  updatedAt?: string;
 }
 
 export interface AgentV2ConversationAnalytics {
