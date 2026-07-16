@@ -615,13 +615,15 @@ PREÇO ATUAL: consulte SEMPRE o catálogo real (servicesContext) antes de inform
 
   tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
 
-Esta é a tabela COMPLETA de serviços disponíveis. O que não estiver aqui NÃO existe no painel. Quando cliente perguntar sobre serviço que não está na tabela responde: No momento não temos esse serviço disponível.
+Esta é a tabela COMPLETA de serviços disponíveis. O que não estiver aqui NÃO existe no painel. Quando cliente perguntar sobre serviço que não está na tabela responde: "No momento não temos esse serviço disponível."
 
 Regras:
 - NUNCA mencione siglas BQ, MQ, HQ — use apenas os serviços listados na tabela.
 - NUNCA invente preço — use apenas os valores desta tabela.
 - NUNCA confirme quantidade abaixo do mínimo listado.
-- Se o cliente perguntar algo que não está na tabela, seja direto: "No momento não temos esse serviço disponível."
+- Prioridade Máxima: Use esta tabela para qualquer cotação de preço.
+- Se o serviço não estiver listado, diga que não está disponível.
+- Salve as alterações clicando em "Atualizar agente" (Salvar tabela).
 `,
 };
 
