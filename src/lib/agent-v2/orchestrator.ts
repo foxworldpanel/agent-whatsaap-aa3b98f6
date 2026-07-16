@@ -7,6 +7,8 @@ import { routeModulesV2 } from './router';
 import { routeModelV2 } from './model-router';
 import { buildPromptV2 } from './prompt-builder';
 import { runGuardEngineV2 } from './guard-engine';
+import { generateAgentReplyWithMeta } from '../ai.server';
+
 import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
 import { determineCustomerStage, calculateQualityScores, calculateEstimatedCost, hashPhoneNumber } from './analytics';
@@ -102,7 +104,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       builderVersion: '2.0.0'
     });
 
-    modelResponse = await simulateModelCall(promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
+    modelResponse = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
 
     guardResult = runGuardEngineV2({
       draftResponse: modelResponse,
@@ -120,7 +122,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
 
     if (guardResult.requiresRegeneration) {
       const instruction = guardResult.regenerationInstruction || "Corrija a resposta anterior.";
-      const regenResponse = await simulateModelCall(promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307', instruction);
+      const regenResponse = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307', instruction);
       
       const regenGuardResult = runGuardEngineV2({
         draftResponse: regenResponse,
@@ -327,17 +329,37 @@ function generateDeterministicResponse(message: string, state: ConversationState
   return "Entendido. Como posso prosseguir?";
 }
 
-async function simulateModelCall(prompt: any, model: string, instruction?: string): Promise<string> {
-  const lastUserMessage = prompt.messages[prompt.messages.length - 1].content.toLowerCase();
-  const stateSummary = prompt.systemPrompt.toLowerCase();
-
-  if (instruction) {
-    if (instruction.includes('PRICE_SOURCE_GUARD')) {
-      return "A nossa playlist para Spotify está custando apenas R$ 49,90.";
-    }
+async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string, instruction?: string): Promise<string> {
+  // Se estivermos em modo simulado (fixture), mantém comportamento antigo
+  if (input.executionMode === 'isolated' || input.executionMode === 'shadow') {
+    const lastUserMessage = prompt.messages[prompt.messages.length - 1].content.toLowerCase();
+    if (instruction && instruction.includes('PRICE_SOURCE_GUARD')) return "A nossa playlist para Spotify está custando apenas R$ 49,90.";
+    if (lastUserMessage.includes('divulgar minha música')) return "Plataforma?";
+    if (lastUserMessage.includes('spotify')) return "Seguidores ou plays?";
+    return "Como posso ajudar? (Simulação)";
   }
 
-  if (lastUserMessage.includes('divulgar minha música')) return "Plataforma?";
-  if (lastUserMessage.includes('spotify')) return "Seguidores ou plays?";
-  return "Como posso ajudar?";
+  // Em modo REAL ou PILOT, chama a V1 como motor de inferência, mas apenas para a geração do texto.
+  // Isso garante que os guards da V1 não interfiram na orquestração da V2.
+  const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
+  const { data: agent } = await supabaseAdmin.from('agent_config').select('*').eq('workspace_id', input.workspaceId).maybeSingle();
+  const { data: contact } = await supabaseAdmin.from('contacts').select('nome, perfil').eq('user_id', agent?.user_id as string).eq('telefone', input.phoneNumber).maybeSingle();
+  const { data: integ } = await supabaseAdmin.from('integrations').select('anthropic_api_key').eq('user_id', agent?.user_id as string).maybeSingle();
+
+
+  if (!agent || !integ) return "Desculpe, configuração não encontrada.";
+
+  const v1Args = {
+    anthropicApiKey: integ.anthropic_api_key,
+    agent: agent as any,
+    contact: { nome: contact?.nome || 'Cliente', perfil: (contact?.perfil as any) || 'frio' },
+    history: input.shortHistory,
+    extraContext: instruction ? `INSTRUÇÃO DE REGENERAÇÃO: ${instruction}\n\n${input.historySummary || ''}` : input.historySummary,
+    isInbound: input.mode === 'receptive',
+    userId: agent.user_id,
+  };
+
+  const result = await generateAgentReplyWithMeta(v1Args);
+  return result.text;
 }
+

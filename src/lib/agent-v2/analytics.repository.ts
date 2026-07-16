@@ -118,7 +118,7 @@ export class NoopAgentV2AnalyticsRepository implements AgentV2AnalyticsRepositor
  * Factory to get the active repository based on environment configuration
  */
 export function getAgentV2AnalyticsRepository(): AgentV2AnalyticsRepository {
-  const mode = process.env.ANALYTICS_MODE || (process.env.NODE_ENV === 'production' ? 'supabase' : 'memory');
+  const mode = process.env.ANALYTICS_MODE || 'supabase';
   
   if (mode === 'memory') return new InMemoryAgentV2AnalyticsRepository();
   if (mode === 'supabase') return new SupabaseAgentV2AnalyticsRepository();
