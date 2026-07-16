@@ -2,8 +2,22 @@
  * Agent Mind V2 - Tipos Base
  */
 
+/**
+ * Tipos LEGADOS. Mantidos apenas por compatibilidade com migrations
+ * antigas, snapshots do banco e código arquivado. NÃO usar no fluxo ativo.
+ */
 export type BrainVersion = 'v1' | 'v2_shadow' | 'v2_pilot' | 'v2';
 export type ExecutionMode = 'production' | 'shadow' | 'pilot';
+
+/**
+ * Tipo ATIVO usado pelo resolver e pelo webhook.
+ * - 'v2'       → cérebro oficial, executado apenas para números autorizados.
+ * - 'disabled' → IA totalmente desligada para o número; nenhuma chamada
+ *                a Claude, prompt, ferramenta ou métrica é permitida.
+ *
+ * O valor 'v1' NÃO é retornado pelo resolver ativo — a V1 está arquivada.
+ */
+export type ActiveBrainVersion = 'v2' | 'disabled';
 
 
 export interface AgentV2State {
