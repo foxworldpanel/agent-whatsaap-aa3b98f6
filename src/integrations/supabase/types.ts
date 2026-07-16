@@ -1838,6 +1838,7 @@ export type Database = {
           auto_paused_at: string | null
           contact_id: string
           contexto_extra: string | null
+          contexto_v2: Json | null
           created_at: string
           funnel_status: Database["public"]["Enums"]["funnel_status"]
           id: string
@@ -1858,6 +1859,7 @@ export type Database = {
           auto_paused_at?: string | null
           contact_id: string
           contexto_extra?: string | null
+          contexto_v2?: Json | null
           created_at?: string
           funnel_status?: Database["public"]["Enums"]["funnel_status"]
           id?: string
@@ -1878,6 +1880,7 @@ export type Database = {
           auto_paused_at?: string | null
           contact_id?: string
           contexto_extra?: string | null
+          contexto_v2?: Json | null
           created_at?: string
           funnel_status?: Database["public"]["Enums"]["funnel_status"]
           id?: string
