@@ -3,7 +3,7 @@
  */
 
 import { runAgentV2Turn } from './orchestrator.ts';
-import { ConversationStateV2 } from './conversation-state.types.ts';
+import { ConversationStateV2, V2Network } from './conversation-state.types.ts';
 import { AgentV2E2EInput } from './orchestrator.types.ts';
 
 const INITIAL_STATE: ConversationStateV2 = {
@@ -79,7 +79,7 @@ async function runE2ETests() {
   }
 
   // 4. SUPORTE
-  let state4 = { ...INITIAL_STATE, conversationId: 'conv-4', network: 'spotify', service: 'playlist' };
+  let state4: ConversationStateV2 = { ...INITIAL_STATE, conversationId: 'conv-4', network: 'spotify' as V2Network, service: 'playlist' };
   console.log("\n--- CONVERSA 4: SUPORTE ---");
   const conv4 = [
     { msg: "Meu pedido caiu.", fix: {} }
@@ -92,7 +92,7 @@ async function runE2ETests() {
   }
 
   // 5. TROCA DE REDE
-  let state5 = { ...INITIAL_STATE, conversationId: 'conv-5', network: 'spotify', service: 'playlist' };
+  let state5: ConversationStateV2 = { ...INITIAL_STATE, conversationId: 'conv-5', network: 'spotify' as V2Network, service: 'playlist' };
   console.log("\n--- CONVERSA 5: TROCA DE REDE ---");
   const conv5 = [
     { msg: "Na verdade quero YouTube.", fix: {} }
@@ -123,9 +123,6 @@ async function runE2ETests() {
   // 7. REGENERAÇÃO FORÇADA
   let state7 = { ...INITIAL_STATE, conversationId: 'conv-7' };
   console.log("\n--- CONVERSA 7: REGENERAÇÃO FORÇADA ---");
-  // O simulador de modelo no orchestrator.ts deve ser capaz de disparar o erro proposital
-  // Vamos usar uma mensagem que o simulador ainda não conhece ou ajustar o simulador se necessário
-  // Mas como não posso mudar o código, vou usar o que o simulador faz
   const conv7 = [
     { msg: "Quanto custa? (force_error)", fix: { consultar_servicos: { salePrice: 49.90, isActive: true } } }
   ];
