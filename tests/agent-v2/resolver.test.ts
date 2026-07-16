@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { resolveAgentBrainVersion } from '../resolver';
+import { resolveAgentBrainVersion } from '@/lib/agent-v2/resolver';
+
 
 describe('resolveAgentBrainVersion', () => {
   it('should return v1 if config is missing', () => {
