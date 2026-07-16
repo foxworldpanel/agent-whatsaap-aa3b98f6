@@ -2945,24 +2945,45 @@ export type Database = {
       cleanup_old_agent_prompt_metrics: { Args: never; Returns: undefined }
       current_workspace_id: { Args: never; Returns: string }
       effective_workspace_id: { Args: { _user_id: string }; Returns: string }
-      get_or_create_active_conversation: {
-        Args: {
-          _contact_id: string
-          _initial_status?: Database["public"]["Enums"]["conversation_status"]
-          _user_id: string
-          _whatsapp_number_id?: string
-        }
-        Returns: {
-          agent_enabled: boolean
-          contexto_extra: string
-          created_at: string
-          id: string
-          last_media_sent: Json
-          last_message_at: string
-          needs_review: boolean
-          whatsapp_number_id: string
-        }[]
-      }
+      get_or_create_active_conversation:
+        | {
+            Args: {
+              _contact_id: string
+              _initial_status?: Database["public"]["Enums"]["conversation_status"]
+              _user_id: string
+              _whatsapp_number_id?: string
+            }
+            Returns: {
+              agent_enabled: boolean
+              contexto_extra: string
+              created_at: string
+              id: string
+              last_media_sent: Json
+              last_message_at: string
+              needs_review: boolean
+              whatsapp_number_id: string
+            }[]
+          }
+        | {
+            Args: {
+              _contact_id: string
+              _initial_status?: Database["public"]["Enums"]["conversation_status"]
+              _user_id: string
+              _whatsapp_number_id?: string
+              _workspace_id?: string
+            }
+            Returns: {
+              agent_enabled: boolean
+              contexto_extra: string
+              created_at: string
+              id: string
+              last_media_sent: Json
+              last_message_at: string
+              needs_review: boolean
+              whatsapp_number_id: string
+              workspace_id: string
+            }[]
+          }
       upsert_agent_v2_turn_analytics:
         | {
             Args: {
