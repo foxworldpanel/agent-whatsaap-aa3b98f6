@@ -5,13 +5,7 @@ const scenarios = [
   { name: "Vocês trabalham com o quê?", message: "Vocês trabalham com o quê?" },
   { name: "Spotify", message: "Spotify" },
   { name: "Meu pedido caiu", message: "Meu pedido caiu" },
-  { name: "Obrigado", message: "Obrigado" },
-  { name: "Instagram", message: "Instagram" },
-  { name: "Estragam", message: "Estragam" },
-  { name: "Sim", message: "Sim" },
-  { name: "Não tenho interesse", message: "Não tenho interesse" },
-  { name: "Quanto custa?", message: "Quanto custa?" },
-  { name: "Vamos fechar", message: "Vamos fechar" }
+  { name: "Obrigado", message: "Obrigado" }
 ];
 
 scenarios.forEach(s => {
@@ -23,7 +17,7 @@ scenarios.forEach(s => {
     selectedModules: []
   });
   
-  console.log(\`=== Cenário: \${s.name} ===\`);
-  console.log(\`Tokens: \${result.estimatedTokens}\`);
-  console.log('---');
+  console.log("=== Cenario: " + s.name + " ===");
+  console.log("Tokens: " + result.estimatedTokens);
+  console.log("---");
 });
