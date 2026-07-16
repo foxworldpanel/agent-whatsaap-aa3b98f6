@@ -9,10 +9,10 @@
  * Shadow Mode e comparação V1 x V2 foram REMOVIDOS.
  */
 
-import { BrainVersion } from './types';
+import { ActiveBrainVersion } from './types';
 import { isAuthorizedV2Phone } from './authorized-phones';
 
-interface AgentConfig {
+export interface AgentConfig {
   agent_brain_version?: string;
   // Campos legados mantidos apenas para compatibilidade de tipo:
   pilot_phone_numbers?: string[];
@@ -30,6 +30,6 @@ interface AgentConfig {
 export function resolveAgentBrainVersion(
   _config: AgentConfig | null | undefined,
   phoneNumber: string | null | undefined
-): BrainVersion {
-  return isAuthorizedV2Phone(phoneNumber) ? 'v2' : 'v1';
+): ActiveBrainVersion {
+  return isAuthorizedV2Phone(phoneNumber) ? 'v2' : 'disabled';
 }
