@@ -35,7 +35,7 @@ function auditSchema() {
     { name: 'Turn: RLS Policy SELECT', regex: /CREATE POLICY agent_v2_turn_select/i },
     { name: 'Turn: Revoke Public/Anon', regex: /REVOKE ALL ON public\.agent_v2_turn_analytics FROM anon, authenticated, public/i },
     { name: 'Turn: Grant SELECT Auth', regex: /GRANT SELECT ON public\.agent_v2_turn_analytics TO authenticated/i },
-    { name: 'Turn: 5+ Índices', regex: /(CREATE INDEX.*idx_turn_v2_){5}/is },
+    { name: 'Turn: 5+ Índices', regex: /CREATE INDEX.*idx_turn_v2_.*CREATE INDEX.*idx_turn_v2_.*CREATE INDEX.*idx_turn_v2_.*CREATE INDEX.*idx_turn_v2_.*CREATE INDEX.*idx_turn_v2_/is },
 
     // 3. Conversation Analytics
     { name: 'Conv: integral fields (wrong_platform, free_test, funnel)', regex: /wrong_platform_count.*wrong_service_count.*wrong_price_count.*free_test_offered.*panel_guidance_started.*reached_order_step/is },
