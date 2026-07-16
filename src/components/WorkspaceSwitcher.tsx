@@ -16,11 +16,19 @@ export function WorkspaceSwitcher() {
   const { workspaces, activeWorkspace, activeWorkspaceId, switchWorkspace, isLoading } = useWorkspace();
   const [wizardOpen, setWizardOpen] = useState(false);
 
-  if (isLoading || !workspaces.length) {
+  if (isLoading) {
     return (
       <div className="mx-3 mt-3 flex items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-xs text-muted-foreground">
         <span className="h-4 w-4 animate-pulse rounded-full bg-muted" />
         <span>Carregando workspaces…</span>
+      </div>
+    );
+  }
+
+  if (!workspaces.length) {
+    return (
+      <div className="mx-3 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        Nenhum workspace válido encontrado. Selecione ou solicite acesso ao workspace Mind.
       </div>
     );
   }

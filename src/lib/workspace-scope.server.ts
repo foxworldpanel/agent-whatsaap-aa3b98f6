@@ -40,34 +40,7 @@ export async function resolveWorkspaceId(
 
     if (anyWs?.id) return anyWs.id;
 
-    // Nenhum workspace existe para este usuário → cria um padrão automaticamente.
-    // Isso evita telas em branco no primeiro acesso após o signup.
-    // Em caso de corrida (várias server fns paralelas no primeiro request),
-    // o INSERT pode falhar por unique constraint — refetch e retorna o existente.
-    const { data: created, error: createErr } = await supabase
-      .from("workspaces")
-      .insert({
-        user_id: userId,
-        nome: "Meu workspace",
-        is_default: true,
-      })
-      .select("id")
-      .single();
-    if (created?.id) return created.id;
-
-    // Corrida: outro handler já criou. Refetch qualquer workspace do usuário.
-    const { data: existing } = await supabase
-      .from("workspaces")
-      .select("id")
-      .eq("user_id", userId)
-      .order("is_default", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existing?.id) return existing.id;
-
-    throw new Error(
-      `No default workspace found for user and auto-create failed: ${createErr?.message ?? "unknown"}`,
-    );
+    throw new Error("Nenhum workspace válido encontrado para este usuário. Selecione ou solicite acesso ao workspace Mind.");
   }
   return data.id;
 }

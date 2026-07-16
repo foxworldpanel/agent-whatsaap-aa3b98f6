@@ -13,6 +13,12 @@ export async function runAgentV2Turn(data: {
   workspaceId: string;
   phoneNumber: string;
   currentMessage: string;
+  expected?: {
+    conversationWorkspaceId?: string | null;
+    agentWorkspaceId?: string | null;
+    whatsappWorkspaceId?: string | null;
+    selectedWorkspaceId?: string | null;
+  };
   mode?: 'receptive' | 'outbound';
   executionMode?: 'isolated' | 'shadow' | 'real';
   media?: {
@@ -24,6 +30,28 @@ export async function runAgentV2Turn(data: {
   historySummary?: string;
   toolFixtures?: Record<string, any>;
 }): Promise<AgentV2E2EOutput> {
+  const expected = data.expected ?? {};
+  const mismatches = Object.entries({
+    conversationWorkspaceId: expected.conversationWorkspaceId,
+    agentWorkspaceId: expected.agentWorkspaceId,
+    whatsappWorkspaceId: expected.whatsappWorkspaceId,
+    selectedWorkspaceId: expected.selectedWorkspaceId,
+  }).filter(([, value]) => value && value !== data.workspaceId);
+
+  if (mismatches.length > 0) {
+    const { logEvent } = await import("@/lib/agent-logger.server");
+    await logEvent({
+      userId: null,
+      phone: data.phoneNumber,
+      conversationId: data.conversationId,
+      type: "workspace_mismatch_v2",
+      level: "error",
+      summary: "V2 bloqueada por divergência de workspace",
+      metadata: { workspaceId: data.workspaceId, expected, mismatches },
+    });
+    throw new Error(`workspace mismatch before Agent V2 turn: ${mismatches.map(([key, value]) => `${key}=${value}`).join(", ")}`);
+  }
+
   const repository = getConversationStateRepositoryV2();
   
   // 1. Get or create state

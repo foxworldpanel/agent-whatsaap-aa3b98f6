@@ -870,7 +870,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
         const { data: number } = await supabaseAdmin
           .from("whatsapp_numbers")
-          .select("id, user_id, uazapi_url, meta_ads_enabled, disparos_mode, nome")
+          .select("id, user_id, workspace_id, uazapi_url, meta_ads_enabled, disparos_mode, nome")
           .eq("uazapi_token", instanceToken)
           .order("updated_at", { ascending: false, nullsFirst: false })
           .limit(1)
@@ -878,6 +878,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         let userId: string;
         let numberId: string | null = null;
+        let selectedWorkspaceId: string | null = null;
         let numberUazapiUrl: string | null = null;
         let metaAdsEnabled = false;
         let disparosMode = false;
@@ -885,6 +886,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         if (number) {
           userId = number.user_id;
           numberId = number.id;
+          selectedWorkspaceId = (number as { workspace_id?: string | null }).workspace_id ?? null;
           numberUazapiUrl = number.uazapi_url;
           metaAdsEnabled = !!number.meta_ads_enabled;
           disparosMode = !!number.disparos_mode;
@@ -917,6 +919,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
           userId = integLegacy.user_id;
           numberUazapiUrl = integLegacy.uazapi_url;
+        }
+
+        if (!selectedWorkspaceId) {
+          console.error("❌ Workspace não resolvido para a instância WhatsApp — bloqueando processamento");
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              type: "workspace_missing",
+              level: "error",
+              summary: "Webhook bloqueado: instância WhatsApp sem workspace válido",
+              metadata: { numberId, origem: "uazapi-webhook" },
+            });
+          } catch {}
+          return new Response("workspace missing for WhatsApp instance", { status: 409 });
         }
 
         // Log de diagnóstico: qual número recebeu a mensagem e em qual modo
@@ -1000,6 +1018,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .from("contacts")
           .select("id, nome, perfil, status, source, source_ref, photo_url, whatsapp_number_id")
           .eq("user_id", userId)
+          .eq("workspace_id", selectedWorkspaceId)
           .eq("telefone", phone)
           .maybeSingle();
 
@@ -1030,6 +1049,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .from("contacts")
             .insert({
               user_id: userId,
+              workspace_id: selectedWorkspaceId,
               nome: msg.senderName ?? phone,
               telefone: phone,
               perfil: "frio",
@@ -1233,6 +1253,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           last_media_sent?: unknown | null;
           last_message_at?: string | null;
           created_at?: string | null;
+          workspace_id?: string | null;
         };
         // Conversas são isoladas por número conectado. Mesmo se o contato tem
         // histórico de disparo em outro chip, a resposta deve ficar no número
@@ -1250,6 +1271,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             _contact_id: contact.id,
             _whatsapp_number_id: desiredConversationNumberId,
             _initial_status: "agente_respondendo",
+            _workspace_id: selectedWorkspaceId,
           },
         );
         if (convLookupErr) return new Response(convLookupErr.message, { status: 500 });
@@ -1269,6 +1291,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .from("conversations")
             .select("id")
             .eq("user_id", userId)
+          .eq("workspace_id", selectedWorkspaceId)
             .eq("contact_id", contact.id);
           const siblingIds = (siblingConvs ?? [])
             .map((r) => (r as { id: string }).id)
@@ -1325,6 +1348,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const now = new Date().toISOString();
         await supabaseAdmin.from("messages").insert({
           user_id: userId,
+          workspace_id: selectedWorkspaceId,
           conversation_id: conv.id,
           sender: outbound ? "agente" : "cliente",
           kind: dbKind,
@@ -1418,6 +1442,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .from("agent_config")
           .select("*")
           .eq("user_id", userId)
+          .eq("workspace_id", selectedWorkspaceId)
           .maybeSingle();
         if (!agent) {
           await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
@@ -3031,6 +3056,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 sender: m.sender === 'agente' ? 'agente' : 'cliente',
                 body: m.body || ''
               })),
+              expected: {
+                conversationWorkspaceId: (conv as any).workspace_id,
+                agentWorkspaceId: (agent as any).workspace_id,
+                whatsappWorkspaceId: selectedWorkspaceId,
+                selectedWorkspaceId,
+              },
             });
             
             reply = v2Result.finalResponse;
