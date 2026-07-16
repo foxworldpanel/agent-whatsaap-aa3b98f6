@@ -3,7 +3,7 @@
  */
 
 import { AgentV2E2EInput, AgentV2E2EOutput } from './orchestrator.types';
-import { routeModulesV2 } from './module-router';
+import { routeModulesV2 } from './router';
 import { routeModelV2 } from './model-router';
 import { buildPromptV2 } from './prompt-builder';
 import { runGuardEngineV2 } from './guard-engine';
@@ -64,8 +64,12 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       draftResponse: finalResponse,
       conversationState: stateAfterRouting,
       routeResult,
+      modelRouteResult,
+      selectedModules: routeResult.selectedModules,
+      selectedTools: routeResult.selectedTools,
       toolResults: input.toolFixtures,
-      currentMessage: normalizedMessage
+      currentMessage: normalizedMessage,
+      executionMode: input.executionMode
     });
     finalResponse = guardResult.finalResponse;
   } 
@@ -79,6 +83,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       historySummary: input.historySummary,
       toolResults: input.toolFixtures,
       currentMessage: normalizedMessage,
+      brainVersion: '2.0.0',
       builderVersion: '2.0.0'
     });
 
@@ -90,8 +95,12 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       draftResponse: modelResponse,
       conversationState: stateAfterRouting,
       routeResult,
+      modelRouteResult,
+      selectedModules: routeResult.selectedModules,
+      selectedTools: routeResult.selectedTools,
       toolResults: input.toolFixtures,
-      currentMessage: normalizedMessage
+      currentMessage: normalizedMessage,
+      executionMode: input.executionMode
     });
 
     finalResponse = guardResult.finalResponse;
@@ -106,8 +115,12 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
         draftResponse: regenResponse,
         conversationState: stateAfterRouting,
         routeResult,
+        modelRouteResult,
+        selectedModules: routeResult.selectedModules,
+        selectedTools: routeResult.selectedTools,
         toolResults: input.toolFixtures,
-        currentMessage: normalizedMessage
+        currentMessage: normalizedMessage,
+        executionMode: input.executionMode
       });
 
       regenerationResult = {
