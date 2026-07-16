@@ -18,7 +18,7 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/_authenticated" });
+      if (data.session) navigate({ to: "/" });
     });
   }, [navigate]);
 
@@ -29,7 +29,8 @@ function AuthPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate({ to: "/_authenticated" });
+      navigate({ to: "/" });
+
 
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
