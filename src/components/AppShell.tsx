@@ -11,7 +11,7 @@ import { getAgentConfig, setAgentGlobalEnabled, countConversationsToReview, coun
 import { toast } from "sonner";
 
 const nav = [
-  { to: "/_authenticated/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/contatos", label: "Contatos", icon: Users },
   { to: "/agente", label: "Agente IA", icon: Bot },
   { to: "/disparos", label: "Disparos", icon: Send },
