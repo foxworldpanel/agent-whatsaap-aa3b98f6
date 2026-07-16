@@ -123,6 +123,7 @@ export function routeModelV2(input: RouteModelV2Input): RouteModelV2Output {
 function checkDeterministicCase(input: RouteModelV2Input): boolean {
   const msg = input.currentMessage.toLowerCase().trim();
   const lastQ = input.conversationState.lastQuestion?.toLowerCase() || '';
+  const { routeResult } = input;
 
   // Sim/Não para cadastro ou saldo
   if (['sim', 'não', 'nao'].includes(msg) && (lastQ.includes('cadastro') || lastQ.includes('conta') || lastQ.includes('saldo'))) {
@@ -134,13 +135,22 @@ function checkDeterministicCase(input: RouteModelV2Input): boolean {
     return true;
   }
 
-  // Callback de teste (exemplo)
-  if (msg.includes('__test_callback__')) {
+  // Callback de teste concluído
+  if (msg.includes('__test_callback__') || msg.includes('teste concluído')) {
+    return true;
+  }
+
+  // Suporte direto (opcionalmente sem LLM se for um redirecionamento simples)
+  if (routeResult.detectedIntent === 'support' && (msg.includes('pedido caiu') || msg.includes('meu pedido'))) {
+    // Podemos permitir useLlm=false se quisermos uma resposta local fixa
+    // mas a regra diz "useLlm=false ou modelo leve", vamos priorizar a consistência
+    // Para ser determinístico (useLlm=false), retornamos true aqui.
     return true;
   }
 
   return false;
 }
+
 
 function classifyComplexity(input: RouteModelV2Input): V2Complexity {
   const msg = input.currentMessage;
