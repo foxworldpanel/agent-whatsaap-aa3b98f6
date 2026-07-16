@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, Save } from "lucide-react";
+import { ChevronDown, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Collapsible,
   CollapsibleContent,
@@ -24,6 +25,7 @@ import { PlaylistCard } from "@/components/agente/PlaylistCard";
 import { DailyPromoCard } from "@/components/agente/DailyPromoCard";
 import { IdentidadeCard } from "@/components/agente/IdentidadeCard";
 import { PriceTableCard } from "@/components/agente/PriceTableCard";
+import { listWorkspaces } from "@/lib/workspaces.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 import { useWorkspace } from "@/contexts/workspace-context";
@@ -36,7 +38,7 @@ export const Route = createFileRoute("/_authenticated/agente")({
 
 function AgentePage() {
   const qc = useQueryClient();
-  const { activeWorkspaceId } = useWorkspace();
+  const { activeWorkspaceId, workspaces, isLoading: isWsLoading } = useWorkspace();
   const fetchCfg = useServerFn(getAgentConfig);
   const saveFn = useServerFn(saveAgentModules);
   const toggleRealtimeFn = useServerFn(setServicesRealtime);
@@ -68,7 +70,13 @@ function AgentePage() {
       seedTplMut.mutate();
     }
   };
-  const { data: cfgRaw } = useQuery({ queryKey: ["agent_config", activeWorkspaceId], queryFn: () => fetchCfg() });
+
+  const { data: cfgRaw, isLoading: isCfgLoading, error: cfgError } = useQuery({ 
+    queryKey: ["agent_config", activeWorkspaceId], 
+    queryFn: () => fetchCfg(),
+    enabled: !!activeWorkspaceId
+  });
+  
   const cfg = cfgRaw as AgentConfigUi | null | undefined;
 
   const [modules, setModules] = useState<Record<string, string>>({});
@@ -149,6 +157,31 @@ function AgentePage() {
     [enabled],
   );
 
+  if (isWsLoading || isCfgLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-sm text-muted-foreground font-medium">Carregando workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (cfgError) {
+    return (
+      <div className="mx-auto max-w-4xl p-6">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Erro ao carregar configurações</AlertTitle>
+          <AlertDescription>
+            Não foi possível carregar as informações do agente. {cfgError instanceof Error ? cfgError.message : "Tente recarregar a página."}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
@@ -163,6 +196,16 @@ function AgentePage() {
           {save.isPending ? "Salvando..." : "Salvar tudo"}
         </Button>
       </div>
+
+      {!activeWorkspaceId && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Nenhum workspace selecionado</AlertTitle>
+          <AlertDescription>
+            Selecione um workspace no menu lateral para visualizar as configurações do agente.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Seed opcional a partir do template Mind (Júlia) — Passo 4. */}
       <Card className="border-dashed border-primary/40 bg-muted/20 p-3 text-xs">
