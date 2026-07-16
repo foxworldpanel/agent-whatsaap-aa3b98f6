@@ -62,8 +62,8 @@ export async function runBuilderTests() {
         const hasToolData = res.systemPrompt.includes('# DADOS ATUAIS DA FERRAMENTA');
         return hasSpotify && !hasToolData;
       }
-
     },
+
     {
       name: 'C) Preço com Tool Fixture',
       fn: () => {
