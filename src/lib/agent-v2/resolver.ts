@@ -7,6 +7,7 @@ import { BrainVersion } from './types';
 interface AgentConfig {
   agent_brain_version?: string;
   pilot_phone_numbers?: string[];
+  v2_shadow_phone_numbers?: string[];
 }
 
 /**
@@ -14,8 +15,8 @@ interface AgentConfig {
  * 
  * Regras:
  * - Config ausente ou inválida -> v1
- * - v2_pilot + número fora da lista -> v1
- * - v2_pilot + número autorizado -> v2_pilot
+ * - v2_shadow autorizado por número -> v2_shadow (silencioso)
+ * - v2_pilot autorizado por número -> v2_pilot
  */
 export function resolveAgentBrainVersion(
   config: AgentConfig | null | undefined,
