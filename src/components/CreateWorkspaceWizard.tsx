@@ -190,7 +190,7 @@ export function CreateWorkspaceWizard({ open, onOpenChange }: Props) {
                   id="ws-nome"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  placeholder="Ex: Smoke Music, Loja X, Consultório Y…"
+                  placeholder="Ex: Mind SMM, Loja X, Consultório Y…"
                   maxLength={60}
                   autoFocus
                 />
