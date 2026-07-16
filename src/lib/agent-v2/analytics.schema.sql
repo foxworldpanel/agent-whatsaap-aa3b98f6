@@ -37,7 +37,6 @@ CREATE TABLE public.agent_v2_model_pricing (
         model WITH =, 
         tstzrange(effective_from, COALESCE(effective_until, 'infinity'::timestamptz), '[)') WITH &&
     )
-
 );
 
 -- Pricing Security
@@ -142,6 +141,7 @@ CREATE INDEX idx_turn_v2_conversation ON public.agent_v2_turn_analytics(workspac
 CREATE INDEX idx_turn_v2_network ON public.agent_v2_turn_analytics(workspace_id, network, created_at DESC);
 CREATE INDEX idx_turn_v2_stage ON public.agent_v2_turn_analytics(workspace_id, customer_stage, created_at DESC);
 CREATE INDEX idx_turn_v2_prompt_metric ON public.agent_v2_turn_analytics(prompt_metric_id) WHERE prompt_metric_id IS NOT NULL;
+
 
 -- 3. Conversation Analytics (Aggregated)
 CREATE TABLE public.agent_v2_conversation_analytics (
