@@ -78,7 +78,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const stored = activeWorkspaceId;
     const isValid = stored && workspaces.some((w) => w.id === stored);
     if (!isValid) {
-      const def = workspaces.find((w) => w.is_default) ?? workspaces[0];
+      const mindWorkspace = workspaces.find((w) => /mind/i.test(w.nome));
+      const def = mindWorkspace ?? workspaces.find((w) => w.is_default) ?? workspaces[0];
       if (def) {
         setActiveWorkspaceId(def.id);
         try {
