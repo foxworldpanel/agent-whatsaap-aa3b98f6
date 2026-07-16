@@ -3015,7 +3015,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Fase 2 Runtime: Conexão V2
           // Ativa V2 se o telefone for autorizado. Fallback para V1 via configuração do agente.
           const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          const useV2 = isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true;
+          const useV2 = isAuthorizedV2Phone(phone) && (agent as any).v2_enabled !== false;
           
           if (useV2) {
             console.log('🚀 [Agente V2] Turno iniciado');
