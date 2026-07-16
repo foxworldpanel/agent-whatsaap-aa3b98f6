@@ -205,58 +205,85 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   
   // Analytics Engine V2 - Event Logging
   const customerStage = determineCustomerStage(stateAfter.intent || 'unknown', stateAfter.currentStep || 'unknown');
+  const scores = calculateQualityScores(qualityFlags);
+
+  const phoneHash = hashPhoneNumber(input.contactPhone || '000000000', input.workspaceId);
   
-  const qualityFlags: QualityFlags = {
-    answeredDirectly: true, // Simplified for orchestrator
-    contextPreserved: true,
-    oneMainQuestion: true,
-    noRepeatedQuestion: true,
-    correctPlatform: stateAfter.network !== 'unknown',
-    correctService: stateAfter.service !== 'unknown',
-    correctPrice: true,
-    toolGrounded: true,
-    noForbiddenPromise: true,
-    panelOnlyPayment: true,
-    supportRedirectCorrect: true,
-    closeFlowCorrect: true,
-    naturalLength: finalResponse.length < 500,
-    passedGuards: !guardResult?.blocked
-  };
+  if (phoneHash) {
+    const analyticsEvent: AgentV2TurnAnalytics = {
+      eventId: `evt_${Date.now()}`,
+      workspaceId: input.workspaceId,
+      conversationId: input.conversationId,
+      phoneHash,
+      turnId: input.turnId || Date.now().toString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      brainVersion: metrics.brainVersion,
+      builderVersion: '2.0.0',
+      executionMode: (input.executionMode === 'isolated' ? 'isolated_test' : input.executionMode) as any,
+      sentToCustomer: false,
+      mode: stateAfter.mode as any || 'receptive',
+      network: stateAfter.network,
+      service: stateAfter.service,
+      intent: stateAfter.intent,
+      currentStep: stateAfter.currentStep,
+      customerStage,
+      usedLlm: modelRouteResult.useLlm,
+      deterministicResolution: !modelRouteResult.useLlm,
+      selectedModel: modelRouteResult.selectedModel,
+      routingReason: modelRouteResult.routingReason,
+      complexity: 'medium',
+      selectedModules: routeResult.selectedModules,
+      selectedTools: routeResult.selectedTools,
+      selectedTutorials: [],
+      toolCallCount: routeResult.selectedTools.length,
+      toolSuccessCount: routeResult.selectedTools.length, // Simplified
+      toolFailureCount: 0,
+      inputTokens: 0,
+      outputTokens: finalResponse.length * 4,
+      cacheCreationInputTokens: 0,
+      cacheReadInputTokens: 0,
+      prompt_tokens: 0,
+      cacheable_prefix_tokens: 0,
+      estimatedCost: costResult.cost,
+      currency: 'USD',
+      duration_ms: metrics.durationMs,
+      guardViolations: guardResult?.violations || [],
+      guardsTriggered: guardResult?.guardsTriggered || [],
+      regenerationCount: metrics.regenerationCount,
+      blocked: guardResult?.blocked || false,
+      fallbackUsed: false,
+      stateChangedFields: Object.keys(stateAfterRouting).filter(k => (stateAfterRouting as any)[k] !== (stateBefore as any)[k]),
+      responseChars: finalResponse.length,
+      qualityFlags,
+      structuralQualityScore: scores.structural,
+      commercialQualityScore: scores.commercial,
+      safetyQualityScore: scores.safety,
+      overallQualityScore: scores.overall,
+      errorCode: null,
+      promptMetricId: undefined // Link logic would go here
+    };
 
-  const costResult = calculateEstimatedCost(modelRouteResult.selectedModel, {
-    input: 0, // Placeholder
-    output: finalResponse.length * 4 // Rough estimate for chars to tokens
-  });
+    metrics.analytics = analyticsEvent;
+    metrics.customerStage = customerStage;
+    metrics.estimatedCost = costResult.cost;
+    metrics.qualityScore = scores.overall;
 
-  const analyticsEvent: Partial<AgentV2TurnAnalytics> = {
-    workspaceId: input.workspaceId,
-    conversationId: input.conversationId,
-    turnId: Date.now().toString(), // Simple turn ID
-    brainVersion: '2.0.0',
-    executionMode: input.executionMode === 'isolated' ? 'isolated_test' : (input.executionMode as any),
-    network: stateAfter.network,
-    service: stateAfter.service,
-    intent: stateAfter.intent,
-    customerStage,
-    usedLlm: modelRouteResult.useLlm,
-    selectedModel: modelRouteResult.selectedModel,
-    routingReason: modelRouteResult.routingReason,
-    estimatedCost: costResult.cost,
-    qualityFlags,
-    blocked: guardResult?.blocked || false
-  };
-
-  metrics.analytics = analyticsEvent;
-  metrics.customerStage = customerStage;
-  metrics.estimatedCost = costResult.cost;
-  metrics.qualityScore = calculateQualityScores(qualityFlags).overall;
-
-  // Persistência simulada (E2E Hardening)
-  try {
-    if (metrics.durationMs > 0) metrics.persisted = true;
-  } catch (e) {
-    errors.push("Erro ao persistir métricas.");
+    // Persistência com Try/Catch e timeout simulado
+    try {
+      await Promise.race([
+        persistTurnAnalytics(analyticsEvent),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+      ]);
+      metrics.persisted = true;
+    } catch (e) {
+      console.error('[Analytics] Persistence error:', e);
+      errors.push("Erro ao persistir métricas (não bloqueante).");
+    }
+  } else {
+    console.warn('[Analytics] Skipping persistence due to missing phone hash/secret.');
   }
+
 
 
   return {
