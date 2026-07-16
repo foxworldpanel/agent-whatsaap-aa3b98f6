@@ -11,11 +11,27 @@ import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
 import { determineCustomerStage, calculateQualityScores, calculateEstimatedCost, hashPhoneNumber } from './analytics';
 import { AgentV2TurnAnalytics, QualityFlags } from './analytics.types';
-
-// Internal persistence for homologation/testing phase.
-const ANALYTICS_BUFFER: AgentV2TurnAnalytics[] = [];
+import { getAgentV2AnalyticsRepository } from './analytics.repository';
+import { aggregateConversationFromTurns } from './analytics-aggregation';
 
 async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
+  const repository = getAgentV2AnalyticsRepository();
+  
+  try {
+    await repository.persistTurn(data);
+    console.log(`[Analytics Engine V2] Turn captured: ${data.turnId} (${repository.constructor.name})`);
+    
+    // Auto-aggregation (best-effort)
+    const turns = await repository.getConversationTurns(data.workspaceId, data.conversationId);
+    if (turns.length > 0) {
+      const aggregated = aggregateConversationFromTurns(data.workspaceId, data.conversationId, turns);
+      await repository.persistConversation(aggregated);
+    }
+  } catch (err) {
+    console.error('[Analytics] Persistence failed, continuing execution...', err);
+  }
+}
+
   const existingIndex = ANALYTICS_BUFFER.findIndex(t => 
     t.workspaceId === data.workspaceId && 
     t.conversationId === data.conversationId && 
