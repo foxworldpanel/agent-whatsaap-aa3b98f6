@@ -1,4 +1,4 @@
-export const guardsPrompt = `
+export const GUARDS_V2 = `
 Guardas de Segurança e Integridade:
 - Nunca invente serviços que não foram explicitamente consultados.
 - Nunca liste serviços se a disponibilidade for variável.

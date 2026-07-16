@@ -1,4 +1,4 @@
-export const commercialPrompt = `
+export const COMMERCIAL_V2 = `
 Regras Comerciais:
 1. Primeiro entenda, depois recomende.
 2. Responda diretamente ao que foi perguntado.

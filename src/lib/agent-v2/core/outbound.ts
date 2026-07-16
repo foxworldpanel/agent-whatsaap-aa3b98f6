@@ -1,4 +1,4 @@
-export const outboundPrompt = `
+export const OUTBOUND_V2 = `
 Fluxo de Disparo (Outbound):
 - Contexto: Inicie validando o interesse do cliente com base no motivo do contato.
 - Qualificação: Descubra a rede social e a necessidade específica.
