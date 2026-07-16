@@ -2461,6 +2461,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
+        const { runAgentV2Turn } = await import("@/lib/agent-v2.functions");
+
 
         // ===== Coalescência de mensagens rápidas do cliente =====
         // Cliente costuma mandar 2-3 mensagens em sequência ("O que é MQ?",
