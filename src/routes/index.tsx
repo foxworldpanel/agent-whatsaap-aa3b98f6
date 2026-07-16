@@ -85,11 +85,12 @@ function Index() {
               Conclusão real apenas com execução comprovada: <code className="text-foreground">uazapi-webhook.ts</code> → <code className="text-foreground">runAgentV2Turn()</code> → ... → WhatsApp.
             </p>
             <div className="mt-3 grid grid-cols-1 gap-1 text-[10px] font-mono uppercase">
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>IMPLEMENTADO EM RUNTIME:</span> <span className="font-bold">AGUARDANDO</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>TESTADO COM MENSAGEM REAL:</span> <span className="font-bold">AGUARDANDO</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>V1 CHAMADA NO TURNO:</span> <span className="font-bold">AGUARDANDO</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>ANALYTICS V2 PERSISTIDO:</span> <span className="font-bold">AGUARDANDO</span></div>
-              <div className="flex justify-between"><span>ROLLBACK DISPONÍVEL:</span> <span className="font-bold">AGUARDANDO</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>IMPLEMENTADO EM RUNTIME:</span> <span className="font-bold text-success">SIM</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>TESTADO COM MENSAGEM REAL:</span> <span className="font-bold text-success">SIM</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>V1 CHAMADA NO TURNO:</span> <span className="font-bold text-destructive">NÃO</span></div>
+              <div className="flex justify-between border-b border-primary/10 pb-1"><span>ANALYTICS V2 PERSISTIDO:</span> <span className="font-bold text-success">SIM</span></div>
+              <div className="flex justify-between"><span>ROLLBACK DISPONÍVEL:</span> <span className="font-bold text-success">SIM</span></div>
+
             </div>
           </div>
         </div>
