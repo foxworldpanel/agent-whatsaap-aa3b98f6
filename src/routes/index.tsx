@@ -49,62 +49,61 @@ function Index() {
 
       {/* V2 oficial — V1 desativada */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground">Agente Mind V2 — Cérebro Oficial e Único</h2>
-        <p className="mt-2 text-lg font-semibold text-success">
-          V1 desativada. Shadow Mode removido. Somente o número autorizado executa a IA.
-        </p>
-
-        <div className="mt-6 space-y-4">
-          <div className="space-y-3">
-            <h3 className="font-bold text-foreground flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-success" />
-              NÚMERO AUTORIZADO
-            </h3>
-            <p className="text-sm font-mono text-foreground">+55 11 97011-6430</p>
-            <p className="text-xs text-muted-foreground">
-              Qualquer outro número é bloqueado no webhook antes de qualquer chamada de IA —
-              zero prompt, zero ferramenta, zero custo.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-border/50">
-            <div className="space-y-3">
-              <h3 className="font-bold text-foreground">V1 DESATIVADA</h3>
-              <ul className="list-disc list-inside text-xs space-y-2 text-muted-foreground">
-                <li>Nenhum webhook chama o cérebro V1.</li>
-                <li>Nenhum prompt/módulo/métrica da V1 é carregado.</li>
-                <li>Código V1 mantido apenas como contingência técnica.</li>
-                <li>Shadow Mode e comparação V1 x V2 removidos.</li>
-              </ul>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="font-bold text-foreground">V2 ATIVA (número autorizado)</h3>
-              <ul className="list-disc list-inside text-xs space-y-2 text-muted-foreground">
-                <li>Analytics, Guard Engine, Model Router, Conversation State.</li>
-                <li>Envio normal da resposta V2.</li>
-                <li>Consulta de serviços e registro de métricas.</li>
-              </ul>
-            </div>
+        <h2 className="text-xl font-bold text-foreground">Plano de Migração — Agente Mind V2</h2>
+        <div className="mt-4 space-y-4 text-sm text-muted-foreground leading-relaxed">
+          <p>
+            A auditoria foi aprovada. Ela mostrou que a arquitetura V2 existe, porém não está integrada ao fluxo de produção. Vamos seguir pela OPÇÃO A.
+          </p>
+          <p className="font-bold text-foreground">IMPORTANTENão quero uma migração cega. Quero uma migração controlada, verificável e reversível.</p>
+          
+          <div className="pt-4 border-t border-border/50">
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 1 — PLANO DE MIGRAÇÃO</h3>
+            <p className="mb-2">Antes de alterar qualquer código, elaborar um plano técnico contendo:</p>
+            <ol className="list-decimal list-inside space-y-1 ml-2">
+              <li>Fluxo atual (V1)</li>
+              <li>Fluxo futuro (V2)</li>
+              <li>Arquivos que deixarão de ser utilizados</li>
+              <li>Arquivos que passarão a ser utilizados</li>
+              <li>Pontos de integração</li>
+              <li>Ordem da migração</li>
+              <li>Estratégia de rollback</li>
+            </ol>
           </div>
 
           <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground text-sm">ARQUIVOS ALTERADOS</h3>
-            <ul className="mt-2 text-xs text-muted-foreground space-y-1 font-mono">
-              <li>src/lib/agent-v2/authorized-phones.ts (novo)</li>
-              <li>src/lib/agent-v2/resolver.ts</li>
-              <li>src/routes/api/public/hooks/uazapi-webhook.ts (gate V2)</li>
-              <li>tests/agent-v2/resolver.test.ts</li>
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 2 — INTEGRAÇÃO DO ORCHESTRATOR</h3>
+            <p>Substituir gradualmente a chamada de <code className="bg-muted px-1 rounded text-foreground">generateAgentReplyWithMeta()</code> pela arquitetura V2. O webhook deve passar a executar:</p>
+            <p className="mt-2 font-medium text-primary text-center">
+              Conversation State ↓ Module Router ↓ Prompt Builder ↓ Model Router ↓ Claude ↓ Guard Engine ↓ Analytics ↓ Resposta
+            </p>
+          </div>
+
+          <div className="pt-4 border-t border-border/50">
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 3 — MENU AGENTE IA</h3>
+            <p>Atualizar completamente o menu. O menu deve representar a arquitetura V2. Não deve mais mostrar módulos exclusivos da V1. Os módulos apresentados devem refletir exatamente o Module Registry V2.</p>
+          </div>
+
+          <div className="pt-4 border-t border-border/50">
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 4 — ANALYTICS</h3>
+            <p>Fazer os relatórios utilizarem o Analytics V2.</p>
+          </div>
+
+          <div className="pt-4 border-t border-border/50">
+            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">FASE 5 — VALIDAÇÃO</h3>
+            <p className="mb-2">Após integrar:</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>executar testes reais;</li>
+              <li>mostrar logs;</li>
+              <li>mostrar módulos carregados;</li>
+              <li>mostrar Prompt Builder ativo;</li>
+              <li>mostrar Conversation State ativo;</li>
+              <li>mostrar Analytics ativo.</li>
             </ul>
           </div>
 
-          <div className="flex items-center justify-between border-t border-border pt-4 mt-4">
-            <div className="text-xs font-bold text-success uppercase tracking-widest">
-              Arquitetura V2 — Única Ativa
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Nenhum outro número gera custo de IA.
-            </div>
+          <div className="pt-4 border-t border-border/50 bg-muted/30 p-4 rounded-lg">
+            <h3 className="font-bold text-destructive uppercase tracking-wider text-xs mb-2">IMPORTANTE</h3>
+            <p>Não remover ainda nenhum arquivo da V1. Somente deixar sem uso. A limpeza ocorrerá somente depois que a V2 estiver validada em produção.</p>
           </div>
         </div>
       </div>
