@@ -30,6 +30,8 @@ function AuthPage() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       navigate({ to: "/" });
+
+
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {

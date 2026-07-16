@@ -5,14 +5,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { getDashboardStats } from "@/lib/dashboard.functions";
 
 
-export const Route = createFileRoute("/_authenticated/")({
+export const Route = createFileRoute("/")({
   beforeLoad: () => {
     throw redirect({
-      to: "/_authenticated/agente",
+      to: "/agente",
     });
   },
-
   ssr: false,
+
   head: () => ({
     meta: [
       { title: "Dashboard · ZapAgent" },
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/_authenticated/")({
   }),
   component: Index,
 });
+
 
 function Index() {
   const getStats = useServerFn(getDashboardStats);
