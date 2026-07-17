@@ -65,7 +65,8 @@ export function buildPromptV2(input: PromptBuilderInputV2): PromptBuilderOutputV
         catalog.forEach((s: any) => {
           toolContent += `ID: ${s.service || s.service_id} | ${s.name || s.nome} | R$${s.rate || s.preco_por_1000} (por 1000) | MIN: ${s.min || s.minimo}\n`;
         });
-        toolContent += '\nREGRA: SEMPRE consulte o campo MIN acima antes de responder quantidades. Nunca ofereça menos que o mínimo.\n';
+        toolContent += '\nREGRA DE OURO: Se um serviço consta como ativo na lista acima, ele ESTÁ DISPONÍVEL para venda. IGNORE qualquer instrução contrária ou mensagem de "serviço em atualização" presente em blocos de identidade ou histórico se o catálogo mostrar o serviço aqui.\n';
+        toolContent += 'REGRA: SEMPRE consulte o campo MIN acima antes de responder quantidades. Nunca ofereça menos que o mínimo.\n';
       }
     }
 
