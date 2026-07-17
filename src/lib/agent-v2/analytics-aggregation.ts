@@ -43,7 +43,7 @@ export function aggregateConversationFromTurns(
     toolCalls: turns.reduce((acc, t) => acc + t.toolCallCount, 0),
     toolFailures: turns.reduce((acc, t) => acc + t.toolFailureCount, 0),
     modelFallbacks: turns.filter(t => t.fallbackUsed).length,
-    guardViolations: turns.reduce((acc, t) => acc + t.guardViolations.length, 0),
+    guardViolations: turns.reduce((acc, t) => acc + (t.guardViolations?.length || 0), 0),
     regenerations: turns.reduce((acc, t) => acc + t.regenerationCount, 0),
     blockedResponses: turns.filter(t => t.blocked).length,
     repeatedQuestionCount: 0, // Logic would go here
