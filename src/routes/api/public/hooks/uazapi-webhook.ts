@@ -52,6 +52,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           const { data: integrations, error: intError } = await supabaseAdmin
             .from("integrations")
             .select("*")
+            .eq("workspace_id", "bd59fa41-d68d-4ac8-b995-e09ae48f52aa")
             .limit(1);
           
           if (intError) {
