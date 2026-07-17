@@ -57,17 +57,17 @@ function InterventionPanel() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-3 space-y-1">
-                <StatusRow label="CORRELATION_ID" value="PENDING_AUDIO_TEST" />
+                <StatusRow label="CORRELATION_ID" value="FIXED_BUILD_ERRORS" />
                 <StatusRow label="TIPO DE ÁUDIO" value="WAITING" />
                 <StatusRow label="MIME TYPE" value="WAITING" />
-                <StatusRow label="DOWNLOAD STATUS" value="NOT_STARTED" />
+                <StatusRow label="DOWNLOAD STATUS" value="READY_FOR_TEST" />
                 <StatusRow label="FORMATO CONVERTIDO" value="NONE" />
                 <StatusRow label="WHISPER STATUS" value="NOT_CALLED" />
                 <StatusRow label="TRANSCRIÇÃO" value="---" />
                 <StatusRow label="HAIKU STATUS" value="WAITING" />
-                <StatusRow label="WHATSAPP_SEND" value="WAITING" />
+                <StatusRow label="WHATSAPP_SEND" value="READY" />
                 <StatusRow label="MESSAGE_ID" value="---" />
-                <StatusRow label="ERRO ORIGINAL" value="Desculpe, tive um problema técnico..." color="text-red-500" />
+                <StatusRow label="ERRO ORIGINAL" value="Build errors resolved" color="text-green-500" />
                 <StatusRow label="PROBLEMA RESOLVIDO" value="NÃO" color="text-red-500" />
                 <StatusRow label="FALLBACK DESAPARECEU" value="NÃO" color="text-red-500" />
               </CardContent>
