@@ -445,7 +445,8 @@ function generateDeterministicResponse(message: string, state: ConversationState
 async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string, instruction?: string): Promise<any> {
   // Se estivermos em modo simulado (fixture), mantém comportamento antigo
   if (input.executionMode === 'isolated' || input.executionMode === 'shadow') {
-    const lastUserMessage = String(prompt.messages[prompt.messages.length - 1].content).toLowerCase();
+    const lastMsgContent = prompt.messages[prompt.messages.length - 1].content;
+    const lastUserMessage = (typeof lastMsgContent === 'string' ? lastMsgContent : "").toLowerCase();
     let reply = "Como posso ajudar? (Simulação)";
     
     const catalog = input.toolFixtures?.catalog || [];
