@@ -3046,8 +3046,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           
           // Fase 2 Runtime: Conexão V2
           // Ativa V2 se o telefone for autorizado. Fallback para V1 via configuração do agente.
+          // OBRIGATÓRIO: Para o workspace Mind, a V1 está desativada.
+          const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+          const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
           const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          const useV2 = isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true;
+          
+          const useV2 = isMindWorkspace || (isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true);
           
           if (useV2) {
             console.log('🚀 [Agente V2] Turno iniciado');
@@ -3101,7 +3105,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 }
               });
             } catch {}
-          } else {
+          } else if (!isMindWorkspace) {
             // V1 Original (Processamento Legado)
             const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
             reply = _claudeOut.text;
