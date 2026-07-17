@@ -42,7 +42,7 @@ async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
 export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2EOutput> {
   const startTime = Date.now();
   const correlationId = input.correlationId || `v2_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  console.log(`[AGENT_V2][${correlationId}] orchestrator_started | message: ${String(input.currentMessage || '').slice(0, 50)}... | media: ${input.media?.type}`);
+  console.log(`[AGENT_V2][${correlationId}] orchestrator_started | message: ${typeof input.currentMessage === 'string' ? input.currentMessage.slice(0, 50) : 'none'}... | media: ${input.media?.type}`);
   
   const errors: string[] = [];
   const metrics: Record<string, any> = {
@@ -58,7 +58,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     console.log(`[AGENT_V2] conversation_loaded | correlation_id: ${correlationId} | conversation: ${input.conversationId}`);
 
     // Audio Recovery Logic
-    let processedMessage = String(input.currentMessage || "").trim();
+    let processedMessage = (typeof input.currentMessage === 'string' ? input.currentMessage : "").trim();
     if (input.media?.hasAudio && input.media?.mediaUrl && !processedMessage) {
        console.log(`[AGENT_V2][${correlationId}] audio_recovery_triggered | media_id: ${input.media?.mediaId}`);
        try {
@@ -445,7 +445,8 @@ function generateDeterministicResponse(message: string, state: ConversationState
 async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string, instruction?: string): Promise<any> {
   // Se estivermos em modo simulado (fixture), mantém comportamento antigo
   if (input.executionMode === 'isolated' || input.executionMode === 'shadow') {
-    const lastUserMessage = String(prompt.messages[prompt.messages.length - 1].content).toLowerCase();
+    const lastMsgContent = prompt.messages[prompt.messages.length - 1].content;
+    const lastUserMessage = (typeof lastMsgContent === 'string' ? lastMsgContent : "").toLowerCase();
     let reply = "Como posso ajudar? (Simulação)";
     
     const catalog = input.toolFixtures?.catalog || [];
