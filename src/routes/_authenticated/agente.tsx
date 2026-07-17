@@ -249,7 +249,146 @@ function AgentePage() {
         </div>
       </Card>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
+        {/* Módulos V2 - Grade Principal */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {v2Modules.map((m: any) => (
+            <Card key={m.id} className="p-4 flex flex-col gap-3 relative overflow-hidden group border-primary/20 hover:border-primary/40 transition-colors">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{m.emoji}</span>
+                  <div>
+                    <h3 className="font-bold text-base leading-none">{m.title}</h3>
+                    <p className="text-[10px] text-muted-foreground mt-1 font-mono uppercase tracking-wider">{m.id}</p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase">
+                    {m.category}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-success" />
+                    <span className="text-[10px] font-medium text-success">ATIVO V2</span>
+                  </div>
+                </div>
+              </div>
+              
+              <p className="text-xs text-muted-foreground leading-relaxed flex-1">
+                {m.description}
+              </p>
+
+              <div className="flex flex-wrap gap-1 mt-2">
+                <div className="flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded text-[9px]">
+                  <Info className="h-2.5 w-2.5" />
+                  PRIO: {m.priority}
+                </div>
+                {m.modes.map((mode: string) => (
+                  <div key={mode} className="bg-muted px-1.5 py-0.5 rounded text-[9px] uppercase">
+                    MODE: {mode}
+                  </div>
+                ))}
+                {m.dependencies.length > 0 && (
+                  <div className="flex items-center gap-1 bg-warning/10 text-warning px-1.5 py-0.5 rounded text-[9px]">
+                    <Shield className="h-2.5 w-2.5" />
+                    DEP: {m.dependencies.join(", ")}
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-2 pt-2 border-t border-border/50">
+                <p className="text-[9px] font-mono text-muted-foreground truncate italic">
+                  {m.contentPreview}
+                </p>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <div className="h-px bg-border/50 my-2" />
+        
+        <DailyPromoCard />
+        <IdentidadeCard />
+        <PlaylistCard />
+        <TesteGratisCard />
+        <PriceTableCard />
+
+        <MediasCard tipo="video" title="Vídeos tutoriais" emoji="🎬" />
+        <MediasCard tipo="imagem" title="Artes e promoções" emoji="🖼️" />
+        
+        {/* Outras Configurações Legado ou Globais */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card className="p-4 border-dashed">
+            <div className="font-medium flex items-center gap-2 mb-1">
+              <span>⏱️</span> Comportamento humano (Global)
+            </div>
+            <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+              Delay e indicadores de presença aplicados a todas as respostas da IA.
+            </p>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <Label htmlFor="delayMin" className="text-[10px] uppercase font-bold text-muted-foreground">Min (s)</Label>
+                <Input
+                  id="delayMin" type="number" min={0} max={600}
+                  value={delayMin}
+                  size={1}
+                  className="h-8 text-xs"
+                  onChange={(e) => setDelayMin(Number(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="delayMax" className="text-[10px] uppercase font-bold text-muted-foreground">Max (s)</Label>
+                <Input
+                  id="delayMax" type="number" min={0} max={600}
+                  value={delayMax}
+                  className="h-8 text-xs"
+                  onChange={(e) => setDelayMax(Number(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Switch checked={presenceOn} onCheckedChange={setPresenceOn} />
+                <Label className="text-xs">Status de presença</Label>
+              </div>
+              <Button size="sm" variant="outline" className="h-8" onClick={() => saveBehaviorMut.mutate()} disabled={saveBehaviorMut.isPending}>
+                {saveBehaviorMut.isPending ? "..." : "Salvar"}
+              </Button>
+            </div>
+          </Card>
+
+          <Card className="p-4 border-dashed">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="font-medium flex items-center gap-2">
+                  <span>💰</span> Preços em Tempo Real
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Habilita busca de serviços via API antes de gerar resposta (Gasta mais tokens).
+                </p>
+              </div>
+              <Switch
+                checked={realtimeOn}
+                disabled={toggleRealtime.isPending}
+                onCheckedChange={(v) => toggleRealtime.mutate(v)}
+              />
+            </div>
+          </Card>
+        </div>
+
+        {showV1 && (
+          <div className="mt-8 space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-3">
+              <History className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold text-muted-foreground uppercase tracking-widest text-xs">Seção Legado V1 (Arquivada)</h2>
+            </div>
+            <Alert className="bg-muted/50 border-muted-foreground/20">
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Estes módulos pertencem à arquitetura antiga. Eles não são mais utilizados pelo Runtime V2 da Mind, mas seus dados podem ser visualizados para referência durante a transição.
+              </AlertDescription>
+            </Alert>
+            <div className="flex flex-col gap-2">
+
         <DailyPromoCard />
         <IdentidadeCard />
         <PlaylistCard />
