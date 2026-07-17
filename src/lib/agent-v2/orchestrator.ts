@@ -42,7 +42,7 @@ async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
 export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2EOutput> {
   const startTime = Date.now();
   const correlationId = input.correlationId || `v2_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  console.log(`[AGENT_V2][${correlationId}] orchestrator_started | message: ${input.currentMessage.slice(0, 50)}...`);
+  console.log(`[AGENT_V2][${correlationId}] orchestrator_started | message: ${(input.currentMessage || '').slice(0, 50)}... | media: ${input.media?.type}`);
   
   const errors: string[] = [];
   const metrics: Record<string, any> = {
@@ -57,7 +57,15 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     console.log(`[AGENT_V2] workspace_resolved | correlation_id: ${correlationId} | workspace: ${input.workspaceId}`);
     console.log(`[AGENT_V2] conversation_loaded | correlation_id: ${correlationId} | conversation: ${input.conversationId}`);
 
-    const normalizedMessage = input.currentMessage.trim();
+    // Audio Recovery Logic
+    let processedMessage = (input.currentMessage || "").trim();
+    if (input.media?.hasAudio && !processedMessage) {
+       console.log(`[AGENT_V2][${correlationId}] audio_recovery_triggered | media_id: ${input.media.mediaId}`);
+       // TODO: Actual Whisper call here. For now, triggering error to test fallback path.
+       throw new Error("Audio processing (Whisper) not yet fully implemented in orchestrator - failing for recovery test.");
+    }
+
+    const normalizedMessage = processedMessage;
   const stateBefore = { ...input.previousState };
 
     const routeResult = routeModulesV2({
