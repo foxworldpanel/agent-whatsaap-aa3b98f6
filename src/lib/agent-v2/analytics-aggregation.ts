@@ -71,7 +71,7 @@ export function aggregateConversationFromTurns(
     commercialQualityScore: turns.reduce((acc, t) => acc + (t.commercialQualityScore || 0), 0) / turns.length,
     safetyQualityScore: turns.reduce((acc, t) => acc + (t.safetyQualityScore || 0), 0) / turns.length,
     overallQualityScore: turns.reduce((acc, t) => acc + (t.overallQualityScore || 0), 0) / turns.length,
-    conversionStage: lastTurn.customerStage,
+    conversionStage: lastTurn.customerStage as CustomerStage,
     closeReason: lastTurn.currentStep === 'conversation_closed' ? 'normal_closure' : null
   };
 
