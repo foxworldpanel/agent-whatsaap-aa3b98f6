@@ -2865,10 +2865,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 }
               }
               let services = all;
+              const spotifyMatch = /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly/i.test(lowerText);
+              
               if (onlyRelevant && matched.length > 0) {
                 services = all.filter((s) =>
                   matched.some((p) => new RegExp(p.key, "i").test(`${s.name} ${s.category}`)),
                 );
+              } else if (spotifyMatch) {
+                // Forçar serviços de Spotify se a mensagem for sobre música mas não casar regex rígida
+                services = all.filter(s => /spotify/i.test(`${s.name} ${s.category}`));
               }
               // Cap dinâmico: quando não há match nenhum (contexto vago),
               // manda só uma amostra representativa (60) em vez de despejar
