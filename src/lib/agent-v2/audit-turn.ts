@@ -10,15 +10,25 @@ async function auditTest() {
     conversationId: 'audit-test-conv',
     phoneNumber: phone,
     currentMessage: 'Vocês têm 1.000 plays e ouvintes globais no Spotify? Qual o valor?',
+    mode: 'receptive',
     previousState: {
       workspaceId,
       conversationId: 'audit-test-conv',
       phoneNumber: phone,
       mode: 'receptive',
       network: 'spotify',
-      intent: 'pricing',
+      service: 'playlist',
+      intent: 'price',
+      currentStep: 'presenting_solution',
       customer: { hasAccount: false, hasBalance: false },
+      payment: {},
       freeTest: { status: 'none' },
+      tutorial: { active: false },
+      support: { active: false },
+      toolsUsed: [],
+      loadedModules: [],
+      facts: {},
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     },
     shortHistory: [],
@@ -33,7 +43,7 @@ async function auditTest() {
         }
       ]
     },
-    executionMode: 'production' // Forçar modo real para ver se bate na Anthropic se a chave existir
+    executionMode: 'real' 
   };
 
   console.log('--- INICIANDO AUDITORIA DE PROMPT V2 ---');
@@ -42,14 +52,19 @@ async function auditTest() {
     console.log('TURN ID:', output.metrics.analytics?.turnId);
     console.log('REPLY:', output.finalResponse);
     console.log('MODULES:', output.routeResult.selectedModules);
-    console.log('PROMPT SYSTEM (FRAGMENTO):', output.promptBuildResult.systemPrompt.slice(0, 500));
     
-    const leak = output.finalResponse.includes("atualização") || output.finalResponse.includes("plays e ouvintes");
-    console.log('LEAK DETECTED:', leak ? 'SIM' : 'NÃO');
-    
-    if (leak) {
-      console.log('--- PROMPT COMPLETO PARA ANÁLISE ---');
-      console.log(output.promptBuildResult.systemPrompt);
+    if (output.promptBuildResult) {
+       console.log('PROMPT SYSTEM (FRAGMENTO):', output.promptBuildResult.systemPrompt.slice(0, 500));
+       const leak = output.finalResponse.includes("atualização") || output.finalResponse.includes("plays e ouvintes");
+       console.log('LEAK DETECTED:', leak ? 'SIM' : 'NÃO');
+       
+       if (leak) {
+         console.log('--- PROMPT COMPLETO PARA ANÁLISE ---');
+         console.log(output.promptBuildResult.systemPrompt);
+       }
+    } else {
+       console.log('PROMPT NULL - Short answer resolution used?');
+       console.log('Resolved:', output.shortAnswerResolution?.resolved);
     }
   } catch (err) {
     console.error('ERRO NO TESTE:', err);
@@ -57,3 +72,4 @@ async function auditTest() {
 }
 
 auditTest();
+
