@@ -26,6 +26,9 @@ export async function runAgentV2Turn(data: {
     type: 'text' | 'image' | 'audio';
     hasImage?: boolean;
     hasAudio?: boolean;
+    mediaId?: string;
+    mediaUrl?: string;
+    mimeType?: string;
   };
   shortHistory?: { sender: 'agente' | 'cliente'; body: string }[];
   historySummary?: string;

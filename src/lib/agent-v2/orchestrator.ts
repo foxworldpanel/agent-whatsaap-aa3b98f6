@@ -60,7 +60,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     // Audio Recovery Logic
     let processedMessage = (input.currentMessage || "").trim();
     if (input.media?.hasAudio && !processedMessage) {
-       console.log(`[AGENT_V2][${correlationId}] audio_recovery_triggered | media_id: ${input.media.mediaId}`);
+       console.log(`[AGENT_V2][${correlationId}] audio_recovery_triggered | media_id: ${input.media?.mediaId}`);
        // TODO: Actual Whisper call here. For now, triggering error to test fallback path.
        throw new Error("Audio processing (Whisper) not yet fully implemented in orchestrator - failing for recovery test.");
     }

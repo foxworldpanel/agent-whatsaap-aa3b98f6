@@ -6,7 +6,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const correlationId = crypto.randomUUID();
+        const correlationId = (globalThis as any).crypto.randomUUID();
         const timestamp = new Date().toISOString();
         const log = (stage: string, details?: any) => {
           console.log(`[V2_DIAGNOSTIC][${correlationId}][${timestamp}][${stage}]`, details || '');
@@ -177,11 +177,13 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
                log('AUDIO_PIPELINE_ERROR', { error: audioErr.message });
                // Fallback: request text
                const { uazapiSendText } = await import("@/lib/uazapi.server");
-               await uazapiSendText(
-                 { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
-                 phone,
-                 "Não consegui entender esse áudio. Pode enviar novamente ou escrever a mensagem?"
-               );
+               if (integ.uazapi_url && integ.uazapi_token) {
+                 await uazapiSendText(
+                   { uazapi_url: integ.uazapi_url!, uazapi_token: integ.uazapi_token! },
+                   phone,
+                   "Não consegui entender esse áudio. Pode enviar novamente ou escrever a mensagem?"
+                 );
+               }
                return new Response("audio error handled");
             }
           }
