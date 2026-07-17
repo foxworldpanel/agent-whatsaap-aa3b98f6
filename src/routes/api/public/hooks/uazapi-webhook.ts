@@ -3111,36 +3111,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } else {
             // V1 DESATIVADA. QUALQUER EXECUÇÃO FORA DA V2 É UM ERRO.
             throw new Error(`V1_DEPRECATED: Tentativa de execução da V1 bloqueada. Brain version: v1`);
-                isReengagementGreeting(aiHistory ?? []) ||
-                isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
-              const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
-              if (hasPriorAgent && reply && !inReengagementMode) {
-                const parts = reply.split("===SPLIT===");
-                const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
-                parts[0] = parts[0].replace(greetRe, "").trimStart();
-                const cleaned = parts.join("===SPLIT===").trim();
-                if (cleaned.length > 0) reply = cleaned;
-              }
-            } catch {}
-            
-            // Log V1
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                userId, phone, conversationId: conv?.id,
-                type: "claude_reply", level: "info",
-                summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
-                prompt: JSON.stringify({
-                  model: _claudeModel,
-                  routingReason: _claudeRoutingReason,
-                  contact: _claudeArgs.contact,
-                  historyCount: aiHistory?.length ?? 0,
-                }, null, 2),
-                response: reply ?? null,
-                durationMs: _claudeMs,
-                metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas" },
-              });
-            } catch {}
           }
 
 
