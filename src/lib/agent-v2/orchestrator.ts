@@ -343,7 +343,7 @@ function generateDeterministicResponse(message: string, state: ConversationState
   return "Entendido. Como posso prosseguir?";
 }
 
-async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string, instruction?: string): Promise<string> {
+async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string, instruction?: string): Promise<any> {
   // Se estivermos em modo simulado (fixture), mantém comportamento antigo
   if (input.executionMode === 'isolated' || input.executionMode === 'shadow') {
     const lastUserMessage = prompt.messages[prompt.messages.length - 1].content.toLowerCase();
