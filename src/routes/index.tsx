@@ -156,8 +156,16 @@ function ComplianceAudit() {
                 <button className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors border border-slate-700">
                   Ver Logs de Teste
                 </button>
-                <button className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-900/20">
-                  Assinar Auditoria
+                <button 
+                  onClick={() => {
+                    console.log("Running compliance audit...");
+                    // This would trigger a server function in a real scenario
+                    alert("Auditoria de conformidade iniciada. Os resultados serão atualizados em instantes.");
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-emerald-900/20 flex items-center gap-2"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  Executar Auditoria de Conformidade V2
                 </button>
               </div>
             </div>
