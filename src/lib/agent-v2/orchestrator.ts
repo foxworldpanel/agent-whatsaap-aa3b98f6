@@ -48,6 +48,9 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     durationMs: 0
   };
 
+  try {
+
+
   const normalizedMessage = input.currentMessage.trim();
   const stateBefore = { ...input.previousState };
 
@@ -279,9 +282,83 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     errors,
     sentToCustomer: false
   };
+} catch (err) {
+  console.error('[Agente V2] Fatal Turn Error:', err);
+  const fallbackState = (input as any).previousState || {
+    workspaceId: input.workspaceId,
+    conversationId: input.conversationId,
+    phoneNumber: input.phoneNumber,
+    mode: input.mode === 'outbound' ? 'outbound' : 'receptive',
+    network: 'unknown',
+    service: 'unknown',
+    intent: 'unknown',
+    currentStep: 'support_redirect',
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    customer: { hasAccount: false, hasBalance: false },
+    payment: {},
+    freeTest: { status: 'none' },
+    tutorial: { active: false },
+    support: { active: true },
+    toolsUsed: [],
+    loadedModules: ['mission', 'identity', 'guards'],
+    facts: {}
+  };
+
+  return {
+    stateBefore: fallbackState,
+    shortAnswerResolution: null,
+    routeResult: {
+      selectedModules: ['mission', 'identity', 'guards'],
+      selectedTools: [],
+      selectedTutorials: [],
+      detectedIntent: 'unknown',
+      detectedMode: (input.mode === 'outbound' ? 'outbound' : 'receptive') as any,
+      detectedNetwork: 'unknown',
+      detectedService: 'unknown',
+      routingReason: 'support_redirect',
+      stateEvents: [],
+      warnings: [err instanceof Error ? err.message : String(err)],
+      metrics: {
+        moduleCount: 3,
+        toolCount: 0,
+        tutorialCount: 0,
+        routingDurationMs: 0,
+        warningsCount: 1
+      }
+    },
+    stateAfterRouting: fallbackState,
+    modelRouteResult: {
+      useLlm: false,
+      selectedModel: 'none',
+      requiresVision: false,
+      requiresTranscription: false,
+      routingReason: 'fallback_after_error',
+      confidence: 0,
+      warnings: [err instanceof Error ? err.message : String(err)],
+      metrics: {
+        decisionDurationMs: 0,
+        complexity: 'simple',
+        estimatedCostClass: 'zero'
+      }
+    },
+    promptBuildResult: null,
+    modelResponse: null,
+    guardResult: null,
+    finalResponse: "Desculpe, tive um problema técnico momentâneo. Como posso te ajudar?",
+    stateAfter: fallbackState,
+    metrics: { ...metrics, durationMs: Date.now() - startTime, error: true },
+    errors: [err instanceof Error ? err.message : String(err)],
+    sentToCustomer: false
+  };
+}
 }
 
+
+
+
 function applyStateEvents(state: ConversationStateV2, events: V2StateEvent[]): ConversationStateV2 {
+
   let newState = { ...state };
   for (const event of events) {
     switch (event.type) {
