@@ -349,10 +349,25 @@ async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string
   // Se estivermos em modo simulado (fixture), mantém comportamento antigo
   if (input.executionMode === 'isolated' || input.executionMode === 'shadow') {
     const lastUserMessage = prompt.messages[prompt.messages.length - 1].content.toLowerCase();
-    if (instruction && instruction.includes('PRICE_SOURCE_GUARD')) return "A nossa playlist para Spotify está custando apenas R$ 49,90.";
-    if (lastUserMessage.includes('divulgar minha música')) return "Plataforma?";
-    if (lastUserMessage.includes('spotify')) return "Seguidores ou plays?";
-    return "Como posso ajudar? (Simulação)";
+    let reply = "Como posso ajudar? (Simulação)";
+    
+    if (instruction && instruction.includes('PRICE_SOURCE_GUARD')) {
+      reply = "A nossa playlist para Spotify está custando apenas R$ 49,90.";
+    } else if (lastUserMessage.includes('divulgar minha música')) {
+      reply = "Plataforma?";
+    } else if (lastUserMessage.includes('spotify')) {
+      reply = "Seguidores ou plays?";
+    } else if (lastUserMessage.includes('playlist')) {
+      reply = "Temos playlist para Spotify.";
+    } else if (lastUserMessage.includes('valor') || lastUserMessage.includes('preço') || lastUserMessage.includes('quanto')) {
+      reply = "O valor é informado no catálogo.";
+    }
+
+    return { 
+      reply, 
+      usage: { input_tokens: 10, output_tokens: 5 },
+      duration_ms: 100
+    };
   }
 
   // Em modo REAL ou PILOT, chama a camada neutra de inferência LLM V2.
