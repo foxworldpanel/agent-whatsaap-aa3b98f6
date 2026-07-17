@@ -57,6 +57,9 @@ function DecommissioningLanding() {
               Status Global: Fase 2 (Inventário)
             </Badge>
           </div>
+          <div className="mt-2 text-sm text-red-500 font-bold">
+            ainda nao esta carregando o workspace da mind
+          </div>
         </header>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
