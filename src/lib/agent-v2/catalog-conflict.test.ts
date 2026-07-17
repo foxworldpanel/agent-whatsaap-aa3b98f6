@@ -1,5 +1,3 @@
-import { buildPromptV2 } from "./prompt-builder";
-import { routeModulesV2 } from "./router";
 import { createInitialConversationStateV2 } from "./conversation-state";
 import { runAgentV2Turn } from "./orchestrator";
 
@@ -7,7 +5,7 @@ import { runAgentV2Turn } from "./orchestrator";
  * Teste de Conflito de Catálogo
  * Garante que o catálogo dinâmico prevalece sobre qualquer instrução estática.
  */
-async function testCatalogConflict() {
+export async function runCatalogConflictTests() {
   console.log("🧪 Iniciando Teste de Conflito de Catálogo...");
 
   const workspaceId = "bd59fa41-591e-4589-9e8c-576f39694761"; // Mind Workspace
@@ -31,7 +29,7 @@ async function testCatalogConflict() {
     currentMessage: "Vocês tem 1000 plays e ouvintes global no Spotify?",
     previousState: initialState,
     mode: 'receptive',
-    executionMode: 'isolated', // Usa simulação controlada no orchestrator
+    executionMode: 'isolated',
     toolFixtures: {
       catalog: activeCatalog
     }
@@ -39,12 +37,12 @@ async function testCatalogConflict() {
 
   const outputActive = await runAgentV2Turn(inputActive);
   
-  const hasDisabledMessage = outputActive.reply.toLowerCase().includes("atualização") || 
-                             outputActive.reply.toLowerCase().includes("manutenção") ||
-                             outputActive.reply.toLowerCase().includes("indisponível");
+  const hasDisabledMessage = outputActive.finalResponse.toLowerCase().includes("atualização") || 
+                             outputActive.finalResponse.toLowerCase().includes("manutenção") ||
+                             outputActive.finalResponse.toLowerCase().includes("indisponível");
 
   console.log(hasDisabledMessage ? "❌ FALHA: Agente informou indisponibilidade mesmo com serviço no catálogo." : "✅ SUCESSO: Agente ofereceu o serviço ativo.");
-  console.log("Resposta:", outputActive.reply);
+  console.log("Resposta:", outputActive.finalResponse);
 
   // CENÁRIO 2: Preço no Catálogo vs Preço Fixo (Deve usar o preço do catálogo)
   const priceCatalog = [
@@ -60,10 +58,10 @@ async function testCatalogConflict() {
   };
 
   const outputPrice = await runAgentV2Turn(inputPrice);
-  const hasCorrectPrice = outputPrice.reply.includes("25.00") || outputPrice.reply.includes("25,00");
+  const hasCorrectPrice = outputPrice.finalResponse.includes("25.00") || outputPrice.finalResponse.includes("25,00");
 
   console.log(hasCorrectPrice ? "✅ SUCESSO: Preço extraído do catálogo." : "❌ FALHA: Preço incorreto na resposta.");
-  console.log("Resposta:", outputPrice.reply);
+  console.log("Resposta:", outputPrice.finalResponse);
 
   // CENÁRIO 3: Serviço Inativo (Deve informar indisponibilidade)
   const emptyCatalog: any[] = [];
@@ -76,12 +74,15 @@ async function testCatalogConflict() {
   };
 
   const outputEmpty = await runAgentV2Turn(inputEmpty);
-  const isUnavailable = outputEmpty.reply.toLowerCase().includes("indisponível") || 
-                        outputEmpty.reply.toLowerCase().includes("manutenção") ||
-                        outputEmpty.reply.toLowerCase().includes("momento");
+  const isUnavailable = outputEmpty.finalResponse.toLowerCase().includes("indisponível") || 
+                        outputEmpty.finalResponse.toLowerCase().includes("manutenção") ||
+                        outputEmpty.finalResponse.toLowerCase().includes("momento");
 
   console.log(isUnavailable ? "✅ SUCESSO: Informou indisponibilidade para catálogo vazio." : "❌ FALHA: Ofereceu serviço sem catálogo.");
-  console.log("Resposta:", outputEmpty.reply);
+  console.log("Resposta:", outputEmpty.finalResponse);
 }
 
-testCatalogConflict().catch(console.error);
+if (require.main === module) {
+  runCatalogConflictTests().catch(console.error);
+}
+
