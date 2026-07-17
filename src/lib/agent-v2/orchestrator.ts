@@ -104,7 +104,14 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       builderVersion: '2.0.0'
     });
 
-    modelResponse = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
+    const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
+    modelResponse = modelResult.reply;
+    
+    // Track usage for analytics
+    metrics.inputTokens = (metrics.inputTokens || 0) + (modelResult.usage?.input_tokens || 0);
+    metrics.outputTokens = (metrics.outputTokens || 0) + (modelResult.usage?.output_tokens || 0);
+    metrics.durationMs += modelResult.duration_ms || 0;
+
 
     guardResult = runGuardEngineV2({
       draftResponse: modelResponse,
