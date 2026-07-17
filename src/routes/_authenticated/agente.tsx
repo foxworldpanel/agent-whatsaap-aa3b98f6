@@ -153,6 +153,15 @@ function AgentePage() {
     () => Object.values(modules).reduce((s, v) => s + (v?.length ?? 0), 0),
     [modules],
   );
+  
+  const { data: v2ModulesData, isLoading: isV2ModulesLoading } = useQuery({
+    queryKey: ["agent_modules_v2"],
+    queryFn: () => fetchModulesV2(),
+  });
+
+  const [showV1, setShowV1] = useState(false);
+  const v2Modules = v2ModulesData ?? [];
+
   const activeCount = useMemo(
     () => MODULE_LIST.filter((m) => enabled[m.key] !== false).length,
     [enabled],
