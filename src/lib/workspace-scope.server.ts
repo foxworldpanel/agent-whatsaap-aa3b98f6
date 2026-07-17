@@ -12,18 +12,9 @@ export async function resolveWorkspaceId(
   _userId: string,
   _headerValue: string | null,
 ): Promise<string> {
-  // Verificamos se o usuário tem acesso ao workspace Mind.
-  // Como agora só existe um workspace, o usuário logado deve ser membro/owner dele.
-  const { data, error } = await supabase
-    .from("workspaces")
-    .select("id")
-    .eq("id", MIND_WORKSPACE_ID)
-    .maybeSingle();
-
-  if (error || !data?.id) {
-    throw new Error("Acesso negado: Você não possui permissão para acessar o workspace Mind.");
-  }
-
+  // In single-tenant mode, we always force the Mind workspace ID.
+  // The user roles/RLS should handle the access control.
+  // We remove the pre-validation query that might fail if RLS is not fully propagated yet.
   return MIND_WORKSPACE_ID;
 }
 

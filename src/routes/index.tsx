@@ -19,7 +19,7 @@ function InterventionPanel() {
               <AlertCircle className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">INCIDENTE CRÍTICO — WORKSPACE DA MIND NÃO ABRE</h1>
+              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">INCIDENTE CRÍTICO — WORKSPACE DA MIND SUMIU</h1>
               <p className="text-red-400 font-bold uppercase mt-1 text-[10px]">FALHA NA RESOLUÇÃO DINÂMICA DO WORKSPACE ID bd59fa41-d68d-4ac8-b995-e09ae48f52aa.</p>
             </div>
           </div>
