@@ -14,7 +14,7 @@ const AnthropicResponseSchema = z.object({
 });
 
 export interface LLMMessage {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system';
   content: string;
 }
 
