@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AlertTriangle, CheckCircle2, ListFilter, Trash2, Database, ShieldCheck, ArrowRight, Clock, Rocket, Search, Inventory, LayoutGrid } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ListFilter, Trash2, Database, ShieldCheck, ArrowRight, Clock, Rocket, Search, LayoutGrid, ClipboardList } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
