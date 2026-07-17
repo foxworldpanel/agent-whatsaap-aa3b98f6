@@ -14,7 +14,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { getAgentConfig, saveAgentModules, setServicesRealtime, saveBehavior, savePanelScreenshots } from "@/lib/agent.functions";
+import { getAgentConfig, saveAgentModules, setServicesRealtime, saveBehavior, savePanelScreenshots, listModulesV2 } from "@/lib/agent.functions";
 import { seedBrandFromMindTemplate } from "@/lib/seed-mind-brand.functions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
