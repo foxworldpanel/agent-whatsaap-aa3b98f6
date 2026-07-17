@@ -290,20 +290,41 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       selectedModules: ['mission', 'identity', 'guards'],
       selectedTools: [],
       selectedTutorials: [],
-      detectedIntent: 'fallback',
-      metadata: {}
+      detectedIntent: 'unknown',
+      metadata: {},
+      detectedMode: (input.mode === 'outbound' ? 'outbound' : 'receptive') as any,
+      detectedNetwork: 'unknown',
+      detectedService: 'unknown',
+      routingReason: 'error_fallback',
+      stateEvents: [],
+      warnings: [err instanceof Error ? err.message : String(err)],
+      metrics: {
+        moduleCount: 3,
+        toolCount: 0,
+        tutorialCount: 0,
+        routingDurationMs: 0,
+        warningsCount: 1
+      }
     },
     stateAfter: (input as any).conversationState || {
       workspaceId: input.workspaceId,
       conversationId: input.conversationId,
-      mode: 'receptive',
+      phoneNumber: input.phoneNumber,
+      mode: input.mode === 'outbound' ? 'outbound' : 'receptive',
       network: 'unknown',
       service: 'unknown',
-      intent: 'fallback',
-      currentStep: 'error_fallback',
+      intent: 'unknown',
+      currentStep: 'support_redirect',
       updatedAt: new Date().toISOString(),
-      customer: { hasAccount: false, status: 'lead' },
-      freeTest: { status: 'offered' }
+      createdAt: new Date().toISOString(),
+      customer: { hasAccount: false, hasBalance: false },
+      payment: {},
+      freeTest: { status: 'none' },
+      tutorial: { active: false },
+      support: { active: true },
+      toolsUsed: [],
+      loadedModules: ['mission', 'identity', 'guards'],
+      facts: {}
     },
     metrics: { ...metrics, durationMs: Date.now() - startTime, error: true },
     errors: [err instanceof Error ? err.message : String(err)],
@@ -313,6 +334,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
 }
 
 function applyStateEvents(state: ConversationStateV2, events: V2StateEvent[]): ConversationStateV2 {
+
   let newState = { ...state };
   for (const event of events) {
     switch (event.type) {
