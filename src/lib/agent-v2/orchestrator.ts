@@ -439,7 +439,8 @@ async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string
   }
 
   // Em modo REAL ou PILOT, chama a camada neutra de inferência LLM V2.
-  // Isso separa completamente a orquestração V2 das funções cerebrais da V1.
+  // Isso separa completamente a orquestração atual dos motores de inferência.
+
   const systemPrompt = instruction 
     ? `${prompt.system}\n\nINSTRUÇÃO DE REGENERAÇÃO: ${instruction}`
     : prompt.system;

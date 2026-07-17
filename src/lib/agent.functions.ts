@@ -4,7 +4,7 @@ import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 
 import { z } from "zod";
 import { getSharedUazapiUserIds } from "@/lib/agent-shared.server";
-import { mergeAgentModulesForSave } from "@/lib/agent-modules";
+
 
 type PanelShot = { url: string; path?: string; label?: string };
 
@@ -151,11 +151,12 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
       if (readError) throw new Error(readError.message);
       patch = {
         ...data,
-        modules: mergeAgentModulesForSave(
-          (existing?.modules ?? null) as Record<string, string> | null,
-          data.modules,
-        ),
+        modules: {
+          ...((existing?.modules ?? {}) as Record<string, string>),
+          ...data.modules,
+        },
       };
+
     }
     const { error } = await context.supabase
       .from("agent_config")
@@ -184,10 +185,11 @@ export const saveAgentModules = createServerFn({ method: "POST" })
     const payload = {
       user_id: context.userId,
       workspace_id: context.workspaceId,
-      modules: mergeAgentModulesForSave(
-        (existing?.modules ?? null) as Record<string, string> | null,
-        data.modules,
-      ),
+      modules: {
+        ...((existing?.modules ?? {}) as Record<string, string>),
+        ...data.modules,
+      },
+
       ...(data.modules_enabled
         ? {
             modules_enabled: {
