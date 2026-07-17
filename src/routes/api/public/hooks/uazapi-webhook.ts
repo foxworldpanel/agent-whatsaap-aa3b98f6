@@ -158,8 +158,14 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           }
 
           // 4. Resolve Media (Audio Support)
+          // 4. Resolve Media (Audio Support)
           const messageType = msg.type || 'text';
           const hasAudio = messageType === 'audio' || messageType === 'ptt';
+          
+          if (hasAudio) {
+            log('AUDIO_DETECTED', { type: messageType });
+          }
+
           const mediaId = String(msg.mediaId || msg.id || "");
           const mediaUrl = String(msg.url || msg.mediaUrl || "");
           const mimeType = String(msg.mimeType || msg.mimetype || "");
@@ -169,26 +175,19 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
             log('AUDIO_URL_RESOLVED', { mediaUrl, mimeType });
           }
 
-          let incomingText = String(msg.text || msg.content || msg.caption || "");
+          // Ensure incomingText is always a string and handle captions vs body
+          let incomingText = "";
+          if (typeof msg.text === 'string') incomingText = msg.text;
+          else if (typeof msg.content === 'string') incomingText = msg.content;
+          else if (typeof msg.caption === 'string') incomingText = msg.caption;
+          else if (msg.text && typeof msg.text === 'object') {
+             // If Uazapi sends text as an object (rare but happens in some versions), 
+             // we don't want [object Object]
+             incomingText = msg.text.body || "";
+          }
+
           if (hasAudio) {
-            log('AUDIO_PIPELINE_STARTED');
-            try {
-               // TODO: Implement direct audio processing if needed, 
-               // for now we pass media info to the orchestrator
-               log('AUDIO_METADATA_READY', { mediaId, mediaUrl, mimeType });
-            } catch (audioErr: any) {
-               log('AUDIO_PIPELINE_ERROR', { error: audioErr.message });
-               // Fallback: request text
-               const { uazapiSendText } = await import("@/lib/uazapi.server");
-               if (integ.uazapi_url && integ.uazapi_token) {
-                 await uazapiSendText(
-                   { uazapi_url: integ.uazapi_url!, uazapi_token: integ.uazapi_token! },
-                   phone,
-                   "Não consegui entender esse áudio. Pode enviar novamente ou escrever a mensagem?"
-                 );
-               }
-               return new Response("audio error handled");
-            }
+            log('AUDIO_PIPELINE_PREPARED', { mediaId, mediaUrl, mimeType, caption: incomingText });
           }
 
           // 5. Load History (Critical for V2)

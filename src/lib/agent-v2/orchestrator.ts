@@ -59,23 +59,41 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
 
     // Audio Recovery Logic
     let processedMessage = (typeof input.currentMessage === 'string' ? input.currentMessage : "").trim();
-    if (input.media?.hasAudio && input.media?.mediaUrl && !processedMessage) {
-       console.log(`[AGENT_V2][${correlationId}] audio_recovery_triggered | media_id: ${input.media?.mediaId}`);
+    
+    // Safety check: remove [object Object] leaks from webhook or previous layers
+    if (processedMessage === '[object Object]') {
+       processedMessage = "";
+    }
+
+    if (input.media?.hasAudio && input.media?.mediaUrl) {
+       console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_DETECTED] type: ${input.media.type}`);
+       
        try {
          const { transcribeAudio } = await import('./audio-processor.server');
+         
+         // The audio processor already logs AUDIO_DOWNLOAD_STARTED/OK and WHISPER_REQUEST_STARTED/OK
+         // We add the specific requested tags here for orchestrator visibility
          const transcriptionResult = await transcribeAudio(input.media.mediaUrl, correlationId);
-         processedMessage = typeof transcriptionResult === 'string' ? transcriptionResult : "";
-         console.log(`[AGENT_V2][${correlationId}] audio_transcribed | text: ${processedMessage.slice(0, 50)}...`);
+         
+         const transcriptText = typeof transcriptionResult === 'string' ? transcriptionResult : "";
+         console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][TRANSCRIPTION_RESULT] "${transcriptText.slice(0, 50)}..."`);
+         
+         // Combine caption with transcription if caption exists
+         if (processedMessage && processedMessage !== transcriptText) {
+            processedMessage = `${processedMessage}\n\n[Transcrição do Áudio]: ${transcriptText}`;
+         } else {
+            processedMessage = transcriptText;
+         }
        } catch (audioErr: any) {
-         console.error(`[AGENT_V2][${correlationId}] audio_transcription_failed | error: ${audioErr.message}`);
-         // We let it continue with empty message which will trigger a friendly "can you write it?" fallback below
+         console.error(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_PIPELINE_ERROR] ${audioErr.message}`);
        }
     }
 
     if (input.media?.hasAudio && !processedMessage) {
+       console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_EMPTY_FALLBACK]`);
        // Friendly fallback instead of technical error
        return {
-         ...input.previousState as any, // Placeholder for valid return
+         ...input.previousState as any, 
          finalResponse: "Desculpe, não consegui entender seu áudio claramente. Poderia escrever o que precisa ou tentar enviar o áudio novamente?",
          stateAfter: input.previousState,
          metrics: { ...metrics, durationMs: Date.now() - startTime, audio_fail: true },
@@ -142,9 +160,11 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       });
       console.log(`[AGENT_V2] prompt_built | correlation_id: ${correlationId}`);
 
-      console.log(`[AGENT_V2] llm_request_started | correlation_id: ${correlationId} | model: ${modelRouteResult.selectedModel || 'claude-haiku-4-5-20251001'}`);
-      const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-haiku-4-5-20251001');
-      console.log(`[AGENT_V2] llm_response_received | correlation_id: ${correlationId}`);
+      const modelToCall = modelRouteResult.selectedModel || 'claude-haiku-4-5-20251001';
+      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][HAIKU_STARTED] model: ${modelToCall}`);
+      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][HAIKU_PROMPT] User: ${normalizedMessage.slice(0, 100)}...`);
+      
+      const modelResult = await callBrainModel(input, promptBuildResult, modelToCall);
       modelResponse = modelResult.reply;
     
     // Track usage for analytics
