@@ -115,8 +115,8 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       });
       console.log(`[AGENT_V2] prompt_built | correlation_id: ${correlationId}`);
 
-      console.log(`[AGENT_V2] llm_request_started | correlation_id: ${correlationId} | model: ${modelRouteResult.selectedModel || 'claude-3-haiku-20240307'}`);
-      const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
+      console.log(`[AGENT_V2] llm_request_started | correlation_id: ${correlationId} | model: ${modelRouteResult.selectedModel || 'claude-haiku-4-5-20251001'}`);
+      const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-haiku-4-5-20251001');
       console.log(`[AGENT_V2] llm_response_received | correlation_id: ${correlationId}`);
       modelResponse = modelResult.reply;
     
