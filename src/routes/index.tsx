@@ -19,8 +19,8 @@ function RuntimeStatusPanel() {
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">MODO SEGURANÇA ATIVO — RUNTIME V2 RESTRITA</h1>
-              <p className="text-emerald-400 font-bold uppercase mt-1 text-[10px]">AGENTE DESATIVADO PARA TODAS AS CONVERSAS (EXCETO NÚMERO DE TESTE).</p>
+              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">CORREÇÃO CRÍTICA — PIPELINE DE ÁUDIO V2</h1>
+              <p className="text-emerald-400 font-bold uppercase mt-1 text-[10px]">DEBUGANDO FALHA TÉCNICA MOMENTÂNEA NO PROCESSAMENTO DE ÁUDIO.</p>
             </div>
           </div>
         </header>
@@ -72,8 +72,8 @@ function RuntimeStatusPanel() {
               <LogStatus label="WORKSPACE_CONTEXT" status="MIND_SMM" />
               <LogStatus label="SINGLE_TENANT" status="ENABLED" />
               <div className="mt-4 p-2 border border-slate-800 bg-slate-900/30">
-                <p className="text-[8px] text-slate-500 uppercase font-bold">Resumo Técnico:</p>
-                <p className="text-[9px] text-white">O pipeline de áudio está pronto. A IA só responderá se o ID do chat for 5511970116430.</p>
+                <p className="text-[8px] text-slate-500 uppercase font-bold">Diagnóstico Atual:</p>
+                <p className="text-[9px] text-white">Identificado erro técnico momentâneo ao enviar áudio. Orquestrador corrigido para evitar falha no retorno do fallback. Whisper está em monitoramento.</p>
               </div>
             </CardContent>
           </Card>
