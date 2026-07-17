@@ -149,7 +149,7 @@ export async function classifyLeadTemperature(params: {
       method: "POST",
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 64,
         system,
         messages: [{ role: "user", content: `Histórico:\n${transcript}\n\nResponda apenas com o JSON.` }],
