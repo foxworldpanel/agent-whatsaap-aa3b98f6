@@ -291,7 +291,6 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       selectedTools: [],
       selectedTutorials: [],
       detectedIntent: 'unknown',
-      metadata: {},
       detectedMode: (input.mode === 'outbound' ? 'outbound' : 'receptive') as any,
       detectedNetwork: 'unknown',
       detectedService: 'unknown',
@@ -332,6 +331,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   };
 }
 }
+
 
 function applyStateEvents(state: ConversationStateV2, events: V2StateEvent[]): ConversationStateV2 {
 
