@@ -23,7 +23,6 @@ import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authen
 import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
 import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
 import { Route as ApiPublicHooksSmmPollRouteImport } from './routes/api/public/hooks/smm-poll'
-import { Route as ApiPublicHooksCampaignDispatcherRouteImport } from './routes/api/public/hooks/campaign-dispatcher'
 import { Route as ApiPublicHooksBlastDispatcherRouteImport } from './routes/api/public/hooks/blast-dispatcher'
 import { Route as ApiPublicHooksAutoCampaignDispatcherRouteImport } from './routes/api/public/hooks/auto-campaign-dispatcher'
 
@@ -99,12 +98,6 @@ const ApiPublicHooksSmmPollRoute = ApiPublicHooksSmmPollRouteImport.update({
   path: '/api/public/hooks/smm-poll',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicHooksCampaignDispatcherRoute =
-  ApiPublicHooksCampaignDispatcherRouteImport.update({
-    id: '/api/public/hooks/campaign-dispatcher',
-    path: '/api/public/hooks/campaign-dispatcher',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicHooksBlastDispatcherRoute =
   ApiPublicHooksBlastDispatcherRouteImport.update({
     id: '/api/public/hooks/blast-dispatcher',
@@ -132,7 +125,6 @@ export interface FileRoutesByFullPath {
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
-  '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
@@ -150,7 +142,6 @@ export interface FileRoutesByTo {
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
-  '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
@@ -170,7 +161,6 @@ export interface FileRoutesById {
   '/_authenticated/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
-  '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
 }
@@ -190,7 +180,6 @@ export interface FileRouteTypes {
     | '/teste-gratis'
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
-    | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -208,7 +197,6 @@ export interface FileRouteTypes {
     | '/teste-gratis'
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
-    | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
   id:
@@ -227,7 +215,6 @@ export interface FileRouteTypes {
     | '/_authenticated/teste-gratis'
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
-    | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
   fileRoutesById: FileRoutesById
@@ -238,7 +225,6 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiPublicHooksAutoCampaignDispatcherRoute: typeof ApiPublicHooksAutoCampaignDispatcherRoute
   ApiPublicHooksBlastDispatcherRoute: typeof ApiPublicHooksBlastDispatcherRoute
-  ApiPublicHooksCampaignDispatcherRoute: typeof ApiPublicHooksCampaignDispatcherRoute
   ApiPublicHooksSmmPollRoute: typeof ApiPublicHooksSmmPollRoute
   ApiPublicHooksUazapiWebhookRoute: typeof ApiPublicHooksUazapiWebhookRoute
 }
@@ -343,13 +329,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSmmPollRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/campaign-dispatcher': {
-      id: '/api/public/hooks/campaign-dispatcher'
-      path: '/api/public/hooks/campaign-dispatcher'
-      fullPath: '/api/public/hooks/campaign-dispatcher'
-      preLoaderRoute: typeof ApiPublicHooksCampaignDispatcherRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/hooks/blast-dispatcher': {
       id: '/api/public/hooks/blast-dispatcher'
       path: '/api/public/hooks/blast-dispatcher'
@@ -401,7 +380,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksAutoCampaignDispatcherRoute:
     ApiPublicHooksAutoCampaignDispatcherRoute,
   ApiPublicHooksBlastDispatcherRoute: ApiPublicHooksBlastDispatcherRoute,
-  ApiPublicHooksCampaignDispatcherRoute: ApiPublicHooksCampaignDispatcherRoute,
   ApiPublicHooksSmmPollRoute: ApiPublicHooksSmmPollRoute,
   ApiPublicHooksUazapiWebhookRoute: ApiPublicHooksUazapiWebhookRoute,
 }
