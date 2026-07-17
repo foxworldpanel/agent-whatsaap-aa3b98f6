@@ -1,6 +1,6 @@
 // Estatística agregada das últimas 24h (por padrão) das chamadas do
 // agente ao Claude — usa a tabela agent_prompt_metrics alimentada em
-// generateAgentReplyWithMeta. Consumida por um card do painel ou por
+// runAgentV2Turn. Consumida por um card do painel ou por
 // um cron (endpoint /api/public/hooks/agent-metrics-daily).
 
 import { createServerFn } from "@tanstack/react-start";
