@@ -19,8 +19,8 @@ function RuntimeStatusPanel() {
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">CORREÇÃO CRÍTICA — PIPELINE DE ÁUDIO V2</h1>
-              <p className="text-emerald-400 font-bold uppercase mt-1 text-[10px]">DEBUGANDO FALHA TÉCNICA MOMENTÂNEA NO PROCESSAMENTO DE ÁUDIO.</p>
+              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">MODO INTERVENÇÃO TOTAL — PIPELINE DE ÁUDIO</h1>
+              <p className="text-emerald-400 font-bold uppercase mt-1 text-[10px]">CORRIGINDO FALLBACK TÉCNICO NO WEBHOOK DA UAZAPI.</p>
             </div>
           </div>
         </header>

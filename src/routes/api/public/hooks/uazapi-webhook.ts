@@ -12,9 +12,10 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           console.log(`[V2_DIAGNOSTIC][${correlationId}][${timestamp}][${stage}]`, details || '');
         };
 
+        let payload: any = null;
         try {
           log('AUDIO_WEBHOOK_RECEIVED');
-          const payload = await request.json();
+          payload = await request.json();
           log('AUDIO_PAYLOAD_PARSED', { event: payload.event });
 
           const event = payload.event;
@@ -266,7 +267,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
              const { uazapiSendText } = await import("@/lib/uazapi.server");
              const { data: integrations } = await supabaseAdmin.from("integrations").select("*").limit(1);
              const integ = integrations?.[0];
-             const chatidRaw = (request as any)._body_msg_chatid || ""; // Attempting to recover if possible
+             const chatidRaw = (payload?.message?.chatid ?? payload?.message?.sender ?? payload?.data?.chatid ?? payload?.data?.sender ?? "").toLowerCase();
              const phone = chatidRaw.split("@")[0].replace(/\D/g, "");
              
              if (integ?.uazapi_url && integ?.uazapi_token && phone) {
