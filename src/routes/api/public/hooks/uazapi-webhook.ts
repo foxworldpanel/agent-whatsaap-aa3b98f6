@@ -24,22 +24,30 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
         const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
         if (!isAuthorizedV2Phone(phone)) return new Response("unauthorized");
 
-        // 1. Resolve agent and workspace
+        // 1. Resolve integration and agent
         const { data: integrations } = await supabaseAdmin
           .from("integrations")
-          .select("*, agents(*)")
+          .select("*")
           .limit(1);
         
         const integ = integrations?.[0];
-        const agent = integ?.agents;
-        if (!agent) return new Response("no agent");
+        if (!integ) return new Response("no integration");
 
-        // 2. Resolve or create conversation
+        const { data: agentConfigs } = await supabaseAdmin
+          .from("agent_config")
+          .select("*")
+          .eq("workspace_id", integ.workspace_id)
+          .limit(1);
+        
+        const agent = agentConfigs?.[0];
+        if (!agent) return new Response("no agent config");
+
+        // 2. Resolve conversation
         const { data: conv } = await supabaseAdmin
           .from("conversations")
           .select("*")
-          .eq("phone", phone)
-          .eq("workspace_id", agent.workspace_id)
+          .eq("workspace_id", integ.workspace_id)
+          .limit(1)
           .maybeSingle();
         
         if (!conv) return new Response("no conversation");
@@ -56,7 +64,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           shortHistory: [],
           toolFixtures: { catalog: [], freeTestServices: [] },
           expected: {
-            conversationWorkspaceId: conv.workspace_id,
+            conversationWorkspaceId: conv.workspace_id ?? agent.workspace_id,
             agentWorkspaceId: agent.workspace_id,
             whatsappWorkspaceId: agent.workspace_id,
             selectedWorkspaceId: agent.workspace_id,
@@ -65,11 +73,13 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
 
         // 4. Send Reply
         const { uazapiSendText } = await import("@/lib/uazapi.server");
-        await uazapiSendText(
-          { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
-          phone,
-          v2Result.finalResponse
-        );
+        if (integ.uazapi_url && integ.uazapi_token) {
+          await uazapiSendText(
+            { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
+            phone,
+            v2Result.finalResponse
+          );
+        }
 
         return new Response("ok");
       }
