@@ -67,6 +67,7 @@ export async function runAgentV2Turn(data: {
 
   // 2. Run turn
   const output = await runV2Turn({
+    correlationId: data.correlationId,
     workspaceId: data.workspaceId,
     conversationId: data.conversationId,
     phoneNumber: data.phoneNumber,
