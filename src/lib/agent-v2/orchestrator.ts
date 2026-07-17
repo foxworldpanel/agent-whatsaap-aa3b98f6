@@ -160,7 +160,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   metrics.intent = routeResult.detectedIntent;
   metrics.usedLlm = modelRouteResult.useLlm;
   metrics.selectedModel = modelRouteResult.selectedModel;
-  metrics.guardViolations = (guardResult?.violations.length || 0) + (regenerationResult?.guardResult.violations.length || 0);
+  metrics.guardViolations = (guardResult?.violations.length || 0) + (regenerationResult ? (regenerationResult as any).guardResult.violations.length : 0);
   metrics.regenerationCount = regenerationResult ? 1 : 0;
   
   // Analytics Engine V2
