@@ -29,9 +29,9 @@ export function aggregateConversationFromTurns(
   const initialState = {
     workspace_id: workspaceId,
     conversation_id: conversationId,
-    started_at: firstTurn.createdAt,
-    ended_at: lastTurn.currentStep === 'conversation_closed' ? lastTurn.createdAt : null,
-    created_at: firstTurn.createdAt,
+    started_at: firstTurn.createdAt || new Date().toISOString(),
+    ended_at: lastTurn.currentStep === 'conversation_closed' ? (lastTurn.createdAt || new Date().toISOString()) : null,
+    created_at: firstTurn.createdAt || new Date().toISOString(),
     updated_at: new Date().toISOString(),
     mode: firstTurn.mode,
     primary_network: firstTurn.network || 'unknown',
