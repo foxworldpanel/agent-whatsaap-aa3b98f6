@@ -8,7 +8,8 @@ import { routeModelV2 } from './model-router';
 import { buildPromptV2 } from './prompt-builder';
 import { runGuardEngineV2 } from './guard-engine';
 import { callLLMV2 } from './llm-client.server';
-import { generateSpeech } from '@/lib/elevenlabs.server';
+import { generateSpeech } from '../elevenlabs.server';
+
 
 import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
