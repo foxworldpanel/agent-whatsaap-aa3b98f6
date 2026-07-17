@@ -13,9 +13,9 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
         };
 
         try {
-          log('WEBHOOK_RECEIVED');
+          log('AUDIO_WEBHOOK_RECEIVED');
           const payload = await request.json();
-          log('PAYLOAD_PARSED', { event: payload.event });
+          log('AUDIO_PAYLOAD_PARSED', { event: payload.event });
 
           const event = payload.event;
           if (event && !event.includes("message")) {
@@ -164,7 +164,10 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           const mediaUrl = msg.url || msg.mediaUrl;
           const mimeType = msg.mimeType || msg.mimetype;
 
-          log('AUDIO_DETECTED', { hasAudio, messageType, mediaId, mimeType });
+          if (hasAudio) {
+            log('AUDIO_MEDIA_ID_FOUND', { mediaId });
+            log('AUDIO_URL_RESOLVED', { mediaUrl, mimeType });
+          }
 
           let transcription = "";
           if (hasAudio) {
