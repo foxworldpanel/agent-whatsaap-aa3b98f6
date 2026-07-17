@@ -93,9 +93,29 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
        console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_EMPTY_FALLBACK]`);
        // Friendly fallback instead of technical error
        return {
-         ...input.previousState as any, 
+         stateBefore,
+         shortAnswerResolution: { resolved: true, response: "Desculpe, não consegui entender seu áudio claramente. Poderia escrever o que precisa ou tentar enviar o áudio novamente?" },
+         routeResult: {
+           selectedModules: ['mission', 'identity', 'guards'],
+           selectedTools: [],
+           selectedTutorials: [],
+           detectedIntent: 'unknown',
+           detectedMode: (input.mode === 'outbound' ? 'outbound' : 'receptive') as any,
+           detectedNetwork: 'unknown',
+           detectedService: 'unknown',
+           routingReason: 'audio_transcription_empty',
+           stateEvents: [],
+           warnings: ["Audio transcription returned empty or failed."],
+           metrics: { moduleCount: 3, toolCount: 0, tutorialCount: 0, routingDurationMs: 0, warningsCount: 1 }
+         },
+         stateAfterRouting: stateBefore,
+         modelRouteResult: { useLlm: false, selectedModel: 'none', requiresVision: false, requiresTranscription: true, routingReason: 'audio_empty', confidence: 0, warnings: [], metrics: { decisionDurationMs: 0, complexity: 'simple', estimatedCostClass: 'zero' } },
+         promptBuildResult: null,
+         modelResponse: null,
+         guardResult: null,
+         regenerationResult: null,
          finalResponse: "Desculpe, não consegui entender seu áudio claramente. Poderia escrever o que precisa ou tentar enviar o áudio novamente?",
-         stateAfter: input.previousState,
+         stateAfter: { ...stateBefore, lastAnswer: "Desculpe, não consegui entender seu áudio claramente. Poderia escrever o que precisa ou tentar enviar o áudio novamente?", updatedAt: new Date().toISOString() },
          metrics: { ...metrics, durationMs: Date.now() - startTime, audio_fail: true },
          errors: ["Audio transcription returned empty or failed."],
          sentToCustomer: false
