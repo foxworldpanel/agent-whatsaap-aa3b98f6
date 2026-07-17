@@ -27,6 +27,7 @@ export async function runCatalogConflictTests() {
     conversationId,
     phoneNumber: "5511999999999",
     currentMessage: "Vocês tem 1000 plays e ouvintes global no Spotify?",
+    shortHistory: [],
     previousState: initialState,
     mode: 'receptive',
     executionMode: 'isolated',
