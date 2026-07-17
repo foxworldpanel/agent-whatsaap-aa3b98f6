@@ -246,9 +246,9 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   metrics.regenerationCount = regenerationResult ? 1 : 0;
   
   // Audio response generation (ElevenLabs)
-  if (input.media?.hasAudio && finalResponse) {
+  if (input.media?.hasAudio && finalResponse && input.executionMode !== 'isolated') {
     try {
-      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][ELEVENLABS_STARTED]`);
+      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][ELEVENLABS_STARTED] text: ${finalResponse.slice(0, 30)}...`);
       const audioUrl = await generateSpeech(finalResponse);
       if (audioUrl) {
         console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][ELEVENLABS_OK] url: ${audioUrl}`);
