@@ -196,15 +196,24 @@ function AgentePage() {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Agente IA</h1>
+          <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <Cpu className="h-6 w-6 text-primary" />
+            Configuração do Agente IA (V2)
+          </h1>
           <p className="text-sm text-muted-foreground">
-            {activeCount}/{MODULE_LIST.length} módulos ativos · {totalChars.toLocaleString("pt-BR")} caracteres.
+            Arquitetura modular de alto desempenho integrada ao runtime V2.
           </p>
         </div>
-        <Button onClick={doSave} disabled={save.isPending}>
-          <Save className="mr-2 h-4 w-4" />
-          {save.isPending ? "Salvando..." : "Salvar tudo"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowV1(!showV1)} size="sm">
+            <History className="mr-2 h-4 w-4" />
+            {showV1 ? "Ocultar Legado V1" : "Ver Legado V1"}
+          </Button>
+          <Button onClick={doSave} disabled={save.isPending}>
+            <Save className="mr-2 h-4 w-4" />
+            {save.isPending ? "Salvando..." : "Salvar Configurações"}
+          </Button>
+        </div>
       </div>
 
       {!activeWorkspaceId && (
