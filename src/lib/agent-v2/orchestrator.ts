@@ -102,20 +102,23 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       executionMode: input.executionMode
     });
     finalResponse = guardResult.finalResponse;
-  } else {
-    promptBuildResult = buildPromptV2({
-      conversationState: stateAfterRouting,
-      routeResult,
-      history: input.shortHistory,
-      historySummary: input.historySummary,
-      toolResults: input.toolFixtures,
-      currentMessage: normalizedMessage,
-      brainVersion: 'v2',
-      builderVersion: '2.0.0'
-    });
+    } else {
+      promptBuildResult = buildPromptV2({
+        conversationState: stateAfterRouting,
+        routeResult,
+        history: input.shortHistory,
+        historySummary: input.historySummary,
+        toolResults: input.toolFixtures,
+        currentMessage: normalizedMessage,
+        brainVersion: 'v2',
+        builderVersion: '2.0.0'
+      });
+      console.log(`[AGENT_V2] prompt_built | correlation_id: ${correlationId}`);
 
-    const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
-    modelResponse = modelResult.reply;
+      console.log(`[AGENT_V2] llm_request_started | correlation_id: ${correlationId} | model: ${modelRouteResult.selectedModel || 'claude-3-haiku-20240307'}`);
+      const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
+      console.log(`[AGENT_V2] llm_response_received | correlation_id: ${correlationId}`);
+      modelResponse = modelResult.reply;
     
     // Track usage for analytics
     metrics.inputTokens = (metrics.inputTokens || 0) + (modelResult.usage?.input_tokens || 0);
