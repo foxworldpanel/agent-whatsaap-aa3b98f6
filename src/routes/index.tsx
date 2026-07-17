@@ -249,7 +249,7 @@ function AuditDashboard() {
         </section>
 
         {/* Footer Audit Summary */}
-        <footer className="bg-slate-900 border border-slate-800 p-6 rounded-xl">
+        <footer className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-6">
            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
              <div>
                <p className="text-xs text-slate-500 uppercase">Arquitetura</p>
@@ -268,7 +268,15 @@ function AuditDashboard() {
                <p className="text-lg font-bold text-red-400">Bloqueado</p>
              </div>
            </div>
+
+           <div className="pt-6 border-t border-slate-800 flex justify-center">
+             <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg shadow-blue-900/20">
+               <FileText className="w-5 h-5" />
+               Gerar um relatório PDF da AUDITORIA EXECUTADA da Runtime V2 com os fatos do projeto e métricas de custo/latência.
+             </button>
+           </div>
         </footer>
+
 
       </div>
     </div>
