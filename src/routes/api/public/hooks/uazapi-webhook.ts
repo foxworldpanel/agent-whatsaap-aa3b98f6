@@ -3151,7 +3151,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
             } catch {}
             reply = FALLBACK_REPLY;
-            }
           }
         } catch (e) {
           console.error("claude failed", e);
