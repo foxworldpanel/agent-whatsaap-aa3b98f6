@@ -152,7 +152,7 @@ function applyIntentRouting(
   } else if (detectedNetwork !== 'unknown') {
     // Check if it's a valid V2Module
     const validModules: V2Module[] = [
-      'instagram', 'youtube', 'tiktok', 'facebook', 'kwai', 'spotify', 'spotify_overview',
+      'instagram', 'youtube', 'tiktok', 'facebook', 'kwai', 'spotify_overview',
       'spotify_playlist', 'spotify_followers', 'mission', 'identity', 'guards', 
       'receptive', 'outbound', 'commercial', 'panel', 'payments', 'tutorials', 
       'free_test', 'support'

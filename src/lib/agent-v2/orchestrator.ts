@@ -41,23 +41,30 @@ async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
  */
 export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2EOutput> {
   const startTime = Date.now();
+  const correlationId = `v2_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  console.log(`[AGENT_V2] webhook_received | correlation_id: ${correlationId} | message: ${input.currentMessage.slice(0, 50)}...`);
+  
   const errors: string[] = [];
   const metrics: Record<string, any> = {
     brainVersion: 'v2',
     executionMode: input.executionMode,
-    durationMs: 0
+    durationMs: 0,
+    correlationId
   };
 
   try {
+    console.log(`[AGENT_V2] auth_resolved | correlation_id: ${correlationId}`);
+    console.log(`[AGENT_V2] workspace_resolved | correlation_id: ${correlationId} | workspace: ${input.workspaceId}`);
+    console.log(`[AGENT_V2] conversation_loaded | correlation_id: ${correlationId} | conversation: ${input.conversationId}`);
 
-
-  const normalizedMessage = input.currentMessage.trim();
+    const normalizedMessage = input.currentMessage.trim();
   const stateBefore = { ...input.previousState };
 
-  const routeResult = routeModulesV2({
-    currentMessage: normalizedMessage,
-    conversationState: stateBefore
-  });
+    const routeResult = routeModulesV2({
+      currentMessage: normalizedMessage,
+      conversationState: stateBefore
+    });
+    console.log(`[AGENT_V2] modules_selected | correlation_id: ${correlationId} | modules: ${routeResult.selectedModules.join(', ')}`);
 
   let stateAfterRouting = applyStateEvents(stateBefore, routeResult.stateEvents);
 
@@ -95,20 +102,23 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       executionMode: input.executionMode
     });
     finalResponse = guardResult.finalResponse;
-  } else {
-    promptBuildResult = buildPromptV2({
-      conversationState: stateAfterRouting,
-      routeResult,
-      history: input.shortHistory,
-      historySummary: input.historySummary,
-      toolResults: input.toolFixtures,
-      currentMessage: normalizedMessage,
-      brainVersion: 'v2',
-      builderVersion: '2.0.0'
-    });
+    } else {
+      promptBuildResult = buildPromptV2({
+        conversationState: stateAfterRouting,
+        routeResult,
+        history: input.shortHistory,
+        historySummary: input.historySummary,
+        toolResults: input.toolFixtures,
+        currentMessage: normalizedMessage,
+        brainVersion: 'v2',
+        builderVersion: '2.0.0'
+      });
+      console.log(`[AGENT_V2] prompt_built | correlation_id: ${correlationId}`);
 
-    const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
-    modelResponse = modelResult.reply;
+      console.log(`[AGENT_V2] llm_request_started | correlation_id: ${correlationId} | model: ${modelRouteResult.selectedModel || 'claude-3-haiku-20240307'}`);
+      const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
+      console.log(`[AGENT_V2] llm_response_received | correlation_id: ${correlationId}`);
+      modelResponse = modelResult.reply;
     
     // Track usage for analytics
     metrics.inputTokens = (metrics.inputTokens || 0) + (modelResult.usage?.input_tokens || 0);
@@ -254,37 +264,40 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     metrics.analytics = analyticsEvent;
     metrics.qualityScore = scores.overall;
 
-    try {
-      await Promise.race([
-        persistTurnAnalytics(analyticsEvent),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
-      ]);
-      metrics.persisted = true;
-    } catch (e) {
-      console.error('[Analytics] Persistence failed:', e);
-      errors.push("Analytics persistence failure.");
+      try {
+        await Promise.race([
+          persistTurnAnalytics(analyticsEvent),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+        ]);
+        console.log(`[AGENT_V2] response_persisted | correlation_id: ${correlationId}`);
+        metrics.persisted = true;
+      } catch (e) {
+        console.error(`[AGENT_V2_ERROR] correlation_id: ${correlationId} | etapa: analytics_persistence | error: ${e instanceof Error ? e.message : String(e)}`);
+        errors.push("Analytics persistence failure.");
+      }
     }
-  }
 
-  return {
-    stateBefore,
-    shortAnswerResolution,
-    routeResult,
-    stateAfterRouting,
-    modelRouteResult,
-    promptBuildResult,
-    modelResponse,
-    guardResult,
-    regenerationResult,
-    finalResponse,
-    stateAfter,
-    metrics,
-    errors,
-    sentToCustomer: false
-  };
-} catch (err) {
-  console.error('[Agente V2] Fatal Turn Error:', err);
-  const fallbackState = (input as any).previousState || {
+    console.log(`[AGENT_V2] response_sent | correlation_id: ${correlationId}`);
+
+    return {
+      stateBefore,
+      shortAnswerResolution,
+      routeResult,
+      stateAfterRouting,
+      modelRouteResult,
+      promptBuildResult,
+      modelResponse,
+      guardResult,
+      regenerationResult,
+      finalResponse,
+      stateAfter,
+      metrics,
+      errors,
+      sentToCustomer: false
+    };
+  } catch (err) {
+    console.error(`[AGENT_V2_ERROR] correlation_id: ${correlationId || 'unknown'} | etapa: fatal_orchestrator | error_name: ${err instanceof Error ? err.name : 'Unknown'} | error_message: ${err instanceof Error ? err.message : String(err)} | stack: ${err instanceof Error ? err.stack?.split('\n').slice(0, 3).join(' ') : 'no stack'}`);
+    const fallbackState = (input as any).previousState || {
     workspaceId: input.workspaceId,
     conversationId: input.conversationId,
     phoneNumber: input.phoneNumber,

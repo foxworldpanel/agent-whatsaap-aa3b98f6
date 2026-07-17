@@ -32,7 +32,8 @@ export async function callLLMV2(params: {
   phoneNumber?: string;
 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const model = params.model || 'claude-3-haiku-20240307';
+  const model = params.model || 'claude-3-5-sonnet-20240620';
+  const effectiveModel = model;
   
   if (!apiKey) {
     throw new Error('[LLMV2] ANTHROPIC_API_KEY não configurada. V2 requer inferência direta.');
@@ -49,7 +50,7 @@ export async function callLLMV2(params: {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: model,
+        model: effectiveModel,
         max_tokens: params.maxTokens || 1024,
         temperature: params.temperature ?? 0.7,
         system: params.systemPrompt,
