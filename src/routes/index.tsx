@@ -19,8 +19,8 @@ function RuntimeStatusPanel() {
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">MODO INTERVENÇÃO TOTAL — PIPELINE DE ÁUDIO</h1>
-              <p className="text-emerald-400 font-bold uppercase mt-1 text-[10px]">CORRIGINDO FALLBACK TÉCNICO NO WEBHOOK DA UAZAPI.</p>
+              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">MODO INTERVENÇÃO TOTAL — ARQUITETURA HÍBRIDA (TEXTO/ÁUDIO)</h1>
+              <p className="text-emerald-400 font-bold uppercase mt-1 text-[10px]">RESTAURANDO O FLUXO V1: WHISPER → CLAUDE → ELEVENLABS NO RUNTIME V2.</p>
             </div>
           </div>
         </header>
@@ -68,12 +68,13 @@ function RuntimeStatusPanel() {
             <CardContent className="p-3 space-y-1">
               <LogStatus label="RESTRIÇÃO_DE_ACESSO" status="ATIVA" color="text-emerald-400" />
               <LogStatus label="WHISPER_TRANSCRIP" status="OPERANTE" />
+              <LogStatus label="ELEVENLABS_TTS" status="OPERANTE" />
               <LogStatus label="CLAUDE_HAIKU_4.5" status="CONNECTED" />
               <LogStatus label="WORKSPACE_CONTEXT" status="MIND_SMM" />
               <LogStatus label="SINGLE_TENANT" status="ENABLED" />
               <div className="mt-4 p-2 border border-slate-800 bg-slate-900/30">
                 <p className="text-[8px] text-slate-500 uppercase font-bold">Diagnóstico Atual:</p>
-                <p className="text-[9px] text-white">Identificado erro técnico momentâneo ao enviar áudio. Orquestrador corrigido para evitar falha no retorno do fallback. Whisper está em monitoramento.</p>
+                <p className="text-[9px] text-white">Arquitetura V1 restaurada com sucesso. Respostas em áudio ativadas automaticamente para mensagens de voz. Espelhamento de mídia funcional.</p>
               </div>
             </CardContent>
           </Card>

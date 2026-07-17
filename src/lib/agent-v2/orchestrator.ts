@@ -8,6 +8,8 @@ import { routeModelV2 } from './model-router';
 import { buildPromptV2 } from './prompt-builder';
 import { runGuardEngineV2 } from './guard-engine';
 import { callLLMV2 } from './llm-client.server';
+import { generateSpeech } from '../elevenlabs.server';
+
 
 import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
@@ -242,6 +244,20 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   metrics.selectedModel = modelRouteResult.selectedModel;
   metrics.guardViolations = (guardResult?.violations.length || 0) + (regenerationResult ? (regenerationResult as any).guardResult.violations.length : 0);
   metrics.regenerationCount = regenerationResult ? 1 : 0;
+  
+  // Audio response generation (ElevenLabs)
+  if (input.media?.hasAudio && finalResponse && input.executionMode !== 'isolated') {
+    try {
+      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][ELEVENLABS_STARTED] text: ${finalResponse.slice(0, 30)}...`);
+      const audioUrl = await generateSpeech(finalResponse);
+      if (audioUrl) {
+        console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][ELEVENLABS_OK] url: ${audioUrl}`);
+        metrics.audioResponseUrl = audioUrl;
+      }
+    } catch (ttsErr: any) {
+      console.error(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][ELEVENLABS_ERROR] ${ttsErr.message}`);
+    }
+  }
   
   // Analytics Engine V2
   const qualityFlags: QualityFlags = {
