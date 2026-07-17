@@ -4,9 +4,9 @@
 
 export const MODEL_CONFIG_V2 = {
   lightweightModel: 'claude-3-haiku-20240307',
-  strongModel: 'claude-3-5-sonnet-20240620',
-  visionModel: 'claude-3-5-sonnet-20240620',
-  transcriptionModel: 'whisper-1' // Placeholder representativo
+  strongModel: 'claude-3-haiku-20240307', // Temporariamente haiku para teste de auditoria
+  visionModel: 'claude-3-haiku-20240307',
+  transcriptionModel: 'whisper-1' 
 };
 
 export type V2ModelKey = keyof typeof MODEL_CONFIG_V2;
