@@ -316,7 +316,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       detectedMode: (input.mode === 'outbound' ? 'outbound' : 'receptive') as any,
       detectedNetwork: 'unknown',
       detectedService: 'unknown',
-      routingReason: 'error_fallback',
+      routingReason: 'support_redirect',
       stateEvents: [],
       warnings: [err instanceof Error ? err.message : String(err)],
       metrics: {
@@ -331,7 +331,16 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     modelRouteResult: {
       useLlm: false,
       selectedModel: 'none',
-      routingReason: 'error_fallback'
+      requiresVision: false,
+      requiresTranscription: false,
+      routingReason: 'fallback_after_error',
+      confidence: 0,
+      warnings: [err instanceof Error ? err.message : String(err)],
+      metrics: {
+        decisionDurationMs: 0,
+        complexity: 'simple',
+        estimatedCostClass: 'zero'
+      }
     },
     promptBuildResult: null,
     modelResponse: null,
@@ -344,6 +353,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   };
 }
 }
+
 
 
 
