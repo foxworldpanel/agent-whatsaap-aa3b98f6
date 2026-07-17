@@ -31,6 +31,10 @@ function ComplianceAudit() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 p-6 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
+        <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200 mb-4 italic">
+          me envia as informações em texto por aqui, estou usando o chatgpt como auxiliar, o que voce me envia aqui eu envio para ele
+        </div>
+
         
         {/* Header Section */}
         <header className="space-y-4 border-b border-slate-800 pb-8">
