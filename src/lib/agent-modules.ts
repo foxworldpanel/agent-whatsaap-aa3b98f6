@@ -547,7 +547,7 @@ Objetivo: atender artistas que querem divulgar uma música específica.
 Regras:
 - Pergunte o link da música quando necessário.
 - Identifique se o objetivo é playlist, seguidores, plays/streams ou prova social.
-- Siga disponibilidade do catálogo e do módulo playlist_promo.
+
 - Não prometa viralização, curadoria editorial ou resultado orgânico garantido.
 `,
 
