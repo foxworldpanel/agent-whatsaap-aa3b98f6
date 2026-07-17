@@ -2,10 +2,10 @@ import { createFileRoute } from '@tanstack/react-router';
 import { supabaseAdmin } from '@/integrations/supabase/client.server';
 import { runAgentV2Turn } from '@/lib/agent-v2.functions';
 
-export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
+export const Route = createFileRoute('/api/public/hooks/uazapi-webhook' as any)({
   server: {
     handlers: {
-      POST: async ({ request }) => {
+      POST: async ({ request }: { request: Request }) => {
         const correlationId = crypto.randomUUID();
         const timestamp = new Date().toISOString();
         const log = (stage: string, details?: any) => {
