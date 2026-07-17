@@ -553,7 +553,12 @@ async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string
   const messages = prompt.messages.map((m: any) => ({
     role: m.role === 'system' ? 'system' : (m.role === 'user' ? 'user' : 'assistant'),
     content: String(m.content)
-  })).filter((m: any) => m.role !== 'system'); // callLLMV2 handles systemPrompt separately
+  })).filter((m: any) => m.role !== 'system');
+  
+  // Ensure we have at least one user message to satisfy Anthropic API
+  if (messages.length === 0) {
+    messages.push({ role: 'user', content: input.currentMessage || "Olá" });
+  }
 
   return await callLLMV2({
     workspaceId: input.workspaceId,

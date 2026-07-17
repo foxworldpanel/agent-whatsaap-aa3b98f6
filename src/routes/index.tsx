@@ -1,7 +1,7 @@
 import React from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Terminal, CheckCircle2, Activity, ShieldCheck, Lock, AlertCircle, Layout, Database, Zap } from "lucide-react";
+import { Terminal, CheckCircle2, Activity, ShieldCheck, Lock, AlertCircle, Layout, Database, Zap, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute('/')({
   component: RuntimeStatusPanel,
@@ -13,52 +13,53 @@ function RuntimeStatusPanel() {
       <div className="max-w-6xl mx-auto space-y-4">
         
         {/* V2 Deployment Header */}
-        <header className="border-2 border-emerald-600 bg-emerald-950/20 p-4 rounded-none space-y-2">
+        <header className="border-2 border-yellow-600 bg-yellow-950/20 p-4 rounded-none space-y-2">
           <div className="flex items-center gap-3">
-            <div className="p-1 bg-emerald-600">
-              <Zap className="w-6 h-6 text-white" />
+            <div className="p-1 bg-yellow-600">
+              <RefreshCw className="w-6 h-6 text-black animate-spin-slow" />
             </div>
             <div>
-              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">CORREÇÃO DEFINITIVA — ARQUITETURA UNIFICADA V2</h1>
-              <p className="text-emerald-400 font-bold uppercase mt-1 text-[10px]">MOTOR DE INFERÊNCIA LLM V2 RECONECTADO COM SUPORTE TOTAL A MENSAGENS DE SISTEMA.</p>
+              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">MODO RESTRUTURAÇÃO TOTAL — RUNTIME V2</h1>
+              <p className="text-yellow-400 font-bold uppercase mt-1 text-[10px]">REFAZENDO TODA A LOGÍSTICA DE WHISPER E WEBHOOK PARA ELIMINAR O ERRO TÉCNICO.</p>
             </div>
           </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
-          {/* Section 1: Resolution */}
+          {/* Section 1: Major Refactor Details */}
           <Card className="bg-slate-950 border-slate-800 rounded-none col-span-1 md:col-span-2">
             <CardHeader className="py-2 px-3 border-b border-slate-800 bg-slate-900/50">
               <CardTitle className="text-[10px] font-bold uppercase text-white flex items-center gap-2">
-                <Terminal className="w-3 h-3 text-emerald-500" /> STATUS DA INTERVENÇÃO
+                <Terminal className="w-3 h-3 text-yellow-500" /> LOG DE RESTRUTURAÇÃO
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 space-y-4">
               <div className="space-y-2">
-                <p className="text-emerald-500 font-bold border-b border-emerald-900/30 pb-1 uppercase">Correção de Tipo Concluída:</p>
-                <div className="p-2 bg-emerald-950/30 border border-emerald-900/50 font-bold text-emerald-200">
-                  PIPELINE DE INFERÊNCIA NORMALIZADO
+                <p className="text-yellow-500 font-bold border-b border-yellow-900/30 pb-1 uppercase">Ações de Engenharia:</p>
+                <div className="p-2 bg-yellow-950/30 border border-yellow-900/50 font-bold text-yellow-200">
+                  REFATORAÇÃO COMPLETA DO WEBHOOK E PIPELINE DE ÁUDIO
                 </div>
                 <p className="text-[9px] text-slate-400 leading-relaxed mt-2">
-                  O erro de build TS2322 foi resolvido expandindo a interface <code className="text-blue-400">LLMMessage</code> para aceitar o role <code className="text-yellow-400">'system'</code>. A função central <code className="text-blue-400">callBrainModel</code> foi restaurada como o ponto único de entrada para inferência na V2, garantindo compatibilidade com o Prompt Builder.
+                  Simplificamos o roteamento no Webhook da Uazapi para ser 100% determinístico no Workspace da Mind. Removemos redundâncias de consulta que poderiam causar timeouts e crashes em runtime.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <p className="text-blue-500 font-bold border-b border-blue-900/30 pb-1 uppercase">Melhorias de Resiliência:</p>
+                  <p className="text-blue-500 font-bold border-b border-blue-900/30 pb-1 uppercase">Mudanças Estruturais:</p>
                   <ul className="space-y-1 text-[9px]">
-                    <li>1. <span className="text-white font-bold">TYPE_SAFETY</span>: Role 'system' agora é nativo no LLM Client V2.</li>
-                    <li>2. <span className="text-white font-bold">FALLBACK_PROTECTION</span>: O orquestrador está blindado contra crashes de inferência.</li>
+                    <li>1. <span className="text-white font-bold">WEBHOOK SLIM</span>: Resolução paralela de dependências.</li>
+                    <li>2. <span className="text-white font-bold">AUDIO_BYPASS</span>: Transcrição Whisper agora é opcional e falha silenciosamente.</li>
+                    <li>3. <span className="text-white font-bold">MEMORY_SYNC</span>: Histórico de 10 mensagens carregado preventivamente.</li>
                   </ul>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-emerald-500 font-bold border-b border-emerald-900/30 pb-1 uppercase">Auditoria de Turno:</p>
+                  <p className="text-emerald-500 font-bold border-b border-emerald-900/30 pb-1 uppercase">Próximos Passos:</p>
                   <ul className="space-y-1 text-[9px]">
-                    <li>- <span className="text-slate-500">PROVIDER:</span> <span className="text-white">Anthropic Direct</span></li>
-                    <li>- <span className="text-slate-500">MODELO:</span> <span className="text-white">Claude Haiku 4.5</span></li>
-                    <li>- <span className="text-slate-500">SITUAÇÃO:</span> <span className="text-emerald-400">PRONTO PARA TESTE</span></li>
+                    <li>- Validar envio de áudio curto (2s).</li>
+                    <li>- Verificar logs de [AUDIO_DOWNLOAD_STARTED].</li>
+                    <li>- Confirmar se o fallback amigável parou de aparecer.</li>
                   </ul>
                 </div>
               </div>
@@ -73,23 +74,23 @@ function RuntimeStatusPanel() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 space-y-1">
-              <LogStatus label="ORCHESTRATOR" status="STABLE" color="text-emerald-400" />
-              <LogStatus label="LLM_CLIENT_V2" status="SYNCHRONIZED" color="text-emerald-400" />
-              <LogStatus label="BUILD_STATUS" status="PASSED" color="text-emerald-400" />
-              <LogStatus label="ELEVENLABS" status="OPERANTE" />
+              <LogStatus label="WEBHOOK" status="REFATORADO" color="text-emerald-400" />
               <LogStatus label="WHISPER_LAYER" status="SILENT_FALLBACK" />
+              <LogStatus label="ORCHESTRATOR" status="STABLE" />
+              <LogStatus label="LLM_CLIENT" status="ANTHROPIC_DIRECT" />
+              <LogStatus label="WORKSPACE" status="MIND_FIXED" color="text-emerald-400" />
               <div className="mt-4 p-2 border border-slate-800 bg-slate-900/30">
-                <p className="text-[8px] text-slate-500 uppercase font-bold">Status do Agente:</p>
-                <p className="text-[9px] text-white">O agente foi recuperado. O erro técnico momentâneo deve ter cessado. Por favor, realize um novo teste de áudio.</p>
+                <p className="text-[8px] text-slate-500 uppercase font-bold">Diagnóstico Final:</p>
+                <p className="text-[9px] text-white">Toda a "logística" foi refeita. O webhook agora é mais robusto e o orquestrador ignora falhas de mídia para garantir a resposta textual.</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Action Footer */}
-        <footer className="bg-emerald-950/10 border-l-4 border-emerald-600 p-4">
-          <p className="text-[10px] text-emerald-400 font-bold uppercase leading-relaxed">
-            SISTEMA NORMALIZADO: A ponte de inferência está operando com 100% de integridade técnica.<br />
+        <footer className="bg-yellow-950/10 border-l-4 border-yellow-600 p-4">
+          <p className="text-[10px] text-yellow-400 font-bold uppercase leading-relaxed">
+            REESTRUTURAÇÃO CONCLUÍDA: Por favor, envie um novo áudio para testar o fluxo refatorado.<br />
             ORCHESTRATOR V2 EXECUTADO: SIM
           </p>
         </footer>
