@@ -68,7 +68,10 @@ export async function runCatalogConflictTests() {
         });
 
         // O preço deve ser exatamente R$ 12,34 (ou mencionar 12,34)
-        return res.finalResponse.includes('12,34') || res.finalResponse.includes('12.34');
+        const response = res.finalResponse;
+        const matches = response.includes('12,34') || response.includes('12.34');
+        if (!matches) console.log('DEBUG Test 2 response:', response);
+        return matches;
       }
     },
     {
