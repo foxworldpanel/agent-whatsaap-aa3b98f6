@@ -17,24 +17,17 @@ export async function transcribeAudio(audioUrl: string, correlationId: string): 
     console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_DOWNLOAD_STARTED] URL: ${audioUrl}`);
     const response = await fetch(audioUrl);
     
-    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_DOWNLOAD_RESPONSE]`, {
-      status: response.status,
-      contentType: response.headers.get("content-type"),
-      contentLength: response.headers.get("content-length")
-    });
+    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_DOWNLOAD_RESPONSE] status: ${response.status}`);
 
     if (!response.ok) {
-       console.error(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_DOWNLOAD_ERROR]`, {
-         status: response.status,
-         statusText: response.statusText
-       });
+       console.error(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_DOWNLOAD_ERROR] status: ${response.status}`);
        throw new Error(`Failed to fetch audio: ${response.status} ${response.statusText}`);
     }
 
     const blob = await response.blob();
     const mimeType = blob.type;
     const size = blob.size;
-    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_DOWNLOAD_OK]`, { size, mimeType });
+    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_DOWNLOADED] size: ${size}, type: ${mimeType}`);
     console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_MIME_DETECTED] ${mimeType}`);
 
     const file = new File([blob], "audio.ogg", { type: mimeType });
