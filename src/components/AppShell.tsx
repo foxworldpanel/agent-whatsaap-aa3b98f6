@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
 import { ThemeToggle } from "./ThemeToggle";
-import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getAgentConfig, setAgentGlobalEnabled, countConversationsToReview, countAgentErrors } from "@/lib/agent.functions";
@@ -100,9 +100,6 @@ export function AppShell() {
             <p className="text-sm font-semibold text-sidebar-foreground">ZapAgent</p>
             <p className="text-xs text-muted-foreground">Vendedor IA</p>
           </div>
-        </div>
-        <div className="mb-4">
-          <WorkspaceSwitcher />
         </div>
         <nav className="flex-1 space-y-1 px-3">
           {nav.map((item) => {
