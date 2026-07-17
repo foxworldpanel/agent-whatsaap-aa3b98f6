@@ -44,8 +44,8 @@ function InterventionPanel() {
                     <li><span className="text-slate-500">LINHA:</span> <span className="text-white">172 (Legado)</span></li>
                     <li><span className="text-slate-500">VARIÁVEL:</span> <span className="text-red-400 font-bold">incomingText</span></li>
                   </ul>
-                  <p className="text-[8px] text-slate-500 mt-2">
-                    A variável `incomingText` recebia `String(msg.text)`. Quando a Uazapi enviava `text` como um objeto (ex: `{body: "..."}`), a conversão gerava a string literal "[object Object]", que o Haiku interpretava como a pergunta do cliente.
+                  <p className="text-[8px] text-slate-500 mt-2 leading-relaxed">
+                    A variável <code>incomingText</code> recebia <code>String(msg.text)</code>. Quando a Uazapi enviava <code>text</code> como um objeto (ex: <code>{'{'}body: "..."{'}'}</code>), a conversão gerava a string literal "[object Object]", que o Haiku interpretava como a pergunta do cliente.
                   </p>
                 </div>
                 <div className="space-y-2">
