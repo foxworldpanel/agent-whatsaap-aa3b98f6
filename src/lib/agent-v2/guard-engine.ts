@@ -31,13 +31,13 @@ export function runGuardEngineV2(input: GuardEngineInput): GuardEngineOutput {
       if (msg.includes('r$') || msg.includes('preço') || msg.includes('valor')) {
         const hasCatalog = !!input.toolResults['consultar_servicos'];
         if (!hasCatalog && !msg.includes('painel')) {
-           return { guard: 'PRICE_SOURCE_GUARD', action: 'replace_minimal', severity: 'high', message: 'Preço sem fonte de catálogo.' };
+           return { guard: 'PRICE_SOURCE_GUARD', action: 'replace_minimal' as GuardAction, severity: 'high' as GuardSeverity, message: 'Preço sem fonte de catálogo.' };
         }
       }
       
       // Frases proibidas e manutenção
       if (msg.includes('atualização') || msg.includes('manutenção') || msg.includes('instabilidade')) {
-         return { guard: 'STATUS_GUARD', action: 'sanitize', severity: 'high', message: 'Menção indevida a manutenção/atualização.' };
+         return { guard: 'STATUS_GUARD', action: 'sanitize' as GuardAction, severity: 'high' as GuardSeverity, message: 'Menção indevida a manutenção/atualização.' };
       }
 
       return null;
