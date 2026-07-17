@@ -115,7 +115,7 @@ export function routeModelV2(input: RouteModelV2Input): RouteModelV2Output {
     metrics: {
       decisionDurationMs: Date.now() - startTime,
       complexity,
-      estimatedCostClass: selectedModel === MODEL_CONFIG_V2.strongModel ? 'high' : 'low'
+      estimatedCostClass: 'low' // Sonnet promotion disabled
     }
   };
 }
