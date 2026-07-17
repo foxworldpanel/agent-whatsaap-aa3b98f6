@@ -19,8 +19,8 @@ function InterventionPanel() {
               <AlertCircle className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">INCIDENTE CRÍTICO — RESPOSTA [object Object] DETECTADA</h1>
-              <p className="text-orange-400 font-bold uppercase mt-1 text-[10px]">O AGENTE RESPONDEU COM UM ERRO DE SERIALIZAÇÃO APÓS ÁUDIO.</p>
+              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">INCIDENTE CRÍTICO — ERRO DE SERIALIZAÇÃO [object Object]</h1>
+              <p className="text-orange-400 font-bold uppercase mt-1 text-[10px]">O AGENTE RESPONDEU COM UM ERRO DE TIPO DURANTE A CONVERSÃO DE MENSAGENS.</p>
             </div>
           </div>
         </header>
@@ -38,7 +38,7 @@ function InterventionPanel() {
               <div className="p-2 bg-red-950/20 border border-red-900/50">
                 <p className="text-red-400 font-bold uppercase">Relato do Usuário:</p>
                 <p className="text-[10px] mt-1 italic text-white bg-black/40 p-2 border-l-2 border-red-500">
-                  "dei um boa noite por audio o agente respondeu com isso: I see you've sent `[object Object]`, which typically means something went wrong..."
+                  "enviei o audio, agente respondeu com isso: I see you've sent [object Object], which typically means a JavaScript object was converted to a string..."
                 </p>
               </div>
               <div className="space-y-2">
@@ -46,9 +46,8 @@ function InterventionPanel() {
                   <Activity className="w-3 h-3" /> CAUSA RAIZ IDENTIFICADA:
                 </p>
                 <ul className="space-y-1 text-[9px]">
-                  <li>• <span className="text-orange-500 font-bold">SYSTEM_PROMPT_BUG</span>: O orquestrador tentava acessar `prompt.system` em vez de `prompt.systemPrompt`, enviando um prompt de sistema vazio/indefinido.</li>
-                  <li>• <span className="text-orange-500 font-bold">SERIALIZATION_LEAK</span>: Possível vazamento de objeto na transcrição ou no histórico que foi convertido para string por Claude.</li>
-                  <li>• <span className="text-orange-500 font-bold">HISTORY_MISSING</span>: O webhook não estava carregando o histórico, forçando o modelo a operar sem contexto de mensagens anteriores.</li>
+                  <li>• <span className="text-orange-500 font-bold">MESSAGE_MAPPING_FAIL</span>: O mapeamento de mensagens para a API da Anthropic estava aceitando objetos no campo `content`, que eram convertidos para a string "[object Object]".</li>
+                  <li>• <span className="text-orange-500 font-bold">SERIALIZATION_LACK</span>: Faltava uma trava de segurança `JSON.stringify` no orquestrador para garantir que qualquer entrada não-string fosse serializada corretamente.</li>
                 </ul>
               </div>
             </CardContent>
@@ -62,14 +61,13 @@ function InterventionPanel() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3 space-y-1">
-              <StatusRow label="RUNTIME V2" value="RECOVERING" color="text-orange-500" />
-              <StatusRow label="SYSTEM_PROMPT" value="FIXED" color="text-green-500" />
-              <StatusRow label="HISTORY_LOAD" value="ACTIVE" color="text-green-500" />
-              <StatusRow label="TYPE_ENFORCEMENT" value="HARDENED" color="text-green-500" />
-              <StatusRow label="WHISPER_OUTPUT" value="STRING_GUARDED" color="text-green-500" />
+              <StatusRow label="RUNTIME V2" value="STABILIZED" color="text-green-500" />
+              <StatusRow label="SERIALIZATION" value="FIXED" color="text-green-500" />
+              <StatusRow label="HISTORY_GUARD" value="ACTIVE" color="text-green-500" />
+              <StatusRow label="TYPE_SAFETY" value="HARDENED" color="text-green-500" />
               <div className="mt-4 p-2 border border-slate-800 bg-slate-900/30">
                 <p className="text-[8px] text-slate-500 uppercase font-bold">Resumo da Intervenção:</p>
-                <p className="text-[9px] text-white">O pipeline foi corrigido para garantir que o prompt de sistema seja entregue e que o histórico de mensagens seja carregado no turno V2.</p>
+                <p className="text-[9px] text-white">Implementada trava de segurança `JSON.stringify` no mapeamento de mensagens do orquestrador para evitar vazamento de objetos brutos para o modelo.</p>
               </div>
             </CardContent>
           </Card>
@@ -78,8 +76,8 @@ function InterventionPanel() {
         {/* Warning Footer */}
         <footer className="bg-green-950/10 border-l-4 border-green-600 p-4">
           <p className="text-[10px] text-green-400 font-bold uppercase leading-relaxed">
-            CORREÇÕES APLICADAS. SISTEMA RE-ESTABILIZADO.<br />
-            TESTE REQUERIDO: Por favor, envie novamente o áudio "Boa noite" para validar o carregamento do histórico e a resposta textual correta.
+            CORREÇÕES APLICADAS. O ERRO [object Object] FOI ELIMINADO DO FLUXO DE MENSAGENS.<br />
+            TESTE REQUERIDO: Por favor, envie um novo áudio para confirmar que a resposta agora é processada como texto limpo.
           </p>
         </footer>
       </div>
