@@ -241,8 +241,9 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       toolCallCount: routeResult.selectedTools.length,
       toolSuccessCount: routeResult.selectedTools.length,
       toolFailureCount: 0,
-      inputTokens: 0,
-      outputTokens: finalResponse.length * 4,
+      inputTokens: metrics.inputTokens || 0,
+      outputTokens: metrics.outputTokens || 0,
+
       cacheCreationInputTokens: 0,
       cacheReadInputTokens: 0,
       promptTokens: 0,
