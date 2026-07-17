@@ -76,15 +76,14 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!workspaces.length) return;
     
-    // Check if we have a Mind workspace available
-    const mindWorkspace = workspaces.find((w) => /mind/i.test(w.nome));
-    const stored = activeWorkspaceId;
-    const currentIsValid = stored && workspaces.some((w) => w.id === stored);
+    const mindWorkspace = workspaces.find((w) => /mind/i.test(w.nome) || w.id === "bd59fa41-d68d-4ac8-b995-e09ae48f52aa");
+    const storedId = activeWorkspaceId;
+    const currentIsValid = storedId && workspaces.some((w) => w.id === storedId);
 
-    // If no workspace is active, or if we found a Mind workspace and it's not the active one
-    // (This forces the "Mind" workspace to be active if it exists for the user)
-    if (mindWorkspace && activeWorkspaceId !== mindWorkspace.id) {
-      console.log(`[WorkspaceContext] Switching to Mind workspace: ${mindWorkspace.id}`);
+    // DETERMINISTIC RESOLUTION:
+    // 1. If we have a Mind workspace and it's not active, switch to it immediately.
+    if (mindWorkspace && storedId !== mindWorkspace.id) {
+      console.log(`[WorkspaceContext] Deterministic switch to Mind workspace: ${mindWorkspace.id}`);
       setActiveWorkspaceId(mindWorkspace.id);
       try {
         window.localStorage.setItem(STORAGE_KEY, mindWorkspace.id);
@@ -95,11 +94,11 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (!currentIsValid) {
-      // Prioritize Mind workspace if found, otherwise default, otherwise first.
-      const def = mindWorkspace ?? workspaces.find((w) => w.is_default) ?? workspaces[0];
+    // 2. If no valid workspace is stored and no Mind workspace found, fall back to default or first.
+    if (!currentIsValid && !mindWorkspace) {
+      const def = workspaces.find((w) => w.is_default) ?? workspaces[0];
       if (def) {
-        console.log(`[WorkspaceContext] Falling back to default workspace: ${def.id}`);
+        console.log(`[WorkspaceContext] Falling back to available workspace: ${def.id}`);
         setActiveWorkspaceId(def.id);
         try {
           window.localStorage.setItem(STORAGE_KEY, def.id);
