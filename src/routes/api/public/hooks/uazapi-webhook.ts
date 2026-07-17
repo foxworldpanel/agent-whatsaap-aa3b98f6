@@ -3031,7 +3031,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             console.log('Prompt context:', { modules: _modulesCount, services: freeTestServices?.length ?? 0, examples: knowledgeExamples?.length ?? 0, historyLen: aiHistory?.length ?? 0, extraContext: orderStatusContext?.slice(0, 200) ?? '' });
           } catch {}
           // Resposta final do agente
-          let reply = "";
+          reply = "";
 
           try {
             const _agentTurnsSoFar = (aiHistory ?? []).filter((m: { sender?: string }) => m?.sender === "agente").length;
