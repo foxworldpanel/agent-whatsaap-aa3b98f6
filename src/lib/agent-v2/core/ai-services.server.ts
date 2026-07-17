@@ -183,7 +183,7 @@ export async function extractDurableContextFromImageReply(params: {
       method: "POST",
       headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 200,
         system:
           'Você extrai FATOS PERSISTENTES de uma análise de imagem feita por outro agente em uma conversa de vendas SMM. Esses fatos serão lembrados pelo agente nas próximas mensagens, então só inclua o que for útil para evitar perguntas repetidas (ex.: cliente já tem cadastro no painel, cliente tem saldo de R$X, cliente enviou comprovante de R$X via PIX, pedido ID Y está em status Z, link do vídeo do cliente é tal). Ignore opiniões, instruções e cortesia. Responda APENAS com 0 a 2 linhas no formato "- <fato curto>". Se não houver fato relevante, responda exatamente "NONE".',
