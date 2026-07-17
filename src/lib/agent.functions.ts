@@ -4,7 +4,7 @@ import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 
 import { z } from "zod";
 import { getSharedUazapiUserIds } from "@/lib/agent-shared.server";
-import { mergeAgentModulesForSave } from "@/lib/agent-modules";
+
 
 type PanelShot = { url: string; path?: string; label?: string };
 
