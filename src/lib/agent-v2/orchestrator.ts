@@ -60,10 +60,11 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     const normalizedMessage = input.currentMessage.trim();
   const stateBefore = { ...input.previousState };
 
-  const routeResult = routeModulesV2({
-    currentMessage: normalizedMessage,
-    conversationState: stateBefore
-  });
+    const routeResult = routeModulesV2({
+      currentMessage: normalizedMessage,
+      conversationState: stateBefore
+    });
+    console.log(`[AGENT_V2] modules_selected | correlation_id: ${correlationId} | modules: ${routeResult.selectedModules.join(', ')}`);
 
   let stateAfterRouting = applyStateEvents(stateBefore, routeResult.stateEvents);
 
