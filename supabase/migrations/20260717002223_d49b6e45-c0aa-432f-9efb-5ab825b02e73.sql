@@ -1,0 +1,1 @@
+UPDATE public.workspaces SET user_id = '09f4dee9-0a1b-4c43-b083-75cc64feb99d' WHERE id = 'bd59fa41-d68d-4ac8-b995-e09ae48f52aa';
