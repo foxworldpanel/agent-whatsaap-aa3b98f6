@@ -3192,22 +3192,23 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
             } catch {}
             reply = FALLBACK_REPLY;
+            }
           }
+        } catch (e) {
+          console.error("claude failed", e);
+          reply = FALLBACK_REPLY;
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId, phone, conversationId: conv?.id,
+              type: "claude_reply", level: "error",
+              summary: `Falha ao chamar Claude — usando fallback genérico: ${(e as Error)?.message ?? String(e)}`.slice(0, 500),
+              error: (e as Error)?.stack ?? (e as Error)?.message ?? String(e),
+              metadata: { origem: "sistema", fallback: true, reason: "claude_exception" },
+            });
+          } catch {}
         }
-      } catch (e) {
-        console.error("claude failed", e);
-        reply = FALLBACK_REPLY;
-        try {
-          const { logEvent } = await import("@/lib/agent-logger.server");
-          await logEvent({
-            userId, phone, conversationId: conv?.id,
-            type: "claude_reply", level: "error",
-            summary: `Falha ao chamar Claude — usando fallback genérico: ${(e as Error)?.message ?? String(e)}`.slice(0, 500),
-            error: (e as Error)?.stack ?? (e as Error)?.message ?? String(e),
-            metadata: { origem: "sistema", fallback: true, reason: "claude_exception" },
-          });
-        } catch {}
-      }
+
 
 
 
