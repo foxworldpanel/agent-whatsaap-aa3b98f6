@@ -705,9 +705,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // ============================================================
         {
           const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          const { resolveAgentBrainVersion } = await import("@/lib/agent-v2/resolver");
           const authorized = isAuthorizedV2Phone(phone);
-          const activeVersion = resolveAgentBrainVersion(null, phone);
+          const activeVersion = authorized ? "v2" : "disabled";
           if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
             // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
             const phoneTail = phone.slice(-4);
@@ -2485,7 +2484,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           console.error("[verbose-loop] detection failed", e);
         }
 
-        const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
+        // V1 generateAgentReplyWithMeta removed.
+        const generateAgentReplyWithMeta = async (...args: any[]) => ({ reply: "V1 Desativada.", meta: {} });
         const { runAgentV2Turn } = await import("@/lib/agent-v2.functions");
 
 
@@ -3123,8 +3123,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             
             // Safety net V1: saudações repetidas
             try {
-              const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
-                await import("@/lib/ai.server");
+              const isReengagementGreeting = () => false;
+              const isNeutralGreetingAfterBlastOpening = () => false;
               const inReengagementMode =
                 isReengagementGreeting(aiHistory ?? []) ||
                 isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
