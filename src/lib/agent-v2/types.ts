@@ -16,7 +16,7 @@ export type ExecutionMode = 'production' | 'shadow' | 'pilot';
  * - 'disabled' → IA totalmente desligada para o número; nenhuma chamada
  *                a Claude, prompt, ferramenta ou métrica é permitida.
  *
- * O valor 'v1' NÃO é retornado pelo resolver ativo — a V1 está arquivada.
+ * A arquitetura anterior está totalmente desativada.
  */
 export type ActiveBrainVersion = 'v2' | 'disabled';
 
