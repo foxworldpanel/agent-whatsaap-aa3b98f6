@@ -3109,23 +3109,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
             } catch {}
           } else {
-            // V1 Original (Processamento Legado) — BLOQUEADO PARA WORKSPACE MIND
-            if (isMindWorkspace) {
-              throw new Error("V1_EXECUTION_BLOCKED: Workspace Mind detectado em branch legado.");
-            }
-            
-            const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
-            reply = _claudeOut.text;
-            const _claudeMs = Date.now() - _claudeStart;
-            const _claudeModel = _claudeOut.model;
-            const _claudeRoutingReason = _claudeOut.routingReason;
-            console.log('Resposta do Claude (V1):', reply);
-            
-            // Safety net V1: saudações repetidas
-            try {
-               const isReengagementGreeting = (h: any) => false;
-               const isNeutralGreetingAfterBlastOpening = (h: any) => false;
-              const inReengagementMode =
+            // V1 DESATIVADA. QUALQUER EXECUÇÃO FORA DA V2 É UM ERRO.
+            throw new Error(`V1_DEPRECATED: Tentativa de execução da V1 bloqueada. Brain version: v1`);
                 isReengagementGreeting(aiHistory ?? []) ||
                 isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
               const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
