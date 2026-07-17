@@ -45,12 +45,39 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           const agent = agentConfigs?.[0];
           if (!agent) return new Response("no agent config");
 
-          // 2. Resolve conversation (or create it for new users)
+          // 2. Resolve or create contact first (required for conversation)
+          let { data: contact, error: contactError } = await supabaseAdmin
+            .from("contacts")
+            .select("*")
+            .eq("telefone", phone)
+            .eq("workspace_id", integ.workspace_id)
+            .maybeSingle();
+          
+          if (contactError) throw contactError;
+
+          if (!contact) {
+            const { data: newContact, error: createContactError } = await supabaseAdmin
+              .from("contacts")
+              .insert({
+                nome: phone,
+                telefone: phone,
+                workspace_id: integ.workspace_id,
+                user_id: agent.user_id,
+                source: 'whatsapp'
+              })
+              .select()
+              .single();
+            
+            if (createContactError) throw createContactError;
+            contact = newContact;
+          }
+
+          // 3. Resolve conversation
           let { data: conv, error: convError } = await supabaseAdmin
             .from("conversations")
             .select("*")
+            .eq("contact_id", contact.id)
             .eq("workspace_id", integ.workspace_id)
-            .eq("phone", phone)
             .maybeSingle();
           
           if (convError) throw convError;
@@ -60,8 +87,9 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
               .from("conversations")
               .insert({
                 workspace_id: integ.workspace_id,
-                phone: phone,
-                status: 'active'
+                contact_id: contact.id,
+                user_id: agent.user_id,
+                status: 'aguardando' as any
               })
               .select()
               .single();
@@ -70,7 +98,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
             conv = newConv;
           }
 
-          // 3. Run V2 Turn
+          // 4. Run V2 Turn
           const v2Result = await runAgentV2Turn({
             conversationId: conv.id,
             workspaceId: agent.workspace_id,
@@ -89,7 +117,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
             },
           });
 
-          // 4. Send Reply
+          // 5. Send Reply
           const { uazapiSendText } = await import("@/lib/uazapi.server");
           if (integ.uazapi_url && integ.uazapi_token) {
             await uazapiSendText(
@@ -102,7 +130,6 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           return new Response("ok");
         } catch (error) {
           console.error('[WEBHOOK_ERROR] Critical failure:', error);
-          // Return 200 to Uazapi to avoid retries, but we logged the error.
           return new Response("error logged");
         }
       }
