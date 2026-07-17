@@ -98,7 +98,7 @@ export async function describePanelScreen(params: {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
-      model: "claude-3-5-sonnet-20240620",
+      model: "claude-sonnet-5",
       max_tokens: 1500,
       messages: [
         {
