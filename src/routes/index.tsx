@@ -15,7 +15,7 @@ function InterventionPanel() {
         {/* Urgent Header */}
         <header className="border-2 border-red-600 bg-red-950/20 p-4 rounded-none space-y-2">
           <div className="flex items-center gap-3">
-            <div className="p-1 bg-red-600">
+            <div className="p-1 bg-red-600 animate-pulse">
               <AlertCircle className="w-6 h-6 text-white" />
             </div>
             <div>
