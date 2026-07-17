@@ -57,13 +57,20 @@ function AgentePage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [activeTab, setActiveTab] = useState("edit");
 
-  const { data: v2ModulesData, isLoading: isV2ModulesLoading } = useQuery({
+  const { data: v2ModulesData, isLoading: isV2ModulesLoading, error: modulesError } = useQuery({
     queryKey: ["agent_modules_v2", activeWorkspaceId],
-    queryFn: () => fetchModulesV2(),
+    queryFn: async () => {
+      console.log(`[AGENTE_PAGE] listModulesV2_fetching for workspace: ${activeWorkspaceId}`);
+      const res = await fetchModulesV2();
+      console.log(`[AGENTE_PAGE] listModulesV2_fetched count: ${res?.length || 0}`);
+      return res;
+    },
     enabled: !!activeWorkspaceId
   });
 
   const v2Modules = v2ModulesData ?? [];
+  console.log(`[AGENTE_PAGE] component_rendered modules_count: ${v2Modules.length}`);
+
 
   const filteredModules = v2Modules.filter((m: any) => {
     const matchesSearch = m.title.toLowerCase().includes(search.toLowerCase()) || 
