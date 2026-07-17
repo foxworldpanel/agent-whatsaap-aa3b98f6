@@ -3827,7 +3827,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // 🧪 número de teste — não altera temperatura automaticamente
             throw new Error("__test_number_skip_scoring__");
           }
-          const { classifyLeadTemperature } = await import("@/lib/ai.server");
+          const { classifyLeadTemperature } = await import("@/lib/agent-v2/core/ai-services.server");
           const fullHistory = [
             ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
             { sender: "cliente" as const, body: inboundBody },
