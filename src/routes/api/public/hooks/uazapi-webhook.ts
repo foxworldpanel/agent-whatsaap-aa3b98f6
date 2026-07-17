@@ -219,7 +219,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           const { uazapiSendText } = await import("@/lib/uazapi.server");
           if (integ.uazapi_url && integ.uazapi_token) {
             const sendResult = await uazapiSendText(
-              { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
+              { uazapi_url: integ.uazapi_url!, uazapi_token: integ.uazapi_token! },
               phone,
               v2Result.finalResponse
             );
