@@ -2485,7 +2485,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         // V1 generateAgentReplyWithMeta removed.
-        const generateAgentReplyWithMeta = async (...args: any[]) => ({ reply: "V1 Desativada.", meta: {} });
+        const generateAgentReplyWithMeta = async (...args: any[]) => ({ text: "V1 Desativada.", model: "none", routingReason: "v1_removed" });
         const { runAgentV2Turn } = await import("@/lib/agent-v2.functions");
 
 
@@ -3123,8 +3123,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             
             // Safety net V1: saudações repetidas
             try {
-              const isReengagementGreeting = () => false;
-              const isNeutralGreetingAfterBlastOpening = () => false;
+               const isReengagementGreeting = (h: any) => false;
+               const isNeutralGreetingAfterBlastOpening = (h: any) => false;
               const inReengagementMode =
                 isReengagementGreeting(aiHistory ?? []) ||
                 isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
