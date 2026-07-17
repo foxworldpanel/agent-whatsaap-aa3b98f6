@@ -6,34 +6,64 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const correlationId = crypto.randomUUID();
+        const timestamp = new Date().toISOString();
+        const log = (stage: string, details?: any) => {
+          console.log(`[V2_DIAGNOSTIC][${correlationId}][${timestamp}][${stage}]`, details || '');
+        };
+
         try {
+          log('WEBHOOK_RECEIVED');
           const payload = await request.json();
+          log('PAYLOAD_PARSED', { event: payload.event });
+
           const event = payload.event;
-          if (event && !event.includes("message")) return new Response("ignored");
+          if (event && !event.includes("message")) {
+             log('IGNORED', { reason: 'not_message_event' });
+             return new Response("ignored");
+          }
 
           const msg = payload.message ?? payload.data;
-          if (!msg || msg.fromMe === true) return new Response("ignored");
+          if (!msg || msg.fromMe === true) {
+             log('IGNORED', { reason: 'no_msg_or_from_me' });
+             return new Response("ignored");
+          }
 
           const chatidRaw = (msg.chatid ?? msg.sender ?? "").toLowerCase();
           if (chatidRaw.includes("@g.us") || chatidRaw.includes("@broadcast") || chatidRaw.includes("status@") || chatidRaw.includes("@newsletter")) {
+            log('IGNORED', { reason: 'group_or_broadcast' });
             return new Response("group ignored");
           }
 
           const phone = chatidRaw.split("@")[0].replace(/\D/g, "");
-          if (phone.length > 15 || phone.length < 8) return new Response("invalid phone");
+          if (phone.length > 15 || phone.length < 8) {
+            log('INVALID_PHONE', { phone });
+            return new Response("invalid phone");
+          }
 
           const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          if (!isAuthorizedV2Phone(phone)) return new Response("unauthorized");
+          if (!isAuthorizedV2Phone(phone)) {
+            log('UNAUTHORIZED_PHONE', { phone });
+            return new Response("unauthorized");
+          }
 
           // 1. Resolve integration and agent
+          log('WORKSPACE_LOOKUP_STARTED');
           const { data: integrations, error: intError } = await supabaseAdmin
             .from("integrations")
             .select("*")
             .limit(1);
           
-          if (intError) throw intError;
+          if (intError) {
+             log('WORKSPACE_LOOKUP_ERROR', { error: intError });
+             throw intError;
+          }
           const integ = integrations?.[0];
-          if (!integ) return new Response("no integration");
+          if (!integ) {
+             log('WORKSPACE_LOOKUP_EMPTY');
+             return new Response("no integration");
+          }
+          log('WORKSPACE_LOOKUP_OK', { workspaceId: integ.workspace_id });
 
           const { data: agentConfigs, error: agentError } = await supabaseAdmin
             .from("agent_config")
@@ -41,11 +71,19 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
             .eq("workspace_id", integ.workspace_id)
             .limit(1);
           
-          if (agentError) throw agentError;
+          if (agentError) {
+             log('AGENT_LOOKUP_ERROR', { error: agentError });
+             throw agentError;
+          }
           const agent = agentConfigs?.[0];
-          if (!agent) return new Response("no agent config");
+          if (!agent) {
+             log('AGENT_LOOKUP_EMPTY');
+             return new Response("no agent config");
+          }
+          log('AGENT_LOOKUP_OK');
 
           // 2. Resolve or create contact first (required for conversation)
+          log('CONTACT_LOOKUP_STARTED');
           let { data: contact, error: contactError } = await supabaseAdmin
             .from("contacts")
             .select("*")
@@ -53,9 +91,13 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
             .eq("workspace_id", integ.workspace_id)
             .maybeSingle();
           
-          if (contactError) throw contactError;
+          if (contactError) {
+             log('CONTACT_LOOKUP_ERROR', { error: contactError });
+             throw contactError;
+          }
 
           if (!contact) {
+            log('CONTACT_CREATE_STARTED');
             const { data: newContact, error: createContactError } = await supabaseAdmin
               .from("contacts")
               .insert({
@@ -68,11 +110,18 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
               .select()
               .single();
             
-            if (createContactError) throw createContactError;
+            if (createContactError) {
+               log('CONTACT_CREATE_ERROR', { error: createContactError });
+               throw createContactError;
+            }
             contact = newContact;
+            log('CONTACT_CREATE_OK');
+          } else {
+            log('CONTACT_LOOKUP_OK');
           }
 
           // 3. Resolve conversation
+          log('CONVERSATION_LOOKUP_STARTED');
           let { data: conv, error: convError } = await supabaseAdmin
             .from("conversations")
             .select("*")
@@ -80,9 +129,13 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
             .eq("workspace_id", integ.workspace_id)
             .maybeSingle();
           
-          if (convError) throw convError;
+          if (convError) {
+             log('CONVERSATION_LOOKUP_ERROR', { error: convError });
+             throw convError;
+          }
 
           if (!conv) {
+            log('CONVERSATION_CREATE_STARTED');
             const { data: newConv, error: createError } = await supabaseAdmin
               .from("conversations")
               .insert({
@@ -94,12 +147,20 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
               .select()
               .single();
             
-            if (createError) throw createError;
+            if (createError) {
+               log('CONVERSATION_CREATE_ERROR', { error: createError });
+               throw createError;
+            }
             conv = newConv;
+            log('CONVERSATION_CREATE_OK');
+          } else {
+            log('CONVERSATION_LOOKUP_OK');
           }
 
           // 4. Run V2 Turn
+          log('ORCHESTRATOR_STARTED');
           const v2Result = await runAgentV2Turn({
+            correlationId,
             conversationId: conv.id,
             workspaceId: agent.workspace_id,
             phoneNumber: phone,
@@ -116,20 +177,52 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
               selectedWorkspaceId: agent.workspace_id,
             },
           });
+          log('ORCHESTRATOR_OK');
 
           // 5. Send Reply
+          log('WHATSAPP_SEND_STARTED');
           const { uazapiSendText } = await import("@/lib/uazapi.server");
           if (integ.uazapi_url && integ.uazapi_token) {
-            await uazapiSendText(
+            const sendResult = await uazapiSendText(
               { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
               phone,
               v2Result.finalResponse
             );
+            log('WHATSAPP_SEND_OK', { sendResult });
+          } else {
+            log('WHATSAPP_SEND_ERROR', { reason: 'missing_credentials' });
           }
 
+          log('TURN_COMPLETED');
           return new Response("ok");
-        } catch (error) {
-          console.error('[WEBHOOK_ERROR] Critical failure:', error);
+        } catch (error: any) {
+          log('CRITICAL_FAILURE', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+            cause: error.cause,
+            supabaseCode: error.code
+          });
+          
+          // Fallback message to user if possible
+          try {
+             const { uazapiSendText } = await import("@/lib/uazapi.server");
+             const { data: integrations } = await supabaseAdmin.from("integrations").select("*").limit(1);
+             const integ = integrations?.[0];
+             const chatidRaw = (request as any)._body_msg_chatid || ""; // Attempting to recover if possible
+             const phone = chatidRaw.split("@")[0].replace(/\D/g, "");
+             
+             if (integ?.uazapi_url && integ?.uazapi_token && phone) {
+                await uazapiSendText(
+                   { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
+                   phone,
+                   "Desculpe, tive um problema técnico momentâneo. Como posso te ajudar?"
+                );
+             }
+          } catch (e) {
+             // Silently fail the secondary fallback if needed
+          }
+
           return new Response("error logged");
         }
       }
