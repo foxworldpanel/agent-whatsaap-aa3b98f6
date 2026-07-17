@@ -201,9 +201,10 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   };
 
   const costResult = calculateEstimatedCost(modelRouteResult.selectedModel, {
-    input: 0,
-    output: finalResponse.length * 4
+    input: metrics.inputTokens || 0,
+    output: metrics.outputTokens || 0
   });
+
 
   const customerStage = determineCustomerStage(stateAfter.intent || 'unknown', stateAfter.currentStep || 'unknown');
   const scores = calculateQualityScores(qualityFlags);
