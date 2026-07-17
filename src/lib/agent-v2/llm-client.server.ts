@@ -13,34 +13,29 @@ const AnthropicResponseSchema = z.object({
   model: z.string()
 });
 
+export interface LLMMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 /**
  * Motor de Inferência V2 (Isolado da V1)
  * Chama diretamente a API da Anthropic via fetch para evitar poluição por regras da V1.
  */
 export async function callLLMV2(params: {
   systemPrompt: string;
-  userPrompt: string;
+  messages: LLMMessage[];
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  workspaceId?: string;
+  phoneNumber?: string;
 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const model = params.model || 'claude-3-haiku-20240307';
   
   if (!apiKey) {
-    console.warn('[LLMV2] ANTHROPIC_API_KEY não configurada. Usando bridge V1 como fallback.');
-    const { generateAgentReplyWithMeta } = await import('../ai.server');
-    const result = await generateAgentReplyWithMeta({
-      user_message: params.userPrompt,
-      base_instruction: params.systemPrompt,
-      model: model as any
-    });
-    return {
-      reply: result.reply,
-      usage: result.usage,
-      model: result.model,
-      duration_ms: 0
-    };
+    throw new Error('[LLMV2] ANTHROPIC_API_KEY não configurada. V2 requer inferência direta.');
   }
 
   const startTime = Date.now();
@@ -58,7 +53,7 @@ export async function callLLMV2(params: {
         max_tokens: params.maxTokens || 1024,
         temperature: params.temperature ?? 0.7,
         system: params.systemPrompt,
-        messages: [{ role: 'user', content: params.userPrompt }]
+        messages: params.messages
       })
     });
 
