@@ -185,10 +185,11 @@ export const saveAgentModules = createServerFn({ method: "POST" })
     const payload = {
       user_id: context.userId,
       workspace_id: context.workspaceId,
-      modules: mergeAgentModulesForSave(
-        (existing?.modules ?? null) as Record<string, string> | null,
-        data.modules,
-      ),
+      modules: {
+        ...((existing?.modules ?? {}) as Record<string, string>),
+        ...data.modules,
+      },
+
       ...(data.modules_enabled
         ? {
             modules_enabled: {
