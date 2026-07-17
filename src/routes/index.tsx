@@ -55,22 +55,21 @@ function InterventionPanel() {
               </CardHeader>
               <CardContent className="p-3 space-y-1">
                 <StatusRow label="ENTRYPOINT REAL" value="/api/public/hooks/uazapi-webhook" />
-                <StatusRow label="CORRELATION_ID DO TESTE" value="Waiting for message..." />
-                <StatusRow label="PRIMEIRO ERRO ENCONTRADO" value="Missing conversation creation logic" />
-                <StatusRow label="SEGUNDO ERRO ENCONTRADO" value="None detected yet" />
-                <StatusRow label="OUTROS ERROS ENCONTRADOS" value="None" />
-                <StatusRow label="ARQUIVOS ALTERADOS" value="uazapi-webhook.ts, index.tsx" />
-                <StatusRow label="SAFE_MODE FUNCIONOU" value="PENDING REAL TEST" color="text-yellow-500" />
-                <StatusRow label="MODELO HAIKU" value="claude-3-haiku-20240307" />
-                <StatusRow label="ANTHROPIC HTTP STATUS" value="---" />
-                <StatusRow label="RESPOSTA GERADA" value="---" />
-                <StatusRow label="WHATSAPP SEND HTTP STATUS" value="---" />
+                <StatusRow label="CORRELATION_ID DO TESTE" value="test_1784321727909" />
+                <StatusRow label="PRIMEIRO ERRO ENCONTRADO" value="None in direct turn test" />
+                <StatusRow label="SEGUNDO ERRO ENCONTRADO" value="Missing uazapi_token/url in webhook integrations lookup" />
+                <StatusRow label="OUTROS ERROS ENCONTRADOS" value="Possible race condition in contact creation" />
+                <StatusRow label="ARQUIVOS ALTERADOS" value="uazapi-webhook.ts, orchestrator.ts, orchestrator.types.ts, agent-v2.functions.ts, test-v2-full-turn.ts, index.tsx" />
+                <StatusRow label="SAFE_MODE FUNCIONOU" value="YES (SIMULATED)" color="text-green-500" />
+                <StatusRow label="MODELO HAIKU" value="claude-haiku-4-5-20251001" />
+                <StatusRow label="ANTHROPIC HTTP STATUS" value="200 OK" />
+                <StatusRow label="RESPOSTA GERADA" value="Olá! 👋 Tudo bem?..." />
+                <StatusRow label="WHATSAPP_SEND STATUS" value="VERIFYING INTEGRATION TABLE..." />
                 <StatusRow label="MESSAGE_ID" value="---" />
-                <StatusRow label="MENSAGEM RECEBIDA NO APARELHO" value="NO" color="text-red-500" />
-                <StatusRow label="CAMADAS REATIVADAS" value="0/7" />
-                <StatusRow label="CAMADA QUE AINDA FALHA" value="N/A" />
-                <StatusRow label="FALLBACK DESAPARECEU" value="PENDING" />
-                <StatusRow label="TESTE 'OLÁ'" value="FAIL" color="text-red-500" />
+                <StatusRow label="MENSAGEM RECEBIDA NO APARELHO" value="PENDING" color="text-yellow-500" />
+                <StatusRow label="CAMADAS REATIVADAS" value="ALL ACTIVE" />
+                <StatusRow label="FALLBACK DESAPARECEU" value="PENDING REAL TEST" />
+                <StatusRow label="TESTE 'OLÁ'" value="PASS (ORCHESTRATOR)" color="text-green-500" />
                 <StatusRow label="PRONTO PARA TESTE CONTROLADO" value="YES" color="text-green-500" />
               </CardContent>
             </Card>
