@@ -1,59 +1,87 @@
+import { z } from 'zod';
+
+const AnthropicResponseSchema = z.object({
+  id: z.string(),
+  content: z.array(z.object({
+    text: z.string(),
+    type: z.string()
+  })),
+  usage: z.object({
+    input_tokens: z.number(),
+    output_tokens: z.number()
+  }),
+  model: z.string()
+});
+
 /**
- * LLM Client for Agent Mind V2
- * Isolated layer for model inference, replacing legacy V1 brain calls.
+ * Motor de Inferência V2 (Isolado da V1)
+ * Chama diretamente a API da Anthropic via fetch para evitar poluição por regras da V1.
  */
-
-import { generateAgentReplyWithMeta } from '../ai.server';
-
-export interface LLMRequestV2 {
-  workspaceId: string;
-  phoneNumber: string;
+export async function callLLMV2(params: {
   systemPrompt: string;
-  messages: { role: 'user' | 'assistant'; content: string }[];
+  userPrompt: string;
   model?: string;
   temperature?: number;
-}
-
-/**
- * Calls the LLM provider directly without V1 business logic/guards.
- * Currently uses generateAgentReplyWithMeta as a bridge but filters out its logic.
- */
-export async function callLLMV2(params: LLMRequestV2): Promise<string> {
-  const { workspaceId, phoneNumber, systemPrompt, messages, model } = params;
-
-  // In the future, this will call Lovable AI Gateway or Anthropic directly.
-  // For now, we bridge to ai.server.ts but ENSURE we pass only the raw prompt.
+  maxTokens?: number;
+}) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const model = params.model || 'claude-3-haiku-20240307';
   
-  const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-  const { data: agent } = await supabaseAdmin.from('agent_config').select('*').eq('workspace_id', workspaceId).maybeSingle();
-  const { data: integ } = await supabaseAdmin.from('integrations').select('anthropic_api_key').eq('user_id', agent?.user_id as string).maybeSingle();
-
-  if (!agent || !integ) {
-    throw new Error(`Configuração não encontrada para workspace ${workspaceId}`);
+  if (!apiKey) {
+    console.warn('[LLMV2] ANTHROPIC_API_KEY não configurada. Usando bridge V1 como fallback.');
+    const { generateAgentReplyWithMeta } = await import('../ai.server');
+    const result = await generateAgentReplyWithMeta({
+      user_message: params.userPrompt,
+      base_instruction: params.systemPrompt,
+      model: model as any
+    });
+    return {
+      reply: result.reply,
+      usage: result.usage,
+      model: result.model,
+      duration_ms: 0
+    };
   }
 
-  // Bridging to V1 generator but using it only as an inference engine.
-  // We pass our V2 system prompt as 'base_instruction' to override V1 defaults if needed,
-  // but since generateAgentReplyWithMeta builds its own system prompt, 
-  // we pass our V2 prompt as extraContext and a flag to indicate V2 mode if supported.
+  const startTime = Date.now();
   
-  const v1Args = {
-    anthropicApiKey: integ.anthropic_api_key,
-    agent: {
-      ...agent,
-      // We pass the V2 system prompt as the base instruction to minimize V1 interference
-      base_instruction: systemPrompt 
-    } as any,
-    contact: { nome: 'Cliente', perfil: 'frio' as const },
-    history: messages.map(m => ({ 
-      sender: m.role === 'user' ? 'cliente' as const : 'agente' as const, 
-      body: m.content 
-    })),
-    // We send a signal that this is a V2 turn
-    extraContext: `[V2_TURN_ORCHESTRATION]`,
-    userId: agent.user_id,
-  };
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: params.maxTokens || 1024,
+        temperature: params.temperature ?? 0.7,
+        system: params.systemPrompt,
+        messages: [{ role: 'user', content: params.userPrompt }]
+      })
+    });
 
-  const result = await generateAgentReplyWithMeta(v1Args);
-  return result.text;
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`Anthropic API Error (${response.status}): ${errorData}`);
+    }
+
+    const data = await response.json();
+    const parsed = AnthropicResponseSchema.parse(data);
+    
+    return {
+      reply: parsed.content[0].text,
+      usage: {
+        input_tokens: parsed.usage.input_tokens,
+        output_tokens: parsed.usage.output_tokens,
+        total_tokens: parsed.usage.input_tokens + parsed.usage.output_tokens
+      },
+      model: parsed.model,
+      duration_ms: Date.now() - startTime
+    };
+  } catch (error) {
+    console.error('[LLMV2] Erro na chamada direta Anthropic:', error);
+    throw error;
+  }
 }
