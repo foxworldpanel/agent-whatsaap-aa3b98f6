@@ -3030,6 +3030,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
             console.log('Prompt context:', { modules: _modulesCount, services: freeTestServices?.length ?? 0, examples: knowledgeExamples?.length ?? 0, historyLen: aiHistory?.length ?? 0, extraContext: orderStatusContext?.slice(0, 200) ?? '' });
           } catch {}
+          // Resposta final do agente
+          reply = "";
+
           try {
             const _agentTurnsSoFar = (aiHistory ?? []).filter((m: { sender?: string }) => m?.sender === "agente").length;
             console.log('[agent-ai] Roteamento inputs:', {
@@ -3046,8 +3049,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           
           // Fase 2 Runtime: Conexão V2
           // Ativa V2 se o telefone for autorizado. Fallback para V1 via configuração do agente.
+          // OBRIGATÓRIO: Para o workspace Mind, a V1 está desativada.
+          const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+          const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
           const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          const useV2 = isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true;
+          
+          const useV2 = isMindWorkspace || (isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true);
           
           if (useV2) {
             console.log('🚀 [Agente V2] Turno iniciado');
@@ -3170,8 +3177,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
           }
           console.log('=== FIM DO PROCESSAMENTO ===');
-
-          }
           if (!reply || !reply.trim()) {
             // Claude respondeu vazio — registra como ERRO real em vez de mascarar
             // como uma resposta normal. Assim o fallback aparece com tag de erro
@@ -3187,6 +3192,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
             } catch {}
             reply = FALLBACK_REPLY;
+            }
           }
         } catch (e) {
           console.error("claude failed", e);
@@ -3202,6 +3208,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             });
           } catch {}
         }
+
+
+
 
         // Anti-loop: se o fallback já foi enviado na última mensagem do agente,
         // não repete a mesma frase — envia uma variação neutra e registra warn.
