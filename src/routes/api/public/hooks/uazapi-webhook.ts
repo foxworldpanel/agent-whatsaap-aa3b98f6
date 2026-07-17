@@ -3056,6 +3056,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 sender: m.sender === 'agente' ? 'agente' : 'cliente',
                 body: m.body || ''
               })),
+              toolFixtures: {
+                catalog: (catalogInPrompt && typeof all !== 'undefined') ? all : [],
+                priceTable: (typeof priceTable !== 'undefined') ? priceTable : [],
+                freeTestServices: freeTestServices || []
+              },
               expected: {
                 conversationWorkspaceId: (conv as any).workspace_id,
                 agentWorkspaceId: (agent as any).workspace_id,
@@ -3063,6 +3068,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 selectedWorkspaceId,
               },
             });
+
             
             reply = v2Result.finalResponse;
             const _claudeMs = Date.now() - _claudeStart;
