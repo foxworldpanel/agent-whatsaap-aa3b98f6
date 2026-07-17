@@ -461,6 +461,7 @@ export const listModulesV2 = createServerFn({ method: "GET" })
         receptive: { title: "Receptivo", emoji: "📥", category: "Modo", description: "Lógica para mensagens de entrada iniciadas pelo cliente." },
         outbound: { title: "Disparo", emoji: "📣", category: "Modo", description: "Lógica para respostas a campanhas e disparos ativos." },
         commercial: { title: "Comercial", emoji: "🛒", category: "Vendas", description: "Regras de condução de venda e fechamento no painel." },
+        spotify: { title: "Spotify (Fallback)", emoji: "🎵", category: "Redes", description: "Módulo legado para compatibilidade." },
         spotify_overview: { title: "Spotify (Geral)", emoji: "🎵", category: "Redes", description: "Visão geral e qualificação para Spotify." },
         spotify_playlist: { title: "Spotify (Playlist)", emoji: "🎼", category: "Redes", description: "Serviços de playlist e divulgação de faixas." },
         spotify_followers: { title: "Spotify (Seguidores)", emoji: "👤", category: "Redes", description: "Serviços de seguidores e base de fãs." },
@@ -490,6 +491,7 @@ export const listModulesV2 = createServerFn({ method: "GET" })
           content: content,
           priority: ["mission", "identity", "guards"].includes(key) ? "Alta" : "Normal",
           is_core: ["mission", "identity", "guards"].includes(key),
+          is_active: true,
           modes: key === "receptive" ? ["receptive"] : (key === "outbound" ? ["outbound"] : ["all"]),
           dependencies: key.startsWith("spotify_") ? ["spotify_overview"] : []
         };
@@ -500,9 +502,10 @@ export const listModulesV2 = createServerFn({ method: "GET" })
         .insert(toInsert)
         .select();
 
-      if (insError) throw new Error(insError.message);
+      if (insError) throw new Error(`Erro ao migrar módulos: ${insError.message}`);
       return (inserted || []).map((m: any) => ({ ...m, contentPreview: (m.content || "").slice(0, 150) + "..." }));
     }
+
 
     return dbModules.map((m: any) => ({
       ...m,
