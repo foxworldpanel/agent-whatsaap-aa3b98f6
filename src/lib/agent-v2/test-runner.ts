@@ -13,6 +13,7 @@ async function main() {
   await runSpotifyTests();
   await runModelRouterTests();
   await runGuardEngineTests();
+  await runCatalogConflictTests();
   
   // Testes de Homologação (Fluxos Completos)
   await runFullHomologationSuite();
