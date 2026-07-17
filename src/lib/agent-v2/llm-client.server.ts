@@ -69,10 +69,27 @@ export async function callLLMV2(params: {
     const reply = parsed.content[0].text;
     
     // LOG DE SEGURANÇA E AUDITORIA - Captura o turno real
-    console.log(`[LLMV2][RAW_RESPONSE] Turn: ${Date.now()} | Model: ${model} | Reply: ${reply.slice(0, 100)}...`);
+    // LOG DE SEGURANÇA E AUDITORIA - Mascaramento básico de dados sensíveis
+    const maskSensitive = (text: string) => {
+      return text
+        .replace(/\d{2,3}\.\d{3}\.\d{3}-\d{2}/g, '***.***.***-**') // CPF
+        .replace(/\(\d{2}\)\s?\d{4,5}-\d{4}/g, '(XX) XXXXX-XXXX') // Telefone
+        .replace(/[\w-\.]+@([\w-]+\.)+[\w-]{2,4}/g, 'email@mascarado.com'); // Email
+    };
+
+    const maskedReply = maskSensitive(reply);
+    console.log(`[LLMV2][RAW_RESPONSE] Turn: ${Date.now()} | Source: ${params.workspaceId ? 'v2' : 'unknown'} | Model: ${model} | Reply: ${maskedReply.slice(0, 100)}...`);
     
+    // Alerta de custo (estimado para Haiku/Sonnet)
+    const estimatedCost = (parsed.usage.input_tokens * (model.includes('sonnet') ? 0.000003 : 0.00000025)) + 
+                          (parsed.usage.output_tokens * (model.includes('sonnet') ? 0.000015 : 0.00000125));
+    
+    if (estimatedCost > 0.005) {
+      console.warn(`[LLMV2][COST_ALERT] Turno caro detectado: US$ ${estimatedCost.toFixed(6)}`);
+    }
+
     if (reply.includes("atualização") || reply.includes("plays e ouvintes")) {
-      console.warn(`[LLMV2][LEAK_DETECTED] Resposta contém termos proibidos: "${reply}"`);
+      console.warn(`[LLMV2][LEAK_DETECTED] Resposta contém termos proibidos: "${maskedReply}"`);
     }
 
     return {

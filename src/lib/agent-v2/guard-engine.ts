@@ -22,6 +22,39 @@ export function runGuardEngineV2(input: GuardEngineInput): GuardEngineOutput {
 
   const runGuard = (name: string, check: () => GuardViolation | null) => {
     triggeredGuards.push(name);
+    
+    // Verificações determinísticas para validações simples
+    const deterministicCheck = () => {
+      const msg = finalResponse.toLowerCase();
+      
+      // Presença de preço: se tem "R$" ou símbolo monetário, deve ter vindo do catálogo
+      if (msg.includes('r$') || msg.includes('preço') || msg.includes('valor')) {
+        const hasCatalog = !!input.toolResults['consultar_servicos'];
+        if (!hasCatalog && !msg.includes('painel')) {
+           return { guard: 'PRICE_SOURCE_GUARD', action: 'replace_minimal' as GuardAction, severity: 'high' as any, message: 'Preço sem fonte de catálogo.' };
+        }
+      }
+      
+      // Frases proibidas e manutenção
+      if (msg.includes('atualização') || msg.includes('manutenção') || msg.includes('instabilidade')) {
+         return { guard: 'STATUS_GUARD', action: 'sanitize' as GuardAction, severity: 'high' as any, message: 'Menção indevida a manutenção/atualização.' };
+      }
+
+      return null;
+    };
+
+    const detViolation = deterministicCheck();
+    if (detViolation) {
+       violations.push(detViolation);
+       if (detViolation.action === 'sanitize') {
+          finalResponse = finalResponse.replace(/atualização|manutenção|instabilidade/g, 'funcionamento normal');
+       }
+       if (detViolation.action === 'replace_minimal') {
+          finalResponse = "Para consultar preços atualizados, acesse o painel.";
+       }
+       return;
+    }
+
     const violation = check();
     if (violation) {
       violations.push(violation);

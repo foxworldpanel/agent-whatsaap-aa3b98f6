@@ -128,16 +128,16 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     finalResponse = guardResult.finalResponse;
 
     if (guardResult.requiresRegeneration) {
+      // LIMITE RÍGIDO: Máximo 1 chamada de regeneração por turno
       const instruction = guardResult.regenerationInstruction || "Corrija a resposta anterior.";
       const regenResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307', instruction);
       const regenResponse = regenResult.reply;
       
-      // Track usage for analytics
       metrics.inputTokens = (metrics.inputTokens || 0) + (regenResult.usage?.input_tokens || 0);
       metrics.outputTokens = (metrics.outputTokens || 0) + (regenResult.usage?.output_tokens || 0);
       metrics.durationMs += regenResult.duration_ms || 0;
+      metrics.regeneration_reason = guardResult.violations.map(v => v.guard).join(', ');
 
-      
       const regenGuardResult = runGuardEngineV2({
         draftResponse: regenResponse,
         conversationState: stateAfterRouting,
@@ -158,7 +158,11 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
 
       finalResponse = regenGuardResult.finalResponse;
       
-      if (regenGuardResult.blocked) {
+      if (regenGuardResult.requiresRegeneration) {
+        // Bloqueio se ainda exigir regeneração após a primeira tentativa
+        finalResponse = "Desculpe, não consegui processar sua solicitação corretamente. Pode repetir?";
+        metrics.loop_blocked = true;
+      } else if (regenGuardResult.blocked) {
          finalResponse = "Desculpe, não consegui processar sua solicitação corretamente. Pode repetir?";
       }
     } else if (guardResult.blocked) {
