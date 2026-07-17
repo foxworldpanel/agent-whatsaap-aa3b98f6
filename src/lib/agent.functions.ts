@@ -434,7 +434,53 @@ export const setCatalogFlags = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// Retorna os metadados dos módulos V2 registrados no runtime.
+export const listModulesV2 = createServerFn({ method: "GET" })
+  .middleware([withWorkspaceScope])
+  .handler(async () => {
+    // Importação dinâmica para evitar leak de código server-only para o client bundle se necessário,
+    // embora module-registry pareça seguro.
+    const { moduleRegistryV2 } = await import("./agent-v2/module-registry");
+    
+    // Mapeamento amigável para a interface
+    const friendlyNames: Record<string, { title: string; emoji: string; category: string; description: string }> = {
+      mission: { title: "Missão", emoji: "🚀", category: "Core", description: "Objetivo fundamental e restrições de venda do agente." },
+      identity: { title: "Identidade", emoji: "🪪", category: "Core", description: "Persona da Júlia, tom de voz e estilo de escrita." },
+      guards: { title: "Guardas", emoji: "🚫", category: "Core", description: "Regras de segurança e integridade absoluta." },
+      receptive: { title: "Receptivo", emoji: "📥", category: "Modo", description: "Lógica para mensagens de entrada iniciadas pelo cliente." },
+      outbound: { title: "Disparo", emoji: "📣", category: "Modo", description: "Lógica para respostas a campanhas e disparos ativos." },
+      commercial: { title: "Comercial", emoji: "🛒", category: "Vendas", description: "Regras de condução de venda e fechamento no painel." },
+      spotify: { title: "Spotify (Fallback)", emoji: "🎵", category: "Redes", description: "Módulo legado de compatibilidade para Spotify." },
+      spotify_overview: { title: "Spotify (Geral)", emoji: "🎵", category: "Redes", description: "Visão geral e qualificação para Spotify." },
+      spotify_playlist: { title: "Spotify (Playlist)", emoji: "🎼", category: "Redes", description: "Serviços de playlist e divulgação de faixas." },
+      spotify_followers: { title: "Spotify (Seguidores)", emoji: "👤", category: "Redes", description: "Serviços de seguidores e base de fãs." },
+      instagram: { title: "Instagram", emoji: "📸", category: "Redes", description: "Serviços de seguidores e engajamento no Instagram." },
+      youtube: { title: "YouTube", emoji: "▶️", category: "Redes", description: "Serviços de inscritos e views para YouTube." },
+      tiktok: { title: "TikTok", emoji: "🎬", category: "Redes", description: "Serviços de seguidores e views para TikTok." },
+      facebook: { title: "Facebook", emoji: "👍", category: "Redes", description: "Serviços de páginas e perfis Facebook." },
+      kwai: { title: "Kwai", emoji: "🌟", category: "Redes", description: "Serviços de seguidores e curtidas para Kwai." },
+      panel: { title: "Painel Oficial", emoji: "🧭", category: "Ferramentas", description: "Instruções de acesso e cadastro no painel Mind." },
+      payments: { title: "Pagamentos", emoji: "💳", category: "Ferramentas", description: "Métodos de recarga, PIX e valores mínimos." },
+      tutorials: { title: "Tutoriais", emoji: "🎓", category: "Ferramentas", description: "Base de tutoriais passo a passo da plataforma." },
+      free_test: { title: "Teste Grátis", emoji: "🎁", category: "Ferramentas", description: "Regras e oferta de teste gratuito qualificado." },
+      support: { title: "Suporte", emoji: "🛠️", category: "Ferramentas", description: "Direcionamento para tickets de suporte técnico." },
+    };
+
+    return Object.keys(moduleRegistryV2).map(key => {
+      const info = friendlyNames[key] || { title: key, emoji: "🧩", category: "Outros", description: "" };
+      return {
+        id: key,
+        ...info,
+        contentPreview: (moduleRegistryV2 as Record<string, string>)[key]?.slice(0, 150) + "...",
+        priority: ["mission", "identity", "guards"].includes(key) ? "Alta" : "Normal",
+        modes: key === "receptive" ? ["receptive"] : (key === "outbound" ? ["outbound"] : ["all"]),
+        dependencies: key.startsWith("spotify_") ? ["spotify_overview"] : []
+      };
+    });
+  });
+
 // Toggle global agent on/off (sidebar switch)
+
 export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ enabled: z.boolean() }).parse(d))
