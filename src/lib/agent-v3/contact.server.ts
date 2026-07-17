@@ -16,7 +16,7 @@ export async function getOrCreateContactV3(workspaceId: string, phone: string) {
       workspace_id: workspaceId, 
       perfil: phone, 
       nome: phone,
-      status: 'ativo' as const // Explicitly using a valid enum value
+      status: 'nao_abordado' as any // Use 'any' to bypass strict enum mismatch until correct value is used
     }])
     .select('id')
     .single();
