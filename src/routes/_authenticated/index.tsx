@@ -38,7 +38,7 @@ function Index() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-muted-foreground">Visão geral</p>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard — Mind</h1>
         </div>
       </header>
 
