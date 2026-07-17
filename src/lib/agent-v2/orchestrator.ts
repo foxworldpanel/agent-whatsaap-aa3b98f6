@@ -282,6 +282,34 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     errors,
     sentToCustomer: false
   };
+} catch (err) {
+  console.error('[Agente V2] Fatal Turn Error:', err);
+  return {
+    finalResponse: "Desculpe, tive um problema técnico momentâneo. Como posso te ajudar?",
+    routeResult: {
+      selectedModules: ['mission', 'identity', 'guards'],
+      selectedTools: [],
+      selectedTutorials: [],
+      detectedIntent: 'fallback',
+      metadata: {}
+    },
+    stateAfter: (input as any).conversationState || {
+      workspaceId: input.workspaceId,
+      conversationId: input.conversationId,
+      mode: 'receptive',
+      network: 'unknown',
+      service: 'unknown',
+      intent: 'fallback',
+      currentStep: 'error_fallback',
+      updatedAt: new Date().toISOString(),
+      customer: { hasAccount: false, status: 'lead' },
+      freeTest: { status: 'offered' }
+    },
+    metrics: { ...metrics, durationMs: Date.now() - startTime, error: true },
+    errors: [err instanceof Error ? err.message : String(err)],
+    sentToCustomer: false
+  };
+}
 }
 
 function applyStateEvents(state: ConversationStateV2, events: V2StateEvent[]): ConversationStateV2 {
