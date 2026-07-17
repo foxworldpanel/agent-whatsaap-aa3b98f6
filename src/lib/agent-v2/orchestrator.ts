@@ -63,7 +63,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
        console.log(`[AGENT_V2][${correlationId}] audio_recovery_triggered | media_id: ${input.media?.mediaId}`);
        try {
          const { transcribeAudio } = await import('./audio-processor.server');
-         processedMessage = await transcribeAudio(input.media.mediaUrl);
+         processedMessage = await transcribeAudio(input.media.mediaUrl, correlationId);
          console.log(`[AGENT_V2][${correlationId}] audio_transcribed | text: ${processedMessage.slice(0, 50)}...`);
        } catch (audioErr: any) {
          console.error(`[AGENT_V2][${correlationId}] audio_transcription_failed | error: ${audioErr.message}`);
