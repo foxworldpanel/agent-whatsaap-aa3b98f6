@@ -11,7 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTesteGratisRouteImport } from './routes/_authenticated/teste-gratis'
 import { Route as AuthenticatedNumerosRouteImport } from './routes/_authenticated/numeros'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
