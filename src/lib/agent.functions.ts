@@ -151,11 +151,12 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
       if (readError) throw new Error(readError.message);
       patch = {
         ...data,
-        modules: mergeAgentModulesForSave(
-          (existing?.modules ?? null) as Record<string, string> | null,
-          data.modules,
-        ),
+        modules: {
+          ...((existing?.modules ?? {}) as Record<string, string>),
+          ...data.modules,
+        },
       };
+
     }
     const { error } = await context.supabase
       .from("agent_config")
