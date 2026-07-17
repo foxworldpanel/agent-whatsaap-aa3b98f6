@@ -3177,8 +3177,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
           }
           console.log('=== FIM DO PROCESSAMENTO ===');
-
-          }
           if (!reply || !reply.trim()) {
             // Claude respondeu vazio — registra como ERRO real em vez de mascarar
             // como uma resposta normal. Assim o fallback aparece com tag de erro
