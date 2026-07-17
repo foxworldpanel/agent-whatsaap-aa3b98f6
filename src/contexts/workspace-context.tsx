@@ -89,6 +89,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     const stored = activeWorkspaceId;
     const isValid = stored && workspaces.some((w) => w.id === stored);
     if (!isValid) {
+      // Prioritize Mind workspace if found, otherwise default, otherwise first.
       const def = mindWorkspace ?? workspaces.find((w) => w.is_default) ?? workspaces[0];
       if (def) {
         setActiveWorkspaceId(def.id);
@@ -97,6 +98,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         } catch {
           /* ignore */
         }
+        void qc.invalidateQueries({ refetchType: "all" });
       }
     }
   }, [workspaces, activeWorkspaceId, qc]);
