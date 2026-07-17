@@ -191,7 +191,24 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
             }
           }
 
-          // 5. Run V2 Turn
+          // 5. Load History (Critical for V2)
+          log('HISTORY_LOOKUP_STARTED');
+          const { data: historyData } = await supabaseAdmin
+            .from("messages")
+            .select("sender, body")
+            .eq("conversation_id", conv.id)
+            .order("created_at", { ascending: false })
+            .limit(10);
+          
+          const shortHistory = (historyData || [])
+            .reverse()
+            .map(m => ({ 
+              sender: m.sender === 'agente' ? 'agente' as const : 'cliente' as const, 
+              body: String(m.body || "") 
+            }));
+          log('HISTORY_LOOKUP_OK', { count: shortHistory.length });
+
+          // 6. Run V2 Turn
           log('ORCHESTRATOR_STARTED');
           const v2Result = await runAgentV2Turn({
             correlationId,
@@ -208,7 +225,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
               mediaUrl,
               mimeType
             },
-            shortHistory: [],
+            shortHistory,
             toolFixtures: { catalog: [], freeTestServices: [] },
             expected: {
               conversationWorkspaceId: conv.workspace_id ?? agent.workspace_id,
