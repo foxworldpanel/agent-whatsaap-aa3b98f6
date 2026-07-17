@@ -160,9 +160,11 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       });
       console.log(`[AGENT_V2] prompt_built | correlation_id: ${correlationId}`);
 
-      console.log(`[AGENT_V2] llm_request_started | correlation_id: ${correlationId} | model: ${modelRouteResult.selectedModel || 'claude-haiku-4-5-20251001'}`);
-      const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-haiku-4-5-20251001');
-      console.log(`[AGENT_V2] llm_response_received | correlation_id: ${correlationId}`);
+      const modelToCall = modelRouteResult.selectedModel || 'claude-haiku-4-5-20251001';
+      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][HAIKU_STARTED] model: ${modelToCall}`);
+      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][HAIKU_PROMPT] User: ${normalizedMessage.slice(0, 100)}...`);
+      
+      const modelResult = await callBrainModel(input, promptBuildResult, modelToCall);
       modelResponse = modelResult.reply;
     
     // Track usage for analytics
