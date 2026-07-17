@@ -2,6 +2,7 @@ import React from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Bot, 
   Cpu, 
@@ -17,14 +18,18 @@ import {
   ArrowRight,
   Database,
   Search,
-  MessageSquare
+  MessageSquare,
+  Target,
+  Workflow,
+  ClipboardList,
+  CheckCircle2
 } from "lucide-react";
 
 export const Route = createFileRoute('/')({
-  component: AuditDashboard,
+  component: OptimizationPlan,
 });
 
-function AuditDashboard() {
+function OptimizationPlan() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 p-6 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -34,297 +39,232 @@ function AuditDashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-600 rounded-lg">
-                <ShieldCheck className="w-8 h-8 text-white" />
+                <Workflow className="w-8 h-8 text-white" />
               </div>
-              <h1 className="text-3xl font-bold tracking-tight">Auditoria de Arquitetura IA - Runtime V2</h1>
+              <h1 className="text-3xl font-bold tracking-tight">IMPLEMENTAÇÃO DE OTIMIZAÇÃO DA ARQUITETURA DE IA — RUNTIME V2</h1>
             </div>
             <Badge variant="outline" className="text-blue-400 border-blue-400 px-3 py-1">
-              ESTADO ATUAL: V2-ONLY (RUNTIME BLOQUEADA PARA V1)
+              STATUS: AGUARDANDO EXECUÇÃO
             </Badge>
           </div>
-          <p className="text-slate-400 max-w-3xl leading-relaxed">
-            Relatório técnico factual baseado na análise direta do código fonte do projeto. 
-            Não é um plano ou simulação; é a realidade atual da implementação do Agente Mind SMM.
-          </p>
+          <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-lg">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-blue-400 mb-2">Objetivo:</h2>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Aprimorar a Runtime V2 para maximizar qualidade comercial, conversão, consistência, economia, velocidade, controle do fluxo e segurança nas informações.
+            </p>
+          </div>
         </header>
 
-        {/* Section 1: Inventário das IAs */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Database className="w-5 h-5 text-blue-400" />
-            <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-300">1. Inventário das IAs Ativas</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <IAItem 
-              name="Cérebro Principal (Chat)"
-              provider="Anthropic"
-              model="claude-haiku-4-5-20251001"
-              purpose="Interação conversacional, extração de intenções e respostas comerciais."
-              files="llm-client.server.ts, orchestrator.ts"
-              api="https://api.anthropic.com/v1/messages"
-            />
-            <IAItem 
-              name="Visão e Análise (Vision)"
-              provider="Anthropic"
-              model="claude-sonnet-5"
-              purpose="Análise de screenshots do painel para guiar o cliente passo-a-passo."
-              files="ai-services.server.ts, model-router.ts"
-              api="https://api.anthropic.com/v1/messages"
-            />
-            <IAItem 
-              name="Transcrição (STT)"
-              provider="OpenAI"
-              model="whisper-1"
-              purpose="Conversão de áudio enviado pelo WhatsApp em texto para o agente."
-              files="ai-services.server.ts"
-              api="https://api.openai.com/v1/audio/transcriptions"
-            />
-            <IAItem 
-              name="Voz (TTS)"
-              provider="ElevenLabs"
-              model="eleven_multilingual_v2"
-              purpose="Geração de áudio para respostas rápidas e humanizadas (se configurado)."
-              files="ai-services.server.ts"
-              api="https://api.elevenlabs.io/v1/text-to-speech"
-            />
-            <IAItem 
-              name="Classificador de Lead"
-              provider="Anthropic"
-              model="claude-haiku-4-5-20251001"
-              purpose="Avalia se o lead é 'quente', 'morno' ou 'frio' base no histórico."
-              files="ai-services.server.ts"
-              api="https://api.anthropic.com/v1/messages"
-            />
-          </div>
-        </section>
+        {/* Content Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Main Plan Column */}
+          <div className="lg:col-span-2 space-y-8">
+            
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="w-5 h-5 text-blue-400" />
+                <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-200">Arquitetura Aprovada</h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <ArchitectureCard 
+                  title="Texto / Vendas / Suporte" 
+                  model="Claude Haiku 4.5" 
+                  description="Padrão para todas as conversas comuns."
+                />
+                <ArchitectureCard 
+                  title="Visão / Documentos" 
+                  model="Claude Sonnet 5" 
+                  description="Apenas para análise visual complexa."
+                />
+                <ArchitectureCard 
+                  title="Transcrição de Áudio" 
+                  model="OpenAI Whisper" 
+                  description="Conversão fiel de voz para texto."
+                />
+                <ArchitectureCard 
+                  title="Síntese de Voz" 
+                  model="ElevenLabs" 
+                  description="Resposta em áudio humanizada."
+                />
+              </div>
+            </section>
 
-        {/* Section 2: Fluxo Real do Turno */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Zap className="w-5 h-5 text-yellow-400" />
-            <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-300">2. Fluxo Real de Conversa (V2)</h2>
+            <section className="space-y-6">
+              <SectionHeader number="1" title="ELIMINAR CHAMADA DUPLA DE CLASSIFICAÇÃO" />
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+                <p className="text-sm text-slate-400 italic">
+                  Atualmente, classifyLeadTemperature gera uma segunda chamada à Anthropic.
+                </p>
+                <div className="bg-slate-950 p-4 rounded border border-blue-500/20">
+                  <p className="text-blue-400 font-bold text-xs uppercase mb-2">Ação:</p>
+                  <p className="text-sm text-slate-300">
+                    Alterar para que a chamada principal do Haiku gere, em uma única execução estruturada:
+                  </p>
+                  <ul className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
+                    <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Resposta ao cliente</li>
+                    <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Temperatura do lead</li>
+                    <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Intenção</li>
+                    <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Estágio comercial</li>
+                    <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Produto de interesse</li>
+                    <li className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Objeção detectada</li>
+                  </ul>
+                </div>
+              </div>
+
+              <SectionHeader number="2" title="ROTEAMENTO DOS MODELOS" />
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-500 uppercase">Regras Determinísticas</p>
+                    <div className="text-sm space-y-1">
+                      <p className="flex justify-between"><span>Texto/Comercial:</span> <span className="text-blue-400">Haiku 4.5</span></p>
+                      <p className="flex justify-between"><span>Áudio Transcrito:</span> <span className="text-blue-400">Haiku 4.5</span></p>
+                      <p className="flex justify-between"><span>Imagem/Vision:</span> <span className="text-purple-400">Sonnet 5</span></p>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-red-950/20 border border-red-500/20 rounded">
+                    <p className="text-red-400 font-bold text-[10px] uppercase">Restrição:</p>
+                    <p className="text-[11px] text-slate-400">Não permitir promoção subjetiva do Haiku para Sonnet. Registrar motivo, mídia, tokens e custo em log.</p>
+                  </div>
+                </div>
+              </div>
+
+              <SectionHeader number="3" title="MÁQUINA DE ESTADOS COMERCIAL" />
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                <div className="flex flex-wrap gap-2">
+                  {['new_lead', 'discovery', 'qualification', 'product_selected', 'objection', 'offer_presented', 'payment_pending', 'converted', 'human_handoff'].map(state => (
+                    <Badge key={state} variant="secondary" className="bg-slate-800 text-slate-400 text-[10px]">{state}</Badge>
+                  ))}
+                </div>
+                <p className="mt-4 text-xs text-slate-500 leading-relaxed">
+                  O agente deve responder de acordo com o estágio atual. Não reiniciar abordagem nem repetir ofertas.
+                </p>
+              </div>
+
+              <SectionHeader number="6" title="BASE COMERCIAL E VERACIDADE" />
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
+                <div className="flex items-start gap-3">
+                  <ShieldCheck className="w-5 h-5 text-green-500 shrink-0 mt-1" />
+                  <div>
+                    <p className="text-sm font-bold text-slate-200">Proibição de Alucinação:</p>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      Não inventar preços, prazos, garantias ou disponibilidade. Não prometer viralização ou monetização. 
+                      Se a informação estiver ausente: verificar ou transferir para humano.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <SectionHeader number="10" title="TRANSFERÊNCIA HUMANA" />
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                <p className="text-xs text-slate-500 mb-3">Gatilhos de transferência:</p>
+                <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-400 list-disc list-inside">
+                  <li>Informação ausente</li>
+                  <li>Ameaça jurídica</li>
+                  <li>Reclamação grave</li>
+                  <li>Cliente irritado</li>
+                  <li>Solicitação fora do escopo</li>
+                  <li>Falha técnica persistente</li>
+                </ul>
+              </div>
+            </section>
           </div>
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 overflow-x-auto">
-            <div className="flex items-center justify-between min-w-[1000px] gap-4">
-              <Step icon={<MessageSquare />} label="Mensagem" sub="WhatsApp" />
-              <ArrowRight className="text-slate-700" />
-              <Step icon={<Search />} label="Router" sub="Módulos" />
-              <ArrowRight className="text-slate-700" />
-              <Step icon={<Settings2 />} label="Builder" sub="System Prompt" />
-              <ArrowRight className="text-slate-700" />
-              <Step icon={<Cpu />} label="LLM" sub="Haiku 4.5" />
-              <ArrowRight className="text-slate-700" />
-              <Step icon={<ShieldCheck />} label="Guard" sub="Filtros" />
-              <ArrowRight className="text-slate-700" />
-              <Step icon={<Database />} label="Persistência" sub="Conversas V2" />
-              <ArrowRight className="text-slate-700" />
-              <Step icon={<Zap />} label="Resposta" sub="WhatsApp" />
+
+          {/* Sidebar Info */}
+          <div className="space-y-8">
+            <Card className="bg-slate-900 border-slate-800 text-slate-50">
+              <CardHeader>
+                <CardTitle className="text-sm uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                  <Settings2 className="w-4 h-4" /> Estilo de Atendimento
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-xs text-slate-500">
+                <p>• Português brasileiro natural</p>
+                <p>• Mensagens curtas</p>
+                <p>• Uma pergunta por mensagem</p>
+                <p>• Linguagem comercial sem pressão</p>
+                <p>• Evitar jargão técnico</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-blue-600/10 border-blue-500/30 text-slate-50">
+              <CardHeader>
+                <CardTitle className="text-sm uppercase tracking-widest text-blue-400 flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4" /> Critérios de Aceite
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-[11px] text-slate-400">
+                <div className="flex gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1 shrink-0" />
+                  <p>Chamada única de LLM por turno textual.</p>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1 shrink-0" />
+                  <p>Haiku processando 100% de textos/vendas.</p>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1 shrink-0" />
+                  <p>Sonnet restrito a processamento de imagens.</p>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1 shrink-0" />
+                  <p>Estado comercial persistido corretamente.</p>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1 shrink-0" />
+                  <p>Logs comprovando roteamento e custos.</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <h3 className="text-[10px] font-bold uppercase text-slate-500 mb-4 tracking-tighter">Entrega Final Esperada</h3>
+              <div className="space-y-1 text-[10px] font-mono text-slate-400">
+                <p>ARQUITETURA IMPLEMENTADA</p>
+                <p>ARQUIVOS ALTERADOS</p>
+                <p>FUNÇÕES ALTERADAS</p>
+                <p>MÁQUINA DE ESTADOS</p>
+                <p>EVIDÊNCIAS DE RUNTIME</p>
+                <p>RECONCILIAÇÃO DE CUSTOS</p>
+              </div>
             </div>
           </div>
-        </section>
-
-        {/* Section 3: Auditoria Técnica Detalhada */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          
-          <Card className="bg-slate-900 border-slate-800 text-slate-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Cpu className="w-5 h-5 text-blue-400" /> 3. Escolha do Modelo
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-400">
-              <div className="p-3 bg-slate-800/50 rounded border border-slate-700">
-                <p className="text-slate-200 font-medium mb-1">Cenário Atual:</p>
-                <p>100% das mensagens via chat utilizam o modelo <strong>Haiku 4.5</strong> para controle de custos e latência.</p>
-              </div>
-              <div className="p-3 bg-slate-800/50 rounded border border-slate-700">
-                <p className="text-slate-200 font-medium mb-1">Escalonamento Automático:</p>
-                <p><strong>DESATIVADO.</strong> O código em `model-router.ts` contém um bloqueio explícito (override) que impede a promoção para Sonnet mesmo em casos complexos para evitar estouro de orçamento.</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-900 border-slate-800 text-slate-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Mic className="w-5 h-5 text-purple-400" /> 4. Áudio e Transcrição
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-400">
-              <p>Ao receber áudio, o sistema chama a função `transcribeAudioUrl` que utiliza <strong>OpenAI Whisper-1</strong>.</p>
-              <p>O texto transcrito é enviado ao <strong>Haiku 4.5</strong> para gerar a resposta textual.</p>
-              <p>A resposta é enviada via texto no WhatsApp (TTS da ElevenLabs está implementado, mas o envio de áudio final está inativo por padrão).</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-900 border-slate-800 text-slate-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ImageIcon className="w-5 h-5 text-green-400" /> 5. Imagem e Visão
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-400">
-              <p>Imagens são roteadas para o modelo <strong>claude-sonnet-5</strong> via `describePanelScreen`.</p>
-              <p>O `model-router.ts` detecta `hasImage` e seleciona obrigatoriamente o modelo Vision (Sonnet) para análise de contexto visual.</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-900 border-slate-800 text-slate-50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <ShieldCheck className="w-5 h-5 text-red-400" /> 6. Chamadas Duplas e Desperdício
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-slate-400">
-              <div className="flex gap-2 items-start text-red-300">
-                <Zap className="w-4 h-4 mt-0.5 shrink-0" />
-                <p><strong>Atenção:</strong> Identificada chamada ao Classificador de Lead (`classifyLeadTemperature`) em paralelo ao turno principal, gerando +1 chamada por mensagem.</p>
-              </div>
-              <p><strong>Desperdício de Contexto:</strong> O histórico enviado é limitado a 6 mensagens fixas. O sistema não utiliza resumo (summary) ativo no prompt, o que economiza tokens de entrada mas pode perder contexto em conversas longas.</p>
-            </CardContent>
-          </Card>
-
         </div>
 
-        {/* Financial Section */}
-        <section className="bg-blue-600/10 border border-blue-500/30 rounded-xl p-8 space-y-6">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-6 h-6 text-blue-400" />
-            <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-100">7. Simulação Financeira (Haiku 4.5 vs Sonnet)</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div className="space-y-4">
-              <p className="text-slate-400 text-sm">Base: 1.000 atendimentos (Méd. 10 mensagens/cada)</p>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Opção A: 100% Sonnet</span>
-                  <span className="font-mono text-red-400">US$ 45.00</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Opção B: 100% Haiku 4.5 (ATUAL)</span>
-                  <span className="font-mono text-green-400">US$ 3.80</span>
-                </div>
-                <div className="pt-2 border-t border-slate-700 flex justify-between font-bold text-blue-400">
-                  <span>ECONOMIA ATUAL</span>
-                  <span>91.5%</span>
-                </div>
-              </div>
-            </div>
-            <div className="bg-slate-950/50 p-4 rounded border border-slate-700 text-xs space-y-2">
-              <p className="text-blue-400 font-bold uppercase tracking-tighter">Conclusão Técnica</p>
-              <p className="text-slate-400 leading-relaxed italic">
-                "A estratégia de forçar Haiku 4.5 para conversas de texto é a melhor escolha comercial. O ganho de qualidade do Sonnet em perguntas simples (preço/tutorial) não justifica o custo 12x maior."
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Architecture Comparison */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Layers className="w-5 h-5 text-slate-400" />
-            <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-300">8. Arquitetura Atual vs Recomendada</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-slate-800 rounded-xl overflow-hidden">
-            <div className="bg-slate-900/50 p-6 border-r border-slate-800">
-              <h3 className="font-bold text-slate-400 mb-4 uppercase text-xs tracking-widest">Estado Atual (V2)</h3>
-              <ul className="space-y-3 text-sm text-slate-300">
-                <li className="flex gap-2">✅ Modelo Único (Haiku 4.5)</li>
-                <li className="flex gap-2">✅ Guard Engine Determinístico</li>
-                <li className="flex gap-2">✅ Single-Tenant (Mind Only)</li>
-                <li className="flex gap-2 text-yellow-400">⚠️ Chamada extra de classificação</li>
-                <li className="flex gap-2 text-yellow-400">⚠️ Histórico fixo (sem resumo)</li>
-              </ul>
-            </div>
-            <div className="bg-slate-900 p-6">
-              <h3 className="font-bold text-blue-400 mb-4 uppercase text-xs tracking-widest">Recomendação Final</h3>
-              <ul className="space-y-3 text-sm text-slate-100">
-                <li className="flex gap-2">🚀 Ativar Prompt Caching (Anthropic)</li>
-                <li className="flex gap-2">🚀 Consolidar Classificação lead no prompt do turno</li>
-                <li className="flex gap-2">🚀 Implementar Context Compression (Summary)</li>
-                <li className="flex gap-2">🚀 Guard Engine via LLM (Haiku) para validação de tom</li>
-              </ul>
-            </div>
-          </div>
-        </section>
-
-        {/* Footer Audit Summary */}
-        <footer className="bg-slate-900 border border-slate-800 p-6 rounded-xl space-y-6">
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-             <div>
-               <p className="text-xs text-slate-500 uppercase">Arquitetura</p>
-               <p className="text-lg font-bold">Runtime V2</p>
-             </div>
-             <div>
-               <p className="text-xs text-slate-500 uppercase">Modelo Padrão</p>
-               <p className="text-lg font-bold text-blue-400">Haiku 4.5</p>
-             </div>
-             <div>
-               <p className="text-xs text-slate-500 uppercase">Custo/Turno</p>
-               <p className="text-lg font-bold text-green-400">~US$ 0.0003</p>
-             </div>
-             <div>
-               <p className="text-xs text-slate-500 uppercase">Escalonamento</p>
-               <p className="text-lg font-bold text-red-400">Bloqueado</p>
-             </div>
-           </div>
-
-           <div className="pt-6 border-t border-slate-800 flex justify-center">
-             <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg shadow-blue-900/20">
-               <FileText className="w-5 h-5" />
-               Gerar um relatório PDF da AUDITORIA EXECUTADA da Runtime V2 com os fatos do projeto e métricas de custo/latência.
-             </button>
-           </div>
+        {/* Action Button */}
+        <footer className="pt-8 border-t border-slate-800 flex justify-center">
+          <button className="group flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-xl font-bold transition-all shadow-xl shadow-blue-900/20 scale-100 hover:scale-105 active:scale-95">
+            <Zap className="w-6 h-6 fill-current" />
+            EXECUTAR OTIMIZAÇÃO V2 AGORA
+          </button>
         </footer>
 
-
       </div>
     </div>
   );
 }
 
-function IAItem({ name, provider, model, purpose, files, api }: { name: string, provider: string, model: string, purpose: string, files: string, api: string }) {
+function ArchitectureCard({ title, model, description }: { title: string, model: string, description: string }) {
   return (
-    <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-lg space-y-3">
-      <div className="flex justify-between items-start">
-        <h3 className="font-bold text-slate-100">{name}</h3>
-        <Badge variant="outline" className="text-[10px] uppercase">{provider}</Badge>
+    <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-lg space-y-2">
+      <p className="text-[10px] font-bold text-slate-500 uppercase">{title}</p>
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-blue-500" />
+        <p className="text-sm font-bold text-slate-100">{model}</p>
       </div>
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs text-blue-400">
-          <Cpu className="w-3 h-3" />
-          <span className="font-mono">{model}</span>
-        </div>
-        <p className="text-xs text-slate-400 leading-relaxed">{purpose}</p>
-        <div className="pt-2 border-t border-slate-800 space-y-1">
-          <div className="flex items-center gap-2 text-[10px] text-slate-500">
-            <FileText className="w-3 h-3" />
-            <span>{files}</span>
-          </div>
-          <div className="flex items-center gap-2 text-[10px] text-slate-600 truncate">
-            <Zap className="w-3 h-3" />
-            <span>{api}</span>
-          </div>
-        </div>
-      </div>
+      <p className="text-xs text-slate-400">{description}</p>
     </div>
   );
 }
 
-function Step({ icon, label, sub }: { icon: React.ReactNode, label: string, sub: string }) {
+function SectionHeader({ number, title }: { number: string, title: string }) {
   return (
-    <div className="flex flex-col items-center gap-2 text-center group">
-      <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center group-hover:border-blue-500 transition-colors">
-        {React.isValidElement(icon) 
-          ? React.cloneElement(icon as React.ReactElement<{ className?: string }>, { 
-              className: "w-5 h-5 text-slate-400 group-hover:text-blue-400" 
-            }) 
-          : null}
-      </div>
-      <div>
-        <p className="text-xs font-bold text-slate-300">{label}</p>
-        <p className="text-[10px] text-slate-500 uppercase">{sub}</p>
-      </div>
+    <div className="flex items-center gap-3">
+      <span className="flex items-center justify-center w-8 h-8 rounded bg-slate-800 text-blue-400 font-bold text-sm border border-slate-700">
+        {number}
+      </span>
+      <h3 className="text-lg font-bold text-slate-300 uppercase tracking-tight">{title}</h3>
     </div>
   );
 }
