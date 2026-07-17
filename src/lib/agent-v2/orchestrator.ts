@@ -76,19 +76,27 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
          
          // The audio processor already logs AUDIO_DOWNLOAD_STARTED/OK and WHISPER_REQUEST_STARTED/OK
          // We add the specific requested tags here for orchestrator visibility
-         const transcriptionResult = await transcribeAudio(input.media.mediaUrl, correlationId);
+         // Safe call to transcriber
+         const transcriptionResult = await transcribeAudio(input.media.mediaUrl, correlationId).catch(err => {
+            console.error(`[V2_DIAGNOSTIC][${correlationId}][AUDIO_TRANSCRIPTION_FAILED]`, err.message);
+            return null;
+         });
          
-         const transcriptText = typeof transcriptionResult === 'string' ? transcriptionResult : "";
-         console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][TRANSCRIPTION_RESULT] "${transcriptText.slice(0, 50)}..."`);
-         
-         // Combine caption with transcription if caption exists
-         if (processedMessage && processedMessage !== transcriptText) {
-            processedMessage = `${processedMessage}\n\n[Transcrição do Áudio]: ${transcriptText}`;
+         if (transcriptionResult) {
+           const transcriptText = String(transcriptionResult);
+           console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][TRANSCRIPTION_RESULT] "${transcriptText.slice(0, 50)}..."`);
+           
+           // Combine caption with transcription if caption exists
+           if (processedMessage && processedMessage !== transcriptText) {
+              processedMessage = `${processedMessage}\n\n[Transcrição do Áudio]: ${transcriptText}`;
+           } else {
+              processedMessage = transcriptText;
+           }
          } else {
-            processedMessage = transcriptText;
+           console.log(`[V2_DIAGNOSTIC][${correlationId}][AUDIO_PIPELINE_SILENT_FAIL] Proceeding without transcription.`);
          }
        } catch (audioErr: any) {
-         console.error(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_PIPELINE_ERROR] ${audioErr.message}`);
+         console.error(`[V2_DIAGNOSTIC][${correlationId}][ORCHESTRATOR_AUDIO_ERROR] ${audioErr.message}`);
        }
     }
 

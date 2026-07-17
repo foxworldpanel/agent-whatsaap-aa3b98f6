@@ -269,31 +269,39 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           log('CRITICAL_FAILURE', {
             name: error.name,
             message: error.message,
-            stack: error.stack,
-            cause: error.cause,
+            stack: error.stack?.split('\n').slice(0, 2).join(' '),
             supabaseCode: error.code
           });
           
           // Fallback message to user if possible
           try {
-             const { uazapiSendText } = await import("@/lib/uazapi.server");
-             const { data: integrations } = await supabaseAdmin.from("integrations").select("*").limit(1);
-             const integ = integrations?.[0];
              const chatidRaw = (payload?.message?.chatid ?? payload?.message?.sender ?? payload?.data?.chatid ?? payload?.data?.sender ?? "").toLowerCase();
              const phone = chatidRaw.split("@")[0].replace(/\D/g, "");
              
-             if (integ?.uazapi_url && integ?.uazapi_token && phone) {
-                await uazapiSendText(
-                   { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
-                   phone,
-                   "Desculpe, tive um problema técnico momentâneo. Como posso te ajudar?"
-                );
+             if (phone) {
+                const { uazapiSendText } = await import("@/lib/uazapi.server");
+                const { data: integrations } = await supabaseAdmin
+                  .from("integrations")
+                  .select("*")
+                  .eq("workspace_id", "bd59fa41-d68d-4ac8-b995-e09ae48f52aa")
+                  .limit(1);
+                
+                const integ = integrations?.[0];
+                if (integ?.uazapi_url && integ?.uazapi_token) {
+                   log('FALLBACK_SEND_STARTED', { phone });
+                   await uazapiSendText(
+                      { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
+                      phone,
+                      "Desculpe, tive um problema técnico momentâneo. Como posso te ajudar?"
+                   );
+                   log('FALLBACK_SEND_OK');
+                }
              }
           } catch (e) {
-             // Silently fail the secondary fallback if needed
+             log('FALLBACK_FATAL_ERROR', { error: e instanceof Error ? e.message : String(e) });
           }
 
-          return new Response("error logged");
+          return new Response("error handled");
         }
       }
     }
