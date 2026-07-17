@@ -32,15 +32,15 @@ export async function transcribeAudio(audioUrl: string, correlationId: string): 
 
     const file = new File([blob], "audio.ogg", { type: mimeType });
 
-    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][WHISPER_REQUEST_STARTED] model: whisper-1`);
+    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][WHISPER_STARTED] model: whisper-1`);
     const transcription = await openai.audio.transcriptions.create({
       file,
       model: "whisper-1",
       language: "pt",
     });
 
-    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][WHISPER_REQUEST_OK]`);
-    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][TRANSCRIPTION_READY] "${transcription.text.slice(0, 50)}..."`);
+    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][WHISPER_HTTP_STATUS] 200`);
+    console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][TRANSCRIPTION_RESULT] "${transcription.text.slice(0, 50)}..."`);
     
     return transcription.text;
   } catch (error: any) {
