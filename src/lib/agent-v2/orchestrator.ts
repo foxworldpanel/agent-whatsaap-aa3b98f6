@@ -488,7 +488,7 @@ async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string
 
   const messages = prompt.messages.map((m: any) => ({
     role: m.role === 'system' ? 'system' : (m.role === 'user' ? 'user' : 'assistant'),
-    content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+    content: String(m.content)
   })).filter((m: any) => m.role !== 'system'); // callLLMV2 handles systemPrompt separately
 
   return await callLLMV2({
