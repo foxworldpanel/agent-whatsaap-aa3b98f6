@@ -42,7 +42,7 @@ async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
 export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2EOutput> {
   const startTime = Date.now();
   const correlationId = input.correlationId || `v2_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  console.log(`[AGENT_V2][${correlationId}] orchestrator_started | message: ${String(input.currentMessage || '').slice(0, 50)}... | media: ${input.media?.type}`);
+  console.log(`[AGENT_V2][${correlationId}] orchestrator_started | message: ${typeof input.currentMessage === 'string' ? input.currentMessage.slice(0, 50) : 'none'}... | media: ${input.media?.type}`);
   
   const errors: string[] = [];
   const metrics: Record<string, any> = {
