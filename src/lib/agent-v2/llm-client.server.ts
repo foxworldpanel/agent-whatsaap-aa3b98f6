@@ -57,16 +57,26 @@ export async function callLLMV2(params: {
       })
     });
 
+    const bodyText = await response.text();
+
     if (!response.ok) {
-      const errorData = await response.text();
-      throw new Error(`Anthropic API Error (${response.status}): ${errorData}`);
+      throw new Error(`Anthropic API Error (${response.status}): ${bodyText}`);
     }
 
-    const data = await response.json();
+    const data = JSON.parse(bodyText);
     const parsed = AnthropicResponseSchema.parse(data);
     
+    const reply = parsed.content[0].text;
+    
+    // LOG DE SEGURANÇA E AUDITORIA - Captura o turno real
+    console.log(`[LLMV2][RAW_RESPONSE] Turn: ${Date.now()} | Model: ${model} | Reply: ${reply.slice(0, 100)}...`);
+    
+    if (reply.includes("atualização") || reply.includes("plays e ouvintes")) {
+      console.warn(`[LLMV2][LEAK_DETECTED] Resposta contém termos proibidos: "${reply}"`);
+    }
+
     return {
-      reply: parsed.content[0].text,
+      reply,
       usage: {
         input_tokens: parsed.usage.input_tokens,
         output_tokens: parsed.usage.output_tokens,
