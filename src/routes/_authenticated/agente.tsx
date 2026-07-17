@@ -29,7 +29,7 @@ import {
   saveBehavior, savePanelScreenshots, listModulesV2, 
   updateModuleV2, getModuleHistoryV2 
 } from "@/lib/agent.functions";
-import { seedBrandFromMindTemplate } from "@/lib/seed-mind-brand.functions";
+// seedBrandFromMindTemplate removido em favor da V2 modular.
 import { useWorkspace } from "@/contexts/workspace-context";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -46,7 +46,7 @@ function AgentePage() {
   const fetchModulesV2 = useServerFn(listModulesV2);
   const updateModuleV2Fn = useServerFn(updateModuleV2);
   const getHistoryFn = useServerFn(getModuleHistoryV2);
-  const seedTplFn = useServerFn(seedBrandFromMindTemplate);
+  const seedTplFn = async () => {};
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");

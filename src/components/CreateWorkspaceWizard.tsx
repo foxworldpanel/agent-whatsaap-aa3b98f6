@@ -19,8 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { createWorkspace } from "@/lib/workspaces.functions";
-import { updateAgentIdentity } from "@/lib/agent-identity.functions";
-import { seedBrandFromMindTemplate } from "@/lib/seed-mind-brand.functions";
+// Identidade e Seed V1 removidos em favor da V2 modular.
 import { createCategory } from "@/lib/categories.functions";
 import { useWorkspace } from "@/contexts/workspace-context";
 
@@ -44,8 +43,8 @@ export function CreateWorkspaceWizard({ open, onOpenChange }: Props) {
   const { switchWorkspace, refresh } = useWorkspace();
 
   const createWs = useServerFn(createWorkspace);
-  const updateIdent = useServerFn(updateAgentIdentity);
-  const seedMind = useServerFn(seedBrandFromMindTemplate);
+  const updateIdent = async () => {};
+  const seedMind = async () => {};
   const createCat = useServerFn(createCategory);
 
   const [step, setStep] = useState(1);
