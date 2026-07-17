@@ -254,7 +254,7 @@ export function runGuardEngineV2(input: GuardEngineInput): GuardEngineOutput {
         correctionCount,
         blocked,
         requiresRegeneration,
-        responseCharsBefore: input.draftResponse.length,
+        responseCharsBefore: (input.draftResponse || "").length,
         responseCharsAfter: finalResponse.length,
         guardDurationMs: Date.now() - startTime
       }

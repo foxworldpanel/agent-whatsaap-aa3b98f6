@@ -79,7 +79,7 @@ export class SupabaseAgentV2AnalyticsRepository implements AgentV2AnalyticsRepos
       p_duration_ms: data.durationMs,
       p_routing_reason: data.routingReason,
       p_quality_flags: data.qualityFlags || {},
-      p_customer_stage: data.customerStage,
+      p_customer_stage: data.customerStage as string,
       p_selected_modules: data.selectedModules || [],
       p_selected_tools: data.selectedTools || [],
       p_selected_tutorials: data.selectedTutorials || [],
