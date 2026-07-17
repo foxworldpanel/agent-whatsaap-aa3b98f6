@@ -194,13 +194,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][HAIKU_STARTED] model: ${modelToCall}`);
       console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][HAIKU_PROMPT] User: ${normalizedMessage.slice(0, 100)}...`);
       
-      const modelResult = await callLLMV2({
-        systemPrompt: promptBuildResult.systemPrompt,
-        messages: promptBuildResult.messages,
-        model: modelToCall,
-        workspaceId: input.workspaceId,
-        phoneNumber: input.phoneNumber
-      });
+      const modelResult = await callBrainModel(input, promptBuildResult, modelToCall);
       modelResponse = modelResult.reply;
     
     // Track usage for analytics
