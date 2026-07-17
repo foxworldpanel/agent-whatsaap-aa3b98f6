@@ -3,10 +3,11 @@
  */
 
 /**
- * Tipos LEGADOS. Mantidos apenas por compatibilidade com migrations
- * antigas, snapshots do banco e código arquivado. NÃO usar no fluxo ativo.
+ * Tipos de controle interno. Mantidos apenas por compatibilidade com snapshots
+ * do banco e histórico. NÃO usar no fluxo ativo de novas funcionalidades.
  */
-export type BrainVersion = 'v1' | 'v2_shadow' | 'v2_pilot' | 'v2';
+export type BrainVersion = 'v2_shadow' | 'v2_pilot' | 'v2';
+
 export type ExecutionMode = 'production' | 'shadow' | 'pilot';
 
 /**
