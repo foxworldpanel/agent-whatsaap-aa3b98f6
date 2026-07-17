@@ -160,16 +160,16 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           // 4. Resolve Media (Audio Support)
           const messageType = msg.type || 'text';
           const hasAudio = messageType === 'audio' || messageType === 'ptt';
-          const mediaId = msg.mediaId || msg.id;
-          const mediaUrl = msg.url || msg.mediaUrl;
-          const mimeType = msg.mimeType || msg.mimetype;
+          const mediaId = String(msg.mediaId || msg.id || "");
+          const mediaUrl = String(msg.url || msg.mediaUrl || "");
+          const mimeType = String(msg.mimeType || msg.mimetype || "");
 
           if (hasAudio) {
             log('AUDIO_MEDIA_ID_FOUND', { mediaId });
             log('AUDIO_URL_RESOLVED', { mediaUrl, mimeType });
           }
 
-          let transcription = "";
+          let incomingText = String(msg.text || msg.content || msg.caption || "");
           if (hasAudio) {
             log('AUDIO_PIPELINE_STARTED');
             try {
@@ -198,7 +198,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
             conversationId: conv.id,
             workspaceId: agent.workspace_id,
             phoneNumber: phone,
-            currentMessage: transcription || msg.text || msg.content || msg.caption || "",
+            currentMessage: incomingText,
             mode: 'receptive',
             executionMode: 'real',
             media: { 
