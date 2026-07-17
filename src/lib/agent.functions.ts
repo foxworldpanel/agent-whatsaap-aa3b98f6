@@ -471,7 +471,7 @@ export const listModulesV2 = createServerFn({ method: "GET" })
       return {
         id: key,
         ...info,
-        contentPreview: moduleRegistryV2[key as any]?.slice(0, 150) + "...",
+        contentPreview: (moduleRegistryV2 as Record<string, string>)[key]?.slice(0, 150) + "...",
         priority: ["mission", "identity", "guards"].includes(key) ? "Alta" : "Normal",
         modes: key === "receptive" ? ["receptive"] : (key === "outbound" ? ["outbound"] : ["all"]),
         dependencies: key.startsWith("spotify_") ? ["spotify_overview"] : []
