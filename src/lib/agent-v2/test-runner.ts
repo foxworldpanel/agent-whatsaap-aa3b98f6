@@ -4,6 +4,7 @@ import { runSpotifyTests } from './spotify.test';
 import { runFullHomologationSuite } from './homologation.test';
 import { runModelRouterTests } from './model-router.test';
 import { runGuardEngineTests } from './guard-engine.test';
+import { runCatalogConflictTests } from './catalog-conflict.test';
 
 async function main() {
   // Testes de Unidade e Lógica
@@ -12,6 +13,7 @@ async function main() {
   await runSpotifyTests();
   await runModelRouterTests();
   await runGuardEngineTests();
+  await runCatalogConflictTests();
   
   // Testes de Homologação (Fluxos Completos)
   await runFullHomologationSuite();

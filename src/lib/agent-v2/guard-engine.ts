@@ -13,7 +13,7 @@ const SUPPORT_MINIMAL_RESPONSE = "Para analisar esse caso, abra um ticket no sup
 
 export function runGuardEngineV2(input: GuardEngineInput): GuardEngineOutput {
   const startTime = Date.now();
-  let finalResponse = input.draftResponse;
+  let finalResponse = input.draftResponse || "";
   const violations: GuardViolation[] = [];
   const triggeredGuards: string[] = [];
   let blocked = false;
