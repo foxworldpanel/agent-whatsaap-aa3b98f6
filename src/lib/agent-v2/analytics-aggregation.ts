@@ -51,7 +51,7 @@ export function aggregateConversationFromTurns(
     wrongServiceCount: 0,
     wrongPriceCount: 0,
     supportRedirectCount: turns.filter(t => t.intent === 'support').length,
-    freeTestOffered: turns.some(t => t.qualityFlags.passedGuards && t.currentStep.includes('free_test')),
+    freeTestOffered: turns.some(t => t.qualityFlags?.passedGuards && t.currentStep?.includes('free_test')),
     freeTestStarted: turns.some(t => t.currentStep === 'free_test_started'),
     freeTestCompleted: turns.some(t => t.currentStep === 'free_test_completed'),
     panelGuidanceStarted: turns.some(t => t.currentStep.includes('panel')),
