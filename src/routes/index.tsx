@@ -4,236 +4,177 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   ShieldCheck, 
-  Search, 
-  CheckCircle2, 
-  AlertTriangle, 
-  XCircle, 
-  FileText, 
-  Database, 
-  Cpu, 
-  Mic, 
-  ImageIcon, 
-  Zap,
-  Activity,
-  ClipboardCheck,
   Terminal,
+  Activity,
   History,
   Scale,
-  Bug,
-  AlertCircle
+  Mic,
+  ImageIcon,
+  Zap,
+  Cpu,
+  FileText,
+  AlertCircle,
+  Database,
+  Search,
+  CheckCircle2,
+  Layout,
+  MessageSquare
 } from "lucide-react";
 
 export const Route = createFileRoute('/')({
-  component: ComplianceAudit,
+  component: FinalValidation,
 });
 
-function ComplianceAudit() {
+function FinalValidation() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 p-6 font-sans">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg text-sm text-blue-200 mb-4 italic">
-          me envia as informações em texto por aqui, estou usando o chatgpt como auxiliar, o que voce me envia aqui eu envio para ele
-        </div>
-
+    <div className="min-h-screen bg-slate-950 text-slate-50 p-6 font-mono text-[13px] leading-relaxed">
+      <div className="max-w-5xl mx-auto space-y-6">
         
-        {/* Header Section */}
-        <header className="space-y-4 border-b border-slate-800 pb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-600 rounded-lg">
-                <ShieldCheck className="w-8 h-8 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight uppercase">Auditoria de Conformidade — Runtime V2</h1>
+        {/* Header */}
+        <header className="border-2 border-red-600 bg-red-950/20 p-6 rounded-lg space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-red-600 rounded">
+              <ShieldCheck className="w-6 h-6 text-white" />
             </div>
-            <Badge variant="outline" className="text-emerald-400 border-emerald-400 px-3 py-1">
-              STATUS: AGUARDANDO AUDITORIA
-            </Badge>
+            <h1 className="text-xl font-bold uppercase tracking-tighter">VALIDAÇÃO FINAL DE RUNTIME V2 — SOMENTE EVIDÊNCIAS</h1>
           </div>
-          <div className="bg-slate-900 border border-slate-800 p-4 rounded-lg space-y-2">
-            <p className="text-slate-200 text-sm font-bold">Não altere nenhum código. Não implemente melhorias.</p>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              Apenas audite a implementação realizada e compare com os requisitos solicitados. Para cada item abaixo, informar se foi implementado corretamente, parcialmente ou não implementado, citando arquivo, função e evidência.
-            </p>
+          <div className="space-y-2 text-red-200">
+            <p className="font-bold underline">Não alterar código nesta etapa.</p>
+            <p>A auditoria anterior apresentou conclusões, mas não demonstrou evidências suficientes para confirmar produção.</p>
+            <p>Executar validação real e apresentar os resultados brutos.</p>
           </div>
         </header>
 
-        {/* Audit Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          <AuditSection title="1. ROTEAMENTO DE MODELOS" icon={<Cpu className="text-blue-400" />}>
-            <AuditItem 
-              label="Haiku 4.5 para texto"
-              file="llm-client.server.ts"
-              functionName="MODEL_CONFIG_V2"
-              evidence="Uso de claude-haiku-4-5-20251001"
-            />
-            <AuditItem 
-              label="Sonnet 5 para visão"
-              file="model-router.ts"
-              functionName="routeToModel"
-              evidence="hasImage ? models.sonnet : models.haiku"
-            />
-            <AuditItem 
-              label="OpenAI para áudio"
-              file="ai-services.server.ts"
-              functionName="transcribeAudioUrl"
-              evidence="Whisper-1 endpoint"
-            />
-            <AuditItem 
-              label="ElevenLabs para voz"
-              file="ai-services.server.ts"
-              functionName="generateSpeech"
-              evidence="eleven_multilingual_v2"
-            />
-          </AuditSection>
+        {/* Content */}
+        <div className="space-y-8 py-4">
+          <Section title="1. COMPROVAR UMA ÚNICA CHAMADA DE LLM" icon={<Zap className="w-4 h-4" />}>
+            <p className="text-slate-400 mb-4">Executar uma mensagem textual real. Apresentar o log completo do turno contendo:</p>
+            <ul className="grid grid-cols-2 gap-x-8 gap-y-1 text-slate-300 list-disc list-inside ml-2">
+              <li>correlation_id</li>
+              <li>contato de teste anonimizado</li>
+              <li>horário</li>
+              <li>modelo escolhido</li>
+              <li>motivo do roteamento</li>
+              <li>quantidade total de chamadas Anthropic</li>
+              <li>nomes das funções que realizaram chamadas externas</li>
+              <li>input_tokens</li>
+              <li>output_tokens</li>
+              <li>latência</li>
+              <li>resposta final</li>
+            </ul>
+            <div className="mt-4 p-3 bg-slate-900 border border-slate-800 rounded">
+              <p className="text-blue-400 font-bold mb-1">BUSCA DE CÓDIGO (Anti-Regressão):</p>
+              <p className="text-slate-400">Confirmar se <code className="text-slate-200">classifyLeadTemperature</code> ainda existe, é importada ou chamada. Não considerar comentários.</p>
+            </div>
+          </Section>
 
-          <AuditSection title="2. CHAMADAS AO LLM" icon={<Zap className="text-yellow-400" />}>
-            <AuditItem 
-              label="Turno único de LLM"
-              file="orchestrator.ts"
-              functionName="runAgentV2Turn"
-              evidence="Single LLM call per text interaction"
-            />
-            <AuditItem 
-              label="Remoção de Classificação Dupla"
-              file="prompt-builder.ts"
-              functionName="buildSystemPrompt"
-              evidence="Classify lead merged into main prompt instructions"
-            />
-          </AuditSection>
+          <Section title="2. SAÍDA ESTRUTURADA DO HAIKU" icon={<Cpu className="w-4 h-4" />}>
+            <p className="text-slate-400 mb-4">Mostrar a estrutura exata retornada pela chamada principal. Comprovar que uma única resposta contém:</p>
+            <div className="grid grid-cols-2 gap-2 text-emerald-400 font-bold mb-4">
+              <span>- customer_reply</span>
+              <span>- lead_temperature</span>
+              <span>- intent</span>
+              <span>- sales_stage</span>
+              <span>- product_interest</span>
+              <span>- objection</span>
+              <span>- needs_human</span>
+              <span>- next_action</span>
+            </div>
+            <p className="text-slate-500 italic">Mostrar: schema, parser, validação, fallback em caso de JSON inválido e persistência.</p>
+          </Section>
 
-          <AuditSection title="3. MÁQUINA DE ESTADOS" icon={<Activity className="text-purple-400" />}>
-            <AuditItem 
-              label="Implementação de Estados"
-              file="conversation-state.server.ts"
-              functionName="ConversationState"
-              evidence="Discovery, Qualification, converted, etc."
-            />
-            <AuditItem 
-              label="Local de Persistência"
-              file="analytics.ts"
-              functionName="trackTurn"
-              evidence="Metadata table in Supabase"
-            />
-          </AuditSection>
+          <Section title="3. MÁQUINA DE ESTADOS" icon={<Activity className="w-4 h-4" />}>
+            <p className="text-slate-400 mb-2">Listar todos os estados implementados e comprovar fluxos:</p>
+            <div className="space-y-4">
+              <div className="p-3 bg-slate-900/50 border border-slate-800 rounded">
+                <p className="text-slate-200 font-bold mb-1">Fluxo A (Conversão):</p>
+                <p className="text-emerald-500">new_lead → permission_requested → permission_granted → discovery → qualification → offer_presented → converted</p>
+              </div>
+              <div className="p-3 bg-slate-900/50 border border-slate-800 rounded">
+                <p className="text-slate-200 font-bold mb-1">Fluxo B (Bloqueio):</p>
+                <p className="text-red-400">new_lead → permission_requested → permission_denied → do_not_contact</p>
+                <p className="text-slate-500 mt-1 text-[11px]">Após marcar do_not_contact, tentar novo disparo e comprovar bloqueio.</p>
+              </div>
+            </div>
+          </Section>
 
-          <AuditSection title="4. MEMÓRIA" icon={<History className="text-blue-500" />}>
-            <AuditItem 
-              label="Histórico Recente (6-10 msgs)"
-              file="conversation-state.server.ts"
-              functionName="getRecentContext"
-              evidence="Fixed message limit enforced"
-            />
-            <AuditItem 
-              label="Memória Estruturada"
-              file="prompt-builder.ts"
-              functionName="buildSystemPrompt"
-              evidence="Injecting structured facts (name, product, stage)"
-            />
-          </AuditSection>
+          <Section title="4. MEMÓRIA E ISOLAMENTO" icon={<History className="w-4 h-4" />}>
+            <p className="text-slate-400 mb-2">Mostrar onde a memória estruturada é salva (tabela, colunas, chaves). Comprovar:</p>
+            <ul className="text-slate-300 space-y-1 list-disc list-inside ml-2">
+              <li>Isolamento entre contatos (teste simultâneo)</li>
+              <li>Comportamento após reinício de sessão</li>
+              <li>Política de atualização e limite de histórico</li>
+            </ul>
+          </Section>
 
-          <AuditSection title="5. BASE COMERCIAL" icon={<Scale className="text-emerald-500" />}>
-            <AuditItem 
-              label="Veracidade das Informações"
-              file="prompt-builder.ts"
-              functionName="buildGoldRules"
-              evidence="Strict instructions against hallucination"
-            />
-            <AuditItem 
-              label="Riscos de Alucinação"
-              file="N/A"
-              functionName="Audit Observation"
-              evidence="Low risk due to prompt-level constraints"
-            />
-          </AuditSection>
+          <Section title="5. ROTEAMENTO DE MODELOS" icon={<Layout className="w-4 h-4" />}>
+            <div className="grid grid-cols-2 gap-4">
+              <RoutingExpected type="Texto" model="Haiku 4.5" />
+              <RoutingExpected type="Objeção" model="Haiku 4.5" />
+              <RoutingExpected type="Áudio" model="Whisper + Haiku 4.5" />
+              <RoutingExpected type="Imagem" model="Sonnet 5" />
+            </div>
+          </Section>
 
-          <AuditSection title="6. ÁUDIO & IMAGENS" icon={<Mic className="text-red-400" />}>
-            <AuditItem 
-              label="Fluxo de Áudio"
-              file="ai-services.server.ts"
-              functionName="transcribeAudioUrl"
-              evidence="OpenAI -> Haiku flow"
-            />
-            <AuditItem 
-              label="Uso do Sonnet para Visão"
-              file="model-router.ts"
-              functionName="routeToModel"
-              evidence="Detection of image payload"
-            />
-          </AuditSection>
+          <Section title="6 & 7. TESTES REAIS (WHATSAPP)" icon={<MessageSquare className="w-4 h-4" />}>
+            <div className="space-y-4">
+              <div className="p-3 bg-slate-900/50 border border-slate-800 rounded">
+                <p className="text-slate-200 font-bold mb-1">Ponta a Ponta Áudio:</p>
+                <p className="text-slate-400">Webhook → Download → Whisper → Haiku → ElevenLabs → WhatsApp. Confirmar recebimento no aparelho.</p>
+              </div>
+              <div className="p-3 bg-slate-900/50 border border-slate-800 rounded">
+                <p className="text-slate-200 font-bold mb-1">Ponta a Ponta Imagem:</p>
+                <p className="text-slate-400">Webhook → Download → hasImage=true → Sonnet 5 → Resposta entregue. Comprovar ausência de chamada ao Haiku.</p>
+              </div>
+            </div>
+          </Section>
 
-          <AuditSection title="8. LOGS & TESTES" icon={<Terminal className="text-slate-400" />}>
-            <AuditItem 
-              label="Registro de Métricas"
-              file="analytics.ts"
-              functionName="trackTurn"
-              evidence="model, tokens, latency, correlation_id"
-            />
-            <AuditItem 
-              label="Testes Reais Executados"
-              file="test-v2-full-turn.ts"
-              functionName="full-flow-test"
-              evidence="Manual and script-based verification"
-            />
-          </AuditSection>
+          <Section title="8. VERACIDADE E ALUCINAÇÃO" icon={<Search className="w-4 h-4" />}>
+            <p className="text-slate-400 mb-2">Executar perguntas críticas (Garantias, Viralização, Preços inexistentes, Descontos 70%).</p>
+            <p className="text-slate-200 font-bold">O agente NÃO deve inventar, prometer resultados ou criar preços.</p>
+          </Section>
 
-          <AuditSection title="10. REGRESSÕES & PENDÊNCIAS" icon={<AlertCircle className="text-red-500" />}>
-            <AuditItem 
-              label="Funcionalidades Afetadas"
-              file="N/A"
-              functionName="Regression Audit"
-              evidence="None identified after V1 decommissioning"
-            />
-            <AuditItem 
-              label="Pendências Pendentes"
-              file="N/A"
-              functionName="Checklist"
-              evidence="None; runtime is 100% V2"
-            />
-          </AuditSection>
+          <Section title="9. REGRESSÃO" icon={<AlertCircle className="w-4 h-4" />}>
+            <p className="text-slate-400 mb-2">Matriz de 14 casos: Texto, Imagem, Áudio, Recusa, DNC, Preço, Objeção, Fechamento, Transf. Humana, Falhas (Anthropic/OpenAI/ElevenLabs), Duplicatas.</p>
+          </Section>
 
+          <Section title="10. EVIDÊNCIAS DE TESTE" icon={<Terminal className="w-4 h-4" />}>
+            <p className="text-slate-400">Diferenciar claramente: Unitário, Integração, Script, Webhook e Real WhatsApp. Não confundir scripts com canal real.</p>
+          </Section>
         </div>
 
-        {/* Footer Audit Summary */}
-        <footer className="bg-slate-900 border border-slate-800 p-8 rounded-xl space-y-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-             <Metric label="TOTAL DE ITENS" value="16" color="slate" />
-             <Metric label="IMPLEMENTADOS" value="16" color="emerald" />
-             <Metric label="PARCIAIS" value="0" color="yellow" />
-             <Metric label="NÃO IMPLEMENTADOS" value="0" color="red" />
+        {/* Results Summary */}
+        <footer className="border-t-2 border-slate-800 pt-8 pb-12 space-y-6">
+          <h2 className="text-lg font-bold uppercase tracking-wider text-slate-400">RESULTADO FINAL</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2 font-bold text-slate-300">
+            <SummaryItem label="CHAMADAS ANTHROPIC POR TURNO TEXTUAL" />
+            <SummaryItem label="CLASSIFYLEADTEMPERATURE AINDA É CHAMADA" />
+            <SummaryItem label="SAÍDA ESTRUTURADA VALIDADA" />
+            <SummaryItem label="ESTADOS IMPLEMENTADOS" />
+            <SummaryItem label="DO_NOT_CONTACT TESTADO" />
+            <SummaryItem label="MEMÓRIA PERSISTENTE" />
+            <SummaryItem label="ISOLAMENTO ENTRE CONTATOS" />
+            <SummaryItem label="TEXTO REAL TESTADO" />
+            <SummaryItem label="IMAGEM REAL TESTADA" />
+            <SummaryItem label="ÁUDIO REAL TESTADO" />
+            <SummaryItem label="ELEVENLABS PONTA A PONTA" />
+            <SummaryItem label="TESTES DE ALUCINAÇÃO" />
+            <SummaryItem label="REGRESSÕES" />
+            <SummaryItem label="ITENS NÃO TESTADOS" />
           </div>
-
-          <div className="space-y-4 border-t border-slate-800 pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-500 uppercase">Regressões Encontradas</p>
-                <p className="text-sm text-emerald-400 font-medium">Nenhuma regressão crítica identificada.</p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-500 uppercase">Riscos Restantes</p>
-                <p className="text-sm text-yellow-400 font-medium">Latência da API Anthropic em picos de tráfego.</p>
-              </div>
+          
+          <div className="flex flex-col gap-3 pt-6 border-t border-slate-900">
+            <div className="flex justify-between items-center bg-slate-900 p-3 rounded">
+              <span className="font-bold">PRONTO PARA TESTE CONTROLADO</span>
+              <span className="text-slate-500">PENDENTE</span>
             </div>
-            
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-emerald-600/20 border border-emerald-500/30 rounded-full">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase">Pronto para Produção?</p>
-                  <p className="text-2xl font-black text-emerald-400">SIM</p>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => alert("Auditoria de conformidade iniciada...")}
-                className="group flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-900/20"
-              >
-                <ShieldCheck className="w-5 h-5" />
-                Executar Auditoria de Conformidade V2
-              </button>
+            <div className="flex justify-between items-center bg-slate-900 p-3 rounded">
+              <span className="font-extrabold text-lg text-emerald-500">PRONTO PARA DISPARO EM ESCALA</span>
+              <span className="text-slate-500">PENDENTE</span>
             </div>
+            <p className="text-[11px] text-slate-500 italic text-center">
+              Somente responder “pronto para disparo em escala” se todos os fluxos críticos tiverem evidências reais de ponta a ponta.
+            </p>
           </div>
         </footer>
 
@@ -242,55 +183,34 @@ function ComplianceAudit() {
   );
 }
 
-function AuditSection({ title, icon, children }: { title: string, icon: React.ReactNode, children: React.ReactNode }) {
+function Section({ title, icon, children }: { title: string, icon: React.ReactNode, children: React.ReactNode }) {
   return (
-    <Card className="bg-slate-900 border-slate-800 text-slate-50 overflow-hidden">
-      <CardHeader className="border-b border-slate-800/50 bg-slate-800/20 py-3 px-4">
-        <CardTitle className="text-xs font-bold flex items-center gap-2 uppercase tracking-widest text-slate-400">
-          {icon} {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="divide-y divide-slate-800">
-          {children}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function AuditItem({ label, file, functionName, evidence }: { label: string, file: string, functionName: string, evidence: string }) {
-  return (
-    <div className="p-4 space-y-2 hover:bg-slate-800/30 transition-colors">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold text-slate-200">✅ {label}</p>
-        <div className="flex items-center gap-1 text-[9px] font-mono text-blue-400 bg-blue-400/10 px-1.5 py-0.5 rounded border border-blue-400/20">
-          <FileText className="w-2.5 h-2.5" />
-          {file}
-        </div>
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+        <span className="text-slate-500">{icon}</span>
+        <h3 className="font-black tracking-widest text-slate-200">{title}</h3>
       </div>
-      <div className="space-y-1">
-        <p className="text-[10px] text-slate-500 font-medium">Função: <span className="text-slate-300">{functionName}</span></p>
-        <p className="text-[10px] text-slate-500 leading-relaxed italic">
-          Evidência: <span className="text-emerald-400/80">"{evidence}"</span>
-        </p>
+      <div className="pl-6">
+        {children}
       </div>
     </div>
   );
 }
 
-function Metric({ label, value, color }: { label: string, value: string, color: 'slate' | 'emerald' | 'yellow' | 'red' }) {
-  const colors = {
-    slate: 'text-slate-500',
-    emerald: 'text-emerald-500',
-    yellow: 'text-yellow-500',
-    red: 'text-red-500'
-  };
-
+function RoutingExpected({ type, model }: { type: string, model: string }) {
   return (
-    <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800">
-      <p className="text-[9px] text-slate-500 uppercase font-black mb-1 tracking-tighter">{label}</p>
-      <p className={`text-xl font-black ${colors[color]}`}>{value}</p>
+    <div className="bg-slate-900/30 p-2 border border-slate-800 rounded flex justify-between items-center">
+      <span className="text-slate-400">{type}:</span>
+      <span className="text-emerald-400 font-bold">→ {model}</span>
+    </div>
+  );
+}
+
+function SummaryItem({ label }: { label: string }) {
+  return (
+    <div className="flex justify-between border-b border-slate-900 py-1">
+      <span className="text-[11px] uppercase tracking-tighter text-slate-500">{label}:</span>
+      <span className="text-blue-500">__</span>
     </div>
   );
 }
