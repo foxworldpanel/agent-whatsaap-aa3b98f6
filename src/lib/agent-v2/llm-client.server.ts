@@ -32,7 +32,7 @@ export async function callLLMV2(params: {
   phoneNumber?: string;
 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const model = params.model || 'claude-3-5-haiku-latest';
+  const model = params.model || 'claude-3-5-sonnet-20240620';
   const effectiveModel = model;
   
   if (!apiKey) {
