@@ -6,7 +6,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const correlationId = crypto.randomUUID();
+        const correlationId = (globalThis as any).crypto.randomUUID();
         const timestamp = new Date().toISOString();
         const log = (stage: string, details?: any) => {
           console.log(`[V2_DIAGNOSTIC][${correlationId}][${timestamp}][${stage}]`, details || '');
