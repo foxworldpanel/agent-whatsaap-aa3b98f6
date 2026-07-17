@@ -3210,6 +3210,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
 
+
         // Anti-loop: se o fallback já foi enviado na última mensagem do agente,
         // não repete a mesma frase — envia uma variação neutra e registra warn.
         if (reply === FALLBACK_REPLY) {
