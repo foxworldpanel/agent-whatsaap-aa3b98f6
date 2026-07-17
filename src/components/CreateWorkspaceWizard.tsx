@@ -19,8 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { createWorkspace } from "@/lib/workspaces.functions";
-import { updateAgentIdentity } from "@/lib/agent-identity.functions";
-import { seedBrandFromMindTemplate } from "@/lib/seed-mind-brand.functions";
+// Identidade e Seed V1 removidos em favor da V2 modular.
 import { createCategory } from "@/lib/categories.functions";
 import { useWorkspace } from "@/contexts/workspace-context";
 
@@ -44,8 +43,8 @@ export function CreateWorkspaceWizard({ open, onOpenChange }: Props) {
   const { switchWorkspace, refresh } = useWorkspace();
 
   const createWs = useServerFn(createWorkspace);
-  const updateIdent = useServerFn(updateAgentIdentity);
-  const seedMind = useServerFn(seedBrandFromMindTemplate);
+  const updateIdent = async () => {};
+  const seedMind = async () => {};
   const createCat = useServerFn(createCategory);
 
   const [step, setStep] = useState(1);
@@ -109,20 +108,11 @@ export function CreateWorkspaceWizard({ open, onOpenChange }: Props) {
 
       // 3) identidade
       if (useMindTemplate) {
-        try {
-          await seedMind();
-        } catch (e) {
-          console.error("seed mind template falhou", e);
-          toast.error("Falha ao aplicar template Mind — segue com os campos vazios");
-        }
+        // V2 modules seeding should be implemented here in the future
+        console.log("V2 Mind template requested for new workspace");
       } else if (persona.trim() || terminologia.trim() || exemploDisparo.trim()) {
-        await updateIdent({
-          data: {
-            persona: persona.trim() || null,
-            terminologia_redes: terminologia.trim() || null,
-            exemplo_disparo: exemploDisparo.trim() || null,
-          },
-        });
+        // Legacy agent_identity update skipped in V2
+        console.log("Custom identity fields skipped in V2 creation wizard");
       }
 
       // 4) categorias

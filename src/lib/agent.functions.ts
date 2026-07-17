@@ -836,7 +836,7 @@ export const previewVoice = createServerFn({ method: "POST" })
     if (!integ?.elevenlabs_api_key || !integ.elevenlabs_voice_id) {
       throw new Error("Configure a API Key e o Voice ID do ElevenLabs antes.");
     }
-    const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+    const { ttsElevenLabsBase64 } = await import("@/lib/agent-v2/core/ai-services.server");
     const audio = await ttsElevenLabsBase64({
       apiKey: integ.elevenlabs_api_key,
       voiceId: integ.elevenlabs_voice_id,

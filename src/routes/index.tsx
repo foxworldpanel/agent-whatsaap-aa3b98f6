@@ -57,8 +57,9 @@ function DecommissioningLanding() {
               Status Global: Fase 2 (Inventário)
             </Badge>
           </div>
-          <div className="mt-2 text-sm text-red-500 font-bold">
-            ainda nao esta carregando o workspace da mind
+          <div className="mt-2 text-sm text-amber-600 font-bold bg-amber-50 p-2 rounded border border-amber-200">
+            ⚠️ BUG CRÍTICO IDENTIFICADO: O Agente IA não está carregando o workspace Mind (carrega um vazio). 
+            Resolução determinística em andamento.
           </div>
         </header>
 
