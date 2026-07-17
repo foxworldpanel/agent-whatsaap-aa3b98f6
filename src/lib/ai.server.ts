@@ -873,6 +873,14 @@ export async function generateAgentReplyWithMeta(params: {
   userId?: string | null;
 }): Promise<{ text: string; model: string; routingReason: string }> {
   const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices: freeTestServicesRaw = [], extraContext = null, inputKind = "texto", imageBase64 = null, imageMediaType = null, userId = null } = params;
+  
+  // OBRIGATÓRIO: Bloqueio de segurança V1 para o workspace Mind.
+  const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+  if (userId === MIND_WORKSPACE_ID) {
+    console.error(`[V1_EXECUTION_BLOCKED] Attempted V1 execution for Mind workspace: ${userId}`);
+    throw new Error("V1 execution is blocked for this workspace. Use Runtime V2.");
+  }
+
   const latestClientMessage = getLatestClientMessage(history);
 
   // FONTE ÚNICA DE IDENTIDADE — carrega do banco (com fallback pros defaults)
