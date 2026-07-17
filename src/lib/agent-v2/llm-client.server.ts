@@ -33,7 +33,7 @@ export async function callLLMV2(params: {
 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const model = params.model || 'claude-3-haiku-20240307';
-  const effectiveModel = model === 'claude-3-haiku-20240307' ? 'claude-3-5-haiku-20241022' : model;
+  const effectiveModel = model === 'claude-3-haiku-20240307' ? 'claude-3-5-sonnet-20241022' : model;
   
   if (!apiKey) {
     throw new Error('[LLMV2] ANTHROPIC_API_KEY não configurada. V2 requer inferência direta.');
