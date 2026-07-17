@@ -9,6 +9,7 @@ import { PromptBuilderOutputV2 } from './prompt-builder.types';
 import { GuardEngineOutput } from './guard-engine.types';
 
 export interface AgentV2E2EInput {
+  correlationId?: string;
   workspaceId: string;
   conversationId: string;
   phoneNumber: string;
