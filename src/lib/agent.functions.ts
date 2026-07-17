@@ -439,10 +439,11 @@ export const setCatalogFlags = createServerFn({ method: "POST" })
 export const listModulesV2 = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    const { data: dbModules, error } = await context.supabase
-      .from("agent_modules_v2" as any)
+    const supabase = context.supabase as any;
+    const { data: dbModules, error } = await supabase
+      .from("agent_modules_v2")
       .select("*")
-      .eq("workspace_id" as any, context.workspaceId)
+      .eq("workspace_id", context.workspaceId)
       .order("category", { ascending: true })
       .order("priority", { ascending: false });
 
@@ -492,9 +493,9 @@ export const listModulesV2 = createServerFn({ method: "GET" })
         };
       });
 
-      const { data: inserted, error: insError } = await context.supabase
-        .from("agent_modules_v2" as any)
-        .insert(toInsert as any)
+      const { data: inserted, error: insError } = await supabase
+        .from("agent_modules_v2")
+        .insert(toInsert)
         .select();
 
       if (insError) throw new Error(insError.message);
@@ -522,36 +523,37 @@ export const updateModuleV2 = createServerFn({ method: "POST" })
     is_core: z.boolean()
   }).parse(d))
   .handler(async ({ data, context }) => {
+    const supabase = context.supabase as any;
     // 1. Get current version for history
-    const { data: current } = await context.supabase
-      .from("agent_modules_v2" as any)
+    const { data: current } = await supabase
+      .from("agent_modules_v2")
       .select("version, content")
-      .eq("workspace_id" as any, context.workspaceId)
-      .eq("id" as any, data.id)
+      .eq("workspace_id", context.workspaceId)
+      .eq("id", data.id)
       .single();
 
     if (current) {
       // 2. Save history
-      await context.supabase.from("agent_modules_v2_history" as any).insert({
+      await supabase.from("agent_modules_v2_history").insert({
         module_id: data.id,
         workspace_id: context.workspaceId,
-        version: (current as any).version,
-        content: (current as any).content,
+        version: current.version,
+        content: current.content,
         modified_by: context.userId
-      } as any);
+      });
     }
 
     // 3. Update module
-    const { error } = await context.supabase
-      .from("agent_modules_v2" as any)
+    const { error } = await supabase
+      .from("agent_modules_v2")
       .update({
         ...data,
-        version: ((current as any)?.version || 0) + 1,
+        version: (current?.version || 0) + 1,
         updated_at: new Date().toISOString(),
         last_modified_by: context.userId
-      } as any)
-      .eq("workspace_id" as any, context.workspaceId)
-      .eq("id" as any, data.id);
+      })
+      .eq("workspace_id", context.workspaceId)
+      .eq("id", data.id);
 
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -561,16 +563,18 @@ export const getModuleHistoryV2 = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: history, error } = await context.supabase
-      .from("agent_modules_v2_history" as any)
+    const supabase = context.supabase as any;
+    const { data: history, error } = await supabase
+      .from("agent_modules_v2_history")
       .select("*")
-      .eq("workspace_id" as any, context.workspaceId)
-      .eq("module_id" as any, data.id)
+      .eq("workspace_id", context.workspaceId)
+      .eq("module_id", data.id)
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);
     return history || [];
   });
+
 
 
 
