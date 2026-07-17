@@ -266,7 +266,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
              const { uazapiSendText } = await import("@/lib/uazapi.server");
              const { data: integrations } = await supabaseAdmin.from("integrations").select("*").limit(1);
              const integ = integrations?.[0];
-             const chatidRaw = (request as any)._body_msg_chatid || ""; // Attempting to recover if possible
+             const chatidRaw = (payload?.message?.chatid ?? payload?.message?.sender ?? payload?.data?.chatid ?? payload?.data?.sender ?? "").toLowerCase();
              const phone = chatidRaw.split("@")[0].replace(/\D/g, "");
              
              if (integ?.uazapi_url && integ?.uazapi_token && phone) {
