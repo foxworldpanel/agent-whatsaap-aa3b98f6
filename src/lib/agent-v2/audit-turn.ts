@@ -31,7 +31,9 @@ async function auditTest() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     },
-    shortHistory: [],
+    shortHistory: [
+      { sender: 'cliente', body: 'Vocês têm 1.000 plays e ouvintes globais no Spotify? Qual o valor?' }
+    ],
     toolFixtures: {
       catalog: [
         {
