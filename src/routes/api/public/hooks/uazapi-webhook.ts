@@ -3030,6 +3030,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
             console.log('Prompt context:', { modules: _modulesCount, services: freeTestServices?.length ?? 0, examples: knowledgeExamples?.length ?? 0, historyLen: aiHistory?.length ?? 0, extraContext: orderStatusContext?.slice(0, 200) ?? '' });
           } catch {}
+          // Resposta final do agente
+          let reply = "";
+
           try {
             const _agentTurnsSoFar = (aiHistory ?? []).filter((m: { sender?: string }) => m?.sender === "agente").length;
             console.log('[agent-ai] Roteamento inputs:', {
