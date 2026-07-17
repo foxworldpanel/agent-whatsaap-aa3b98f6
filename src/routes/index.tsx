@@ -1,15 +1,23 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, ListFilter, Trash2, Database, ShieldCheck, ArrowRight, Clock, Rocket, Search, LayoutGrid, ClipboardList } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/")({
   component: DecommissioningLanding,
 });
 
 function DecommissioningLanding() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Redireciona para o dashboard caso não queira ver a página de descomissionamento
+    // navigate({ to: "/conversas" });
+  }, [navigate]);
+
   const phases = [
     { id: 1, title: "Backup e Ponto de Restauração", status: "Concluído", progress: 100, icon: Clock, color: "text-blue-500" },
     { id: 2, title: "Inventário de Dependências", status: "Em andamento", progress: 60, icon: Search, color: "text-orange-500" },

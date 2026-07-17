@@ -3109,7 +3109,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
             } catch {}
           } else {
-            // V1 Original (Processamento Legado)
+            // V1 Original (Processamento Legado) — BLOQUEADO PARA WORKSPACE MIND
+            if (isMindWorkspace) {
+              throw new Error("V1_EXECUTION_BLOCKED: Workspace Mind detectado em branch legado.");
+            }
+            
             const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
             reply = _claudeOut.text;
             const _claudeMs = Date.now() - _claudeStart;
