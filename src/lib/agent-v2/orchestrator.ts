@@ -58,7 +58,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     console.log(`[AGENT_V2] conversation_loaded | correlation_id: ${correlationId} | conversation: ${input.conversationId}`);
 
     // Audio Recovery Logic
-    let processedMessage = String(input.currentMessage || "").trim();
+    let processedMessage = (typeof input.currentMessage === 'string' ? input.currentMessage : "").trim();
     if (input.media?.hasAudio && input.media?.mediaUrl && !processedMessage) {
        console.log(`[AGENT_V2][${correlationId}] audio_recovery_triggered | media_id: ${input.media?.mediaId}`);
        try {
