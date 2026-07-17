@@ -7,8 +7,8 @@ import { createInitialConversationStateV2 } from './conversation-state';
 export async function runCatalogConflictTests() {
   console.log('🧪 Iniciando Testes de Conflito de Catálogo V2\n');
 
-  const workspaceId = 'test-workspace';
-  const conversationId = 'test-conv';
+  const workspaceId = 'bd59fa41-d5d2-4f36-96a8-a3411784962d';
+  const conversationId = '00000000-0000-4000-a000-000000000000';
   const phoneNumber = '5511999999999';
 
   const baseInput = {
