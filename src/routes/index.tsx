@@ -97,4 +97,5 @@ function LogStatus({ label, status, color }: { label: string; status: string; co
       <span className="text-slate-400 tracking-tighter">{label}:</span>
       <span className={color || "text-blue-400 font-bold"}>{status}</span>
     </div>
+  );
 }
