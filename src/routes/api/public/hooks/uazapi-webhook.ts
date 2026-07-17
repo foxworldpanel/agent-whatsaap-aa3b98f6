@@ -12,9 +12,10 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           console.log(`[V2_DIAGNOSTIC][${correlationId}][${timestamp}][${stage}]`, details || '');
         };
 
+        let payload: any = null;
         try {
           log('AUDIO_WEBHOOK_RECEIVED');
-          const payload = await request.json();
+          payload = await request.json();
           log('AUDIO_PAYLOAD_PARSED', { event: payload.event });
 
           const event = payload.event;
