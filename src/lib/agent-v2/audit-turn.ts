@@ -34,6 +34,7 @@ async function auditTest() {
     shortHistory: [
       { sender: 'cliente', body: 'Vocês têm 1.000 plays e ouvintes globais no Spotify? Qual o valor?' }
     ],
+    modelConfig: { model: 'claude-3-haiku-20240307' },
     toolFixtures: {
       catalog: [
         {
