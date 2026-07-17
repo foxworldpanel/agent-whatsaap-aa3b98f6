@@ -53,12 +53,31 @@ export function buildPromptV2(input: PromptBuilderInputV2): PromptBuilderOutputV
 
   // 8. Tool results
   if (input.toolResults && Object.keys(input.toolResults).length > 0) {
-    let toolContent = '# DADOS ATUAIS DA FERRAMENTA\n';
+    let toolContent = '# RESULTADOS DE CONSULTA EM TEMPO REAL\n';
+    
+    if (input.toolResults.catalog && Array.isArray(input.toolResults.catalog)) {
+      toolContent += '## Catálogo de Serviços Encontrados:\n';
+      const catalog = input.toolResults.catalog;
+      
+      if (catalog.length === 0) {
+        toolContent += '- NENHUM serviço disponível para esta rede no momento.\n';
+      } else {
+        catalog.forEach((s: any) => {
+          toolContent += `ID: ${s.service || s.service_id} | ${s.name || s.nome} | R$${s.rate || s.preco_por_1000} (por 1000) | MIN: ${s.min || s.minimo}\n`;
+        });
+        toolContent += '\nREGRA: SEMPRE consulte o campo MIN acima antes de responder quantidades. Nunca ofereça menos que o mínimo.\n';
+      }
+    }
+
+    // Outras ferramentas genéricas
     for (const [tool, result] of Object.entries(input.toolResults)) {
+      if (tool === 'catalog') continue; // Já processado
       toolContent += `## Resultado ${tool}:\n${JSON.stringify(result, null, 2)}\n`;
     }
+    
     addBlock(blocks, 'tool_results', toolContent);
   } else if (selectedTools.length > 0) {
+
     // If tools selected but no results, maybe a warning is needed depending on the tool
     // but the doc says generate warning when selectedTool without toolResult if mandatory.
     // For now, since we are in fixture mode, we expect results if tools were called.

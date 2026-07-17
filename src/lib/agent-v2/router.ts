@@ -85,9 +85,10 @@ function detectIntents(msg: string): V2Intent | V2Intent[] {
 
   // Rules based on keywords
   if (/^(oi|olá|bom dia|boa tarde|boa noite|opa|eae)/i.test(msg)) detected.push('greeting');
-  if (/(spotify|instagram|youtube|tiktok|facebook|kwai|música|artista|playlist|seguidores|plays|ouvintes|reproduções|saves)/i.test(msg)) {
+  if (/(spotify|instagram|youtube|tiktok|facebook|kwai|música|artista|playlist|seguidores|plays|ouvintes|reproduções|saves|streams|streams?)/i.test(msg)) {
     detected.push('network_detection' as any);
   }
+
   if (/(preço|valor|quanto|custa|tabela|promoção|custar)/i.test(msg)) detected.push('price');
   if (/(como|melhor|diferença|qual)/i.test(msg)) detected.push('comparison');
   if (/(comprar|assinar|contratar|pedir|fechar|quanto \d+|onde pago|manda o painel|como compro)/i.test(msg)) detected.push('buy');
@@ -152,8 +153,15 @@ function applyIntentRouting(
     selectedModules.add(detectedNetwork as V2Module);
   }
 
-  switch (intent) {
+  switch (intent as string) {
+    case 'network_detection':
+      if (detectedNetwork !== 'unknown') {
+        selectedTools.add('consultar_servicos');
+      }
+      break;
+
     case 'greeting':
+
       // Basic core + mode
       break;
 

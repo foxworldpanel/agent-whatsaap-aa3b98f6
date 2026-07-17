@@ -104,7 +104,14 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       builderVersion: '2.0.0'
     });
 
-    modelResponse = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
+    const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
+    modelResponse = modelResult.reply;
+    
+    // Track usage for analytics
+    metrics.inputTokens = (metrics.inputTokens || 0) + (modelResult.usage?.input_tokens || 0);
+    metrics.outputTokens = (metrics.outputTokens || 0) + (modelResult.usage?.output_tokens || 0);
+    metrics.durationMs += modelResult.duration_ms || 0;
+
 
     guardResult = runGuardEngineV2({
       draftResponse: modelResponse,
@@ -122,7 +129,14 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
 
     if (guardResult.requiresRegeneration) {
       const instruction = guardResult.regenerationInstruction || "Corrija a resposta anterior.";
-      const regenResponse = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307', instruction);
+      const regenResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307', instruction);
+      const regenResponse = regenResult.reply;
+      
+      // Track usage for analytics
+      metrics.inputTokens = (metrics.inputTokens || 0) + (regenResult.usage?.input_tokens || 0);
+      metrics.outputTokens = (metrics.outputTokens || 0) + (regenResult.usage?.output_tokens || 0);
+      metrics.durationMs += regenResult.duration_ms || 0;
+
       
       const regenGuardResult = runGuardEngineV2({
         draftResponse: regenResponse,
@@ -187,9 +201,10 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   };
 
   const costResult = calculateEstimatedCost(modelRouteResult.selectedModel, {
-    input: 0,
-    output: finalResponse.length * 4
+    input: metrics.inputTokens || 0,
+    output: metrics.outputTokens || 0
   });
+
 
   const customerStage = determineCustomerStage(stateAfter.intent || 'unknown', stateAfter.currentStep || 'unknown');
   const scores = calculateQualityScores(qualityFlags);
@@ -226,8 +241,9 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       toolCallCount: routeResult.selectedTools.length,
       toolSuccessCount: routeResult.selectedTools.length,
       toolFailureCount: 0,
-      inputTokens: 0,
-      outputTokens: finalResponse.length * 4,
+      inputTokens: metrics.inputTokens || 0,
+      outputTokens: metrics.outputTokens || 0,
+
       cacheCreationInputTokens: 0,
       cacheReadInputTokens: 0,
       promptTokens: 0,
@@ -329,7 +345,7 @@ function generateDeterministicResponse(message: string, state: ConversationState
   return "Entendido. Como posso prosseguir?";
 }
 
-async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string, instruction?: string): Promise<string> {
+async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string, instruction?: string): Promise<any> {
   // Se estivermos em modo simulado (fixture), mantém comportamento antigo
   if (input.executionMode === 'isolated' || input.executionMode === 'shadow') {
     const lastUserMessage = prompt.messages[prompt.messages.length - 1].content.toLowerCase();

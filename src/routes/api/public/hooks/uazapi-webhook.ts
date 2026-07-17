@@ -2813,6 +2813,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // Catálogo SMM fixo (cache no Supabase). Sem chamada externa por mensagem.
         // Toggles do agente controlam se é incluído no prompt e se é filtrado por assunto.
         let servicesContext: string | null = null;
+        let all: any[] = [];
         const servicesFetchFailed = false;
         const a0 = agent as { catalog_in_prompt?: boolean; catalog_only_relevant?: boolean };
         const catalogInPrompt = a0.catalog_in_prompt !== false; // default true
@@ -2825,7 +2826,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .eq("user_id", userId)
               .eq("hidden", false)
               .limit(500);
-            const all = (cacheRows ?? []).map((r) => ({
+            all = (cacheRows ?? []).map((r) => ({
+
               service: r.service_id as string,
               name: (r.nome as string) ?? "",
               category: (r.categoria as string) ?? "",
@@ -3056,6 +3058,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 sender: m.sender === 'agente' ? 'agente' : 'cliente',
                 body: m.body || ''
               })),
+              toolFixtures: {
+                catalog: all || [],
+                freeTestServices: freeTestServices || []
+              },
+
               expected: {
                 conversationWorkspaceId: (conv as any).workspace_id,
                 agentWorkspaceId: (agent as any).workspace_id,
@@ -3063,6 +3070,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 selectedWorkspaceId,
               },
             });
+
             
             reply = v2Result.finalResponse;
             const _claudeMs = Date.now() - _claudeStart;

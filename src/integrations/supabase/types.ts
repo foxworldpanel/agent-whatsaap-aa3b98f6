@@ -3082,27 +3082,31 @@ export type Database = {
               workspace_id: string
             }[]
           }
-      upsert_agent_v2_turn_analytics:
-        | {
-            Args: {
-              p_turn: Database["public"]["Tables"]["agent_v2_turn_analytics"]["Row"]
-            }
-            Returns: {
-              error: true
-            } & "Could not choose the best candidate function between: public.upsert_agent_v2_turn_analytics(p_turn => jsonb), public.upsert_agent_v2_turn_analytics(p_turn => agent_v2_turn_analytics). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
-            SetofOptions: {
-              from: "agent_v2_turn_analytics"
-              to: "agent_v2_turn_analytics"
-              isOneToOne: true
-              isSetofReturn: false
-            }
-          }
-        | {
-            Args: { p_turn: Json }
-            Returns: {
-              error: true
-            } & "Could not choose the best candidate function between: public.upsert_agent_v2_turn_analytics(p_turn => jsonb), public.upsert_agent_v2_turn_analytics(p_turn => agent_v2_turn_analytics). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
-          }
+      upsert_agent_v2_turn_analytics: {
+        Args: {
+          p_conversation_id: string
+          p_customer_stage: string
+          p_duration_ms: number
+          p_errors?: string[]
+          p_estimated_cost: number
+          p_execution_mode: string
+          p_input_tokens: number
+          p_intent: string
+          p_network: string
+          p_output_tokens: number
+          p_phone_hash: string
+          p_quality_flags: Json
+          p_routing_reason: string
+          p_selected_model: string
+          p_selected_modules: string[]
+          p_selected_tools: string[]
+          p_selected_tutorials: string[]
+          p_service: string
+          p_turn_id: string
+          p_workspace_id: string
+        }
+        Returns: undefined
+      }
       user_owns_workspace: { Args: { _workspace_id: string }; Returns: boolean }
     }
     Enums: {
