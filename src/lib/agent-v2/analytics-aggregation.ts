@@ -54,7 +54,7 @@ export function aggregateConversationFromTurns(
     freeTestOffered: turns.some(t => t.qualityFlags?.passedGuards && t.currentStep?.includes('free_test')),
     freeTestStarted: turns.some(t => t.currentStep === 'free_test_started'),
     freeTestCompleted: turns.some(t => t.currentStep === 'free_test_completed'),
-    panelGuidanceStarted: turns.some(t => t.currentStep.includes('panel')),
+    panelGuidanceStarted: turns.some(t => t.currentStep?.includes('panel')),
     reachedRegistration: turns.some(t => t.customerStage === 'registration'),
     reachedRecharge: turns.some(t => t.customerStage === 'recharge'),
     reachedOrderStep: turns.some(t => t.customerStage === 'ordering'),
