@@ -44,6 +44,7 @@ function AgentePage() {
   const toggleRealtimeFn = useServerFn(setServicesRealtime);
   const saveBehaviorFn = useServerFn(saveBehavior);
   const savePanelShotsFn = useServerFn(savePanelScreenshots);
+  const fetchModulesV2 = useServerFn(listModulesV2);
   const seedTplFn = useServerFn(seedBrandFromMindTemplate);
   const seedTplMut = useMutation({
     mutationFn: () => seedTplFn(),
