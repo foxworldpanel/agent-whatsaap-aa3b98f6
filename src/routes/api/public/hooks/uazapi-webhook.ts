@@ -3108,7 +3108,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 }
               });
             } catch {}
-          } else if (!isMindWorkspace) {
+          } else {
             // V1 Original (Processamento Legado)
             const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
             reply = _claudeOut.text;
