@@ -157,17 +157,52 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
             log('CONVERSATION_LOOKUP_OK');
           }
 
-          // 4. Run V2 Turn
+          // 4. Resolve Media (Audio Support)
+          const messageType = msg.type || 'text';
+          const hasAudio = messageType === 'audio' || messageType === 'ptt';
+          const mediaId = msg.mediaId || msg.id;
+          const mediaUrl = msg.url || msg.mediaUrl;
+          const mimeType = msg.mimeType || msg.mimetype;
+
+          log('AUDIO_DETECTED', { hasAudio, messageType, mediaId, mimeType });
+
+          let transcription = "";
+          if (hasAudio) {
+            log('AUDIO_PIPELINE_STARTED');
+            try {
+               // TODO: Implement direct audio processing if needed, 
+               // for now we pass media info to the orchestrator
+               log('AUDIO_METADATA_READY', { mediaId, mediaUrl, mimeType });
+            } catch (audioErr: any) {
+               log('AUDIO_PIPELINE_ERROR', { error: audioErr.message });
+               // Fallback: request text
+               const { uazapiSendText } = await import("@/lib/uazapi.server");
+               await uazapiSendText(
+                 { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
+                 phone,
+                 "Não consegui entender esse áudio. Pode enviar novamente ou escrever a mensagem?"
+               );
+               return new Response("audio error handled");
+            }
+          }
+
+          // 5. Run V2 Turn
           log('ORCHESTRATOR_STARTED');
           const v2Result = await runAgentV2Turn({
             correlationId,
             conversationId: conv.id,
             workspaceId: agent.workspace_id,
             phoneNumber: phone,
-            currentMessage: msg.text ?? msg.content ?? "",
+            currentMessage: transcription || msg.text || msg.content || msg.caption || "",
             mode: 'receptive',
             executionMode: 'real',
-            media: { type: 'text' },
+            media: { 
+              type: messageType,
+              hasAudio,
+              mediaId,
+              mediaUrl,
+              mimeType
+            },
             shortHistory: [],
             toolFixtures: { catalog: [], freeTestServices: [] },
             expected: {
@@ -184,7 +219,7 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           const { uazapiSendText } = await import("@/lib/uazapi.server");
           if (integ.uazapi_url && integ.uazapi_token) {
             const sendResult = await uazapiSendText(
-              { uazapi_url: integ.uazapi_url, uazapi_token: integ.uazapi_token },
+              { uazapi_url: integ.uazapi_url!, uazapi_token: integ.uazapi_token! },
               phone,
               v2Result.finalResponse
             );

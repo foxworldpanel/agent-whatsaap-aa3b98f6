@@ -20,6 +20,9 @@ export interface AgentV2E2EInput {
     type: 'text' | 'image' | 'audio';
     hasImage?: boolean;
     hasAudio?: boolean;
+    mediaId?: string;
+    mediaUrl?: string;
+    mimeType?: string;
   };
   shortHistory: { sender: 'agente' | 'cliente'; body: string }[];
   historySummary?: string;
