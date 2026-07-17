@@ -33,32 +33,31 @@ Finalidade: Aumentar o número de seguidores no perfil do artista.
 
 
 export const INSTAGRAM_V2 = `
-# Módulo Instagram (Placeholder)
+# Módulo Instagram
 - Serviços de Seguidores, Curtidas e Visualizações para Instagram.
-- Foco em perfis reais e entrega rápida.
-- Consulte a ferramenta consultar_servicos para detalhes atuais.
+- Consulte o catálogo para detalhes de prazos e tipos de perfis.
 `;
 
 export const YOUTUBE_V2 = `
-# Módulo YouTube (Placeholder)
+# Módulo YouTube
 - Serviços de Inscritos, Visualizações e Curtidas para YouTube.
 - Foco em conformidade com as diretrizes da plataforma.
-- Consulte a ferramenta consultar_servicos para detalhes atuais.
+- Consulte o catálogo para detalhes atuais.
 `;
 
 export const TIKTOK_V2 = `
-# Módulo TikTok (Placeholder)
+# Módulo TikTok
 - Serviços de Seguidores, Curtidas e Visualizações para TikTok.
-- Foco em entrega instantânea e perfis ativos.
+- Consulte o catálogo para detalhes de entrega e disponibilidade.
 `;
 
 export const FACEBOOK_V2 = `
-# Módulo Facebook (Placeholder)
+# Módulo Facebook
 - Serviços de Seguidores e Curtidas para Páginas e Perfis do Facebook.
 `;
 
 export const KWAI_V2 = `
-# Módulo Kwai (Placeholder)
+# Módulo Kwai
 - Serviços de Seguidores e Curtidas para Kwai.
 `;
 
@@ -71,9 +70,9 @@ export const PANEL_V2 = `
 
 export const PAYMENTS_V2 = `
 # Módulo Pagamentos e Saldo
-- Recarga mínima: R$ 5,00.
-- Métodos: PIX (crédito imediato), Cartão de Crédito ou Cripto.
+- Métodos: PIX, Cartão de Crédito ou Cripto.
 - Adição de saldo: No painel, ir em "Adicionar Saldo" no menu lateral.
+- Consulte o painel para o valor de recarga mínima atualizado.
 `;
 
 export const TUTORIALS_V2 = `
@@ -83,14 +82,14 @@ Instruções passo a passo para o uso da plataforma.
 
 export const FREE_TEST_V2 = `
 # Módulo Teste Grátis
-- Disponível apenas para novos clientes qualificados.
-- Limite de 1 teste por conta/número.
-- O link do serviço de teste deve ser gerado via ferramenta teste_gratis.
+- Disponível para novos clientes qualificados.
+- O link do serviço de teste deve ser gerado via ferramenta específica.
+- Sujeito à disponibilidade técnica do serviço no momento.
 `;
 
 export const SUPPORT_V2 = `
 # Módulo Suporte Técnico
 - Local: Apenas via ticket dentro do painel logado.
-- Horário: Segunda a Sexta, das 09h às 18h.
-- Pedidos: Informe que você não tem acesso ao status de pedidos e que o ticket é o canal oficial.
+- Pedidos: Você não tem acesso ao status de pedidos; o ticket é o canal oficial.
+- Consulte o painel para informações sobre horários de atendimento.
 `;
