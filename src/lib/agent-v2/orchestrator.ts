@@ -128,43 +128,20 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     finalResponse = guardResult.finalResponse;
 
     if (guardResult.requiresRegeneration) {
-      // LIMITE RÍGIDO: Máximo 1 chamada de regeneração por turno
-      const instruction = guardResult.regenerationInstruction || "Corrija a resposta anterior.";
-      const regenResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307', instruction);
-      const regenResponse = regenResult.reply;
+      // REGENERAÇÃO LLM DESATIVADA DURANTE HOMOLOGAÇÃO
+      // Conforme diretriz: "regeneração LLM desativada durante homologação; Guard Engine somente determinístico"
+      console.warn(`[Guard Engine V2] Regeneration required but skipped due to homologation policy. Reason: ${guardResult.violations.map(v => v.guard).join(', ')}`);
       
-      metrics.inputTokens = (metrics.inputTokens || 0) + (regenResult.usage?.input_tokens || 0);
-      metrics.outputTokens = (metrics.outputTokens || 0) + (regenResult.usage?.output_tokens || 0);
-      metrics.durationMs += regenResult.duration_ms || 0;
-      metrics.regeneration_reason = guardResult.violations.map(v => v.guard).join(', ');
-
-      const regenGuardResult = runGuardEngineV2({
-        draftResponse: regenResponse,
-        conversationState: stateAfterRouting,
-        routeResult,
-        modelRouteResult,
-        selectedModules: routeResult.selectedModules,
-        selectedTools: routeResult.selectedTools,
-        toolResults: input.toolFixtures,
-        currentMessage: normalizedMessage,
-        executionMode: input.executionMode
-      });
-
-      regenerationResult = {
-        instruction,
-        modelResponse: regenResponse,
-        guardResult: regenGuardResult
-      };
-
-      finalResponse = regenGuardResult.finalResponse;
+      // Se a resposta vazar informação proibida ou estiver quebrada, usamos o fallback do Guard
+      finalResponse = guardResult.finalResponse;
       
-      if (regenGuardResult.requiresRegeneration) {
-        // Bloqueio se ainda exigir regeneração após a primeira tentativa
-        finalResponse = "Desculpe, não consegui processar sua solicitação corretamente. Pode repetir?";
-        metrics.loop_blocked = true;
-      } else if (regenGuardResult.blocked) {
-         finalResponse = "Desculpe, não consegui processar sua solicitação corretamente. Pode repetir?";
+      // Se ainda assim for considerado um bloqueio crítico (ex: vazamento grave)
+      if (guardResult.blocked) {
+        finalResponse = "Desculpe, tive um problema interno. Como posso ajudar?";
       }
+      
+      metrics.regeneration_skipped = true;
+      metrics.regeneration_reason = guardResult.violations.map(v => v.guard).join(', ');
     } else if (guardResult.blocked) {
       finalResponse = "Desculpe, tive um problema interno. Como posso ajudar?";
     }
