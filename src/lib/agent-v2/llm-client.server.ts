@@ -50,7 +50,7 @@ export async function callLLMV2(params: {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: model,
+        model: effectiveModel,
         max_tokens: params.maxTokens || 1024,
         temperature: params.temperature ?? 0.7,
         system: params.systemPrompt,
