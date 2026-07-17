@@ -11,8 +11,9 @@ function DecommissioningLanding() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Redireciona para o dashboard caso não queira ver a página de descomissionamento
-    // navigate({ to: "/conversas" });
+    // Redireciona para o dashboard principal
+    navigate({ to: "/conversas" });
+
   }, [navigate]);
 
   return (
