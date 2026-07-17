@@ -442,14 +442,26 @@ export const listModulesV2 = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const supabase = context.supabase as any;
-    const { data: dbModules, error } = await supabase
+    console.log(`[AGENTE_PAGE] listModulesV2_started for workspace: ${context.workspaceId}`);
+    
+    // Usamos o supabaseAdmin para o loader para garantir o carregamento independente de RLS do usuário,
+    // já que o controle de acesso ao workspace Mind é feito no middleware.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    
+    const { data: dbModules, error } = await supabaseAdmin
       .from("agent_modules_v2")
       .select("*")
       .eq("workspace_id", context.workspaceId)
       .order("category", { ascending: true })
       .order("priority", { ascending: false });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error(`[AGENTE_PAGE] listModulesV2_error: ${error.message}`);
+      throw new Error(error.message);
+    }
+    
+    console.log(`[AGENTE_PAGE] listModulesV2_result_count: ${dbModules?.length || 0}`);
+
 
     // Se não houver módulos no banco para este workspace, migramos do hardcoded Module Registry
     if (!dbModules || dbModules.length === 0) {
