@@ -151,11 +151,11 @@ export function buildPromptV2(input: PromptBuilderInputV2): PromptBuilderOutputV
   return {
     systemPrompt,
     messages: [
-      { role: 'system', content: systemPrompt },
       ...limitHistory(input.history).map(h => ({
         role: h.sender === 'agente' ? 'assistant' as const : 'user' as const,
         content: h.body
-      }))
+      })),
+      { role: 'user' as const, content: input.currentMessage }
     ],
     selectedModules: input.routeResult.selectedModules,
     selectedTools: input.routeResult.selectedTools,
