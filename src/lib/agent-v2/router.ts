@@ -153,8 +153,15 @@ function applyIntentRouting(
     selectedModules.add(detectedNetwork as V2Module);
   }
 
-  switch (intent) {
+  switch (intent as string) {
+    case 'network_detection':
+      if (detectedNetwork !== 'unknown') {
+        selectedTools.add('consultar_servicos');
+      }
+      break;
+
     case 'greeting':
+
       // Basic core + mode
       break;
 
