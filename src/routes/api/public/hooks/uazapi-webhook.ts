@@ -3059,10 +3059,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 body: m.body || ''
               })),
               toolFixtures: {
-                catalog: (catalogInPrompt && typeof all !== 'undefined') ? all : [],
-                priceTable: (typeof priceTable !== 'undefined') ? priceTable : [],
+                catalog: all || [],
                 freeTestServices: freeTestServices || []
               },
+
               expected: {
                 conversationWorkspaceId: (conv as any).workspace_id,
                 agentWorkspaceId: (agent as any).workspace_id,
