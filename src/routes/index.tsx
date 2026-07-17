@@ -42,53 +42,6 @@ function Index() {
         </div>
       </header>
 
-      {/* V2 oficial — V1 desativada */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-foreground">Implementação Fase 2 — Conexão V2 Runtime</h2>
-        <div className="mt-4 space-y-4 text-sm text-muted-foreground leading-relaxed">
-          <p>
-            O dashboard e o plano já estão aprovados. Agora execute a implementação da Fase 2. Não quero apenas atualizar telas, documentos ou status do projeto. Quero conectar efetivamente a arquitetura V2 ao fluxo real do WhatsApp.
-          </p>
-
-          <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">REQUISITOS CRÍTICOS</h3>
-            <ul className="list-decimal list-inside space-y-2">
-              <li>No webhook <code className="bg-muted px-1 rounded text-foreground">uazapi-webhook.ts</code>, para o número autorizado, substituir <code className="bg-muted px-1 rounded text-foreground">generateAgentReplyWithMeta()</code> por <code className="bg-muted px-1 rounded text-foreground">runAgentV2Turn()</code>.</li>
-              <li>Turno real deve processar: <b>Conversation State → Module Router → Prompt Builder → Model Router → Modelo → Guard Engine → Analytics V2 → WhatsApp</b>.</li>
-              <li>Manter V1 intacta no código, mas sem execução pelo número autorizado.</li>
-              <li>Apenas o número autorizado executa IA (V2).</li>
-              <li>Criar <b>Rollback simples por configuração</b> (fallback explícito, não silencioso).</li>
-              <li>Se a V2 falhar, registrar erro e <b>não usar o cérebro antigo</b>.</li>
-            </ul>
-          </div>
-
-          <div className="pt-4 border-t border-border/50">
-            <h3 className="font-bold text-foreground uppercase tracking-wider text-xs mb-2">EVIDÊNCIAS NECESSÁRIAS</h3>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex items-center gap-2">• Diff do webhook alterado</div>
-              <div className="flex items-center gap-2">• Call stack de mensagem real</div>
-              <div className="flex items-center gap-2">• Turn ID & runAgentV2Turn log</div>
-              <div className="flex items-center gap-2">• Módulos & Modelo selecionado</div>
-              <div className="flex items-center gap-2">• Registro Analytics V2</div>
-              <div className="flex items-center gap-2">• Confirmação de envio WhatsApp</div>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-border/50 bg-primary/5 p-4 rounded-lg border border-primary/20">
-            <h3 className="font-bold text-primary uppercase tracking-wider text-xs mb-2">CRITÉRIO DE CONCLUSÃO — VERIFICAÇÃO V2</h3>
-            <div className="mt-3 grid grid-cols-1 gap-1 text-[10px] font-mono uppercase">
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>ORCHESTRATOR V2 EXECUTADO:</span> <span className="font-bold text-success">SIM</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>PROMPT V2 UTILIZADO:</span> <span className="font-bold text-success">SIM</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>PROMPT V1 UTILIZADO:</span> <span className="font-bold text-destructive">NÃO</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>GENERATE_AGENT_REPLY_WITH_META CHAMADA:</span> <span className="font-bold text-warning">APENAS INFERÊNCIA</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>V1 EXECUTADA PARCIALMENTE:</span> <span className="font-bold text-destructive">NÃO</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>ESTADO V2 PERSISTIDO:</span> <span className="font-bold text-success">SIM</span></div>
-              <div className="flex justify-between border-b border-primary/10 pb-1"><span>ANALYTICS V2 PERSISTIDO:</span> <span className="font-bold text-success">SIM</span></div>
-              <div className="flex justify-between"><span>TURN ID CORRESPONDENTE:</span> <span className="font-bold text-success">SIM</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => {
