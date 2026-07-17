@@ -63,24 +63,37 @@ export class SupabaseAgentV2AnalyticsRepository implements AgentV2AnalyticsRepos
   async persistTurn(data: AgentV2TurnAnalytics): Promise<void> {
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     
-    // Using the RPC for idempotent upsert with regression prevention
+    // Using the RPC for idempotent upsert with correct mapping to parameters
     const { error } = await (supabaseAdmin as any).rpc('upsert_agent_v2_turn_analytics', {
-      p_turn: {
-        ...data,
-        selected_modules: data.selectedModules || [],
-        selected_tools: data.selectedTools || [],
-        selected_tutorials: data.selectedTutorials || [],
-        guard_violations: data.guardViolations || [],
-        guards_triggered: data.guardsTriggered || [],
-        state_changed_fields: data.stateChangedFields || []
-      }
+      p_turn_id: data.turnId,
+      p_workspace_id: data.workspaceId,
+      p_conversation_id: data.conversationId,
+      p_phone_hash: data.phoneHash,
+      p_intent: data.intent,
+      p_network: data.network,
+      p_service: data.service,
+      p_selected_model: data.selectedModel,
+      p_input_tokens: data.inputTokens,
+      p_output_tokens: data.outputTokens,
+      p_estimated_cost: data.estimatedCost,
+      p_duration_ms: data.durationMs,
+      p_routing_reason: data.routingReason,
+      p_quality_flags: data.qualityFlags || {},
+      p_customer_stage: data.customerStage,
+      p_selected_modules: data.selectedModules || [],
+      p_selected_tools: data.selectedTools || [],
+      p_selected_tutorials: data.selectedTutorials || [],
+      p_execution_mode: data.executionMode,
+      p_errors: [] // placeholder for now
     });
 
     if (error) {
       console.error('[SupabaseAnalytics] Failed to persist turn:', error);
-      throw error;
+      // We don't throw here to avoid breaking the user turn if analytics fails
+      // throw error;
     }
   }
+
 
   async getConversationTurns(workspaceId: string, conversationId: string): Promise<AgentV2TurnAnalytics[]> {
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
