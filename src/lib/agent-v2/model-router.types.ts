@@ -3,9 +3,9 @@
  */
 
 export const MODEL_CONFIG_V2 = {
-  lightweightModel: 'claude-3-5-haiku-latest',
-  strongModel: 'claude-3-5-sonnet-latest',
-  visionModel: 'claude-3-5-sonnet-latest',
+  lightweightModel: 'claude-3-5-sonnet-20240620',
+  strongModel: 'claude-3-5-sonnet-20240620',
+  visionModel: 'claude-3-5-sonnet-20240620',
   transcriptionModel: 'whisper-1' 
 };
 
