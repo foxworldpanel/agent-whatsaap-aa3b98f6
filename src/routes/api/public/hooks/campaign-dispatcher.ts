@@ -15,8 +15,9 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
       POST: async () => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
-        // generateAgentReply V1 removed - campaigns need V2 migration
-        const generateAgentReply = async (...args: any[]) => "Abordagem desativada: V1 removida.";
+        // Campanha desativada: motor de abordagem removido
+        const generateAgentReply = async (...args: any[]) => "Abordagem desativada.";
+
 
         const { data: campaigns, error: cErr } = await supabaseAdmin
           .from("campaigns")
