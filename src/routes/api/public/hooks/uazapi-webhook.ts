@@ -238,15 +238,27 @@ export const Route = createFileRoute('/api/public/hooks/uazapi-webhook')({
           log('ORCHESTRATOR_OK');
 
           // 5. Send Reply
-          log('WHATSAPP_SEND_STARTED');
-          const { uazapiSendText } = await import("@/lib/uazapi.server");
+          log('WHATSAPP_REPLY_LOGIC_STARTED', { hasAudioResponse: !!v2Result.metrics?.audioResponseUrl });
+          const { uazapiSendText, uazapiSendAudio } = await import("@/lib/uazapi.server");
+          
           if (integ.uazapi_url && integ.uazapi_token) {
-            const sendResult = await uazapiSendText(
-              { uazapi_url: integ.uazapi_url!, uazapi_token: integ.uazapi_token! },
-              phone,
-              v2Result.finalResponse
-            );
-            log('WHATSAPP_SEND_OK', { sendResult });
+            if (v2Result.metrics?.audioResponseUrl) {
+              log('WHATSAPP_SEND_AUDIO_STARTED', { url: v2Result.metrics.audioResponseUrl });
+              const sendResult = await uazapiSendAudio(
+                { uazapi_url: integ.uazapi_url!, uazapi_token: integ.uazapi_token! },
+                phone,
+                v2Result.metrics.audioResponseUrl
+              );
+              log('WHATSAPP_SEND_AUDIO_OK', { sendResult });
+            } else {
+              log('WHATSAPP_SEND_TEXT_STARTED');
+              const sendResult = await uazapiSendText(
+                { uazapi_url: integ.uazapi_url!, uazapi_token: integ.uazapi_token! },
+                phone,
+                v2Result.finalResponse
+              );
+              log('WHATSAPP_SEND_TEXT_OK', { sendResult });
+            }
           } else {
             log('WHATSAPP_SEND_ERROR', { reason: 'missing_credentials' });
           }
