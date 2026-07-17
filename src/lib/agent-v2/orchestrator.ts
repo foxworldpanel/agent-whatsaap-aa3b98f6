@@ -57,6 +57,7 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     console.log(`[AGENT_V2] workspace_resolved | correlation_id: ${correlationId} | workspace: ${input.workspaceId}`);
     console.log(`[AGENT_V2] conversation_loaded | correlation_id: ${correlationId} | conversation: ${input.conversationId}`);
 
+    const stateBefore = { ...input.previousState };
     // Audio Recovery Logic
     let processedMessage = (typeof input.currentMessage === 'string' ? input.currentMessage : "").trim();
     
@@ -123,7 +124,6 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     }
 
     const normalizedMessage = processedMessage;
-  const stateBefore = { ...input.previousState };
 
     const routeResult = routeModulesV2({
       currentMessage: normalizedMessage,
