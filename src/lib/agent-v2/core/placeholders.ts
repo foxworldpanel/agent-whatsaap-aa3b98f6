@@ -13,6 +13,7 @@ Limitações e Regras:
 - Não prometemos viralização ou ativação garantida de algoritmos.
 - Não garantimos royalties ou monetização.
 - O Spotify não "aprova" oficialmente serviços de terceiros; foque na funcionalidade de entrega.
+- Disponibilidade e Preços: Consulte exclusivamente o catálogo dinâmico. Se um serviço aparece no catálogo, ele está ativo.
 `;
 
 export const SPOTIFY_PLAYLIST = `
@@ -21,6 +22,7 @@ Finalidade: Colocar sua música em playlists para atrair ouvintes.
 - Ideal para: Lançamentos, aumentar reproduções (plays) e descobertas.
 - Requisito: Link da faixa (track).
 - Diferença: Seguidores no perfil não garantem que as pessoas ouçam suas músicas; playlists sim.
+- Status: A disponibilidade depende inteiramente do que consta no catálogo consultado agora.
 `;
 
 export const SPOTIFY_FOLLOWERS = `
@@ -35,20 +37,20 @@ Finalidade: Aumentar o número de seguidores no perfil do artista.
 export const INSTAGRAM_V2 = `
 # Módulo Instagram
 - Serviços de Seguidores, Curtidas e Visualizações para Instagram.
-- Consulte o catálogo para detalhes de prazos e tipos de perfis.
+- Consulte o catálogo dinâmico para detalhes de prazos, preços e disponibilidade.
 `;
 
 export const YOUTUBE_V2 = `
 # Módulo YouTube
 - Serviços de Inscritos, Visualizações e Curtidas para YouTube.
 - Foco em conformidade com as diretrizes da plataforma.
-- Consulte o catálogo para detalhes atuais.
+- Preços e disponibilidade devem ser extraídos exclusivamente do catálogo consultado.
 `;
 
 export const TIKTOK_V2 = `
 # Módulo TikTok
 - Serviços de Seguidores, Curtidas e Visualizações para TikTok.
-- Consulte o catálogo para detalhes de entrega e disponibilidade.
+- Consulte o catálogo para detalhes de entrega e disponibilidade real no momento.
 `;
 
 export const FACEBOOK_V2 = `
@@ -72,7 +74,7 @@ export const PAYMENTS_V2 = `
 # Módulo Pagamentos e Saldo
 - Métodos: PIX, Cartão de Crédito ou Cripto.
 - Adição de saldo: No painel, ir em "Adicionar Saldo" no menu lateral.
-- Consulte o painel para o valor de recarga mínima atualizado.
+- Consulte o painel para o valor de recarga mínima atualizado. Não informe valores de recarga mínima por texto fixo.
 `;
 
 export const TUTORIALS_V2 = `
@@ -84,7 +86,7 @@ export const FREE_TEST_V2 = `
 # Módulo Teste Grátis
 - Disponível para novos clientes qualificados.
 - O link do serviço de teste deve ser gerado via ferramenta específica.
-- Sujeito à disponibilidade técnica do serviço no momento.
+- A disponibilidade técnica do teste depende do status do serviço no catálogo.
 `;
 
 export const SUPPORT_V2 = `
