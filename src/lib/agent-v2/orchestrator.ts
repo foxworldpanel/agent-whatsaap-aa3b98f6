@@ -48,6 +48,9 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     durationMs: 0
   };
 
+  try {
+
+
   const normalizedMessage = input.currentMessage.trim();
   const stateBefore = { ...input.previousState };
 
