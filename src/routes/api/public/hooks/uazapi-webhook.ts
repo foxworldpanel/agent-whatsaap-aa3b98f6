@@ -2706,7 +2706,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .createSignedUrl(r.storage_path, 60 * 60);
                 if (signed?.signedUrl) imageUrl = signed.signedUrl;
               }
-              const { describePanelScreen } = await import("@/lib/ai.server");
+              const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
               extracted = await describePanelScreen({
                 imageUrl,
                 name: r.name,
