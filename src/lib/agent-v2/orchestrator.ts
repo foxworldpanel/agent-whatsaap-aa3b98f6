@@ -351,16 +351,26 @@ async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string
     const lastUserMessage = prompt.messages[prompt.messages.length - 1].content.toLowerCase();
     let reply = "Como posso ajudar? (Simulação)";
     
+    const catalog = input.toolFixtures?.catalog || [];
+    const hasActiveCatalog = Array.isArray(catalog) && catalog.length > 0;
+
     if (instruction && instruction.includes('PRICE_SOURCE_GUARD')) {
       reply = "A nossa playlist para Spotify está custando apenas R$ 49,90.";
+    } else if (lastUserMessage.includes('ainda está funcionando') || lastUserMessage.includes('está disponível')) {
+      reply = hasActiveCatalog ? "Sim, o serviço está disponível e funcionando normalmente." : "No momento o serviço está indisponível para manutenção.";
+    } else if (lastUserMessage.includes('valor') || lastUserMessage.includes('preço') || lastUserMessage.includes('quanto')) {
+      if (hasActiveCatalog) {
+        const item = catalog[0];
+        reply = `O valor para ${item.name || 'o serviço'} é R$ ${item.rate || item.preco_por_1000}.`;
+      } else {
+        reply = "Não encontrei o preço deste serviço no momento.";
+      }
     } else if (lastUserMessage.includes('divulgar minha música')) {
       reply = "Plataforma?";
     } else if (lastUserMessage.includes('spotify')) {
       reply = "Seguidores ou plays?";
     } else if (lastUserMessage.includes('playlist')) {
-      reply = "Temos playlist para Spotify.";
-    } else if (lastUserMessage.includes('valor') || lastUserMessage.includes('preço') || lastUserMessage.includes('quanto')) {
-      reply = "O valor é informado no catálogo.";
+      reply = hasActiveCatalog ? "Temos playlist para Spotify disponível." : "Playlist Spotify está em manutenção.";
     }
 
     return { 
