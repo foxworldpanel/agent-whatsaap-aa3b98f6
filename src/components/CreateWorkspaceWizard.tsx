@@ -108,20 +108,11 @@ export function CreateWorkspaceWizard({ open, onOpenChange }: Props) {
 
       // 3) identidade
       if (useMindTemplate) {
-        try {
-          await seedMind();
-        } catch (e) {
-          console.error("seed mind template falhou", e);
-          toast.error("Falha ao aplicar template Mind — segue com os campos vazios");
-        }
+        // V2 modules seeding should be implemented here in the future
+        console.log("V2 Mind template requested for new workspace");
       } else if (persona.trim() || terminologia.trim() || exemploDisparo.trim()) {
-        await updateIdent({
-          data: {
-            persona: persona.trim() || null,
-            terminologia_redes: terminologia.trim() || null,
-            exemplo_disparo: exemploDisparo.trim() || null,
-          },
-        });
+        // Legacy agent_identity update skipped in V2
+        console.log("Custom identity fields skipped in V2 creation wizard");
       }
 
       // 4) categorias
