@@ -82,18 +82,14 @@ export function routeModelV2(input: RouteModelV2Input): RouteModelV2Output {
     selectedModel = MODEL_CONFIG_V2.visionModel;
     routingReason = 'vision_required';
   } else if (complexity === 'complex') {
-    // Só promove para modelo forte se houver complexidade real (multi-intenção complexa)
-    selectedModel = MODEL_CONFIG_V2.strongModel;
+    // DESATIVADO: Promoção automática para Sonnet durante homologação.
+    // Usar apenas Haiku conforme diretriz de controle de custos.
+    selectedModel = MODEL_CONFIG_V2.lightweightModel;
     routingReason = 'multi_intent';
+    warnings.push('Sonnet promotion disabled for cost control');
   } else if (complexity === 'moderate') {
-    // Para complexidade moderada (comparações), modelo forte é opcional mas recomendado
-    if (msg.includes('qual é melhor') || msg.includes('diferença')) {
-      selectedModel = MODEL_CONFIG_V2.strongModel;
-      routingReason = 'objection_complex';
-    } else {
-      selectedModel = MODEL_CONFIG_V2.lightweightModel;
-      routingReason = 'simple_commercial';
-    }
+    selectedModel = MODEL_CONFIG_V2.lightweightModel;
+    routingReason = 'simple_commercial';
   } else {
     // Casos de Modelo Leve
     const mainIntent = Array.isArray(routeResult.detectedIntent) ? routeResult.detectedIntent[0] : routeResult.detectedIntent;
