@@ -17,6 +17,7 @@ export async function runCatalogConflictTests() {
     phoneNumber,
     executionMode: 'isolated' as const,
     mode: 'receptive' as const,
+    shortHistory: [],
   };
 
   const tests = [
