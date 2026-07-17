@@ -59,10 +59,28 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
 
     // Audio Recovery Logic
     let processedMessage = (input.currentMessage || "").trim();
-    if (input.media?.hasAudio && !processedMessage) {
+    if (input.media?.hasAudio && input.media?.mediaUrl && !processedMessage) {
        console.log(`[AGENT_V2][${correlationId}] audio_recovery_triggered | media_id: ${input.media?.mediaId}`);
-       // TODO: Actual Whisper call here. For now, triggering error to test fallback path.
-       throw new Error("Audio processing (Whisper) not yet fully implemented in orchestrator - failing for recovery test.");
+       try {
+         const { transcribeAudio } = await import('./audio-processor.server');
+         processedMessage = await transcribeAudio(input.media.mediaUrl);
+         console.log(`[AGENT_V2][${correlationId}] audio_transcribed | text: ${processedMessage.slice(0, 50)}...`);
+       } catch (audioErr: any) {
+         console.error(`[AGENT_V2][${correlationId}] audio_transcription_failed | error: ${audioErr.message}`);
+         // We let it continue with empty message which will trigger a friendly "can you write it?" fallback below
+       }
+    }
+
+    if (input.media?.hasAudio && !processedMessage) {
+       // Friendly fallback instead of technical error
+       return {
+         ...input.previousState as any, // Placeholder for valid return
+         finalResponse: "Desculpe, não consegui entender seu áudio claramente. Poderia escrever o que precisa ou tentar enviar o áudio novamente?",
+         stateAfter: input.previousState,
+         metrics: { ...metrics, durationMs: Date.now() - startTime, audio_fail: true },
+         errors: ["Audio transcription returned empty or failed."],
+         sentToCustomer: false
+       } as any;
     }
 
     const normalizedMessage = processedMessage;
