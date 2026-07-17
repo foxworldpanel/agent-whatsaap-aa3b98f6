@@ -137,6 +137,48 @@ function AgentePage() {
     );
   }
 
+  if (modulesError) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center p-6">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Erro ao carregar módulos</AlertTitle>
+          <AlertDescription>
+            {modulesError instanceof Error ? modulesError.message : "Erro desconhecido."}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-4 w-full"
+              onClick={() => qc.invalidateQueries({ queryKey: ["agent_modules_v2"] })}
+            >
+              Tentar Novamente
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (v2Modules.length === 0) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <Cpu className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
+          <h2 className="text-xl font-bold mb-2">Nenhum módulo encontrado</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Não foi possível carregar ou migrar os módulos para o seu workspace.
+          </p>
+          <Button 
+            onClick={() => qc.invalidateQueries({ queryKey: ["agent_modules_v2"] })}
+          >
+            Sincronizar Módulos Agora
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-6 pb-20">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
