@@ -2865,7 +2865,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 }
               }
               let services = all;
-              const lowerText = (text ?? "").toLowerCase();
               const spotifyMatch = /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly/i.test(lowerText);
               
               if (onlyRelevant && matched.length > 0) {
