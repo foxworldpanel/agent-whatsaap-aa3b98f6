@@ -307,7 +307,11 @@ function Step({ icon, label, sub }: { icon: React.ReactNode, label: string, sub:
   return (
     <div className="flex flex-col items-center gap-2 text-center group">
       <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center group-hover:border-blue-500 transition-colors">
-        {React.cloneElement(icon as React.ReactElement, { className: "w-5 h-5 text-slate-400 group-hover:text-blue-400" })}
+        {React.isValidElement(icon) 
+          ? React.cloneElement(icon as React.ReactElement<{ className?: string }>, { 
+              className: "w-5 h-5 text-slate-400 group-hover:text-blue-400" 
+            }) 
+          : null}
       </div>
       <div>
         <p className="text-xs font-bold text-slate-300">{label}</p>
