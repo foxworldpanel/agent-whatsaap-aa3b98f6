@@ -162,7 +162,7 @@ export function runGuardEngineV2(input: GuardEngineInput): GuardEngineOutput {
 
   // 7. SERVICE_AVAILABILITY_GUARD
   runGuard('SERVICE_AVAILABILITY_GUARD', () => {
-    const toolResult = input.toolResults['consultar_servicos'];
+    const toolResult = input.toolResults?.['consultar_servicos'];
     if (toolResult && toolResult.isActive === false) {
       if (finalResponse.toLowerCase().includes('disponível') || finalResponse.toLowerCase().includes('temos')) {
         return { guard: 'SERVICE_AVAILABILITY_GUARD', action: 'regenerate', severity: 'high', message: 'Serviço inativo oferecido como disponível.' };
