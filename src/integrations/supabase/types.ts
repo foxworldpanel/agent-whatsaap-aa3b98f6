@@ -3087,7 +3087,7 @@ export type Database = {
           p_conversation_id: string
           p_customer_stage: string
           p_duration_ms: number
-          p_errors?: string[]
+          p_errors: string[]
           p_estimated_cost: number
           p_execution_mode: string
           p_input_tokens: number
