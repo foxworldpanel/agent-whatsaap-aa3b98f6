@@ -52,7 +52,7 @@ function AgentePage() {
   }, [configQ.data]);
 
   const saveMut = useMutation({
-    mutationFn: (data: Record<string, string>) => saveModules({ data }),
+    mutationFn: (data: { modules: Record<string, string> }) => saveModules({ data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agent_config"] });
       toast.success("Configurações do agente salvas com sucesso!");
@@ -84,7 +84,7 @@ function AgentePage() {
           <button
             onClick={() => {
               if (confirm("Deseja realmente restaurar todos os módulos para o padrão de fábrica? Isso substituirá suas personalizações.")) {
-                saveMut.mutate({}); // Passing empty object triggers merge with DEFAULT_MODULES on server
+                saveMut.mutate({ modules: {} }); // Passing empty object triggers merge with DEFAULT_MODULES on server
               }
             }}
             className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold transition hover:bg-muted"
@@ -93,7 +93,7 @@ function AgentePage() {
             Restaurar Padrões
           </button>
           <button
-            onClick={() => saveMut.mutate(modules)}
+            onClick={() => saveMut.mutate({ modules })}
             disabled={saveMut.isPending}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
             style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
