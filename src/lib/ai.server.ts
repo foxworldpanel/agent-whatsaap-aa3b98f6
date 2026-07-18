@@ -1299,9 +1299,9 @@ export async function generateAgentReplyWithMeta(params: {
   const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
   
   if (process.env.NODE_ENV === "test") {
-    // Reduzido para não poluir logs em todos os testes
+    // Apenas log de depuração minimalista para testes de prompt
     if (fullSystemFallback.includes("EXEMPLO_MODELO_DISPARO")) {
-       console.log("[agent-ai] SYSTEM CONTAINS EXEMPLO_MODELO_DISPARO");
+       // console.log("[agent-ai] SYSTEM CONTAINS EXEMPLO_MODELO_DISPARO");
     }
   }
 
