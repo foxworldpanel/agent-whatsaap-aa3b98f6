@@ -1455,7 +1455,7 @@ describe("Sanitização de vazamento de prompt interno (sanitizeSystemLeaks)", (
 // ---------------------------------------------------------------------------
 describe("Detecção de mensagem automática de WhatsApp Business (saudação + menu)", () => {
   it("prompt contém sinais de MENU NUMERADO e proíbe pedido de desculpa", () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: [
@@ -1468,6 +1468,7 @@ describe("Detecção de mensagem automática de WhatsApp Business (saudação + 
       ],
       isInbound: true,
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(/MENU NUMERADO|Digite \(01\)/i.test(prompt)).toBe(true);
     expect(/NUNCA responda escolhendo uma opção do menu/i.test(prompt)).toBe(true);
     expect(/acho que houve uma confus[aã]o/i.test(prompt)).toBe(true);
