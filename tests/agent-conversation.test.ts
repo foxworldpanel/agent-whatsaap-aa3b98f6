@@ -128,7 +128,7 @@ beforeEach(() => {
   vi.unstubAllGlobals?.();
 });
 afterEach(() => {
-  vi.unstubAllGlobals();
+  vi.unstubAllGlobals?.();
   vi.restoreAllMocks();
 });
 
