@@ -927,7 +927,7 @@ export async function generateAgentReplyWithMeta(params: {
     // Se for efetivamente um disparo, injetamos o EXEMPLO_MODELO_DISPARO aqui (no dinâmico)
     // para não quebrar o cache do Bloco 1 nas conversas orgânicas.
     effectiveBlast
-      ? buildSharedRules(identity, { suppressExemploDisparo: false }).split("EXEMPLO_MODELO_DISPARO")[1] || ""
+      ? buildSharedRules(identity, { suppressExemploDisparo: false })
       : "",
     // Regra de reconhecimento de interesse (fundamental para o Claude decidir avançar ou não)
     identity.reconhecimento_interesse || "",
