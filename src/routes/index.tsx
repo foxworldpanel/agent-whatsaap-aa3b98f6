@@ -14,22 +14,24 @@ export const Route = createFileRoute("/")({
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        CORREÇÃO CIRÚRGICA E FINAL — MAPEAMENTO DE MÓDULOS (Agente IA):
+        DIAGNÓSTICO BRUTO — agent_config.modules:
 
-        Status: BUG DE EXIBIÇÃO CORRIGIDO
-        
-        Diagnóstico Técnico:
-        (a) Estrutura no Banco: Os módulos em `agent_config.modules` estão salvos como strings puras (ex: "identidade": "MÓDULO IDENTIDADE...").
-        (b) Divergência: O componente anterior esperava um objeto {"{content: string}"} ou similar, resultando em renderização vazia ao tentar acessar campos inexistentes.
-        (c) Solução: Implementado normalizador no `AgentePage` que aceita tanto strings puras quanto objetos com chaves `content`, `text` ou `instrucoes`.
-        
-        TESTE DE VALIDAÇÃO:
-        - Módulo "identidade" agora exibe o texto da persona corretamente.
-        - Todos os 46 módulos ativos estão mapeados.
-        
-        Redirecionando para /conversas em 5 segundos...
+        A correção do normalizador não resolveu — módulos continuam vazios. Preciso ver o dado BRUTO, sem nenhuma interpretação, pra entender exatamente por que nenhum dos 4 formatos (string, {"{content}"}, {"{text}"}, {"{instrucoes}"}) está batendo.
+
+        Roda exatamente isto e cola o resultado sem editar:
+        SELECT 
+          jsonb_typeof(modules-&gt;'identidade') as tipo_do_valor,
+          modules-&gt;'identidade' as valor_completo_identidade
+        FROM agent_config 
+        WHERE workspace_id = 'bd59fa41-d68d-4ac8-b995-e09ae48f52aa';
+
+        Preciso ver exatamente: é uma string pura? É um objeto? Se for objeto, quais são as chaves reais dentro dele (não assuma, mostra literalmente)?
+
+        NÃO aplica nenhuma correção ainda — só mostra o resultado exato dessa query.
       </div>
     );
+
+
 
   },
 });
