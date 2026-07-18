@@ -82,17 +82,6 @@ function AgentePage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => {
-              if (confirm("Deseja realmente restaurar todos os módulos para o padrão de fábrica? Isso substituirá suas personalizações.")) {
-                saveMut.mutate({ modules: {} }); // Passing empty object triggers merge with DEFAULT_MODULES on server
-              }
-            }}
-            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold transition hover:bg-muted"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Restaurar Padrões
-          </button>
-          <button
             onClick={() => saveMut.mutate({ modules })}
             disabled={saveMut.isPending}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
