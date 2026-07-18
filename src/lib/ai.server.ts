@@ -1160,9 +1160,9 @@ export async function generateAgentReplyWithMeta(params: {
   const systemBlock2 = system;
   const fullSystemFallback = [
     systemBlock1,
-    Array.isArray(systemBlock2) 
-      ? systemBlock2.map(b => typeof b === "string" ? b : b.text).join("\n\n") 
-      : systemBlock2
+    ...(Array.isArray(systemBlock2) 
+      ? systemBlock2.map(b => typeof b === "string" ? b : b.text) 
+      : [systemBlock2])
   ].join("\n\n");
 
   // ============================================================
