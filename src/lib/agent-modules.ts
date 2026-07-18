@@ -264,7 +264,7 @@ Regras:
 
   playlist_promo: `MÓDULO PLAYLIST — PROMOÇÃO ATIVA
 - Venda focada em aluguel de playlists e seguidores Spotify.
-- Siga rigorosamente a disponibilidade e preços do catálogo real.
+- Siga rigorosamente a disponibilidade e preços do módulo 'tabela_precos'.
 `,
 
   tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
