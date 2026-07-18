@@ -1519,7 +1519,7 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
   });
 
   it("prompt de disparo real (isInbound=false + abertura com pergunta-isca) CONTINUA carregando o EXEMPLO_MODELO_DISPARO", () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: [
@@ -1529,6 +1529,7 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
       isInbound: false,
       identity: MIND_BRAND_TEMPLATE,
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(EXEMPLO_BODY_SIGNATURE.test(prompt)).toBe(true);
     // E o exemplo já NÃO contém mais nome/handle real hardcoded.
     expect(prompt).not.toContain("Romulo");
