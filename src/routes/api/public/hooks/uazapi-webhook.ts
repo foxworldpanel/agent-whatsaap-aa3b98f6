@@ -3139,8 +3139,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
               if (facts) {
                 const prev = ((conv as { contexto_extra?: string | null }).contexto_extra ?? "").trim();
-                const existingLines = new Set(prev.split("\n").map((l) => l.trim().toLowerCase()).filter(Boolean));
-                const newLines = facts.split("\n").map((l) => l.trim()).filter((l) => l && !existingLines.has(l.toLowerCase()));
+                const existingLines = new Set(prev.split("\n").map((l: any) => l.trim().toLowerCase()).filter(Boolean));
+                const newLines = facts.split("\n").map((l: any) => l.trim()).filter((l: any) => l && !existingLines.has(l.toLowerCase()));
                 if (newLines.length > 0) {
                   const merged = [prev, ...newLines].filter(Boolean).join("\n").slice(-2000);
                   await supabaseAdmin.from("conversations").update({ contexto_extra: merged } as never).eq("id", conv.id);
