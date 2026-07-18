@@ -883,9 +883,9 @@ export async function generateAgentReplyWithMeta(params: {
   const systemBlock1 = buildSharedRules(identity, {
     freeTestServices,
     brandBlocks,
-    // Em produção, suprimimos o exemplo few-shot do bloco estável para manter a 
-    // string idêntica em todas as chamadas de suporte/venda orgânica.
-    suppressExemploDisparo: true, // SEMPRE suprimir no Bloco 1 para estabilidade de cache
+    // Em produção, suprimimos o exemplo few-shot, catálogos e promoções do bloco estável 
+    // para manter a string idêntica em todas as chamadas de suporte/venda orgânica.
+    suppressExemploDisparo: true,
   });
 
   const system: any = [
@@ -905,7 +905,7 @@ export async function generateAgentReplyWithMeta(params: {
     (() => {
       const t = (dailyPromoText ?? "").trim();
       if (!t) return "";
-      return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta.`;
+      return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condition além desta.`;
     })(),
     // Se for efetivamente um disparo, injetamos o EXEMPLO_MODELO_DISPARO aqui (no dinâmico)
     // para não quebrar o cache do Bloco 1 nas conversas orgânicas.
