@@ -1285,11 +1285,10 @@ export async function generateAgentReplyWithMeta(params: {
   const system: any[] = [
     { type: "text", text: String(systemBlock1 || ""), cache_control: { type: "ephemeral" } },
     ...(Array.isArray(systemBlock2) 
-      ? systemBlock2.map((b: any) => (typeof b === "string" ? { type: "text", text: b } : b)) 
+      ? systemBlock2.map((b: any) => (typeof b === "string" ? { type: "text", text: b } : (typeof b === 'object' && b !== null && 'text' in b ? b : { type: 'text', text: String(b || "") }))) 
       : (systemBlock2 ? [{ type: "text", text: typeof systemBlock2 === 'string' ? systemBlock2 : String((systemBlock2 as any).text || "") }] : []))
   ].map((b: any) => {
-    const textValue = typeof b === 'object' && b !== null && 'text' in b ? b.text : b;
-    return { type: 'text', ...b, text: String(textValue || "") };
+    return { ...b, text: String(b.text || "") };
   });
 
   const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
