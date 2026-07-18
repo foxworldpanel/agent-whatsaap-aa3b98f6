@@ -1127,16 +1127,10 @@ export async function generateAgentReplyWithMeta(params: {
   });
 
   const contextoDetectado = detectarContexto(latestClientMessage, history);
-  const systemBlock2 = initialSystemBlocks;
-  const systemLen = Array.isArray(systemBlock2) ? systemBlock2.reduce((acc, curr) => acc + (typeof curr === "string" ? curr.length : (curr.text?.length || 0)), 0) : String(systemBlock2).length;
+  const systemLen = systemBlocks.filter(Boolean).join("\n\n").length;
   console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(systemLen / 4));
 
-  const fullSystemFallbackInitial = [
-    systemBlock1,
-    ...(Array.isArray(systemBlock2) 
-      ? systemBlock2.map((b: any) => (typeof b === "string" ? b : b.text)) 
-      : [systemBlock2])
-  ].filter(Boolean).join("\n\n");
+  const fullSystemFallback = systemBlocks.filter(Boolean).join("\n\n");
 
   // ============================================================
   // MÉTRICAS DE PROMPT (baseline pré-refatoração).
@@ -1259,41 +1253,17 @@ export async function generateAgentReplyWithMeta(params: {
   }
 
   const claudeStartedAt = Date.now();
-  const system: any[] = [
-    { type: "text", text: String(systemBlock1 || ""), cache_control: { type: "ephemeral" } },
-    ...(Array.isArray(systemBlock2) 
-      ? systemBlock2.map((b: any) => {
-          if (typeof b === "string") return { type: "text", text: b };
-          if (typeof b === 'object' && b !== null) {
-             const txt = b.text || b.content || (typeof b.toString === 'function' ? b.toString() : "");
-             return { type: 'text', text: String(txt) };
-          }
-          return { type: 'text', text: String(b || "") };
-        }) 
-      : (systemBlock2 ? [{ type: "text", text: typeof systemBlock2 === 'string' ? systemBlock2 : String((systemBlock2 as any).text || (systemBlock2 as any).content || "") }] : []))
-  ];
-
-  const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
-  
-  if (process.env.NODE_ENV === "test") {
-    // Apenas log de depuração minimalista para testes de prompt
-    if (fullSystemFallback.includes("EXEMPLO_MODELO_DISPARO")) {
-       // console.log("[agent-ai] SYSTEM CONTAINS EXEMPLO_MODELO_DISPARO");
-    }
-  }
-
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-api-key": anthropicKey,
       "anthropic-version": "2023-06-01",
-      "anthropic-beta": "prompt-caching-2024-07-31"
     },
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      system,
+      system: fullSystemFallback,
       messages: finalMessages,
     }),
   });
