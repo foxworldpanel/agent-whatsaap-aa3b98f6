@@ -2827,9 +2827,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           const activeModulesCount = Object.entries(_mods).filter(
             ([k, v]) => v && String(v).trim() && _modsEnabled[k] !== false,
           ).length;
-          const loadedServicesCount = servicesContext
-            ? (servicesContext.match(/\nID: /g)?.length ?? 0)
-            : 0;
+          const loadedServicesCount = 0; // Catálogo dinâmico removido
+
           console.log(
             `Prompt montado: ${activeModulesCount} módulos ativos | ${loadedServicesCount} serviços carregados | ${knowledgeExamples.length} exemplos na base`,
           );
