@@ -125,7 +125,7 @@ async function callAgent(opts: {
 }
 
 beforeEach(() => {
-  vi.unstubAllGlobals();
+  vi.unstubAllGlobals?.();
 });
 afterEach(() => {
   vi.unstubAllGlobals();
