@@ -30,6 +30,9 @@ export default function Index() {
    - Curtidas: ID 'Instagram - Curtidas [BRASIL] [R30]' rate: 5.
    - Seguidores Brasil: ID 'Instagram - Seguidores [BRASIL] [R30] [MQ]' rate: 15.
 
+4) REGRA DE OURO ATUALIZADA:
+   "o agente tem que puxar os valores apenas do card "Tabela de Preços Manual" esquece tudo de valor se tiver fora desse card"
+
 SISTEMA ATUALIZADO — AGUARDANDO VALIDAÇÃO FINAL.
 
 ORCHESTRATOR V1 EXECUTADO: SIM
