@@ -680,7 +680,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         {
           const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
           const isMindWorkspace = selectedWorkspaceId === MIND_WORKSPACE_ID;
-          if (isMindWorkspace && !msg.fromMe && !["5511970116430", "5511970116431"].includes(phone)) {
+          if (isMindWorkspace && !msg.fromMe && !["5511970116430", "5511970116431", "5511943717208"].includes(phone)) {
             return new Response("ok (restricted)");
           }
         }
