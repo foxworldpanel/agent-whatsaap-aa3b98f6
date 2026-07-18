@@ -878,7 +878,19 @@ export async function generateAgentReplyWithMeta(params: {
   const inboundReengagementVeto = !effectiveBlast && reengagementGreeting;
   const anyReengagementVeto = blastReengagementVeto || inboundReengagementVeto;
 
-  // O fluxo de disparo agora vem exclusivamente de buildSharedRules(identity).
+  // BLOCO 1 — ESTÁVEL (Identidade, Regras, Tabela de Preços)
+  // Este bloco é marcado com cache_control: ephemeral e deve ser 100% idêntico entre conversas.
+  const systemBlock1 = buildSharedRules(identity, {
+    freeTestServices,
+    brandBlocks,
+    dailyPromoText,
+    playlistCatalog,
+    // Em produção, suprimimos o exemplo few-shot do bloco estável para manter a 
+    // string idêntica em todas as chamadas de suporte/venda orgânica.
+    suppressExemploDisparo: !effectiveBlast,
+  });
+
+  // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
   const system = [
     // VETO DE PRIORIDADE MÁXIMA: o bloco MODO REENGAJAMENTO precede a
     // identidade (buildSharedRules), o EXEMPLO_MODELO_DISPARO e qualquer
