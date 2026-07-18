@@ -1285,11 +1285,11 @@ export async function generateAgentReplyWithMeta(params: {
   const system: any[] = [
     { type: "text", text: String(systemBlock1 || ""), cache_control: { type: "ephemeral" } },
     ...(Array.isArray(systemBlock2) 
-      ? systemBlock2.map(b => (typeof b === "string" ? { type: "text", text: b } : b)) 
+      ? systemBlock2.map((b: any) => (typeof b === "string" ? { type: "text", text: b } : b)) 
       : (systemBlock2 ? [{ type: "text", text: typeof systemBlock2 === 'string' ? systemBlock2 : String((systemBlock2 as any).text || "") }] : []))
-  ].map(b => (typeof b === 'object' && b !== null && 'text' in b) ? { ...b, text: String((b as any).text || "") } : b);
+  ].map((b: any) => (typeof b === 'object' && b !== null && 'text' in b) ? { ...b, text: String((b as any).text || "") } : b);
 
-  const fullSystemFallback = system.map(b => b.text).join("\n\n");
+  const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
