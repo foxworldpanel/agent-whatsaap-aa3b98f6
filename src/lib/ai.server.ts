@@ -1292,19 +1292,17 @@ export async function generateAgentReplyWithMeta(params: {
       "content-type": "application/json",
       "x-api-key": anthropicKey,
       "anthropic-version": "2023-06-01",
+      "anthropic-beta": "prompt-caching-2024-07-31"
     },
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      // Prompt caching: Estrutura em dois blocos para maximizar cache hits.
-      // O Bloco 1 (Estável) recebe cache_control: ephemeral.
-      // O Bloco 2 (Dinâmico) contém as variáveis por mensagem.
       system: [
         { type: "text", text: String(systemBlock1 || ""), cache_control: { type: "ephemeral" } },
         ...(Array.isArray(systemBlock2) 
           ? systemBlock2.map(b => (typeof b === "string" ? { type: "text", text: b } : b)) 
           : (systemBlock2 ? [{ type: "text", text: typeof systemBlock2 === 'string' ? systemBlock2 : String((systemBlock2 as any).text || "") }] : []))
-      ].map(b => (typeof b === 'object' && b !== null && 'text' in b) ? { ...b, text: String(b.text || "") } : b) as any,
+      ].map(b => (typeof b === 'object' && b !== null && 'text' in b) ? { ...b, text: String(b.text || "") } : b),
       messages: finalMessages,
     }),
   });
