@@ -1158,10 +1158,10 @@ export async function generateAgentReplyWithMeta(params: {
   console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(systemLen / 4));
 
   const systemBlock2 = system;
-  const fullSystemFallback = [
+  const fullSystemFallbackInitial = [
     systemBlock1,
     ...(Array.isArray(systemBlock2) 
-      ? systemBlock2.map(b => (typeof b === "string" ? b : b.text)) 
+      ? systemBlock2.map(b => (typeof b === "string" ? b : (b as any).text)) 
       : [systemBlock2])
   ].filter(Boolean).join("\n\n");
 
