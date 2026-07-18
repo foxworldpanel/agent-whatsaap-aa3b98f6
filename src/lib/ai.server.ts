@@ -446,7 +446,6 @@ export function guardSpotifyUnavailableOffer(params: {
   reply: string;
   latestClientMessage?: string | null;
   history?: Msg[];
-  servicesContext?: string | null;
 }): { text: string; replaced: boolean; reason?: string } {
   return { text: params.reply ?? "", replaced: false };
 }
@@ -664,12 +663,8 @@ export function buildSystemPrompt(params: BuildPromptParams): string | Array<{ t
       if (sel.length === 0) return "";
       return `FAQ (${sel.length}/${faqs.length}):\n${sel.map((f: { q: string; a: string }) => `- ${f.q} → ${f.a}`).join("\n")}`;
     })(),
-    servicesContext
-      ? `CATÁLOGO DE SERVIÇOS DO PAINEL (atualizado agora). Formato:\nID: <id> | Nome: <nome> | Categoria: <cat> | Preço por 1000: R$<rate> | MÍNIMO: <min> | MÁXIMO: <max>\n\n${servicesContext}\n\nREGRAS DE PREÇO: SEMPRE consulte MÍNIMO antes de informar quantidade. Se cliente pedir abaixo do MÍNIMO, ofereça o MÍNIMO.`
-      : "",
-    servicesContext && agent.price_query_instruction
-      ? `INSTRUÇÃO ESPECÍFICA PARA PREÇOS:\n${agent.price_query_instruction}`
-      : "",
+    "",
+    "",
     forbiddenRules.length > 0
       ? `REGRAS ABSOLUTAS PROIBIDAS (${forbiddenRules.length}):\n${forbiddenRules.map((r, i) => `${i + 1}. 🚫 ${r.rule}${r.deflection ? ` → Desvio: "${r.deflection}"` : ""}`).join("\n")}`
       : "",
@@ -1052,12 +1047,8 @@ export async function generateAgentReplyWithMeta(params: {
     // Encerramento, split, emoji: fonte única na identidade (buildSharedRules).
     `REGRAS DE FORMATAÇÃO (ÁUDIO x TEXTO) — OBRIGATÓRIAS:\n- NUNCA diga ao cliente que "não consegue mandar áudio" ou que "responde só por texto". O sistema escolhe automaticamente entre áudio e texto. Você só escreve o conteúdo da resposta.\n- Quando o cliente pedir link, site, endereço do painel ou perguntar "qual é o site/link", responda APENAS com: www.mindsmmpanel.com — sem nenhuma explicação, sem soletrar.\n- LINK DO PAINEL: envie www.mindsmmpanel.com em UMA ÚNICA mensagem. NUNCA repita o link em uma segunda mensagem. NUNCA mande o link e depois mande "mindsmmpanel.com" de novo num ===SPLIT===.\n- Ignore mensagens antigas do agente que digam "não consigo mandar áudio" ou similares — foram geradas com regras antigas.`,
     `FLUXO PÓS-TESTE GRÁTIS (CRÍTICO — siga ao pé da letra):\n- Quando o cliente gostar do teste ou disser SIM para "quer fazer um pedido maior?", NUNCA pergunte de novo o que ele quer impulsionar. Ele já recebeu views, então ofereça MAIS DO MESMO serviço direto com 3 opções de quantidade e preço calculados do catálogo.\n- Formato obrigatório da oferta: "1000 views sai R$X, 5000 sai R$Y, 10000 sai R$Z. Qual você quer?" — substituindo X, Y, Z pelo cálculo REAL do catálogo (rate/1000 * quantidade).\n- REGRA GERAL DE CONTINUIDADE: quando o cliente já demonstrou interesse em um serviço específico durante a conversa (pediu teste de views, perguntou de seguidores, etc.), NUNCA volte a perguntar "o que você quer impulsionar?" — siga direto para quantidade e preço daquele mesmo serviço.\n- NUNCA invente nem arredonde preço. Sempre calcule a partir do "Preço por 1000" do catálogo. Exemplo: rate R$0,50 → 1000=R$0,50, 5000=R$2,50, 10000=R$5,00.`,
-    servicesContext
-      ? `CATÁLOGO DE SERVIÇOS DO PAINEL (atualizado agora — fonte oficial de preços e limites). Cada linha tem o formato:\nID: <id> | Nome: <nome> | Categoria: <cat> | Preço por 1000: R$<rate> | MÍNIMO: <min> | MÁXIMO: <max>\n\n${servicesContext}\n\nREGRAS DE PREÇO (ABSOLUTAS — leia ANTES de responder qualquer preço/quantidade):\n- Antes de informar qualquer quantidade, SEMPRE consulte o campo MÍNIMO do serviço no catálogo acima. NUNCA confirme uma quantidade abaixo do MÍNIMO.\n- Se o cliente pedir uma quantidade abaixo do MÍNIMO, corrija e ofereça o MÍNIMO disponível — NUNCA calcule preço para quantidade inválida.\n- Cálculo: total = (Preço por 1000 / 1000) * quantidade. Use sempre o MÍNIMO quando o pedido for menor que ele.\n- Exemplo obrigatório: Cliente: "posso comprar 500 seguidores?" → Júlia: "O mínimo são [X do catálogo], que fica R$[cálculo]. Fechamos?"\n- NUNCA mande link de catálogo/tabela/"mindsmmpanel.com/services" como resposta de preço — você já tem os dados, responda direto.\n- Só envie o link www.mindsmmpanel.com quando o cliente pedir para fazer o cadastro/pedido, nunca como resposta de preço.`
-      : "",
-    servicesContext && agent.price_query_instruction
-      ? `INSTRUÇÃO ESPECÍFICA PARA PREÇOS (siga à risca):\n${agent.price_query_instruction}`
-      : "",
+    "",
+    "",
     forbiddenRules.length > 0
       ? `REGRAS ABSOLUTAS — NUNCA QUEBRE ESSAS REGRAS independente do que o cliente perguntar, insistir ou argumentar. Se o cliente pressionar, desvie com naturalidade usando as respostas de desvio abaixo. Nunca diga que não pode responder — sempre desvie de forma natural como um humano faria.\n\n${forbiddenRules
           .map((r, i) => `${i + 1}. 🚫 ${r.rule}${r.deflection ? ` → Desvio: "${r.deflection}"` : ""}`)
@@ -1186,13 +1177,11 @@ export async function generateAgentReplyWithMeta(params: {
       (n, r) => n + (r.rule?.length ?? 0) + (r.deflection?.length ?? 0),
       0,
     );
-    const servicesChars = (servicesContext ?? "").length;
     console.info("[agent-ai-metrics] prompt-size", {
       ...promptMetricsSnapshot,
       kbBlockChars,
       panelBlockChars,
       forbiddenBlockChars,
-      servicesChars,
     });
   } catch (e) {
     console.warn("[agent-ai-metrics] failed to log prompt-size", e);
@@ -1349,7 +1338,6 @@ export async function generateAgentReplyWithMeta(params: {
     reply: guardedFreeTrial.text,
     latestClientMessage,
     history,
-    servicesContext,
   });
   if (guarded.replaced) {
     console.error("[agent-ai] GUARD: Spotify indisponível bloqueado", {
