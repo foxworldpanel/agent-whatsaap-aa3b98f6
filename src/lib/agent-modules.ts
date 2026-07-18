@@ -61,58 +61,74 @@ Regras:
 `,
 
   spotify: `MÓDULO SPOTIFY (FONTE ÚNICA)
-- SERVIÇOS DISPONÍVEIS: Aluguel de Playlist, Seguidores [Artista], Plays + Ouvintes [Global].
-- REGRAS ESPECÍFICAS:
-  • Plays e ouvintes do Spotify estão funcionando normalmente (ignore mensagens de erro/atualização antigas).
-  • Aluguel de Playlist: 1 música entra em 10 playlists por 30 dias. Gêneros: Eclética (todos) ou Eletrônica (exclusivo).
+- SERVIÇOS DISPONÍVEIS: Aluguel de Playlist, Seguidores, Plays + Ouvintes Global, Save.
 - TABELA DE PREÇOS SPOTIFY:
-  • Plays + Ouvintes [Global]: R$15/1000 (mín 500)
-  • Seguidores [Artista]: R$30/1000 (mín 50)
-  • Aluguel de Playlist: R$49,90/mês
+  • Aluguel de Playlist: R$49,90
+  • Seguidores: R$30/1000 (mín 50)
+  • Plays + Ouvintes Global: R$15/1000 (mín 500)
+  • Save: R$10/1000 (mín 100)
+- REGRAS ESPECÍFICAS:
+  • Plays e ouvintes funcionam normalmente.
+  • Aluguel de Playlist: 1 música em 10 playlists por 30 dias (Eclética ou Eletrônica).
 - TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
   instagram: `MÓDULO INSTAGRAM (FONTE ÚNICA)
-- SERVIÇOS DISPONÍVEIS: Seguidores (Brasil/Global), Curtidas (Brasil/Global), Views (Reels/Stories).
+- SERVIÇOS DISPONÍVEIS: Seguidores Global, Seguidores Brasil, Curtidas, Visualizações Reels, Comentários Brasileiros.
+- TABELA DE PREÇOS INSTAGRAM:
+  • Seguidores Global: R$7 (mín 100)
+  • Seguidores Brasil: R$15 (mín 100)
+  • Curtidas: R$5 (mín 50)
+  • Visualizações Reels: R$0,50 (mín 100)
+  • Comentários Brasileiros: R$500 (mín 1)
 - REGRAS ESPECÍFICAS:
   • Diferencie seguidores brasileiros de globais.
-  • Views são para Reels, Vídeos ou Stories.
-- TABELA DE PREÇOS INSTAGRAM:
-  • Seguidores [Brasil]: R$15/1000 (mín 50)
-  • Seguidores [Global]: R$7/1000 (mín 100)
-  • Curtidas [Brasil]: R$5/1000 (mín 10)
-  • Curtidas [Global]: R$5/1000 (mín 100)
 - TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
   youtube: `MÓDULO YOUTUBE (FONTE ÚNICA)
-- SERVIÇOS DISPONÍVEIS: Inscritos, Visualizações, Curtidas, Horas de Exibição/Monetização.
+- SERVIÇOS DISPONÍVEIS: Visualizações, Likes, Pessoas Live, Inscritos.
+- TABELA DE PREÇOS YOUTUBE:
+  • Visualizações: R$10 (mín 100)
+  • Likes: R$10 (mín 100)
+  • Pessoas Live: R$20 (mín 50)
+  • Inscritos: R$140 (mín 100)
 - REGRAS ESPECÍFICAS:
   • Use o termo "views" (NUNCA "plays").
-- TABELA DE PREÇOS YOUTUBE:
-  • Visualizações [Global]: R$10/1000 (mín 100)
-  • Inscritos [Global]: R$140/1000 (mín 100)
-  • Curtidas [Brasil]: R$30/1000 (mín 100)
 - TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
   tiktok: `MÓDULO TIKTOK (FONTE ÚNICA)
-- SERVIÇOS DISPONÍVEIS: Seguidores (Global), Curtidas (Brasil), Views.
+- SERVIÇOS DISPONÍVEIS: Seguidores, Curtidas, Visualizações.
+- TABELA DE PREÇOS TIKTOK:
+  • Seguidores: R$20 (mín 100)
+  • Curtidas: R$6 (mín 50)
+  • Visualizações: R$1 (mín 100)
 - REGRAS ESPECÍFICAS:
   • Use o termo "views" (NUNCA "plays").
-- TABELA DE PREÇOS TIKTOK:
-  • Seguidores [Global]: R$30/1000 (mín 100)
-  • Curtidas [Brasil]: R$6/1000 (mín 50)
 - TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
   kwai: `MÓDULO KWAI (FONTE ÚNICA)
-- Venda de seguidores e curtidas para Kwai.
-- Preços sob consulta no painel (mindsmmpanel.com).`,
+- SERVIÇOS DISPONÍVEIS: Visualizações, Seguidores Brasil, Curtidas.
+- TABELA DE PREÇOS KWAI:
+  • Visualizações: R$5 (mín 100)
+  • Seguidores Brasil: R$10 (mín 100)
+  • Curtidas: R$5 (mín 100)
+- TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
   facebook: `MÓDULO FACEBOOK (FONTE ÚNICA)
-- Curtidas em páginas, seguidores em perfis e curtidas em posts/fotos.
-- Preços sob consulta no painel (mindsmmpanel.com).`,
+- SERVIÇOS DISPONÍVEIS: Curtidas em Página, Seguidores, Curtidas, Visualizações, Avaliações, Pessoas Live.
+- TABELA DE PREÇOS FACEBOOK:
+  • Curtidas em Página: R$15 (mín 100)
+  • Seguidores: R$15 (mín 100)
+  • Curtidas: R$10 (mín 100)
+  • Visualizações: R$5 (mín 100)
+  • Avaliações: R$500 (mín 5)
+  • Pessoas Live: R$60 (mín 50)
+- TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
   x_twitter: `MÓDULO X (TWITTER) (FONTE ÚNICA)
-- Seguidores, curtidas, retweets e visualizações para X/Twitter.
-- Preços sob consulta no painel (mindsmmpanel.com).`,
+- SERVIÇOS DISPONÍVEIS: Seguidores.
+- TABELA DE PREÇOS X (TWITTER):
+  • Seguidores: R$15 (mín 50)
+- TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
   calculo_preco: `MÓDULO CÁLCULO DE PREÇO
 - Preço final = (Quantidade / 1000) * Preço_da_Tabela_Precos.
