@@ -14,20 +14,25 @@ export const Route = createFileRoute("/")({
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        Preciso de uma auditoria de CONTEÚDO dos 7 módulos essenciais (identidade, pagamentos, fluxo_vendas, regras_proibidas, comportamento_humano, texto_ou_audio, regras_gerais) — que juntos estão pesando ~27k tokens mesmo numa saudação simples sem nenhum módulo extra.
+        Aprovado, aplica os cortes seguros identificados na auditoria:
 
-NÃO aplica nenhuma mudança ainda — só investigação.
+1) DEDUPLICA a regra "não aceitar pagamento manual / tudo pelo painel" — mantém em UM lugar só (sugiro pagamentos, que é o mais específico), remove de identidade e regras_proibidas
+2) DEDUPLICA a orientação "abrir ticket no suporte" — mantém só no módulo suporte condicional, remove de dentro de identidade
+3) ENCURTA a explicação da regra de split (de 3 parágrafos + 2 exemplos pra 2 linhas diretas)
+4) ENCURTA "Regras Absolutas de Uso" do exemplo de disparo, removendo repetição com anti_invencao
+5) MOVE pra CONDICIONAL (sai do ESSENTIAL, vira módulo com gatilho): regra de teste grátis (só carrega se cliente hesitar/perguntar amostra), regras de suporte/reclamação (só carrega com gatilho "erro"/"problema"/"caiu"/"id"), regras de cliente estrangeiro (só carrega com DDI estrangeiro/idioma detectado)
 
-Pra CADA um dos 7 módulos essenciais, mostra:
-1) Tamanho em caracteres/tokens
-2) O conteúdo COMPLETO (cola aqui o texto real de cada um)
+ANTES de aplicar, preciso de uma investigação SEPARADA e prioritária sobre o catálogo:
+6) Pra essa MESMA chamada específica de "boa tarde" (a que gerou 27k tokens), mostra o tamanho EXATO do bloco de catálogo que foi carregado — não a faixa "15-20k dependendo", o número REAL dessa chamada específica. Confirma: o catalog_only_relevant com fallback pra "sem match" (60 serviços, ~6,6k tokens) que corrigimos há 2 dias está realmente funcionando aqui, ou regrediu e está carregando o catálogo maior de novo numa saudação pura sem nenhuma menção a serviço?
 
-Depois de ver o conteúdo, preciso que aponte:
-1) REPETIÇÃO ENTRE MÓDULOS: alguma regra/instrução aparece em mais de um módulo dos 7? (mesmo padrão do bug de emoji duplicado que já corrigimos — pode ter acontecido de novo com outras regras ao longo dos últimos dias)
-2) VERBOSIDADE DESNECESSÁRIA: alguma instrução está redigida de forma mais longa do que precisa (múltiplos exemplos quando 1 bastaria, explicação repetida do mesmo conceito com palavras diferentes)?
-3) CONTEÚDO QUE PODERIA SER CONDICIONAL: alguma regra dentro desses módulos "essenciais" só se aplica em situação específica (ex: só durante disparo, só quando é pagamento) e poderia sair do bloco ESSENTIAL pra virar um módulo condicional (carregado só quando o gatilho certo bater), em vez de sempre carregar pra qualquer mensagem, mesmo uma saudação pura?
+Se o catálogo regrediu, isso é a correção de MAIOR impacto de todas (pode valer mais que os 6 cortes de módulo somados) — investiga e corrige antes de mais nada.
 
-Não sugere reescrever nada ainda — só traz esse mapeamento completo pra eu revisar com você antes de decidir o que cortar.
+TESTE DE VALIDAÇÃO (depois de tudo aplicado):
+1) Roda bun run test:agent
+2) Testa "boa tarde" de novo e mede o tamanho REAL do prompt final — compara com os 27k de antes
+3) Testa um cenário que precisa de teste grátis (cliente hesitando) e confirma que o módulo condicional carrega corretamente quando precisa
+4) Testa um cliente estrangeiro (DDI diferente) e confirma que a regra de conversão USD ainda funciona
+5) Testa uma reclamação de pedido e confirma que ainda direciona pro ticket corretamente
         
         Redirecionando para /conversas em 15 segundos...
       </div>
