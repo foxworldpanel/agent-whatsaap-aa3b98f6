@@ -933,6 +933,10 @@ export async function generateAgentReplyWithMeta(params: {
     }),
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
+    // Bloco dinâmico continua...
+    imageBase64
+      ? `IMAGEM NA CONVERSA (ABSOLUTA): a imagem que chegou é CONTEXTO ADICIONAL do momento atual da conversa.`
+      : "",
     // Backup textual só entra em conversas efetivamente de disparo. Antes
     // ficava fixo no prompt e induzia o modelo a "detectar disparo" em
     // conversa orgânica só porque tinha um "@" qualquer no histórico.
