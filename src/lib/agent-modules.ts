@@ -264,7 +264,7 @@ Regras:
 
   playlist_promo: `MÓDULO PLAYLIST — PROMOÇÃO ATIVA
 
-FONTE DE VERDADE DO PREÇO: SEMPRE o CATÁLOGO REAL (contexto servicesContext). NUNCA escreva valor numérico fixo neste bloco — se você precisar informar preço, consulte o catálogo. Qualquer placeholder "[preço real do catálogo]" abaixo deve ser substituído em tempo de resposta pelo valor do catálogo, nunca por um número inventado.
+FONTE DE VERDADE DO PREÇO: SEMPRE a 'tabela_precos' manual. NUNCA escreva valor numérico fixo neste bloco — se você precisar informar preço, consulte a tabela_precos. Qualquer placeholder "[preço real]" abaixo deve ser substituído em tempo de resposta pelo valor da tabela, nunca por um número inventado.
 
 PACOTES DE PLAYLIST DISPONÍVEIS:
 

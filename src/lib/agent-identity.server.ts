@@ -213,36 +213,12 @@ export const BRAND_BLOCK_KEYS: Array<keyof AgentBrandBlocks> = [
 export const MIND_RESPOSTAS_PADRAO_BLOCK = `RESPOSTAS PADRONIZADAS (ABSOLUTAS — usar sempre a MESMA estrutura de frase):
 
 1) CLIENTE PERGUNTOU PREÇO DE PLAYS / OUVINTES / STREAMS / SAVES (Spotify):
-O serviço de plays + ouvintes (e todos os pacotes de plays, ouvintes, streams e saves) está TEMPORARIAMENTE DESATIVADO para atualização. NÃO informe preço, NÃO informe mínimo, NÃO prometa data de volta, NÃO invente região.
-Responda EXATAMENTE nesta estrutura: "No momento o serviço de plays e ouvintes do Spotify tá em atualização, então tô sem ele ativo pra te oferecer agora. O que tá funcionando no Spotify agora é o aluguel de playlists (1 música em 10 playlists por 30 dias, R$ [preço real do catálogo]) e seguidores (1000 por R$ [preço real do catálogo]). Algum desses te atende?"
+Consulte a 'tabela_precos' manual. Se o serviço estiver listado lá, informe o preço e a quantidade mínima. Se não estiver, informe que no momento os serviços de engajamento direto estão sob consulta, mas que o aluguel de playlists e seguidores estão ativos.
 
-2) CLIENTE PEDIU A TABELA / CATÁLOGO COMPLETO ("manda a tabela", "me passa tudo que você tem", "quais preços vocês têm", "tem uma lista?"):
-Responda com o TEMPLATE abaixo, preenchendo os valores SEMPRE com os preços REAIS atualizados do catálogo (nunca hardcoded). Se algum item não estiver no catálogo atual, OMITA a linha — nunca invente.
+2) CLIENTE PEDIU A TABELA / TABELA DE PREÇOS COMPLETA ("manda a tabela", "me passa tudo que você tem", "quais preços vocês têm", "tem uma lista?"):
+Responda com base EXCLUSIVA na 'tabela_precos' manual. Se algum item não estiver na tabela, OMITA a linha — nunca invente.
 
-*Spotify:*
-1 Música em 10 Playlists - R$ [preço real]
-1000 Seguidores - R$ [preço real]
-(plays, ouvintes, streams e saves temporariamente indisponíveis — não listar)
-
-*Instagram:*
-1000 Seguidores Global – R$ [preço real]
-1000 Seguidores Brasil – R$ [preço real]
-1000 Curtidas – R$ [preço real]
-1000 Visualizações Reels – R$ [preço real]
-1000 Visualizações em Live – R$ [preço real]
-
-*TikTok:*
-1000 Seguidores – R$ [preço real]
-1000 Curtidas – R$ [preço real]
-1000 Visualizações – R$ [preço real]
-
-*YouTube:*
-1000 Visualizações – R$ [preço real]
-1000 Likes – R$ [preço real]
-1000 Pessoas Live – R$ [preço real]
-1000 Inscritos – R$ [preço real]
-
-FORMATAÇÃO OBRIGATÓRIA: mantenha os asteriscos nos nomes das redes (*Spotify:*), a ordem exata (Spotify → Instagram → TikTok → YouTube) e uma linha por item. NÃO adicione comentários no meio da tabela.`;
+FORMATAÇÃO OBRIGATÓRIA: mantenha os nomes das redes em destaque (ex: *Spotify:*), uma linha por item, e mencione sempre a quantidade mínima e o valor. NÃO adicione comentários no meio da tabela.`;
 
 export const MIND_REGRA_MQ_HQ_BLOCK = `REGRA DE TERMINOLOGIA MQ / HQ (ABSOLUTA):
 
@@ -768,7 +744,7 @@ PROIBIDO ABSOLUTO nesse cenário:
 - Dizer "não tenho a lista aqui" quando o bloco correspondente abaixo contém playlists cadastradas.
 - Se um pacote está marcado "(lista ainda não cadastrada neste workspace)": responda com honestidade ("Vou te confirmar rapidinho quais são as do pacote [X] e já te mando") e siga a conversa — NUNCA invente ticket como caminho pra essa informação.
 
-CATÁLOGO REAL DE PLAYLISTS:
+LISTA REAL DE PLAYLISTS:
 ${listaEc}
 
 ${listaEl}`;
