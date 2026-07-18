@@ -161,7 +161,7 @@ function AgentePage() {
 
               <div className="relative">
                 <textarea
-                  value={modules[currentActive] || ""}
+                  value={modules[currentActive] === undefined ? "" : modules[currentActive]}
                   onChange={(e) => setModules({ ...modules, [currentActive]: e.target.value })}
                   placeholder="Este módulo está usando as instruções padrão. Digite aqui para personalizar..."
                   className="min-h-[400px] w-full rounded-lg border border-border bg-background/50 p-4 font-mono text-sm leading-relaxed outline-none focus:border-primary/50"

@@ -263,8 +263,24 @@ Regras:
 `,
 
   playlist_promo: `MÓDULO PLAYLIST — PROMOÇÃO ATIVA
-- Venda focada em aluguel de playlists e seguidores Spotify.
-- Siga rigorosamente a disponibilidade e preços do módulo 'tabela_precos'.
+
+FONTE DE VERDADE DO PREÇO: SEMPRE o módulo 'tabela_precos'. NUNCA escreva valor numérico fixo neste bloco — se você precisar informar preço, consulte a tabela de preços. Qualquer placeholder "[preço real]" abaixo deve ser substituído em tempo de resposta pelo valor da tabela.
+
+SERVIÇOS SPOTIFY ATIVOS NO MOMENTO:
+- 1 Música em 10 Playlists (aluguel 30 dias)
+- 1000 Seguidores
+
+SERVIÇOS SPOTIFY EM ATUALIZAÇÃO (NÃO OFERECER):
+- Plays + Ouvintes / Streams / Saves
+
+REGRA PLAYS/OUVINTES:
+Se o cliente perguntar por plays ou ouvintes, responda: "Serviço de Plays + Ouvintes está desativado, está passando por uma atualização no momento. No Spotify, hoje trabalhamos com aluguel de playlist e seguidores. Posso te mostrar essas opções?"
+
+PACOTES DE PLAYLIST:
+- ECLÉTICA: 1 música em 10 playlists por 30 dias.
+- ELETRÔNICA: 1 música em 10 playlists por 30 dias.
+
+TODA COMPRA É NO PAINEL: Direcione sempre para o painel (mindsmmpanel.com).
 `,
 
   tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
