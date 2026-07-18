@@ -14,7 +14,15 @@ export const Route = createFileRoute("/")({
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        Preciso confirmar se o custo de $0,04 dessa segunda chamada (contato 5511970116430, "quero comprar plays", por volta das 16:05) foi por causa do cache ter EXPIRADO (mais de 5 minutos desde a mensagem anterior das 15:59 — o cache ephemeral da Anthropic dura só 5 min), ou se é outra causa.Mostra os dados reais dessa chamada específica:- cache_creation_input_tokens- cache_read_input_tokens- Calcula o intervalo exato de tempo entre a mensagem anterior (15:59:57) e essa (16:05) Se o intervalo for maior que 5 minutos, confirma que é o comportamento NORMAL/ESPERADO do cache expirando (não é bug) — nesse caso, o "problema" não é técnico, é que conversas com intervalo maior que 5 min entre mensagens sempre vão pagar o preço de recriar o cache, e isso é uma limitação da própria Anthropic (TTL de 5 min no cache ephemeral), não algo que dá pra corrigir no nosso código.Se o intervalo for MENOR que 5 minutos e mesmo assim não teve cache_read, aí sim é bug real — investiga por que o cache não foi reaproveitado dentro da janela válida.
+        A investigação revela o motivo da inflação de tokens: a chamada das 16:05 ("quero comprar plays") incluiu um histórico de conversa que cresceu significativamente (de 104 para 108 mensagens), e o prompt final é composto por blocos de identidade densos (buildSharedRules) que somam quase 22 mil caracteres (~6k-7k tokens) sozinhos.
+
+Detalhamento aproximado da chamada de 16:05:
+- **Identidade/Regras (buildSharedRules):** ~7.000 tokens (inclui Persona, Termologia, Regra Anti-ban, Regras de Suporte, etc.).
+- **Módulos Ativos (10 selecionados):** ~8.000 tokens (inclui Identidade, Spotify, Pagamentos, Fluxo de Vendas, etc.).
+- **Catálogo de Serviços:** ~12.000 tokens (o gatilho "plays" no Spotify carregou o catálogo completo de alternativas e o bloco de "Spotify Indisponível").
+- **Histórico (108 turnos):** ~2.300 tokens.
+
+A diferença de 10.544 para 29.310 se deu principalmente pela expiração do cache (recalculando os ~22k tokens de sistema fixos) e pela ativação de módulos e contextos de catálogo mais pesados quando o assunto "Spotify Plays" é detectado, o que injeta o guia de alternativas detalhado. Não há desperdício técnico de módulos duplicados, mas sim uma carga contextual maior para garantir que a Júlia não alucine em um tema sensível como a indisponibilidade de plays.
         
         Redirecionando para /conversas em 15 segundos...
       </div>
