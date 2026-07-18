@@ -98,9 +98,10 @@ function AgentePage() {
           </p>
           <nav className="space-y-0.5 overflow-y-auto max-h-[calc(100vh-250px)] pr-2 scrollbar-thin">
             {moduleKeys.map((key) => {
-              const info = MODULE_LIST[key];
+              const info = (MODULE_LIST as any)[key];
               const isActive = currentActive === key;
               const hasCustom = !!modules[key];
+
               
               return (
                 <button
