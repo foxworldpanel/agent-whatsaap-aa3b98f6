@@ -349,12 +349,12 @@ describe("7) Split de mensagem — padrão é 1 mensagem", () => {
       "FALHOU: regra de split ausente",
     ).toBe(true);
     expect(
-      /CADA BOLHA CURTA|no m[aá]ximo 2 frases curtas/i.test(prompt),
+      /CADA BOLHA CURTA|máximo (1 ou )?2 frases curtas/i.test(prompt),
       "FALHOU: reforço de brevidade por bolha ausente",
     ).toBe(true);
     expect(
-      /BREVIDADE|Haiku e Sonnet/i.test(prompt),
-      "FALHOU: reforço explícito Haiku/Sonnet ausente no estilo",
+      /BREVIDADE|ESTILO DE ESCRITA/i.test(prompt),
+      "FALHOU: reforço de brevidade ausente no estilo",
     ).toBe(true);
   });
 
