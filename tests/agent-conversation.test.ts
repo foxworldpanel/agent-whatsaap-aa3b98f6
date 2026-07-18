@@ -178,6 +178,10 @@ describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)",
               console.log(`BLOCK ${i} START:`, (b.text || '').substring(0, 100));
               console.log(`BLOCK ${i} END:`, (b.text || '').substring((b.text || '').length - 100));
           });
+          // Also look for [object Object] in the text
+          if (text.includes('[object Object]')) {
+              console.log('DETECTED [object Object] stringification error in text!');
+          }
       }
 
       expect(
