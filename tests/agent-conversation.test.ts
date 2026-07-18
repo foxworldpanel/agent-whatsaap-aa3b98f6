@@ -167,19 +167,17 @@ describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)",
       // Confirma que o system prompt carrega o exemplo_disparo (Claude vai decidir)
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       const text = sysText(body.system);
-      
       const containsTarget = /EXEMPLO_MODELO_DISPARO|Qual rede social/i.test(text);
+      
       if (!containsTarget) {
           console.log('--- DEBUG MISSING TARGET ---');
-          console.log('SYSTEM ARRAY LENGTH:', body.system.length);
-          body.system.forEach((b: any, i: number) => {
-              console.log(`BLOCK ${i} START:`, (b.text || '').substring(0, 100));
-              console.log(`BLOCK ${i} END:`, (b.text || '').substring((b.text || '').length - 100));
-          });
-          // Also look for [object Object] in the text
-          if (text.includes('[object Object]')) {
-              console.log('DETECTED [object Object] stringification error in text!');
+          console.log('SYSTEM ARRAY LENGTH:', body.system?.length);
+          if (Array.isArray(body.system)) {
+            body.system.forEach((b: any, i: number) => {
+                console.log(`BLOCK ${i} CONTAINS TARGET:`, String(b.text || '').includes('EXEMPLO_MODELO_DISPARO'));
+            });
           }
+          console.log('FULL EXTRACTED TEXT CONTAINS TARGET:', text.includes('EXEMPLO_MODELO_DISPARO'));
       }
 
       expect(
