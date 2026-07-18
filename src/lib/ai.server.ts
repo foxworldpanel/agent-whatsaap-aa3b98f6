@@ -887,16 +887,21 @@ export async function generateAgentReplyWithMeta(params: {
     playlistCatalog,
     // Em produção, suprimimos o exemplo few-shot do bloco estável para manter a 
     // string idêntica em todas as chamadas de suporte/venda orgânica.
-    suppressExemploDisparo: !effectiveBlast,
+    suppressExemploDisparo: true, // SEMPRE suprimir no Bloco 1 para estabilidade de cache
   });
 
-  // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
-  (globalThis as any).systemBlock1 = systemBlock1; // Export temporário para o Bloco 1
-
-  // BLOCO 2 — DINÂMICO (Vetos de reengajamento, Contexto da mensagem e Histórico)
-  // Este bloco NÃO tem cache_control porque muda a cada mensagem.
-
-  const system = [
+  const system: any = [
+    {
+      text: systemBlock1,
+      cache_control: { type: "ephemeral" }
+    },
+    // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
+    // Se for efetivamente um disparo, injetamos o EXEMPLO_MODELO_DISPARO aqui (no dinâmico)
+    // para não quebrar o cache do Bloco 1 nas conversas orgânicas.
+    effectiveBlast
+      ? buildSharedRules(identity, { suppressExemploDisparo: false }).split("EXEMPLO_MODELO_DISPARO")[1] || ""
+      : "",
+    // Restante do prompt dinâmico...
     // VETO DE PRIORIDADE MÁXIMA: o bloco MODO REENGAJAMENTO precede a
     // identidade (buildSharedRules), o EXEMPLO_MODELO_DISPARO e qualquer
     // refinamento de tom consultivo. Sem isso, em threads de disparo o modelo
