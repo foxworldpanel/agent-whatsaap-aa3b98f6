@@ -802,10 +802,12 @@ function normalizeText(value: string): string {
 
 function isBlastOpeningQuestion(text: string): boolean {
   const normalized = normalizeText(text);
-  return (
-    /posso\s+(te\s+)?(mostrar|apresentar|mandar|falar|explicar)/i.test(normalized) &&
-    /(impulsionar|turbinar|acelerar|ajudar|crescer|divulgar|bombar|melhorar|redes?|perfil|instagram|conteudo)/i.test(normalized)
-  );
+  const hasBlastContext = /(impulsionar|turbinar|acelerar|ajudar|crescer|divulgar|bombar|melhorar|redes?|perfil|instagram|conteudo)/i.test(normalized);
+  const hasOpeningPattern = 
+    /posso\s+(te\s+)?(mostrar|apresentar|mandar|falar|explicar)/i.test(normalized) ||
+    /tem\s+interesse\s+em/i.test(normalized) ||
+    /vi\s+seu\s+perfil/i.test(normalized);
+  return hasOpeningPattern && hasBlastContext;
 }
 
 function isClearBlastRefusal(text: string): boolean {
