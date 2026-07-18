@@ -602,20 +602,20 @@ type BuildPromptParams = {
   } | null;
 };
 
-export function buildSystemPrompt(params: BuildPromptParams): string {
+export function buildSystemPrompt(params: BuildPromptParams): string | Array<{ text: string; cache_control?: { type: "ephemeral" } }> {
   const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], identity, brandBlocks = null, dailyPromoText = null, playlistCatalog = null } = params;
-  // Nota: buildSystemPrompt é síncrono (só usado por diagnostics como preview).
-  // O prompt real de produção usa generateAgentReplyWithMeta, que carrega
-  // a identidade do banco. Aqui usamos defaults + `buildSharedRules` sem I/O.
   const effectiveBlastPreview = !isInbound || historyLooksLikeBlast(history);
+
+  // Bloco 1: Estável
   const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), {
     freeTestServices,
     brandBlocks,
-    // Espelha o gate do runtime real (generateAgentReplyWithMeta):
-    // suprimimos o exemplo, catálogo e promo do Bloco 1 estável.
     suppressExemploDisparo: true,
   });
 
+  // Bloco 2: Dinâmico
+  const latestClientMessage = getLatestClientMessage(history);
+  
   const playlistBlock = (() => {
     if (!playlistCatalog) return "";
     const { buildRegraPlaylistsInfoDiretaBlock } = require("./agent-identity.server");
@@ -628,13 +628,13 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
     return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta.`;
   })();
 
-  const latestClientMessage = getLatestClientMessage(history);
-  const system = [
-    sharedRules,
+  const dynamicSystem = [
     playlistBlock,
     promoBlock,
+    effectiveBlastPreview
+      ? buildSharedRules(mergeIdentity(identity ?? null), { suppressExemploDisparo: false }).split("EXEMPLO_MODELO_DISPARO")[1] || ""
+      : "",
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
-
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
     effectiveBlastPreview
       ? `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a PRIMEIRA mensagem sua tem padrão de abertura de disparo (frases como "Peguei o seu contato" / "Vi seu perfil" combinadas com uma pergunta-isca do tipo "Posso te apresentar/mostrar uma forma de impulsionar..."), trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. Handle "@algo" avulso, sem essas frases, NÃO é sinal suficiente. O conteúdo real da conversa prevalece sobre metadados técnicos.`
@@ -660,6 +660,7 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
     (() => {
       const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
       if (!Array.isArray(faqs) || faqs.length === 0) return "";
+      const { selectRelevantFaqs } = require("./ai.server"); // avoid circular or use local if possible
       const sel = selectRelevantFaqs(faqs as Array<{ q: string; a: string }>, latestClientMessage);
       if (sel.length === 0) return "";
       return `FAQ (${sel.length}/${faqs.length}):\n${sel.map((f: { q: string; a: string }) => `- ${f.q} → ${f.a}`).join("\n")}`;
@@ -677,12 +678,12 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
       ? `TESTE GRÁTIS DISPONÍVEL (${freeTestServices.length} serviços):\n${freeTestServices.map((s) => `- ${s.service_name} (${s.category}) — ${s.quantity} grátis`).join("\n")}`
       : "",
     `Perfil do contato: ${contact.perfil}.${isInbound ? " Atendimento receptivo." : ""}${funnelAlreadySent ? " Funil de boas-vindas já enviado." : ""}`,
-    // Split e emoji: fonte única é identity.regra_split / identity.regra_emoji
-    // via buildSharedRules (não duplicar aqui).
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-  return system;
+  ].filter(Boolean);
+
+  return [
+    { text: sharedRules, cache_control: { type: "ephemeral" } },
+    { text: dynamicSystem.join("\n\n") }
+  ];
 }
 
 export async function generateAgentReply(params: {
