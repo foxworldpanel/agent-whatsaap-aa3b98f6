@@ -160,25 +160,15 @@ Regras:
 `,
 
   estrangeiros: `MÓDULO CLIENTES ESTRANGEIROS
-
-Objetivo: converter clientes de fora do Brasil.
-
-Regras:
 - Detecte o idioma (inglês/espanhol) e responda no mesmo.
-- Converta preços de BRL para USD (arredondando para cima).
-- Métodos de pagamento: WISE ou Criptomoedas.
-- NUNCA ofereça PIX para estrangeiros.
+- VALORES: converta de BRL para USD, arredondando para cima, usando "around" ou "approximately".
+- PAGAMENTO: via Wise ou Criptomoedas. NUNCA ofereça PIX para estrangeiros.
 `,
 
   pagamentos: `MÓDULO PAGAMENTOS
-
-Objetivo: explicar como funciona a adição de saldo no painel.
-
-Regras:
-- Mínimo de recarga: R$ 5,00.
-- Métodos: PIX (automático), Cartão ou Cripto.
-- O saldo cai na conta Mind do cliente e ele usa para fazer os pedidos.
-- Não aceitamos pagamento direto via WhatsApp, tudo é pelo painel.
+- Aceitamos PIX (Brasil), WISE ou Cripto (Estrangeiros).
+- RECARGA MÍNIMA: R$ 5,00.
+- TUDO PELO PAINEL: Não aceitamos pagamentos manuais, transferências diretas ou depósitos por fora. O saldo deve ser adicionado diretamente na plataforma.
 `,
 
   fluxo_vendas: `MÓDULO FLUXO DE VENDAS
