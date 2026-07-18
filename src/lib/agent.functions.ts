@@ -445,69 +445,14 @@ export const listModulesV2 = createServerFn({ method: "GET" })
 
 export const updateModuleV2 = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
-  .inputValidator((d: unknown) => z.object({
-    id: z.string(),
-    title: z.string().min(1),
-    description: z.string().optional(),
-    content: z.string().min(1),
-    priority: z.string(),
-    category: z.string(),
-    is_active: z.boolean(),
-    modes: z.array(z.string()),
-    dependencies: z.array(z.string()),
-    is_core: z.boolean()
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    const supabase = context.supabase as any;
-    // 1. Get current version for history
-    const { data: current } = await supabase
-      .from("agent_modules_v2")
-      .select("version, content")
-      .eq("workspace_id", context.workspaceId)
-      .eq("id", data.id)
-      .single();
-
-    if (current) {
-      // 2. Save history
-      await supabase.from("agent_modules_v2_history").insert({
-        module_id: data.id,
-        workspace_id: context.workspaceId,
-        version: current.version,
-        content: current.content,
-        modified_by: context.userId
-      });
-    }
-
-    // 3. Update module
-    const { error } = await supabase
-      .from("agent_modules_v2")
-      .update({
-        ...data,
-        version: (current?.version || 0) + 1,
-        updated_at: new Date().toISOString(),
-        last_modified_by: context.userId
-      })
-      .eq("workspace_id", context.workspaceId)
-      .eq("id", data.id);
-
-    if (error) throw new Error(error.message);
-    return { ok: true };
+  .handler(async () => {
+    throw new Error("V2 feature deprecated");
   });
 
 export const getModuleHistoryV2 = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
-  .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const supabase = context.supabase as any;
-    const { data: history, error } = await supabase
-      .from("agent_modules_v2_history")
-      .select("*")
-      .eq("workspace_id", context.workspaceId)
-      .eq("module_id", data.id)
-      .order("created_at", { ascending: false });
-
-    if (error) throw new Error(error.message);
-    return history || [];
+  .handler(async () => {
+    return [];
   });
 
 
