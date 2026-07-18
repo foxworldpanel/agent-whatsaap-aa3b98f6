@@ -20,7 +20,7 @@
 // independente de qual caminho as gerou.
 
 import { limitEmojiFrequency } from "@/lib/emoji-limiter";
-import { humanizePunctuation } from "@/lib/agent-v2/core/conversation-utils.server";
+import { humanizePunctuation } from "@/lib/conversation-utils";
 
 type UazapiCreds = Parameters<typeof import("@/lib/uazapi.server").uazapiSendText>[0];
 
