@@ -29,7 +29,7 @@ import {
   saveBehavior, savePanelScreenshots, listModulesV2, 
   updateModuleV2, getModuleHistoryV2 
 } from "@/lib/agent.functions";
-// seedBrandFromMindTemplate removido em favor da V2 modular.
+import { seedBrandFromMindTemplate } from "@/lib/seed-mind-brand.functions";
 import { useWorkspace } from "@/contexts/workspace-context";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -46,7 +46,7 @@ function AgentePage() {
   const fetchModulesV2 = useServerFn(listModulesV2);
   const updateModuleV2Fn = useServerFn(updateModuleV2);
   const getHistoryFn = useServerFn(getModuleHistoryV2);
-  const seedTplFn = async () => {};
+  const seedTplFn = useServerFn(seedBrandFromMindTemplate);
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -57,20 +57,13 @@ function AgentePage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [activeTab, setActiveTab] = useState("edit");
 
-  const { data: v2ModulesData, isLoading: isV2ModulesLoading, error: modulesError } = useQuery({
+  const { data: v2ModulesData, isLoading: isV2ModulesLoading } = useQuery({
     queryKey: ["agent_modules_v2", activeWorkspaceId],
-    queryFn: async () => {
-      console.log(`[AGENTE_PAGE] listModulesV2_fetching for workspace: ${activeWorkspaceId}`);
-      const res = await fetchModulesV2();
-      console.log(`[AGENTE_PAGE] listModulesV2_fetched count: ${res?.length || 0}`);
-      return res;
-    },
+    queryFn: () => fetchModulesV2(),
     enabled: !!activeWorkspaceId
   });
 
   const v2Modules = v2ModulesData ?? [];
-  console.log(`[AGENTE_PAGE] component_rendered modules_count: ${v2Modules.length}`);
-
 
   const filteredModules = v2Modules.filter((m: any) => {
     const matchesSearch = m.title.toLowerCase().includes(search.toLowerCase()) || 
@@ -136,48 +129,6 @@ function AgentePage() {
       </div>
     );
   }
-
-  if (modulesError) {
-    return (
-      <div className="flex h-[80vh] items-center justify-center p-6">
-        <Alert variant="destructive" className="max-w-md">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Erro ao carregar módulos</AlertTitle>
-          <AlertDescription>
-            {modulesError instanceof Error ? modulesError.message : "Erro desconhecido."}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="mt-4 w-full"
-              onClick={() => qc.invalidateQueries({ queryKey: ["agent_modules_v2"] })}
-            >
-              Tentar Novamente
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  if (v2Modules.length === 0) {
-    return (
-      <div className="flex h-[80vh] items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <Cpu className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-          <h2 className="text-xl font-bold mb-2">Nenhum módulo encontrado</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Não foi possível carregar ou migrar os módulos para o seu workspace.
-          </p>
-          <Button 
-            onClick={() => qc.invalidateQueries({ queryKey: ["agent_modules_v2"] })}
-          >
-            Sincronizar Módulos Agora
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-6 pb-20">

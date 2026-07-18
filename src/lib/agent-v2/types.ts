@@ -3,11 +3,10 @@
  */
 
 /**
- * Tipos de controle interno. Mantidos apenas por compatibilidade com snapshots
- * do banco e histórico. NÃO usar no fluxo ativo de novas funcionalidades.
+ * Tipos LEGADOS. Mantidos apenas por compatibilidade com migrations
+ * antigas, snapshots do banco e código arquivado. NÃO usar no fluxo ativo.
  */
-export type BrainVersion = 'v2_shadow' | 'v2_pilot' | 'v2';
-
+export type BrainVersion = 'v1' | 'v2_shadow' | 'v2_pilot' | 'v2';
 export type ExecutionMode = 'production' | 'shadow' | 'pilot';
 
 /**
@@ -16,7 +15,7 @@ export type ExecutionMode = 'production' | 'shadow' | 'pilot';
  * - 'disabled' → IA totalmente desligada para o número; nenhuma chamada
  *                a Claude, prompt, ferramenta ou métrica é permitida.
  *
- * A arquitetura anterior está totalmente desativada.
+ * O valor 'v1' NÃO é retornado pelo resolver ativo — a V1 está arquivada.
  */
 export type ActiveBrainVersion = 'v2' | 'disabled';
 

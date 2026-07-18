@@ -6,8 +6,8 @@
  * Guard Engine / Analytics. Qualquer outro número é ignorado pelo webhook
  * antes de qualquer chamada de IA — zero custo, zero prompt, zero tool.
  *
- * A arquitetura anterior foi removida e a compatibilidade desativada.
-
+ * A V1 permanece apenas arquivada como contingência técnica e nunca é
+ * executada.
  */
 
 // +55 11 97011-6430 → somente dígitos.

@@ -150,16 +150,7 @@ function applyIntentRouting(
       }
     }
   } else if (detectedNetwork !== 'unknown') {
-    // Check if it's a valid V2Module
-    const validModules: V2Module[] = [
-      'instagram', 'youtube', 'tiktok', 'facebook', 'kwai', 'spotify_overview',
-      'spotify_playlist', 'spotify_followers', 'mission', 'identity', 'guards', 
-      'receptive', 'outbound', 'commercial', 'panel', 'payments', 'tutorials', 
-      'free_test', 'support'
-    ];
-    if (validModules.includes(detectedNetwork as V2Module)) {
-      selectedModules.add(detectedNetwork as V2Module);
-    }
+    selectedModules.add(detectedNetwork as V2Module);
   }
 
   switch (intent as string) {
@@ -170,6 +161,7 @@ function applyIntentRouting(
       break;
 
     case 'greeting':
+
       // Basic core + mode
       break;
 
@@ -183,6 +175,9 @@ function applyIntentRouting(
 
     case 'buy':
       selectedModules.add('panel');
+      if (msg.includes('fechar') || msg.includes('comprar')) {
+        // Conduct to checkout
+      }
       break;
 
     case 'payment':
@@ -192,6 +187,9 @@ function applyIntentRouting(
 
     case 'support':
       selectedModules.add('support');
+      // If it's strictly support, we might want to remove commercial modules
+      // but in a loop of intents, we just add what's needed.
+      // The instruction says "sem módulo comercial Spotify" when it's a support request about Spotify.
       if (msg.includes('pedido') || msg.includes('caiu')) {
         selectedModules.delete('spotify_overview');
         selectedModules.delete('spotify_playlist');
@@ -224,8 +222,8 @@ function applyIntentRouting(
       }
       break;
   }
-}
 
+}
 
 function generateRoutingReason(intents: V2Intent[], network: V2Network): string {
   const intentStr = Array.isArray(intents) ? intents.join('+') : intents;

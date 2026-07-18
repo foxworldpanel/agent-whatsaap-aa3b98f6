@@ -8,8 +8,6 @@ import { routeModelV2 } from './model-router';
 import { buildPromptV2 } from './prompt-builder';
 import { runGuardEngineV2 } from './guard-engine';
 import { callLLMV2 } from './llm-client.server';
-import { generateSpeech } from '../elevenlabs.server';
-
 
 import { ConversationStateV2, V2StateEvent } from './conversation-state.types';
 import { RouteModulesV2Output } from './router.types';
@@ -43,103 +41,23 @@ async function persistTurnAnalytics(data: AgentV2TurnAnalytics) {
  */
 export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2EOutput> {
   const startTime = Date.now();
-  const correlationId = input.correlationId || `v2_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  console.log(`[AGENT_V2][${correlationId}] orchestrator_started | message: ${typeof input.currentMessage === 'string' ? input.currentMessage.slice(0, 50) : 'none'}... | media: ${input.media?.type}`);
-  
   const errors: string[] = [];
   const metrics: Record<string, any> = {
     brainVersion: 'v2',
     executionMode: input.executionMode,
-    durationMs: 0,
-    correlationId
+    durationMs: 0
   };
 
   try {
-    console.log(`[AGENT_V2] auth_resolved | correlation_id: ${correlationId}`);
-    console.log(`[AGENT_V2] workspace_resolved | correlation_id: ${correlationId} | workspace: ${input.workspaceId}`);
-    console.log(`[AGENT_V2] conversation_loaded | correlation_id: ${correlationId} | conversation: ${input.conversationId}`);
 
-    const stateBefore = { ...input.previousState };
-    // Audio Recovery Logic
-    let processedMessage = (typeof input.currentMessage === 'string' ? input.currentMessage : "").trim();
-    
-    // Safety check: remove [object Object] leaks from webhook or previous layers
-    if (processedMessage === '[object Object]') {
-       processedMessage = "";
-    }
 
-    if (input.media?.hasAudio && input.media?.mediaUrl) {
-       console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_DETECTED] type: ${input.media.type}`);
-       
-       try {
-         const { transcribeAudio } = await import('./audio-processor.server');
-         
-         // The audio processor already logs AUDIO_DOWNLOAD_STARTED/OK and WHISPER_REQUEST_STARTED/OK
-         // We add the specific requested tags here for orchestrator visibility
-         // Safe call to transcriber
-         const transcriptionResult = await transcribeAudio(input.media.mediaUrl, correlationId).catch(err => {
-            console.error(`[V2_DIAGNOSTIC][${correlationId}][AUDIO_TRANSCRIPTION_FAILED]`, err.message);
-            return null;
-         });
-         
-         if (transcriptionResult) {
-           const transcriptText = String(transcriptionResult);
-           console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][TRANSCRIPTION_RESULT] "${transcriptText.slice(0, 50)}..."`);
-           
-           // Combine caption with transcription if caption exists
-           if (processedMessage && processedMessage !== transcriptText) {
-              processedMessage = `${processedMessage}\n\n[Transcrição do Áudio]: ${transcriptText}`;
-           } else {
-              processedMessage = transcriptText;
-           }
-         } else {
-           console.log(`[V2_DIAGNOSTIC][${correlationId}][AUDIO_PIPELINE_SILENT_FAIL] Proceeding without transcription.`);
-         }
-       } catch (audioErr: any) {
-         console.error(`[V2_DIAGNOSTIC][${correlationId}][ORCHESTRATOR_AUDIO_ERROR] ${audioErr.message}`);
-       }
-    }
+  const normalizedMessage = input.currentMessage.trim();
+  const stateBefore = { ...input.previousState };
 
-    if (input.media?.hasAudio && !processedMessage) {
-       console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][AUDIO_EMPTY_FALLBACK]`);
-       // Friendly fallback instead of technical error
-       return {
-         stateBefore,
-         shortAnswerResolution: { resolved: true, response: "Desculpe, não consegui entender seu áudio claramente. Poderia escrever o que precisa ou tentar enviar o áudio novamente?" },
-         routeResult: {
-           selectedModules: ['mission', 'identity', 'guards'],
-           selectedTools: [],
-           selectedTutorials: [],
-           detectedIntent: 'unknown',
-           detectedMode: (input.mode === 'outbound' ? 'outbound' : 'receptive') as any,
-           detectedNetwork: 'unknown',
-           detectedService: 'unknown',
-           routingReason: 'audio_transcription_empty',
-           stateEvents: [],
-           warnings: ["Audio transcription returned empty or failed."],
-           metrics: { moduleCount: 3, toolCount: 0, tutorialCount: 0, routingDurationMs: 0, warningsCount: 1 }
-         },
-         stateAfterRouting: stateBefore,
-         modelRouteResult: { useLlm: false, selectedModel: 'none', requiresVision: false, requiresTranscription: true, routingReason: 'audio_empty', confidence: 0, warnings: [], metrics: { decisionDurationMs: 0, complexity: 'simple', estimatedCostClass: 'zero' } },
-         promptBuildResult: null,
-         modelResponse: null,
-         guardResult: null,
-         regenerationResult: null,
-         finalResponse: "Desculpe, não consegui entender seu áudio claramente. Poderia escrever o que precisa ou tentar enviar o áudio novamente?",
-         stateAfter: { ...stateBefore, lastAnswer: "Desculpe, não consegui entender seu áudio claramente. Poderia escrever o que precisa ou tentar enviar o áudio novamente?", updatedAt: new Date().toISOString() },
-         metrics: { ...metrics, durationMs: Date.now() - startTime, audio_fail: true },
-         errors: ["Audio transcription returned empty or failed."],
-         sentToCustomer: false
-       } as any;
-    }
-
-    const normalizedMessage = processedMessage;
-
-    const routeResult = routeModulesV2({
-      currentMessage: normalizedMessage,
-      conversationState: stateBefore
-    });
-    console.log(`[AGENT_V2] modules_selected | correlation_id: ${correlationId} | modules: ${routeResult.selectedModules.join(', ')}`);
+  const routeResult = routeModulesV2({
+    currentMessage: normalizedMessage,
+    conversationState: stateBefore
+  });
 
   let stateAfterRouting = applyStateEvents(stateBefore, routeResult.stateEvents);
 
@@ -177,25 +95,20 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
       executionMode: input.executionMode
     });
     finalResponse = guardResult.finalResponse;
-    } else {
-      promptBuildResult = buildPromptV2({
-        conversationState: stateAfterRouting,
-        routeResult,
-        history: input.shortHistory,
-        historySummary: input.historySummary,
-        toolResults: input.toolFixtures,
-        currentMessage: normalizedMessage,
-        brainVersion: 'v2',
-        builderVersion: '2.0.0'
-      });
-      console.log(`[AGENT_V2] prompt_built | correlation_id: ${correlationId}`);
+  } else {
+    promptBuildResult = buildPromptV2({
+      conversationState: stateAfterRouting,
+      routeResult,
+      history: input.shortHistory,
+      historySummary: input.historySummary,
+      toolResults: input.toolFixtures,
+      currentMessage: normalizedMessage,
+      brainVersion: 'v2',
+      builderVersion: '2.0.0'
+    });
 
-      const modelToCall = modelRouteResult.selectedModel || 'claude-haiku-4-5-20251001';
-      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][HAIKU_STARTED] model: ${modelToCall}`);
-      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][HAIKU_PROMPT] User: ${normalizedMessage.slice(0, 100)}...`);
-      
-      const modelResult = await callBrainModel(input, promptBuildResult, modelToCall);
-      modelResponse = modelResult.reply;
+    const modelResult = await callBrainModel(input, promptBuildResult, modelRouteResult.selectedModel || 'claude-3-haiku-20240307');
+    modelResponse = modelResult.reply;
     
     // Track usage for analytics
     metrics.inputTokens = (metrics.inputTokens || 0) + (modelResult.usage?.input_tokens || 0);
@@ -252,20 +165,6 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
   metrics.selectedModel = modelRouteResult.selectedModel;
   metrics.guardViolations = (guardResult?.violations.length || 0) + (regenerationResult ? (regenerationResult as any).guardResult.violations.length : 0);
   metrics.regenerationCount = regenerationResult ? 1 : 0;
-  
-  // Audio response generation (ElevenLabs)
-  if (input.media?.hasAudio && finalResponse && input.executionMode !== 'isolated') {
-    try {
-      console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][ELEVENLABS_STARTED] text: ${finalResponse.slice(0, 30)}...`);
-      const audioUrl = await generateSpeech(finalResponse);
-      if (audioUrl) {
-        console.log(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][ELEVENLABS_OK] url: ${audioUrl}`);
-        metrics.audioResponseUrl = audioUrl;
-      }
-    } catch (ttsErr: any) {
-      console.error(`[V2_DIAGNOSTIC][${correlationId}][${new Date().toISOString()}][ELEVENLABS_ERROR] ${ttsErr.message}`);
-    }
-  }
   
   // Analytics Engine V2
   const qualityFlags: QualityFlags = {
@@ -355,40 +254,37 @@ export async function runAgentV2Turn(input: AgentV2E2EInput): Promise<AgentV2E2E
     metrics.analytics = analyticsEvent;
     metrics.qualityScore = scores.overall;
 
-      try {
-        await Promise.race([
-          persistTurnAnalytics(analyticsEvent),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
-        ]);
-        console.log(`[AGENT_V2] response_persisted | correlation_id: ${correlationId}`);
-        metrics.persisted = true;
-      } catch (e) {
-        console.error(`[AGENT_V2_ERROR] correlation_id: ${correlationId} | etapa: analytics_persistence | error: ${e instanceof Error ? e.message : String(e)}`);
-        errors.push("Analytics persistence failure.");
-      }
+    try {
+      await Promise.race([
+        persistTurnAnalytics(analyticsEvent),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000))
+      ]);
+      metrics.persisted = true;
+    } catch (e) {
+      console.error('[Analytics] Persistence failed:', e);
+      errors.push("Analytics persistence failure.");
     }
+  }
 
-    console.log(`[AGENT_V2] response_sent | correlation_id: ${correlationId}`);
-
-    return {
-      stateBefore,
-      shortAnswerResolution,
-      routeResult,
-      stateAfterRouting,
-      modelRouteResult,
-      promptBuildResult,
-      modelResponse,
-      guardResult,
-      regenerationResult,
-      finalResponse,
-      stateAfter,
-      metrics,
-      errors,
-      sentToCustomer: false
-    };
-  } catch (err) {
-    console.error(`[AGENT_V2_ERROR] correlation_id: ${correlationId || 'unknown'} | etapa: fatal_orchestrator | error_name: ${err instanceof Error ? err.name : 'Unknown'} | error_message: ${err instanceof Error ? err.message : String(err)} | stack: ${err instanceof Error ? err.stack?.split('\n').slice(0, 3).join(' ') : 'no stack'}`);
-    const fallbackState = (input as any).previousState || {
+  return {
+    stateBefore,
+    shortAnswerResolution,
+    routeResult,
+    stateAfterRouting,
+    modelRouteResult,
+    promptBuildResult,
+    modelResponse,
+    guardResult,
+    regenerationResult,
+    finalResponse,
+    stateAfter,
+    metrics,
+    errors,
+    sentToCustomer: false
+  };
+} catch (err) {
+  console.error('[Agente V2] Fatal Turn Error:', err);
+  const fallbackState = (input as any).previousState || {
     workspaceId: input.workspaceId,
     conversationId: input.conversationId,
     phoneNumber: input.phoneNumber,
@@ -510,8 +406,7 @@ function generateDeterministicResponse(message: string, state: ConversationState
 async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string, instruction?: string): Promise<any> {
   // Se estivermos em modo simulado (fixture), mantém comportamento antigo
   if (input.executionMode === 'isolated' || input.executionMode === 'shadow') {
-    const lastMsgContent = prompt.messages[prompt.messages.length - 1].content;
-    const lastUserMessage = (typeof lastMsgContent === 'string' ? lastMsgContent : "").toLowerCase();
+    const lastUserMessage = prompt.messages[prompt.messages.length - 1].content.toLowerCase();
     let reply = "Como posso ajudar? (Simulação)";
     
     const catalog = input.toolFixtures?.catalog || [];
@@ -544,21 +439,15 @@ async function callBrainModel(input: AgentV2E2EInput, prompt: any, model: string
   }
 
   // Em modo REAL ou PILOT, chama a camada neutra de inferência LLM V2.
-  // Isso separa completamente a orquestração atual dos motores de inferência.
-
+  // Isso separa completamente a orquestração V2 das funções cerebrais da V1.
   const systemPrompt = instruction 
-    ? `${prompt.systemPrompt}\n\nINSTRUÇÃO DE REGENERAÇÃO: ${instruction}`
-    : prompt.systemPrompt;
+    ? `${prompt.system}\n\nINSTRUÇÃO DE REGENERAÇÃO: ${instruction}`
+    : prompt.system;
 
   const messages = prompt.messages.map((m: any) => ({
     role: m.role === 'system' ? 'system' : (m.role === 'user' ? 'user' : 'assistant'),
-    content: String(m.content)
-  })).filter((m: any) => m.role !== 'system');
-  
-  // Ensure we have at least one user message to satisfy Anthropic API
-  if (messages.length === 0) {
-    messages.push({ role: 'user', content: input.currentMessage || "Olá" });
-  }
+    content: m.content
+  })).filter((m: any) => m.role !== 'system'); // callLLMV2 handles systemPrompt separately
 
   return await callLLMV2({
     workspaceId: input.workspaceId,

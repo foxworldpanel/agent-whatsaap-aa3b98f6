@@ -692,6 +692,40 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("invalid phone");
         }
 
+        // ============================================================
+        // 🔒 GATE V2: Agente Mind V2 é o cérebro oficial e ÚNICO.
+        // A V1 está desativada. Apenas o número autorizado executa a IA.
+        // Qualquer outro número é ignorado ANTES de qualquer chamada
+        // ao Claude, prompt, ferramenta ou métrica → zero custo.
+        //
+        // Defesa em DUAS camadas:
+        //   (1) early-return por número autorizado (aqui);
+        //   (2) resolver retorna 'disabled' → segunda barreira mesmo
+        //       que alguém remova acidentalmente o early-return.
+        // ============================================================
+        {
+          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
+          const { resolveAgentBrainVersion } = await import("@/lib/agent-v2/resolver");
+          const authorized = isAuthorizedV2Phone(phone);
+          const activeVersion = resolveAgentBrainVersion(null, phone);
+          if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
+            // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
+            const phoneTail = phone.slice(-4);
+            console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                type: "message_received",
+                level: "info",
+                summary: "AI disabled for non-authorized contact",
+                metadata: { phoneTail, activeVersion },
+              });
+            } catch {}
+            // HTTP 200 para evitar retries do provedor.
+            return new Response("ok (non-authorized number, AI disabled)");
+          }
+        }
+
         // 🔍 Log de entrada do webhook (diagnóstico por número)
         console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
 
@@ -836,7 +870,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
         const { data: number } = await supabaseAdmin
           .from("whatsapp_numbers")
-          .select("id, user_id, uazapi_url, meta_ads_enabled, disparos_mode, nome")
+          .select("id, user_id, workspace_id, uazapi_url, meta_ads_enabled, disparos_mode, nome")
           .eq("uazapi_token", instanceToken)
           .order("updated_at", { ascending: false, nullsFirst: false })
           .limit(1)
@@ -844,6 +878,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         let userId: string;
         let numberId: string | null = null;
+        let selectedWorkspaceId: string | null = null;
         let numberUazapiUrl: string | null = null;
         let metaAdsEnabled = false;
         let disparosMode = false;
@@ -851,6 +886,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         if (number) {
           userId = number.user_id;
           numberId = number.id;
+          selectedWorkspaceId = (number as { workspace_id?: string | null }).workspace_id ?? null;
           numberUazapiUrl = number.uazapi_url;
           metaAdsEnabled = !!number.meta_ads_enabled;
           disparosMode = !!number.disparos_mode;
@@ -883,6 +919,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
           userId = integLegacy.user_id;
           numberUazapiUrl = integLegacy.uazapi_url;
+        }
+
+        if (!selectedWorkspaceId) {
+          console.error("❌ Workspace não resolvido para a instância WhatsApp — bloqueando processamento");
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              type: "workspace_missing",
+              level: "error",
+              summary: "Webhook bloqueado: instância WhatsApp sem workspace válido",
+              metadata: { numberId, origem: "uazapi-webhook" },
+            });
+          } catch {}
+          return new Response("workspace missing for WhatsApp instance", { status: 409 });
         }
 
         // Log de diagnóstico: qual número recebeu a mensagem e em qual modo
@@ -966,6 +1018,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .from("contacts")
           .select("id, nome, perfil, status, source, source_ref, photo_url, whatsapp_number_id")
           .eq("user_id", userId)
+          .eq("workspace_id", selectedWorkspaceId)
           .eq("telefone", phone)
           .maybeSingle();
 
@@ -996,6 +1049,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .from("contacts")
             .insert({
               user_id: userId,
+              workspace_id: selectedWorkspaceId,
               nome: msg.senderName ?? phone,
               telefone: phone,
               perfil: "frio",
@@ -1199,6 +1253,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           last_media_sent?: unknown | null;
           last_message_at?: string | null;
           created_at?: string | null;
+          workspace_id?: string | null;
         };
         // Conversas são isoladas por número conectado. Mesmo se o contato tem
         // histórico de disparo em outro chip, a resposta deve ficar no número
@@ -1216,6 +1271,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             _contact_id: contact.id,
             _whatsapp_number_id: desiredConversationNumberId,
             _initial_status: "agente_respondendo",
+            _workspace_id: selectedWorkspaceId,
           },
         );
         if (convLookupErr) return new Response(convLookupErr.message, { status: 500 });
@@ -1235,6 +1291,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .from("conversations")
             .select("id")
             .eq("user_id", userId)
+          .eq("workspace_id", selectedWorkspaceId)
             .eq("contact_id", contact.id);
           const siblingIds = (siblingConvs ?? [])
             .map((r) => (r as { id: string }).id)
@@ -1271,7 +1328,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
-            const { transcribeAudioUrl } = await import("@/lib/ai.server");
+            const { transcribeAudioUrl } = await import("@/lib/agent-v2/core/ai-services.server");
             const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
@@ -1291,6 +1348,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const now = new Date().toISOString();
         await supabaseAdmin.from("messages").insert({
           user_id: userId,
+          workspace_id: selectedWorkspaceId,
           conversation_id: conv.id,
           sender: outbound ? "agente" : "cliente",
           kind: dbKind,
@@ -1384,6 +1442,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .from("agent_config")
           .select("*")
           .eq("user_id", userId)
+          .eq("workspace_id", selectedWorkspaceId)
           .maybeSingle();
         if (!agent) {
           await supabaseAdmin.from("conversations").update({ status: "aguardando" }).eq("id", conv.id);
@@ -2427,6 +2486,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
+        const { runAgentV2Turn } = await import("@/lib/agent-v2.functions");
+
 
         // ===== Coalescência de mensagens rápidas do cliente =====
         // Cliente costuma mandar 2-3 mensagens em sequência ("O que é MQ?",
@@ -2645,7 +2706,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .createSignedUrl(r.storage_path, 60 * 60);
                 if (signed?.signedUrl) imageUrl = signed.signedUrl;
               }
-              const { describePanelScreen } = await import("@/lib/ai.server");
+              const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
               extracted = await describePanelScreen({
                 imageUrl,
                 name: r.name,
@@ -2689,7 +2750,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   if (signed?.signedUrl) imageUrl = signed.signedUrl;
                 }
                 if (imageUrl) {
-                  const { describePanelScreen } = await import("@/lib/ai.server");
+                  const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
                   extracted = await describePanelScreen({ imageUrl, name, description });
                   if (shot.path && extracted) {
                     await supabaseAdmin.from("panel_guide").insert({
@@ -2752,6 +2813,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // Catálogo SMM fixo (cache no Supabase). Sem chamada externa por mensagem.
         // Toggles do agente controlam se é incluído no prompt e se é filtrado por assunto.
         let servicesContext: string | null = null;
+        let all: any[] = [];
         const servicesFetchFailed = false;
         const a0 = agent as { catalog_in_prompt?: boolean; catalog_only_relevant?: boolean };
         const catalogInPrompt = a0.catalog_in_prompt !== false; // default true
@@ -2764,7 +2826,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .eq("user_id", userId)
               .eq("hidden", false)
               .limit(500);
-            const all = (cacheRows ?? []).map((r) => ({
+            all = (cacheRows ?? []).map((r) => ({
+
               service: r.service_id as string,
               name: (r.nome as string) ?? "",
               category: (r.categoria as string) ?? "",
@@ -2802,10 +2865,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 }
               }
               let services = all;
+              const spotifyMatch = /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly/i.test(lowerText);
+              
               if (onlyRelevant && matched.length > 0) {
                 services = all.filter((s) =>
                   matched.some((p) => new RegExp(p.key, "i").test(`${s.name} ${s.category}`)),
                 );
+              } else if (spotifyMatch) {
+                // Forçar serviços de Spotify se a mensagem for sobre música mas não casar regex rígida
+                services = all.filter(s => /spotify/i.test(`${s.name} ${s.category}`));
               }
               // Cap dinâmico: quando não há match nenhum (contexto vago),
               // manda só uma amostra representativa (60) em vez de despejar
@@ -2962,6 +3030,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const _modulesCount = Array.isArray((agent as { modules_enabled?: unknown[] }).modules_enabled) ? ((agent as { modules_enabled: unknown[] }).modules_enabled).length : 0;
             console.log('Prompt context:', { modules: _modulesCount, services: freeTestServices?.length ?? 0, examples: knowledgeExamples?.length ?? 0, historyLen: aiHistory?.length ?? 0, extraContext: orderStatusContext?.slice(0, 200) ?? '' });
           } catch {}
+          // Resposta final do agente
+          reply = "";
+
           try {
             const _agentTurnsSoFar = (aiHistory ?? []).filter((m: { sender?: string }) => m?.sender === "agente").length;
             console.log('[agent-ai] Roteamento inputs:', {
@@ -2975,65 +3046,134 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             });
           } catch {}
           const _claudeStart = Date.now();
-          const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
-          reply = _claudeOut.text;
-          const _claudeMs = Date.now() - _claudeStart;
-          const _claudeModel = _claudeOut.model;
-          const _claudeRoutingReason = _claudeOut.routingReason;
-          console.log('Resposta do Claude:', reply);
-          // Safety net: se já houve mensagem anterior do agente na conversa,
-          // remove saudações repetidas no início da resposta (Oi/Olá/Bom dia
-          // etc.), preservando o conteúdo da mensagem.
-          //
-          // ⚠️ EXCEÇÃO CRÍTICA: no MODO REENGAJAMENTO (hiato longo receptivo
-          // OU cortesia neutra após abertura de disparo), a Júlia PRECISA
-          // retribuir a saudação — o `enforceReengagementGreeting` dentro do
-          // `generateAgentReplyWithMeta` prepende "Bom dia!"/"Boa tarde!" de
-          // propósito. Se esse safety-net rodar depois, ele apaga justamente
-          // a saudação que o guard acabou de garantir (regressão real:
-          // cliente "Bom dia" após +15h → Júlia respondia "Como posso te
-          // ajudar?" sem saudação). Reproduz a mesma detecção do ai.server
-          // pra pular a limpeza nesses casos.
-          try {
-            const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
-              await import("@/lib/ai.server");
-            const inReengagementMode =
-              isReengagementGreeting(aiHistory ?? []) ||
-              isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
-            const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
-            if (hasPriorAgent && reply && !inReengagementMode) {
-              const parts = reply.split("===SPLIT===");
-              const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
-              parts[0] = parts[0].replace(greetRe, "").trimStart();
-              const cleaned = parts.join("===SPLIT===").trim();
-              if (cleaned.length > 0) reply = cleaned;
+          
+          // Fase 2 Runtime: Conexão V2
+          // Ativa V2 se o telefone for autorizado. Fallback para V1 via configuração do agente.
+          // OBRIGATÓRIO: Para o workspace Mind, a V1 está desativada.
+          const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+          const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
+          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
+          
+          const useV2 = isMindWorkspace || (isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true);
+          
+          if (useV2) {
+            console.log('🚀 [Agente V2] Turno iniciado');
+            const v2Result = await runAgentV2Turn({
+              conversationId: conv.id,
+              workspaceId: (agent as any).workspace_id,
+              phoneNumber: phone,
+              currentMessage: inboundBody,
+              mode: !(isBlastReply || isBlastThread) ? 'receptive' : 'outbound',
+              executionMode: 'real',
+              media: isImage ? { type: 'image', hasImage: true } : (kind === 'audio' ? { type: 'audio', hasAudio: true } : { type: 'text' }),
+              shortHistory: (aiHistory ?? []).map((m: any) => ({ 
+                sender: m.sender === 'agente' ? 'agente' : 'cliente',
+                body: m.body || ''
+              })),
+              toolFixtures: {
+                catalog: all || [],
+                freeTestServices: freeTestServices || []
+              },
+
+              expected: {
+                conversationWorkspaceId: (conv as any).workspace_id,
+                agentWorkspaceId: (agent as any).workspace_id,
+                whatsappWorkspaceId: selectedWorkspaceId,
+                selectedWorkspaceId,
+              },
+            });
+
+            
+            reply = v2Result.finalResponse;
+            const _claudeMs = Date.now() - _claudeStart;
+            const _v2Metrics = v2Result.metrics;
+            
+            console.log('✅ [Agente V2] Resposta:', reply);
+            
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                userId, phone, conversationId: conv?.id,
+                type: "v2_turn", level: "info",
+                summary: `🧠 Agente V2 respondeu (${_claudeMs}ms) | Model: ${_v2Metrics.selectedModel}`,
+                response: reply,
+                durationMs: _claudeMs,
+                metadata: {
+                  brainVersion: 'v2',
+                  turnId: _v2Metrics.analytics?.turnId,
+                  selectedModel: _v2Metrics.selectedModel,
+                  intent: _v2Metrics.intent,
+                  modules: v2Result.routeResult.selectedModules,
+                  routingReason: _v2Metrics.analytics?.routingReason,
+                }
+              });
+            } catch {}
+          } else {
+            // V1 Original (Processamento Legado) — BLOQUEADO PARA WORKSPACE MIND
+            if (isMindWorkspace) {
+              throw new Error("V1_EXECUTION_BLOCKED: Workspace Mind detectado em branch legado.");
             }
-          } catch {}
-          // Após análise de imagem pelo Sonnet, persiste fatos duráveis em
-          // conversations.contexto_extra para que o agente nunca esqueça o
-          // que viu no print (ex.: "cliente já tem cadastro com saldo").
+            
+            const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
+            reply = _claudeOut.text;
+            const _claudeMs = Date.now() - _claudeStart;
+            const _claudeModel = _claudeOut.model;
+            const _claudeRoutingReason = _claudeOut.routingReason;
+            console.log('Resposta do Claude (V1):', reply);
+            
+            // Safety net V1: saudações repetidas
+            try {
+              const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
+                await import("@/lib/ai.server");
+              const inReengagementMode =
+                isReengagementGreeting(aiHistory ?? []) ||
+                isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
+              const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
+              if (hasPriorAgent && reply && !inReengagementMode) {
+                const parts = reply.split("===SPLIT===");
+                const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
+                parts[0] = parts[0].replace(greetRe, "").trimStart();
+                const cleaned = parts.join("===SPLIT===").trim();
+                if (cleaned.length > 0) reply = cleaned;
+              }
+            } catch {}
+            
+            // Log V1
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                userId, phone, conversationId: conv?.id,
+                type: "claude_reply", level: "info",
+                summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
+                prompt: JSON.stringify({
+                  model: _claudeModel,
+                  routingReason: _claudeRoutingReason,
+                  contact: _claudeArgs.contact,
+                  historyCount: aiHistory?.length ?? 0,
+                }, null, 2),
+                response: reply ?? null,
+                durationMs: _claudeMs,
+                metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas" },
+              });
+            } catch {}
+          }
+
+
+          // Persistência de fatos duráveis (comum a V1 e V2 se aplicável)
           if (isImage && reply && reply.trim()) {
             try {
-              const { extractDurableContextFromImageReply } = await import("@/lib/ai.server");
+              const { extractDurableContextFromImageReply } = await import("@/lib/agent-v2/core/ai-services.server");
               const facts = await extractDurableContextFromImageReply({
                 imageReply: reply,
                 clientMessage: text ?? inboundBody ?? null,
               });
               if (facts) {
                 const prev = ((conv as { contexto_extra?: string | null }).contexto_extra ?? "").trim();
-                const existingLines = new Set(
-                  prev.split("\n").map((l) => l.trim().toLowerCase()).filter(Boolean),
-                );
-                const newLines = facts
-                  .split("\n")
-                  .map((l) => l.trim())
-                  .filter((l) => l && !existingLines.has(l.toLowerCase()));
+                const existingLines = new Set(prev.split("\n").map((l) => l.trim().toLowerCase()).filter(Boolean));
+                const newLines = facts.split("\n").map((l) => l.trim()).filter((l) => l && !existingLines.has(l.toLowerCase()));
                 if (newLines.length > 0) {
                   const merged = [prev, ...newLines].filter(Boolean).join("\n").slice(-2000);
-                  await supabaseAdmin
-                    .from("conversations")
-                    .update({ contexto_extra: merged } as never)
-                    .eq("id", conv.id);
+                  await supabaseAdmin.from("conversations").update({ contexto_extra: merged } as never).eq("id", conv.id);
                 }
               }
             } catch (e) {
@@ -3041,44 +3181,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
           }
           console.log('=== FIM DO PROCESSAMENTO ===');
-          try {
-            const { logEvent } = await import("@/lib/agent-logger.server");
-            await logEvent({
-              userId, phone, conversationId: conv?.id,
-              type: "claude_reply", level: "info",
-              summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
-              prompt: JSON.stringify({
-                model: _claudeModel,
-                modelUsed: _claudeModel,
-                routingReason: _claudeRoutingReason,
-                contact: _claudeArgs.contact,
-              freeTestServicesCount: freeTestServices?.length ?? 0,
-              catalogServicesCount: servicesContext
-                ? (servicesContext.match(/\nID: /g)?.length ?? 0)
-                : 0,
-              catalogInPrompt,
-              catalogOnlyRelevant: onlyRelevant,
-                examples: knowledgeExamples?.length ?? 0,
-                history: aiHistory ?? [],
-                historyCount: aiHistory?.length ?? 0,
-                historyConversationIds,
-                extraContext: orderStatusContext ?? null,
-                agentIdentity: (agent as { agent_name?: string }).agent_name ?? null,
-                hasBaseInstruction: !!(agent as { base_instruction?: string }).base_instruction,
-                modulesEnabledCount: Object.values(
-                  ((agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {}),
-                ).filter(Boolean).length,
-              }, null, 2),
-              response: reply ?? null,
-              durationMs: _claudeMs,
-              metadata: {
-                model: _claudeModel,
-                routingReason: _claudeRoutingReason,
-                origem: "conversas",
-              },
-            });
-          } catch {}
-          }
           if (!reply || !reply.trim()) {
             // Claude respondeu vazio — registra como ERRO real em vez de mascarar
             // como uma resposta normal. Assim o fallback aparece com tag de erro
@@ -3094,6 +3196,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
             } catch {}
             reply = FALLBACK_REPLY;
+            }
           }
         } catch (e) {
           console.error("claude failed", e);
@@ -3109,6 +3212,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             });
           } catch {}
         }
+
+
+
 
         // Anti-loop: se o fallback já foi enviado na última mensagem do agente,
         // não repete a mesma frase — envia uma variação neutra e registra warn.
@@ -3356,7 +3462,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const skippedIdx = new Set<number>();
         try {
           if (respondWithAudio) {
-            const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+            const { ttsElevenLabsBase64 } = await import("@/lib/agent-v2/core/ai-services.server");
             if (memWasRecentlySent(phone, replyParts[0]) || await wasRecentlySent(conv.id, replyParts[0])) {
               skippedIdx.add(0);
               replyKind = "audio";
@@ -3725,7 +3831,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // 🧪 número de teste — não altera temperatura automaticamente
             throw new Error("__test_number_skip_scoring__");
           }
-          const { classifyLeadTemperature } = await import("@/lib/ai.server");
+          const { classifyLeadTemperature } = await import("@/lib/agent-v2/core/ai-services.server");
           const fullHistory = [
             ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
             { sender: "cliente" as const, body: inboundBody },

@@ -15,8 +15,8 @@ import { createHmac } from 'crypto';
 const MODEL_PRICING: ModelPricingConfigV2[] = [
   {
     provider: 'anthropic',
-    model: 'claude-sonnet-5',
-    effectiveFrom: '2026-06-29T00:00:00Z',
+    model: 'claude-3-5-sonnet-20240620',
+    effectiveFrom: '2024-06-20T00:00:00Z',
     inputPricePerMillion: 3.0,
     outputPricePerMillion: 15.0,
     cacheCreationPricePerMillion: 3.75,
@@ -27,8 +27,8 @@ const MODEL_PRICING: ModelPricingConfigV2[] = [
   },
   {
     provider: 'anthropic',
-    model: 'claude-haiku-4-5-20251001',
-    effectiveFrom: '2025-10-15T00:00:00Z',
+    model: 'claude-3-haiku-20240307',
+    effectiveFrom: '2024-03-07T00:00:00Z',
     inputPricePerMillion: 0.25,
     outputPricePerMillion: 1.25,
     cacheCreationPricePerMillion: 0.30,

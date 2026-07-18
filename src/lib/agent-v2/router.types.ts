@@ -11,7 +11,7 @@ export type V2Module =
   | 'receptive'
   | 'outbound'
   | 'commercial'
-  
+  | 'spotify'
   | 'spotify_overview'
   | 'spotify_playlist'
   | 'spotify_followers'

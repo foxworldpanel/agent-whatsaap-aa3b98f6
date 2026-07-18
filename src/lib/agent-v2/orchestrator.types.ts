@@ -9,7 +9,6 @@ import { PromptBuilderOutputV2 } from './prompt-builder.types';
 import { GuardEngineOutput } from './guard-engine.types';
 
 export interface AgentV2E2EInput {
-  correlationId?: string;
   workspaceId: string;
   conversationId: string;
   phoneNumber: string;
@@ -20,9 +19,6 @@ export interface AgentV2E2EInput {
     type: 'text' | 'image' | 'audio';
     hasImage?: boolean;
     hasAudio?: boolean;
-    mediaId?: string;
-    mediaUrl?: string;
-    mimeType?: string;
   };
   shortHistory: { sender: 'agente' | 'cliente'; body: string }[];
   historySummary?: string;

@@ -9,7 +9,6 @@ import { AgentV2E2EInput, AgentV2E2EOutput } from "./agent-v2/orchestrator.types
  * to avoid auth middleware issues in webhook context.
  */
 export async function runAgentV2Turn(data: {
-  correlationId?: string;
   conversationId: string;
   workspaceId: string;
   phoneNumber: string;
@@ -26,9 +25,6 @@ export async function runAgentV2Turn(data: {
     type: 'text' | 'image' | 'audio';
     hasImage?: boolean;
     hasAudio?: boolean;
-    mediaId?: string;
-    mediaUrl?: string;
-    mimeType?: string;
   };
   shortHistory?: { sender: 'agente' | 'cliente'; body: string }[];
   historySummary?: string;
@@ -70,7 +66,6 @@ export async function runAgentV2Turn(data: {
 
   // 2. Run turn
   const output = await runV2Turn({
-    correlationId: data.correlationId,
     workspaceId: data.workspaceId,
     conversationId: data.conversationId,
     phoneNumber: data.phoneNumber,

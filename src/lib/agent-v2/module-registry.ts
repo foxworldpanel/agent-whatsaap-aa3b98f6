@@ -29,6 +29,7 @@ export const moduleRegistryV2: Record<V2Module, string> = {
   receptive: RECEPTIVE_V2,
   outbound: OUTBOUND_V2,
   commercial: COMMERCIAL_V2,
+  spotify: SPOTIFY_OVERVIEW, // fallback
   spotify_overview: SPOTIFY_OVERVIEW,
   spotify_playlist: SPOTIFY_PLAYLIST,
   spotify_followers: SPOTIFY_FOLLOWERS,

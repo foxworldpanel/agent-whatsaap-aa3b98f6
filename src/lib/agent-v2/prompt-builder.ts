@@ -38,7 +38,7 @@ export function buildPromptV2(input: PromptBuilderInputV2): PromptBuilderOutputV
   }
 
   // 6. Network module
-  const networkModules: V2Module[] = ['spotify_overview', 'spotify_playlist', 'spotify_followers', 'instagram', 'youtube', 'tiktok', 'facebook', 'kwai'];
+  const networkModules: V2Module[] = ['spotify', 'spotify_overview', 'spotify_playlist', 'spotify_followers', 'instagram', 'youtube', 'tiktok', 'facebook', 'kwai'];
   const activeNetworks = selectedModules.filter(m => networkModules.includes(m));
   
   if (activeNetworks.length > 1 && !input.currentMessage.toLowerCase().includes('qual é melhor') && !input.currentMessage.toLowerCase().includes('compar')) {
@@ -151,11 +151,11 @@ export function buildPromptV2(input: PromptBuilderInputV2): PromptBuilderOutputV
   return {
     systemPrompt,
     messages: [
+      { role: 'system', content: systemPrompt },
       ...limitHistory(input.history).map(h => ({
         role: h.sender === 'agente' ? 'assistant' as const : 'user' as const,
         content: h.body
-      })),
-      { role: 'user' as const, content: input.currentMessage }
+      }))
     ],
     selectedModules: input.routeResult.selectedModules,
     selectedTools: input.routeResult.selectedTools,

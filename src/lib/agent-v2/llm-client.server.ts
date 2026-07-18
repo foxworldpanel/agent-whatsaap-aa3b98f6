@@ -14,7 +14,7 @@ const AnthropicResponseSchema = z.object({
 });
 
 export interface LLMMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant';
   content: string;
 }
 
@@ -32,8 +32,7 @@ export async function callLLMV2(params: {
   phoneNumber?: string;
 }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const model = params.model || 'claude-haiku-4-5-20251001';
-  const effectiveModel = model;
+  const model = params.model || 'claude-3-haiku-20240307';
   
   if (!apiKey) {
     throw new Error('[LLMV2] ANTHROPIC_API_KEY não configurada. V2 requer inferência direta.');
@@ -50,7 +49,7 @@ export async function callLLMV2(params: {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: effectiveModel,
+        model: model,
         max_tokens: params.maxTokens || 1024,
         temperature: params.temperature ?? 0.7,
         system: params.systemPrompt,
