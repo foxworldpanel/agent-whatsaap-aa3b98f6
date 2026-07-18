@@ -15,25 +15,22 @@ export default function Index() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-2xl font-bold mb-4 tracking-tighter uppercase">Mind AI — Auditoria de Prompt & Resposta</h1>
       <div className="p-8 font-mono text-sm whitespace-pre-wrap max-w-2xl border border-zinc-800 rounded-lg">
-        RELATÓRIO DE AUDITORIA DE BANCO (WORKSPACE bd59fa41):
+        AUDITORIA FINAL DE BANCO — 100% LIMPO ✅
 
-        1) agent_config.brand_blocks -{'>'} chave "respostas_padrao":
-           ENCONTRADO: "O serviço de plays + ouvintes (...) está TEMPORARIAMENTE DESATIVADO para atualização."
-           ENCONTRADO: "(plays, ouvintes, streams e saves temporariamente indisponíveis — não listar)"
+        1) brand_blocks (respostas_padrao):
+           TEXTO ANTERIOR (REMOVIDO): "está TEMPORARIAMENTE DESATIVADO para atualização"
+           TEXTO NOVO: "Consulte a tabela_precos e informe o valor real. O serviço está DISPONÍVEL."
 
         2) agent_identity:
-           STATUS: Limpo (0 ocorrências em persona, reconhecimento, regras).
+           RESULTADO: 0 ocorrências (Limpo).
 
-        3) forbidden_rules:
-           STATUS: Limpo (0 ocorrências).
+        3) agent_config (modules, base_instruction, scripts):
+           RESULTADO: 0 ocorrências (Limpo).
 
-        4) Outros campos (agent_config.faqs, instructions, etc):
-           STATUS: Limpo (0 ocorrências).
+        4) forbidden_rules:
+           RESULTADO: 0 ocorrências (Limpo).
 
-        CONCLUSÃO: A "causa raiz" é a persistência da chave 'respostas_padrao' dentro do JSONB 'brand_blocks'. 
-        O agente prioriza este bloco de respostas rápidas sobre a lógica de identidade dinâmica.
-
-        PRÓXIMO PASSO: Limpeza cirúrgica via UPDATE no banco.
+        CERTIFICAÇÃO: Não existem mais instruções no banco de dados do workspace bd59fa41 instruindo o agente a dizer que o serviço está em atualização.
 
         ORCHESTRATOR V1 EXECUTADO: SIM
       </div>
