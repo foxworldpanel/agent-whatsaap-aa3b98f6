@@ -893,6 +893,9 @@ export async function generateAgentReplyWithMeta(params: {
   // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
   (globalThis as any).systemBlock1 = systemBlock1; // Export temporário para o Bloco 1
 
+  // BLOCO 2 — DINÂMICO (Vetos de reengajamento, Contexto da mensagem e Histórico)
+  // Este bloco NÃO tem cache_control porque muda a cada mensagem.
+
   const system = [
     // VETO DE PRIORIDADE MÁXIMA: o bloco MODO REENGAJAMENTO precede a
     // identidade (buildSharedRules), o EXEMPLO_MODELO_DISPARO e qualquer
