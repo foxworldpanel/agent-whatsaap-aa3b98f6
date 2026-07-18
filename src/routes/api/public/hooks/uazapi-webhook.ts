@@ -3197,7 +3197,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const skippedIdx = new Set<number>();
         try {
           if (respondWithAudio) {
-            const { ttsElevenLabsBase64 } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
             if (memWasRecentlySent(phone, replyParts[0]) || await wasRecentlySent(conv.id, replyParts[0])) {
               skippedIdx.add(0);
               replyKind = "audio";
