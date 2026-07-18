@@ -910,44 +910,21 @@ export async function generateAgentReplyWithMeta(params: {
     suppressExemploDisparo: true,
   });
 
-  const initialSystemBlocks: any = [
-    {
-      text: systemBlock1,
-      cache_control: { type: "ephemeral" }
-    },
-    // BLOCO 2 — DINÂMICO (Vetos, Histórico, Promoções, Catálogo, Contexto Variável)
-    // Injetamos aqui os dados que podem variar entre requisições ou workspaces,
-    // garantindo que o Bloco 1 permaneça 100% estável para hits de cache.
+  const systemBlocks: any = [
+    systemBlock1,
     playlistCatalog ? buildRegraPlaylistsInfoDiretaBlock(playlistCatalog) : "",
     (() => {
       const t = (dailyPromoText ?? "").trim();
       if (!t) return "";
       return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta. Se esta promoção não estiver no bloco (bloco ausente do prompt), NUNCA mencione nenhuma promoção — mantém a regra normal de "nunca dar desconto manual".`;
     })(),
-    // Se for efetivamente um disparo, injetamos o EXEMPLO_MODELO_DISPARO aqui (no dinâmico)
-    // para não quebrar o cache do Bloco 1 nas conversas orgânicas.
     effectiveBlast
       ? buildSharedRules(identity, { suppressExemploDisparo: false })
       : "",
-    // Regra de reconhecimento de interesse (fundamental para o Claude decidir avançar ou não)
     identity.reconhecimento_interesse || "",
-    // VETO DE PRIORIDADE MÁXIMA: o bloco MODO REENGAJAMENTO precede a
-    // identidade (buildSharedRules), o EXEMPLO_MODELO_DISPARO e qualquer
-    // refinamento de tom consultivo. Sem isso, em threads de disparo o modelo
-    // reencaixa a próxima pergunta do funil mesmo depois de horas de hiato +
-    // saudação seca do cliente.
     anyReengagementVeto
       ? (inboundReengagementVeto
-          // CASO 1 — RECEPTIVO / SUPORTE: cliente iniciou o contato. Reengajar
-          // com "como posso ajudar" — não existe "isca" a reapresentar.
           ? `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER lógica de disparo/blast/funil de vendas.\n\nCondição detectada: passaram VÁRIAS HORAS (ou virou o dia) desde a sua última mensagem, e o cliente voltou APENAS com uma saudação curta ("oi", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem"). Esta conversa é RECEPTIVA (o cliente iniciou o contato originalmente).\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação e se coloque à disposição de forma neutra. FORMATO OBRIGATÓRIO em UMA ÚNICA mensagem curta, com DUAS partes NA ORDEM: (a) SAUDAÇÃO DE VOLTA equivalente à do cliente ("Bom dia!", "Boa tarde!", "Boa noite!", "Oi!") — OBRIGATÓRIA como PRIMEIRAS PALAVRAS LITERAIS da resposta; (b) "Como posso ajudar?" (ou variação curta: "Como posso te ajudar hoje?", "Tudo bem por aí? Como posso ajudar?"). Exemplos corretos: "Boa tarde! Como posso ajudar?" / "Bom dia! Como posso te ajudar hoje?" / "Oi! Tudo bem por aí? Como posso ajudar?".\n2) REGRA LITERAL DE ESPELHO DA SAUDAÇÃO: se o cliente disse "Bom dia" → sua resposta COMEÇA com "Bom dia!"; se disse "Boa tarde" → COMEÇA com "Boa tarde!"; se disse "Boa noite" → COMEÇA com "Boa noite!"; se disse "Oi"/"Olá"/"Opa" → COMEÇA com "Oi!" (ou a saudação do período atual do dia). NUNCA responda "Como posso ajudar?" cru, sem a saudação de volta — omitir a saudação de volta é ERRADO e QUEBRA O PADRÃO, é a regressão que já foi corrigida antes.\n3) PROIBIDO emendar automaticamente/repetir/reformular QUALQUER pergunta pendente do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem).\n4) AGUARDE a próxima mensagem do cliente antes de retomar qualquer coisa.\n5) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço, NÃO faça pergunta de negócio nesta resposta.`
-          // CASO 2 — DISPARO / BLAST: a Júlia iniciou o contato via abordagem
-          // fria. Reengajar REAPRESENTANDO A ISCA (pergunta final da abertura)
-          // de forma resumida. Vale para AMBOS os gatilhos:
-          //   (a) hiato de tempo (várias horas / virou o dia), OU
-          //   (b) cliente respondeu à abertura só com saudação/cortesia neutra
-          //       (sem hiato — regressão real observada em produção onde a
-          //       Júlia caía no genérico de suporte "Como posso te ajudar?").
           : `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO / CORTESIA EM DISPARO ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER pergunta pendente do funil que exista no histórico.\n\nCondição detectada: você está em uma thread de DISPARO (VOCÊ iniciou o contato via abordagem fria) e o cliente respondeu à sua abertura APENAS com saudação/cortesia neutra ("oi", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem?", "olá, tudo bem?"), SEM responder à pergunta da abertura. Isso vale tanto quando passaram várias horas desde a sua última mensagem (hiato) quanto quando a resposta veio poucos minutos depois (sem hiato). Em ambos os casos, a resposta correta é a MESMA: retribuir a saudação e REAPRESENTAR A ISCA da abertura — NUNCA cair na resposta genérica de receptivo/suporte "Oi! Como posso te ajudar?".\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação de forma calorosa e REAPRESENTE A ISCA — a pergunta FINAL da abertura de disparo, de forma RESUMIDA. FORMATO OBRIGATÓRIO em UMA ÚNICA mensagem curta, com DUAS partes NA ORDEM: (a) SAUDAÇÃO DE VOLTA equivalente à do cliente ("Bom dia!", "Boa tarde!", "Boa noite!", "Oi!") — OBRIGATÓRIA como primeiras palavras da resposta; (b) opcional "espero que esteja bem também" + a pergunta-isca. Exemplo: "Boa noite! Espero que esteja bem também. Posso te mostrar como dar uma acelerada nas suas redes?" (variações válidas do fim: "Posso te mostrar como acelerar suas redes?" / "Posso te mostrar como turbinar suas redes?" / "Posso te mostrar como impulsionar seu perfil?").\n2) PROIBIDO ABSOLUTO omitir a saudação de volta como primeiras palavras — começar direto com "Espero que esteja bem também" SEM "Bom dia/Boa tarde/Boa noite/Oi" antes é ERRADO e quebra o padrão.\n3) PROIBIDO ABSOLUTO responder com "Como posso te ajudar?", "Como posso ajudar?", "Em que posso ajudar?" ou qualquer variação de suporte/receptivo genérico — essa é a resposta de conversa RECEPTIVA e NÃO se aplica a disparo. Aqui a Júlia iniciou o contato com uma isca clara e precisa reapresentá-la.\n4) PROIBIDO repetir a abertura COMPLETA — NÃO diga "Peguei seu contato no perfil @...", NÃO cite o @ do Instagram, NÃO cumprimente pelo nome como se fosse a primeira mensagem, NÃO diga "adorei o conteúdo/estilo". Só a saudação de volta + a pergunta-isca final, resumida.\n5) PROIBIDO emendar/repetir/reformular a pergunta PENDENTE do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem). Você está VOLTANDO para a pergunta-isca da abertura, NÃO avançando o funil.\n6) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço nesta resposta.\n7) Depois desta resposta, se o cliente responder com interesse ("sim", "pode", "manda", "claro"), a PRÓXIMA resposta CONTINUA o funil de onde parou (retomar a pergunta pendente — ex: rede social) SEM repetir a abertura completa novamente.`)
       : "",
     // Nota: Regras compartilhadas estáveis já estão no Bloco 1.
@@ -1150,16 +1127,9 @@ export async function generateAgentReplyWithMeta(params: {
   });
 
   const contextoDetectado = detectarContexto(latestClientMessage, history);
-  const systemBlock2 = initialSystemBlocks;
-  const systemLen = Array.isArray(systemBlock2) ? systemBlock2.reduce((acc, curr) => acc + (typeof curr === "string" ? curr.length : (curr.text?.length || 0)), 0) : String(systemBlock2).length;
+  const fullSystemFallback = Array.isArray(systemBlocks) ? systemBlocks.filter(Boolean).join("\n\n") : String(systemBlocks || "");
+  const systemLen = fullSystemFallback.length;
   console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(systemLen / 4));
-
-  const fullSystemFallbackInitial = [
-    systemBlock1,
-    ...(Array.isArray(systemBlock2) 
-      ? systemBlock2.map((b: any) => (typeof b === "string" ? b : b.text)) 
-      : [systemBlock2])
-  ].filter(Boolean).join("\n\n");
 
   // ============================================================
   // MÉTRICAS DE PROMPT (baseline pré-refatoração).
@@ -1282,41 +1252,17 @@ export async function generateAgentReplyWithMeta(params: {
   }
 
   const claudeStartedAt = Date.now();
-  const system: any[] = [
-    { type: "text", text: String(systemBlock1 || ""), cache_control: { type: "ephemeral" } },
-    ...(Array.isArray(systemBlock2) 
-      ? systemBlock2.map((b: any) => {
-          if (typeof b === "string") return { type: "text", text: b };
-          if (typeof b === 'object' && b !== null) {
-             const txt = b.text || b.content || (typeof b.toString === 'function' ? b.toString() : "");
-             return { type: 'text', text: String(txt) };
-          }
-          return { type: 'text', text: String(b || "") };
-        }) 
-      : (systemBlock2 ? [{ type: "text", text: typeof systemBlock2 === 'string' ? systemBlock2 : String((systemBlock2 as any).text || (systemBlock2 as any).content || "") }] : []))
-  ];
-
-  const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
-  
-  if (process.env.NODE_ENV === "test") {
-    // Apenas log de depuração minimalista para testes de prompt
-    if (fullSystemFallback.includes("EXEMPLO_MODELO_DISPARO")) {
-       // console.log("[agent-ai] SYSTEM CONTAINS EXEMPLO_MODELO_DISPARO");
-    }
-  }
-
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-api-key": anthropicKey,
       "anthropic-version": "2023-06-01",
-      "anthropic-beta": "prompt-caching-2024-07-31"
     },
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      system,
+      system: fullSystemFallback,
       messages: finalMessages,
     }),
   });
