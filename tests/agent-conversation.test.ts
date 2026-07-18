@@ -164,7 +164,7 @@ describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)",
       expect(model).not.toBe("rule-based");
       // Confirma que o system prompt carrega o exemplo_disparo (Claude vai decidir)
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-      const text = sysText(body.system);
+      const text = extractSystemText(body.system);
       const textLower = text.toLowerCase();
       const containsTarget = textLower.includes("exemplo_modelo_disparo") || textLower.includes("qual rede social");
       
