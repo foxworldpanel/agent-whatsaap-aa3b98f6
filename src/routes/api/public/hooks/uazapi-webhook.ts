@@ -706,8 +706,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         {
           
           
-          const authorized = isAuthorizedV2Phone(phone);
-          const activeVersion = resolveAgentBrainVersion(null, phone);
           if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
             // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
             const phoneTail = phone.slice(-4);
@@ -1330,7 +1328,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           try {
             
             const _ttStart = Date.now();
-            const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
@@ -2707,7 +2704,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 if (signed?.signedUrl) imageUrl = signed.signedUrl;
               }
               
-              extracted = await describePanelScreen({
                 imageUrl,
                 name: r.name,
                 description: r.description,
@@ -2751,7 +2747,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 }
                 if (imageUrl) {
                   
-                  extracted = await describePanelScreen({ imageUrl, name, description });
                   if (shot.path && extracted) {
                     await supabaseAdmin.from("panel_guide").insert({
                       user_id: userId,
@@ -3054,11 +3049,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
           
           
-          const useV2 = isMindWorkspace || (isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true);
           
           if (useV2) {
             console.log('🚀 [Agente V2] Turno iniciado');
-            const v2Result = await runAgentV2Turn({
               conversationId: conv.id,
               workspaceId: (agent as any).workspace_id,
               phoneNumber: phone,
