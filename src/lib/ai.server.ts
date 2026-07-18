@@ -1296,7 +1296,11 @@ export async function generateAgentReplyWithMeta(params: {
   const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
   
   if (process.env.NODE_ENV === "test") {
-    console.log("[agent-ai] DEBUG FULL SYSTEM PROMPT:", fullSystemFallback);
+    // Apenas loga os primeiros 500 chars de cada bloco e confirma presença do alvo
+    system.forEach((b, i) => {
+      console.log(`[agent-ai] BLOCK ${i} START:`, b.text?.substring(0, 100));
+      if (b.text?.includes("EXEMPLO_MODELO_DISPARO")) console.log(`[agent-ai] BLOCK ${i} CONTAINS TARGET`);
+    });
   }
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
