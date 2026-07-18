@@ -56,7 +56,7 @@ export const runAgentDiagnostics = createServerFn({ method: "POST" })
         const r = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: { "content-type": "application/json", "x-api-key": anthropicKey, "anthropic-version": "2023-06-01" },
-          body: JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 8, messages: [{ role: "user", content: "ping" }] }),
+          body: JSON.stringify({ model: "claude-sonnet-5", max_tokens: 8, messages: [{ role: "user", content: "ping" }] }),
         });
         anthropicStatus = r.ok
           ? { name: "Claude (Anthropic)", ok: true, detail: "API key válida" }
