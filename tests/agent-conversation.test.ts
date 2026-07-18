@@ -170,8 +170,13 @@ describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)",
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       const text = sysText(body.system);
       
-      console.log('--- DEBUG BODY SYSTEM RAW ---');
-      console.log(JSON.stringify(body.system));
+      console.log('--- DEBUG BODY SYSTEM LENGTH ---', body.system.length);
+      body.system.forEach((b: any, i: number) => {
+        console.log(`BLOCK ${i} TYPE:`, b.type, 'TEXT LENGTH:', b.text?.length);
+        if (b.text?.includes('Qual rede social')) {
+            console.log(`FOUND TARGET IN BLOCK ${i}`);
+        }
+      });
       console.log('--- END DEBUG ---');
 
       const containsTarget = /EXEMPLO_MODELO_DISPARO|Qual rede social/i.test(text);
