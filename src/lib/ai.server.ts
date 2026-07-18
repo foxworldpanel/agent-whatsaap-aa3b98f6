@@ -1288,8 +1288,8 @@ export async function generateAgentReplyWithMeta(params: {
       ? systemBlock2.map((b: any) => {
           if (typeof b === "string") return { type: "text", text: b };
           if (typeof b === 'object' && b !== null) {
-             if ('text' in b) return b;
-             return { type: 'text', text: String(b.content || JSON.stringify(b)) };
+             const txt = b.text || b.content || "";
+             return { type: 'text', text: String(txt) };
           }
           return { type: 'text', text: String(b || "") };
         }) 
