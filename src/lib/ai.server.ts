@@ -774,17 +774,24 @@ export function pickClaudeModel(opts: {
   reengagementGreeting?: boolean;
 }): { model: "claude-sonnet-4-5" | "claude-haiku-4-5"; reason: string } {
   const msg = (opts.latestMessage ?? "").trim();
+  
+  // MUDANÇA (Simplificação): Sonnet APENAS para visão.
   if (opts.hasImage) return { model: "claude-sonnet-4-5", reason: "image_present" };
-  if (opts.inputKind === "audio") return { model: "claude-sonnet-4-5", reason: "audio_input" };
-  // Reengajamento após hiato: força Sonnet. Haiku ignora o veto de prioridade
-  // máxima quando compete com script concreto (ver investigação fd475562).
-  // Evento raro (só dispara com gap ≥1h + saudação seca), custo desprezível.
-  if (opts.reengagementGreeting) return { model: "claude-sonnet-4-5", reason: "reengagement_greeting" };
-  if (msg.length > 400) return { model: "claude-sonnet-4-5", reason: "long_message" };
-  const complexRe = /(reclama|problema|n[aã]o funcion|nunca funcion|reembolso|cancelar|golpe|an[aá]lise|analisa|print|comprovante|preju[ií]zo|erro|urgente|processo|proced|jur[ií]dic)/i;
-  if (complexRe.test(msg)) return { model: "claude-sonnet-4-5", reason: "complex_keywords" };
+
+  /**
+   * CONTEXTO IMPORTANTE (Reengajamento): 
+   * Ontem (fd475562) forçamos Sonnet para reengajamento porque o Haiku falhou 6/6 vezes 
+   * em respeitar o veto de prioridade máxima, enquanto Sonnet acertou 6/6.
+   * Decidimos simplificar para Haiku mesmo assim para testar o limite do modelo mais barato.
+   * Se o Haiku voltar a repetir perguntas antigas em vez de reengajar, reverter este bloco.
+   */
+  
+  // Todos os outros casos de texto (incluindo áudio e reengajamento) usam Haiku.
   return { model: "claude-haiku-4-5", reason: "default_text" };
 }
+
+
+
 
 function normalizeText(value: string): string {
   return value
