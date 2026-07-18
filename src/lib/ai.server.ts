@@ -1299,14 +1299,14 @@ export async function generateAgentReplyWithMeta(params: {
   const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
   
   if (process.env.NODE_ENV === "test") {
+    console.log("[agent-ai] system ARRAY LENGTH:", system.length);
     system.forEach((b, i) => {
-      console.log(`[agent-ai] BLOCK ${i} START:`, String(b.text || "").substring(0, 100));
-      if (String(b.text || "").includes("EXEMPLO_MODELO_DISPARO")) console.log(`[agent-ai] BLOCK ${i} CONTAINS TARGET`);
+      console.log(`[agent-ai] BLOCK ${i} TYPE:`, typeof b, b.type);
+      console.log(`[agent-ai] BLOCK ${i} TEXT LENGTH:`, String(b.text || "").length);
+      if (String(b.text || "").includes("EXEMPLO_MODELO_DISPARO")) {
+        console.log(`[agent-ai] BLOCK ${i} CONTAINS TARGET at index:`, String(b.text || "").indexOf("EXEMPLO_MODELO_DISPARO"));
+      }
     });
-    console.log("[agent-ai] systemBlock2 type:", typeof systemBlock2, Array.isArray(systemBlock2) ? "array" : "not array");
-    if (Array.isArray(systemBlock2)) {
-      systemBlock2.forEach((b, i) => console.log(`[agent-ai] systemBlock2[${i}] type:`, typeof b, b === null ? "null" : b.constructor.name));
-    }
   }
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
