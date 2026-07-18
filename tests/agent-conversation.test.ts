@@ -421,7 +421,7 @@ describe("8) Fechamento não prematuro (não se despede antes do painel)", () =>
 
 describe("8b) Não repete descoberta após 'já tem cadastro?'", () => {
   it("prompt contém PROGRESSO DO FUNIL proibindo reperguntar rede/serviço/quantidade", () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: [
