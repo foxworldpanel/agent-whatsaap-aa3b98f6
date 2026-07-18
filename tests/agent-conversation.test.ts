@@ -164,6 +164,8 @@ describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)",
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       const text = sysText(body.system);
       console.log('DEBUG PROMPT:', text.slice(0, 500));
+      console.log('DEBUG TEXT LENGTH:', text.length);
+      console.log('DEBUG TEXT TYPE:', typeof text);
       expect(
         /EXEMPLO_MODELO_DISPARO|Qual rede social/i.test(text),
         `FALHOU: system prompt não contém o exemplo_disparo ou pergunta de rede. Prompt:\n${text.slice(0, 500)}...`,
