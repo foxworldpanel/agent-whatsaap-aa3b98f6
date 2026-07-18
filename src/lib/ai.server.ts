@@ -1154,14 +1154,14 @@ export async function generateAgentReplyWithMeta(params: {
   });
 
   const contextoDetectado = detectarContexto(latestClientMessage, history);
-  const systemLen = Array.isArray(system) ? system.reduce((acc, curr) => acc + (typeof curr === "string" ? curr.length : curr.text?.length || 0), 0) : String(system).length;
+  const systemBlock2 = initialSystemBlocks;
+  const systemLen = Array.isArray(systemBlock2) ? systemBlock2.reduce((acc, curr) => acc + (typeof curr === "string" ? curr.length : (curr.text?.length || 0)), 0) : String(systemBlock2).length;
   console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(systemLen / 4));
 
-  const systemBlock2 = system;
   const fullSystemFallbackInitial = [
     systemBlock1,
     ...(Array.isArray(systemBlock2) 
-      ? systemBlock2.map(b => (typeof b === "string" ? b : (b as any).text)) 
+      ? systemBlock2.map((b: any) => (typeof b === "string" ? b : b.text)) 
       : [systemBlock2])
   ].filter(Boolean).join("\n\n");
 
