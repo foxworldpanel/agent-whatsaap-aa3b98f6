@@ -69,7 +69,7 @@ Regras:
 
   youtube: `MÓDULO YOUTUBE
 - Venda de views, inscritos, likes, comentários, horas ou monetização.
-- Consulte catálogo real antes de falar preço, mínimo, máximo ou prazo.
+- Consulte o módulo 'tabela_precos' antes de falar preço, mínimo, máximo ou prazo.
 - Não prometa monetização ou viralização garantida.
 `,
 
