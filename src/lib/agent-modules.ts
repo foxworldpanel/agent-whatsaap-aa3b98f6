@@ -45,7 +45,7 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "reativacao_frio", title: "Reativação de Cliente Frio", emoji: "🧊" },
   { key: "musica_cliente", title: "Música do Cliente", emoji: "🎧" },
   { key: "aprendizado_continuo", title: "Aprendizado Contínuo", emoji: "📚" },
-  { key: "playlist_promo", title: "Pacotes de Playlist (Promoção)", emoji: "🎼" },
+  { key: "playlist_promo", title: "Pacotes de Playlist (Promotion)", emoji: "🎼" },
   { key: "tabela_precos", title: "Tabela de Preços Manual", emoji: "🏷️" },
 ];
 
@@ -205,7 +205,7 @@ Regras:
 `,
 
   follow_up: `MÓDULO FOLLOW-UP INTELIGENTE
-- Retome conversas paradas com valor ou perguntas curtas sobre dúvidas.
+- Retome conversas paradas with valor ou perguntas curtas sobre dúvidas.
 `,
 
   prova_social: `MÓDULO PROVA SOCIAL CONTEXTUAL
@@ -216,7 +216,7 @@ Regras:
 - Compare o investimento com o custo de anúncios tradicionais.
 `,
 
-  fechamento_3_passos: `MÓDULO FECHAMENTO EM 3 PASSOS
+  fechamento_3: `MÓDULO FECHAMENTO EM 3 PASSOS
 1. Confirmação (Rede + Qtd + Preço).
 2. Cadastro/Login no painel.
 3. PIX e Confirmação.
@@ -267,7 +267,9 @@ Regras:
 - Siga rigorosamente a disponibilidade e preços do catálogo real.
 `,
 
-  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL\n- Tabela de referência completa. Siga preços e quantidades do catálogo.\n`,\n\n  estrangeiros: `MÓDULO CLIENTES ESTRANGEIROS\n- Detecte o idioma (inglês/espanhol) e responda no mesmo.\n- VALORES: converta de BRL para USD, arredondando para cima, usando "around" ou "approximately".\n- PAGAMENTO: via Wise ou Criptomoedas. NUNCA ofereça PIX para estrangeiros.\n`,\n\n  suporte: `MÓDULO SUPORTE / RECLAMAÇÃO\n- ORIENTAÇÃO (ABSOLUTA): Se o cliente tiver problema com pedido, queda, atraso ou erro, a ÚNICA conduta é orientar a abrir um TICKET no painel ("Suporte" -> "Novo Ticket") informando o ID do pedido. Você NÃO resolve problemas técnicos no WhatsApp.\n`,\n\n  teste_gratis: `MÓDULO TESTE GRÁTIS\n- Só ofereça se o serviço estiver na lista de testes disponíveis.\n- Explique que é uma amostra pequena para ver a qualidade.\n- Não emende link de compra na mesma mensagem do teste.\n`,
+  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
+- Tabela de referência completa. Siga preços e quantidades do catálogo.
+`,
 };
 
 
