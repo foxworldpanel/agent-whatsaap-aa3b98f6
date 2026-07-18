@@ -781,8 +781,9 @@ export function buildSharedRules(
     identity.regra_split,
     identity.terminologia_redes,
     identity.regra_anti_invencao,
-    identity.regra_teste_gratis,
-    freeTestBlock,
+    // Regra de teste grátis movida para o módulo condicional 'teste_gratis'
+    // freeTestBlock movido para lá também se necessário, ou mantido como bloco dinâmico separado.
+
     identity.regra_encerramento,
     identity.regra_estilo_escrita,
     ctx.suppressExemploDisparo ? "" : identity.exemplo_disparo,
