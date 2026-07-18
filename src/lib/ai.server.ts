@@ -1237,10 +1237,9 @@ export async function generateAgentReplyWithMeta(params: {
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      // Prompt caching: o system prompt (~10k tokens) é praticamente idêntico
-      // entre chamadas do mesmo agente. Marcando cache_control:ephemeral,
-      // chamadas subsequentes dentro de ~5 min pagam ~10% do custo de input
-      // desse bloco (cache read) em vez do valor cheio.
+      // Prompt caching: Estrutura em dois blocos para maximizar cache hits.
+      // O Bloco 1 (Estável) recebe cache_control: ephemeral.
+      // O Bloco 2 (Dinâmico) contém as variáveis por mensagem.
       system: [
         { type: "text", text: system, cache_control: { type: "ephemeral" } },
       ],
