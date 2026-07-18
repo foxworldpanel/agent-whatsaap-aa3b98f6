@@ -14,7 +14,7 @@ const prompt = buildSystemPrompt({
     }
   },
   contact: { phone: "5511970116430", perfil: "receptivo" },
-  history: [{ sender: "cliente", body: "Boa tarde" }],
+  history: [{ sender: "cliente", body: "preciso de suporte" }],
 });
 
 console.log(`Prompt length: ${prompt.length} chars`);
