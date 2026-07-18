@@ -1258,11 +1258,18 @@ export async function generateAgentReplyWithMeta(params: {
       "content-type": "application/json",
       "x-api-key": anthropicKey,
       "anthropic-version": "2023-06-01",
+      "anthropic-beta": "prompt-caching-2024-07-31",
     },
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      system: fullSystemFallback,
+      system: [
+        {
+          type: "text",
+          text: fullSystemFallback,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
       messages: finalMessages,
     }),
   });
