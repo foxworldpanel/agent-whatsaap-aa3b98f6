@@ -668,7 +668,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const { data: agentConfig } = await supabaseAdmin
           .from("agent_config")
           .select("*")
-          .eq("uazapi_token", instanceToken)
+          .eq("workspace_id", "bd59fa41-d68d-4ac8-b995-e09ae48f52aa")
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
