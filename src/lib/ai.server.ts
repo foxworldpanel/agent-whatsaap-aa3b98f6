@@ -1304,7 +1304,7 @@ export async function generateAgentReplyWithMeta(params: {
         ...(Array.isArray(systemBlock2) 
           ? systemBlock2.map(b => (typeof b === "string" ? { type: "text", text: b } : b)) 
           : (systemBlock2 ? [{ type: "text", text: typeof systemBlock2 === 'string' ? systemBlock2 : (systemBlock2 as any).text || "" }] : []))
-      ] as any,
+      ].map(b => (typeof b === 'object' && b !== null && 'text' in b && typeof b.text !== 'string') ? { ...b, text: String(b.text || '') } : b) as any,
       messages: finalMessages,
     }),
   });
