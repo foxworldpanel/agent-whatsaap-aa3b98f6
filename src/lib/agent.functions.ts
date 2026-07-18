@@ -439,17 +439,9 @@ export const setCatalogFlags = createServerFn({ method: "POST" })
 export const listModulesV2 = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    const supabase = context.supabase as any;
-    const { data: dbModules, error } = await supabase
-      .from("agent_modules_v2")
-      .select("*")
-      .eq("workspace_id", context.workspaceId)
-      .order("category", { ascending: true })
-      .order("priority", { ascending: false });
-
-    if (error) throw new Error(error.message);
-
-    return (dbModules || []).map((m: any) => ({
+    // V2 Modules feature is deprecated in V1
+    return [];
+  });
       ...m,
       contentPreview: (m.content || "").slice(0, 150) + "..."
     }));
