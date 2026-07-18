@@ -2577,8 +2577,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   if (signed?.signedUrl) imageUrl = signed.signedUrl;
                 }
                 if (imageUrl) {
-                  const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
-                  extracted = await describePanelScreen({ imageUrl, name, description });
+                  extracted = "Analise de visão desativada (V2 Decommissioned)";
                   if (shot.path && extracted) {
                     await supabaseAdmin.from("panel_guide").insert({
                       user_id: userId,
