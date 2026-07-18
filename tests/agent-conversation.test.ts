@@ -166,9 +166,7 @@ describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)",
       // Confirma que o system prompt carrega o exemplo_disparo (Claude vai decidir)
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       const text = sysText(body.system);
-      console.log('DEBUG PROMPT:', text.slice(0, 500));
       console.log('DEBUG BODY SYSTEM:', JSON.stringify(body.system, null, 2));
-      const text = sysText(body.system);
       expect(
         /EXEMPLO_MODELO_DISPARO|Qual rede social/i.test(text),
         `FALHOU: system prompt não contém o exemplo_disparo ou pergunta de rede. Prompt:\n${text.slice(0, 500)}...`,
