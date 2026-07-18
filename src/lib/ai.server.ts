@@ -548,6 +548,7 @@ const ESSENTIAL_MODULES = [
   "texto_ou_audio",
   "fluxo_vendas",
   "pagamentos",
+  "tabela_precos",
 ];
 
 // Mapa de gatilhos → módulos relevantes

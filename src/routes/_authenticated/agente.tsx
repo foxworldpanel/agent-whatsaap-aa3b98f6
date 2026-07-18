@@ -178,6 +178,17 @@ function AgentePage() {
                 )}
               </div>
 
+              {currentActive === "tabela_precos" && (
+                <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-500 border border-red-500/20">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <p>
+                    <strong>⚠️ ATENÇÃO:</strong> Este é o ÚNICO lugar de onde os preços do agente vêm. 
+                    O catálogo dinâmico está desativado. Sempre que mudar algo no painel real, 
+                    atualize este módulo manualmente para evitar alucinações de preço.
+                  </p>
+                </div>
+              )}
+
               <div className="mt-4 flex items-center gap-2 rounded-lg bg-yellow-500/10 p-3 text-xs text-yellow-600 dark:text-yellow-500">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <p>
@@ -185,6 +196,7 @@ function AgentePage() {
                   Sempre clique em <strong>Salvar Agente</strong> após as edições para aplicar as mudanças no runtime.
                 </p>
               </div>
+
             </div>
           )}
         </main>

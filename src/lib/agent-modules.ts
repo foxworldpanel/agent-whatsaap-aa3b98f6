@@ -62,14 +62,14 @@ Regras:
 
   spotify: `MÓDULO SPOTIFY
 - Venda de seguidores, playlists, saves, plays, streams e ouvintes.
-- Fonte de verdade: utilize EXCLUSIVAMENTE o catálogo real injetado.
-- Se o serviço consta como ativo no catálogo, ele está disponível para venda.
+- Fonte de verdade: utilize EXCLUSIVAMENTE o módulo 'tabela_precos'.
+- Se o serviço consta como ativo na tabela, ele está disponível para venda.
 - Explique que a compra é feita no painel e que o cliente acompanha tudo por lá.
 `,
 
   youtube: `MÓDULO YOUTUBE
 - Venda de views, inscritos, likes, comentários, horas ou monetização.
-- Consulte catálogo real antes de falar preço, mínimo, máximo ou prazo.
+- Consulte o módulo 'tabela_precos' antes de falar preço, mínimo, máximo ou prazo.
 - Não prometa monetização ou viralização garantida.
 `,
 
@@ -85,7 +85,7 @@ Regras:
 `,
 
   kwai: `MÓDULO KWAI
-- Venda de seguidores e curtidas para Kwai conforme catálogo real.
+- Venda de seguidores e curtidas para Kwai conforme módulo 'tabela_precos'.
 `,
 
   facebook: `MÓDULO FACEBOOK
@@ -94,11 +94,11 @@ Regras:
 `,
 
   seo_google: `MÓDULO SEO E GOOGLE
-- Tráfego para sites, blogs ou Google Maps (avaliações) conforme catálogo.
+- Tráfego para sites, blogs ou Google Maps (avaliações) conforme módulo 'tabela_precos'.
 `,
 
   calculo_preco: `MÓDULO CÁLCULO DE PREÇO
-- Preço final = (Quantidade / 1000) * Preço_do_Catalogo.
+- Preço final = (Quantidade / 1000) * Preço_da_Tabela_Precos.
 - Informe sempre a menor quantidade disponível como âncora inicial.
 `,
 
@@ -201,7 +201,7 @@ Regras:
 `,
 
   regras_gerais: `MÓDULO REGRAS GERAIS ABSOLUTAS
-- Siga o catálogo real, respostas curtas, uma pergunta por vez e foco em conversão.
+- Siga a 'tabela_precos', respostas curtas, uma pergunta por vez e foco em conversão.
 `,
 
   follow_up: `MÓDULO FOLLOW-UP INTELIGENTE
@@ -264,11 +264,33 @@ Regras:
 
   playlist_promo: `MÓDULO PLAYLIST — PROMOÇÃO ATIVA
 - Venda focada em aluguel de playlists e seguidores Spotify.
-- Siga rigorosamente a disponibilidade e preços do catálogo real.
+- Siga rigorosamente a disponibilidade e preços do módulo 'tabela_precos'.
 `,
 
   tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
-- Tabela de referência completa. Siga preços e quantidades do catálogo.
+
+*Spotify*
+- Aluguel de Playlist (1 música, 10 playlists, 30 dias): R$49,90
+- Seguidores: R$30/1000 (mín 50)
+
+*Instagram*
+- Seguidores [Brasil]: R$40/1000 (mín 10)
+- Seguidores [Global]: R$12/1000 (mín 100)
+- Curtidas [Brasil]: R$13/1000 (mín 20)
+- Curtidas [Global]: R$5/1000 (mín 100)
+
+*YouTube*
+- Visualizações: R$10/1000 (mín 100)
+- Likes [Brasil]: R$30/1000 (mín 10)
+- Inscritos [Global]: R$80/1000 (mín 50)
+- Live Stream (60 min): R$20/1000 (mín 50)
+
+*TikTok*
+- Seguidores [Global]: R$15/1000 (mín 100)
+- Curtidas [Brasil]: R$25/1000 (mín 50)
+
+*Outras Redes*
+- Facebook/Kwai/Threads: Sob consulta no painel.
 `,
 };
 
