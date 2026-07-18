@@ -910,7 +910,7 @@ export async function generateAgentReplyWithMeta(params: {
     suppressExemploDisparo: true,
   });
 
-  const system: any = [
+  const initialSystemBlocks: any = [
     {
       text: systemBlock1,
       cache_control: { type: "ephemeral" }
