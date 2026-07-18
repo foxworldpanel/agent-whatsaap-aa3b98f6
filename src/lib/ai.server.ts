@@ -1266,7 +1266,7 @@ export async function generateAgentReplyWithMeta(params: {
       // O Bloco 2 (Dinâmico) contém as variáveis por mensagem.
       system: [
         { type: "text", text: (globalThis as any).systemBlock1 || "", cache_control: { type: "ephemeral" } },
-        { type: "text", text: Array.isArray(system) ? system.join("\n\n") : system },
+        { type: "text", text: Array.isArray(systemBlock2) ? systemBlock2.join("\n\n") : systemBlock2 },
       ],
       messages: finalMessages,
     }),
