@@ -710,7 +710,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // ao Claude, prompt, ferramenta ou métrica → zero custo.
         // ============================================================
         {
-          const AUTHORIZED_PHONES = ["5511970116430", "5511978250428", "5511986551842"];
+          const AUTHORIZED_PHONES = ["5511970116430"];
           const authorized = AUTHORIZED_PHONES.includes(phone);
           if (!msg.fromMe && !authorized) {
             // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
