@@ -1127,6 +1127,9 @@ export async function generateAgentReplyWithMeta(params: {
   const contextoDetectado = detectarContexto(latestClientMessage, history);
   console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(system.length / 4));
 
+  const systemBlock2 = system;
+  const fullSystemFallback = [(globalThis as any).systemBlock1, systemBlock2].join("\n\n");
+
   // ============================================================
   // MÉTRICAS DE PROMPT (baseline pré-refatoração).
   // Fonte única pra medir tokens antes/depois de cada fase da
