@@ -20,7 +20,7 @@ export const Route = createFileRoute("/")({
         
         Diagnóstico Técnico:
         (a) Estrutura no Banco: Os módulos em `agent_config.modules` estão salvos como strings puras (ex: "identidade": "MÓDULO IDENTIDADE...").
-        (b) Divergência: O componente anterior esperava um objeto `{content: string}` ou similar, resultando em renderização vazia ao tentar acessar campos inexistentes.
+        (b) Divergência: O componente anterior esperava um objeto {"{content: string}"} ou similar, resultando em renderização vazia ao tentar acessar campos inexistentes.
         (c) Solução: Implementado normalizador no `AgentePage` que aceita tanto strings puras quanto objetos com chaves `content`, `text` ou `instrucoes`.
         
         TESTE DE VALIDAÇÃO:
@@ -30,6 +30,7 @@ export const Route = createFileRoute("/")({
         Redirecionando para /conversas em 5 segundos...
       </div>
     );
+
   },
 });
 
