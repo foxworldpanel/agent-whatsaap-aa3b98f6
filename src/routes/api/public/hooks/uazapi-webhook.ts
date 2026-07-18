@@ -3046,8 +3046,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               durationMs: _claudeMs,
               metadata: {
                 model: _claudeModel,
-                promptTokens: _claudeOut.usage?.prompt_tokens,
-                completionTokens: _claudeOut.usage?.completion_tokens,
+                promptTokens: (_claudeOut as any).usage?.prompt_tokens,
+                completionTokens: (_claudeOut as any).usage?.completion_tokens,
               },
             });
           } catch {}
@@ -3809,12 +3809,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           ];
           if (temperatura) {
             const stamp = new Date().toISOString();
-            if (temperatura === "bloqueado") {
+            if (temperatura === ("bloqueado" as string)) {
               await supabaseAdmin
                 .from("contacts")
                 .update({ temperatura, temperatura_updated_at: stamp, status: "bloqueado" })
                 .eq("id", contact.id);
-            } else if (temperatura === "cliente") {
+            } else if (temperatura === ("cliente" as string)) {
               await supabaseAdmin
                 .from("contacts")
                 .update({ temperatura, temperatura_updated_at: stamp, status: "convertido", perfil: "ativo" })
