@@ -92,7 +92,7 @@ function mockAnthropic(reply: string) {
 
 /**
  * Extrai o texto do system prompt aceitando tanto o formato antigo (string)
- * quanto o novo formato com prompt caching (array de blocos com cache_control).
+ * quanto o novo formato com prompt caching (array de blocos).
  */
 function extractSystemText(s: string | Array<{ text?: string; type?: string }>): string {
   if (typeof s === "string") return s;
@@ -107,7 +107,7 @@ function extractSystemText(s: string | Array<{ text?: string; type?: string }>):
       return "";
     }).join("\n\n");
   }
-  return "";
+  return String(s || "");
 }
 
 async function callAgent(opts: {
