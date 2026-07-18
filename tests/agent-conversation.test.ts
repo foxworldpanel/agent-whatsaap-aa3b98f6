@@ -218,7 +218,7 @@ describe('2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria N
 // ---------------------------------------------------------------------------
 describe("3) Anti-invenção de serviço no system prompt", () => {
   it("prompt contém ANTI-INVENÇÃO obrigando perguntar rede/serviço", () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: [
