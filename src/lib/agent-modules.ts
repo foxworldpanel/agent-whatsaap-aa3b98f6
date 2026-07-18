@@ -85,7 +85,7 @@ Regras:
 `,
 
   kwai: `MÓDULO KWAI
-- Venda de seguidores e curtidas para Kwai conforme catálogo real.
+- Venda de seguidores e curtidas para Kwai conforme módulo 'tabela_precos'.
 `,
 
   facebook: `MÓDULO FACEBOOK
