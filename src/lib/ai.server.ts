@@ -775,18 +775,17 @@ export function pickClaudeModel(opts: {
 }): { model: "claude-sonnet-4-5" | "claude-haiku-4-5"; reason: string } {
   const msg = (opts.latestMessage ?? "").trim();
   
-  // MUDANÇA (Simplificação): Sonnet APENAS para visão.
+  // Sonnet para visão ou para casos de reengajamento após hiato.
   if (opts.hasImage) return { model: "claude-sonnet-4-5", reason: "image_present" };
 
-  /**
-   * CONTEXTO IMPORTANTE (Reengajamento): 
-   * Ontem (fd475562) forçamos Sonnet para reengajamento porque o Haiku falhou 6/6 vezes 
-   * em respeitar o veto de prioridade máxima, enquanto Sonnet acertou 6/6.
-   * Decidimos simplificar para Haiku mesmo assim para testar o limite do modelo mais barato.
-   * Se o Haiku voltar a repetir perguntas antigas em vez de reengajar, reverter este bloco.
-   */
-  
-  // Todos os outros casos de texto (incluindo áudio e reengajamento) usam Haiku.
+  // RESTAURAÇÃO (18/07/2026): Sonnet para reengajamento.
+  // Evidência real confirmada: Haiku 4.5 ignorou o veto de prioridade e repetiu 
+  // pergunta técnica em vez de retribuir saudação. Sonnet é necessário aqui.
+  if (opts.reengagementGreeting) {
+    return { model: "claude-sonnet-4-5", reason: "reengagement_greeting" };
+  }
+
+  // Todos os outros casos de texto (incluindo áudio transcrito) usam Haiku.
   return { model: "claude-haiku-4-5", reason: "default_text" };
 }
 
