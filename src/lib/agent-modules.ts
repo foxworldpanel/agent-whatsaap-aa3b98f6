@@ -62,8 +62,8 @@ Regras:
 
   spotify: `MÓDULO SPOTIFY
 - Venda de seguidores, playlists, saves, plays, streams e ouvintes.
-- Fonte de verdade: utilize EXCLUSIVAMENTE o catálogo real injetado.
-- Se o serviço consta como ativo no catálogo, ele está disponível para venda.
+- Fonte de verdade: utilize EXCLUSIVAMENTE o módulo 'tabela_precos'.
+- Se o serviço consta como ativo na tabela, ele está disponível para venda.
 - Explique que a compra é feita no painel e que o cliente acompanha tudo por lá.
 `,
 
