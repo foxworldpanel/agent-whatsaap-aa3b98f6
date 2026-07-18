@@ -650,114 +650,77 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         if (!msg) return new Response("no message");
         const outbound = msg.fromMe === true;
 
-        // 🛡️ Guard: ignora mensagens de GRUPO / broadcast / status / newsletter.
-        // O JID de grupo (`...@g.us`) tem ~18 dígitos e, se tratado como número
-        // individual, faz o Uazapi responder "failed to get group members".
         const chatidRaw = (msg.chatid ?? msg.sender ?? "").toLowerCase();
         const isGroupChat =
           chatidRaw.includes("@g.us") ||
           chatidRaw.includes("@broadcast") ||
           chatidRaw.includes("status@") ||
           chatidRaw.includes("@newsletter");
-        if (isGroupChat) {
-          try {
-            const { logEvent } = await import("@/lib/agent-logger.server");
-            await logEvent({
-              phone: (chatidRaw.split("@")[0] || "group"),
-              type: "message_received",
-              level: "warn",
-              summary: `↩️ Ignorado: mensagem de grupo/broadcast (${chatidRaw})`,
-            });
-          } catch {}
-          return new Response("group ignored");
-        }
+        if (isGroupChat) return new Response("group ignored");
 
         const instanceToken = pickInstanceToken(payload);
         const phone = extractPhone(msg.chatid, msg.sender);
-        if (!instanceToken || !phone) {
-          return new Response("missing token/phone", { status: 400 });
-        }
-        // Extra: rejeita destinos com mais de 15 dígitos (E.164 max = 15).
-        // JIDs de grupo têm ~18 dígitos e cairiam aqui como fallback.
-        if (phone.length > 15 || phone.length < 8) {
-          try {
-            const { logEvent } = await import("@/lib/agent-logger.server");
-            await logEvent({
-              phone,
-              type: "message_received",
-              level: "warn",
-              summary: `↩️ Ignorado: número inválido (${phone.length} dígitos)`,
-            });
-          } catch {}
-          return new Response("invalid phone");
-        }
+        if (!instanceToken || !phone) return new Response("missing token/phone", { status: 400 });
+        if (phone.length > 15 || phone.length < 8) return new Response("invalid phone");
 
-        // ============================================================
-        // 🔒 GATE V2: Agente Mind V2 é o cérebro oficial e ÚNICO.
-        // A V1 está desativada. Apenas o número autorizado executa a IA.
-        // Qualquer outro número é ignorado ANTES de qualquer chamada
-        // ao Claude, prompt, ferramenta ou métrica → zero custo.
-        //
-        // Defesa em DUAS camadas:
-        //   (1) early-return por número autorizado (aqui);
-        //   (2) resolver retorna 'disabled' → segunda barreira mesmo
-        //       que alguém remova acidentalmente o early-return.
-        // ============================================================
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+        const { data: agentConfig } = await supabaseAdmin
+          .from("agent_config")
+          .select("*")
+          .eq("workspace_id", "bd59fa41-d68d-4ac8-b995-e09ae48f52aa")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!agentConfig) return new Response("agent not found", { status: 404 });
+
+        const selectedWorkspaceId = (agentConfig as any).workspace_id;
+
         {
-          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          const { resolveAgentBrainVersion } = await import("@/lib/agent-v2/resolver");
-          const authorized = isAuthorizedV2Phone(phone);
-          const activeVersion = resolveAgentBrainVersion(null, phone);
-          if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
-            // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
-            const phoneTail = phone.slice(-4);
-            console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                type: "message_received",
-                level: "info",
-                summary: "AI disabled for non-authorized contact",
-                metadata: { phoneTail, activeVersion },
-              });
-            } catch {}
-            // HTTP 200 para evitar retries do provedor.
-            return new Response("ok (non-authorized number, AI disabled)");
+          const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+          const isMindWorkspace = selectedWorkspaceId === MIND_WORKSPACE_ID;
+          if (isMindWorkspace && !msg.fromMe && !["5511970116430", "5511970116431"].includes(phone)) {
+            return new Response("ok (restricted)");
           }
         }
 
-        // 🔍 Log de entrada do webhook (diagnóstico por número)
         console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
 
         const { text, kind } = extractContent(payload);
-        // Para o DB (enum message_kind = texto|audio) e fluxos legados,
-        // tratamos imagem como "texto". O flag `isImage` controla a chamada
-        // ao Claude Sonnet com visão.
         const dbKind: "texto" | "audio" = kind === "audio" ? "audio" : "texto";
-        const isImage = kind === "image";
+        const isImageMessage = kind === "image";
+
         console.log('=== INÍCIO DO PROCESSAMENTO ===');
-        console.log('Mensagem recebida:', { text, kind, phone: extractPhone(payload.message?.chatid, payload.message?.sender), messageId: extractMessageId(payload) });
+        console.log('Mensagem recebida:', { text, kind, phone, messageId: extractMessageId(payload) });
         try {
           const { logEvent } = await import("@/lib/agent-logger.server");
-          await logEvent({ phone: extractPhone(payload.message?.chatid, payload.message?.sender), type: "message_received", level: "info", summary: `📩 Mensagem recebida (${kind}): ${(text ?? "").slice(0, 80)}`, metadata: { kind, messageId: extractMessageId(payload) } });
+          const { data: numForLog } = await supabaseAdmin
+            .from("whatsapp_numbers")
+            .select("user_id")
+          .eq("workspace_id", "bd59fa41-d68d-4ac8-b995-e09ae48f52aa")
+            .limit(1)
+            .maybeSingle();
+          if (numForLog?.user_id) {
+            await logEvent({ 
+              userId: numForLog.user_id,
+              phone, 
+              type: "message_received", 
+              level: "info", 
+              summary: `📩 Mensagem recebida (${kind}): ${(text ?? "").slice(0, 80)}`, 
+              metadata: { kind, messageId: extractMessageId(payload) } 
+            });
+          }
         } catch {}
+        
         let mediaUrl = extractMediaUrl(payload);
         let messageId = extractMessageId(payload);
-        // Sem messageId real → cria chave determinística por phone+conteúdo+bucket
-        // para que reentregas do mesmo evento sejam bloqueadas mesmo assim.
         if (!messageId) {
           const contentSig = (text ?? "") + "|" + (mediaUrl ?? "") + "|" + kind;
           messageId = buildFallbackMessageId(phone, contentSig);
         }
         if (!text && kind !== "audio" && kind !== "image") return new Response("empty");
 
-        // ===== Filtro de mensagens não descriptografadas (WhatsApp E2E) =====
-        // Quando o WhatsApp não consegue descriptografar (chave dessincronizada),
-        // o Uazapi entrega placeholders tipo "[Undecryptable]" / "Waiting for this
-        // message". Não faz sentido gerar resposta com o Claude — ele improvisa
-        // texto de erro ("Opa, deu um erro aí com a mensagem 📱..."), gastando
-        // tokens à toa. O cliente costuma reenviar sozinho quando a chave
-        // resincroniza. Loga e ignora.
         if (kind === "texto" && text) {
           const t = text.trim().toLowerCase();
           const undecryptable =
@@ -766,88 +729,25 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             t.includes("waiting for this message") ||
             t.includes("aguardando esta mensagem") ||
             t.includes("aguardando essa mensagem");
-          if (undecryptable) {
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                phone: extractPhone(payload.message?.chatid, payload.message?.sender),
-                type: "message_undecryptable_ignored",
-                level: "warn",
-                summary: `🔒 Mensagem não descriptografada ignorada (aguardando reenvio): ${text.slice(0, 60)}`,
-                metadata: { messageId, raw: text.slice(0, 200) },
-              });
-            } catch {}
-            return new Response("ignored: undecryptable");
-          }
+          if (undecryptable) return new Response("ignored: undecryptable");
         }
 
-        // Áudios muito curtos (<1s) são ruído acidental — ignora sem responder
         if (kind === "audio") {
           const secs = extractAudioSeconds(payload);
-          if (secs !== null && secs < 1) {
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                phone: extractPhone(payload.message?.chatid, payload.message?.sender),
-                type: "audio_ignored_short",
-                level: "info",
-                summary: `🔇 Áudio curto ignorado (${secs.toFixed(2)}s < 1s)`,
-                metadata: { seconds: secs, messageId },
-              });
-            } catch {}
-            return new Response("ignored: short audio");
-          }
+          if (secs !== null && secs < 1) return new Response("ignored: short audio");
         }
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-        // ===== Idempotência por messageId =====
-        // Uazapi às vezes dispara o mesmo evento mais de uma vez. Trava
-        // definitiva: UPSERT com ignoreDuplicates na tabela processed_messages
-        // (PK message_id). Se nada foi inserido → já processado, ignora.
         if (messageId) {
           const hits = bumpMessageIdHit(messageId);
-          console.log(`🔁 Webhook hit #${hits} para messageId=${messageId}`);
-          if (hits > 1) {
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({ phone, type: "webhook_replay", level: "warn", summary: `🔁 Uazapi reenviou messageId (${hits}x): ${messageId}`, metadata: { messageId, hits } });
-            } catch {}
-            return new Response("ok (in-memory duplicate)");
-          }
+          if (hits > 1) return new Response("ok (in-memory duplicate)");
 
-          const { data: inserted, error: dupErr } = await supabaseAdmin
+          const { data: inserted } = await supabaseAdmin
             .from("processed_messages")
             .upsert({ message_id: messageId }, { onConflict: "message_id", ignoreDuplicates: true })
             .select("message_id");
-          if (dupErr) {
-            // erro inesperado (não é conflito): loga e segue — não bloqueia atendimento
-            console.warn("processed_messages upsert error:", dupErr.message);
-          } else if (!inserted || inserted.length === 0) {
-            // Nada inserido = messageId já existia → duplicata bloqueada
-            console.log(`🚫 Duplicata bloqueada (processed_messages): ${messageId}`);
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({ phone, type: "duplicate_blocked", level: "warn", summary: `🚫 Mensagem duplicada bloqueada (${messageId})`, metadata: { messageId } });
-            } catch {}
-            return new Response("ok (duplicate messageId)");
-          }
-          // Fallback adicional: se já existe uma mensagem com esse external_id,
-          // também ignora (cobre runs anteriores à criação da tabela).
-          const { data: dupInbound } = await supabaseAdmin
-            .from("messages")
-            .select("id")
-            .eq("external_id", messageId)
-            .limit(1)
-            .maybeSingle();
-          if (dupInbound) {
-            console.log(`Mensagem duplicada bloqueada: ${messageId}`);
-            return new Response("ok (duplicate messageId)");
-          }
+          if (!inserted || inserted.length === 0) return new Response("ok (duplicate messageId)");
         }
 
-        // Trava anti-duplicata: evita reenviar para o mesmo número um texto
-        // idêntico ao último enviado pelo agente nos últimos 5 segundos.
         const wasRecentlySent = async (conversationId: string, body: string): Promise<boolean> => {
           const fiveSecAgo = new Date(Date.now() - 5000).toISOString();
           const { data } = await supabaseAdmin
@@ -859,15 +759,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .gte("created_at", fiveSecAgo)
             .limit(1)
             .maybeSingle();
-          if (data) {
-            console.log(`Mensagem duplicada bloqueada: ${messageId ?? "(sem id)"} → "${body.slice(0, 60)}"`);
-            return true;
-          }
-          return false;
+          return !!data;
         };
 
-        // Resolve o número pelo token — primeiro em whatsapp_numbers (novo),
-        // depois cai em integrations (legacy) caso o usuário ainda não tenha migrado.
         const { data: number } = await supabaseAdmin
           .from("whatsapp_numbers")
           .select("id, user_id, workspace_id, uazapi_url, meta_ads_enabled, disparos_mode, nome")
@@ -878,7 +772,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         let userId: string;
         let numberId: string | null = null;
-        let selectedWorkspaceId: string | null = null;
         let numberUazapiUrl: string | null = null;
         let metaAdsEnabled = false;
         let disparosMode = false;
@@ -886,96 +779,35 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         if (number) {
           userId = number.user_id;
           numberId = number.id;
-          selectedWorkspaceId = (number as { workspace_id?: string | null }).workspace_id ?? null;
           numberUazapiUrl = number.uazapi_url;
           metaAdsEnabled = !!number.meta_ads_enabled;
           disparosMode = !!number.disparos_mode;
-          console.log(
-            `✅ Número encontrado: ${(number as unknown as { nome?: string }).nome ?? "(sem nome)"} | Modo: ${disparosMode ? "disparos" : metaAdsEnabled ? "meta_ads" : "agente"} | id=${numberId}`,
-          );
         } else {
-          console.warn(`⚠️ ERRO: Número não encontrado em whatsapp_numbers para token ${instanceToken} — caindo em integrations (legacy)`);
-          const { data: integLegacy, error: intErr } = await supabaseAdmin
+          const { data: integLegacy } = await supabaseAdmin
             .from("integrations")
             .select("user_id, uazapi_url")
             .eq("uazapi_token", instanceToken)
             .order("updated_at", { ascending: false, nullsFirst: false })
             .limit(1)
             .maybeSingle();
-          if (intErr) return new Response(intErr.message, { status: 500 });
-          if (!integLegacy) {
-            console.error(`❌ ERRO: Nenhuma integração encontrada para token ${instanceToken} — instância não registrada`);
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                phone,
-                type: "instance_not_found",
-                level: "error",
-                summary: `Número não encontrado para token ${instanceToken}`,
-                metadata: { instance_token: instanceToken },
-              });
-            } catch {}
-            return new Response("instance not registered", { status: 404 });
-          }
+          if (!integLegacy) return new Response("instance not registered", { status: 404 });
           userId = integLegacy.user_id;
           numberUazapiUrl = integLegacy.uazapi_url;
         }
 
-        if (!selectedWorkspaceId) {
-          console.error("❌ Workspace não resolvido para a instância WhatsApp — bloqueando processamento");
-          try {
-            const { logEvent } = await import("@/lib/agent-logger.server");
-            await logEvent({
-              userId,
-              phone,
-              type: "workspace_missing",
-              level: "error",
-              summary: "Webhook bloqueado: instância WhatsApp sem workspace válido",
-              metadata: { numberId, origem: "uazapi-webhook" },
-            });
-          } catch {}
-          return new Response("workspace missing for WhatsApp instance", { status: 409 });
-        }
-
-        // Log de diagnóstico: qual número recebeu a mensagem e em qual modo
         const modoLabel = disparosMode ? "disparos" : metaAdsEnabled ? "meta_ads" : "agente";
-        console.log(
-          `📥 Mensagem recebida no número: ${instanceToken} | Modo: ${modoLabel} | numberId=${numberId ?? "(legacy)"} | user=${userId} | phone=${phone}`,
-        );
-        try {
-          const { logEvent } = await import("@/lib/agent-logger.server");
-          await logEvent({
-            userId,
-            phone,
-            type: "message_received",
-            level: "info",
-            summary: `Mensagem recebida no número ${instanceToken} | Modo: ${modoLabel}`,
-            metadata: {
-              instance_token: instanceToken,
-              number_id: numberId,
-              modo: modoLabel,
-              disparos_mode: disparosMode,
-              meta_ads_enabled: metaAdsEnabled,
-              origem: "conversas",
-            },
-          });
-        } catch (e) {
-          console.error("[webhook] failed to log message_received", e);
-        }
+        console.log(`📥 Mensagem recebida no número: ${instanceToken} | Modo: ${modoLabel} | user=${userId} | phone=${phone}`);
 
-        // Carrega config completa do dono do número (chaves de API, SMM, teste grátis)
-        const { data: integ, error: intLoadErr } = await supabaseAdmin
+        const { data: integ } = await supabaseAdmin
           .from("integrations")
           .select(
             "user_id, uazapi_url, uazapi_token, anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id, smm_api_key, smm_service_id, smm_panel_url, free_trial_enabled",
           )
           .eq("user_id", userId)
           .maybeSingle();
-        if (intLoadErr) return new Response(intLoadErr.message, { status: 500 });
-        if (!integ) return new Response("integration missing for user", { status: 404 });
-        console.log(
-          `🔑 Config agente carregada: elevenlabs_key=${integ.elevenlabs_api_key ? "tem" : "não tem"} | voice_id=${integ.elevenlabs_voice_id ? "tem" : "não tem"} | user_id=${userId}`,
-        );
+        if (!integ) return new Response("integration missing", { status: 404 });
+        const agent = agentConfig;
+
 
         // 🧪 Números de teste — ignora todas as travas de negócio
         let isTestNumber = false;
@@ -1328,7 +1160,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
-            const { transcribeAudioUrl } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { transcribeAudioUrl } = await import("@/lib/ai.server");
             const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
@@ -1438,7 +1270,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("ok (stop → blocked)");
         }
 
-        const { data: agent } = await supabaseAdmin
+        const { data: currentAgentConfig } = await supabaseAdmin
           .from("agent_config")
           .select("*")
           .eq("user_id", userId)
@@ -2706,12 +2538,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .createSignedUrl(r.storage_path, 60 * 60);
                 if (signed?.signedUrl) imageUrl = signed.signedUrl;
               }
-              const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
-              extracted = await describePanelScreen({
-                imageUrl,
-                name: r.name,
-                description: r.description,
-              });
+              extracted = "Analise de visão desativada (V2 Decommissioned)";
               if (extracted) {
                 await supabaseAdmin
                   .from("panel_guide")
@@ -2750,8 +2577,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   if (signed?.signedUrl) imageUrl = signed.signedUrl;
                 }
                 if (imageUrl) {
-                  const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
-                  extracted = await describePanelScreen({ imageUrl, name, description });
+                  extracted = "Analise de visão desativada (V2 Decommissioned)";
                   if (shot.path && extracted) {
                     await supabaseAdmin.from("panel_guide").insert({
                       user_id: userId,
@@ -2963,7 +2789,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Imagem: baixa e converte para base64 para enviar ao Sonnet (visão).
           let _imageBase64: string | null = null;
           let _imageMediaType: string | null = null;
-          if (isImage) {
+          if (isImageMessage) {
             try {
               let imgUrl = mediaUrl;
               let imgMime: string | null = null;
@@ -3046,141 +2872,50 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             });
           } catch {}
           const _claudeStart = Date.now();
+          const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs) as any;
+          reply = _claudeOut.text || _claudeOut.reply;
+          const _claudeMs = Date.now() - _claudeStart;
+          const _claudeModel = (_claudeOut as any).model;
+          const _claudeRoutingReason = (_claudeOut as any).routingReason;
           
-          // Fase 2 Runtime: Conexão V2
-          // Ativa V2 se o telefone for autorizado. Fallback para V1 via configuração do agente.
-          // OBRIGATÓRIO: Para o workspace Mind, a V1 está desativada.
-          const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-          const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
-          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
+          console.log('Resposta do Claude (V1):', reply);
           
-          const useV2 = isMindWorkspace || (isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true);
+          // Safety net V1: saudações repetidas
+          try {
+            const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
+              await import("@/lib/ai.server");
+            const inReengagementMode =
+              isReengagementGreeting(aiHistory ?? []) ||
+              isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
+            const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
+            if (hasPriorAgent && reply && !inReengagementMode) {
+              const parts = reply.split("===SPLIT===");
+              const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
+              parts[0] = parts[0].replace(greetRe, "").trimStart();
+              const cleaned = parts.join("===SPLIT===").trim();
+              if (cleaned.length > 0) reply = cleaned;
+            }
+          } catch {}
           
-          if (useV2) {
-            console.log('🚀 [Agente V2] Turno iniciado');
-            const v2Result = await runAgentV2Turn({
-              conversationId: conv.id,
-              workspaceId: (agent as any).workspace_id,
-              phoneNumber: phone,
-              currentMessage: inboundBody,
-              mode: !(isBlastReply || isBlastThread) ? 'receptive' : 'outbound',
-              executionMode: 'real',
-              media: isImage ? { type: 'image', hasImage: true } : (kind === 'audio' ? { type: 'audio', hasAudio: true } : { type: 'text' }),
-              shortHistory: (aiHistory ?? []).map((m: any) => ({ 
-                sender: m.sender === 'agente' ? 'agente' : 'cliente',
-                body: m.body || ''
-              })),
-              toolFixtures: {
-                catalog: all || [],
-                freeTestServices: freeTestServices || []
-              },
-
-              expected: {
-                conversationWorkspaceId: (conv as any).workspace_id,
-                agentWorkspaceId: (agent as any).workspace_id,
-                whatsappWorkspaceId: selectedWorkspaceId,
-                selectedWorkspaceId,
-              },
+          // Log V1 detalhado
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId, phone, conversationId: conv?.id,
+              type: "claude_reply", level: "info",
+              summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
+              prompt: JSON.stringify({
+                model: _claudeModel,
+                routingReason: _claudeRoutingReason,
+                contact: _claudeArgs.contact,
+                historyCount: aiHistory?.length ?? 0,
+              }, null, 2),
+              response: reply ?? null,
+              durationMs: _claudeMs,
+              metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas" },
             });
+          } catch {}
 
-            
-            reply = v2Result.finalResponse;
-            const _claudeMs = Date.now() - _claudeStart;
-            const _v2Metrics = v2Result.metrics;
-            
-            console.log('✅ [Agente V2] Resposta:', reply);
-            
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                userId, phone, conversationId: conv?.id,
-                type: "v2_turn", level: "info",
-                summary: `🧠 Agente V2 respondeu (${_claudeMs}ms) | Model: ${_v2Metrics.selectedModel}`,
-                response: reply,
-                durationMs: _claudeMs,
-                metadata: {
-                  brainVersion: 'v2',
-                  turnId: _v2Metrics.analytics?.turnId,
-                  selectedModel: _v2Metrics.selectedModel,
-                  intent: _v2Metrics.intent,
-                  modules: v2Result.routeResult.selectedModules,
-                  routingReason: _v2Metrics.analytics?.routingReason,
-                }
-              });
-            } catch {}
-          } else {
-            // V1 Original (Processamento Legado) — BLOQUEADO PARA WORKSPACE MIND
-            if (isMindWorkspace) {
-              throw new Error("V1_EXECUTION_BLOCKED: Workspace Mind detectado em branch legado.");
-            }
-            
-            const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
-            reply = _claudeOut.text;
-            const _claudeMs = Date.now() - _claudeStart;
-            const _claudeModel = _claudeOut.model;
-            const _claudeRoutingReason = _claudeOut.routingReason;
-            console.log('Resposta do Claude (V1):', reply);
-            
-            // Safety net V1: saudações repetidas
-            try {
-              const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
-                await import("@/lib/ai.server");
-              const inReengagementMode =
-                isReengagementGreeting(aiHistory ?? []) ||
-                isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
-              const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
-              if (hasPriorAgent && reply && !inReengagementMode) {
-                const parts = reply.split("===SPLIT===");
-                const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
-                parts[0] = parts[0].replace(greetRe, "").trimStart();
-                const cleaned = parts.join("===SPLIT===").trim();
-                if (cleaned.length > 0) reply = cleaned;
-              }
-            } catch {}
-            
-            // Log V1
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                userId, phone, conversationId: conv?.id,
-                type: "claude_reply", level: "info",
-                summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
-                prompt: JSON.stringify({
-                  model: _claudeModel,
-                  routingReason: _claudeRoutingReason,
-                  contact: _claudeArgs.contact,
-                  historyCount: aiHistory?.length ?? 0,
-                }, null, 2),
-                response: reply ?? null,
-                durationMs: _claudeMs,
-                metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas" },
-              });
-            } catch {}
-          }
-
-
-          // Persistência de fatos duráveis (comum a V1 e V2 se aplicável)
-          if (isImage && reply && reply.trim()) {
-            try {
-              const { extractDurableContextFromImageReply } = await import("@/lib/agent-v2/core/ai-services.server");
-              const facts = await extractDurableContextFromImageReply({
-                imageReply: reply,
-                clientMessage: text ?? inboundBody ?? null,
-              });
-              if (facts) {
-                const prev = ((conv as { contexto_extra?: string | null }).contexto_extra ?? "").trim();
-                const existingLines = new Set(prev.split("\n").map((l) => l.trim().toLowerCase()).filter(Boolean));
-                const newLines = facts.split("\n").map((l) => l.trim()).filter((l) => l && !existingLines.has(l.toLowerCase()));
-                if (newLines.length > 0) {
-                  const merged = [prev, ...newLines].filter(Boolean).join("\n").slice(-2000);
-                  await supabaseAdmin.from("conversations").update({ contexto_extra: merged } as never).eq("id", conv.id);
-                }
-              }
-            } catch (e) {
-              console.error("[contexto_extra] extraction failed", e);
-            }
-          }
-          console.log('=== FIM DO PROCESSAMENTO ===');
           if (!reply || !reply.trim()) {
             // Claude respondeu vazio — registra como ERRO real em vez de mascarar
             // como uma resposta normal. Assim o fallback aparece com tag de erro
@@ -3196,7 +2931,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
             } catch {}
             reply = FALLBACK_REPLY;
-            }
+          }
           }
         } catch (e) {
           console.error("claude failed", e);
@@ -3462,7 +3197,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const skippedIdx = new Set<number>();
         try {
           if (respondWithAudio) {
-            const { ttsElevenLabsBase64 } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
             if (memWasRecentlySent(phone, replyParts[0]) || await wasRecentlySent(conv.id, replyParts[0])) {
               skippedIdx.add(0);
               replyKind = "audio";
@@ -3828,10 +3563,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // ===== Lead scoring automático (Quente/Morno/Frio/Bloqueado) =====
         try {
           if (isTestNumber) {
-            // 🧪 número de teste — não altera temperatura automaticamente
             throw new Error("__test_number_skip_scoring__");
           }
-          const { classifyLeadTemperature } = await import("@/lib/agent-v2/core/ai-services.server");
+          const { classifyLeadTemperature } = await import("@/lib/ai.server");
           const fullHistory = [
             ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
             { sender: "cliente" as const, body: inboundBody },

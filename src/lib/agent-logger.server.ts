@@ -35,6 +35,7 @@ export async function logEvent(input: LogEventInput): Promise<void> {
       .from("agent_logs")
       .insert({
         user_id: input.userId,
+        workspace_id: "bd59fa41-d68d-4ac8-b995-e09ae48f52aa",
         phone: input.phone ?? null,
         conversation_id: input.conversationId ?? null,
         type: input.type,

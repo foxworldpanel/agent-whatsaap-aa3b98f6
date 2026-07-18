@@ -102,7 +102,7 @@ function AgentePage() {
   const loadHistory = async (id: string) => {
     setIsLoadingHistory(true);
     try {
-      const data = await getHistoryFn({ data: { id } });
+      const data = await getHistoryFn({ data: { id } } as any);
       setHistory(data);
     } catch (e) {
       console.error(e);

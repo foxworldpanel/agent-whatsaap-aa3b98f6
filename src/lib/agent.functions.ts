@@ -439,140 +439,20 @@ export const setCatalogFlags = createServerFn({ method: "POST" })
 export const listModulesV2 = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    const supabase = context.supabase as any;
-    const { data: dbModules, error } = await supabase
-      .from("agent_modules_v2")
-      .select("*")
-      .eq("workspace_id", context.workspaceId)
-      .order("category", { ascending: true })
-      .order("priority", { ascending: false });
-
-    if (error) throw new Error(error.message);
-
-    // Se não houver módulos no banco para este workspace, migramos do hardcoded Module Registry
-    if (!dbModules || dbModules.length === 0) {
-      const { moduleRegistryV2 } = await import("./agent-v2/module-registry");
-      const friendlyNames: Record<string, { title: string; emoji: string; category: string; description: string }> = {
-        mission: { title: "Missão", emoji: "🚀", category: "Core", description: "Objetivo fundamental e restrições de venda do agente." },
-        identity: { title: "Identidade", emoji: "🪪", category: "Core", description: "Persona da Júlia, tom de voz e estilo de escrita." },
-        guards: { title: "Guardas", emoji: "🚫", category: "Core", description: "Regras de segurança e integridade absoluta." },
-        receptive: { title: "Receptivo", emoji: "📥", category: "Modo", description: "Lógica para mensagens de entrada iniciadas pelo cliente." },
-        outbound: { title: "Disparo", emoji: "📣", category: "Modo", description: "Lógica para respostas a campanhas e disparos ativos." },
-        commercial: { title: "Comercial", emoji: "🛒", category: "Vendas", description: "Regras de condução de venda e fechamento no painel." },
-        spotify_overview: { title: "Spotify (Geral)", emoji: "🎵", category: "Redes", description: "Visão geral e qualificação para Spotify." },
-        spotify_playlist: { title: "Spotify (Playlist)", emoji: "🎼", category: "Redes", description: "Serviços de playlist e divulgação de faixas." },
-        spotify_followers: { title: "Spotify (Seguidores)", emoji: "👤", category: "Redes", description: "Serviços de seguidores e base de fãs." },
-        instagram: { title: "Instagram", emoji: "📸", category: "Redes", description: "Serviços de seguidores e engajamento no Instagram." },
-        youtube: { title: "YouTube", emoji: "▶️", category: "Redes", description: "Serviços de inscritos e views para YouTube." },
-        tiktok: { title: "TikTok", emoji: "🎬", category: "Redes", description: "Serviços de seguidores e views para TikTok." },
-        facebook: { title: "Facebook", emoji: "👍", category: "Redes", description: "Serviços de páginas e perfis Facebook." },
-        kwai: { title: "Kwai", emoji: "🌟", category: "Redes", description: "Serviços de seguidores e curtidas para Kwai." },
-        panel: { title: "Painel Oficial", emoji: "🧭", category: "Ferramentas", description: "Instruções de acesso e cadastro no painel Mind." },
-        payments: { title: "Pagamentos", emoji: "💳", category: "Ferramentas", description: "Métodos de recarga, PIX e valores mínimos." },
-        tutorials: { title: "Tutoriais", emoji: "🎓", category: "Ferramentas", description: "Base de tutoriais passo a passo da plataforma." },
-        free_test: { title: "Teste Grátis", emoji: "🎁", category: "Ferramentas", description: "Regras e oferta de teste gratuito qualificado." },
-        support: { title: "Suporte", emoji: "🛠️", category: "Ferramentas", description: "Direcionamento para tickets de suporte técnico." },
-      };
-
-      const toInsert = Object.keys(moduleRegistryV2).map(key => {
-        const info = friendlyNames[key] || { title: key, emoji: "🧩", category: "Outros", description: "" };
-        const content = (moduleRegistryV2 as Record<string, string>)[key] || "";
-        return {
-          id: key,
-          workspace_id: context.workspaceId,
-          user_id: context.userId,
-          title: info.title,
-          emoji: info.emoji,
-          category: info.category,
-          description: info.description,
-          content: content,
-          priority: ["mission", "identity", "guards"].includes(key) ? "Alta" : "Normal",
-          is_core: ["mission", "identity", "guards"].includes(key),
-          modes: key === "receptive" ? ["receptive"] : (key === "outbound" ? ["outbound"] : ["all"]),
-          dependencies: key.startsWith("spotify_") ? ["spotify_overview"] : []
-        };
-      });
-
-      const { data: inserted, error: insError } = await supabase
-        .from("agent_modules_v2")
-        .insert(toInsert)
-        .select();
-
-      if (insError) throw new Error(insError.message);
-      return (inserted || []).map((m: any) => ({ ...m, contentPreview: (m.content || "").slice(0, 150) + "..." }));
-    }
-
-    return dbModules.map((m: any) => ({
-      ...m,
-      contentPreview: (m.content || "").slice(0, 150) + "..."
-    }));
+    // V2 Modules feature is deprecated in V1
+    return [];
   });
 
 export const updateModuleV2 = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
-  .inputValidator((d: unknown) => z.object({
-    id: z.string(),
-    title: z.string().min(1),
-    description: z.string().optional(),
-    content: z.string().min(1),
-    priority: z.string(),
-    category: z.string(),
-    is_active: z.boolean(),
-    modes: z.array(z.string()),
-    dependencies: z.array(z.string()),
-    is_core: z.boolean()
-  }).parse(d))
-  .handler(async ({ data, context }) => {
-    const supabase = context.supabase as any;
-    // 1. Get current version for history
-    const { data: current } = await supabase
-      .from("agent_modules_v2")
-      .select("version, content")
-      .eq("workspace_id", context.workspaceId)
-      .eq("id", data.id)
-      .single();
-
-    if (current) {
-      // 2. Save history
-      await supabase.from("agent_modules_v2_history").insert({
-        module_id: data.id,
-        workspace_id: context.workspaceId,
-        version: current.version,
-        content: current.content,
-        modified_by: context.userId
-      });
-    }
-
-    // 3. Update module
-    const { error } = await supabase
-      .from("agent_modules_v2")
-      .update({
-        ...data,
-        version: (current?.version || 0) + 1,
-        updated_at: new Date().toISOString(),
-        last_modified_by: context.userId
-      })
-      .eq("workspace_id", context.workspaceId)
-      .eq("id", data.id);
-
-    if (error) throw new Error(error.message);
-    return { ok: true };
+  .handler(async () => {
+    throw new Error("V2 feature deprecated");
   });
 
 export const getModuleHistoryV2 = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
-  .inputValidator((d: unknown) => z.object({ id: z.string() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const supabase = context.supabase as any;
-    const { data: history, error } = await supabase
-      .from("agent_modules_v2_history")
-      .select("*")
-      .eq("workspace_id", context.workspaceId)
-      .eq("module_id", data.id)
-      .order("created_at", { ascending: false });
-
-    if (error) throw new Error(error.message);
-    return history || [];
+  .handler(async () => {
+    return [];
   });
 
 
