@@ -15,22 +15,12 @@ export default function Index() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-2xl font-bold mb-4 tracking-tighter uppercase">Mind AI — Auditoria de Prompt & Resposta</h1>
       <div className="p-8 font-mono text-sm whitespace-pre-wrap max-w-2xl border border-zinc-800 rounded-lg">
-        AUDITORIA FINAL DE BANCO — 100% LIMPO ✅
+        Pequeno ajuste de lógica: a Júlia ofereceu "plays + ouvintes Global" e "só plays" como se fossem duas opções diferentes — mas na tabela_precos só existe UM serviço combinado ("Plays + Ouvintes Global"), não existe uma opção separada de "só plays".
 
-        1) brand_blocks (respostas_padrao):
-           TEXTO ANTERIOR (REMOVIDO): "está TEMPORARIAMENTE DESATIVADO para atualização"
-           TEXTO NOVO: "Consulte a tabela_precos e informe o valor real. O serviço está DISPONÍVEL."
+        Reforça na regra: quando o serviço na tabela_precos vier com nome composto (ex: "Plays + Ouvintes"), a Júlia deve tratar isso como UM ÚNICO serviço indivisível — nunca oferece separar em partes que não existem como opção própria na tabela. Só oferece as variações que realmente estão listadas linha por linha na tabela_precos.
 
-        2) agent_identity:
-           RESULTADO: 0 ocorrências (Limpo).
-
-        3) agent_config (modules, base_instruction, scripts):
-           RESULTADO: 0 ocorrências (Limpo).
-
-        4) forbidden_rules:
-           RESULTADO: 0 ocorrências (Limpo).
-
-        CERTIFICAÇÃO: Não existem mais instruções no banco de dados do workspace bd59fa41 instruindo o agente a dizer que o serviço está em atualização.
+        TESTE DE VALIDAÇÃO:
+        Testa o mesmo cenário (cliente pede algo específico tipo "brasileiro" que não existe) e confirma que a Júlia explica a limitação (só tem Global) sem inventar uma segunda opção de "só plays" que não existe na tabela.
 
         ORCHESTRATOR V1 EXECUTADO: SIM
       </div>
