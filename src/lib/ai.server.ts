@@ -598,7 +598,7 @@ type BuildPromptParams = {
 };
 
 export function buildSystemPrompt(params: BuildPromptParams): string {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], identity, brandBlocks = null } = params;
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], identity, brandBlocks = null, dailyPromoText = null, playlistCatalog = null } = params;
   // Nota: buildSystemPrompt é síncrono (só usado por diagnostics como preview).
   // O prompt real de produção usa generateAgentReplyWithMeta, que carrega
   // a identidade do banco. Aqui usamos defaults + `buildSharedRules` sem I/O.
@@ -610,10 +610,26 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
     // suprimimos o exemplo, catálogo e promo do Bloco 1 estável.
     suppressExemploDisparo: true,
   });
+
+  const playlistBlock = (() => {
+    if (!playlistCatalog) return "";
+    const { buildRegraPlaylistsInfoDiretaBlock } = require("./agent-identity.server");
+    return buildRegraPlaylistsInfoDiretaBlock(playlistCatalog);
+  })();
+
+  const promoBlock = (() => {
+    const t = (dailyPromoText ?? "").trim();
+    if (!t) return "";
+    return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta.`;
+  })();
+
   const latestClientMessage = getLatestClientMessage(history);
   const system = [
     sharedRules,
+    playlistBlock,
+    promoBlock,
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
+
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
     effectiveBlastPreview
       ? `DETECÇÃO DE CONTEXTO POR CONTEÚDO (backup, independente de flags técnicas): se você observar no histórico que a PRIMEIRA mensagem sua tem padrão de abertura de disparo (frases como "Peguei o seu contato" / "Vi seu perfil" combinadas com uma pergunta-isca do tipo "Posso te apresentar/mostrar uma forma de impulsionar..."), trate essa conversa como thread de DISPARO e siga o EXEMPLO_MODELO_DISPARO da identidade: interesse inicial vai direto para pergunta de rede, depois serviço, preço e só então objeção. Handle "@algo" avulso, sem essas frases, NÃO é sinal suficiente. O conteúdo real da conversa prevalece sobre metadados técnicos.`
