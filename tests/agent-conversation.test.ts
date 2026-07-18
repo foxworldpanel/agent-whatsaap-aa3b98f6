@@ -394,7 +394,7 @@ describe("7) Split de mensagem — padrão é 1 mensagem", () => {
 // ---------------------------------------------------------------------------
 describe("8) Fechamento não prematuro (não se despede antes do painel)", () => {
   it('prompt ensina que "Ok/blz" após preço é CONFIRMAÇÃO, não despedida', () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: [
@@ -407,6 +407,7 @@ describe("8) Fechamento não prematuro (não se despede antes do painel)", () =>
       isInbound: false,
       identity: MIND_BRAND_TEMPLATE,
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(
       /MODO FECHAMENTO/i.test(prompt),
       "FALHOU: regra MODO FECHAMENTO ausente",
