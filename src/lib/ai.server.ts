@@ -1288,7 +1288,7 @@ export async function generateAgentReplyWithMeta(params: {
       ? systemBlock2.map((b: any) => {
           if (typeof b === "string") return { type: "text", text: b };
           if (typeof b === 'object' && b !== null) {
-             const txt = b.text || b.content || "";
+             const txt = b.text || b.content || (typeof b.toString === 'function' ? b.toString() : "");
              return { type: 'text', text: String(txt) };
           }
           return { type: 'text', text: String(b || "") };
@@ -1303,6 +1303,10 @@ export async function generateAgentReplyWithMeta(params: {
       console.log(`[agent-ai] BLOCK ${i} START:`, String(b.text || "").substring(0, 100));
       if (String(b.text || "").includes("EXEMPLO_MODELO_DISPARO")) console.log(`[agent-ai] BLOCK ${i} CONTAINS TARGET`);
     });
+    console.log("[agent-ai] systemBlock2 type:", typeof systemBlock2, Array.isArray(systemBlock2) ? "array" : "not array");
+    if (Array.isArray(systemBlock2)) {
+      systemBlock2.forEach((b, i) => console.log(`[agent-ai] systemBlock2[${i}] type:`, typeof b, b === null ? "null" : b.constructor.name));
+    }
   }
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
