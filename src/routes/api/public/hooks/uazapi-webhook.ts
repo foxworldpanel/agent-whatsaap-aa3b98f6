@@ -2872,9 +2872,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             });
           } catch {}
           const _claudeStart = Date.now();
-          const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
-          const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
-          reply = _claudeOut.reply;
+          const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs) as any;
+          reply = _claudeOut.text || _claudeOut.reply;
           const _claudeMs = Date.now() - _claudeStart;
           const _claudeModel = (_claudeOut as any).model;
           const _claudeRoutingReason = (_claudeOut as any).routingReason;
