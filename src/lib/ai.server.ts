@@ -1,5 +1,5 @@
 // Server-only Claude (Anthropic) call to generate the agent reply.
-import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks, mergeIdentity, type AgentBrandBlocks } from "@/lib/agent-identity.server";
+import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks, mergeIdentity, buildRegraPlaylistsInfoDiretaBlock, type AgentBrandBlocks } from "@/lib/agent-identity.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
 import { selectRelevantKnowledge } from "@/lib/kb-relevance";
 
