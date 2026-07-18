@@ -18,9 +18,9 @@ export default function Index() {
         DIAGNÓSTICO E CORREÇÃO DE PERSISTÊNCIA (CRITICAL BUG):
 
 1) PROBLEMA RELATADO: Erro de validação Zod ao salvar módulos ("Required" modules).
-2) DIAGNÓSTICO: O componente AgentePage estava enviando o objeto 'modules' diretamente para a função de servidor, mas a função esperava um objeto envolto em '{ data: { modules: ... } }' devido à estrutura do createServerFn e do inputValidator. Isso resultava em erro 400 (Bad Request).
+2) DIAGNÓSTICO: O componente AgentePage estava enviando o objeto 'modules' diretamente para a função de servidor, mas a função esperava um objeto envolto em {"{ data: { modules: ... } }"} devido à estrutura do createServerFn e do inputValidator. Isso resultava em erro 400 (Bad Request).
 3) CORREÇÕES APLICADAS:
-   - UI: Corrigido o payload da mutação `saveMut` em `src/routes/_authenticated/agente.tsx` para coincidir com a expectativa do servidor.
+   - UI: Corrigido o payload da mutação saveMut em src/routes/_authenticated/agente.tsx para coincidir com a expectativa do servidor.
    - VALIDAÇÃO: Alinhada a tipagem do inputValidator com a chamada no frontend.
 4) RESULTADO: O salvamento de módulos agora funciona sem erros de validação Zod.
 
