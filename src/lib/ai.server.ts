@@ -608,7 +608,7 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
     brandBlocks,
     // Espelha o gate do runtime real (generateAgentReplyWithMeta): só expõe o
     // EXEMPLO_MODELO_DISPARO quando a conversa é efetivamente disparo.
-    suppressExemploDisparo: true,
+    suppressExemploDisparo: !effectiveBlastPreview,
   });
   const latestClientMessage = getLatestClientMessage(history);
   const system = [
