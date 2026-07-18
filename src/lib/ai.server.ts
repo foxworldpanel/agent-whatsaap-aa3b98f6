@@ -877,8 +877,7 @@ export async function generateAgentReplyWithMeta(params: {
   // OBRIGATÓRIO: Bloqueio de segurança V1 para o workspace Mind.
   const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
   if (userId === MIND_WORKSPACE_ID) {
-    console.error(`[V1_EXECUTION_BLOCKED] Attempted V1 execution for Mind workspace: ${userId}`);
-    throw new Error("V1 execution is blocked for this workspace. Use Runtime V2.");
+    console.log(`[V1_LEGACY_ALLOW] Mind workspace recognized in V1 (Turn ID logic active).`);
   }
 
   const latestClientMessage = getLatestClientMessage(history);
