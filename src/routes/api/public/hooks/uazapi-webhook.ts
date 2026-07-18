@@ -1270,7 +1270,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("ok (stop → blocked)");
         }
 
-        const { data: agent } = await supabaseAdmin
+        const { data: currentAgentConfig } = await supabaseAdmin
           .from("agent_config")
           .select("*")
           .eq("user_id", userId)
