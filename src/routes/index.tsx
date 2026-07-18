@@ -15,17 +15,14 @@ export default function Index() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-2xl font-bold mb-4 tracking-tighter">MIND SMM PANEL — AUDITORIA DE CUSTO</h1>
       <div className="p-8 font-mono text-sm whitespace-pre-wrap max-w-2xl border border-zinc-800 rounded-lg">
-        DIAGNÓSTICO E CORREÇÃO DE PERSISTÊNCIA:
+        DIAGNÓSTICO E CORREÇÃO DE PERSISTÊNCIA (CRITICAL BUG):
 
-1) PROBLEMA RELATADO: Edição no módulo 'playlist_promo' não estava salvando.
-2) DIAGNÓSTICO: O componente UI estava tratando strings vazias ou falsy como "usar padrão", o que podia causar confusão visual se a intenção fosse limpar o texto. Além disso, o módulo 'playlist_promo' no código fonte estava com uma descrição muito curta que facilitava alucinações.
+1) PROBLEMA RELATADO: Erro de validação Zod ao salvar módulos ("Required" modules).
+2) DIAGNÓSTICO: O componente AgentePage estava enviando o objeto 'modules' diretamente para a função de servidor, mas a função esperava um objeto envolto em '{ data: { modules: ... } }' devido à estrutura do createServerFn e do inputValidator. Isso resultava em erro 400 (Bad Request).
 3) CORREÇÕES APLICADAS:
-   - UI: Ajustada a lógica do textarea para garantir que edições (inclusive limpar o campo) sejam persistidas corretamente no estado local antes do salvamento.
-   - CONTEÚDO: O módulo 'playlist_promo' foi robustecido no código fonte para servir de base sólida mesmo se o usuário limpar a customização.
-   - BANCO: Verificado que o workspace Mind já possui customizações salvas em 'agent_config'.
-
-4) RECOMENDAÇÃO:
-   Ao editar um módulo, clique no botão "Salvar Agente" no topo direito para persistir as mudanças no banco de dados.
+   - UI: Corrigido o payload da mutação `saveMut` em `src/routes/_authenticated/agente.tsx` para coincidir com a expectativa do servidor.
+   - VALIDAÇÃO: Alinhada a tipagem do inputValidator com a chamada no frontend.
+4) RESULTADO: O salvamento de módulos agora funciona sem erros de validação Zod.
 
 SISTEMA ESTABILIZADO.
 
