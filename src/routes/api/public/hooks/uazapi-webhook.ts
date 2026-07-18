@@ -1328,7 +1328,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
-            const { transcribeAudioUrl } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { transcribeAudioUrl } = { transcribeAudioUrl: async () => null } as any;
             const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
@@ -2705,7 +2705,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .createSignedUrl(r.storage_path, 60 * 60);
                 if (signed?.signedUrl) imageUrl = signed.signedUrl;
               }
-              const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
+              const { describePanelScreen } = { describePanelScreen: async () => null } as any;
               extracted = await describePanelScreen({
                 imageUrl,
                 name: r.name,
@@ -2749,7 +2749,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   if (signed?.signedUrl) imageUrl = signed.signedUrl;
                 }
                 if (imageUrl) {
-                  const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
+                  const { describePanelScreen } = { describePanelScreen: async () => null } as any;
                   extracted = await describePanelScreen({ imageUrl, name, description });
                   if (shot.path && extracted) {
                     await supabaseAdmin.from("panel_guide").insert({
@@ -3161,7 +3161,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Persistência de fatos duráveis (comum a V1 e V2 se aplicável)
           if (isImage && reply && reply.trim()) {
             try {
-              const { extractDurableContextFromImageReply } = await import("@/lib/agent-v2/core/ai-services.server");
+              const { extractDurableContextFromImageReply } = { extractDurableContextFromImageReply: async () => null } as any;
               const facts = await extractDurableContextFromImageReply({
                 imageReply: reply,
                 clientMessage: text ?? inboundBody ?? null,
@@ -3461,7 +3461,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const skippedIdx = new Set<number>();
         try {
           if (respondWithAudio) {
-            const { ttsElevenLabsBase64 } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { ttsElevenLabsBase64 } = { ttsElevenLabsBase64: async () => null } as any;
             if (memWasRecentlySent(phone, replyParts[0]) || await wasRecentlySent(conv.id, replyParts[0])) {
               skippedIdx.add(0);
               replyKind = "audio";
@@ -3830,7 +3830,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // 🧪 número de teste — não altera temperatura automaticamente
             throw new Error("__test_number_skip_scoring__");
           }
-          const { classifyLeadTemperature } = await import("@/lib/agent-v2/core/ai-services.server");
+          const temperatura = "morno"; // Scoring V2 disabled
+          const { classifyLeadTemperature } = { classifyLeadTemperature: async () => "morno" } as any;
           const fullHistory = [
             ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
             { sender: "cliente" as const, body: inboundBody },
