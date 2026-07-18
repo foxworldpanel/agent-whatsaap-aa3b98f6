@@ -887,16 +887,22 @@ export async function generateAgentReplyWithMeta(params: {
     playlistCatalog,
     // Em produção, suprimimos o exemplo few-shot do bloco estável para manter a 
     // string idêntica em todas as chamadas de suporte/venda orgânica.
-    suppressExemploDisparo: !effectiveBlast,
+    suppressExemploDisparo: true, // SEMPRE suprimir no Bloco 1 para estabilidade de cache
   });
 
-  // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
-  (globalThis as any).systemBlock1 = systemBlock1; // Export temporário para o Bloco 1
-
-  // BLOCO 2 — DINÂMICO (Vetos de reengajamento, Contexto da mensagem e Histórico)
-  // Este bloco NÃO tem cache_control porque muda a cada mensagem.
-
-  const system = [
+  const system: any = [
+    {
+      text: systemBlock1,
+      cache_control: { type: "ephemeral" }
+    },
+    // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
+    // Se for efetivamente um disparo, injetamos o EXEMPLO_MODELO_DISPARO aqui (no dinâmico)
+    // para não quebrar o cache do Bloco 1 nas conversas orgânicas.
+    effectiveBlast
+      ? buildSharedRules(identity, { suppressExemploDisparo: false }).split("EXEMPLO_MODELO_DISPARO")[1] || ""
+      : "",
+    // Regra de reconhecimento de interesse (fundamental para o Claude decidir avançar ou não)
+    identity.reconhecimento_interesse || "",
     // VETO DE PRIORIDADE MÁXIMA: o bloco MODO REENGAJAMENTO precede a
     // identidade (buildSharedRules), o EXEMPLO_MODELO_DISPARO e qualquer
     // refinamento de tom consultivo. Sem isso, em threads de disparo o modelo
@@ -916,24 +922,15 @@ export async function generateAgentReplyWithMeta(params: {
           //       Júlia caía no genérico de suporte "Como posso te ajudar?").
           : `⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO / CORTESIA EM DISPARO ⛔\nEste bloco SOBRESCREVE, nesta resposta, TODA a identidade abaixo, o EXEMPLO_MODELO_DISPARO, os refinamentos de tom do disparo, a ORDEM OBRIGATÓRIA do funil, qualquer regra de "interesse inicial pós-abertura", qualquer instrução de "vá direto para a pergunta de rede/serviço/quantidade" e QUALQUER pergunta pendente do funil que exista no histórico.\n\nCondição detectada: você está em uma thread de DISPARO (VOCÊ iniciou o contato via abordagem fria) e o cliente respondeu à sua abertura APENAS com saudação/cortesia neutra ("oi", "olá", "bom dia", "boa tarde", "boa noite", "tudo bem?", "olá, tudo bem?"), SEM responder à pergunta da abertura. Isso vale tanto quando passaram várias horas desde a sua última mensagem (hiato) quanto quando a resposta veio poucos minutos depois (sem hiato). Em ambos os casos, a resposta correta é a MESMA: retribuir a saudação e REAPRESENTAR A ISCA da abertura — NUNCA cair na resposta genérica de receptivo/suporte "Oi! Como posso te ajudar?".\n\nOBRIGAÇÕES desta resposta:\n1) Retribua a saudação de forma calorosa e REAPRESENTE A ISCA — a pergunta FINAL da abertura de disparo, de forma RESUMIDA. FORMATO OBRIGATÓRIO em UMA ÚNICA mensagem curta, com DUAS partes NA ORDEM: (a) SAUDAÇÃO DE VOLTA equivalente à do cliente ("Bom dia!", "Boa tarde!", "Boa noite!", "Oi!") — OBRIGATÓRIA como primeiras palavras da resposta; (b) opcional "espero que esteja bem também" + a pergunta-isca. Exemplo: "Boa noite! Espero que esteja bem também. Posso te mostrar como dar uma acelerada nas suas redes?" (variações válidas do fim: "Posso te mostrar como acelerar suas redes?" / "Posso te mostrar como turbinar suas redes?" / "Posso te mostrar como impulsionar seu perfil?").\n2) PROIBIDO ABSOLUTO omitir a saudação de volta como primeiras palavras — começar direto com "Espero que esteja bem também" SEM "Bom dia/Boa tarde/Boa noite/Oi" antes é ERRADO e quebra o padrão.\n3) PROIBIDO ABSOLUTO responder com "Como posso te ajudar?", "Como posso ajudar?", "Em que posso ajudar?" ou qualquer variação de suporte/receptivo genérico — essa é a resposta de conversa RECEPTIVA e NÃO se aplica a disparo. Aqui a Júlia iniciou o contato com uma isca clara e precisa reapresentá-la.\n4) PROIBIDO repetir a abertura COMPLETA — NÃO diga "Peguei seu contato no perfil @...", NÃO cite o @ do Instagram, NÃO cumprimente pelo nome como se fosse a primeira mensagem, NÃO diga "adorei o conteúdo/estilo". Só a saudação de volta + a pergunta-isca final, resumida.\n5) PROIBIDO emendar/repetir/reformular a pergunta PENDENTE do funil (rede, serviço, quantidade, "qual desses você quer priorizar", CTA, link do painel, preço, teste grátis, ancoragem). Você está VOLTANDO para a pergunta-isca da abertura, NÃO avançando o funil.\n6) NÃO despache ===SPLIT===, NÃO envie link, NÃO cite preço nesta resposta.\n7) Depois desta resposta, se o cliente responder com interesse ("sim", "pode", "manda", "claro"), a PRÓXIMA resposta CONTINUA o funil de onde parou (retomar a pergunta pendente — ex: rede social) SEM repetir a abertura completa novamente.`)
       : "",
-    buildSharedRules(identity, {
-      freeTestServices,
-      brandBlocks,
-      dailyPromoText,
-      playlistCatalog,
-      // Duas razões pra suprimir o EXEMPLO_MODELO_DISPARO:
-      // 1) Reengajamento ativo (hiato ou cortesia imediata em disparo) — o veto
-      //    do topo precisa ficar sozinho sem competir com o script de vendas.
-      // 2) Conversa NÃO é (efetivamente) de disparo — em thread orgânica /
-      //    receptiva o modelo NÃO deve ter o few-shot com placeholders
-      //    fictícios ({handle_instagram_exemplo}) disponível, senão pode
-      //    copiá-lo literalmente no meio de uma conversa real (regressão
-      //    observada em produção com handle de exemplo vazando pra cliente real).
-      suppressExemploDisparo: anyReengagementVeto || !effectiveBlast,
-    }),
+    // Nota: Regras compartilhadas estáveis já estão no Bloco 1.
+    // Blocos dinâmicos específicos seguem abaixo.
+    exposeFreeTrialBlock
+      ? `TESTE GRÁTIS DISPONÍVEL (${freeTestServices.length} serviços):\n${freeTestServices.map((s) => `- ${s.service_name} (${s.category}) — ${s.quantity} grátis`).join("\n")}`
+      : "",
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
-    // Bloco dinâmico continua...
+    `REGRA DE CONCISÃO E ANTI-REPETIÇÃO: NUNCA REPETIR EXPLICAÇÃO JÁ DADA na mesma conversa sobre temas técnicos (entrega, ritmo, segurança, painel, pagamento). Se o cliente perguntar algo que você já explicou antes, reconheça que já falou sobre isso de forma curta (ex: "Como te falei antes...", "Conforme comentei...") e vá direto para o próximo passo ou dúvida nova. PROIBIDO repetir parágrafos explicativos idênticos.`,
+    `IDIOMA DA CONVERSA: Detecte o idioma da última mensagem do cliente e mantenha o atendimento no mesmo idioma (Português, Inglês ou Espanhol).`,
     imageBase64
       ? `IMAGEM NA CONVERSA (ABSOLUTA): a imagem que chegou é CONTEXTO ADICIONAL do momento atual da conversa.`
       : "",
