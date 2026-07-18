@@ -313,32 +313,9 @@ URGÊNCIA NA VENDA (opcional, quando fizer sentido):
 "Essa promoção é por tempo limitado!" (o valor exato sai do catálogo em tempo de resposta)
 `,
 
-  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
-
-*Spotify*
-- Seguidores [Artista]: R$30/1000 (mín 50)
-- Plays + Ouvintes [Global]: R$15/1000 (mín 500)
-- Aluguel de Playlist (1 música, 10 playlists, 30 dias): R$49,90
-
-*Instagram*
-- Seguidores [Brasil]: R$15/1000 (mín 50)
-- Seguidores [Global]: R$7/1000 (mín 100)
-- Curtidas [Brasil]: R$5/1000 (mín 10)
-- Curtidas [Global]: R$5/1000 (mín 100)
-
-*YouTube*
-- Inscritos [Global]: R$140/1000 (mín 100)
-- Visualizações [Global]: R$10/1000 (mín 100)
-- Curtidas [Brasil]: R$30/1000 (mín 100)
-
-*TikTok*
-- Seguidores [Global]: R$30/1000 (mín 100)
-- Curtidas [Brasil]: R$6/1000 (mín 50)
-
-*Outras Redes*
-- Facebook/Kwai/Threads: Sob consulta no painel.
-`,
-
+  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL (RESTRITO)
+- Este conteúdo foi distribuído para os módulos individuais por rede (spotify, instagram, youtube, tiktok).
+- Se você precisar de preços, consulte o módulo da rede social correspondente.`,
 };
 
 
