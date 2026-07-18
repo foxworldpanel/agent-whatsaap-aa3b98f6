@@ -267,9 +267,7 @@ Regras:
 - Siga rigorosamente a disponibilidade e preços do catálogo real.
 `,
 
-  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
-- Tabela de referência completa. Siga preços e quantidades do catálogo.
-`,
+  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL\n- Tabela de referência completa. Siga preços e quantidades do catálogo.\n`,\n\n  estrangeiros: `MÓDULO CLIENTES ESTRANGEIROS\n- Detecte o idioma (inglês/espanhol) e responda no mesmo.\n- VALORES: converta de BRL para USD, arredondando para cima, usando "around" ou "approximately".\n- PAGAMENTO: via Wise ou Criptomoedas. NUNCA ofereça PIX para estrangeiros.\n`,\n\n  suporte: `MÓDULO SUPORTE / RECLAMAÇÃO\n- ORIENTAÇÃO (ABSOLUTA): Se o cliente tiver problema com pedido, queda, atraso ou erro, a ÚNICA conduta é orientar a abrir um TICKET no painel ("Suporte" -> "Novo Ticket") informando o ID do pedido. Você NÃO resolve problemas técnicos no WhatsApp.\n`,\n\n  teste_gratis: `MÓDULO TESTE GRÁTIS\n- Só ofereça se o serviço estiver na lista de testes disponíveis.\n- Explique que é uma amostra pequena para ver a qualidade.\n- Não emende link de compra na mesma mensagem do teste.\n`,
 };
 
 
