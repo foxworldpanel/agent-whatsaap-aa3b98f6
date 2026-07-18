@@ -922,7 +922,6 @@ export async function generateAgentReplyWithMeta(params: {
       if (!playlistCatalog) return "";
       // playlistCatalog é { ecletica: string[], eletronica: string[] }
       return buildRegraPlaylistsInfoDiretaBlock(playlistCatalog);
-      return buildRegraPlaylistsInfoDiretaBlock(playlistCatalog);
     })(),
     (() => {
       const t = (dailyPromoText ?? "").trim();
