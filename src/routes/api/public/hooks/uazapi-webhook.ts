@@ -703,8 +703,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         //   (2) resolver retorna 'disabled' → segunda barreira mesmo
         //       que alguém remova acidentalmente o early-return.
         // ============================================================
-        // Gate desativado
-        console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone}`);
+        {
+          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
+          const { resolveAgentBrainVersion } = await import("@/lib/agent-v2/resolver");
+          const authorized = isAuthorizedV2Phone(phone);
+          const activeVersion = resolveAgentBrainVersion(null, phone);
+          if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
+            // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
+            const phoneTail = phone.slice(-4);
+            console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                type: "message_received",
+                level: "info",
+                summary: "AI disabled for non-authorized contact",
+                metadata: { phoneTail, activeVersion },
+              });
+            } catch {}
+            // HTTP 200 para evitar retries do provedor.
+            return new Response("ok (non-authorized number, AI disabled)");
+          }
+        }
 
         // 🔍 Log de entrada do webhook (diagnóstico por número)
         console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
@@ -1308,7 +1328,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
-            const { transcribeAudioUrl } = { transcribeAudioUrl: async () => null } as any;
+            const { transcribeAudioUrl } = await import("@/lib/agent-v2/core/ai-services.server");
             const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
@@ -2466,6 +2486,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
+        const { runAgentV2Turn } = await import("@/lib/agent-v2.functions");
 
 
         // ===== Coalescência de mensagens rápidas do cliente =====
@@ -2685,7 +2706,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .createSignedUrl(r.storage_path, 60 * 60);
                 if (signed?.signedUrl) imageUrl = signed.signedUrl;
               }
-              const { describePanelScreen } = { describePanelScreen: async () => null } as any;
+              const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
               extracted = await describePanelScreen({
                 imageUrl,
                 name: r.name,
@@ -2729,7 +2750,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   if (signed?.signedUrl) imageUrl = signed.signedUrl;
                 }
                 if (imageUrl) {
-                  const { describePanelScreen } = { describePanelScreen: async () => null } as any;
+                  const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
                   extracted = await describePanelScreen({ imageUrl, name, description });
                   if (shot.path && extracted) {
                     await supabaseAdmin.from("panel_guide").insert({
@@ -3026,69 +3047,78 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } catch {}
           const _claudeStart = Date.now();
           
-          // V1 Original (Processamento Legado) — Única Runtime Ativa
-          const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
-          reply = _claudeOut.text;
-          const _claudeMs = Date.now() - _claudeStart;
-          const _claudeModel = _claudeOut.model;
-          const _claudeRoutingReason = _claudeOut.routingReason;
+          // Fase 2 Runtime: Conexão V2
+          // Ativa V2 se o telefone for autorizado. Fallback para V1 via configuração do agente.
+          // OBRIGATÓRIO: Para o workspace Mind, a V1 está desativada.
+          const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+          const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
+          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
+          
+          const useV2 = isMindWorkspace || (isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true);
+          
+          if (useV2) {
+            console.log('🚀 [Agente V2] Turno iniciado');
+            const v2Result = await runAgentV2Turn({
+              conversationId: conv.id,
+              workspaceId: (agent as any).workspace_id,
+              phoneNumber: phone,
+              currentMessage: inboundBody,
+              mode: !(isBlastReply || isBlastThread) ? 'receptive' : 'outbound',
+              executionMode: 'real',
+              media: isImage ? { type: 'image', hasImage: true } : (kind === 'audio' ? { type: 'audio', hasAudio: true } : { type: 'text' }),
+              shortHistory: (aiHistory ?? []).map((m: any) => ({ 
+                sender: m.sender === 'agente' ? 'agente' : 'cliente',
+                body: m.body || ''
+              })),
+              toolFixtures: {
+                catalog: all || [],
+                freeTestServices: freeTestServices || []
+              },
 
-          try {
-            const { logEvent } = await import("@/lib/agent-logger.server");
-            await logEvent({
-              userId,
-              phone,
-              conversationId: conv?.id,
-              type: "claude_completion",
-              level: "info",
-              summary: `🧠 Claude respondeu (${_claudeMs}ms) | Model: ${_claudeModel}`,
-              response: reply,
-              durationMs: _claudeMs,
-              metadata: {
-                model: _claudeModel,
-                promptTokens: (_claudeOut as any).usage?.prompt_tokens,
-                completionTokens: (_claudeOut as any).usage?.completion_tokens,
+              expected: {
+                conversationWorkspaceId: (conv as any).workspace_id,
+                agentWorkspaceId: (agent as any).workspace_id,
+                whatsappWorkspaceId: selectedWorkspaceId,
+                selectedWorkspaceId,
               },
             });
-          } catch {}
-          
-          console.log('Resposta do Claude (V1):', reply);
-          
-          // Safety net V1: saudações repetidas
-          try {
-            const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
-              await import("@/lib/ai.server");
-            const inReengagementMode =
-              isReengagementGreeting(aiHistory ?? []) ||
-              isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
-            const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
-            if (hasPriorAgent && reply && !inReengagementMode) {
-              const parts = reply.split("===SPLIT===");
-              const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
-              parts[0] = parts[0].replace(greetRe, "").trimStart();
-              const cleaned = parts.join("===SPLIT===").trim();
-              if (cleaned.length > 0) reply = cleaned;
+
+            
+            reply = v2Result.finalResponse;
+            const _claudeMs = Date.now() - _claudeStart;
+            const _v2Metrics = v2Result.metrics;
+            
+            console.log('✅ [Agente V2] Resposta:', reply);
+            
+            try {
+              const { logEvent } = await import("@/lib/agent-logger.server");
+              await logEvent({
+                userId, phone, conversationId: conv?.id,
+                type: "v2_turn", level: "info",
+                summary: `🧠 Agente V2 respondeu (${_claudeMs}ms) | Model: ${_v2Metrics.selectedModel}`,
+                response: reply,
+                durationMs: _claudeMs,
+                metadata: {
+                  brainVersion: 'v2',
+                  turnId: _v2Metrics.analytics?.turnId,
+                  selectedModel: _v2Metrics.selectedModel,
+                  intent: _v2Metrics.intent,
+                  modules: v2Result.routeResult.selectedModules,
+                  routingReason: _v2Metrics.analytics?.routingReason,
+                }
+              });
+            } catch {}
+          } else {
+            // V1 Original (Processamento Legado) — BLOQUEADO PARA WORKSPACE MIND
+            if (isMindWorkspace) {
+              throw new Error("V1_EXECUTION_BLOCKED: Workspace Mind detectado em branch legado.");
             }
-          } catch {}
-          
-          // Log V1 detalhado
-          try {
-            const { logEvent } = await import("@/lib/agent-logger.server");
-            await logEvent({
-              userId, phone, conversationId: conv?.id,
-              type: "claude_reply", level: "info",
-              summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
-              prompt: JSON.stringify({
-                model: _claudeModel,
-                routingReason: _claudeRoutingReason,
-                contact: _claudeArgs.contact,
-                historyCount: aiHistory?.length ?? 0,
-              }, null, 2),
-              response: reply ?? null,
-              durationMs: _claudeMs,
-              metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas" },
-            });
-          } catch {}
+            
+            const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
+            reply = _claudeOut.text;
+            const _claudeMs = Date.now() - _claudeStart;
+            const _claudeModel = _claudeOut.model;
+            const _claudeRoutingReason = _claudeOut.routingReason;
             console.log('Resposta do Claude (V1):', reply);
             
             // Safety net V1: saudações repetidas
@@ -3132,15 +3162,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Persistência de fatos duráveis (comum a V1 e V2 se aplicável)
           if (isImage && reply && reply.trim()) {
             try {
-              const { extractDurableContextFromImageReply } = { extractDurableContextFromImageReply: async () => null } as any;
+              const { extractDurableContextFromImageReply } = await import("@/lib/agent-v2/core/ai-services.server");
               const facts = await extractDurableContextFromImageReply({
                 imageReply: reply,
                 clientMessage: text ?? inboundBody ?? null,
               });
               if (facts) {
                 const prev = ((conv as { contexto_extra?: string | null }).contexto_extra ?? "").trim();
-                const existingLines = new Set(prev.split("\n").map((l: any) => l.trim().toLowerCase()).filter(Boolean));
-                const newLines = facts.split("\n").map((l: any) => l.trim()).filter((l: any) => l && !existingLines.has(l.toLowerCase()));
+                const existingLines = new Set(prev.split("\n").map((l) => l.trim().toLowerCase()).filter(Boolean));
+                const newLines = facts.split("\n").map((l) => l.trim()).filter((l) => l && !existingLines.has(l.toLowerCase()));
                 if (newLines.length > 0) {
                   const merged = [prev, ...newLines].filter(Boolean).join("\n").slice(-2000);
                   await supabaseAdmin.from("conversations").update({ contexto_extra: merged } as never).eq("id", conv.id);
@@ -3166,6 +3196,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
             } catch {}
             reply = FALLBACK_REPLY;
+            }
           }
         } catch (e) {
           console.error("claude failed", e);
@@ -3431,7 +3462,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const skippedIdx = new Set<number>();
         try {
           if (respondWithAudio) {
-            const { ttsElevenLabsBase64 } = { ttsElevenLabsBase64: async () => null } as any;
+            const { ttsElevenLabsBase64 } = await import("@/lib/agent-v2/core/ai-services.server");
             if (memWasRecentlySent(phone, replyParts[0]) || await wasRecentlySent(conv.id, replyParts[0])) {
               skippedIdx.add(0);
               replyKind = "audio";
@@ -3800,21 +3831,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // 🧪 número de teste — não altera temperatura automaticamente
             throw new Error("__test_number_skip_scoring__");
           }
-          const temperatura = "morno";
-          const classifyLeadTemperature = async () => "morno";
+          const { classifyLeadTemperature } = await import("@/lib/agent-v2/core/ai-services.server");
           const fullHistory = [
             ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
             { sender: "cliente" as const, body: inboundBody },
             { sender: "agente" as const, body: reply },
           ];
+          const temperatura = await classifyLeadTemperature({ history: fullHistory });
           if (temperatura) {
             const stamp = new Date().toISOString();
-            if (temperatura === ("bloqueado" as string)) {
+            if (temperatura === "bloqueado") {
               await supabaseAdmin
                 .from("contacts")
                 .update({ temperatura, temperatura_updated_at: stamp, status: "bloqueado" })
                 .eq("id", contact.id);
-            } else if (temperatura === ("cliente" as string)) {
+            } else if (temperatura === "cliente") {
               await supabaseAdmin
                 .from("contacts")
                 .update({ temperatura, temperatura_updated_at: stamp, status: "convertido", perfil: "ativo" })
