@@ -112,7 +112,7 @@ export const runAgentDiagnostics = createServerFn({ method: "POST" })
     let fullPrompt = "";
     if (cfg) {
       const { buildSystemPrompt } = await import("@/lib/ai.server");
-      fullPrompt = buildSystemPrompt({
+      const promptResult = buildSystemPrompt({
         agent: cfg as never,
         contact: { nome: "Cliente Exemplo", perfil: "frio" },
         history: [{ sender: "cliente", body: "[mensagem de exemplo do cliente]" }],
@@ -124,6 +124,12 @@ export const runAgentDiagnostics = createServerFn({ method: "POST" })
         forbiddenRules: enabledRules as never,
         freeTestServices: (freeTests ?? []) as never,
       });
+
+      if (typeof promptResult === "string") {
+        fullPrompt = promptResult;
+      } else if (Array.isArray(promptResult)) {
+        fullPrompt = promptResult.map(b => b.text).join("\n\n");
+      }
     }
 
     const ci = cfg?.company_info as Record<string, unknown> | null;
