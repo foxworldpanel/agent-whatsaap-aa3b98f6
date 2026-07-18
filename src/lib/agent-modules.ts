@@ -271,27 +271,28 @@ Regras:
 
 *Spotify*
 - Aluguel de Playlist (1 música, 10 playlists, 30 dias): R$49,90
-- Seguidores: R$30/1000 (mín 50)
+- Seguidores [Artista]: R$30/1000 (mín 50)
+- Plays + Ouvintes [Global]: R$15/1000 (mín 500)
 
 *Instagram*
-- Seguidores [Brasil]: R$40/1000 (mín 10)
-- Seguidores [Global]: R$12/1000 (mín 100)
-- Curtidas [Brasil]: R$13/1000 (mín 20)
+- Seguidores [Brasil]: R$15/1000 (mín 50)
+- Seguidores [Global]: R$7/1000 (mín 100)
+- Curtidas [Brasil]: R$5/1000 (mín 10)
 - Curtidas [Global]: R$5/1000 (mín 100)
 
 *YouTube*
-- Visualizações: R$10/1000 (mín 100)
-- Likes [Brasil]: R$30/1000 (mín 10)
-- Inscritos [Global]: R$80/1000 (mín 50)
-- Live Stream (60 min): R$20/1000 (mín 50)
+- Inscritos [Global]: R$140/1000 (mín 100)
+- Visualizações [Global]: R$10/1000 (mín 100)
+- Curtidas [Brasil]: R$30/1000 (mín 100)
 
 *TikTok*
-- Seguidores [Global]: R$15/1000 (mín 100)
-- Curtidas [Brasil]: R$25/1000 (mín 50)
+- Seguidores [Global]: R$30/1000 (mín 100)
+- Curtidas [Brasil]: R$6/1000 (mín 50)
 
 *Outras Redes*
 - Facebook/Kwai/Threads: Sob consulta no painel.
 `,
+
 };
 
 
