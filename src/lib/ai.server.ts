@@ -564,7 +564,7 @@ const MODULE_TRIGGERS: Array<{ rx: RegExp; modules: string[] }> = [
   { rx: /desconto|barato|caro|promo/i, modules: ["desconto_niveis", "objecoes", "ancoragem_valor", "playlist_promo"] },
   { rx: /pix|pagar|pagamento|boleto|cart[aã]o|cripto|usdt|d[oó]lar|exterior|estrangeir/i, modules: ["pagamentos", "estrangeiros"] },
   { rx: /teste|gr[aá]tis|free|amostra/i, modules: ["teste_gratis"] },
-  { rx: /problema|n[aã]o funcionou|n[aã]o recebi|atras|suporte|ticket|reclama|refil/i, modules: ["suporte", "historico_refil", "inteligencia_emocional"] },
+  { rx: /problema|n[aã]o funcionou|n[aã]o recebi|\batraso\b|suporte|ticket|reclama|refil/i, modules: ["suporte", "historico_refil", "inteligencia_emocional"] },
   { rx: /painel|cadastr|conta|login|saldo|dep[oó]sito|adicionar fundos|como uso/i, modules: ["como_usar_painel", "guia_visual_painel", "educacao"] },
   { rx: /n[aã]o quero|depois|talvez|caro demais|pensar/i, modules: ["objecoes", "fechamento_3", "follow_up"] },
   { rx: /comprei|fechei|paguei|comprovante|pedido feito/i, modules: ["pos_venda", "upsell"] },
