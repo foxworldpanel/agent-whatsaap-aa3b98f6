@@ -73,8 +73,8 @@ function AgentePage() {
     );
   }
 
-  const moduleKeys = Object.keys(MODULE_LIST);
-  const currentActive = activeModule || moduleKeys[0];
+  const currentActive = activeModule || MODULE_LIST[0].key;
+
 
   return (
     <div className="space-y-6">
