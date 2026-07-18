@@ -30,9 +30,8 @@ export const Route = createFileRoute("/")({
         Redirecionando para /conversas em 5 segundos...
       </div>
     );
-
-    );
   },
 });
+
 
 
