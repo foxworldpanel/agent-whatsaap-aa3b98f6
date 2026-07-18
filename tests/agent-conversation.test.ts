@@ -101,9 +101,12 @@ function sysText(body: { system: string | Array<{ text?: string; type?: string }
   if (Array.isArray(s)) {
     return s.map((b) => {
       if (typeof b === "string") return b;
-      if (typeof b === "object" && b !== null && "text" in b) return b.text ?? "";
+      if (typeof b === "object" && b !== null) {
+        if ("text" in b) return b.text ?? "";
+        if ("content" in b) return b.content ?? "";
+      }
       return "";
-    }).join("\n");
+    }).filter(Boolean).join("\n\n");
   }
   return "";
 }
