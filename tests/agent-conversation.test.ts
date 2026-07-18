@@ -1742,7 +1742,7 @@ describe("17) REGRA DE CONCISÃO — bloco injetado no system prompt", () => {
       ],
       mockReply: "Show!",
     });
-    const sys = extractSystemText(JSON.parse(fetchMock.mock.calls[0][1].body));
+    const sys = extractSystemText(JSON.parse(fetchMock.mock.calls[0][1].body).system);
     expect(/entrega|ritmo|segurança|painel|pagamento/i.test(sys)).toBe(true);
     expect(/como te falei|como comentei|como expliquei/i.test(sys)).toBe(true);
   });
