@@ -918,11 +918,7 @@ export async function generateAgentReplyWithMeta(params: {
     // BLOCO 2 — DINÂMICO (Vetos, Histórico, Promoções, Catálogo, Contexto Variável)
     // Injetamos aqui os dados que podem variar entre requisições ou workspaces,
     // garantindo que o Bloco 1 permaneça 100% estável para hits de cache.
-    (() => {
-      if (!playlistCatalog) return "";
-      // playlistCatalog é { ecletica: string[], eletronica: string[] }
-      return buildRegraPlaylistsInfoDiretaBlock(playlistCatalog);
-    })(),
+    playlistCatalog ? buildRegraPlaylistsInfoDiretaBlock(playlistCatalog) : "",
     (() => {
       const t = (dailyPromoText ?? "").trim();
       if (!t) return "";
