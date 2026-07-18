@@ -97,6 +97,7 @@ function mockAnthropic(reply: string) {
 function sysText(body: { system: string | Array<{ text?: string; type?: string }> }): string {
   const s = body.system;
   if (typeof s === "string") return s;
+  if (typeof s === "string") return s;
   if (Array.isArray(s)) {
     return s.map((b) => {
       if (typeof b === "string") return b;
