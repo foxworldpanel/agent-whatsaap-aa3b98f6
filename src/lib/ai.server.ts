@@ -474,8 +474,7 @@ const ESSENTIAL_MODULES = [
 
 // Mapa de gatilhos → módulos relevantes
 const MODULE_TRIGGERS: Array<{ rx: RegExp; modules: string[] }> = [
-  { rx: /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly|m[uú]sica|artista|soundon/i, modules: ["spotify", "musica_cliente", "playlist_promo"] },
-  { rx: /playlist|pacote|promo|ecl[eé]tic|eletr[oô]nic/i, modules: ["playlist_promo"] },
+  { rx: /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly|m[uú]sica|artista|soundon/i, modules: ["spotify", "musica_cliente"] },
   { rx: /youtube|yt|inscritos?|view(s|er)?|monetiza|4000h|shorts?/i, modules: ["youtube"] },
   { rx: /instagram|insta|\big\b|reels?|stories?|seguidor/i, modules: ["instagram"] },
   { rx: /tiktok|tt\b/i, modules: ["tiktok"] },
@@ -483,7 +482,7 @@ const MODULE_TRIGGERS: Array<{ rx: RegExp; modules: string[] }> = [
   { rx: /facebook|fb\b|\bface\b/i, modules: ["facebook"] },
   { rx: /google|seo|maps|gmb|avalia[çc][aã]o/i, modules: ["seo_google"] },
   { rx: /pre[çc]o|valor|quanto custa|custa|tabela|or[çc]amento|cota[çc][aã]o|\br\$/i, modules: ["calculo_preco", "ancoragem_valor"] },
-  { rx: /desconto|barato|caro|promo/i, modules: ["desconto_niveis", "objecoes", "ancoragem_valor", "playlist_promo"] },
+  { rx: /desconto|barato|caro|promo/i, modules: ["desconto_niveis", "objecoes", "ancoragem_valor"] },
   { rx: /pix|pagar|pagamento|boleto|cart[aã]o|cripto|usdt|d[oó]lar|exterior|estrangeir/i, modules: ["pagamentos", "estrangeiros"] },
   { rx: /teste|gr[aá]tis|free|amostra/i, modules: ["teste_gratis"] },
   { rx: /problema|n[aã]o funcionou|n[aã]o recebi|\batraso\b|suporte|ticket|reclama|refil/i, modules: ["suporte", "historico_refil", "inteligencia_emocional"] },

@@ -45,7 +45,7 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "reativacao_frio", title: "Reativação de Cliente Frio", emoji: "🧊" },
   { key: "musica_cliente", title: "Música do Cliente", emoji: "🎧" },
   { key: "aprendizado_continuo", title: "Aprendizado Contínuo", emoji: "📚" },
-  { key: "playlist_promo", title: "Pacotes de Playlist (Promotion)", emoji: "🎼" },
+  
   { key: "tabela_precos", title: "Tabela de Preços Manual", emoji: "🏷️" },
 ];
 
@@ -295,8 +295,6 @@ Regras:
 - Use dados do histórico para evitar repetições desnecessárias.
 `,
 
-  playlist_promo: `MÓDULO PLAYLIST — PROMOÇÃO ATIVA (RESTRITO)
-- Este conteúdo foi consolidado no MÓDULO SPOTIFY. Consulte o módulo 'spotify' para informações de pacotes e preços de playlist.`,
 
   tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL (RESTRITO)
 - Este conteúdo foi distribuído para os módulos individuais por rede (spotify, instagram, youtube, tiktok).
