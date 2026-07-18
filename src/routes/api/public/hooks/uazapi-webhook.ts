@@ -3026,78 +3026,69 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } catch {}
           const _claudeStart = Date.now();
           
-          // Fase 2 Runtime: Conexão V2
-          // Ativa V2 se o telefone for autorizado. Fallback para V1 via configuração do agente.
-          // OBRIGATÓRIO: Para o workspace Mind, a V1 está desativada.
-          const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-          const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
-          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          
-          const useV2 = isMindWorkspace || (isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true);
-          
-          if (useV2) {
-            console.log('🚀 [Agente V2] Turno iniciado');
-            const v2Result = await runAgentV2Turn({
-              conversationId: conv.id,
-              workspaceId: (agent as any).workspace_id,
-              phoneNumber: phone,
-              currentMessage: inboundBody,
-              mode: !(isBlastReply || isBlastThread) ? 'receptive' : 'outbound',
-              executionMode: 'real',
-              media: isImage ? { type: 'image', hasImage: true } : (kind === 'audio' ? { type: 'audio', hasAudio: true } : { type: 'text' }),
-              shortHistory: (aiHistory ?? []).map((m: any) => ({ 
-                sender: m.sender === 'agente' ? 'agente' : 'cliente',
-                body: m.body || ''
-              })),
-              toolFixtures: {
-                catalog: all || [],
-                freeTestServices: freeTestServices || []
-              },
+          // V1 Original (Processamento Legado) — Única Runtime Ativa
+          const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
+          reply = _claudeOut.text;
+          const _claudeMs = Date.now() - _claudeStart;
+          const _claudeModel = _claudeOut.model;
+          const _claudeRoutingReason = _claudeOut.routingReason;
 
-              expected: {
-                conversationWorkspaceId: (conv as any).workspace_id,
-                agentWorkspaceId: (agent as any).workspace_id,
-                whatsappWorkspaceId: selectedWorkspaceId,
-                selectedWorkspaceId,
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId,
+              phone,
+              conversationId: conv?.id,
+              type: "claude_completion",
+              level: "info",
+              summary: `🧠 Claude respondeu (${_claudeMs}ms) | Model: ${_claudeModel}`,
+              response: reply,
+              durationMs: _claudeMs,
+              metadata: {
+                model: _claudeModel,
+                promptTokens: _claudeOut.usage?.prompt_tokens,
+                completionTokens: _claudeOut.usage?.completion_tokens,
               },
             });
-
-            
-            reply = v2Result.finalResponse;
-            const _claudeMs = Date.now() - _claudeStart;
-            const _v2Metrics = v2Result.metrics;
-            
-            console.log('✅ [Agente V2] Resposta:', reply);
-            
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                userId, phone, conversationId: conv?.id,
-                type: "v2_turn", level: "info",
-                summary: `🧠 Agente V2 respondeu (${_claudeMs}ms) | Model: ${_v2Metrics.selectedModel}`,
-                response: reply,
-                durationMs: _claudeMs,
-                metadata: {
-                  brainVersion: 'v2',
-                  turnId: _v2Metrics.analytics?.turnId,
-                  selectedModel: _v2Metrics.selectedModel,
-                  intent: _v2Metrics.intent,
-                  modules: v2Result.routeResult.selectedModules,
-                  routingReason: _v2Metrics.analytics?.routingReason,
-                }
-              });
-            } catch {}
-          } else {
-            // V1 Original (Processamento Legado) — BLOQUEADO PARA WORKSPACE MIND
-            if (isMindWorkspace) {
-              throw new Error("V1_EXECUTION_BLOCKED: Workspace Mind detectado em branch legado.");
+          } catch {}
+          
+          console.log('Resposta do Claude (V1):', reply);
+          
+          // Safety net V1: saudações repetidas
+          try {
+            const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
+              await import("@/lib/ai.server");
+            const inReengagementMode =
+              isReengagementGreeting(aiHistory ?? []) ||
+              isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
+            const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
+            if (hasPriorAgent && reply && !inReengagementMode) {
+              const parts = reply.split("===SPLIT===");
+              const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
+              parts[0] = parts[0].replace(greetRe, "").trimStart();
+              const cleaned = parts.join("===SPLIT===").trim();
+              if (cleaned.length > 0) reply = cleaned;
             }
-            
-            const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
-            reply = _claudeOut.text;
-            const _claudeMs = Date.now() - _claudeStart;
-            const _claudeModel = _claudeOut.model;
-            const _claudeRoutingReason = _claudeOut.routingReason;
+          } catch {}
+          
+          // Log V1 detalhado
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId, phone, conversationId: conv?.id,
+              type: "claude_reply", level: "info",
+              summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
+              prompt: JSON.stringify({
+                model: _claudeModel,
+                routingReason: _claudeRoutingReason,
+                contact: _claudeArgs.contact,
+                historyCount: aiHistory?.length ?? 0,
+              }, null, 2),
+              response: reply ?? null,
+              durationMs: _claudeMs,
+              metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas" },
+            });
+          } catch {}
             console.log('Resposta do Claude (V1):', reply);
             
             // Safety net V1: saudações repetidas
