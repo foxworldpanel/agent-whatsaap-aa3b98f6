@@ -606,9 +606,9 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
   const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), {
     freeTestServices,
     brandBlocks,
-    // Espelha o gate do runtime real (generateAgentReplyWithMeta): só expõe o
-    // EXEMPLO_MODELO_DISPARO quando a conversa é efetivamente disparo.
-    suppressExemploDisparo: !effectiveBlastPreview,
+    // Espelha o gate do runtime real (generateAgentReplyWithMeta):
+    // suprimimos o exemplo, catálogo e promo do Bloco 1 estável.
+    suppressExemploDisparo: true,
   });
   const latestClientMessage = getLatestClientMessage(history);
   const system = [
