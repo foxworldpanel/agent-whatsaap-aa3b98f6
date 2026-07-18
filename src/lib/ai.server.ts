@@ -1161,9 +1161,9 @@ export async function generateAgentReplyWithMeta(params: {
   const fullSystemFallback = [
     systemBlock1,
     ...(Array.isArray(systemBlock2) 
-      ? systemBlock2.map(b => typeof b === "string" ? b : b.text) 
+      ? systemBlock2.map(b => (typeof b === "string" ? b : b.text)) 
       : [systemBlock2])
-  ].join("\n\n");
+  ].filter(Boolean).join("\n\n");
 
   // ============================================================
   // MÉTRICAS DE PROMPT (baseline pré-refatoração).
