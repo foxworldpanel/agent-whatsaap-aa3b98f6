@@ -1,7 +1,7 @@
 import React from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, AlertCircle, FileText, Code2, AlertTriangle, Activity, CheckCircle2, Terminal } from "lucide-react";
+import { ShieldCheck, AlertCircle, FileText, Code2, AlertTriangle, Activity, CheckCircle2, Zap } from "lucide-react";
 
 export const Route = createFileRoute('/')({
   component: RuntimeInvestigationPanel,
