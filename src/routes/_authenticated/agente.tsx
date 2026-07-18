@@ -47,6 +47,8 @@ function AgentePage() {
       setModules(normalizedModules);
     }
 
+
+
   }, [configQ.data]);
 
   const saveMut = useMutation({
@@ -68,8 +70,8 @@ function AgentePage() {
     );
   }
 
-  const moduleKeys = Object.keys(MODULE_LIST);
-  const currentActive = activeModule || moduleKeys[0];
+  const currentActive = activeModule || MODULE_LIST[0].key;
+
 
   return (
     <div className="space-y-6">
@@ -111,11 +113,12 @@ function AgentePage() {
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <aside className="space-y-1">
           <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Módulos Ativos ({moduleKeys.length})
+            Módulos Ativos ({MODULE_LIST.length})
           </p>
           <nav className="space-y-0.5 overflow-y-auto max-h-[calc(100vh-250px)] pr-2 scrollbar-thin">
-            {moduleKeys.map((key) => {
-              const info = (MODULE_LIST as any)[key];
+            {MODULE_LIST.map((info) => {
+              const key = info.key;
+
               const isActive = currentActive === key;
               const hasCustom = !!modules[key];
 
@@ -146,10 +149,11 @@ function AgentePage() {
             <div className="rounded-xl border border-border p-6" style={{ background: "var(--gradient-card)" }}>
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{(MODULE_LIST as any)[currentActive].emoji}</span>
+                  <span className="text-2xl">{MODULE_LIST.find(m => m.key === currentActive)?.emoji}</span>
                   <div>
-                    <h2 className="text-lg font-bold">{(MODULE_LIST as any)[currentActive].title}</h2>
+                    <h2 className="text-lg font-bold">{MODULE_LIST.find(m => m.key === currentActive)?.title}</h2>
                     <p className="text-xs text-muted-foreground">ID do módulo: {currentActive}</p>
+
                   </div>
                 </div>
               </div>
