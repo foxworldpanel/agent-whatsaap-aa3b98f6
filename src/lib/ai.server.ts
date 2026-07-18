@@ -883,8 +883,6 @@ export async function generateAgentReplyWithMeta(params: {
   const systemBlock1 = buildSharedRules(identity, {
     freeTestServices,
     brandBlocks,
-    dailyPromoText,
-    playlistCatalog,
     // Em produção, suprimimos o exemplo few-shot do bloco estável para manter a 
     // string idêntica em todas as chamadas de suporte/venda orgânica.
     suppressExemploDisparo: true, // SEMPRE suprimir no Bloco 1 para estabilidade de cache
@@ -895,7 +893,20 @@ export async function generateAgentReplyWithMeta(params: {
       text: systemBlock1,
       cache_control: { type: "ephemeral" }
     },
-    // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
+    // BLOCO 2 — DINÂMICO (Vetos, Histórico, Promoções, Catálogo, Contexto Variável)
+    // Injetamos aqui os dados que podem variar entre requisições ou workspaces,
+    // garantindo que o Bloco 1 permaneça 100% estável para hits de cache.
+    (() => {
+      const p = (playlistCatalog ?? "").trim();
+      if (!p) return "";
+      const { buildRegraPlaylistsInfoDiretaBlock } = require("@/lib/agent-identity.server");
+      return buildRegraPlaylistsInfoDiretaBlock(p);
+    })(),
+    (() => {
+      const t = (dailyPromoText ?? "").trim();
+      if (!t) return "";
+      return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta.`;
+    })(),
     // Se for efetivamente um disparo, injetamos o EXEMPLO_MODELO_DISPARO aqui (no dinâmico)
     // para não quebrar o cache do Bloco 1 nas conversas orgânicas.
     effectiveBlast
