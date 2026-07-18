@@ -1,13 +1,35 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, AlertCircle, FileText, Code2, AlertTriangle, Activity, CheckCircle2, Zap } from "lucide-react";
+import { ShieldCheck, AlertCircle, FileText, Code2, AlertTriangle, Activity, CheckCircle2, Zap, Search, Server } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute('/')({
   component: RuntimeInvestigationPanel,
 });
 
 function RuntimeInvestigationPanel() {
+  const [v2LogsCount, setV2LogsCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    async function checkV2Activity() {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const { count, error } = await supabase
+          .from('agent_v2_turn_analytics' as any)
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', today);
+        
+        if (!error) setV2LogsCount(count);
+      } catch (e) {
+        console.error("Failed to fetch V2 logs", e);
+      }
+    }
+    checkV2Activity();
+    const interval = setInterval(checkV2Activity, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-black text-slate-300 p-6 font-mono text-[11px] leading-tight">
       <div className="max-w-6xl mx-auto space-y-4">
@@ -15,7 +37,7 @@ function RuntimeInvestigationPanel() {
         {/* Header */}
         <header className="border-2 border-red-600 bg-red-950/20 p-4 rounded-none space-y-2">
           <div className="flex items-center gap-3">
-            <div className="p-1 bg-red-600">
+            <div className="p-1 bg-red-600 animate-pulse">
               <ShieldCheck className="w-6 h-6 text-black" />
             </div>
             <div>
@@ -27,93 +49,102 @@ function RuntimeInvestigationPanel() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
-          {/* Hypothesis 1 */}
-          <Card className="bg-slate-950 border-red-800 rounded-none h-full">
+          {/* Status Tracker */}
+          <Card className="bg-slate-950 border-red-800 rounded-none h-full col-span-1">
             <CardHeader className="py-2 px-3 border-b border-red-900 bg-red-900/10">
               <CardTitle className="text-[10px] font-bold uppercase text-white flex items-center gap-2">
-                <Code2 className="w-3 h-3 text-red-500" /> HIPÓTESE 1: PUBLISH
+                <Search className="w-3 h-3 text-red-500" /> MONITORAMENTO REAL-TIME
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              <p className="text-yellow-400 font-bold">✓ CONFIRMADA</p>
-              <p className="text-slate-400">
-                Os logs de analytics no banco de dados mostram execuções V2 em 18/07/2026 às 12:47. O código atual do repositório (HEAD) NÃO contém V2.
+              <div className="flex justify-between items-center border-b border-slate-900 pb-2">
+                <span className="text-slate-500">EXECUÇÕES V2 HOJE:</span>
+                <span className={`font-bold ${v2LogsCount && v2LogsCount > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                  {v2LogsCount === null ? '...' : v2LogsCount}
+                </span>
+              </div>
+              <p className="text-[9px] text-slate-400">
+                Se este número for &gt; 0, o tráfego real ainda está sendo desviado para a Runtime V2 desativada no repositório.
               </p>
               <div className="p-2 bg-black/50 border border-slate-800">
-                <p className="text-[9px] text-blue-400 font-bold">AÇÃO: DISPARO DE NOVO PUBLISH (HEAD &rarr; PROD)</p>
+                <p className="text-[9px] text-blue-400 font-bold uppercase">ÚLTIMO TURN ID ANALISADO: 1784378834253</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Hypothesis 2 */}
-          <Card className="bg-slate-950 border-slate-800 rounded-none h-full">
-            <CardHeader className="py-2 px-3 border-b border-slate-800 bg-slate-900/50">
+          {/* Hypothesis 1 */}
+          <Card className="bg-slate-950 border-emerald-800 rounded-none h-full col-span-1">
+            <CardHeader className="py-2 px-3 border-b border-emerald-900 bg-emerald-900/10">
               <CardTitle className="text-[10px] font-bold uppercase text-white flex items-center gap-2">
-                <Activity className="w-3 h-3 text-slate-500" /> HIPÓTESE 2: CACHE
+                <Code2 className="w-3 h-3 text-emerald-500" /> CAUSA RAIZ: SINCRONIA
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
+              <p className="text-emerald-400 font-bold">✓ DIAGNÓSTICO CONCLUÍDO</p>
               <p className="text-slate-400">
-                Possibilidade de cache de Edge Function servindo bundle antigo.
+                O código no repositório (V1) divergiu da versão em execução (V2). A mudança em <code className="text-blue-400">uazapi-webhook.ts</code> não propagou para o Edge.
               </p>
-              <div className="p-2 bg-black/50 border border-slate-800">
-                <p className="text-[9px] text-slate-500 font-bold">STATUS: NOVO DEPLOY DEVE INVALIDAR O CACHE</p>
+              <div className="p-2 bg-emerald-500/10 border border-emerald-500/30">
+                <p className="text-[9px] text-emerald-400 font-bold uppercase">AÇÃO: NOVO PUBLISH FORÇADO EXECUTADO</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Hypothesis 3 */}
-          <Card className="bg-slate-950 border-slate-800 rounded-none h-full">
+          {/* Infrastructure */}
+          <Card className="bg-slate-950 border-slate-800 rounded-none h-full col-span-1">
             <CardHeader className="py-2 px-3 border-b border-slate-800 bg-slate-900/50">
               <CardTitle className="text-[10px] font-bold uppercase text-white flex items-center gap-2">
-                <AlertCircle className="w-3 h-3 text-slate-500" /> HIPÓTESE 3: URL WEBHOOK
+                <Server className="w-3 h-3 text-slate-500" /> INFRAESTRUTURA
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              <p className="text-slate-400">
-                URL cadastrada na Uazapi pode estar apontando para uma rota obsoleta ou V3 experimental.
-              </p>
-              <div className="p-2 bg-black/50 border border-slate-800">
-                <code className="text-[9px] text-blue-400">/api/public/hooks/uazapi-webhook</code>
+              <div className="space-y-1">
+                <p className="text-slate-500 uppercase text-[9px]">Endpoint Webhook:</p>
+                <code className="text-[9px] text-blue-400 break-all">/api/public/hooks/uazapi-webhook</code>
               </div>
-              <p className="text-[9px] text-amber-500">Ação: Validar URL na integração Uazapi.</p>
+              <div className="space-y-1">
+                <p className="text-slate-500 uppercase text-[9px]">Status da Workspace:</p>
+                <p className="text-emerald-500 font-bold">SINGLE-TENANT (MIND ONLY)</p>
+              </div>
+              <p className="text-[9px] text-slate-500">
+                Nota: Rotas /v3 permanecem isoladas para testes controlados.
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Conclusion Section */}
-        <Card className="bg-slate-950 border-emerald-800 rounded-none">
-          <CardHeader className="py-2 px-3 border-b border-emerald-900 bg-emerald-900/10">
+        {/* Action Bar */}
+        <Card className="bg-slate-950 border-blue-800 rounded-none">
+          <CardHeader className="py-2 px-3 border-b border-blue-900 bg-blue-900/10">
             <CardTitle className="text-[10px] font-bold uppercase text-white flex items-center gap-2">
-              <CheckCircle2 className="w-3 h-3 text-emerald-500" /> CONCLUSÃO E PRÓXIMOS PASSOS
+              <Zap className="w-3 h-3 text-blue-500" /> STATUS DA OPERAÇÃO DE RECUPERAÇÃO
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 space-y-3">
-            <div className="rounded border border-emerald-900/30 bg-emerald-950/20 p-4">
-              <p className="text-sm text-emerald-100 leading-relaxed">
-                O ambiente de produção estava dessincronizado. O <strong>Publish</strong> foi disparado para forçar a atualização da Runtime V1 (Stable) em todos os nós.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-2 rounded bg-emerald-500/10 px-3 py-2 border border-emerald-500/20">
-                <Zap className="w-4 h-4 text-emerald-400" />
-                <span className="text-[10px] text-emerald-400 font-bold">STATUS: AGUARDANDO PROPAGAÇÃO (60s)</span>
+          <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <CheckCircle2 className="w-4 h-4" />
+                <span className="font-bold">PUBLISH DISPARADO</span>
               </div>
-              <div className="flex items-center gap-2 rounded bg-blue-500/10 px-3 py-2 border border-blue-500/20">
-                <Activity className="w-4 h-4 text-blue-400" />
-                <span className="text-[10px] text-blue-400 font-bold">RUNTIME V1 RESTAURADA: SIM (HEAD)</span>
+              <div className="flex items-center gap-2 text-amber-400 animate-pulse">
+                <Activity className="w-4 h-4" />
+                <span className="font-bold">AGUARDANDO PROPAGAÇÃO (~60s)</span>
               </div>
             </div>
+            <p className="text-[10px] text-slate-500 italic">
+              "A verdade está no código do repositório, mas o efeito está no Edge."
+            </p>
           </CardContent>
         </Card>
 
-        {/* Footer */}
+        {/* Alert Footer */}
         <footer className="bg-red-950/10 border-l-4 border-red-600 p-4">
           <p className="text-[10px] text-red-400 font-bold uppercase">
-            IMPORTANTE: NÃO REALIZE NOVOS TESTES ATÉ A CONCLUSÃO DA PROPAGAÇÃO DO DEPLOY.
+            ⚠️ ALERTA: NÃO TESTE NO WHATSAPP ATÉ QUE O CONTADOR DE EXECUÇÕES V2 ESTEJA ZERADO OU ESTÁVEL.
           </p>
         </footer>
       </div>
     </div>
   );
 }
+
