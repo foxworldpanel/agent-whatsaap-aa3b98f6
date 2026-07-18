@@ -93,7 +93,7 @@ function AgentePage() {
             Restaurar Padrões
           </button>
           <button
-            onClick={() => saveMut.mutate(modules)}
+            onClick={() => saveMut.mutate({ modules })}
             disabled={saveMut.isPending}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
             style={{ background: "var(--gradient-primary)", boxShadow: "var(--shadow-glow)" }}
