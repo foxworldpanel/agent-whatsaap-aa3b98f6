@@ -14,20 +14,20 @@ export const Route = createFileRoute("/")({
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        Preciso do detalhamento REAL da chamada mais recente: primeira mensagem do contato 5511970116430 depois da limpeza de histórico, "Boa tarde" → "Boa tarde! 😊 Como posso te ajudar?", custou $0,07 segundo o relatado.
+        Preciso de uma auditoria de CONTEÚDO dos 7 módulos essenciais (identidade, pagamentos, fluxo_vendas, regras_proibidas, comportamento_humano, texto_ou_audio, regras_gerais) — que juntos estão pesando ~27k tokens mesmo numa saudação simples sem nenhum módulo extra.
 
-Isso é MUITO mais caro que o esperado — ontem uma saudação simples custou $0,0005, e essa chamada aqui é ainda mais cara que várias mensagens complexas de hoje sobre Spotify/plays.
+NÃO aplica nenhuma mudança ainda — só investigação.
 
-Mostra os dados reais dessa chamada específica:
-1) Modelo usado
-2) input_tokens totais
-3) cache_creation_input_tokens
-4) cache_read_input_tokens
-5) output_tokens
-6) Quantos módulos foram selecionados pra essa mensagem (deveria ser só os essenciais, já que é uma saudação pura sem menção a nenhum serviço)
-7) Confirma se o bug do regex /atras/i (que fizemos carregar módulo de suporte à toa em saudações) foi realmente corrigido, ou se ainda está causando módulo extra carregado sem necessidade
+Pra CADA um dos 7 módulos essenciais, mostra:
+1) Tamanho em caracteres/tokens
+2) O conteúdo COMPLETO (cola aqui o texto real de cada um)
 
-Não aplica correção ainda — só traz o detalhamento real pra eu entender de onde veio esse custo desproporcional.
+Depois de ver o conteúdo, preciso que aponte:
+1) REPETIÇÃO ENTRE MÓDULOS: alguma regra/instrução aparece em mais de um módulo dos 7? (mesmo padrão do bug de emoji duplicado que já corrigimos — pode ter acontecido de novo com outras regras ao longo dos últimos dias)
+2) VERBOSIDADE DESNECESSÁRIA: alguma instrução está redigida de forma mais longa do que precisa (múltiplos exemplos quando 1 bastaria, explicação repetida do mesmo conceito com palavras diferentes)?
+3) CONTEÚDO QUE PODERIA SER CONDICIONAL: alguma regra dentro desses módulos "essenciais" só se aplica em situação específica (ex: só durante disparo, só quando é pagamento) e poderia sair do bloco ESSENTIAL pra virar um módulo condicional (carregado só quando o gatilho certo bater), em vez de sempre carregar pra qualquer mensagem, mesmo uma saudação pura?
+
+Não sugere reescrever nada ainda — só traz esse mapeamento completo pra eu revisar com você antes de decidir o que cortar.
         
         Redirecionando para /conversas em 15 segundos...
       </div>
