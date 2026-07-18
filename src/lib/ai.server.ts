@@ -772,17 +772,17 @@ export function pickClaudeModel(opts: {
   inputKind?: "texto" | "audio";
   latestMessage?: string | null;
   reengagementGreeting?: boolean;
-}): { model: "claude-sonnet-4-5" | "claude-haiku-4-5"; reason: string } {
+}): { model: "claude-sonnet-5" | "claude-haiku-4-5"; reason: string } {
   const msg = (opts.latestMessage ?? "").trim();
   
   // Sonnet para visão ou para casos de reengajamento após hiato.
-  if (opts.hasImage) return { model: "claude-sonnet-4-5", reason: "image_present" };
+  if (opts.hasImage) return { model: "claude-sonnet-5", reason: "image_present" };
 
   // RESTAURAÇÃO (18/07/2026): Sonnet para reengajamento.
   // Evidência real confirmada: Haiku 4.5 ignorou o veto de prioridade e repetiu 
   // pergunta técnica em vez de retribuir saudação. Sonnet é necessário aqui.
   if (opts.reengagementGreeting) {
-    return { model: "claude-sonnet-4-5", reason: "reengagement_greeting" };
+    return { model: "claude-sonnet-5", reason: "reengagement_greeting" };
   }
 
   // Todos os outros casos de texto (incluindo áudio transcrito) usam Haiku.
@@ -1536,7 +1536,7 @@ export async function extractConversationFromImage(imageUrl: string): Promise<st
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-5",
+      model: "claude-sonnet-5",
       max_tokens: 1024,
       system:
         'Você recebe um print de uma conversa do WhatsApp e deve transcrever as mensagens. Identifique quem é o cliente e quem é o atendente. Formate cada linha como "Cliente: ..." ou "Atendente: ...", uma mensagem por linha, na ordem em que aparecem. Não invente nada — só transcreva o que estiver visível.',
@@ -1581,7 +1581,7 @@ export async function describePanelScreen(params: {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-5",
+      model: "claude-sonnet-5",
       max_tokens: 1500,
       messages: [
         {
