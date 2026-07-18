@@ -2789,7 +2789,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Imagem: baixa e converte para base64 para enviar ao Sonnet (visão).
           let _imageBase64: string | null = null;
           let _imageMediaType: string | null = null;
-          if (isImage) {
+          if (isImageMessage) {
             try {
               let imgUrl = mediaUrl;
               let imgMime: string | null = null;
