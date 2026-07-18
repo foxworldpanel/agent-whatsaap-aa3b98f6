@@ -1196,8 +1196,8 @@ export async function generateAgentReplyWithMeta(params: {
     faqsSelectedCount: number; historyCount: number;
     contextoDetectado: string;
   } = {
-    totalChars: system.length,
-    estTokens: Math.round(system.length / 4),
+    totalChars: systemLen,
+    estTokens: Math.round(systemLen / 4),
     kbExamplesCount: knowledgeExamples?.length ?? 0,
     panelScreensCount: panelScreens?.length ?? 0,
     forbiddenRulesCount: forbiddenRules?.length ?? 0,
