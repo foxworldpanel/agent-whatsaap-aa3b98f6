@@ -94,7 +94,7 @@ Regras:
 `,
 
   seo_google: `MÓDULO SEO E GOOGLE
-- Tráfego para sites, blogs ou Google Maps (avaliações) conforme catálogo.
+- Tráfego para sites, blogs ou Google Maps (avaliações) conforme módulo 'tabela_precos'.
 `,
 
   calculo_preco: `MÓDULO CÁLCULO DE PREÇO
