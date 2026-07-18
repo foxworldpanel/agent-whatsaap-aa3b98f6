@@ -2815,6 +2815,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // Catálogo dinâmico removido (v1). Agora o agente utiliza o módulo 'tabela_precos' manual.
         const servicesContext: string | null = null;
+        const servicesFetchFailed = false;
+
 
 
         let reply: string;
