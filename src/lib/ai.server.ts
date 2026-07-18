@@ -437,99 +437,20 @@ export function guardFreeTrialOffer(params: {
 export const SPOTIFY_UNAVAILABLE_SAFE_REPLY =
   "No Spotify, hoje a gente entrega plays e ouvintes através do aluguel de playlist 😊 Funciona assim: você escolhe quantas músicas quer divulgar, a gente insere elas em playlists reais e ativas, e durante o período contratado sua música recebe exposição pros ouvintes dessas playlists. Quantas músicas você pretende divulgar?";
 
-const SPOTIFY_UNAVAILABLE_TOPIC_RX =
-  /\bplays?\b|\bplay\s*\+\s*(ouvintes?|listeners?)\b|\bouvintes?\b|\blisteners?\b|\bmonthly\s+listeners?\b|\bouvintes\s+mensais\b|\bsaves?\b|\bsalvamentos?\b|\bstreams?\b/i;
-const SPOTIFY_CONTEXT_RX = /spotify|open\.spotify\.com|spotify\.link|m[uú]sica|artista|playlist/i;
-// Vazamento REAL: só considera leak quando há preço/quantidade explícita
-// ligada aos serviços restritos. Antes o regex pegava soft-words como
-// "temos|trabalhamos|entrega|global|brasil" e disparava a canned em
-// contextos de reclamação de outra empresa (falso positivo real 09/07).
-const SPOTIFY_SALES_LEAK_RX =
-  /\br\$\s*\d|\b\d+[\s.,]*(plays?|ouvintes?|listeners?|saves?|streams?)\b|\b(plays?|ouvintes?|listeners?|saves?|streams?)\b[^.\n]{0,25}\br\$\s*\d/i;
-// Reclamação sobre OUTRA empresa/plataforma. Nunca substitui pela canned:
-// o cliente está desabafando, não pedindo serviço restrito.
-const OTHER_COMPANY_COMPLAINT_RX =
-  /\b(outra\s+empresa|outro\s+site|outro\s+painel|outra\s+plataforma|comprei\s+de\s+(outro|outra)|me\s+venderam|fui\s+enganad[oa]|perdi\s+(a\s+)?compra|golp(e|earam))\b/i;
-
-function servicesContextHasActiveSpotifyRestrictedService(servicesContext?: string | null): boolean {
-  const ctx = servicesContext ?? "";
-  if (!ctx.trim()) return false;
-  return ctx
-    .split(/\n+/)
-    .some((line) => /spotify/i.test(line) && SPOTIFY_UNAVAILABLE_TOPIC_RX.test(line));
-}
-
+/**
+ * @deprecated O guardSpotifyUnavailableOffer foi desativado em favor da consulta dinâmica ao catálogo
+ * via servicesContext. Esta função agora apenas retorna o texto original, servindo como bypass
+ * para manter a integridade do pipeline sem lógica de substituição hardcoded.
+ */
 export function guardSpotifyUnavailableOffer(params: {
   reply: string;
   latestClientMessage?: string | null;
   history?: Msg[];
   servicesContext?: string | null;
 }): { text: string; replaced: boolean; reason?: string } {
-  const reply = params.reply ?? "";
-  const latestClientAskedRestricted = SPOTIFY_UNAVAILABLE_TOPIC_RX.test(params.latestClientMessage ?? "");
-  const replyMentionsRestricted = SPOTIFY_UNAVAILABLE_TOPIC_RX.test(reply);
-  if (!replyMentionsRestricted && !latestClientAskedRestricted) return { text: reply, replaced: false };
-  if (servicesContextHasActiveSpotifyRestrictedService(params.servicesContext)) {
-    return { text: reply, replaced: false };
-  }
-  // Cliente está reclamando de OUTRA empresa/plataforma — NUNCA despeja
-  // canned de Spotify aqui. Deixa o LLM responder com empatia.
-  if (OTHER_COMPANY_COMPLAINT_RX.test(params.latestClientMessage ?? "")) {
-    return { text: reply, replaced: false };
-  }
-
-  // ANTI-LOOP: se a canned já foi entregue recentemente (últimos 6
-  // agent turns) e o cliente respondeu com CONTEXTO NOVO (não é apenas
-  // repetição da mesma pergunta restrita), NÃO despeja o mesmo texto
-  // idêntico de novo. Nesse ponto:
-  //   - a proteção anti-alucinação de preço/quantidade continua ativa
-  //     via LLM (regra "SPOTIFY — PLAYS / OUVINTES..." no system prompt);
-  //   - mas o guarda determinístico não pode congelar a conversa
-  //     repetindo texto idêntico a cada turno com a palavra "plays".
-  // Só bloqueia se o próprio LLM regenerou o canned literal OU vazou
-  // preço/quantidade concreta (SPOTIFY_SALES_LEAK_RX + números).
-  const cannedAlreadyInHistory = (params.history ?? [])
-    .slice(-12)
-    .some(
-      (m) => m.sender === "agente" && (m.body ?? "").includes(SPOTIFY_UNAVAILABLE_SAFE_REPLY.slice(0, 60)),
-    );
-  if (cannedAlreadyInHistory) {
-    // Se o LLM regenerou o canned literal, deixa passar (é o mesmo
-    // texto que já foi enviado — o dedupe de mensagens do webhook
-    // cuida disso ou o próximo turno diverge). Se contém preço em R$
-    // com número explícito, aí sim bloqueia com canned como último
-    // recurso — é vazamento financeiro real.
-    const hardMonetaryLeak = /\br\$\s*\d/i.test(reply);
-    if (!hardMonetaryLeak) {
-      return { text: reply, replaced: false };
-    }
-  }
-
-  const recentConversation = [
-    params.latestClientMessage ?? "",
-    ...(params.history ?? []).slice(-8).map((m) => m.body ?? ""),
-  ].join("\n");
-  const spotifyContext = SPOTIFY_CONTEXT_RX.test(`${reply}\n${recentConversation}`);
-  if (!spotifyContext) return { text: reply, replaced: false };
-
-  const salesLeak = SPOTIFY_SALES_LEAK_RX.test(reply);
-  if (!latestClientAskedRestricted && !salesLeak) return { text: reply, replaced: false };
-
-  // Se a resposta já redireciona pro serviço disponível (aluguel de
-  // playlist) SEM vazar quantidade/preço de plays/ouvintes, deixa passar.
-  // Isso evita substituir explicações consultivas legítimas ("plays
-  // chegam via aluguel de playlist, funciona assim...") pelo canned.
-  const redirectsToPlaylistRental = /playlist|aluguel/i.test(reply);
-  if (redirectsToPlaylistRental && !salesLeak) {
-    return { text: reply, replaced: false };
-  }
-
-  return {
-    text: SPOTIFY_UNAVAILABLE_SAFE_REPLY,
-    replaced: true,
-    reason: "spotify_restricted_service_unavailable",
-  };
+  return { text: params.reply ?? "", replaced: false };
 }
+
 
 function pickScript(cfg: AgentConfig, perfil: Contact["perfil"]): string {
   return perfil === "ativo"
@@ -1125,7 +1046,7 @@ export async function generateAgentReplyWithMeta(params: {
       : "",
     // Regras de ouro de teste grátis: fonte única em identity.regra_teste_gratis.
     `COMPROVANTE DE PAGAMENTO (PIX / CRYPTO) — REGRA ABSOLUTA:\n- Quando o cliente mandar um comprovante de PIX ou Crypto (imagem de transferência, recibo, print de pagamento), QUEM PAGOU JÁ TEM CADASTRO. NUNCA peça para "fazer cadastro", "criar conta" ou "se cadastrar".\n- Resposta obrigatória em DUAS mensagens (use ===SPLIT===):\n  1) "Ótimo! Vi aqui que você enviou R$[valor visto no comprovante] 😊"\n  2) "Agora é só acessar o painel, escolher o serviço, colar o link e confirmar! mindsmmpanel.com"\n- Confirme SEMPRE o valor que aparece no comprovante. Oriente DIRETO para fazer o PEDIDO no painel — nunca para cadastro. O cadastro já foi feito antes do pagamento.\n- Se não conseguir ler o valor com clareza, pergunte: "Consegue me confirmar o valor que você enviou?" e depois siga o fluxo acima.`,
-    `SPOTIFY — PLAYS / OUVINTES / STREAMS / SAVES DESATIVADOS (ABSOLUTA): se o cliente pedir plays, ouvintes, streams, monthly listeners ou saves no Spotify e esses serviços NÃO aparecerem no CATÁLOGO ativo, responda exatamente: "${SPOTIFY_UNAVAILABLE_SAFE_REPLY}". NÃO direcione para Global/EUA, NÃO informe preço, NÃO fale quantidade por dia, NÃO calcule distribuição entre músicas e NÃO trate como serviço disponível.`,
+    `SPOTIFY — DISPONIBILIDADE DE SERVIÇOS: NUNCA diga que um serviço do Spotify está "desativado" ou "em atualização" a menos que ele NÃO esteja listado no CATÁLOGO ativo. Se o serviço (ex: plays, ouvintes, seguidores) aparece no catálogo, ele está DISPONÍVEL. Siga o preço e as regras do catálogo.`,
     `PACOTE POR GÊNERO — ELETRÔNICA vs ECLÉTICA (ABSOLUTA):\n- O pacote MÚSICA ELETRÔNICA é EXCLUSIVO pra estilos eletrônicos (eletrônica, house, techno, trance, deep house, EDM, psytrance, dnb).\n- Pra QUALQUER outro gênero (sertanejo, funk, pagode, samba, rock, pop, rap, MPB, gospel, forró, piseiro, arrocha, indie, jazz, blues, reggae, clássica, infantil, axé, brega, romântica, country, latina, etc.) ofereça SOMENTE o pacote ECLÉTICA (Todos os Gêneros). NUNCA mencione o pacote Eletrônica como opção nesses casos — nem como comparação, nem como "além disso tem também".\n- Se o cliente não disse o gênero ainda, pergunte antes de listar pacotes. Nunca dispare os dois pacotes "pra ele escolher".`,
     `NUNCA INVENTAR "MENSAGEM NÃO CHEGOU" (ABSOLUTA):\n- É PROIBIDO abrir mensagem com frases como "Ué, acho que a mensagem anterior não chegou direito", "acho que não chegou", "parece que sumiu", "o WhatsApp deu bug", "vou reenviar porque não chegou". Você não tem como saber se uma mensagem foi entregue ou lida.\n- Se por algum motivo você precisar reforçar/completar uma informação anterior, faça-o naturalmente ("Só complementando..." / "Deixa eu te dar mais um detalhe:") SEM inventar causa técnica.\n- Se o cliente reclamar que não recebeu algo, peça pra ele confirmar o que apareceu no chat dele — nunca invente que o sistema falhou.`,
     spotifyCannedAlreadyDelivered
