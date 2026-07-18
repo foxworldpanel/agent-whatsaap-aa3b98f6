@@ -119,8 +119,9 @@ function AgentePage() {
             Módulos Ativos ({moduleKeys.length})
           </p>
           <nav className="space-y-0.5 overflow-y-auto max-h-[calc(100vh-250px)] pr-2 scrollbar-thin">
-            {moduleKeys.map((key) => {
-              const info = (MODULE_LIST as any)[key];
+            {MODULE_LIST.map((info) => {
+              const key = info.key;
+
               const isActive = currentActive === key;
               const hasCustom = !!modules[key];
 
