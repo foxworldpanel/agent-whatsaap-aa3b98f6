@@ -878,7 +878,24 @@ export async function generateAgentReplyWithMeta(params: {
   const inboundReengagementVeto = !effectiveBlast && reengagementGreeting;
   const anyReengagementVeto = blastReengagementVeto || inboundReengagementVeto;
 
-  // O fluxo de disparo agora vem exclusivamente de buildSharedRules(identity).
+  // BLOCO 1 — ESTÁVEL (Identidade, Regras, Tabela de Preços)
+  // Este bloco é marcado com cache_control: ephemeral e deve ser 100% idêntico entre conversas.
+  const systemBlock1 = buildSharedRules(identity, {
+    freeTestServices,
+    brandBlocks,
+    dailyPromoText,
+    playlistCatalog,
+    // Em produção, suprimimos o exemplo few-shot do bloco estável para manter a 
+    // string idêntica em todas as chamadas de suporte/venda orgânica.
+    suppressExemploDisparo: !effectiveBlast,
+  });
+
+  // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
+  (globalThis as any).systemBlock1 = systemBlock1; // Export temporário para o Bloco 1
+
+  // BLOCO 2 — DINÂMICO (Vetos de reengajamento, Contexto da mensagem e Histórico)
+  // Este bloco NÃO tem cache_control porque muda a cada mensagem.
+
   const system = [
     // VETO DE PRIORIDADE MÁXIMA: o bloco MODO REENGAJAMENTO precede a
     // identidade (buildSharedRules), o EXEMPLO_MODELO_DISPARO e qualquer
@@ -916,6 +933,10 @@ export async function generateAgentReplyWithMeta(params: {
     }),
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
+    // Bloco dinâmico continua...
+    imageBase64
+      ? `IMAGEM NA CONVERSA (ABSOLUTA): a imagem que chegou é CONTEXTO ADICIONAL do momento atual da conversa.`
+      : "",
     // Backup textual só entra em conversas efetivamente de disparo. Antes
     // ficava fixo no prompt e induzia o modelo a "detectar disparo" em
     // conversa orgânica só porque tinha um "@" qualquer no histórico.
@@ -1106,6 +1127,9 @@ export async function generateAgentReplyWithMeta(params: {
   const contextoDetectado = detectarContexto(latestClientMessage, history);
   console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(system.length / 4));
 
+  const systemBlock2 = system;
+  const fullSystemFallback = [(globalThis as any).systemBlock1, systemBlock2].join("\n\n");
+
   // ============================================================
   // MÉTRICAS DE PROMPT (baseline pré-refatoração).
   // Fonte única pra medir tokens antes/depois de cada fase da
@@ -1237,12 +1261,12 @@ export async function generateAgentReplyWithMeta(params: {
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      // Prompt caching: o system prompt (~10k tokens) é praticamente idêntico
-      // entre chamadas do mesmo agente. Marcando cache_control:ephemeral,
-      // chamadas subsequentes dentro de ~5 min pagam ~10% do custo de input
-      // desse bloco (cache read) em vez do valor cheio.
+      // Prompt caching: Estrutura em dois blocos para maximizar cache hits.
+      // O Bloco 1 (Estável) recebe cache_control: ephemeral.
+      // O Bloco 2 (Dinâmico) contém as variáveis por mensagem.
       system: [
-        { type: "text", text: system, cache_control: { type: "ephemeral" } },
+        { type: "text", text: (globalThis as any).systemBlock1 || "", cache_control: { type: "ephemeral" } },
+        { type: "text", text: Array.isArray(systemBlock2) ? systemBlock2.join("\n\n") : systemBlock2 },
       ],
       messages: finalMessages,
     }),
