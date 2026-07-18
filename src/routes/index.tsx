@@ -40,7 +40,7 @@ function RuntimeInvestigationPanel() {
                 Os logs de analytics no banco de dados mostram execuções V2 em 18/07/2026 às 12:47. O código atual do repositório (HEAD) NÃO contém V2.
               </p>
               <div className="p-2 bg-black/50 border border-slate-800">
-                <p className="text-[9px] text-blue-400 font-bold">AÇÃO: DISPARO DE NOVO PUBLISH (HEAD -> PROD)</p>
+                <p className="text-[9px] text-blue-400 font-bold">AÇÃO: DISPARO DE NOVO PUBLISH (HEAD &rarr; PROD)</p>
               </div>
             </CardContent>
           </Card>
