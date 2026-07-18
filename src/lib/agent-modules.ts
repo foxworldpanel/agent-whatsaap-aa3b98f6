@@ -43,7 +43,7 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "inteligencia_emocional", title: "Inteligência Emocional", emoji: "❤️" },
   { key: "guia_visual_painel", title: "Guia Visual do Painel", emoji: "🖼️" },
   { key: "reativacao_frio", title: "Reativação de Cliente Frio", emoji: "🧊" },
-  { key: "musica_cliente", title: "Música do Cliente", emoji: "🎧" },
+  
   { key: "aprendizado_continuo", title: "Aprendizado Contínuo", emoji: "📚" },
   
   { key: "tabela_precos", title: "Tabela de Preços Manual", emoji: "🏷️" },
@@ -287,9 +287,6 @@ Regras:
 - Contato curto e contextual sem pressão de venda imediata.
 `,
 
-  musica_cliente: `MÓDULO MÚSICA DO CLIENTE
-- Atendimento focado em artistas e lançamentos específicos.
-`,
 
   aprendizado_continuo: `MÓDULO APRENDIZADO CONTÍNUO
 - Use dados do histórico para evitar repetições desnecessárias.
