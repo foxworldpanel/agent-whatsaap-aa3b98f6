@@ -1127,7 +1127,7 @@ export async function generateAgentReplyWithMeta(params: {
   });
 
   const contextoDetectado = detectarContexto(latestClientMessage, history);
-  const fullSystemFallback = systemBlocks.filter(Boolean).join("\n\n");
+  const fullSystemFallback = Array.isArray(systemBlocks) ? systemBlocks.filter(Boolean).join("\n\n") : String(systemBlocks || "");
   const systemLen = fullSystemFallback.length;
   console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(systemLen / 4));
 
