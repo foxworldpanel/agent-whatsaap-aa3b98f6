@@ -167,13 +167,11 @@ describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)",
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       const text = sysText(body.system);
       
+      console.log('--- DEBUG BODY SYSTEM RAW ---');
+      console.log(JSON.stringify(body.system));
+      console.log('--- END DEBUG ---');
+
       const containsTarget = /EXEMPLO_MODELO_DISPARO|Qual rede social/i.test(text);
-      if (!containsTarget) {
-        console.log('--- DEBUG FULL TEXT ---');
-        console.log(text);
-        console.log('--- END DEBUG ---');
-      }
-      
       expect(
         containsTarget,
         `FALHOU: system prompt não contém o exemplo_disparo ou pergunta de rede.`,
