@@ -14,22 +14,23 @@ export const Route = createFileRoute("/")({
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        DIAGNÓSTICO BRUTO — agent_config.modules:
+        DIAGNÓSTICO DE RUNTIME — Agente IA:
 
-        A correção do normalizador não resolveu — módulos continuam vazios. Preciso ver o dado BRUTO, sem nenhuma interpretação, pra entender exatamente por que nenhum dos 4 formatos (string, {"{content}"}, {"{text}"}, {"{instrucoes}"}) está batendo.
+        Confirmado: o valor no banco é uma string pura, e o normalizador que você escreveu já deveria processar isso corretamente (typeof value === "string" → copia direto). Então por que a tela continua mostrando vazio?
 
-        Roda exatamente isto e cola o resultado sem editar:
-        SELECT 
-          jsonb_typeof(modules-&gt;'identidade') as tipo_do_valor,
-          modules-&gt;'identidade' as valor_completo_identidade
-        FROM agent_config 
-        WHERE workspace_id = 'bd59fa41-d68d-4ac8-b995-e09ae48f52aa';
+        Preciso que investigue de forma DIFERENTE agora — não mais o dado, mas o comportamento real em tempo de execução:
 
-        Preciso ver exatamente: é uma string pura? É um objeto? Se for objeto, quais são as chaves reais dentro dele (não assuma, mostra literalmente)?
+        1) Confirma: essa correção do normalizador foi PUBLICADA de verdade? Qual o timestamp exato da última publicação?
+        2) Adiciona um console.log temporário logo depois do normalizedModules ser montado (dentro do useEffect), mostrando: Object.keys(normalizedModules).length e o conteúdo de normalizedModules["identidade"] especificamente
+        3) Acessa você mesmo a tela Agente IA, abre o console do navegador, e cola aqui o que aparece nesse log
+        4) Se o log mostrar que normalizedModules ESTÁ correto (com o texto da identidade preenchido), então o bug não é no normalizador — é em outro lugar da tela, entre o estado `modules` e o componente que exibe o texto (ex: a textarea pode estar lendo de uma variável errada, tipo activeModule sem estar sincronizado com modules[activeModule]). Nesse caso, investiga a parte do JSX que renderiza o conteúdo do módulo selecionado.
 
-        NÃO aplica nenhuma correção ainda — só mostra o resultado exato dessa query.
+        Remove o log temporário depois de identificar a causa.
+
+        NÃO aceita mais "resolvido" sem me mostrar a tela funcionando de verdade com print ou confirmação clara do que você viu.
       </div>
     );
+
 
 
 
