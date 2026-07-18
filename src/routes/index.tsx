@@ -1,5 +1,9 @@
-import React, { useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+
+export const Route = createFileRoute("/")({
+  component: Index,
+});
 
 export default function Index() {
   const navigate = useNavigate();
