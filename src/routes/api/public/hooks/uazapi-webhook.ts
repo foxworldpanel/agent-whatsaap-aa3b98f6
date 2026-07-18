@@ -650,63 +650,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         if (!msg) return new Response("no message");
         const outbound = msg.fromMe === true;
 
-        // 🛡️ Guard: ignora mensagens de GRUPO / broadcast / status / newsletter.
-        // O JID de grupo (`...@g.us`) tem ~18 dígitos e, se tratado como número
-        // individual, faz o Uazapi responder "failed to get group members".
         const chatidRaw = (msg.chatid ?? msg.sender ?? "").toLowerCase();
         const isGroupChat =
           chatidRaw.includes("@g.us") ||
           chatidRaw.includes("@broadcast") ||
           chatidRaw.includes("status@") ||
           chatidRaw.includes("@newsletter");
-        if (isGroupChat) {
-          try {
-            const { logEvent } = await import("@/lib/agent-logger.server");
-            await logEvent({
-              phone: (chatidRaw.split("@")[0] || "group"),
-              type: "message_received",
-              level: "warn",
-              summary: `↩️ Ignorado: mensagem de grupo/broadcast (${chatidRaw})`,
-            });
-          } catch {}
-          return new Response("group ignored");
-        }
+        if (isGroupChat) return new Response("group ignored");
 
         const instanceToken = pickInstanceToken(payload);
         const phone = extractPhone(msg.chatid, msg.sender);
-        if (!instanceToken || !phone) {
-          return new Response("missing token/phone", { status: 400 });
-        }
-        // Extra: rejeita destinos com mais de 15 dígitos (E.164 max = 15).
-        // JIDs de grupo têm ~18 dígitos e cairiam aqui como fallback.
-        if (phone.length > 15 || phone.length < 8) {
-          try {
-            const { logEvent } = await import("@/lib/agent-logger.server");
-            await logEvent({
-              phone,
-              type: "message_received",
-              level: "warn",
-              summary: `↩️ Ignorado: número inválido (${phone.length} dígitos)`,
-            });
-          } catch {}
-          return new Response("invalid phone");
-        }
-
-        // 🔍 Log de entrada do webhook (diagnóstico por número)
-        console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
-
-        const { text, kind } = extractContent(payload);
-        // Para o DB (enum message_kind = texto|audio) e fluxos legados,
-        // tratamos imagem como "texto". O flag `isImage` controla a chamada
-        // ao Claude Sonnet com visão.
-        const dbKind: "texto" | "audio" = kind === "audio" ? "audio" : "texto";
-        const isImage = kind === "image";
+        if (!instanceToken || !phone) return new Response("missing token/phone", { status: 400 });
+        if (phone.length > 15 || phone.length < 8) return new Response("invalid phone");
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        // ===== Identificação do Agente/Configuração =====
-        // Carrega as configurações do agente (identidade, scripts, main_offer)
-        // para o prompt do Claude.
         const { data: agent } = await supabaseAdmin
           .from("agent_config")
           .select("*")
@@ -715,35 +673,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .limit(1)
           .maybeSingle();
 
-        if (!agent) {
-          console.error(`❌ ERRO: Agente não encontrado para token ${instanceToken}`);
-          return new Response("agent not found", { status: 404 });
-        }
+        if (!agent) return new Response("agent not found", { status: 404 });
 
         const selectedWorkspaceId = (agent as any).workspace_id;
 
-        // ============================================================
-        // 🔒 GATE V2: Agente Mind V2 é o cérebro oficial e ÚNICO.
-        // A V1 está desativada. Apenas o número autorizado executa a IA.
-        // Qualquer outro número é ignorado ANTES de qualquer chamada
-        // ao Claude, prompt, ferramenta ou métrica → zero custo.
-        // ============================================================
         {
-          const { logEvent } = await import("@/lib/agent-logger.server");
           const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-          const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
-          
+          const isMindWorkspace = selectedWorkspaceId === MIND_WORKSPACE_ID;
           if (isMindWorkspace && !msg.fromMe && !["5511970116430", "5511970116431"].includes(phone)) {
-            console.log(`🚫 AI restricted to authorized test phone for Mind (…${phone.slice(-4)})`);
-            await logEvent({
-              type: "message_received",
-              level: "info",
-              summary: "AI restricted to authorized test phone",
-              metadata: { phoneTail: phone.slice(-4) },
-            });
             return new Response("ok (restricted)");
           }
         }
+
+        console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
+
+        const { text, kind } = extractContent(payload);
+        const dbKind: "texto" | "audio" = kind === "audio" ? "audio" : "texto";
         const isImage = kind === "image";
         console.log('=== INÍCIO DO PROCESSAMENTO ===');
         console.log('Mensagem recebida:', { text, kind, phone: extractPhone(payload.message?.chatid, payload.message?.sender), messageId: extractMessageId(payload) });
