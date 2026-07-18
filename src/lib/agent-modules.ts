@@ -8,7 +8,7 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "tiktok", title: "TikTok", emoji: "🎬" },
   { key: "kwai", title: "Kwai", emoji: "🌟" },
   { key: "facebook", title: "Facebook", emoji: "👍" },
-  { key: "seo_google", title: "SEO e Google", emoji: "🌐" },
+  { key: "x_twitter", title: "X (Twitter)", emoji: "🐦" },
   { key: "calculo_preco", title: "Cálculo de Preço", emoji: "🧮" },
   { key: "estrangeiros", title: "Clientes Estrangeiros", emoji: "🌍" },
   { key: "pagamentos", title: "Pagamentos", emoji: "💳" },
@@ -60,42 +60,59 @@ Regras:
 - Mensagens curtas, naturais e com no máximo uma pergunta por vez.
 `,
 
-  spotify: `MÓDULO SPOTIFY
-- Venda de seguidores, playlists, saves, plays, streams e ouvintes.
-- Fonte de verdade: utilize EXCLUSIVAMENTE o módulo 'tabela_precos'.
-- Se o serviço consta como ativo na tabela, ele está disponível para venda.
-- Explique que a compra é feita no painel e que o cliente acompanha tudo por lá.
-`,
+  spotify: `MÓDULO SPOTIFY (FONTE ÚNICA)
+- SERVIÇOS DISPONÍVEIS: Aluguel de Playlist, Seguidores [Artista], Plays + Ouvintes [Global].
+- REGRAS ESPECÍFICAS:
+  • Plays e ouvintes do Spotify estão funcionando normalmente (ignore mensagens de erro/atualização antigas).
+  • Aluguel de Playlist: 1 música entra em 10 playlists por 30 dias. Gêneros: Eclética (todos) ou Eletrônica (exclusivo).
+- TABELA DE PREÇOS SPOTIFY:
+  • Plays + Ouvintes [Global]: R$15/1000 (mín 500)
+  • Seguidores [Artista]: R$30/1000 (mín 50)
+  • Aluguel de Playlist: R$49,90/mês
+- TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
-  youtube: `MÓDULO YOUTUBE
-- Venda de views, inscritos, likes, comentários, horas ou monetização.
-- Consulte o módulo 'tabela_precos' antes de falar preço, mínimo, máximo ou prazo.
-- Não prometa monetização ou viralização garantida.
-`,
+  instagram: `MÓDULO INSTAGRAM (FONTE ÚNICA)
+- SERVIÇOS DISPONÍVEIS: Seguidores (Brasil/Global), Curtidas (Brasil/Global), Views (Reels/Stories).
+- REGRAS ESPECÍFICAS:
+  • Diferencie seguidores brasileiros de globais.
+  • Views são para Reels, Vídeos ou Stories.
+- TABELA DE PREÇOS INSTAGRAM:
+  • Seguidores [Brasil]: R$15/1000 (mín 50)
+  • Seguidores [Global]: R$7/1000 (mín 100)
+  • Curtidas [Brasil]: R$5/1000 (mín 10)
+  • Curtidas [Global]: R$5/1000 (mín 100)
+- TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
-  instagram: `MÓDULO INSTAGRAM
-- Venda de seguidores, curtidas, visualizações, comentários, alcance e engajamento.
-- Diferencie entre seguidores brasileiros, globais ou de nicho conforme o catálogo.
-- Explique que os serviços são para impulsionamento e prova social.
-`,
+  youtube: `MÓDULO YOUTUBE (FONTE ÚNICA)
+- SERVIÇOS DISPONÍVEIS: Inscritos, Visualizações, Curtidas, Horas de Exibição/Monetização.
+- REGRAS ESPECÍFICAS:
+  • Use o termo "views" (NUNCA "plays").
+- TABELA DE PREÇOS YOUTUBE:
+  • Visualizações [Global]: R$10/1000 (mín 100)
+  • Inscritos [Global]: R$140/1000 (mín 100)
+  • Curtidas [Brasil]: R$30/1000 (mín 100)
+- TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
-  tiktok: `MÓDULO TIKTOK
-- Venda de seguidores, curtidas, visualizações, compartilhamentos e favoritos.
-- Explique que o TikTok valoriza muito a retenção e o engajamento inicial.
-`,
+  tiktok: `MÓDULO TIKTOK (FONTE ÚNICA)
+- SERVIÇOS DISPONÍVEIS: Seguidores (Global), Curtidas (Brasil), Views.
+- REGRAS ESPECÍFICAS:
+  • Use o termo "views" (NUNCA "plays").
+- TABELA DE PREÇOS TIKTOK:
+  • Seguidores [Global]: R$30/1000 (mín 100)
+  • Curtidas [Brasil]: R$6/1000 (mín 50)
+- TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
-  kwai: `MÓDULO KWAI
-- Venda de seguidores e curtidas para Kwai conforme módulo 'tabela_precos'.
-`,
+  kwai: `MÓDULO KWAI (FONTE ÚNICA)
+- Venda de seguidores e curtidas para Kwai.
+- Preços sob consulta no painel (mindsmmpanel.com).`,
 
-  facebook: `MÓDULO FACEBOOK
+  facebook: `MÓDULO FACEBOOK (FONTE ÚNICA)
 - Curtidas em páginas, seguidores em perfis e curtidas em posts/fotos.
-- Garanta que o link fornecido seja público.
-`,
+- Preços sob consulta no painel (mindsmmpanel.com).`,
 
-  seo_google: `MÓDULO SEO E GOOGLE
-- Tráfego para sites, blogs ou Google Maps (avaliações) conforme módulo 'tabela_precos'.
-`,
+  x_twitter: `MÓDULO X (TWITTER) (FONTE ÚNICA)
+- Seguidores, curtidas, retweets e visualizações para X/Twitter.
+- Preços sob consulta no painel (mindsmmpanel.com).`,
 
   calculo_preco: `MÓDULO CÁLCULO DE PREÇO
 - Preço final = (Quantidade / 1000) * Preço_da_Tabela_Precos.
@@ -235,7 +252,7 @@ Regras:
 `,
 
   pipeline_futuro: `MÓDULO PIPELINE DE CLIENTE FUTURO
-- Planeje o crescimento de outras redes após o sucesso do pedido atual.
+- Pipeline de Cliente Futuro
 `,
 
   pos_venda: `MÓDULO PÓS VENDA
@@ -262,66 +279,12 @@ Regras:
 - Use dados do histórico para evitar repetições desnecessárias.
 `,
 
-  playlist_promo: `MÓDULO PLAYLIST — PROMOÇÃO ATIVA
+  playlist_promo: `MÓDULO PLAYLIST — PROMOÇÃO ATIVA (RESTRITO)
+- Este conteúdo foi consolidado no MÓDULO SPOTIFY. Consulte o módulo 'spotify' para informações de pacotes e preços de playlist.`,
 
-FONTE DE VERDADE DO PREÇO: SEMPRE a 'tabela_precos' manual. NUNCA escreva valor numérico fixo neste bloco — se você precisar informar preço, consulte a tabela_precos. Qualquer placeholder "[preço real]" abaixo deve ser substituído em tempo de resposta pelo valor da tabela, nunca por um número inventado.
-
-PACOTES DE PLAYLIST DISPONÍVEIS:
-
-PACOTE ECLÉTICA (todos os gêneros populares — pagode, gospel, reggae, samba, funk, hip hop, forró, axé, MPB, pop, rock, sertanejo, trap, R&B, soul):
-- R$ [preço real do catálogo] — PROMOÇÃO ATIVA
-- 1 música adicionada em 10 playlists por 30 dias
-
-PACOTE MÚSICA ELETRÔNICA (electronic, house, techno, trance, deep house):
-- R$ [preço real do catálogo] — PROMOÇÃO ATIVA
-- 1 música adicionada em 10 playlists por 30 dias
-
-REGRA ABSOLUTA — TODA COMPRA É NO PAINEL (SEM EXCEÇÃO):
-TODA compra, INCLUINDO aluguel de playlist, é finalizada EXCLUSIVAMENTE pelo painel (mindsmmpanel.com). A Júlia NUNCA processa pagamento, NUNCA envia chave PIX, NUNCA pede comprovante, NUNCA fecha pedido diretamente pelo WhatsApp — para NENHUM serviço, sem exceção. Sempre direciona pro painel com o tutorial de cadastro/recarga/pedido (mesmo fluxo do YouTube, Instagram, TikTok, etc).
-
-FLUXO CORRETO (idêntico aos demais serviços):
-1. Cliente confirma interesse no pacote de playlist e no gênero.
-2. Júlia informa o preço e reforça a promoção.
-3. Cliente confirma que quer fechar.
-4. Júlia envia o tutorial numerado do painel (cadastro → recarga PIX → escolher serviço "Playlist" → colar link da música → confirmar pedido). O tutorial vem da REGRA DE FECHAMENTO — TUTORIAL PASSO A PASSO DO PAINEL.
-
-PROIBIDO ABSOLUTO em qualquer contexto de playlist:
-- Enviar chave PIX no WhatsApp 
-- Pedir comprovante de pagamento
-- Dizer "me manda o link da música que eu já processo pra você"
-- Dizer "recebi o pagamento" / "vou colocar nas playlists" / "vou disparar o pedido"
-- Qualquer variação de venda manual fora do painel
-
-URGÊNCIA NA VENDA (opcional, quando fizer sentido):
-"Essa promoção é por tempo limitado!" (o valor exato sai do catálogo em tempo de resposta)
-`,
-
-  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
-
-*Spotify*
-- Aluguel de Playlist (1 música, 10 playlists, 30 dias): R$49,90
-- Seguidores [Artista]: R$30/1000 (mín 50)
-- Plays + Ouvintes [Global]: R$15/1000 (mín 500)
-
-*Instagram*
-- Seguidores [Brasil]: R$15/1000 (mín 50)
-- Seguidores [Global]: R$7/1000 (mín 100)
-- Curtidas [Brasil]: R$5/1000 (mín 10)
-- Curtidas [Global]: R$5/1000 (mín 100)
-
-*YouTube*
-- Inscritos [Global]: R$140/1000 (mín 100)
-- Visualizações [Global]: R$10/1000 (mín 100)
-- Curtidas [Brasil]: R$30/1000 (mín 100)
-
-*TikTok*
-- Seguidores [Global]: R$30/1000 (mín 100)
-- Curtidas [Brasil]: R$6/1000 (mín 50)
-
-*Outras Redes*
-- Facebook/Kwai/Threads: Sob consulta no painel.
-`,
-
+  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL (RESTRITO)
+- Este conteúdo foi distribuído para os módulos individuais por rede (spotify, instagram, youtube, tiktok).
+- Se você precisar de preços, consulte o módulo da rede social correspondente.`,
 };
 
 

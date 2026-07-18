@@ -99,7 +99,7 @@ export function pickReengagementGreeting(
   if (/\bboa\s*noite\b/.test(s)) return "Boa noite";
   // Fallback pelo horário local do servidor (BR/UTC-3 aproximado).
   const hourBr = (nowDate.getUTCHours() - 3 + 24) % 24;
-  if (hourBr >= 0 && hourBr < 12) return "Bom dia";
+  if (hourBr >= 5 && hourBr < 12) return "Bom dia";
   if (hourBr >= 12 && hourBr < 18) return "Boa tarde";
   return "Boa noite";
 }
@@ -1380,7 +1380,8 @@ export async function generateAgentReplyWithMeta(params: {
   // saudação de volta ("Como posso ajudar?" cru), prepende a saudação
   // correspondente à do cliente. Determinístico — pega regressão em prod.
   let outText = scrubbed.text;
-  if (reengagementGreeting || neutralGreetingAfterBlastOpening || firstColdGreeting) {
+  const isGreetingOnly = GREETING_ONLY_RX.test(latestClientMessage);
+  if (reengagementGreeting || neutralGreetingAfterBlastOpening || firstColdGreeting || isGreetingOnly) {
     const enforced = enforceReengagementGreeting(outText, latestClientMessage);
     if (enforced.prepended) {
       console.warn("[agent-ai] GUARD: saudação de reengajamento prependida", {
