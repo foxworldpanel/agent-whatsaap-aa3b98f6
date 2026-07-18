@@ -227,6 +227,7 @@ describe("3) Anti-invenção de serviço no system prompt", () => {
       ],
       isInbound: false,
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(
       /ANTI-INVEN[ÇC][ÃA]O/i.test(prompt),
       "FALHOU: bloco ANTI-INVENÇÃO ausente do system prompt",
