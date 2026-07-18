@@ -104,6 +104,7 @@ function sysText(body: { system: string | Array<{ text?: string; type?: string }
       if (typeof b === "object" && b !== null) {
         if ("text" in b) return String(b.text || "");
         if ("content" in b) return String(b.content || "");
+        return JSON.stringify(b);
       }
       return "";
     }).join("\n\n");
