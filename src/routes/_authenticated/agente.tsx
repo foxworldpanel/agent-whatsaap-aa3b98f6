@@ -84,7 +84,7 @@ function AgentePage() {
           <button
             onClick={() => {
               if (confirm("Deseja realmente restaurar todos os módulos para o padrão de fábrica? Isso substituirá suas personalizações.")) {
-                saveMut.mutate({}); // Passing empty object triggers merge with DEFAULT_MODULES on server
+                saveMut.mutate({ modules: {} }); // Passing empty object triggers merge with DEFAULT_MODULES on server
               }
             }}
             className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold transition hover:bg-muted"
