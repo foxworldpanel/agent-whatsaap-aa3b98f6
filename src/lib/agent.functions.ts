@@ -451,7 +451,8 @@ export const listModulesV2 = createServerFn({ method: "GET" })
 
     // Se não houver módulos no banco para este workspace, migramos do hardcoded Module Registry
     if (!dbModules || dbModules.length === 0) {
-      const { moduleRegistryV2 } = await import("./agent-v2/module-registry");
+      // V2 removed
+      const moduleRegistryV2 = { listModules: async () => [] };
       const friendlyNames: Record<string, { title: string; emoji: string; category: string; description: string }> = {
         mission: { title: "Missão", emoji: "🚀", category: "Core", description: "Objetivo fundamental e restrições de venda do agente." },
         identity: { title: "Identidade", emoji: "🪪", category: "Core", description: "Persona da Júlia, tom de voz e estilo de escrita." },
