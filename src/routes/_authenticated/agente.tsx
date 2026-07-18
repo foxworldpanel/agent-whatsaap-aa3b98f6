@@ -116,7 +116,7 @@ function AgentePage() {
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <aside className="space-y-1">
           <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Módulos Ativos ({moduleKeys.length})
+            Módulos Ativos ({MODULE_LIST.length})
           </p>
           <nav className="space-y-0.5 overflow-y-auto max-h-[calc(100vh-250px)] pr-2 scrollbar-thin">
             {MODULE_LIST.map((info) => {
