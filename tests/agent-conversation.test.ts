@@ -295,13 +295,14 @@ describe("4.1) Spotify plays/ouvintes/saves indisponíveis", () => {
 
 
   it("prompt não contém mais roteiro padrão oferecendo plays/ouvintes/saves no Spotify", () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: [{ sender: "cliente", body: "Spotify" }],
       identity: MIND_BRAND_TEMPLATE,
       brandBlocks: MIND_BRAND_BLOCKS,
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(prompt).not.toMatch(/No Spotify trabalhamos com plays, ouvintes, saves/i);
   });
 });
