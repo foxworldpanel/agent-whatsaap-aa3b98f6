@@ -94,9 +94,7 @@ function mockAnthropic(reply: string) {
  * Extrai o texto do system prompt aceitando tanto o formato antigo (string)
  * quanto o novo formato com prompt caching (array de blocos com cache_control).
  */
-function sysText(body: { system: string | Array<{ text?: string; type?: string }> }): string {
-  const s = body.system;
-  if (typeof s === "string") return s;
+function extractSystemText(s: string | Array<{ text?: string; type?: string }>): string {
   if (typeof s === "string") return s;
   if (Array.isArray(s)) {
     return s.map((b) => {
