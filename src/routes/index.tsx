@@ -14,7 +14,7 @@ export const Route = createFileRoute("/")({
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        AUDITORIA DE CUSTO E RUNTIME:
+        AUDITORIA DE CUSTO E RUNTIME (EXIBIÇÃO APENAS):
 
         1) CUSTO DE $0,15:
         - Confirmação: Esse valor é AGREGADO (inclui o cleanup manual dos 46 módulos, saves de agente e logs de diagnóstico feitos por mim nesta sessão).
@@ -39,13 +39,9 @@ export const Route = createFileRoute("/")({
         Redirecionando para /conversas em 5 segundos...
       </div>
     );
-
-
-
-
-
   },
 });
+
 
 
 
