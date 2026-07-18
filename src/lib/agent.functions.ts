@@ -442,10 +442,6 @@ export const listModulesV2 = createServerFn({ method: "GET" })
     // V2 Modules feature is deprecated in V1
     return [];
   });
-      ...m,
-      contentPreview: (m.content || "").slice(0, 150) + "..."
-    }));
-  });
 
 export const updateModuleV2 = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
