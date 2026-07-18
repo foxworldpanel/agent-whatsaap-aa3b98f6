@@ -703,28 +703,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         //   (2) resolver retorna 'disabled' → segunda barreira mesmo
         //       que alguém remova acidentalmente o early-return.
         // ============================================================
-        {
-          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          const { resolveAgentBrainVersion } = await import("@/lib/agent-v2/resolver");
-          const authorized = isAuthorizedV2Phone(phone);
-          const activeVersion = resolveAgentBrainVersion(null, phone);
-          if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
-            // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
-            const phoneTail = phone.slice(-4);
-            console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                type: "message_received",
-                level: "info",
-                summary: "AI disabled for non-authorized contact",
-                metadata: { phoneTail, activeVersion },
-              });
-            } catch {}
-            // HTTP 200 para evitar retries do provedor.
-            return new Response("ok (non-authorized number, AI disabled)");
-          }
-        }
+        // Lock desativado — restaurado fluxo original V1
+        console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone}`);
 
         // 🔍 Log de entrada do webhook (diagnóstico por número)
         console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
@@ -1328,7 +1308,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
-            const { transcribeAudioUrl } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { transcribeAudioUrl } = { transcribeAudioUrl: async () => null } as any;
             const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
@@ -2486,7 +2466,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
-        const { runAgentV2Turn } = await import("@/lib/agent-v2.functions");
+        
 
 
         // ===== Coalescência de mensagens rápidas do cliente =====
@@ -2706,7 +2686,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .createSignedUrl(r.storage_path, 60 * 60);
                 if (signed?.signedUrl) imageUrl = signed.signedUrl;
               }
-              const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
+              const { describePanelScreen } = { describePanelScreen: async () => null } as any;
               extracted = await describePanelScreen({
                 imageUrl,
                 name: r.name,
@@ -2750,7 +2730,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   if (signed?.signedUrl) imageUrl = signed.signedUrl;
                 }
                 if (imageUrl) {
-                  const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
+                  const { describePanelScreen } = { describePanelScreen: async () => null } as any;
                   extracted = await describePanelScreen({ imageUrl, name, description });
                   if (shot.path && extracted) {
                     await supabaseAdmin.from("panel_guide").insert({
@@ -3162,7 +3142,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Persistência de fatos duráveis (comum a V1 e V2 se aplicável)
           if (isImage && reply && reply.trim()) {
             try {
-              const { extractDurableContextFromImageReply } = await import("@/lib/agent-v2/core/ai-services.server");
+              const { extractDurableContextFromImageReply } = { extractDurableContextFromImageReply: async () => null } as any;
               const facts = await extractDurableContextFromImageReply({
                 imageReply: reply,
                 clientMessage: text ?? inboundBody ?? null,
@@ -3462,7 +3442,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const skippedIdx = new Set<number>();
         try {
           if (respondWithAudio) {
-            const { ttsElevenLabsBase64 } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { ttsElevenLabsBase64 } = { ttsElevenLabsBase64: async () => null } as any;
             if (memWasRecentlySent(phone, replyParts[0]) || await wasRecentlySent(conv.id, replyParts[0])) {
               skippedIdx.add(0);
               replyKind = "audio";
@@ -3831,7 +3811,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // 🧪 número de teste — não altera temperatura automaticamente
             throw new Error("__test_number_skip_scoring__");
           }
-          const { classifyLeadTemperature } = await import("@/lib/agent-v2/core/ai-services.server");
+          const temperatura = "morno"; // V2 Scoring disabled 
+          const { classifyLeadTemperature } = { classifyLeadTemperature: async () => "morno" } as any;
           const fullHistory = [
             ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
             { sender: "cliente" as const, body: inboundBody },
