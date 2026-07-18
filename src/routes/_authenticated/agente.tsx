@@ -28,8 +28,25 @@ function AgentePage() {
 
   useEffect(() => {
     if (configQ.data?.modules) {
-      setModules(configQ.data.modules as Record<string, string>);
+      const rawModules = configQ.data.modules as Record<string, any>;
+      const normalizedModules: Record<string, string> = {};
+      
+      // Map modules from agent_config (which can be string or {content: string})
+      Object.entries(rawModules).forEach(([key, value]) => {
+        if (typeof value === "string") {
+          normalizedModules[key] = value;
+        } else if (value && typeof value === "object" && "content" in value) {
+          normalizedModules[key] = String(value.content);
+        } else if (value && typeof value === "object" && "text" in value) {
+          normalizedModules[key] = String(value.text);
+        } else if (value && typeof value === "object" && "instrucoes" in value) {
+          normalizedModules[key] = String(value.instrucoes);
+        }
+      });
+
+      setModules(normalizedModules);
     }
+
   }, [configQ.data]);
 
   const saveMut = useMutation({
