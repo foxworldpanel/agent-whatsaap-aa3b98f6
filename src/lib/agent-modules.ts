@@ -268,7 +268,29 @@ Regras:
 `,
 
   tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
-- Tabela de referência completa. Siga preços e quantidades do catálogo.
+
+*Spotify*
+- Aluguel de Playlist (1 música, 10 playlists, 30 dias): R$49,90
+- Seguidores: R$30/1000 (mín 50)
+
+*Instagram*
+- Seguidores [Brasil]: R$40/1000 (mín 10)
+- Seguidores [Global]: R$12/1000 (mín 100)
+- Curtidas [Brasil]: R$13/1000 (mín 20)
+- Curtidas [Global]: R$5/1000 (mín 100)
+
+*YouTube*
+- Visualizações: R$10/1000 (mín 100)
+- Likes [Brasil]: R$30/1000 (mín 10)
+- Inscritos [Global]: R$80/1000 (mín 50)
+- Live Stream (60 min): R$20/1000 (mín 50)
+
+*TikTok*
+- Seguidores [Global]: R$15/1000 (mín 100)
+- Curtidas [Brasil]: R$25/1000 (mín 50)
+
+*Outras Redes*
+- Facebook/Kwai/Threads: Sob consulta no painel.
 `,
 };
 
