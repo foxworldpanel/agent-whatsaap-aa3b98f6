@@ -901,6 +901,8 @@ export async function generateAgentReplyWithMeta(params: {
     effectiveBlast
       ? buildSharedRules(identity, { suppressExemploDisparo: false }).split("EXEMPLO_MODELO_DISPARO")[1] || ""
       : "",
+    // Regra de reconhecimento de interesse (fundamental para o Claude decidir avançar ou não)
+    identity.reconhecimento_interesse || "",
     // VETO DE PRIORIDADE MÁXIMA: o bloco MODO REENGAJAMENTO precede a
     // identidade (buildSharedRules), o EXEMPLO_MODELO_DISPARO e qualquer
     // refinamento de tom consultivo. Sem isso, em threads de disparo o modelo
