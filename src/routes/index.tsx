@@ -17,7 +17,7 @@ export default function Index() {
       <div className="p-8 font-mono text-sm whitespace-pre-wrap max-w-2xl border border-zinc-800 rounded-lg">
         RELATÓRIO DE AUDITORIA DE BANCO (WORKSPACE bd59fa41):
 
-        1) agent_config.brand_blocks -> chave "respostas_padrao":
+        1) agent_config.brand_blocks -{'>'} chave "respostas_padrao":
            ENCONTRADO: "O serviço de plays + ouvintes (...) está TEMPORARIAMENTE DESATIVADO para atualização."
            ENCONTRADO: "(plays, ouvintes, streams e saves temporariamente indisponíveis — não listar)"
 
