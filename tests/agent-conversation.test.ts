@@ -157,9 +157,10 @@ describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)",
       expect(model).not.toBe("rule-based");
       // Confirma que o system prompt carrega o exemplo_disparo (Claude vai decidir)
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const text = sysText(body);
       expect(
-        /EXEMPLO_MODELO_DISPARO|Qual rede social/i.test(sysText(body)),
-        "FALHOU: system prompt não contém o exemplo_disparo para o Claude aplicar",
+        /EXEMPLO_MODELO_DISPARO|Qual rede social/i.test(text),
+        `FALHOU: system prompt não contém o exemplo_disparo ou pergunta de rede. Prompt:\n${text.slice(0, 500)}...`,
       ).toBe(true);
     },
   );
