@@ -1,5 +1,6 @@
-import { buildSystemPrompt } from "./src/lib/ai.server";
-import { DEFAULT_IDENTITY } from "./src/lib/agent-identity.server";
+import { buildSystemPrompt, selectActiveModules } from "./src/lib/ai.server";
+import { DEFAULT_IDENTITY, buildSharedRules } from "./src/lib/agent-identity.server";
+
 import { DEFAULT_MODULES } from "./src/lib/agent-modules";
 
 const prompt = buildSystemPrompt({
