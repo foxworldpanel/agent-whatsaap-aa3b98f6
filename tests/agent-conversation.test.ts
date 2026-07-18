@@ -1496,13 +1496,14 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
   const EXEMPLO_BODY_SIGNATURE = /Qual rede social você mais usa hoje em dia/i;
 
   it("prompt de conversa organic/receptiva NÃO injeta o body do EXEMPLO_MODELO_DISPARO nem o backup de detecção", () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: ORGANIC_HISTORY,
       isInbound: true,
       identity: MIND_BRAND_TEMPLATE,
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(
       EXEMPLO_BODY_SIGNATURE.test(prompt),
       "FALHOU: corpo do exemplo de disparo vazou em prompt de conversa organic/receptiva",
