@@ -703,12 +703,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         //   (2) resolver retorna 'disabled' → segunda barreira mesmo
         //       que alguém remova acidentalmente o early-return.
         // ============================================================
+        // ============================================================
+        // 🔒 GATE: Agente Mind é o cérebro oficial.
+        // Apenas o número autorizado executa a IA.
+        // Qualquer outro número é ignorado ANTES de qualquer chamada
+        // ao Claude, prompt, ferramenta ou métrica → zero custo.
+        // ============================================================
         {
-          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          const { resolveAgentBrainVersion } = await import("@/lib/agent-v2/resolver");
-          const authorized = isAuthorizedV2Phone(phone);
-          const activeVersion = resolveAgentBrainVersion(null, phone);
-          if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
+          const AUTHORIZED_PHONES = ["5511970116430", "5511978250428", "5511986551842"];
+          const authorized = AUTHORIZED_PHONES.includes(phone);
+          if (!msg.fromMe && !authorized) {
             // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
             const phoneTail = phone.slice(-4);
             console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
@@ -718,7 +722,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 type: "message_received",
                 level: "info",
                 summary: "AI disabled for non-authorized contact",
-                metadata: { phoneTail, activeVersion },
+                metadata: { phoneTail },
               });
             } catch {}
             // HTTP 200 para evitar retries do provedor.
@@ -1328,7 +1332,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
-            const { transcribeAudioUrl } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { transcribeAudioUrl } = await import("@/lib/ai.server");
             const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
@@ -2486,7 +2490,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
-        const { runAgentV2Turn } = await import("@/lib/agent-v2.functions");
 
 
         // ===== Coalescência de mensagens rápidas do cliente =====
@@ -2706,7 +2709,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   .createSignedUrl(r.storage_path, 60 * 60);
                 if (signed?.signedUrl) imageUrl = signed.signedUrl;
               }
-              const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
+              const { describePanelScreen } = await import("@/lib/ai.server");
               extracted = await describePanelScreen({
                 imageUrl,
                 name: r.name,
@@ -2750,7 +2753,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   if (signed?.signedUrl) imageUrl = signed.signedUrl;
                 }
                 if (imageUrl) {
-                  const { describePanelScreen } = await import("@/lib/agent-v2/core/ai-services.server");
+                  const { describePanelScreen } = await import("@/lib/ai.server");
                   extracted = await describePanelScreen({ imageUrl, name, description });
                   if (shot.path && extracted) {
                     await supabaseAdmin.from("panel_guide").insert({
@@ -3047,122 +3050,57 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } catch {}
           const _claudeStart = Date.now();
           
-          // Fase 2 Runtime: Conexão V2
-          // Ativa V2 se o telefone for autorizado. Fallback para V1 via configuração do agente.
-          // OBRIGATÓRIO: Para o workspace Mind, a V1 está desativada.
-          const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-          const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
-          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          
-          const useV2 = isMindWorkspace || (isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true);
-          
-          if (useV2) {
-            console.log('🚀 [Agente V2] Turno iniciado');
-            const v2Result = await runAgentV2Turn({
-              conversationId: conv.id,
-              workspaceId: (agent as any).workspace_id,
-              phoneNumber: phone,
-              currentMessage: inboundBody,
-              mode: !(isBlastReply || isBlastThread) ? 'receptive' : 'outbound',
-              executionMode: 'real',
-              media: isImage ? { type: 'image', hasImage: true } : (kind === 'audio' ? { type: 'audio', hasAudio: true } : { type: 'text' }),
-              shortHistory: (aiHistory ?? []).map((m: any) => ({ 
-                sender: m.sender === 'agente' ? 'agente' : 'cliente',
-                body: m.body || ''
-              })),
-              toolFixtures: {
-                catalog: all || [],
-                freeTestServices: freeTestServices || []
-              },
+          // Resposta final do agente
+          reply = "";
 
-              expected: {
-                conversationWorkspaceId: (conv as any).workspace_id,
-                agentWorkspaceId: (agent as any).workspace_id,
-                whatsappWorkspaceId: selectedWorkspaceId,
-                selectedWorkspaceId,
-              },
-            });
-
-            
-            reply = v2Result.finalResponse;
-            const _claudeMs = Date.now() - _claudeStart;
-            const _v2Metrics = v2Result.metrics;
-            
-            console.log('✅ [Agente V2] Resposta:', reply);
-            
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                userId, phone, conversationId: conv?.id,
-                type: "v2_turn", level: "info",
-                summary: `🧠 Agente V2 respondeu (${_claudeMs}ms) | Model: ${_v2Metrics.selectedModel}`,
-                response: reply,
-                durationMs: _claudeMs,
-                metadata: {
-                  brainVersion: 'v2',
-                  turnId: _v2Metrics.analytics?.turnId,
-                  selectedModel: _v2Metrics.selectedModel,
-                  intent: _v2Metrics.intent,
-                  modules: v2Result.routeResult.selectedModules,
-                  routingReason: _v2Metrics.analytics?.routingReason,
-                }
-              });
-            } catch {}
-          } else {
-            // V1 Original (Processamento Legado) — BLOQUEADO PARA WORKSPACE MIND
-            if (isMindWorkspace) {
-              throw new Error("V1_EXECUTION_BLOCKED: Workspace Mind detectado em branch legado.");
+          const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
+          reply = _claudeOut.text;
+          const _claudeMs = Date.now() - _claudeStart;
+          const _claudeModel = _claudeOut.model;
+          const _claudeRoutingReason = _claudeOut.routingReason;
+          console.log('Resposta do Claude (V1):', reply);
+          
+          // Safety net V1: saudações repetidas
+          try {
+            const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
+              await import("@/lib/ai.server");
+            const inReengagementMode =
+              isReengagementGreeting(aiHistory ?? []) ||
+              isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
+            const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
+            if (hasPriorAgent && reply && !inReengagementMode) {
+              const parts = reply.split("===SPLIT===");
+              const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
+              parts[0] = parts[0].replace(greetRe, "").trimStart();
+              const cleaned = parts.join("===SPLIT===").trim();
+              if (cleaned.length > 0) reply = cleaned;
             }
-            
-            const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
-            reply = _claudeOut.text;
-            const _claudeMs = Date.now() - _claudeStart;
-            const _claudeModel = _claudeOut.model;
-            const _claudeRoutingReason = _claudeOut.routingReason;
-            console.log('Resposta do Claude (V1):', reply);
-            
-            // Safety net V1: saudações repetidas
-            try {
-              const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
-                await import("@/lib/ai.server");
-              const inReengagementMode =
-                isReengagementGreeting(aiHistory ?? []) ||
-                isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
-              const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
-              if (hasPriorAgent && reply && !inReengagementMode) {
-                const parts = reply.split("===SPLIT===");
-                const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
-                parts[0] = parts[0].replace(greetRe, "").trimStart();
-                const cleaned = parts.join("===SPLIT===").trim();
-                if (cleaned.length > 0) reply = cleaned;
-              }
-            } catch {}
-            
-            // Log V1
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                userId, phone, conversationId: conv?.id,
-                type: "claude_reply", level: "info",
-                summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
-                prompt: JSON.stringify({
-                  model: _claudeModel,
-                  routingReason: _claudeRoutingReason,
-                  contact: _claudeArgs.contact,
-                  historyCount: aiHistory?.length ?? 0,
-                }, null, 2),
-                response: reply ?? null,
-                durationMs: _claudeMs,
-                metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas" },
-              });
-            } catch {}
-          }
+          } catch {}
+          
+          // Log V1
+          try {
+            const { logEvent } = await import("@/lib/agent-logger.server");
+            await logEvent({
+              userId, phone, conversationId: conv?.id,
+              type: "claude_reply", level: "info",
+              summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
+              prompt: JSON.stringify({
+                model: _claudeModel,
+                routingReason: _claudeRoutingReason,
+                contact: _claudeArgs.contact,
+                historyCount: aiHistory?.length ?? 0,
+              }, null, 2),
+              response: reply ?? null,
+              durationMs: _claudeMs,
+              metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas" },
+            });
+          } catch {}
 
 
           // Persistência de fatos duráveis (comum a V1 e V2 se aplicável)
           if (isImage && reply && reply.trim()) {
             try {
-              const { extractDurableContextFromImageReply } = await import("@/lib/agent-v2/core/ai-services.server");
+              const { extractDurableContextFromImageReply } = await import("@/lib/ai.server");
               const facts = await extractDurableContextFromImageReply({
                 imageReply: reply,
                 clientMessage: text ?? inboundBody ?? null,
@@ -3462,7 +3400,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const skippedIdx = new Set<number>();
         try {
           if (respondWithAudio) {
-            const { ttsElevenLabsBase64 } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
             if (memWasRecentlySent(phone, replyParts[0]) || await wasRecentlySent(conv.id, replyParts[0])) {
               skippedIdx.add(0);
               replyKind = "audio";
@@ -3831,7 +3769,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // 🧪 número de teste — não altera temperatura automaticamente
             throw new Error("__test_number_skip_scoring__");
           }
-          const { classifyLeadTemperature } = await import("@/lib/agent-v2/core/ai-services.server");
+          const { classifyLeadTemperature } = await import("@/lib/ai.server");
           const fullHistory = [
             ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
             { sender: "cliente" as const, body: inboundBody },
