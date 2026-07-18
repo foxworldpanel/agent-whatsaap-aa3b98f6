@@ -878,7 +878,7 @@ export async function generateAgentReplyWithMeta(params: {
   const inboundReengagementVeto = !effectiveBlast && reengagementGreeting;
   const anyReengagementVeto = blastReengagementVeto || inboundReengagementVeto;
 
-  // BLOCO 1 — ESTÁVEL (Identidade, Regras, Tabela de Preços)
+  // BLOCO 1 — ESTÁVEL (Identidade, Regras, Tabela de Preços, Promoções, Catálogo)
   // Este bloco é marcado com cache_control: ephemeral e deve ser 100% idêntico entre conversas.
   const systemBlock1 = buildSharedRules(identity, {
     freeTestServices,
