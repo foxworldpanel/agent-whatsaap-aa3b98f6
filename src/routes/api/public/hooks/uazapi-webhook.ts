@@ -698,7 +698,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           const { data: numForLog } = await supabaseAdmin
             .from("whatsapp_numbers")
             .select("user_id")
-            .eq("uazapi_token", instanceToken)
+          .eq("workspace_id", "bd59fa41-d68d-4ac8-b995-e09ae48f52aa")
             .limit(1)
             .maybeSingle();
           if (numForLog?.user_id) {
