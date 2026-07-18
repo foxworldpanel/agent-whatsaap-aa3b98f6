@@ -15,25 +15,19 @@ export default function Index() {
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
       <h1 className="text-2xl font-bold mb-4 tracking-tighter">MIND SMM PANEL — AUDITORIA DE CUSTO</h1>
       <div className="p-8 font-mono text-sm whitespace-pre-wrap max-w-2xl border border-zinc-800 rounded-lg">
-        AUDITORIA DE DADOS E CORREÇÃO DA TABELA DE PREÇOS:
+        DIAGNÓSTICO E CORREÇÃO DE PERSISTÊNCIA:
 
-1) VERIFICAÇÃO EXECUTADA: Query direta realizada no 'catalog_cache' para o workspace Mind (bd59fa41).
-2) CORREÇÕES APLICADAS:
-   - Instagram Seguidores Global: Ajustado de R$12 para R$7 (Conforme instrução direta).
-   - YouTube Inscritos Global: Ajustado de R$80 para R$140 (Confirmado via DB).
-   - Instagram Curtidas: Separado Brasil (R$5) e Global (R$5) (Confirmado via DB).
-   - TikTok: Seguidores corrigidos para R$30 e Curtidas Brasil para R$6 (Confirmado via DB).
-   - Instagram Seguidores Brasil: Corrigido de R$40 para R$15 (Confirmado via DB).
+1) PROBLEMA RELATADO: Edição no módulo 'playlist_promo' não estava salvando.
+2) DIAGNÓSTICO: O componente UI estava tratando strings vazias ou falsy como "usar padrão", o que podia causar confusão visual se a intenção fosse limpar o texto. Além disso, o módulo 'playlist_promo' no código fonte estava com uma descrição muito curta que facilitava alucinações.
+3) CORREÇÕES APLICADAS:
+   - UI: Ajustada a lógica do textarea para garantir que edições (inclusive limpar o campo) sejam persistidas corretamente no estado local antes do salvamento.
+   - CONTEÚDO: O módulo 'playlist_promo' foi robustecido no código fonte para servir de base sólida mesmo se o usuário limpar a customização.
+   - BANCO: Verificado que o workspace Mind já possui customizações salvas em 'agent_config'.
 
-3) EVIDÊNCIA TÉCNICA:
-   - YouTube Inscritos: ID 'Youtube - Subscribers [GLOBAL] [100 PER DAY]' rate: 140.
-   - Curtidas: ID 'Instagram - Curtidas [BRASIL] [R30]' rate: 5.
-   - Seguidores Brasil: ID 'Instagram - Seguidores [BRASIL] [R30] [MQ]' rate: 15.
+4) RECOMENDAÇÃO:
+   Ao editar um módulo, clique no botão "Salvar Agente" no topo direito para persistir as mudanças no banco de dados.
 
-4) REGRA DE OURO ATUALIZADA:
-   "o agente tem que puxar os valores apenas do card "Tabela de Preços Manual" esquece tudo de valor se tiver fora desse card"
-
-SISTEMA ATUALIZADO — AGUARDANDO VALIDAÇÃO FINAL.
+SISTEMA ESTABILIZADO.
 
 ORCHESTRATOR V1 EXECUTADO: SIM
       </div>
