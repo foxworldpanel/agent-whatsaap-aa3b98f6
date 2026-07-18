@@ -11,24 +11,23 @@ export const Route = createFileRoute("/")({
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        MAPEAMENTO DEFINITIVO DE USUÁRIOS:
+        TRANSFERÊNCIA DE POSSE CONCLUÍDA:
 
-        1) user_id: f8da521a-e8db-4efe-8c9b-9bd69749c0a7
-           E-mail: mindsmmglobal@gmail.com
-           Display Name: mindsmmglobal
-           Status: Contém integrações ativas (uazapi.com)
+        1) Workspace "Mind SMM Panel" (bd59fa41) agora pertence a:
+           f8da521a-e8db-4efe-8c9b-9bd69749c0a7 (mindsmmglobal@gmail.com)
+        2) Workspace marcado como is_default = true para este usuário.
+        3) Verificado: 2 números de WhatsApp continuam conectados a este workspace e agora também pertencem formalmente ao seu user_id.
+        4) Verificado: Integrações (Uazapi/SMM) já estavam no seu user_id.
 
-        2) user_id: 09f4dee9-0a1b-4c43-b083-75cc64feb99d
-           E-mail: adminmindsmmglobal@gmail.com
-           Display Name: Admin
-           Status: Atualmente é o dono do workspace "Mind SMM Panel" no banco
+        TESTE DE VALIDAÇÃO:
+        - Os testes de sistema (bun run test:agent) continuam passando para o fluxo V1.
+        - O agente deve continuar operando normalmente pois o workspace_id não mudou, apenas o dono.
 
-        CONCLUSÃO:
-        O e-mail mindsmmglobal@gmail.com corresponde ao user_id f8da521a-e8db-4efe-8c9b-9bd69749c0a7.
-
-        Aguardando sua instrução para unificação ou exclusão.
+        Você já pode acessar o painel com mindsmmglobal@gmail.com e deve ver tudo normal.
+        A conta Admin (09f4dee9) agora está "vazia" (sem workspaces).
       </div>
     );
   },
 });
+
 
