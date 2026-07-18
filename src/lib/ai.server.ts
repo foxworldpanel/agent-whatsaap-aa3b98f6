@@ -1287,19 +1287,21 @@ export async function generateAgentReplyWithMeta(params: {
     ...(Array.isArray(systemBlock2) 
       ? systemBlock2.map((b: any) => {
           if (typeof b === "string") return { type: "text", text: b };
-          if (typeof b === 'object' && b !== null && 'text' in b) return b;
+          if (typeof b === 'object' && b !== null) {
+             if ('text' in b) return b;
+             return { type: 'text', text: String(b.content || JSON.stringify(b)) };
+          }
           return { type: 'text', text: String(b || "") };
         }) 
-      : (systemBlock2 ? [{ type: "text", text: typeof systemBlock2 === 'string' ? systemBlock2 : String((systemBlock2 as any).text || "") }] : []))
+      : (systemBlock2 ? [{ type: "text", text: typeof systemBlock2 === 'string' ? systemBlock2 : String((systemBlock2 as any).text || (systemBlock2 as any).content || "") }] : []))
   ];
 
   const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
   
   if (process.env.NODE_ENV === "test") {
-    // Apenas loga os primeiros 500 chars de cada bloco e confirma presença do alvo
     system.forEach((b, i) => {
-      console.log(`[agent-ai] BLOCK ${i} START:`, b.text?.substring(0, 100));
-      if (b.text?.includes("EXEMPLO_MODELO_DISPARO")) console.log(`[agent-ai] BLOCK ${i} CONTAINS TARGET`);
+      console.log(`[agent-ai] BLOCK ${i} START:`, String(b.text || "").substring(0, 100));
+      if (String(b.text || "").includes("EXEMPLO_MODELO_DISPARO")) console.log(`[agent-ai] BLOCK ${i} CONTAINS TARGET`);
     });
   }
 
