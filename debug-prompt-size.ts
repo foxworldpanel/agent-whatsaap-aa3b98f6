@@ -18,5 +18,13 @@ const prompt = buildSystemPrompt({
   history: [{ sender: "cliente", body: "preciso de suporte" }],
 });
 
+const activeModules = selectActiveModules(
+  DEFAULT_MODULES,
+  {},
+  "preciso de suporte"
+);
+console.log(`Active modules: ${activeModules.map(m => m[0]).join(", ")}`);
+
 console.log(`Prompt length: ${prompt.length} chars`);
 console.log(`Estimated tokens: ${Math.ceil(prompt.length / 4)}`);
+
