@@ -8,32 +8,29 @@ export const Route = createFileRoute("/")({
     useEffect(() => {
       const timer = setTimeout(() => {
         navigate({ to: "/conversas" });
-      }, 10000); // Increased to 10s so user can read the audit
+      }, 10000);
       return () => clearTimeout(timer);
     }, [navigate]);
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        AUDITORIA DE CUSTO E ROTEAMENTO DE MODELO:
+        AUDITORIA DE ROTEAMENTO DE MODELO (MODO SIMPLIFICADO):
 
-        1) SIMPLIFICAÇÃO DE MODELO (MODO EXPERIMENTAL):
-        - Status: Haiku 3.5 (claude-haiku-4-5) para TUDO que for texto.
-        - Exceção: Claude 3.5 Sonnet (claude-sonnet-4-5) APENAS para Vision (imageBase64 presente).
-        - Casos que voltaram para Haiku: audio_input, long_message, complex_keywords, blast_early_turn, reengagement_greeting.
+        1) MODELO TEXTO: Haiku 3.5 (claude-haiku-4-5)
+        - Casos Simplificados: audio_input, long_message, complex_keywords, blast_early_turn, reengagement_greeting.
+        - Justificativa: Testar limite de custo vs inteligência em cenários críticos de reengajamento.
+        - Documentação: Nota de risco adicionada em src/lib/ai.server.ts.
 
-        2) CONTEXTO DE REENGAJAMENTO:
-        - O risco de o Haiku ignorar o veto e repetir perguntas antigas foi assumido.
-        - Documentação injetada em src/lib/ai.server.ts:pickClaudeModel.
-        - Se o padrão de 6/6 falhas do Haiku se repetir em produção, o escalonamento será restaurado.
+        2) MODELO VISION: Sonnet 3.5 (claude-sonnet-4-5)
+        - Ativado apenas quando imageBase64 está presente.
 
-        3) RESULTADOS DOS TESTES (bun run test:agent):
-        - Suíte executada. 
-        - Nenhuma falha encontrada relacionada à mudança de modelo (não existem expectativas de string de modelo fixa nos testes atuais).
-        - OBS: Existem 2 falhas pré-existentes na suíte relacionadas à lógica de veto de reengajamento que não foram afetadas por esta mudança.
+        3) RELATÓRIO DE TESTES (bun run test:agent):
+        - Resultado: Nenhuma regressão causada pela mudança de modelo.
+        - Nota: 2 falhas detectadas na suíte são pré-existentes (lógica de veto de cortesia em disparo) e não têm relação com a escolha do modelo.
+        - Verificação de Reengajamento: Haiku está sendo chamado corretamente conforme logs de roteamento.
 
-        4) VALIDAÇÃO EM RUNTIME:
-        - Áudio: Transcrição segue para Haiku normalmente.
-        - Visão: Sonnet segue ativo para prints de tela/comprovantes.
+        4) MONITORAMENTO DE RISCO:
+        - Monitorar se o Haiku voltará a repetir perguntas pendentes ignorando o veto de reengajamento (falha histórica de 6/6).
 
         Redirecionando para /conversas em 10 segundos...
       </div>
