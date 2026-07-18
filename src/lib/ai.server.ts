@@ -1294,6 +1294,10 @@ export async function generateAgentReplyWithMeta(params: {
   ];
 
   const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
+  
+  if (process.env.NODE_ENV === "test") {
+    console.log("[agent-ai] DEBUG FULL SYSTEM PROMPT:", fullSystemFallback);
+  }
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
