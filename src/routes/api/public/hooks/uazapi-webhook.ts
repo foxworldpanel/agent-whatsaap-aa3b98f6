@@ -703,28 +703,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         //   (2) resolver retorna 'disabled' → segunda barreira mesmo
         //       que alguém remova acidentalmente o early-return.
         // ============================================================
-        {
-          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          const { resolveAgentBrainVersion } = await import("@/lib/agent-v2/resolver");
-          const authorized = isAuthorizedV2Phone(phone);
-          const activeVersion = resolveAgentBrainVersion(null, phone);
-          if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
-            // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
-            const phoneTail = phone.slice(-4);
-            console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
-            try {
-              const { logEvent } = await import("@/lib/agent-logger.server");
-              await logEvent({
-                type: "message_received",
-                level: "info",
-                summary: "AI disabled for non-authorized contact",
-                metadata: { phoneTail, activeVersion },
-              });
-            } catch {}
-            // HTTP 200 para evitar retries do provedor.
-            return new Response("ok (non-authorized number, AI disabled)");
-          }
-        }
+        // Gate desativado
+        console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone}`);
 
         // 🔍 Log de entrada do webhook (diagnóstico por número)
         console.log(`🌐 Webhook recebido | Token da instância: ${instanceToken} | De: ${phone} | fromMe: ${msg.fromMe === true}`);
@@ -3830,14 +3810,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // 🧪 número de teste — não altera temperatura automaticamente
             throw new Error("__test_number_skip_scoring__");
           }
-          const temperatura = "morno"; // Scoring V2 disabled
-          const { classifyLeadTemperature } = { classifyLeadTemperature: async () => "morno" } as any;
+          const temperatura = "morno";
+          const classifyLeadTemperature = async () => "morno";
           const fullHistory = [
             ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
             { sender: "cliente" as const, body: inboundBody },
             { sender: "agente" as const, body: reply },
           ];
-          const temperatura = await classifyLeadTemperature({ history: fullHistory });
           if (temperatura) {
             const stamp = new Date().toISOString();
             if (temperatura === "bloqueado") {
