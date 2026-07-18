@@ -595,6 +595,11 @@ type BuildPromptParams = {
    * aqui é usado por testes/diagnóstico pra injetar o template Mind.
    */
   brandBlocks?: AgentBrandBlocks | null;
+  dailyPromoText?: string | null;
+  playlistCatalog?: {
+    ecletica?: string[] | null;
+    eletronica?: string[] | null;
+  } | null;
 };
 
 export function buildSystemPrompt(params: BuildPromptParams): string {
