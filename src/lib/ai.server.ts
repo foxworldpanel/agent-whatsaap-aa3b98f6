@@ -878,16 +878,14 @@ export async function generateAgentReplyWithMeta(params: {
   const inboundReengagementVeto = !effectiveBlast && reengagementGreeting;
   const anyReengagementVeto = blastReengagementVeto || inboundReengagementVeto;
 
-  // BLOCO 1 — ESTÁVEL (Identidade, Regras, Tabela de Preços, Promoções, Catálogo)
+  // BLOCO 1 — ESTÁVEL (Identidade, Regras, Tabela de Preços)
   // Este bloco é marcado com cache_control: ephemeral e deve ser 100% idêntico entre conversas.
   const systemBlock1 = buildSharedRules(identity, {
     freeTestServices,
     brandBlocks,
-    dailyPromoText,
-    playlistCatalog,
-    // Em produção, suprimimos o exemplo few-shot do bloco estável para manter a 
-    // string idêntica em todas as chamadas de suporte/venda orgânica.
-    suppressExemploDisparo: true, // SEMPRE suprimir no Bloco 1 para estabilidade de cache
+    // Em produção, suprimimos o exemplo few-shot, catálogos e promoções do bloco estável 
+    // para manter a string idêntica em todas as chamadas de suporte/venda orgânica.
+    suppressExemploDisparo: true,
   });
 
   const system: any = [
@@ -895,7 +893,20 @@ export async function generateAgentReplyWithMeta(params: {
       text: systemBlock1,
       cache_control: { type: "ephemeral" }
     },
-    // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
+    // BLOCO 2 — DINÂMICO (Vetos, Histórico, Promoções, Catálogo, Contexto Variável)
+    // Injetamos aqui os dados que podem variar entre requisições ou workspaces,
+    // garantindo que o Bloco 1 permaneça 100% estável para hits de cache.
+    (() => {
+      if (!playlistCatalog) return "";
+      // playlistCatalog é { ecletica: string[], eletronica: string[] }
+      const { buildRegraPlaylistsInfoDiretaBlock } = require("@/lib/agent-identity.server");
+      return buildRegraPlaylistsInfoDiretaBlock(playlistCatalog);
+    })(),
+    (() => {
+      const t = (dailyPromoText ?? "").trim();
+      if (!t) return "";
+      return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta. Se esta promoção não estiver no bloco (bloco ausente do prompt), NUNCA mencione nenhuma promoção — mantém a regra normal de "nunca dar desconto manual".`;
+    })(),
     // Se for efetivamente um disparo, injetamos o EXEMPLO_MODELO_DISPARO aqui (no dinâmico)
     // para não quebrar o cache do Bloco 1 nas conversas orgânicas.
     effectiveBlast
