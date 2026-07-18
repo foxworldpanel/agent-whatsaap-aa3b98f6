@@ -4,7 +4,7 @@ import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 
 import { z } from "zod";
 import { getSharedUazapiUserIds } from "@/lib/agent-shared.server";
-
+import { mergeAgentModulesForSave } from "@/lib/agent-modules";
 
 type PanelShot = { url: string; path?: string; label?: string };
 
@@ -151,12 +151,11 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
       if (readError) throw new Error(readError.message);
       patch = {
         ...data,
-        modules: {
-          ...((existing?.modules ?? {}) as Record<string, string>),
-          ...data.modules,
-        },
+        modules: mergeAgentModulesForSave(
+          (existing?.modules ?? null) as Record<string, string> | null,
+          data.modules,
+        ),
       };
-
     }
     const { error } = await context.supabase
       .from("agent_config")
@@ -185,11 +184,10 @@ export const saveAgentModules = createServerFn({ method: "POST" })
     const payload = {
       user_id: context.userId,
       workspace_id: context.workspaceId,
-      modules: {
-        ...((existing?.modules ?? {}) as Record<string, string>),
-        ...data.modules,
-      },
-
+      modules: mergeAgentModulesForSave(
+        (existing?.modules ?? null) as Record<string, string> | null,
+        data.modules,
+      ),
       ...(data.modules_enabled
         ? {
             modules_enabled: {
@@ -442,26 +440,14 @@ export const listModulesV2 = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const supabase = context.supabase as any;
-    console.log(`[AGENTE_PAGE] listModulesV2_started for workspace: ${context.workspaceId}`);
-    
-    // Usamos o supabaseAdmin para o loader para garantir o carregamento independente de RLS do usuário,
-    // já que o controle de acesso ao workspace Mind é feito no middleware.
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    
-    const { data: dbModules, error } = await supabaseAdmin
+    const { data: dbModules, error } = await supabase
       .from("agent_modules_v2")
       .select("*")
       .eq("workspace_id", context.workspaceId)
       .order("category", { ascending: true })
       .order("priority", { ascending: false });
 
-    if (error) {
-      console.error(`[AGENTE_PAGE] listModulesV2_error: ${error.message}`);
-      throw new Error(error.message);
-    }
-    
-    console.log(`[AGENTE_PAGE] listModulesV2_result_count: ${dbModules?.length || 0}`);
-
+    if (error) throw new Error(error.message);
 
     // Se não houver módulos no banco para este workspace, migramos do hardcoded Module Registry
     if (!dbModules || dbModules.length === 0) {
@@ -473,7 +459,6 @@ export const listModulesV2 = createServerFn({ method: "GET" })
         receptive: { title: "Receptivo", emoji: "📥", category: "Modo", description: "Lógica para mensagens de entrada iniciadas pelo cliente." },
         outbound: { title: "Disparo", emoji: "📣", category: "Modo", description: "Lógica para respostas a campanhas e disparos ativos." },
         commercial: { title: "Comercial", emoji: "🛒", category: "Vendas", description: "Regras de condução de venda e fechamento no painel." },
-        spotify: { title: "Spotify (Fallback)", emoji: "🎵", category: "Redes", description: "Módulo legado para compatibilidade." },
         spotify_overview: { title: "Spotify (Geral)", emoji: "🎵", category: "Redes", description: "Visão geral e qualificação para Spotify." },
         spotify_playlist: { title: "Spotify (Playlist)", emoji: "🎼", category: "Redes", description: "Serviços de playlist e divulgação de faixas." },
         spotify_followers: { title: "Spotify (Seguidores)", emoji: "👤", category: "Redes", description: "Serviços de seguidores e base de fãs." },
@@ -503,7 +488,6 @@ export const listModulesV2 = createServerFn({ method: "GET" })
           content: content,
           priority: ["mission", "identity", "guards"].includes(key) ? "Alta" : "Normal",
           is_core: ["mission", "identity", "guards"].includes(key),
-          is_active: true,
           modes: key === "receptive" ? ["receptive"] : (key === "outbound" ? ["outbound"] : ["all"]),
           dependencies: key.startsWith("spotify_") ? ["spotify_overview"] : []
         };
@@ -514,10 +498,9 @@ export const listModulesV2 = createServerFn({ method: "GET" })
         .insert(toInsert)
         .select();
 
-      if (insError) throw new Error(`Erro ao migrar módulos: ${insError.message}`);
+      if (insError) throw new Error(insError.message);
       return (inserted || []).map((m: any) => ({ ...m, contentPreview: (m.content || "").slice(0, 150) + "..." }));
     }
-
 
     return dbModules.map((m: any) => ({
       ...m,
@@ -853,7 +836,7 @@ export const previewVoice = createServerFn({ method: "POST" })
     if (!integ?.elevenlabs_api_key || !integ.elevenlabs_voice_id) {
       throw new Error("Configure a API Key e o Voice ID do ElevenLabs antes.");
     }
-    const { ttsElevenLabsBase64 } = await import("@/lib/agent-v2/core/ai-services.server");
+    const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
     const audio = await ttsElevenLabsBase64({
       apiKey: integ.elevenlabs_api_key,
       voiceId: integ.elevenlabs_voice_id,
