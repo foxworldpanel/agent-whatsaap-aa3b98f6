@@ -12,30 +12,37 @@ export async function resolveWorkspaceId(
   userId: string,
   headerValue: string | null,
 ): Promise<string> {
-  // Mind Workspace ID is the global invariant for this instance
-  const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-
-  // Still verify the user belongs to it to maintain RLS integrity
-  const { data } = await supabase
-    .from("workspaces")
-    .select("id")
-    .eq("id", MIND_WORKSPACE_ID)
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (data?.id) return data.id;
-
-  // Fallback to searching any workspace for the user (in case of transfer)
-  const { data: anyWs } = await supabase
+  const hdr = headerValue?.trim();
+  if (hdr && /^[0-9a-f-]{36}$/i.test(hdr)) {
+    // Trust after user_owns_workspace check
+    const { data } = await supabase
+      .from("workspaces")
+      .select("id")
+      .eq("id", hdr)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (data?.id) return data.id;
+  }
+  const { data, error } = await supabase
     .from("workspaces")
     .select("id")
     .eq("user_id", userId)
-    .limit(1)
+    .eq("is_default", true)
     .maybeSingle();
+  if (error || !data?.id) {
+    // If no default found, check if ANY workspace exists for this user
+    const { data: anyWs } = await supabase
+      .from("workspaces")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
 
-  if (anyWs?.id) return anyWs.id;
+    if (anyWs?.id) return anyWs.id;
 
-  throw new Error("Nenhum workspace válido encontrado.");
+    throw new Error("Nenhum workspace válido encontrado para este usuário. Selecione ou solicite acesso ao workspace Mind.");
+  }
+  return data.id;
 }
 
 /**
