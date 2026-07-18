@@ -703,12 +703,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         //   (2) resolver retorna 'disabled' → segunda barreira mesmo
         //       que alguém remova acidentalmente o early-return.
         // ============================================================
+        // ============================================================
+        // 🔒 GATE: Agente Mind é o cérebro oficial.
+        // Apenas o número autorizado executa a IA.
+        // Qualquer outro número é ignorado ANTES de qualquer chamada
+        // ao Claude, prompt, ferramenta ou métrica → zero custo.
+        // ============================================================
         {
-          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
-          const { resolveAgentBrainVersion } = await import("@/lib/agent-v2/resolver");
-          const authorized = isAuthorizedV2Phone(phone);
-          const activeVersion = resolveAgentBrainVersion(null, phone);
-          if (!msg.fromMe && (!authorized || activeVersion === "disabled")) {
+          const AUTHORIZED_PHONES = ["5511970116430", "5511978250428", "5511986551842"];
+          const authorized = AUTHORIZED_PHONES.includes(phone);
+          if (!msg.fromMe && !authorized) {
             // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
             const phoneTail = phone.slice(-4);
             console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
@@ -718,7 +722,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 type: "message_received",
                 level: "info",
                 summary: "AI disabled for non-authorized contact",
-                metadata: { phoneTail, activeVersion },
+                metadata: { phoneTail },
               });
             } catch {}
             // HTTP 200 para evitar retries do provedor.
@@ -1328,7 +1332,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
-            const { transcribeAudioUrl } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { transcribeAudioUrl } = await import("@/lib/ai.server");
             const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
@@ -2486,7 +2490,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
-        const { runAgentV2Turn } = await import("@/lib/agent-v2.functions");
 
 
         // ===== Coalescência de mensagens rápidas do cliente =====
