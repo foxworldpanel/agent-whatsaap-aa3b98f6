@@ -897,10 +897,10 @@ export async function generateAgentReplyWithMeta(params: {
     // Injetamos aqui os dados que podem variar entre requisições ou workspaces,
     // garantindo que o Bloco 1 permaneça 100% estável para hits de cache.
     (() => {
-      const p = (playlistCatalog ?? "").trim();
-      if (!p) return "";
+      if (!playlistCatalog) return "";
+      // playlistCatalog é { ecletica: string[], eletronica: string[] }
       const { buildRegraPlaylistsInfoDiretaBlock } = require("@/lib/agent-identity.server");
-      return buildRegraPlaylistsInfoDiretaBlock(p);
+      return buildRegraPlaylistsInfoDiretaBlock(playlistCatalog);
     })(),
     (() => {
       const t = (dailyPromoText ?? "").trim();
