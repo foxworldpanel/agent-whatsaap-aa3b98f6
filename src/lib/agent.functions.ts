@@ -451,7 +451,7 @@ export const listModulesV2 = createServerFn({ method: "GET" })
 
     // Se não houver módulos no banco para este workspace, migramos do hardcoded Module Registry
     if (!dbModules || dbModules.length === 0) {
-      
+      const { moduleRegistryV2 } = await import("./agent-v2/module-registry");
       const friendlyNames: Record<string, { title: string; emoji: string; category: string; description: string }> = {
         mission: { title: "Missão", emoji: "🚀", category: "Core", description: "Objetivo fundamental e restrições de venda do agente." },
         identity: { title: "Identidade", emoji: "🪪", category: "Core", description: "Persona da Júlia, tom de voz e estilo de escrita." },
@@ -474,7 +474,9 @@ export const listModulesV2 = createServerFn({ method: "GET" })
         support: { title: "Suporte", emoji: "🛠️", category: "Ferramentas", description: "Direcionamento para tickets de suporte técnico." },
       };
 
+      const toInsert = Object.keys(moduleRegistryV2).map(key => {
         const info = friendlyNames[key] || { title: key, emoji: "🧩", category: "Outros", description: "" };
+        const content = (moduleRegistryV2 as Record<string, string>)[key] || "";
         return {
           id: key,
           workspace_id: context.workspaceId,
