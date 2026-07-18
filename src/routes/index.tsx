@@ -14,19 +14,20 @@ export const Route = createFileRoute("/")({
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        Preciso limpar todo o histórico de conversa do número de teste 5511970116430 (workspace Mind, bd59fa41), pra começar do zero — esse contato acumulou muitas mensagens de um dia inteiro de testes/debug, o que está distorcendo qualquer medição de custo real.
+        Preciso do detalhamento REAL da chamada mais recente: primeira mensagem do contato 5511970116430 depois da limpeza de histórico, "Boa tarde" → "Boa tarde! 😊 Como posso te ajudar?", custou $0,07 segundo o relatado.
 
-AÇÃO:
-1) Localiza o contact_id correspondente a esse telefone no workspace Mind
-2) Apaga todas as mensagens (messages) dessa conversa
-3) Apaga a conversa (conversation) em si, ou reseta ela pra um estado zerado (o que for mais simples/seguro no seu esquema)
-4) NÃO apaga o contato em si (contact) — só o histórico de conversa, pra eu poder continuar testando com esse mesmo número
-5) Confirma que isso NÃO afeta nenhum outro contato, conversa, ou dado de outros clientes reais — só esse número específico
+Isso é MUITO mais caro que o esperado — ontem uma saudação simples custou $0,0005, e essa chamada aqui é ainda mais cara que várias mensagens complexas de hoje sobre Spotify/plays.
 
-TESTE DE VALIDAÇÃO:
-1) Confirma que a conversa desse número aparece vazia/nova depois da limpeza
-2) Roda bun run test:agent pra garantir que a limpeza de dado não quebrou nenhum teste automatizado
-3) Não precisa testar no WhatsApp agora — só confirma que ficou limpo
+Mostra os dados reais dessa chamada específica:
+1) Modelo usado
+2) input_tokens totais
+3) cache_creation_input_tokens
+4) cache_read_input_tokens
+5) output_tokens
+6) Quantos módulos foram selecionados pra essa mensagem (deveria ser só os essenciais, já que é uma saudação pura sem menção a nenhum serviço)
+7) Confirma se o bug do regex /atras/i (que fizemos carregar módulo de suporte à toa em saudações) foi realmente corrigido, ou se ainda está causando módulo extra carregado sem necessidade
+
+Não aplica correção ainda — só traz o detalhamento real pra eu entender de onde veio esse custo desproporcional.
         
         Redirecionando para /conversas em 15 segundos...
       </div>
