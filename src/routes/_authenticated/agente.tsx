@@ -129,13 +129,14 @@ function AgentePage() {
             <div className="rounded-xl border border-border p-6" style={{ background: "var(--gradient-card)" }}>
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{MODULE_LIST[currentActive].emoji}</span>
+                  <span className="text-2xl">{(MODULE_LIST as any)[currentActive].emoji}</span>
                   <div>
-                    <h2 className="text-lg font-bold">{MODULE_LIST[currentActive].title}</h2>
+                    <h2 className="text-lg font-bold">{(MODULE_LIST as any)[currentActive].title}</h2>
                     <p className="text-xs text-muted-foreground">ID do módulo: {currentActive}</p>
                   </div>
                 </div>
               </div>
+
 
               <div className="relative">
                 <textarea
