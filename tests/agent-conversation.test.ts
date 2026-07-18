@@ -104,6 +104,9 @@ function sysText(body: { system: string | Array<{ text?: string; type?: string }
       if (typeof b === "object" && b !== null) {
         if ("text" in b) return b.text ?? "";
         if ("content" in b) return b.content ?? "";
+        // Support direct strings in objects or text field
+        if (typeof b.text === "string") return b.text;
+        if (typeof b.content === "string") return b.content;
       }
       return "";
     }).filter(Boolean).join("\n\n");
