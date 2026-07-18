@@ -355,11 +355,12 @@ describe("6) Sem travessão em respostas", () => {
 // ---------------------------------------------------------------------------
 describe("7) Split de mensagem — padrão é 1 mensagem", () => {
   it("prompt contém regra de split com brevidade por bolha (1-2 frases, até 4 bolhas)", () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: [{ sender: "cliente", body: "oi" }],
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(
       /REGRA DE SPLIT/i.test(prompt),
       "FALHOU: regra de split ausente",
