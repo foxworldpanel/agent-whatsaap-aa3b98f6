@@ -45,7 +45,12 @@ function AgentePage() {
       });
 
       setModules(normalizedModules);
+      console.log("[DEBUG-AGENTE] Módulos normalizados:", {
+        count: Object.keys(normalizedModules).length,
+        identidade: normalizedModules["identidade"]
+      });
     }
+
 
   }, [configQ.data]);
 
