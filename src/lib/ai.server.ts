@@ -901,7 +901,6 @@ export async function generateAgentReplyWithMeta(params: {
     effectiveBlast
       ? buildSharedRules(identity, { suppressExemploDisparo: false }).split("EXEMPLO_MODELO_DISPARO")[1] || ""
       : "",
-    // Restante do prompt dinâmico...
     // VETO DE PRIORIDADE MÁXIMA: o bloco MODO REENGAJAMENTO precede a
     // identidade (buildSharedRules), o EXEMPLO_MODELO_DISPARO e qualquer
     // refinamento de tom consultivo. Sem isso, em threads de disparo o modelo
@@ -928,7 +927,8 @@ export async function generateAgentReplyWithMeta(params: {
       : "",
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
-    // Bloco dinâmico continua...
+    `REGRA DE CONCISÃO E ANTI-REPETIÇÃO: NUNCA REPETIR EXPLICAÇÃO JÁ DADA na mesma conversa sobre temas técnicos (entrega, ritmo, segurança, painel, pagamento). Se o cliente perguntar algo que você já explicou antes, reconheça que já falou sobre isso de forma curta (ex: "Como te falei antes...", "Conforme comentei...") e vá direto para o próximo passo ou dúvida nova. PROIBIDO repetir parágrafos explicativos idênticos.`,
+    `IDIOMA DA CONVERSA: Detecte o idioma da última mensagem do cliente e mantenha o atendimento no mesmo idioma (Português, Inglês ou Espanhol).`,
     imageBase64
       ? `IMAGEM NA CONVERSA (ABSOLUTA): a imagem que chegou é CONTEXTO ADICIONAL do momento atual da conversa.`
       : "",
