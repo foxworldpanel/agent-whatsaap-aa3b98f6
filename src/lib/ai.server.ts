@@ -1253,7 +1253,8 @@ export async function generateAgentReplyWithMeta(params: {
       // O Bloco 1 (Estável) recebe cache_control: ephemeral.
       // O Bloco 2 (Dinâmico) contém as variáveis por mensagem.
       system: [
-        { type: "text", text: system, cache_control: { type: "ephemeral" } },
+        { type: "text", text: (globalThis as any).systemBlock1 || "", cache_control: { type: "ephemeral" } },
+        { type: "text", text: Array.isArray(system) ? system.join("\n\n") : system },
       ],
       messages: finalMessages,
     }),
