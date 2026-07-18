@@ -98,7 +98,7 @@ Regras:
 `,
 
   calculo_preco: `MÓDULO CÁLCULO DE PREÇO
-- Preço final = (Quantidade / 1000) * Preço_do_Catalogo.
+- Preço final = (Quantidade / 1000) * Preço_da_Tabela_Precos.
 - Informe sempre a menor quantidade disponível como âncora inicial.
 `,
 
