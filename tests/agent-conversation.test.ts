@@ -436,6 +436,7 @@ describe("8b) Não repete descoberta após 'já tem cadastro?'", () => {
       isInbound: true,
       identity: MIND_BRAND_TEMPLATE,
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(
       /PROGRESSO DO FUNIL/i.test(prompt),
       "FALHOU: regra PROGRESSO DO FUNIL ausente do prompt em conversa receptiva",
