@@ -311,12 +311,13 @@ describe("4.1) Spotify plays/ouvintes/saves indisponíveis", () => {
 // ---------------------------------------------------------------------------
 describe("5) Terminologia por rede (YouTube/TikTok = views)", () => {
   it("prompt contém TERMINOLOGIA proibindo 'plays' em YouTube/TikTok", () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: [{ sender: "cliente", body: "quero views no youtube" }],
       identity: MIND_BRAND_TEMPLATE,
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(
       /YouTube\s*→\s*"views".*NUNCA\s*"plays"/is.test(prompt),
       "FALHOU: regra YouTube=views (nunca plays) ausente do prompt",
