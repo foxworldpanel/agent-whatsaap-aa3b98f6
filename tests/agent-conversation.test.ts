@@ -206,7 +206,7 @@ describe('2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria N
       expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(
-        /NEUTRA\s*\/?\s*S[OÓ]\s*CORTESIA|reciprocidade social/i.test(sysText(body.system)),
+        /NEUTRA\s*\/?\s*S[OÓ]\s*CORTESIA|reciprocidade social/i.test(extractSystemText(body.system)),
         "FALHOU: prompt não contém regra de categoria NEUTRA para o Claude decidir",
       ).toBe(true);
     },
