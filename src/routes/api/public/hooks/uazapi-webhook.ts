@@ -1160,7 +1160,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         if (kind === "audio" && mediaUrl && inboundBody === "[áudio recebido]") {
           try {
-            const { transcribeAudioUrl } = await import("@/lib/agent-v2/core/ai-services.server");
+            const { transcribeAudioUrl } = await import("@/lib/ai.server");
             const _ttStart = Date.now();
             const transcript = await transcribeAudioUrl(mediaUrl, integ.openai_api_key ?? undefined);
             if (transcript) inboundBody = transcript;
