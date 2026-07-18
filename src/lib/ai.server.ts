@@ -608,11 +608,19 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
     brandBlocks,
     // Espelha o gate do runtime real (generateAgentReplyWithMeta): só expõe o
     // EXEMPLO_MODELO_DISPARO quando a conversa é efetivamente disparo.
-    suppressExemploDisparo: !effectiveBlastPreview,
+    suppressExemploDisparo: true,
   });
   const latestClientMessage = getLatestClientMessage(history);
   const system = [
     sharedRules,
+    // Catálogo e Promoções (dinâmicos) movidos para fora de buildSharedRules no preview diagnóstico também.
+    (() => {
+      const { loadPlaylistCatalog } = require("@/lib/playlist-catalog.server");
+      // buildSystemPrompt é síncrono, então não podemos await aqui. 
+      // Em runtime real isso é resolvido por generateAgentReplyWithMeta ser async.
+      // Para o preview síncrono, injetamos apenas se vier via brandBlocks.
+      return ""; // Módulos dinâmicos complexos suprimidos no buildSystemPrompt síncrono
+    })(),
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
     effectiveBlastPreview
