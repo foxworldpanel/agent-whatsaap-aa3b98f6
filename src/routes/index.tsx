@@ -22,6 +22,9 @@ export default function Index() {
         TESTE DE VALIDAÇÃO:
         Testa o mesmo cenário (cliente pede algo específico tipo "brasileiro" que não existe) e confirma que a Júlia explica a limitação (só tem Global) sem inventar uma segunda opção de "só plays" que não existe na tabela.
 
+        MODIFICAÇÃO DE INTERFACE:
+        Botão "Restaurar Padrões" removido da página do Agente IA para segurança do fluxo.
+
         ORCHESTRATOR V1 EXECUTADO: SIM
       </div>
       <p className="mt-8 text-zinc-500 animate-pulse text-xs">Redirecionando para /conversas em 15 segundos...</p>
