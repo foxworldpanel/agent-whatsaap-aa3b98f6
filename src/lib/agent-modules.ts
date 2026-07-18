@@ -299,9 +299,9 @@ URGÊNCIA NA VENDA (opcional, quando fizer sentido):
   tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL
 
 *Spotify*
-- Aluguel de Playlist (1 música, 10 playlists, 30 dias): R$49,90
 - Seguidores [Artista]: R$30/1000 (mín 50)
 - Plays + Ouvintes [Global]: R$15/1000 (mín 500)
+- Aluguel de Playlist (1 música, 10 playlists, 30 dias): R$49,90
 
 *Instagram*
 - Seguidores [Brasil]: R$15/1000 (mín 50)
