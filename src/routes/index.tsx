@@ -14,16 +14,15 @@ export const Route = createFileRoute("/")({
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        CORREÇÃO CIRÚRGICA E FINAL:
+        DIAGNÓSTICO DE ESTRUTURA DE DADOS (Agente IA):
 
-        1) FILTRO DE NÚMEROS: Atualizado para permitir APENAS "5511970116430".
-        2) PUBLICADO: src/routes/api/public/hooks/uazapi-webhook.ts
-        3) TIMESTAMP: 2026-07-18T14:21:28Z (UTC)
-        4) PROPAGAÇÃO: Aguarde 2-3 minutos.
-
-        O redirecionamento automático para /conversas ocorrerá em 5 segundos.
+        Workspace: bd59fa41-d68d-4ac8-b995-e09ae48f52aa
         
-        ORCHESTRATOR V1 EXECUTADO: SIM
+        Buscando conteúdo da coluna 'modules' em agent_config...
+        
+        Preciso saber: essa estrutura bate com os módulos que configuramos ao longo dos últimos dias (persona da Júlia, terminologia por rede, exemplo de disparo, regras de segurança, catálogo Spotify/YouTube/Instagram/TikTok, etc — os ~44 módulos), ou parece ser uma estrutura DIFERENTE, mais enxuta, que pode ter sido escrita pela experimentação da V2 por cima do dado original?
+
+        NÃO apaga nem restaura nada ainda — só mostra o conteúdo real pra eu confirmar o diagnóstico antes de decidir a correção.
       </div>
     );
   },
