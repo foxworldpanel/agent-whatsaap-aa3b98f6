@@ -899,7 +899,7 @@ export async function generateAgentReplyWithMeta(params: {
     (() => {
       if (!playlistCatalog) return "";
       // playlistCatalog é { ecletica: string[], eletronica: string[] }
-      const { buildRegraPlaylistsInfoDiretaBlock } = require("@/lib/agent-identity.server");
+      const { buildRegraPlaylistsInfoDiretaBlock } = require("./agent-identity.server");
       return buildRegraPlaylistsInfoDiretaBlock(playlistCatalog);
     })(),
     (() => {
