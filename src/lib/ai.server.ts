@@ -1302,8 +1302,8 @@ export async function generateAgentReplyWithMeta(params: {
       system: [
         { type: "text", text: systemBlock1 || "", cache_control: { type: "ephemeral" } },
         ...(Array.isArray(systemBlock2) 
-          ? systemBlock2.map(b => (typeof b === "string" ? { type: "text" as const, text: b } : b)) 
-          : [{ type: "text" as const, text: systemBlock2 || "" }])
+          ? systemBlock2.map(b => (typeof b === "string" ? { type: "text", text: b } : b)) 
+          : [{ type: "text", text: systemBlock2 || "" }])
       ],
       messages: finalMessages,
     }),
