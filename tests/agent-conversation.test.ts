@@ -106,7 +106,7 @@ function sysText(body: { system: string | Array<{ text?: string; type?: string }
         if ("content" in b) return String(b.content || "");
       }
       return "";
-    }).filter(Boolean).join("\n\n");
+    }).join("\n\n");
   }
   return "";
 }
