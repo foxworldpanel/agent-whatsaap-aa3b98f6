@@ -188,7 +188,7 @@ describe('2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria N
       expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
       const body = JSON.parse(fetchMock.mock.calls[0][1].body);
       expect(
-        /NEUTRA\s*\/?\s*S[OÓ]\s*CORTESIA|reciprocidade social/i.test(sysText(body)),
+        /NEUTRA\s*\/?\s*S[OÓ]\s*CORTESIA|reciprocidade social/i.test(sysText(body.system)),
         "FALHOU: prompt não contém regra de categoria NEUTRA para o Claude decidir",
       ).toBe(true);
     },
@@ -491,7 +491,7 @@ describe("8c) Reengajamento respeita burst de mensagens (saudação + pergunta r
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      /PROIBIDO ABSOLUTO omitir a sauda[çc][aã]o de volta/i.test(sysText(body)),
+      /PROIBIDO ABSOLUTO omitir a sauda[çc][aã]o de volta/i.test(sysText(body.system)),
       "FALHOU: template não proíbe começar sem saudação de volta",
     ).toBe(true);
   });
@@ -841,9 +841,9 @@ describe("12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext", ()
       extraContext: fact,
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(sysText(body).includes(fact), "FALHOU: fato técnico não chegou no system prompt").toBe(true);
+    expect(sysText(body.system).includes(fact), "FALHOU: fato técnico não chegou no system prompt").toBe(true);
     expect(
-      /FATO T[ÉE]CNICO VERIFICADO/i.test(sysText(body)),
+      /FATO T[ÉE]CNICO VERIFICADO/i.test(sysText(body.system)),
       "FALHOU: regra da identidade sobre FATO TÉCNICO VERIFICADO ausente",
     ).toBe(true);
   });
@@ -859,7 +859,7 @@ describe("12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext", ()
       extraContext: fact,
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(sysText(body).includes(fact)).toBe(true);
+    expect(sysText(body.system).includes(fact)).toBe(true);
   });
 
   it("#6 erro do provedor (perfil privado) → fato técnico injetado", async () => {
@@ -872,7 +872,7 @@ describe("12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext", ()
       extraContext: fact,
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(sysText(body).includes(fact)).toBe(true);
+    expect(sysText(body.system).includes(fact)).toBe(true);
   });
 });
 
@@ -894,7 +894,7 @@ describe("13) FATO TÉCNICO respeita o idioma da conversa (EN)", () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     // Confirma que a regra da identidade instrui responder no idioma do cliente
     expect(
-      /idioma da conversa|no idioma/i.test(sysText(body)),
+      /idioma da conversa|no idioma/i.test(sysText(body.system)),
       "FALHOU: regra não instrui manter idioma da conversa",
     ).toBe(true);
     // Confirma que a resposta ficou em inglês (não voltou pra frase fixa PT)
@@ -935,17 +935,17 @@ describe("14) Suporte/pós-venda: 'obrigado' + 'ok' NÃO dispara pergunta de red
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     // 1) O prompt injeta explicitamente o bloco MODO SUPORTE / PÓS-VENDA.
     expect(
-      /MODO SUPORTE\s*\/?\s*P[ÓO]S-VENDA/i.test(sysText(body)),
+      /MODO SUPORTE\s*\/?\s*P[ÓO]S-VENDA/i.test(sysText(body.system)),
       "FALHOU: prompt não contém o bloco MODO SUPORTE / PÓS-VENDA para esta conversa",
     ).toBe(true);
     // 2) O prompt proíbe reiniciar o funil nesse contexto.
     expect(
-      /N[ÃA]O reinicie o funil de vendas|N[ÃA]O reiniciar o funil/i.test(sysText(body)),
+      /N[ÃA]O reinicie o funil de vendas|N[ÃA]O reiniciar o funil/i.test(sysText(body.system)),
       "FALHOU: prompt não proíbe reiniciar o funil de vendas em contexto de suporte",
     ).toBe(true);
     // 3) A regra reforça que "ok/blz/obrigado" fora da janela de abertura é só CONFIRMAÇÃO.
     expect(
-      /apenas uma CONFIRMA[ÇC][ÃA]O|apenas reconhe[çc]a a confirma[çc][ãa]o/i.test(sysText(body)),
+      /apenas uma CONFIRMA[ÇC][ÃA]O|apenas reconhe[çc]a a confirma[çc][ãa]o/i.test(sysText(body.system)),
       "FALHOU: prompt não explica que 'ok' fora da janela é só confirmação",
     ).toBe(true);
     // 4) A resposta final (mock neutro) NÃO contém pergunta de rede/serviço.
@@ -984,11 +984,11 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      /MODO REENGAJAMENTO/i.test(sysText(body)),
+      /MODO REENGAJAMENTO/i.test(sysText(body.system)),
       "FALHOU: prompt não contém o bloco MODO REENGAJAMENTO APÓS HIATO",
     ).toBe(true);
     expect(
-      /PROIBIDO emendar automaticamente/i.test(sysText(body)),
+      /PROIBIDO emendar automaticamente/i.test(sysText(body.system)),
       "FALHOU: prompt não proíbe emendar pergunta pendente após saudação de reencontro",
     ).toBe(true);
     expect(
@@ -1018,15 +1018,15 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     // disparo agora dispara o MESMO veto do MODO REENGAJAMENTO — sem depender
     // de gap de tempo. Antes caía no genérico "Como posso te ajudar?".
     expect(
-      /MODO REENGAJAMENTO \/ CORTESIA EM DISPARO/i.test(sysText(body)),
+      /MODO REENGAJAMENTO \/ CORTESIA EM DISPARO/i.test(sysText(body.system)),
       "FALHOU: veto de cortesia em disparo não foi injetado (deveria disparar mesmo sem hiato)",
     ).toBe(true);
     expect(
-      /REAPRESENTE A ISCA/i.test(sysText(body)),
+      /REAPRESENTE A ISCA/i.test(sysText(body.system)),
       "FALHOU: veto não instrui a reapresentar a isca da abertura",
     ).toBe(true);
     expect(
-      /RECEPTIVO\)/i.test(sysText(body)),
+      /RECEPTIVO\)/i.test(sysText(body.system)),
       "FALHOU: variante RECEPTIVA foi injetada em thread de disparo",
     ).toBe(false);
   });
@@ -1061,25 +1061,25 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      /VETO DE PRIORIDADE M[AÁ]XIMA[\s\S]*MODO REENGAJAMENTO/i.test(sysText(body)),
+      /VETO DE PRIORIDADE M[AÁ]XIMA[\s\S]*MODO REENGAJAMENTO/i.test(sysText(body.system)),
       "FALHOU: veto de reengajamento não foi injetado no topo do prompt em thread de disparo",
     ).toBe(true);
     // Variante DISPARO deve reapresentar a isca ("posso te mostrar...")
     expect(
-      /REAPRESENTE A ISCA/i.test(sysText(body)),
+      /REAPRESENTE A ISCA/i.test(sysText(body.system)),
       "FALHOU: veto de disparo não instrui a reapresentar a isca da abertura",
     ).toBe(true);
     expect(
-      /Posso te mostrar como acelerar suas redes/i.test(sysText(body)),
+      /Posso te mostrar como acelerar suas redes/i.test(sysText(body.system)),
       "FALHOU: exemplo da isca (acelerar suas redes) ausente no veto de disparo",
     ).toBe(true);
     // No disparo, "Como posso ajudar" NÃO é o formato correto (é o formato receptivo)
     expect(
-      /RECEPTIVO\)/i.test(sysText(body)),
+      /RECEPTIVO\)/i.test(sysText(body.system)),
       "FALHOU: variante RECEPTIVA foi injetada em thread de disparo",
     ).toBe(false);
     expect(
-      /REFINAMENTOS DE TOM CONSULTIVO/i.test(sysText(body)),
+      /REFINAMENTOS DE TOM CONSULTIVO/i.test(sysText(body.system)),
       "FALHOU: refinamentos do disparo deveriam ser suprimidos quando reengajamento está ativo",
     ).toBe(false);
     expect(
@@ -1114,15 +1114,15 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      /MODO REENGAJAMENTO APÓS HIATO \(RECEPTIVO\)/i.test(sysText(body)),
+      /MODO REENGAJAMENTO APÓS HIATO \(RECEPTIVO\)/i.test(sysText(body.system)),
       "FALHOU: variante RECEPTIVA do veto não foi injetada",
     ).toBe(true);
     expect(
-      /Como posso ajudar/i.test(sysText(body)),
+      /Como posso ajudar/i.test(sysText(body.system)),
       "FALHOU: formato 'Como posso ajudar' ausente no veto receptivo",
     ).toBe(true);
     expect(
-      /REAPRESENTE A ISCA/i.test(sysText(body)),
+      /REAPRESENTE A ISCA/i.test(sysText(body.system)),
       "FALHOU: veto receptivo não deve pedir reapresentação de isca de disparo",
     ).toBe(false);
   });
@@ -1283,11 +1283,11 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      /VETO DE PRIORIDADE M[AÁ]XIMA/i.test(sysText(body)),
+      /VETO DE PRIORIDADE M[AÁ]XIMA/i.test(sysText(body.system)),
       "FALHOU: veto de reengajamento foi injetado em disparo normal sem hiato",
     ).toBe(false);
     expect(
-      /REFINAMENTOS DE TOM CONSULTIVO/i.test(sysText(body)),
+      /REFINAMENTOS DE TOM CONSULTIVO/i.test(sysText(body.system)),
       "FALHOU: refinamentos do disparo desapareceram no fluxo normal (regressão)",
     ).toBe(true);
   });
@@ -1317,15 +1317,15 @@ describe("Áudio ininteligível / sem conteúdo claro", () => {
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      /ÁUDIO ININTELIGÍVEL/i.test(sysText(body)),
+      /ÁUDIO ININTELIGÍVEL/i.test(sysText(body.system)),
       "FALHOU: veto de áudio ininteligível ausente no MODO ÁUDIO",
     ).toBe(true);
     expect(
-      /Não consegui entender bem o áudio, consegue escrever ou mandar de novo\?/i.test(sysText(body)),
+      /Não consegui entender bem o áudio, consegue escrever ou mandar de novo\?/i.test(sysText(body.system)),
       "FALHOU: frase padrão de esclarecimento ausente no prompt",
     ).toBe(true);
     expect(
-      /PROIBIDO imitar o tom|brincar junto|reproduzir o som/i.test(sysText(body)),
+      /PROIBIDO imitar o tom|brincar junto|reproduzir o som/i.test(sysText(body.system)),
       "FALHOU: proibição de imitar tom/brincar junto ausente no veto",
     ).toBe(true);
   });
@@ -1347,8 +1347,8 @@ describe("Áudio ininteligível / sem conteúdo claro", () => {
       userId: null,
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(/MODO ÁUDIO/i.test(sysText(body))).toBe(false);
-    expect(/ÁUDIO ININTELIGÍVEL/i.test(sysText(body))).toBe(false);
+    expect(/MODO ÁUDIO/i.test(sysText(body.system))).toBe(false);
+    expect(/ÁUDIO ININTELIGÍVEL/i.test(sysText(body.system))).toBe(false);
   });
 });
 
@@ -1517,7 +1517,7 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(
-      EXEMPLO_BODY_SIGNATURE.test(sysText(body)),
+      EXEMPLO_BODY_SIGNATURE.test(sysText(body.system)),
       "FALHOU: system prompt em conversa organic carregou o few-shot de disparo",
     ).toBe(false);
   });
@@ -1656,7 +1656,7 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
       imageMediaType: "image/jpeg",
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    const sys = sysText(body);
+    const sys = sysText(body.system);
     expect(/IMAGEM NA CONVERSA/i.test(sys), "FALHOU: bloco 'IMAGEM NA CONVERSA' não injetado").toBe(true);
     expect(/PAGAMENTO|CHECKOUT|PIX|AJUDANDO A CONCLUIR/i.test(sys)).toBe(true);
     expect(/PROIBIDO voltar a pergunta de descoberta/i.test(sys)).toBe(true);
@@ -1668,7 +1668,7 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
       mockReply: "Beleza!",
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(/IMAGEM NA CONVERSA \(ABSOLUTA/i.test(sysText(body))).toBe(false);
+    expect(/IMAGEM NA CONVERSA \(ABSOLUTA/i.test(sysText(body.system))).toBe(false);
   });
 
   it("com imagem: text block anexado à última msg inclui instrução de não resetar", async () => {
@@ -1700,7 +1700,7 @@ describe("17) REGRA DE CONCISÃO — bloco injetado no system prompt", () => {
       mockReply: "É seguro sim!",
     });
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
-    const sys = sysText(body);
+    const sys = sysText(body.system);
     expect(/REGRA DE CONCISÃO/i.test(sys)).toBe(true);
     expect(/NUNCA REPETIR EXPLICAÇÃO JÁ DADA/i.test(sys)).toBe(true);
     expect(/PROIBIDO repetir/i.test(sys)).toBe(true);
