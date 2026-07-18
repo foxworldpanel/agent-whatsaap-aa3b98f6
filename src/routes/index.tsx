@@ -20,8 +20,8 @@ export const Route = createFileRoute("/")({
 
         Roda exatamente isto e cola o resultado sem editar:
         SELECT 
-          jsonb_typeof(modules->'identidade') as tipo_do_valor,
-          modules->'identidade' as valor_completo_identidade
+          jsonb_typeof(modules-&gt;'identidade') as tipo_do_valor,
+          modules-&gt;'identidade' as valor_completo_identidade
         FROM agent_config 
         WHERE workspace_id = 'bd59fa41-d68d-4ac8-b995-e09ae48f52aa';
 
@@ -30,6 +30,7 @@ export const Route = createFileRoute("/")({
         NÃO aplica nenhuma correção ainda — só mostra o resultado exato dessa query.
       </div>
     );
+
 
 
   },
