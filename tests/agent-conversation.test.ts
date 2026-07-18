@@ -757,11 +757,12 @@ describe('10) "Não é golpe?" e afins — objeção, nunca encerramento', () =>
   ];
 
   it("prompt distingue recusa real de objeção com '?'", () => {
-    const prompt = buildSystemPrompt({
+    const promptRaw = buildSystemPrompt({
       agent: baseAgent(),
       contact: baseContact(),
       history: [],
     });
+    const prompt = extractSystemText(promptRaw as any);
     expect(
       /termine com "\?"|termina com "\?"/i.test(prompt),
       "FALHOU: prompt não menciona a distinção por ponto de interrogação",
