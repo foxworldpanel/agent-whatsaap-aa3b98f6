@@ -474,7 +474,7 @@ const ESSENTIAL_MODULES = [
 
 // Mapa de gatilhos → módulos relevantes
 const MODULE_TRIGGERS: Array<{ rx: RegExp; modules: string[] }> = [
-  { rx: /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly|m[uú]sica|artista|soundon/i, modules: ["spotify", "musica_cliente"] },
+  { rx: /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly|m[uú]sica|artista|soundon/i, modules: ["spotify"] },
   { rx: /youtube|yt|inscritos?|view(s|er)?|monetiza|4000h|shorts?/i, modules: ["youtube"] },
   { rx: /instagram|insta|\big\b|reels?|stories?|seguidor/i, modules: ["instagram"] },
   { rx: /tiktok|tt\b/i, modules: ["tiktok"] },
