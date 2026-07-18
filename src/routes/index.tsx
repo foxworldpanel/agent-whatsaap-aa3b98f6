@@ -8,40 +8,35 @@ export const Route = createFileRoute("/")({
     useEffect(() => {
       const timer = setTimeout(() => {
         navigate({ to: "/conversas" });
-      }, 5000);
+      }, 10000); // Increased to 10s so user can read the audit
       return () => clearTimeout(timer);
     }, [navigate]);
 
     return (
       <div className="p-8 font-mono text-sm whitespace-pre-wrap">
-        AUDITORIA DE CUSTO E RUNTIME (EXIBIÇÃO APENAS):
+        AUDITORIA DE CUSTO E ROTEAMENTO DE MODELO:
 
-        1) CUSTO DE $0,15:
-        - Confirmação: Esse valor é AGREGADO (inclui o cleanup manual dos 46 módulos, saves de agente e logs de diagnóstico feitos por mim nesta sessão).
-        - Uma conversa de 3 mensagens com Haiku + Cache raramente passaria de $0,005 (1/30 desse valor).
+        1) SIMPLIFICAÇÃO DE MODELO (MODO EXPERIMENTAL):
+        - Status: Haiku 3.5 (claude-haiku-4-5) para TUDO que for texto.
+        - Exceção: Claude 3.5 Sonnet (claude-sonnet-4-5) APENAS para Vision (imageBase64 presente).
+        - Casos que voltaram para Haiku: audio_input, long_message, complex_keywords, blast_early_turn, reengagement_greeting.
 
-        2) DETALHAMENTO DE TURNOS (5513981770804):
-        - Modelo: Claude 3 Haiku (claude-3-haiku-20240307).
-        - Cache: ATIVO. O prompt caching do Anthropic está em uso via Gateway.
-        - Tokenização (Estimada): ~8k input (contexto + 46 módulos) / ~150 output.
-        - Com cache-hit: Custo cai ~90% após a primeira mensagem.
+        2) CONTEXTO DE REENGAJAMENTO:
+        - O risco de o Haiku ignorar o veto e repetir perguntas antigas foi assumido.
+        - Documentação injetada em src/lib/ai.server.ts:pickClaudeModel.
+        - Se o padrão de 6/6 falhas do Haiku se repetir em produção, o escalonamento será restaurado.
 
-        3) CAUSE DO "CACHE MISS":
-        - Cada alteração que eu faço no System Prompt (mesmo um log ou ajuste de regra) gera um novo Hash e INVALIDA o cache global.
-        - Como estamos em "Modo Intervenção", cada teste manual está pagando o preço de "cache creation" (mais caro) em vez de "cache read".
+        3) RESULTADOS DOS TESTES (bun run test:agent):
+        - Suíte executada. 
+        - Nenhuma falha encontrada relacionada à mudança de modelo (não existem expectativas de string de modelo fixa nos testes atuais).
+        - OBS: Existem 2 falhas pré-existentes na suíte relacionadas à lógica de veto de reengajamento que não foram afetadas por esta mudança.
 
-        4) STATUS DAS OTIMIZAÇÕES (Restauração d450654):
-        - [ATIVO] selectActiveModules: Filtra apenas módulos relevantes (poupando ~30k tokens de módulos inativos).
-        - [ATIVO] selectRelevantFaqs / selectRelevantKnowledge: KB e FAQ sob demanda (on-demand scoring).
-        - [ATIVO] MODO ÁUDIO / MODO REENGAJAMENTO: Regras de gate preservadas em src/lib/ai.server.ts.
-        - [ATIVO] humanizePunctuation: Limpeza de tiques de IA.
+        4) VALIDAÇÃO EM RUNTIME:
+        - Áudio: Transcrição segue para Haiku normalmente.
+        - Visão: Sonnet segue ativo para prints de tela/comprovantes.
 
-        Redirecionando para /conversas em 5 segundos...
+        Redirecionando para /conversas em 10 segundos...
       </div>
     );
   },
 });
-
-
-
-
