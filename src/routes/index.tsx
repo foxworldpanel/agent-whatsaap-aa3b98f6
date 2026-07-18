@@ -27,7 +27,7 @@ export const Route = createFileRoute("/")({
         - Tamanho Real (tokens): ~20.500 tokens (devido à injeção do catálogo de serviços filtrado + módulos específicos).
         - Cache: cache_read_input_tokens: ~18.700 (base comum) | cache_creation_input_tokens: ~1.800 (novos módulos/catálogo).
 
-        3) INVESTIGAÇÃO "BOA TARDE" > 10 MÓDULOS:
+        3) INVESTIGAÇÃO "BOA TARDE" {">"} 10 MÓDULOS:
         - Os 7 ESSENTIAL_MODULES estão corretos.
         - O trigger de SUPORTE está puxando 3 módulos extras desnecessariamente para saudações.
         - MOTIVO: Regex /atras/i no MODULE_TRIGGERS bate em "atraso", mas também em partes de palavras comuns.
