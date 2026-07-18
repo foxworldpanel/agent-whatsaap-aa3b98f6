@@ -23,8 +23,8 @@ export default function Index() {
         - reengagement (Sonnet): 1 chamada | Dur: 1.8s | Custo: ~R$ 0,05 (prompt limpo)
 
         2) DISTRIBUIÇÃO DE INTERVALO:
-        - < 5 min (Cache Quente): 37% das mensagens (conversa ativa)
-        - > 5 min (Cache Expirado): 63% das mensagens (gap de resposta ou hiato natural)
+        - Mensagens abaixo de 5 min (Cache Quente): 37% (conversa ativa)
+        - Mensagens acima de 5 min (Cache Expirado): 63% (gap de resposta)
 
         3) IMPACTO DE EDICÕES DE CÓDIGO:
         - Prompt Invalidation: Mínima. Não foram detectados salvamentos manuais de módulos hoje. As edições de código afetaram o runtime, mas o system prompt manteve estabilidade estrutural.
