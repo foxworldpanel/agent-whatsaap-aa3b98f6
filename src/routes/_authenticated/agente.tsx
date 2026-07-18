@@ -52,7 +52,7 @@ function AgentePage() {
   }, [configQ.data]);
 
   const saveMut = useMutation({
-    mutationFn: (data: { modules: Record<string, string> }) => saveModules(data),
+    mutationFn: (data: { modules: Record<string, string> }) => saveModules({ data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agent_config"] });
       toast.success("Configurações do agente salvas com sucesso!");
