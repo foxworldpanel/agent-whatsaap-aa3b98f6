@@ -201,7 +201,7 @@ Regras:
 `,
 
   regras_gerais: `MÓDULO REGRAS GERAIS ABSOLUTAS
-- Siga o catálogo real, respostas curtas, uma pergunta por vez e foco em conversão.
+- Siga a 'tabela_precos', respostas curtas, uma pergunta por vez e foco em conversão.
 `,
 
   follow_up: `MÓDULO FOLLOW-UP INTELIGENTE
