@@ -98,7 +98,11 @@ function sysText(body: { system: string | Array<{ text?: string; type?: string }
   const s = body.system;
   if (typeof s === "string") return s;
   if (Array.isArray(s)) {
-    return s.map((b) => (typeof b === "string" ? b : b?.text ?? "")).join("\n");
+    return s.map((b) => {
+      if (typeof b === "string") return b;
+      if (typeof b === "object" && b !== null && "text" in b) return b.text ?? "";
+      return "";
+    }).join("\n");
   }
   return "";
 }
