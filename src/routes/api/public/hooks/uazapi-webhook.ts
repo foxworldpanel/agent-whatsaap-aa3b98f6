@@ -2813,93 +2813,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           freeTestServices = (ftsRows ?? []) as typeof freeTestServices;
         }
 
-        // Catálogo SMM fixo (cache no Supabase). Sem chamada externa por mensagem.
-        // Toggles do agente controlam se é incluído no prompt e se é filtrado por assunto.
-        let servicesContext: string | null = null;
-        let all: any[] = [];
-        const servicesFetchFailed = false;
-        const a0 = agent as { catalog_in_prompt?: boolean; catalog_only_relevant?: boolean };
-        const catalogInPrompt = a0.catalog_in_prompt !== false; // default true
-        const onlyRelevant = a0.catalog_only_relevant !== false; // default true
-        if (catalogInPrompt) {
-          try {
-            const { data: cacheRows } = await supabaseAdmin
-              .from("catalog_cache")
-              .select("service_id, nome, categoria, preco_por_1000, minimo, maximo")
-              .eq("user_id", userId)
-              .eq("hidden", false)
-              .limit(500);
-            all = (cacheRows ?? []).map((r) => ({
+        // Catálogo dinâmico removido (v1). Agora o agente utiliza o módulo 'tabela_precos' manual.
+        const servicesContext: string | null = null;
 
-              service: r.service_id as string,
-              name: (r.nome as string) ?? "",
-              category: (r.categoria as string) ?? "",
-              rate: String(r.preco_por_1000 ?? 0),
-              min: String(r.minimo ?? 0),
-              max: String(r.maximo ?? 0),
-            }));
-            if (all.length > 0) {
-              const platforms: Array<{ key: string; label: string; rx: RegExp }> = [
-                { key: "spotify", label: "SPOTIFY", rx: /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly/i },
-                { key: "instagram", label: "INSTAGRAM", rx: /instagram|insta|reels?|stories?/i },
-                { key: "youtube", label: "YOUTUBE", rx: /youtube|yt\b|inscritos?|view(s|er)?|monetiza|shorts?/i },
-                { key: "tiktok", label: "TIKTOK", rx: /tiktok|tt\b/i },
-                { key: "kwai", label: "KWAI", rx: /kwai/i },
-                { key: "facebook", label: "FACEBOOK", rx: /facebook|fb\b|\bface\b/i },
-              ];
-              // Match por mensagem atual + fallback por CONTEXTO da conversa.
-              // Motivo: msgs curtas ("bom dia", "pode sim") não casam nenhuma
-              // plataforma e caía o catálogo inteiro. Se em qualquer turno
-              // anterior (agente OU cliente) uma plataforma foi mencionada,
-              // reaproveita esse contexto. A plataforma mais RECENTE tem
-              // prioridade — se o cliente mudar de Instagram → Spotify no
-              // meio da conversa, o filtro segue a mudança.
-              const lowerText = (text ?? "").toLowerCase();
-              let matched = platforms.filter((p) => p.rx.test(lowerText));
-              let matchSource: "current_msg" | "history" | "none" = matched.length > 0 ? "current_msg" : "none";
-              if (matched.length === 0) {
-                const recentHistory = (history ?? []) as Array<{ body: string }>;
-                // Varre do mais recente pro mais antigo — 1ª plataforma que
-                // aparecer vence (mais recente = intenção mais atual).
-                for (let i = recentHistory.length - 1; i >= 0 && matched.length === 0; i--) {
-                  const line = (recentHistory[i]?.body ?? "").toLowerCase();
-                  matched = platforms.filter((p) => p.rx.test(line));
-                  if (matched.length > 0) matchSource = "history";
-                }
-              }
-              let services = all;
-              const spotifyMatch = /spotify|playlist|plays?|ouvintes?|listeners?|saves?|streams?|monthly/i.test(lowerText);
-              
-              if (onlyRelevant && matched.length > 0) {
-                services = all.filter((s) =>
-                  matched.some((p) => new RegExp(p.key, "i").test(`${s.name} ${s.category}`)),
-                );
-              } else if (spotifyMatch) {
-                // Forçar serviços de Spotify se a mensagem for sobre música mas não casar regex rígida
-                services = all.filter(s => /spotify/i.test(`${s.name} ${s.category}`));
-              }
-              // Cap dinâmico: quando não há match nenhum (contexto vago),
-              // manda só uma amostra representativa (60) em vez de despejar
-              // 200 serviços — economia de ~4-5k tokens por chamada. Quando
-              // há match, mantém cap alto pra não perder variações da rede.
-              const cap = matched.length > 0 ? 200 : 60;
-              const baseList = services
-                .slice(0, cap)
-                .map((s) => `ID: ${s.service} | Nome: ${s.name} | Categoria: ${s.category} | Preço por 1000: R$${s.rate} | MÍNIMO: ${s.min} | MÁXIMO: ${s.max}`)
-                .join("\n");
-              servicesContext = `${baseList}\n\nREGRA: SEMPRE consulte o campo MÍNIMO do catálogo acima antes de responder qualquer quantidade. NUNCA arredonde o mínimo.`;
-              try {
-                const { logEvent } = await import("@/lib/agent-logger.server");
-                const usedCount = Math.min(services.length, cap);
-                await logEvent({ userId, phone, conversationId: conv.id, type: "smm_services", level: "info", summary: `💰 Catálogo cache: ${usedCount}/${all.length}${matched.length > 0 ? ` (filtrado: ${matched.map((p) => p.label).join(",")} via ${matchSource})` : ` (sem match, cap=${cap})`}`, metadata: { used: usedCount, total: all.length, cap, onlyRelevant, matched: matched.map((p) => p.key), matchSource } });
-              } catch {}
-            } else {
-              console.warn("[catalog_cache] vazio — usuário precisa sincronizar pelo painel do agente");
-            }
-          } catch (e) {
-            console.error("catalog_cache load failed", e);
-          }
-        }
 
         let reply: string;
         try {
