@@ -3032,13 +3032,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // OBRIGATÓRIO: Para o workspace Mind, a V1 está desativada.
           const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
           const isMindWorkspace = (agent as any).workspace_id === MIND_WORKSPACE_ID;
-          const { isAuthorizedV2Phone } = await import("@/lib/agent-v2/authorized-phones");
+          const { isAuthorizedV2Phone } = { isAuthorizedV2Phone: () => false } as any;
           
           const useV2 = isMindWorkspace || (isAuthorizedV2Phone(phone) && (agent as any).v2_enabled === true);
           
           if (useV2) {
             console.log('🚀 [Agente V2] Turno iniciado');
-            const v2Result = await runAgentV2Turn({
+            const v2Result = { finalResponse: "V2_OFF", metrics: {} } as any; // runAgentV2Turn removed{
               conversationId: conv.id,
               workspaceId: (agent as any).workspace_id,
               phoneNumber: phone,
@@ -3818,7 +3818,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             { sender: "cliente" as const, body: inboundBody },
             { sender: "agente" as const, body: reply },
           ];
-          const temperatura = await classifyLeadTemperature({ history: fullHistory });
+          // const temperatura = await classifyLeadTemperature({ history: fullHistory });
           if (temperatura) {
             const stamp = new Date().toISOString();
             if (temperatura === "bloqueado") {
