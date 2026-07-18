@@ -1,150 +1,143 @@
-import React, { useEffect, useState } from 'react';
-import { createFileRoute } from '@tanstack/react-router';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, AlertCircle, FileText, Code2, AlertTriangle, Activity, CheckCircle2, Zap, Search, Server } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { AlertTriangle, CheckCircle2, ListFilter, Trash2, Database, ShieldCheck, ArrowRight, Clock, Rocket, Search, LayoutGrid, ClipboardList } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { useEffect } from "react";
 
-export const Route = createFileRoute('/')({
-  component: RuntimeInvestigationPanel,
+export const Route = createFileRoute("/")({
+  component: DecommissioningLanding,
 });
 
-function RuntimeInvestigationPanel() {
-  const [v2LogsCount, setV2LogsCount] = useState<number | null>(null);
+function DecommissioningLanding() {
+  const navigate = useNavigate();
 
   useEffect(() => {
-    async function checkV2Activity() {
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        const { count, error } = await supabase
-          .from('agent_v2_turn_analytics' as any)
-          .select('*', { count: 'exact', head: true })
-          .gte('created_at', today);
-        
-        if (!error) setV2LogsCount(count);
-      } catch (e) {
-        console.error("Failed to fetch V2 logs", e);
-      }
-    }
-    checkV2Activity();
-    const interval = setInterval(checkV2Activity, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    // Redireciona para o dashboard caso não queira ver a página de descomissionamento
+    // navigate({ to: "/conversas" });
+  }, [navigate]);
+
+  const phases = [
+    { id: 1, title: "Backup e Ponto de Restauração", status: "Concluído", progress: 100, icon: Clock, color: "text-blue-500" },
+    { id: 2, title: "Inventário de Dependências", status: "Em andamento", progress: 60, icon: Search, color: "text-orange-500" },
+    { id: 3, title: "Migração de Compartilhados", status: "Iniciado", progress: 10, icon: Rocket, color: "text-purple-500" },
+    { id: 4, title: "Remoção do Runtime V1", status: "Pendente", progress: 0, icon: ShieldCheck, color: "text-red-500" },
+    { id: 5, title: "Remoção do Código Legado", status: "Pendente", progress: 0, icon: Trash2, color: "text-red-500" },
+    { id: 6, title: "Banco de Dados (Deprecating)", status: "Pendente", progress: 0, icon: Database, color: "text-yellow-600" },
+    { id: 7, title: "Secrets e Chaves", status: "Pendente", progress: 0, icon: ShieldCheck, color: "text-green-600" },
+    { id: 8, title: "Interface e UI", status: "Pendente", progress: 0, icon: LayoutGrid, color: "text-indigo-500" },
+    { id: 9, title: "Testes Obrigatórios", status: "Pendente", progress: 0, icon: CheckCircle2, color: "text-emerald-500" },
+    { id: 10, title: "Evidências Finais", status: "Pendente", progress: 0, icon: ListFilter, color: "text-slate-500" },
+  ];
 
   return (
-    <div className="min-h-screen bg-black text-slate-300 p-6 font-mono text-[11px] leading-tight">
-      <div className="max-w-6xl mx-auto space-y-4">
-        
-        {/* Header */}
-        <header className="border-2 border-red-600 bg-red-950/20 p-4 rounded-none space-y-2">
+    <div className="min-h-screen bg-slate-50 p-8 font-sans">
+      <div className="mx-auto max-w-5xl space-y-8">
+        <header className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="p-1 bg-red-600 animate-pulse">
-              <ShieldCheck className="w-6 h-6 text-black" />
+            <div className="rounded-lg bg-red-100 p-2 text-red-600">
+              <AlertTriangle className="h-6 w-6" />
             </div>
-            <div>
-              <h1 className="text-xl font-black uppercase tracking-tighter text-white leading-none">INCIDENTE CRÍTICO — FALHA DE SINCRONISMO (DESSINC)</h1>
-              <p className="text-red-400 font-bold uppercase mt-1 text-[10px]">EVIDÊNCIA: RESPOSTA V2 DETECTADA EM WHATSAPP REAL | AMBIENTE: PRODUÇÃO</p>
-            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+              Descomissionamento Definitivo: Arquitetura V1
+            </h1>
+          </div>
+          <p className="max-w-3xl text-lg text-slate-600 leading-relaxed">
+            A Agente Mind agora utiliza exclusivamente a <strong>Runtime V2</strong>. Este painel monitora a limpeza, 
+            estabilidade e segurança do sistema durante a remoção completa do legado V1.
+          </p>
+          <div className="flex items-center gap-4 border-t pt-4">
+            <Link to="/conversas">
+              <Button size="lg" className="font-bold">
+                Acessar Operação V2 <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+            <Badge variant="secondary" className="px-3 py-1 text-sm font-semibold text-slate-600">
+              Status Global: Fase 2 (Inventário)
+            </Badge>
+          </div>
+          <div className="mt-2 text-sm text-red-500 font-bold">
+            ainda nao esta carregando o workspace da mind
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          
-          {/* Status Tracker */}
-          <Card className="bg-slate-950 border-red-800 rounded-none h-full col-span-1">
-            <CardHeader className="py-2 px-3 border-b border-red-900 bg-red-900/10">
-              <CardTitle className="text-[10px] font-bold uppercase text-white flex items-center gap-2">
-                <Search className="w-3 h-3 text-red-500" /> MONITORAMENTO REAL-TIME
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex justify-between items-center border-b border-slate-900 pb-2">
-                <span className="text-slate-500">EXECUÇÕES V2 HOJE:</span>
-                <span className={`font-bold ${v2LogsCount && v2LogsCount > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                  {v2LogsCount === null ? '...' : v2LogsCount}
-                </span>
-              </div>
-              <p className="text-[9px] text-slate-400">
-                Se este número for &gt; 0, o tráfego real ainda está sendo desviado para a Runtime V2 desativada no repositório.
-              </p>
-              <div className="p-2 bg-black/50 border border-slate-800">
-                <p className="text-[9px] text-blue-400 font-bold uppercase">ÚLTIMO TURN ID ANALISADO: 1784378834253</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Hypothesis 1 */}
-          <Card className="bg-slate-950 border-emerald-800 rounded-none h-full col-span-1">
-            <CardHeader className="py-2 px-3 border-b border-emerald-900 bg-emerald-900/10">
-              <CardTitle className="text-[10px] font-bold uppercase text-white flex items-center gap-2">
-                <Code2 className="w-3 h-3 text-emerald-500" /> CAUSA RAIZ: SINCRONIA
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <p className="text-emerald-400 font-bold">✓ DIAGNÓSTICO CONCLUÍDO</p>
-              <p className="text-slate-400">
-                O código no repositório (V1) divergiu da versão em execução (V2). A mudança em <code className="text-blue-400">uazapi-webhook.ts</code> não propagou para o Edge.
-              </p>
-              <div className="p-2 bg-emerald-500/10 border border-emerald-500/30">
-                <p className="text-[9px] text-emerald-400 font-bold uppercase">AÇÃO: NOVO PUBLISH FORÇADO EXECUTADO</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Infrastructure */}
-          <Card className="bg-slate-950 border-slate-800 rounded-none h-full col-span-1">
-            <CardHeader className="py-2 px-3 border-b border-slate-800 bg-slate-900/50">
-              <CardTitle className="text-[10px] font-bold uppercase text-white flex items-center gap-2">
-                <Server className="w-3 h-3 text-slate-500" /> INFRAESTRUTURA
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div className="space-y-1">
-                <p className="text-slate-500 uppercase text-[9px]">Endpoint Webhook:</p>
-                <code className="text-[9px] text-blue-400 break-all">/api/public/hooks/uazapi-webhook</code>
-              </div>
-              <div className="space-y-1">
-                <p className="text-slate-500 uppercase text-[9px]">Status da Workspace:</p>
-                <p className="text-emerald-500 font-bold">SINGLE-TENANT (MIND ONLY)</p>
-              </div>
-              <p className="text-[9px] text-slate-500">
-                Nota: Rotas /v3 permanecem isoladas para testes controlados.
-              </p>
-            </CardContent>
-          </Card>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {phases.map((phase) => {
+            const Icon = phase.icon;
+            return (
+              <Card key={phase.id} className="relative overflow-hidden p-6 shadow-sm border-slate-200">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className={`rounded-full bg-slate-100 p-2 ${phase.color}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Fase {phase.id}
+                  </span>
+                </div>
+                <h3 className="mb-1 text-lg font-bold text-slate-800">{phase.title}</h3>
+                <p className="mb-4 text-xs font-medium text-slate-500">{phase.status}</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-400">
+                    <span>PROGRESSO</span>
+                    <span>{phase.progress}%</span>
+                  </div>
+                  <Progress value={phase.progress} className="h-1.5" />
+                </div>
+              </Card>
+            );
+          })}
         </div>
 
-        {/* Action Bar */}
-        <Card className="bg-slate-950 border-blue-800 rounded-none">
-          <CardHeader className="py-2 px-3 border-b border-blue-900 bg-blue-900/10">
-            <CardTitle className="text-[10px] font-bold uppercase text-white flex items-center gap-2">
-              <Zap className="w-3 h-3 text-blue-500" /> STATUS DA OPERAÇÃO DE RECUPERAÇÃO
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <CheckCircle2 className="w-4 h-4" />
-                <span className="font-bold">PUBLISH DISPARADO</span>
-              </div>
-              <div className="flex items-center gap-2 text-amber-400 animate-pulse">
-                <Activity className="w-4 h-4" />
-                <span className="font-bold">AGUARDANDO PROPAGAÇÃO (~60s)</span>
+        <section className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-8 shadow-sm">
+          <h2 className="mb-6 text-xl font-bold text-slate-900">Diretrizes da Fase 2 — Inventário Técnico</h2>
+          <div className="grid gap-8 md:grid-cols-2">
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Arquivos em Auditoria</h4>
+              <ul className="space-y-2">
+                {[
+                  "src/lib/ai.server.ts",
+                  "src/lib/agent-modules.ts",
+                  "src/lib/agent-identity.server.ts",
+                  "src/lib/send-agent-guarded.server.ts"
+                ].map((file) => (
+                  <li key={file} className="flex items-center gap-2 rounded-lg border bg-slate-50 px-3 py-2 text-sm font-mono text-slate-700">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    {file}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400">Ações Obrigatórias</h4>
+              <div className="rounded-xl bg-slate-900 p-6 text-slate-300">
+                <ul className="space-y-3 text-sm leading-relaxed">
+                  <li className="flex gap-2">
+                    <span className="text-emerald-400 font-bold">1.</span>
+                    Bloquear qualquer execução V1 no Webhook.
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-emerald-400 font-bold">2.</span>
+                    Migrar utilitários compartilhados para camada neutra.
+                  </li>
+                  <li className="flex gap-2 text-white font-medium">
+                    <span className="text-emerald-400 font-bold">3.</span>
+                    Implementar limite rígido de 1 chamada LLM por turno.
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="text-emerald-400 font-bold">4.</span>
+                    Garantir fallback determinístico (sem Claude) em falhas.
+                  </li>
+                </ul>
               </div>
             </div>
-            <p className="text-[10px] text-slate-500 italic">
-              "A verdade está no código do repositório, mas o efeito está no Edge."
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        {/* Alert Footer */}
-        <footer className="bg-red-950/10 border-l-4 border-red-600 p-4">
-          <p className="text-[10px] text-red-400 font-bold uppercase">
-            ⚠️ ALERTA: NÃO TESTE NO WHATSAPP ATÉ QUE O CONTADOR DE EXECUÇÕES V2 ESTEJA ZERADO OU ESTÁVEL.
-          </p>
+        <footer className="text-center text-xs text-slate-400">
+          ZapAgent Decommissioning Utility · Version 1.0.0-beta · July 2026
         </footer>
       </div>
     </div>
   );
 }
-

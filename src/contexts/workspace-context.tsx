@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { listWorkspaces } from "@/lib/workspaces.functions";
-import { MIND_WORKSPACE_ID } from "@/lib/tenant-config";
 
 export type Workspace = {
   id: string;
@@ -15,7 +14,7 @@ export type Workspace = {
 };
 
 type WorkspaceContextValue = {
-  activeWorkspaceId: string;
+  activeWorkspaceId: string | null;
   activeWorkspace: Workspace | null;
   workspaces: Workspace[];
   isLoading: boolean;
@@ -24,20 +23,31 @@ type WorkspaceContextValue = {
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+const STORAGE_KEY = "lovable.activeWorkspaceId";
+
+function readStored(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Global getter used by the client function middleware to attach the
- * x-workspace-id header to every server function call.
- * This is now hardcoded to the Mind workspace ID.
+ * x-workspace-id header to every server function call. Reads from localStorage
+ * so it works even outside React (middleware runs before providers mount).
  */
-export function getActiveWorkspaceIdFromStorage(): string {
-  return MIND_WORKSPACE_ID;
+export function getActiveWorkspaceIdFromStorage(): string | null {
+  return readStored();
 }
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const fetchWorkspaces = useServerFn(listWorkspaces);
   const [hasSession, setHasSession] = useState(false);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(() => readStored());
 
   useEffect(() => {
     let mounted = true;
@@ -57,24 +67,73 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     queryKey: ["workspaces"],
     queryFn: () => fetchWorkspaces(),
     enabled: hasSession,
-    staleTime: Infinity, // Single-tenant workspace list rarely changes
+    staleTime: 30_000,
   });
 
   const workspaces = (workspacesQ.data ?? []) as Workspace[];
-  const activeWorkspace = workspaces.find((w) => w.id === MIND_WORKSPACE_ID) ?? null;
+
+  // Ensure activeWorkspaceId is valid; fall back to default.
+  useEffect(() => {
+    if (!workspaces.length) return;
+    
+    // Check if we have a Mind workspace available
+    const mindWorkspace = workspaces.find((w) => /mind/i.test(w.nome));
+    const stored = activeWorkspaceId;
+    const currentIsValid = stored && workspaces.some((w) => w.id === stored);
+
+    // If no workspace is active, or if we found a Mind workspace and it's not the active one
+    // (This forces the "Mind" workspace to be active if it exists for the user)
+    if (mindWorkspace && activeWorkspaceId !== mindWorkspace.id) {
+      console.log(`[WorkspaceContext] Switching to Mind workspace: ${mindWorkspace.id}`);
+      setActiveWorkspaceId(mindWorkspace.id);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, mindWorkspace.id);
+      } catch (err) {
+        console.error("[WorkspaceContext] Failed to store activeWorkspaceId", err);
+      }
+      void qc.invalidateQueries({ refetchType: "all" });
+      return;
+    }
+
+    if (!currentIsValid) {
+      // Prioritize Mind workspace if found, otherwise default, otherwise first.
+      const def = mindWorkspace ?? workspaces.find((w) => w.is_default) ?? workspaces[0];
+      if (def) {
+        console.log(`[WorkspaceContext] Falling back to default workspace: ${def.id}`);
+        setActiveWorkspaceId(def.id);
+        try {
+          window.localStorage.setItem(STORAGE_KEY, def.id);
+        } catch (err) {
+          console.error("[WorkspaceContext] Failed to store activeWorkspaceId", err);
+        }
+        void qc.invalidateQueries({ refetchType: "all" });
+      }
+    }
+  }, [workspaces, activeWorkspaceId, qc]);
 
   const switchWorkspace = useCallback(
-    (_id: string) => {
-      // In single-tenant mode, switching is disabled or forced to Mind
-      console.log("[WorkspaceContext] switchWorkspace called but ignored (Single-Tenant Mode)");
+    (id: string) => {
+      if (id === activeWorkspaceId) return;
+      setActiveWorkspaceId(id);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, id);
+      } catch {
+        /* ignore */
+      }
+      // Mark all active queries stale and refetch them with the new
+      // x-workspace-id header. Do NOT removeQueries() first — that detaches
+      // observers and leaves nothing to invalidate/refetch.
+      void qc.invalidateQueries({ refetchType: "all" });
     },
-    [],
+    [activeWorkspaceId, qc],
   );
+
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
 
   return (
     <WorkspaceContext.Provider
       value={{
-        activeWorkspaceId: MIND_WORKSPACE_ID,
+        activeWorkspaceId,
         activeWorkspace,
         workspaces,
         isLoading: workspacesQ.isLoading,
