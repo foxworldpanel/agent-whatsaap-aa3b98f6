@@ -1,5 +1,5 @@
 // Server-only Claude (Anthropic) call to generate the agent reply.
-import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks, mergeIdentity, type AgentBrandBlocks } from "@/lib/agent-identity.server";
+import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks, mergeIdentity, buildRegraPlaylistsInfoDiretaBlock, type AgentBrandBlocks } from "@/lib/agent-identity.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
 import { selectRelevantKnowledge } from "@/lib/kb-relevance";
 
@@ -595,24 +595,45 @@ type BuildPromptParams = {
    * aqui é usado por testes/diagnóstico pra injetar o template Mind.
    */
   brandBlocks?: AgentBrandBlocks | null;
+  dailyPromoText?: string | null;
+  playlistCatalog?: {
+    ecletica?: string[] | null;
+    eletronica?: string[] | null;
+  } | null;
 };
 
-export function buildSystemPrompt(params: BuildPromptParams): string {
-  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], identity, brandBlocks = null } = params;
-  // Nota: buildSystemPrompt é síncrono (só usado por diagnostics como preview).
-  // O prompt real de produção usa generateAgentReplyWithMeta, que carrega
-  // a identidade do banco. Aqui usamos defaults + `buildSharedRules` sem I/O.
+export function buildSystemPrompt(params: BuildPromptParams): string | Array<{ text: string; cache_control?: { type: "ephemeral" } }> {
+  const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices = [], identity, brandBlocks = null, dailyPromoText = null, playlistCatalog = null } = params;
   const effectiveBlastPreview = !isInbound || historyLooksLikeBlast(history);
+
+  // Bloco 1: Estável
   const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), {
     freeTestServices,
     brandBlocks,
-    // Espelha o gate do runtime real (generateAgentReplyWithMeta): só expõe o
-    // EXEMPLO_MODELO_DISPARO quando a conversa é efetivamente disparo.
-    suppressExemploDisparo: !effectiveBlastPreview,
+    suppressExemploDisparo: true,
   });
+
+  // Bloco 2: Dinâmico
   const latestClientMessage = getLatestClientMessage(history);
-  const system = [
-    sharedRules,
+  
+  const playlistBlock = (() => {
+    if (!playlistCatalog) return "";
+    const { buildRegraPlaylistsInfoDiretaBlock } = require("./agent-identity.server");
+    return buildRegraPlaylistsInfoDiretaBlock(playlistCatalog);
+  })();
+
+  const promoBlock = (() => {
+    const t = (dailyPromoText ?? "").trim();
+    if (!t) return "";
+    return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta.`;
+  })();
+
+  const dynamicSystem = [
+    playlistBlock,
+    promoBlock,
+    effectiveBlastPreview
+      ? buildSharedRules(mergeIdentity(identity ?? null), { suppressExemploDisparo: false }).split("EXEMPLO_MODELO_DISPARO")[1] || ""
+      : "",
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
     effectiveBlastPreview
@@ -639,6 +660,7 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
     (() => {
       const faqs = agent.faqs as Array<{ q: string; a: string }> | null | undefined;
       if (!Array.isArray(faqs) || faqs.length === 0) return "";
+      const { selectRelevantFaqs } = require("./ai.server"); // avoid circular or use local if possible
       const sel = selectRelevantFaqs(faqs as Array<{ q: string; a: string }>, latestClientMessage);
       if (sel.length === 0) return "";
       return `FAQ (${sel.length}/${faqs.length}):\n${sel.map((f: { q: string; a: string }) => `- ${f.q} → ${f.a}`).join("\n")}`;
@@ -656,12 +678,12 @@ export function buildSystemPrompt(params: BuildPromptParams): string {
       ? `TESTE GRÁTIS DISPONÍVEL (${freeTestServices.length} serviços):\n${freeTestServices.map((s) => `- ${s.service_name} (${s.category}) — ${s.quantity} grátis`).join("\n")}`
       : "",
     `Perfil do contato: ${contact.perfil}.${isInbound ? " Atendimento receptivo." : ""}${funnelAlreadySent ? " Funil de boas-vindas já enviado." : ""}`,
-    // Split e emoji: fonte única é identity.regra_split / identity.regra_emoji
-    // via buildSharedRules (não duplicar aqui).
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-  return system;
+  ].filter(Boolean);
+
+  return [
+    { text: sharedRules, cache_control: { type: "ephemeral" } },
+    { text: dynamicSystem.join("\n\n") }
+  ];
 }
 
 export async function generateAgentReply(params: {
@@ -878,28 +900,34 @@ export async function generateAgentReplyWithMeta(params: {
   const inboundReengagementVeto = !effectiveBlast && reengagementGreeting;
   const anyReengagementVeto = blastReengagementVeto || inboundReengagementVeto;
 
-  // BLOCO 1 — ESTÁVEL (Identidade, Regras, Tabela de Preços, Promoções, Catálogo)
+  // BLOCO 1 — ESTÁVEL (Identidade, Regras, Tabela de Preços)
   // Este bloco é marcado com cache_control: ephemeral e deve ser 100% idêntico entre conversas.
   const systemBlock1 = buildSharedRules(identity, {
     freeTestServices,
     brandBlocks,
-    dailyPromoText,
-    playlistCatalog,
-    // Em produção, suprimimos o exemplo few-shot do bloco estável para manter a 
-    // string idêntica em todas as chamadas de suporte/venda orgânica.
-    suppressExemploDisparo: true, // SEMPRE suprimir no Bloco 1 para estabilidade de cache
+    // Em produção, suprimimos o exemplo few-shot, catálogos e promoções do bloco estável 
+    // para manter a string idêntica em todas as chamadas de suporte/venda orgânica.
+    suppressExemploDisparo: true,
   });
 
-  const system: any = [
+  const initialSystemBlocks: any = [
     {
       text: systemBlock1,
       cache_control: { type: "ephemeral" }
     },
-    // BLOCO 2 — DINÂMICO (Vetos, Histórico, Contexto Variável)
+    // BLOCO 2 — DINÂMICO (Vetos, Histórico, Promoções, Catálogo, Contexto Variável)
+    // Injetamos aqui os dados que podem variar entre requisições ou workspaces,
+    // garantindo que o Bloco 1 permaneça 100% estável para hits de cache.
+    playlistCatalog ? buildRegraPlaylistsInfoDiretaBlock(playlistCatalog) : "",
+    (() => {
+      const t = (dailyPromoText ?? "").trim();
+      if (!t) return "";
+      return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta. Se esta promoção não estiver no bloco (bloco ausente do prompt), NUNCA mencione nenhuma promoção — mantém a regra normal de "nunca dar desconto manual".`;
+    })(),
     // Se for efetivamente um disparo, injetamos o EXEMPLO_MODELO_DISPARO aqui (no dinâmico)
     // para não quebrar o cache do Bloco 1 nas conversas orgânicas.
     effectiveBlast
-      ? buildSharedRules(identity, { suppressExemploDisparo: false }).split("EXEMPLO_MODELO_DISPARO")[1] || ""
+      ? buildSharedRules(identity, { suppressExemploDisparo: false })
       : "",
     // Regra de reconhecimento de interesse (fundamental para o Claude decidir avançar ou não)
     identity.reconhecimento_interesse || "",
@@ -1122,10 +1150,16 @@ export async function generateAgentReplyWithMeta(params: {
   });
 
   const contextoDetectado = detectarContexto(latestClientMessage, history);
-  console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(system.length / 4));
+  const systemBlock2 = initialSystemBlocks;
+  const systemLen = Array.isArray(systemBlock2) ? systemBlock2.reduce((acc, curr) => acc + (typeof curr === "string" ? curr.length : (curr.text?.length || 0)), 0) : String(systemBlock2).length;
+  console.info("[agent-ai] Contexto detectado:", contextoDetectado, "| Tokens estimados:", Math.round(systemLen / 4));
 
-  const systemBlock2 = system;
-  const fullSystemFallback = [systemBlock1, systemBlock2].join("\n\n");
+  const fullSystemFallbackInitial = [
+    systemBlock1,
+    ...(Array.isArray(systemBlock2) 
+      ? systemBlock2.map((b: any) => (typeof b === "string" ? b : b.text)) 
+      : [systemBlock2])
+  ].filter(Boolean).join("\n\n");
 
   // ============================================================
   // MÉTRICAS DE PROMPT (baseline pré-refatoração).
@@ -1157,8 +1191,8 @@ export async function generateAgentReplyWithMeta(params: {
     faqsSelectedCount: number; historyCount: number;
     contextoDetectado: string;
   } = {
-    totalChars: system.length,
-    estTokens: Math.round(system.length / 4),
+    totalChars: systemLen,
+    estTokens: Math.round(systemLen / 4),
     kbExamplesCount: knowledgeExamples?.length ?? 0,
     panelScreensCount: panelScreens?.length ?? 0,
     forbiddenRulesCount: forbiddenRules?.length ?? 0,
@@ -1248,23 +1282,41 @@ export async function generateAgentReplyWithMeta(params: {
   }
 
   const claudeStartedAt = Date.now();
+  const system: any[] = [
+    { type: "text", text: String(systemBlock1 || ""), cache_control: { type: "ephemeral" } },
+    ...(Array.isArray(systemBlock2) 
+      ? systemBlock2.map((b: any) => {
+          if (typeof b === "string") return { type: "text", text: b };
+          if (typeof b === 'object' && b !== null) {
+             const txt = b.text || b.content || (typeof b.toString === 'function' ? b.toString() : "");
+             return { type: 'text', text: String(txt) };
+          }
+          return { type: 'text', text: String(b || "") };
+        }) 
+      : (systemBlock2 ? [{ type: "text", text: typeof systemBlock2 === 'string' ? systemBlock2 : String((systemBlock2 as any).text || (systemBlock2 as any).content || "") }] : []))
+  ];
+
+  const fullSystemFallback = system.map((b: any) => b.text).join("\n\n");
+  
+  if (process.env.NODE_ENV === "test") {
+    // Apenas log de depuração minimalista para testes de prompt
+    if (fullSystemFallback.includes("EXEMPLO_MODELO_DISPARO")) {
+       // console.log("[agent-ai] SYSTEM CONTAINS EXEMPLO_MODELO_DISPARO");
+    }
+  }
+
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-api-key": anthropicKey,
       "anthropic-version": "2023-06-01",
+      "anthropic-beta": "prompt-caching-2024-07-31"
     },
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      // Prompt caching: Estrutura em dois blocos para maximizar cache hits.
-      // O Bloco 1 (Estável) recebe cache_control: ephemeral.
-      // O Bloco 2 (Dinâmico) contém as variáveis por mensagem.
-      system: [
-        { type: "text", text: systemBlock1 || "", cache_control: { type: "ephemeral" } },
-        { type: "text", text: Array.isArray(systemBlock2) ? systemBlock2.join("\n\n") : systemBlock2 },
-      ],
+      system,
       messages: finalMessages,
     }),
   });
