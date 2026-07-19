@@ -1273,7 +1273,12 @@ export async function generateAgentReplyWithMeta(params: {
             block.includes("FAQ (") ||
             block.includes("BASE DE CONHECIMENTO MODULAR") ||
             block.includes("REFINAMENTOS DE TOM CONSULTIVO") ||
-            block.includes("GANCHO PROMO DO DIA");
+            block.includes("GANCHO PROMO DO DIA") ||
+            block.includes("EXEMPLO_MODELO_DISPARO") ||
+            block.includes("RECONHECIMENTO DE RESPOSTAS CURTAS") ||
+            block.includes("TESTE GRÁTIS DISPONÍVEL") ||
+            block.includes("IDIOMA DA CONVERSA") ||
+            block.includes("REGRA DE CONCISÃO E ANTI-REPETIÇÃO");
 
           if (isDynamic) dynamicBlocks.push(block);
           else stableBlocks.push(block);
