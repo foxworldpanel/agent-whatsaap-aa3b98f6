@@ -4,7 +4,7 @@ import path from 'path';
 const originalPath = path.join(process.cwd(), 'tests/agent-conversation.test.ts');
 const originalContent = fs.readFileSync(originalPath, 'utf-8');
 
-let newContent = `
+const header = `
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
@@ -73,7 +73,7 @@ async function callAgent(opts: {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\\n\\n");
   return "";
 }
 
@@ -101,10 +101,11 @@ afterEach(() => { vi.unstubAllGlobals?.(); vi.restoreAllMocks(); });
 const describeRegex = /describe\([\s\S]*?\)\s*=>\s*\{[\s\S]*?\n\}\);/g;
 const describes = originalContent.match(describeRegex);
 
+let content = header;
 if (describes) {
   describes.forEach(d => {
-    newContent += "\n" + d;
+    content += "\n" + d;
   });
 }
 
-fs.writeFileSync(path.join(process.cwd(), 'tests/agent-v3-full.test.ts'), newContent);
+fs.writeFileSync(path.join(process.cwd(), 'tests/agent-v3-full.test.ts'), content);
