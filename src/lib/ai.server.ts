@@ -1014,7 +1014,7 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
         .map(([k, v]) => `--- MÓDULO: ${k} ---\n${v}`)
         .join("\n\n")}\n==== FIM DA BASE MODULAR ====`;
     })(),
-    `REGRA #1 (ACIMA DE TUDO): SEMPRE responda exatamente o que o cliente perguntou na ÚLTIMA mensagem. Leia a última mensagem do cliente, entenda o que ele quer saber, e responda ISSO. NUNCA mude de assunto, NUNCA solte explicação genérica sobre a plataforma se o cliente não perguntou. Se perguntou preço → fale de preço. Se cumprimentou → cumprimente de volta. A resposta precisa fazer sentido para a pergunta atual.`,
+    `REGRA #1 (ACIMA DE TUDO): SEMPRE responda exatamente o que o cliente perguntou na ÚLTIMA mensagem. Leia a última mensagem do cliente, entenda o que ele quer saber, e responda ISSO.`,
     knowledgeExamples.length > 0
       ? `==== BASE DE CONHECIMENTO (REFERÊNCIA DE ESTILO) ====\nExemplos reais de atendimentos do dono do negócio. Use APENAS como referência de TOM, TAMANHO e VOCABULÁRIO — NÃO como respostas prontas.\n\nRegras de uso:\n1. NUNCA copie o conteúdo de um exemplo se ele não responder à pergunta atual do cliente.\n2. NUNCA solte um trecho de exemplo "porque parece encaixar" — só use se a pergunta atual realmente bate com a do exemplo.\n3. Se nenhum exemplo se aplica, IGNORE os exemplos e responda a pergunta com suas próprias palavras, mantendo o tom geral.\n4. A pergunta atual do cliente sempre vence sobre qualquer exemplo.\n\nEXEMPLOS:\n${knowledgeExamples
           .map((ex, i) => `--- Exemplo ${i + 1}${ex.context ? ` — contexto: ${ex.context}` : ""} ---\n${ex.content}`)
@@ -1059,24 +1059,27 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
     "",
     "",
     knowledgeExamples.length === 0
-      ? `ESTILO DE ATENDIMENTO (use enquanto não houver exemplos na base de conhecimento):\n- Respostas curtas, 1 a 2 linhas no máximo\n- Linguagem informal, como um vendedor humano no WhatsApp\n- Quando o cliente reclamar, defenda a empresa com educação e explique tecnicamente\n- Quando perguntar quantidade/limite, consulte o catálogo e responda o valor exato\n- Quando pedir desconto, diga que depende da quantidade — nunca negue logo de cara\n- Avance sempre para fechar: cadastro → saldo → escolher serviço → link`
-      : `REGRAS DURAS (valem mesmo com base de conhecimento):\n- Nunca repita literalmente uma mensagem anterior da conversa.\n- Quando o cliente disser SIM, avance — não reexplique o passo anterior.\n- Quando perguntar quantidade/limite, consulte o catálogo e responda o valor exato.`,
+      ? `ESTILO DE ATENDIMENTO:\n- Respostas curtas, 1 a 2 linhas no máximo\n- Linguagem informal\n- Avance sempre para fechar.`
+      : `REGRAS DURAS:\n- Nunca repita literalmente uma mensagem anterior da conversa.\n- Quando perguntar quantidade/limite, consulte o catálogo e responda o valor exato.`,
+
     funnelAlreadySent
-      ? `FUNIL DE BOAS-VINDAS JÁ ENVIADO (CRÍTICO): este cliente já recebeu o funil completo com áudio explicativo, link do painel, vídeo e tabela de serviços. NÃO reexplique como funciona a plataforma. Foque em tirar dúvidas e fechar a venda.\n\nFluxo após o funil:\n- Cliente demonstrou interesse → pergunte qual serviço/plataforma quer\n- Cliente escolheu a plataforma → pergunte a quantidade ou orçamento\n- Cliente confirmou → reenvie o link do painel e instrua a fazer o cadastro\n- Cliente tem dúvida → responda curto e objetivo\n- Cliente disse SIM para qualquer coisa → avance para o próximo passo, nunca repita o anterior\n\nNunca repita o áudio, o vídeo ou a tabela. Seja direto e focado em converter.`
+      ? `FUNIL JÁ ENVIADO: Não reexplique a plataforma. Foque em fechar a venda.\n- Interesse → pergunte rede/serviço\n- Escolheu → mande preço\n- Confirmou → mande link do painel`
       : "",
+
     isInbound
-      ? `ATENDIMENTO RECEPTIVO: o cliente iniciou a conversa. É PROIBIDO usar script de prospecção ("Lead Frio", "Inativo", "Ativo"), oferecer produtos, citar promoções, explicar a plataforma ou enviar link sem o cliente pedir. Se for só saudação inicial, retribua curto e pergunte "como posso te ajudar?" em 1 linha (regra de saudação/cortesia vive em reconhecimento_interesse da identidade). Ignore mensagens antigas do agente que pareçam abordagem comercial — foram geradas com regras antigas.`
-      : `Perfil do contato: ${contact.perfil} (frio=nunca comprou, inativo=sumiu, ativo=cliente recorrente).\nScript de referência para esse perfil (use como base, adapte naturalmente):\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}\nOferta principal: ${agent.main_offer}.${agent.panel_link ? `\nLink do painel (use somente após fechar): ${agent.panel_link}` : ""}`,
+      ? `ATENDIMENTO RECEPTIVO: É PROIBIDO usar script de prospecção. Se for só saudação inicial, retribua curto e pergunte "como posso te ajudar?".`
+      : `Perfil do contato: ${contact.perfil}\nScript de referência:\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}\nOferta principal: ${agent.main_offer}.${agent.panel_link ? `\nLink do painel: ${agent.panel_link}` : ""}`,
+
     "",
     // Saudação, Nomenclatura e Teste delegados aos módulos correspondentes.
     "",
     "",
     "",
     `DDD / LOCALIZAÇÃO (ABSOLUTA):\n- Quando o cliente perguntar ou comentar sobre DDD, localização, "de onde vocês são", "que cidade", "que estado", responda exatamente: "Nosso número é de Santos, SP! Mas atendemos 100% online pela plataforma, de qualquer lugar do Brasil 😊"\n- Depois volte naturalmente para a conversa de vendas, sem aprofundar no assunto (não fale sobre sede, escritório, equipe, etc.).`,
-    `ORIGEM DO CONTATO (ABSOLUTA — vale em qualquer idioma):\n- Se o lead perguntar de onde você tirou/pegou/conseguiu o número/contato dele ("onde pegou meu número", "como conseguiu meu contato", "how did you get my number", "de dónde sacaste mi contacto"), responda SEMPRE reforçando que você pegou DIRETO do perfil do Instagram dele (o número estava na bio pública). NUNCA diga "comprei lista", "peguei em um banco de dados", "veio de anúncio", "não sei", "sistema me passou".\n- Adapte o idioma ao do cliente. Exemplos:\n  • PT: "Peguei seu contato direto do seu perfil @{instagram} no Instagram — vi seu conteúdo e achei que valia a pena te chamar 😊"\n  • EN: "I got your contact straight from your @{instagram} profile on Instagram — saw your content and thought it was worth reaching out! 😊"\n  • ES: "Conseguí tu contacto directo de tu perfil @{instagram} en Instagram — vi tu contenido y pensé que valía la pena escribirte 😊"\n- Substitua {instagram} pelo @ real do lead quando souber; se não souber, use "seu perfil do Instagram" / "your Instagram profile" / "tu perfil de Instagram".`,
+    `ORIGEM DO CONTATO (ABSOLUTA):\n- Se o lead perguntar de onde conseguiu o contato, responda que pegou DIRETO do perfil do Instagram dele (bio pública). NUNCA diga lista comprada ou anúncio.\n- Ex: "Peguei seu contato direto do seu perfil @{instagram} no Instagram — vi seu conteúdo e achei que valia a pena te chamar 😊"`,
     // Encerramento, split, emoji: fonte única na identidade (buildSharedRules).
     "",
-    `FLUXO PÓS-TESTE GRÁTIS (CRÍTICO — siga ao pé da letra):\n- Formato obrigatório da oferta: "1000 views sai R$X, 5000 sai R$Y, 10000 sai R$Z. Qual você quer?" — substituindo X, Y, Z pelo cálculo REAL do módulo da rede correspondente (rate/1000 * quantidade).\n- NUNCA invente nem arredonde preço. Sempre calcule a partir do "Preço por 1000" do módulo da rede correspondente. Exemplo: rate R$0,50 → 1000=R$0,50, 5000=R$2,50, 10000=R$5,00.`,
+    `FLUXO PÓS-TESTE GRÁTIS:\n- Formato: "1000 views sai R$X, 5000 sai R$Y, 10000 sai R$Z. Qual você quer?" — use o cálculo REAL do módulo correspondente.\n- NUNCA invente nem arredonde preço.`,
     "",
     "",
     forbiddenRules.length > 0
@@ -1085,16 +1088,18 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
           .join("\n")}`
       : "",
     exposeFreeTrialBlock
-      ? `TESTE GRÁTIS — DETALHES OPERACIONAIS (só quando cliente pediu ou demonstrou desconfiança):\n- Limite "1 teste por número" vale POR REDE (cliente pode testar Instagram e depois TikTok).\n- QUAL LINK PEDIR: Views Instagram → link de Reel/vídeo (NUNCA foto). Views YouTube/TikTok → link do vídeo. Seguidores → link do perfil. Curtidas → link do post/vídeo.\n- Spotify NÃO tem teste grátis liberado. Se o cliente pedir teste no Spotify, ofereça somente a menor opção paga ativa do catálogo.\n- Quando o cliente mandar o link, o sistema cria o teste automaticamente — não repita o link nem confirme order id.\n- Rede fora da lista de teste: "Para [REDE] não temos teste grátis disponível. Dá pra começar com o mínimo pago — sai R$X — pra testar!" (preço real do catálogo).`
+      ? `TESTE GRÁTIS — REGRAS OPERACIONAIS:\n- Views Instagram → link de Reel.\n- Spotify NÃO tem teste grátis. Ofereça menor opção paga.\n- Quando o cliente mandar o link, o sistema cria o teste automaticamente.\n- Rede fora da lista: ofereça o mínimo pago correspondente.`
       : "",
+
     // Regras de ouro de teste grátis: fonte única em identity.regra_teste_gratis.
     "",
     "",
     "",
     "",
     spotifyCannedAlreadyDelivered
-      ? `SPOTIFY — CANNED JÁ ENTREGUE (evolução obrigatória): a resposta padrão sobre "plays via aluguel de playlist" JÁ FOI enviada nesta conversa. NÃO repita esse texto palavra por palavra. A nova mensagem do cliente TRAZ CONTEXTO NOVO (ex.: "eu fazia através do link, adicionava saldo e colocava o número de plays") — RECONHEÇA esse contexto e AVANÇA a conversa. Formato correto: (a) valide o que o cliente descreveu ("Isso mesmo!" / "Exato!"), (b) confirme que plays direto NÃO estão mais disponíveis, (c) explique em UMA frase curta que o aluguel de playlist funciona parecido (você escolhe quantas músicas, o sistema insere em playlists reais), (d) faça a próxima pergunta do funil ("Quantas músicas você quer divulgar?"). PROIBIÇÕES mantidas: NÃO cite preço fixo, NÃO cite quantidade de plays/dia, NÃO invente distribuição entre músicas, NÃO prometa métricas específicas. Máximo 2-3 frases curtas.`
+      ? `SPOTIFY (JÁ ENTREGUE): Não repita a explicação de aluguel. Confirme que plays diretos não existem e pergunte a quantidade de músicas para o aluguel.`
       : "",
+
     "",
     "",
     "",
