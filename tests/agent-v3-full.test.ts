@@ -66,6 +66,14 @@ async function callAgent(opts: {
   };
 }
 
+const generateAgentReplyWithMeta = async (opts: any) => {
+    const res = await callAgent({
+        history: opts.history,
+        mockReply: opts.mockReply || "Olá!"
+    });
+    return { text: res.text };
+};
+
 async function callAgentWithExtra(opts: any) {
     const fetchMock = mockAnthropicV3(opts.mockReply || "Olá!");
     vi.stubGlobal("fetch", fetchMock);

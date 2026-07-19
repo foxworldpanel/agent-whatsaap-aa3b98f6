@@ -72,6 +72,14 @@ async function callAgent(opts: {
   };
 }
 
+const generateAgentReplyWithMeta = async (opts: any) => {
+    const res = await callAgent({
+        history: opts.history,
+        mockReply: opts.mockReply || "Olá!"
+    });
+    return { text: res.text };
+};
+
 async function callAgentWithExtra(opts: any) {
     const fetchMock = mockAnthropicV3(opts.mockReply || "Olá!");
     vi.stubGlobal("fetch", fetchMock);
@@ -137,6 +145,7 @@ let content = header;
 if (describes) {
   describes.forEach(d => {
     let adaptedD = d.replace(/JSON\.parse\(fetchMock\.mock\.calls\[0\]\[1\]\.body\)/g, "(JSON.parse(fetchMock.mock.calls[0][1].body || '{}'))");
+    adaptedD = adaptedD.replace(/\.join\("\\n\\n"\)/g, '.join("\\\\n\\\\n")');
     content += "\n" + adaptedD;
   });
 }
