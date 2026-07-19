@@ -22,6 +22,7 @@ export async function callAnthropicV3(params: {
   }
 
   // MAPEA OS NOMES AMIGÁVEIS PARA OS IDS REAIS DO GATEWAY/API
+  // NA V1, USAMOS claude-haiku-4-5 E claude-sonnet-5 DIRETAMENTE.
   let realModel = model;
   if (model === "claude-haiku-4-5") realModel = "claude-haiku-4-5";
   if (model === "claude-sonnet-5") realModel = "claude-sonnet-5";
