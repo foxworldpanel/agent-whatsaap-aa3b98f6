@@ -1097,8 +1097,9 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
     "",
     "",
     spotifyCannedAlreadyDelivered
-      ? `SPOTIFY — CANNED JÁ ENTREGUE (evolução obrigatória): a resposta padrão sobre "plays via aluguel de playlist" JÁ FOI enviada nesta conversa. NÃO repita esse texto palavra por palavra. A nova mensagem do cliente TRAZ CONTEXTO NOVO (ex.: "eu fazia através do link, adicionava saldo e colocava o número de plays") — RECONHEÇA esse contexto e AVANÇA a conversa. Formato correto: (a) valide o que o cliente descreveu ("Isso mesmo!" / "Exato!"), (b) confirme que plays direto NÃO estão mais disponíveis, (c) explique em UMA frase curta que o aluguel de playlist funciona parecido (você escolhe quantas músicas, o sistema insere em playlists reais), (d) faça a próxima pergunta do funil ("Quantas músicas você quer divulgar?"). PROIBIÇÕES mantidas: NÃO cite preço fixo, NÃO cite quantidade de plays/dia, NÃO invente distribuição entre músicas, NÃO prometa métricas específicas. Máximo 2-3 frases curtas.`
+      ? `SPOTIFY (JÁ ENTREGUE): Não repita a explicação de aluguel. Confirme que plays diretos não existem e pergunte a quantidade de músicas para o aluguel.`
       : "",
+
     "",
     "",
     "",
