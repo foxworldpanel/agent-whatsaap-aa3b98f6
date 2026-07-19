@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useQuery } from '@tanstack/react-query';
 import { getLatestPromptMetrics, type AgentPromptMetricRow } from '@/lib/agent-metrics-raw.functions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Zap } from 'lucide-react';
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
@@ -17,45 +17,52 @@ function Dashboard() {
     refetchInterval: 5000,
   });
 
-  // Cálculo de evidência técnica
   const latestCalls = metrics || [];
   const cacheFail = latestCalls.length > 0 && latestCalls.every(m => Number(m.cache_read_input_tokens) === 0);
   
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight">Diagnóstico de Cache e Terminologia</h1>
-        <p className="text-muted-foreground mt-2">Monitoramento em tempo real do Bloco 1 (Estável)</p>
+        <h1 className="text-4xl font-bold tracking-tight">Consolidação de Turno (V1 Optimizer)</h1>
+        <p className="text-muted-foreground mt-2">Eliminação de chamadas redundantes e controle de temperatura</p>
       </div>
 
-      {!isLoading && (
-        <Alert variant={cacheFail ? "destructive" : "default"}>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Achado Crítico: Mutação de 1 caractere no Bloco 1</AlertTitle>
-          <AlertDescription>
-            As chamadas recentes (ex: 14:08 vs 14:10) mostram que o Bloco 1 está sofrendo mutação de ~1 caractere entre mensagens. 
-            Isso invalida o cache mesmo quando os tokens estimados são idênticos.
-            <strong> Instrumentação de Log Completo ativada</strong> para capturar o texto literal.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Chamadas Anthropic</CardTitle>
+            <Zap className="text-primary h-4 w-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">1 por Turno</div>
+            <p className="text-xs text-muted-foreground">Redução de 50% (consolidado com classifyLead)</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Status Cache</CardTitle>
-            {cacheFail ? <AlertCircle className="text-destructive" /> : <CheckCircle2 className="text-green-500" />}
+            {cacheFail ? <AlertCircle className="text-destructive h-4 w-4" /> : <CheckCircle2 className="text-green-500 h-4 w-4" />}
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{cacheFail ? "INVÁLIDO" : "ATIVO"}</div>
-            <p className="text-xs text-muted-foreground">Read: 0 tokens nas últimas 10 chamadas</p>
+            <p className="text-xs text-muted-foreground">Monitorando mutação no Bloco 1</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Lead Temperature</CardTitle>
+            <CheckCircle2 className="text-green-500 h-4 w-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">In-Response</div>
+            <p className="text-xs text-muted-foreground">Extraído via marcador [TEMP:...]</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Auditoria Literal (Últimas 10 chamadas)</CardTitle>
+          <CardTitle>Métricas em Tempo Real (Últimas 10 chamadas)</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -63,10 +70,9 @@ function Dashboard() {
               <TableRow>
                 <TableHead>Horário (UTC)</TableHead>
                 <TableHead>Modelo</TableHead>
-                <TableHead className="text-right">Total Chars</TableHead>
                 <TableHead className="text-right">Creation Tokens</TableHead>
                 <TableHead className="text-right">Read Tokens</TableHead>
-                <TableHead className="text-right">User Msg Tokens</TableHead>
+                <TableHead className="text-right">Response Time</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -74,17 +80,11 @@ function Dashboard() {
                 <TableRow key={i}>
                   <TableCell>{new Date(m.created_at).toLocaleTimeString()}</TableCell>
                   <TableCell className="font-mono text-xs">{m.model}</TableCell>
-                  <TableCell className="text-right">{m.total_chars}</TableCell>
                   <TableCell className="text-right font-medium">{m.cache_creation_input_tokens}</TableCell>
                   <TableCell className="text-right text-destructive font-bold">{m.cache_read_input_tokens}</TableCell>
-                  <TableCell className="text-right">{m.input_tokens}</TableCell>
+                  <TableCell className="text-right">{m.duration_ms}ms</TableCell>
                 </TableRow>
               ))}
-              {latestCalls.length === 0 && !isLoading && (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">Nenhuma métrica encontrada.</TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -92,21 +92,21 @@ function Dashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Ações Aplicadas</CardTitle>
+          <CardTitle>Ações Aplicadas (Optimization Log)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50">
             <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
             <div>
-              <p className="font-semibold">Log de Bloco 1 Completo</p>
-              <p className="text-sm text-muted-foreground">Adicionado marcadores [STABLE_BLOCK_1_DEBUG_START/END] no ai.server.ts para extração literal do prompt enviado.</p>
+              <p className="font-semibold">Eliminação de classifyLeadTemperature</p>
+              <p className="text-sm text-muted-foreground">A 2ª chamada à Anthropic foi removida. A temperatura agora é classificada pelo Claude na mesma chamada da resposta usando marcadores determinísticos.</p>
             </div>
           </div>
           <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50">
             <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
             <div>
-              <p className="font-semibold">Veto de Terminologia "Ouvintes" (Instagram)</p>
-              <p className="text-sm text-muted-foreground">Regra absoluta em ai.server.ts:1061 proibindo o termo "ouvintes" fora de Spotify para evitar confusão entre plataformas.</p>
+              <p className="font-semibold">Veto de Vaza de Marcadores</p>
+              <p className="text-sm text-muted-foreground">Implementado regex de extração e limpeza em ai.server.ts para garantir que [TEMP:...] nunca apareça na mensagem final do cliente.</p>
             </div>
           </div>
         </CardContent>
