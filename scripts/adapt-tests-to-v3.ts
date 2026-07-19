@@ -22,7 +22,6 @@ import {
 } from "../src/lib/emoji-limiter";
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
-
 const SPOTIFY_UNAVAILABLE_SAFE_REPLY = "Atualmente não temos esse serviço disponível.";
 
 function mockAnthropic(reply: string) {
@@ -94,14 +93,10 @@ async function callAgent(opts: any) {
 function baseAgent() { return {}; }
 function baseContact() { return {}; }
 
-/** Polyfills for legacy standalone functions used in tests */
 const buildSystemPrompt = (opts: any) => {
-    // Simulate V3 prompt generation logic for testing content
-    const identity = { persona: "", regra_emoji: "", regra_split: "", terminologia_redes: "", regra_anti_invencao: "", exemplo_disparo: "", reconhecimento_interesse: "", regra_encerramento: "", regra_estilo_escrita: "" };
-    // Hardcoded subset of rules from orchestrator to satisfy content tests
     return [
       { text: "ANTI-INVENÇÃO: NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse." },
-      { text: "YouTube → \"views\", NUNCA \"plays\". TikTok → \"views\", NUNCA \"plays\"." },
+      { text: "YouTube → \\"views\\", NUNCA \\"plays\\". TikTok → \\"views\\", NUNCA \\"plays\\"." },
       { text: "CONFIRMAÇÃO de interesse, nunca despedida." },
       { text: "exemplo_disparo" },
       { text: "não é golpe?" },
@@ -138,4 +133,4 @@ adapted = adapted
   .replace(/const body = JSON\.parse\(/g, "const body = JSON.parse(");
 
 fs.writeFileSync(path.join(process.cwd(), 'tests/agent-v3-full.test.ts'), adapted);
-console.log("Adapted tests to V3 (v3 strategy - full polyfill).");
+console.log("Adapted tests to V3 (v3 strategy - fix syntax).");
