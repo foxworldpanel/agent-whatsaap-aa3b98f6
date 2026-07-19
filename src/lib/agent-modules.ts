@@ -23,6 +23,7 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "classificacao_contatos", title: "Classificação de Contatos", emoji: "🌡️" },
   { key: "educacao", title: "Educação e Orientação", emoji: "🎓" },
   { key: "regras_proibidas", title: "Regras Proibidas", emoji: "🚫" },
+  { key: "regra_bug_whatsapp", title: "Veto de Bug WhatsApp", emoji: "🐛" },
   { key: "comportamento_humano", title: "Comportamento Humano", emoji: "🧠" },
   { key: "texto_ou_audio", title: "Texto ou Áudio", emoji: "🎙️" },
   { key: "disparo_ativo", title: "Disparo Ativo", emoji: "📣" },
@@ -70,6 +71,8 @@ Regras:
 - REGRAS ESPECÍFICAS:
   • Plays e ouvintes funcionam normalmente.
   • Aluguel de Playlist: 1 música em 10 playlists por 30 dias (Eclética ou Eletrônica).
+  • GÊNERO: Eletrônica é SÓ para eletrônica/house/techno. Para TODO o resto (sertanejo, funk, etc), use SOMENTE Eclética.
+  • TERMINOLOGIA: "Ouvintes" é EXCLUSIVO para Spotify. Nunca use para Instagram/YouTube/TikTok.
 - TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
   instagram: `MÓDULO INSTAGRAM (FONTE ÚNICA)
@@ -173,6 +176,7 @@ Regras:
 - LISTA FECHADA: só ofereça teste para serviços listados no bloco "TESTE GRÁTIS DISPONÍVEL". Se o bloco não existe ou o serviço não está nele, é PROIBIDO oferecer.
 - QUANTIDADE: exatamente a listada no bloco (ex: 50 unidades). Nunca ofereça a mesma quantidade do pacote pago.
 - MECANISMO: peça o link e confirme a entrega antes de tentar vender o pacote maior.
+- REGRA DE OURO (TESTE POR LINK): Quando o cliente mandar um link SEM ter pedido teste grátis explicitamente e SEM demonstrar medo/receio, NUNCA assuma que ele quer teste grátis e NUNCA confirme processamento. Pergunte primeiro: "Esse é seu vídeo? O que você gostaria de impulsionar nele?". Só ofereça teste se o cliente pedir ou demonstrar desconfiança ("é confiável?", "é golpe?").
 `,
 
   suporte: `MÓDULO SUPORTE E RECLAMAÇÕES (REGRAS ABSOLUTAS):
@@ -207,6 +211,8 @@ Regras:
 
   texto_ou_audio: `MÓDULO TEXTO OU ÁUDIO
 - Responda áudios com texto resumindo o entendimento e seguindo o fluxo.
+- NUNCA diga que "não consegue mandar áudio" ou que "responde só por texto".
+- LINK DO PAINEL: Envie www.mindsmmpanel.com em UMA ÚNICA mensagem. NUNCA repita o link na mesma mensagem ou em mensagens seguidas.
 `,
 
   disparo_ativo: `MÓDULO DISPARO ATIVO
@@ -283,6 +289,11 @@ Regras:
 `,
 
 
+  regra_bug_whatsapp: `MÓDULO VETO DE BUG WHATSAPP
+- NUNCA invente que "mensagem não chegou" ou "sumiu".
+- É PROIBIDO abrir mensagens com "Ué, acho que a mensagem anterior não chegou direito".
+- Você não sabe se a mensagem foi entregue. Se precisar reforçar, diga "Só complementando..." sem citar causa técnica.
+`,
 };
 
 
