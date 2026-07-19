@@ -27,7 +27,7 @@ function Dashboard() {
         <p className="text-muted-foreground mt-2">Construindo a nova geração em paralelo à V1 estável</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Fase Atual: Construção V3 (STARTED)</CardTitle>
@@ -40,7 +40,17 @@ function Dashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Status Cache</CardTitle>
+            <CardTitle className="text-sm font-medium">Testes Automatizados (V1)</CardTitle>
+            <CheckCircle2 className="text-green-500 h-4 w-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">96.3% PASS</div>
+            <p className="text-xs text-muted-foreground">106/110 cenários (Baseline)</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Status Cache (V1)</CardTitle>
             {cacheFail ? <AlertCircle className="text-destructive h-4 w-4" /> : <CheckCircle2 className="text-green-500 h-4 w-4" />}
           </CardHeader>
           <CardContent>
