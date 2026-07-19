@@ -1063,8 +1063,9 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
       : `REGRAS DURAS:\n- Nunca repita literalmente uma mensagem anterior da conversa.\n- Quando perguntar quantidade/limite, consulte o catálogo e responda o valor exato.`,
 
     funnelAlreadySent
-      ? `FUNIL DE BOAS-VINDAS JÁ ENVIADO (CRÍTICO): este cliente já recebeu o funil completo com áudio explicativo, link do painel, vídeo e tabela de serviços. NÃO reexplique como funciona a plataforma. Foque em tirar dúvidas e fechar a venda.\n\nFluxo após o funil:\n- Cliente demonstrou interesse → pergunte qual serviço/plataforma quer\n- Cliente escolheu a plataforma → pergunte a quantidade ou orçamento\n- Cliente confirmou → reenvie o link do painel e instrua a fazer o cadastro\n- Cliente tem dúvida → responda curto e objetivo\n- Cliente disse SIM para qualquer coisa → avance para o próximo passo, nunca repita o anterior\n\nNunca repita o áudio, o vídeo ou a tabela. Seja direto e focado em converter.`
+      ? `FUNIL JÁ ENVIADO: Não reexplique a plataforma. Foque em fechar a venda.\n- Interesse → pergunte rede/serviço\n- Escolheu → mande preço\n- Confirmou → mande link do painel`
       : "",
+
     isInbound
       ? `ATENDIMENTO RECEPTIVO: o cliente iniciou a conversa. É PROIBIDO usar script de prospecção ("Lead Frio", "Inativo", "Ativo"), oferecer produtos, citar promoções, explicar a plataforma ou enviar link sem o cliente pedir. Se for só saudação inicial, retribua curto e pergunte "como posso te ajudar?" em 1 linha (regra de saudação/cortesia vive em reconhecimento_interesse da identidade). Ignore mensagens antigas do agente que pareçam abordagem comercial — foram geradas com regras antigas.`
       : `Perfil do contato: ${contact.perfil} (frio=nunca comprou, inativo=sumiu, ativo=cliente recorrente).\nScript de referência para esse perfil (use como base, adapte naturalmente):\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}\nOferta principal: ${agent.main_offer}.${agent.panel_link ? `\nLink do painel (use somente após fechar): ${agent.panel_link}` : ""}`,
