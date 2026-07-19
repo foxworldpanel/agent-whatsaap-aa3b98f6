@@ -72,6 +72,7 @@ function Dashboard() {
                 <TableHead>Modelo</TableHead>
                 <TableHead className="text-right">Creation Tokens</TableHead>
                 <TableHead className="text-right">Read Tokens</TableHead>
+                <TableHead className="text-right">Out Tokens</TableHead>
                 <TableHead className="text-right">Response Time</TableHead>
               </TableRow>
             </TableHeader>
@@ -80,9 +81,10 @@ function Dashboard() {
                 <TableRow key={i}>
                   <TableCell>{new Date(m.created_at).toLocaleTimeString()}</TableCell>
                   <TableCell className="font-mono text-xs">{m.model}</TableCell>
-                  <TableCell className="text-right font-medium">{m.cache_creation_input_tokens}</TableCell>
+                  <TableCell className="text-right font-medium">{m.cache_creation_input_tokens || m.input_tokens}</TableCell>
                   <TableCell className="text-right text-destructive font-bold">{m.cache_read_input_tokens}</TableCell>
-                  <TableCell className="text-right">{m.input_tokens}</TableCell>
+                  <TableCell className="text-right">{m.output_tokens}</TableCell>
+                  <TableCell className="text-right">{m.duration_ms}ms</TableCell>
                 </TableRow>
               ))}
             </TableBody>
