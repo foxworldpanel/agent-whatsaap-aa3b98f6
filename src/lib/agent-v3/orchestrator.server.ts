@@ -21,22 +21,24 @@ type OrchestratorInput = {
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
   const { userId, message, history, enabledModules, customModules, anthropicApiKey } = input;
 
-  // 1. Load Identity
   const identity = await loadAgentIdentity(userId);
-
-  // 2. Select Relevant Modules
   const moduleKeys = selectRelevantModules(message, enabledModules);
   const modulePrompt = buildPromptFromModules(moduleKeys, customModules);
 
-  // 3. Build System Prompt
+  // System Prompt with V1 parity instructions for regression tests
   const systemPrompt = `
 Você é a Júlia, vendedora especialista em marketing digital na Mind SMM.
-REGRAS DE OURO:
+REGRAS DE OURO (V1 PARITY):
 - Responda de forma humana, natural e curta.
 - NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse. Pergunte.
 - YouTube e TikTok → use sempre "views", NUNCA "plays".
 - Se o cliente disser "Ok" ou "blz" após você passar o preço, entenda como CONFIRMAÇÃO de interesse, nunca despedida.
 - PROIBIDO ABSOLUTO omitir a saudação de volta quando o cliente te cumprimenta.
+- Objeções como "não é golpe?" ou "tem risco?" com ponto de interrogação NUNCA são recusa real.
+- CATEGORIAS DE INTERESSE: 
+  1. DIRETO: Quer comprar.
+  2. NEUTRA: Só cortesia (oi, tudo bem). Responda com reciprocidade.
+  3. NEGATIVA: Recusa clara.
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
@@ -47,7 +49,7 @@ ${identity.regra_emoji}
 ${identity.regra_split}
 
 EXEMPLO DE DISPARO (CONTEXTO):
-Caso a conversa esteja no início, lembre-se do roteiro de disparo.
+Caso a conversa esteja no início, use o exemplo_disparo de abertura.
 
 OBRIGAÇÕES DE METADADOS:
 Toda resposta deve começar com marcadores:
@@ -55,7 +57,6 @@ Toda resposta deve começar com marcadores:
 Mensagem para o cliente aqui.
 `;
 
-  // 4. Call LLM
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
