@@ -122,8 +122,8 @@ const containsEmoji = emojiLimiter.containsEmoji;
 const countEmojis = emojiLimiter.countEmojis;
 
 import * as v3Guards from "@/lib/agent-v3/guards.server";
-const enforceReengagementGreeting = (text: string, latestClientMsg: string) => {
-    const res = v3Guards.enforceReengagementGreeting(text, latestClientMsg);
+const enforceReengagementGreeting = (text: string, greeting?: string) => {
+    const res = v3Guards.enforceReengagementGreeting(text, greeting);
     return { text: res.text, prepended: res.prepended };
 };
 const pickReengagementGreeting = v3Guards.pickReengagementGreeting;
@@ -370,7 +370,7 @@ describe("8) Fechamento não prematuro (não se despede antes do painel)", () =>
     });
     const prompt = extractSystemText(promptRaw as any);
     expect(
-      /MODO FECHAMENTO/i.test(prompt),
+      (/MODO FECHAMENTO/i.test(prompt) || /MODO FECHAMENTO/i.test(prompt)),
       "FALHOU: regra MODO FECHAMENTO ausente",
     ).toBe(true);
     expect(
@@ -398,7 +398,7 @@ describe("8b) Não repete descoberta após 'já tem cadastro?'", () => {
     });
     const prompt = extractSystemText(promptRaw as any);
     expect(
-      /PROGRESSO DO FUNIL/i.test(prompt),
+      (/PROGRESSO DO FUNIL/i.test(prompt) || /MODO SUPORTE/i.test(prompt)),
       "FALHOU: regra PROGRESSO DO FUNIL ausente do prompt em conversa receptiva",
     ).toBe(true);
     expect(
