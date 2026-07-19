@@ -24,7 +24,7 @@ function baseContact() {
 function mockAnthropic(reply: string) {
   return vi.fn(async (url: RequestInfo | URL) => {
     return new Response(
-      JSON.stringify({ content: [{ type: "text", text: reply }] }),
+      JSON.stringify({ content: [{ type: "text", text: `[TEMP:quente] [INTENT:compra] [STAGE:fechamento] ${reply}` }] }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
   });
@@ -44,11 +44,9 @@ async function callAgentV3(opts: {
   process.env.ANTHROPIC_API_KEY = "test-key";
   
   const res = await runAgentV3Turn({
-    workspaceId: "test-workspace",
-    agent: baseAgent() as any,
-    contact: baseContact() as any,
-    history: opts.history,
+    userId: "test-workspace",
     message: opts.history[opts.history.length - 1]?.body || "",
+    history: opts.history.slice(0, -1),
     customModules: opts.modules || DEFAULT_MODULES,
     enabledModules: opts.enabledModules || Object.keys(DEFAULT_MODULES),
   });
@@ -81,8 +79,8 @@ describe("V3 Integration: Core Flows", () => {
     expect(systemPrompt.toLowerCase()).toContain("tabela de preços");
   });
 
-  it("V3 handles neutral greeting with reengagement guard", async () => {
-    const { reply } = await callAgentV3({
+  it("V3 handles neutral greeting and applies deterministic tags", async () => {
+    const { text, temperature, intent } = await callAgentV3({
       history: [
         { sender: "agente", body: OPENING },
         { sender: "cliente", body: "oi" },
@@ -90,8 +88,8 @@ describe("V3 Integration: Core Flows", () => {
       mockReply: "Olá! Como posso ajudar?",
     });
 
-    // We expect the guard enforceReengagementGreeting to have run (in theory)
-    // or at least that the orchestrator produces a valid response.
-    expect(reply).toBeTruthy();
+    expect(text).toBeTruthy();
+    expect(temperature).toBe("quente");
+    expect(intent).toBe("compra");
   });
 });
