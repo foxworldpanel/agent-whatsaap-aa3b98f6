@@ -145,9 +145,12 @@ const mappingRegexes = [
     { from: /"exemplo_modelo_disparo"/g, to: '"exemplo_disparo"' },
     { from: /ANTI-INVEN[ÇC][ÃA]O/g, to: 'ANTI-INVENÇÃO' },
     { from: /TERMINOLOGIA/g, to: 'TERMINOLOGIA' },
-    { from: /YouTube → "views"/g, to: 'YouTube → "views"' },
-    { from: /TikTok → "views"/g, to: 'TikTok → "views"' },
+    { from: /YouTube\s*→\s*"views"/g, to: 'YouTube → "views"' },
+    { from: /TikTok\s*→\s*"views"/g, to: 'TikTok → "views"' },
+    { from: /YouTube\s*→\s*"views".*?NUNCA\s*"plays"/is, to: 'YouTube → "views", NUNCA "plays"' },
+    { from: /TikTok\s*→\s*"views".*?NUNCA\s*"plays"/is, to: 'TikTok → "views", NUNCA "plays"' },
     { from: /MODO FECHAMENTO/g, to: 'MODO FECHAMENTO' },
+    { from: /CONFIRMAÇÃO de interesse, nunca despedida/g, to: 'CONFIRMAÇÃO, nunca despedida' },
     { from: /MODO REENGAJAMENTO APÓS HIATO/g, to: 'MODO REENGAJAMENTO APÓS HIATO' },
     { from: /MODO REENGAJAMENTO \/ CORTESIA EM DISPARO/g, to: 'MODO REENGAJAMENTO / CORTESIA EM DISPARO' },
     { from: /VETO DE PRIORIDADE M[AÁ]XIMA/g, to: 'VETO DE PRIORIDADE MÁXIMA' },
@@ -158,6 +161,7 @@ const mappingRegexes = [
     { from: /IMAGEM NA CONVERSA/g, to: 'IMAGEM NA CONVERSA' },
     { from: /REGRA DE CONCISÃO/g, to: 'REGRA DE CONCISÃO' },
 ];
+
 
 mappingRegexes.forEach(({ from, to }) => {
     adapted = adapted.replace(from, to);
