@@ -91,7 +91,7 @@ async function callAgentWithExtra(opts: any) {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n"
 " + "
 ");
   return "";
@@ -1443,7 +1443,7 @@ describe("Verbose loop guard — trava de custo", () => {
       history: layman,
       latestClientBody: "mas o que é esse painel mesmo",
     });
-    expect(det.triggered, `FALHOU: sinais detectados = ${det.signals.join(",")}`).toBe(true);
+    expect(det.triggered, `FALHOU: sinais detectados = ${det.signals.join("\n\n",")}`).toBe(true);
     expect(det.signals.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -1469,7 +1469,7 @@ describe("Verbose loop guard — trava de custo", () => {
       history: engaged,
       latestClientBody: "só uma dúvida: aceita cripto?",
     });
-    expect(det.triggered, `FALHOU: sinais = ${det.signals.join(",")}`).toBe(false);
+    expect(det.triggered, `FALHOU: sinais = ${det.signals.join("\n\n",")}`).toBe(false);
   });
 
   it("cliente volta com AÇÃO CONCRETA (link do Spotify) — reativa", () => {
