@@ -1260,12 +1260,20 @@ export async function generateAgentReplyWithMeta(params: {
           
           const isDynamic = 
             block.includes("ÚLTIMA MENSAGEM DO CLIENTE") ||
+            block.includes("REGRA ABSOLUTA DE CONTEXTO") ||
+            block.includes("VETO DE PRIORIDADE MÁXIMA") ||
+            block.includes("MODO REENGAJAMENTO") ||
             block.includes("MODO ÁUDIO") ||
             block.includes("IMAGEM NA CONVERSA") ||
-            block.includes("VETO DE PRIORIDADE MÁXIMA") ||
             block.includes("extraContext") ||
             block.includes("🔥 PROMOÇÃO ATIVA HOJE") ||
-            block.includes("FATO TÉCNICO VERIFICADO");
+            block.includes("FATO TÉCNICO VERIFICADO") ||
+            block.includes("MODO SUPORTE") ||
+            block.includes("Perfil do contato:") ||
+            block.includes("FAQ (") ||
+            block.includes("BASE DE CONHECIMENTO MODULAR") ||
+            block.includes("REFINAMENTOS DE TOM CONSULTIVO") ||
+            block.includes("GANCHO PROMO DO DIA");
 
           if (isDynamic) dynamicBlocks.push(block);
           else stableBlocks.push(block);
