@@ -604,8 +604,8 @@ export function buildSystemPrompt(params: BuildPromptParams): string | Array<{ t
   const effectiveBlastPreview = !isInbound || historyLooksLikeBlast(history);
 
   // Bloco 1: Estável
-  const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), {
-    freeTestServices,
+  const systemBlock1 = buildSharedRules(mergeIdentity(identity ?? null), {
+    freeTestServices: [], // Vazio no Bloco 1 para evitar mutação por rede
     brandBlocks,
     suppressExemploDisparo: true,
   });
