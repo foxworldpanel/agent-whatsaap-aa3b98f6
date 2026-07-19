@@ -27,7 +27,7 @@ export default function Index() {
 
         DIAGNÓSTICO CRÍTICO:
         1) Modelos IGUAIS: SIM (claude-haiku-4-5).
-        2) cache_read > 0: NÃO (Zero em todas as chamadas).
+        2) cache_read &gt; 0: NÃO (Zero em todas as chamadas).
 
         MOTIVO DO CACHE ZERO:
         O `cache_creation` variou de 26868 para 27205 (+337 tokens). Mesmo sem edições de código, algo no Bloco 1 (que deveria ser estável) está sofrendo mutação entre turnos.
