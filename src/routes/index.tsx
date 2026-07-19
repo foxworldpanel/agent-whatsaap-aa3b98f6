@@ -23,19 +23,19 @@ function Dashboard() {
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight">Consolidação de Turno (V1 Optimizer)</h1>
-        <p className="text-muted-foreground mt-2">Eliminação de chamadas redundantes e controle de temperatura</p>
+        <h1 className="text-4xl font-bold tracking-tight">Arquitetura V3 (Leve & Modular)</h1>
+        <p className="text-muted-foreground mt-2">Construindo a nova geração em paralelo à V1 estável</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Consolidação Anthropic</CardTitle>
+            <CardTitle className="text-sm font-medium">Fase Atual: Planejamento V3</CardTitle>
             <Zap className="text-primary h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1 Chamada/Turno</div>
-            <p className="text-xs text-muted-foreground">O classifyLead (~1k tokens) foi absorvido pela chamada principal.</p>
+            <div className="text-2xl font-bold">100% Paralelo</div>
+            <p className="text-xs text-muted-foreground">V1 intocada e respondendo normalmente.</p>
           </CardContent>
         </Card>
         <Card>
@@ -94,23 +94,41 @@ function Dashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Ações Aplicadas (Optimization Log)</CardTitle>
+          <CardTitle>Plano de Reconstrução Segura (V3)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50">
-            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
-            <div>
-              <p className="font-semibold">Eliminação de classifyLeadTemperature</p>
-              <p className="text-sm text-muted-foreground">A 2ª chamada à Anthropic foi removida. A temperatura agora é classificada pelo Claude na mesma chamada da resposta usando marcadores determinísticos.</p>
+        <CardContent className="space-y-6">
+          <div className="p-4 border rounded-lg bg-blue-50/50">
+            <h3 className="font-bold text-lg mb-2">Arquivos que serão criados (NOVOS)</h3>
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              <li><code>src/lib/agent-v3/router.server.ts</code> (Router determinístico)</li>
+              <li><code>src/lib/agent-v3/orchestrator.server.ts</code> (Montagem de prompt sob demanda)</li>
+              <li><code>src/lib/agent-v3/audio-processor.server.ts</code> (Whisper + validação de string)</li>
+              <li><code>src/lib/agent-v3/metadata-extractor.server.ts</code> (JSON parsing da resposta)</li>
+            </ul>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-semibold mb-2">Router Determinístico</h4>
+              <p className="text-sm text-muted-foreground">
+                Decide quais módulos carregar via <code>agent_config.modules</code> usando keywords e contexto da última mensagem, reduzindo o prompt fixo em ~80%.
+              </p>
+            </div>
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-semibold mb-2">Tratamento de Áudio</h4>
+              <p className="text-sm text-muted-foreground">
+                Whisper transcreve → validação rigorosa (<code>typeof === 'string'</code>) → injeta transcrição no fluxo Haiku. Corrige o bug de <code>[object Object]</code>.
+              </p>
             </div>
           </div>
-          <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50">
-            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
-            <div>
-              <p className="font-semibold">Veto de Vaza de Marcadores</p>
-              <p className="text-sm text-muted-foreground">Implementado regex de extração e limpeza em ai.server.ts para garantir que [TEMP:...] nunca apareça na mensagem final do cliente.</p>
-            </div>
-          </div>
+
+          <Alert>
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertTitle>Garantia de Estabilidade</AlertTitle>
+            <AlertDescription>
+              A V1 continua ativa e intocada em <code>src/lib/ai.server.ts</code>. A troca só ocorrerá após validação de 110 testes e 6 cenários manuais críticos.
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     </div>
