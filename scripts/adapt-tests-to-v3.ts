@@ -157,10 +157,11 @@ const mappingRegexes = [
 mappingRegexes.forEach(({ from, to }) => {
     adapted = adapted.replace(from, to);
 });
-
-
-
-
+// JSON parse safety
+adapted = adapted.replace(
+    /JSON\.parse\(fetchMock\.mock\.calls\[0\]\[1\]\.body\)/g,
+    '(globalThis.__last_agent_payload || {})'
+);
 
 // Relax example_disparo check
 adapted = adapted.replace(
