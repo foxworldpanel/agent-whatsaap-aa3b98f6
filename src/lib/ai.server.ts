@@ -604,8 +604,8 @@ export function buildSystemPrompt(params: BuildPromptParams): string | Array<{ t
   const effectiveBlastPreview = !isInbound || historyLooksLikeBlast(history);
 
   // Bloco 1: Estável
-  const sharedRules = buildSharedRules(mergeIdentity(identity ?? null), {
-    freeTestServices,
+  const systemBlock1 = buildSharedRules(mergeIdentity(identity ?? null), {
+    freeTestServices: [], // Vazio no Bloco 1 para evitar mutação por rede
     brandBlocks,
     suppressExemploDisparo: true,
   });
@@ -674,7 +674,7 @@ export function buildSystemPrompt(params: BuildPromptParams): string | Array<{ t
   ].filter(Boolean);
 
   return [
-    { text: sharedRules, cache_control: { type: "ephemeral" } },
+    { text: systemBlock1, cache_control: { type: "ephemeral" } },
     { text: dynamicSystem.join("\n\n") }
   ];
 }
@@ -910,6 +910,26 @@ export async function generateAgentReplyWithMeta(params: {
       if (!t) return "";
       return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta. Se esta promoção não estiver no bloco (bloco ausente do prompt), NUNCA mencione nenhuma promoção — mantém a regra normal de "nunca dar desconto manual".`;
     })(),
+    `REGRA DE FECHAMENTO — TUTORIAL PASSO A PASSO DO PAINEL (ABSOLUTA — SUBSTITUI QUALQUER VERSÃO ANTERIOR DE "envia só o link do painel"):
+
+Quando o cliente CONFIRMAR interesse em comprar (depois do preço aceito), a Júlia NUNCA manda só o link do painel seco. SEMPRE envia o tutorial completo numerado abaixo, assumindo que o cliente pode ser leigo em tecnologia:
+
+"Show! Vou te passar o link da nossa plataforma, é bem simples e rápido, olha só:
+mindsmmpanel.com
+1. Cadastro rapidinho, só com um email qualquer, sem precisar de login e senha de rede social
+2. Faz uma recarga, mínima é R$5, via PIX
+3. Escolhe o serviço no menu da rede social que a gente conversou
+4. Cola o link do seu perfil/música/vídeo
+5. Confirma o pedido, e pronto, já entra na fila
+
+Qualquer dúvida durante o cadastro é só me chamar que eu te ajudo passo a passo!"
+
+REGRAS DE APLICAÇÃO (ABSOLUTAS):
+1) SEMPRE assume que o cliente pode ser leigo em tecnologia — NUNCA pula etapa achando que é óbvio. Explica cadastro, recarga mínima e como fazer o pedido, sempre nesse nível de detalhe.
+2) USA numeração (1, 2, 3, 4, 5) pra ficar visualmente fácil de seguir no celular — NUNCA em texto corrido.
+3) SEMPRE reforça no final que o cliente pode tirar dúvida DURANTE o processo, não só antes — isso reduz abandono no meio do cadastro.
+4) Se o cliente voltar no meio do cadastro com dúvida específica (ex: "não sei fazer", "deu erro", "onde coloco o link", "cadê o botão de recarga"), a Júlia orienta APENAS o passo em que ele travou — NUNCA repete o tutorial inteiro de novo.
+5) O valor da recarga mínima vem do sistema (R$5), NUNCA invente outro valor.`,
     // EXEMPLO MODELO DE DISPARO e RECONHECIMENTO DE INTERESSE entram apenas no Bloco 2 (Dinâmico)
     // para conversas que realmente parecem disparo, evitando poluição no Bloco 1.
     effectiveBlast
@@ -1274,12 +1294,16 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
         block.includes("BASE DE CONHECIMENTO MODULAR") ||
         block.includes("REFINAMENTOS DE TOM CONSULTIVO") ||
         block.includes("GANCHO PROMO DO DIA") ||
-        block.includes("EXEMPLO_MODELO_DISPARO") ||
         block.includes("RECONHECIMENTO DE RESPOSTAS CURTAS") ||
         block.includes("TESTE GRÁTIS DISPONÍVEL") ||
         block.includes("IDIOMA DA CONVERSA") ||
         block.includes("REGRA DE CONCISÃO E ANTI-REPETIÇÃO") ||
-        block.includes("CLASSIFICAÇÃO DE TEMPERATURA DO LEAD");
+        block.includes("CLASSIFICAÇÃO DE TEMPERATURA DO LEAD") ||
+        block.includes("LISTA REAL DE PLAYLISTS") ||
+        block.includes("PACOTE ECLÉTICA") ||
+        block.includes("PACOTE MÚSICA ELETRÔNICA") ||
+        block.includes("REGRA — LISTA DE PLAYLISTS") ||
+        block.includes("REGRA DE FECHAMENTO — TUTORIAL");
 
       if (isDynamic) dynamicBlocks.push(block);
       else stableBlocks.push(block);
