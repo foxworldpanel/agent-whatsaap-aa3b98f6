@@ -1253,9 +1253,10 @@ export async function generateAgentReplyWithMeta(params: {
       system: (() => {
         const stableBlocks: string[] = [];
         const dynamicBlocks: string[] = [];
+        const blocksArray = Array.isArray(systemBlocks) ? systemBlocks : [systemBlocks];
 
-        systemBlocks.forEach((block: any) => {
-          if (!block || !block.trim()) return;
+        blocksArray.forEach((block: any) => {
+          if (!block || typeof block !== "string" || !block.trim()) return;
           
           const isDynamic = 
             block.includes("ÚLTIMA MENSAGEM DO CLIENTE") ||
@@ -1270,17 +1271,21 @@ export async function generateAgentReplyWithMeta(params: {
           else stableBlocks.push(block);
         });
 
-        return [
-          {
+        const result: any[] = [];
+        if (stableBlocks.length > 0) {
+          result.push({
             type: "text",
             text: stableBlocks.join("\n\n"),
             cache_control: { type: "ephemeral" },
-          },
-          {
+          });
+        }
+        if (dynamicBlocks.length > 0) {
+          result.push({
             type: "text",
             text: dynamicBlocks.join("\n\n")
-          }
-        ];
+          });
+        }
+        return result;
       })(),
       messages: finalMessages,
     }),
