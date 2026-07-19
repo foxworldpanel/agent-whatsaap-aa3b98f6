@@ -138,7 +138,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
       })),
       { role: "user", content: message }
     ],
-    model: "claude-3-5-sonnet-latest"
+    model: "claude-3-5-sonnet-20241022"
   });
 
   const rawText = response.content[0].text;
