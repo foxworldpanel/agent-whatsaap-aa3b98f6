@@ -21,15 +21,20 @@ export async function callAnthropicV3(params: {
     headers["x-api-key"] = apiKey;
   }
 
+  const body = {
+    model,
+    max_tokens: 1024,
+    system,
+    messages
+  };
+
+  console.log(`[agent-v3] Calling Anthropic with model ${model}. Messages count: ${messages.length}`);
+  // console.log("[agent-v3] Payload body:", JSON.stringify(body, null, 2));
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      model,
-      max_tokens: 1024,
-      system,
-      messages
-    })
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
