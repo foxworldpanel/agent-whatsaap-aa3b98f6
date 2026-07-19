@@ -1239,6 +1239,61 @@ export async function generateAgentReplyWithMeta(params: {
   }
 
   const claudeStartedAt = Date.now();
+  const systemPayload = (() => {
+    const stableBlocks: string[] = [];
+    const dynamicBlocks: string[] = [];
+    const blocksArray = Array.isArray(systemBlocks) ? systemBlocks : [systemBlocks];
+
+    blocksArray.forEach((block: any) => {
+      if (!block || typeof block !== "string" || !block.trim()) return;
+      
+      const isDynamic = 
+        block.includes("ÚLTIMA MENSAGEM DO CLIENTE") ||
+        block.includes("REGRA ABSOLUTA DE CONTEXTO") ||
+        block.includes("VETO DE PRIORIDADE MÁXIMA") ||
+        block.includes("MODO REENGAJAMENTO") ||
+        block.includes("MODO ÁUDIO") ||
+        block.includes("IMAGEM NA CONVERSA") ||
+        block.includes("extraContext") ||
+        block.includes("🔥 PROMOÇÃO ATIVA HOJE") ||
+        block.includes("FATO TÉCNICO VERIFICADO") ||
+        block.includes("MODO SUPORTE") ||
+        block.includes("Perfil do contato:") ||
+        block.includes("FAQ (") ||
+        block.includes("BASE DE CONHECIMENTO MODULAR") ||
+        block.includes("REFINAMENTOS DE TOM CONSULTIVO") ||
+        block.includes("GANCHO PROMO DO DIA") ||
+        block.includes("EXEMPLO_MODELO_DISPARO") ||
+        block.includes("RECONHECIMENTO DE RESPOSTAS CURTAS") ||
+        block.includes("TESTE GRÁTIS DISPONÍVEL") ||
+        block.includes("IDIOMA DA CONVERSA") ||
+        block.includes("REGRA DE CONCISÃO E ANTI-REPETIÇÃO");
+
+      if (isDynamic) dynamicBlocks.push(block);
+      else stableBlocks.push(block);
+    });
+
+    const result: any[] = [];
+    if (stableBlocks.length > 0) {
+      result.push({
+        type: "text",
+        text: stableBlocks.join("\n\n"),
+        cache_control: { type: "ephemeral" },
+      });
+    }
+    if (dynamicBlocks.length > 0) {
+      result.push({
+        type: "text",
+        text: dynamicBlocks.join("\n\n")
+      });
+    }
+    return result;
+  })();
+
+  // LOG PARA AUDITORIA DE CACHE
+  const stableText = (systemPayload.find((p: any) => p.cache_control)?.text || "");
+  console.info(`[agent-ai-debug] BLOCO 1 STABLE (len=${stableText.length}):`, stableText.slice(0, 1000));
+
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -1250,56 +1305,7 @@ export async function generateAgentReplyWithMeta(params: {
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      system: (() => {
-        const stableBlocks: string[] = [];
-        const dynamicBlocks: string[] = [];
-        const blocksArray = Array.isArray(systemBlocks) ? systemBlocks : [systemBlocks];
-
-        blocksArray.forEach((block: any) => {
-          if (!block || typeof block !== "string" || !block.trim()) return;
-          
-          const isDynamic = 
-            block.includes("ÚLTIMA MENSAGEM DO CLIENTE") ||
-            block.includes("REGRA ABSOLUTA DE CONTEXTO") ||
-            block.includes("VETO DE PRIORIDADE MÁXIMA") ||
-            block.includes("MODO REENGAJAMENTO") ||
-            block.includes("MODO ÁUDIO") ||
-            block.includes("IMAGEM NA CONVERSA") ||
-            block.includes("extraContext") ||
-            block.includes("🔥 PROMOÇÃO ATIVA HOJE") ||
-            block.includes("FATO TÉCNICO VERIFICADO") ||
-            block.includes("MODO SUPORTE") ||
-            block.includes("Perfil do contato:") ||
-            block.includes("FAQ (") ||
-            block.includes("BASE DE CONHECIMENTO MODULAR") ||
-            block.includes("REFINAMENTOS DE TOM CONSULTIVO") ||
-            block.includes("GANCHO PROMO DO DIA") ||
-            block.includes("EXEMPLO_MODELO_DISPARO") ||
-            block.includes("RECONHECIMENTO DE RESPOSTAS CURTAS") ||
-            block.includes("TESTE GRÁTIS DISPONÍVEL") ||
-            block.includes("IDIOMA DA CONVERSA") ||
-            block.includes("REGRA DE CONCISÃO E ANTI-REPETIÇÃO");
-
-          if (isDynamic) dynamicBlocks.push(block);
-          else stableBlocks.push(block);
-        });
-
-        const result: any[] = [];
-        if (stableBlocks.length > 0) {
-          result.push({
-            type: "text",
-            text: stableBlocks.join("\n\n"),
-            cache_control: { type: "ephemeral" },
-          });
-        }
-        if (dynamicBlocks.length > 0) {
-          result.push({
-            type: "text",
-            text: dynamicBlocks.join("\n\n")
-          });
-        }
-        return result;
-      })(),
+      system: systemPayload,
       messages: finalMessages,
     }),
   });

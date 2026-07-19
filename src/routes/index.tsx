@@ -23,14 +23,11 @@ export default function Index() {
         | :--- | :--- | :--- | :--- | :--- |
         | 2026-07-19 14:01:27 | claude-haiku-4-5 | 27205 | 0 | 132 |
         | 2026-07-19 14:00:40 | claude-haiku-4-5 | 26868 | 0 | 142 |
-        | 2026-07-19 13:50:44 | claude-haiku-4-5 | 26706 | 0 | 137 |
-
-        DIAGNÓSTICO CRÍTICO:
-        1) Modelos IGUAIS: SIM (claude-haiku-4-5).
-        2) cache_read &gt; 0: NÃO (Zero em todas as chamadas).
-
-        MOTIVO DO CACHE ZERO:
-        O `cache_creation` variou de 26868 para 27205 (+337 tokens). Mesmo sem edições de código, algo no Bloco 1 (que deveria ser estável) está sofrendo mutação entre turnos.
+        
+        INSTRUMENTAÇÃO DE LOGS APLICADA:
+        Adicionei log explícito do texto do Bloco 1 em `src/lib/ai.server.ts`. 
+        Mande a próxima mensagem para capturarmos o conteúdo real no Cloudflare Logs.
+        Assim que a mensagem chegar, poderei rodar o DIFF literal entre as versões.
       </div>
       <p className="mt-8 text-zinc-500 animate-pulse text-xs">Redirecionando para /conversas em 15 segundos...</p>
     </div>
