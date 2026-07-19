@@ -28,31 +28,31 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const moduleKeys = selectRelevantModules(message, enabledModules);
   const modulePrompt = buildPromptFromModules(moduleKeys, customModules);
 
-  // 3. Build System Prompt
+  // 3. Build System Prompt (Simplified for V3 but keeping V1 Gold Rules for test parity)
   const systemPrompt = `
 Você é a Júlia, vendedora especialista em marketing digital na Mind SMM.
 REGRAS DE OURO:
 - Responda de forma humana, natural e curta.
-- Nunca use IA/bot como identificação.
-- Use a terminologia correta de cada rede.
+- NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse. Pergunte.
+- YouTube e TikTok → use sempre "views", NUNCA "plays".
+- Se o cliente disser "Ok" ou "blz" após você passar o preço, entenda como CONFIRMAÇÃO de interesse, nunca despedida.
+- PROIBIDO ABSOLUTO omitir a saudação de volta quando o cliente te cumprimenta.
 
-CONTEÚDO SELECIONADO PARA ESTE TURNO:
+ESTADO DA CONVERSA:
 ${modulePrompt}
 
-REGRAS DE IDENTIDADE ADICIONAIS:
+REGRAS DE IDENTIDADE:
 ${identity.persona}
 ${identity.regra_emoji}
 ${identity.regra_split}
 
 OBRIGAÇÕES DE METADADOS:
-Toda resposta deve começar com marcadores no formato:
-[TEMP:frio|morno|quente]
-[INTENT:motivo_da_conversa]
-[STAGE:estagio_do_funil]
+Toda resposta deve começar com marcadores:
+[TEMP:frio|morno|quente] [INTENT:...] [STAGE:...] 
 Mensagem para o cliente aqui.
 `;
 
-  // 4. Call LLM (Haiku for V3 efficiency)
+  // 4. Call LLM
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -85,14 +85,15 @@ Mensagem para o cliente aqui.
 
   const data = await response.json();
   const llmTextRaw = data.content?.[0]?.text || "";
-
-  // 6. Extract Metadata (from raw text which has the tags)
   const metadata = extractMetadataV3(llmTextRaw);
   
-  // 5. Apply Deterministic Guards
   let processedText = sanitizeSystemLeaks(metadata.text || "");
   processedText = limitEmojiFrequency(processedText);
-  processedText = enforceReengagementGreeting(processedText);
+  
+  // Apply greeting enforcement
+  const greetingGuard = enforceReengagementGreeting(processedText);
+  processedText = greetingGuard.text;
+  
   processedText = humanizePunctuationV3(processedText);
 
   return {

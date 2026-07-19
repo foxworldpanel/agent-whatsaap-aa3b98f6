@@ -1,31 +1,31 @@
 // src/lib/agent-v3/guards.server.ts
+import { containsEmoji, stripEmojis, limitEmojiFrequency as limitEmojiV1 } from "@/lib/emoji-limiter";
 
 export function sanitizeSystemLeaks(text: string): string {
   if (!text) return "";
-  let processed = text;
-  // Remove menções a metadados se vazarem (V3 usa marcadores [TEMP], etc)
-  processed = processed.replace(/\[TEMP:.*?\]/g, "");
-  processed = processed.replace(/\[INTENT:.*?\]/g, "");
-  processed = processed.replace(/\[STAGE:.*?\]/g, "");
-  return processed.trim();
+  return text
+    .replace(/\[TEMP:[^\]]*\]/g, "")
+    .replace(/\[INTENT:[^\]]*\]/g, "")
+    .replace(/\[STAGE:[^\]]*\]/g, "")
+    .trim();
 }
 
 export function limitEmojiFrequency(text: string): string {
-  if (!text) return "";
-  // Implementação simples para V3: max 1 emoji por mensagem
-  const emojis = text.match(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu) || [];
-  if (emojis.length <= 1) return text;
-  
-  let count = 0;
-  return text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, (match) => {
-    count++;
-    return count === 1 ? match : "";
-  });
+  return limitEmojiV1(text);
 }
 
-export function enforceReengagementGreeting(text: string): string {
-  // Se for uma saudação neutra detectada, pode-se prepend uma saudação amigável
-  return text;
+export function enforceReengagementGreeting(text: string, greeting: string = "Olá!"): { text: string; prepended: boolean } {
+  if (!text) return { text: greeting, prepended: true };
+  
+  const greetings = ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"];
+  const startLower = text.toLowerCase().trim();
+  const hasGreeting = greetings.some(g => startLower.startsWith(g));
+  
+  if (!hasGreeting) {
+    return { text: `${greeting} ${text}`, prepended: true };
+  }
+  
+  return { text, prepended: false };
 }
 
 export function humanizePunctuationV3(text: string): string {
