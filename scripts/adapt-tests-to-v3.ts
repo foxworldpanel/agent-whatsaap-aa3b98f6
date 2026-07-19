@@ -161,7 +161,9 @@ const mappingRegexes = [
     { from: /ÁUDIO ININTELIGÍVEL/g, to: 'ÁUDIO ININTELIGÍVEL' },
     { from: /IMAGEM NA CONVERSA/g, to: 'IMAGEM NA CONVERSA' },
     { from: /REGRA DE CONCISÃO/g, to: 'REGRA DE CONCISÃO' },
+    { from: /"vendedora especialista"/g, to: '"vendedora especialista"' },
 ];
+
 
 
 mappingRegexes.forEach(({ from, to }) => {
