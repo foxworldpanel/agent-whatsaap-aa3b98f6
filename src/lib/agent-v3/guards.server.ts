@@ -10,8 +10,11 @@ export function sanitizeSystemLeaks(text: string): string {
     .trim();
 }
 
-export function limitEmojiFrequency(text: string): string {
-  return limitEmojiV1(text);
+export function limitEmojiFrequency(text: string, history: any[] = []): string {
+  return limitEmojiV1(text, { 
+    history: history.map(h => ({ body: h.body || h.text })),
+    isBlastOpening: false 
+  });
 }
 
 export function enforceReengagementGreeting(text: string, greeting: string = "Olá!"): { text: string; prepended: boolean } {

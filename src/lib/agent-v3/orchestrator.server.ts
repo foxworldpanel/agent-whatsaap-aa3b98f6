@@ -28,7 +28,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const moduleKeys = selectRelevantModules(message, enabledModules);
   const modulePrompt = buildPromptFromModules(moduleKeys, customModules);
 
-  // 3. Build System Prompt (Simplified for V3 but keeping V1 Gold Rules for test parity)
+  // 3. Build System Prompt
   const systemPrompt = `
 Você é a Júlia, vendedora especialista em marketing digital na Mind SMM.
 REGRAS DE OURO:
@@ -45,6 +45,9 @@ REGRAS DE IDENTIDADE:
 ${identity.persona}
 ${identity.regra_emoji}
 ${identity.regra_split}
+
+EXEMPLO DE DISPARO (CONTEXTO):
+Caso a conversa esteja no início, lembre-se do roteiro de disparo.
 
 OBRIGAÇÕES DE METADADOS:
 Toda resposta deve começar com marcadores:
@@ -88,9 +91,8 @@ Mensagem para o cliente aqui.
   const metadata = extractMetadataV3(llmTextRaw);
   
   let processedText = sanitizeSystemLeaks(metadata.text || "");
-  processedText = limitEmojiFrequency(processedText);
+  processedText = limitEmojiFrequency(processedText, history);
   
-  // Apply greeting enforcement
   const greetingGuard = enforceReengagementGreeting(processedText);
   processedText = greetingGuard.text;
   
