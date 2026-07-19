@@ -30,12 +30,12 @@ function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Chamadas Anthropic</CardTitle>
+            <CardTitle className="text-sm font-medium">Consolidação Anthropic</CardTitle>
             <Zap className="text-primary h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1 por Turno</div>
-            <p className="text-xs text-muted-foreground">Redução de 50% (consolidado com classifyLead)</p>
+            <div className="text-2xl font-bold">1 Chamada/Turno</div>
+            <p className="text-xs text-muted-foreground">O classifyLead (~1k tokens) foi absorvido pela chamada principal.</p>
           </CardContent>
         </Card>
         <Card>
