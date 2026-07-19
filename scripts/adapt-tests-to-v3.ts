@@ -35,7 +35,6 @@ function mockAnthropicV3(reply: string) {
     );
   });
 }
-const mockAnthropic = mockAnthropicV3;
 
 async function callAgent(opts: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
@@ -106,7 +105,9 @@ async function callAgentWithExtra(opts: any) {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\\n\\n");
+  if (Array.isArray(s)) {
+    return s.map((b: any) => b.text || "").join("\\n\\n");
+  }
   return "";
 }
 
@@ -138,15 +139,30 @@ beforeEach(() => { vi.unstubAllGlobals?.(); });
 afterEach(() => { vi.unstubAllGlobals?.(); vi.restoreAllMocks(); });
 `;
 
+let content = header;
 const describeRegex = /describe\([\s\S]*?\)\s*=>\s*\{[\s\S]*?\n\}\);/g;
 const describes = originalContent.match(describeRegex);
 
-let content = header;
 if (describes) {
   describes.forEach(d => {
-    let adaptedD = d.replace(/fetchMock\.mock\.calls\[0\]\[1\]\.body/g, "(fetchMock.mock.calls[0] ? fetchMock.mock.calls[0][1].body : JSON.stringify({ system: [] }))");
-    adaptedD = adaptedD.replace(/const body = JSON\.parse\(\(fetchMock\.mock\.calls\[0\] \? fetchMock\.mock\.calls\[0\]\[1\]\.body : JSON\.stringify\(\{ system: \[\] \}\)\)\);/g, "const body = JSON.parse(fetchMock.mock.calls[0][1].body || '{}');");
+    let adaptedD = d;
+    
+    // Fix JSON.parse calls in the tests to be safer with V3 fetch mocks
+    adaptedD = adaptedD.replace(
+      /const body = JSON\.parse\(\(fetchMock\.mock\.calls\[0\] \? fetchMock\.mock\.calls\[0\]\[1\]\.body : JSON\.stringify\(\{ system: \[\] \}\)\)\);/g,
+      `const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
+       const body = JSON.parse(lastCall ? lastCall[1].body || '{}' : '{}');`
+    );
+
+    // Some tests use a direct access
+    adaptedD = adaptedD.replace(
+      /JSON\.parse\(fetchMock\.mock\.calls\[0\]\[1\]\.body\)/g,
+      `(fetchMock.mock.calls[0] ? JSON.parse(fetchMock.mock.calls[0][1].body || '{}') : {})`
+    );
+
+    // Double escape newlines for the join in generated code
     adaptedD = adaptedD.replace(/\.join\("\\n\\n"\)/g, '.join("\\\\n\\\\n")');
+
     content += "\n" + adaptedD;
   });
 }
