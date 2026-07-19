@@ -11,19 +11,18 @@ export async function callAnthropicV3(params: {
 }) {
   const { apiKey, system, messages, model } = params;
   
-  // Nota: Em Lovable Cloud, se o apiKey for omitido, o gateway cuida da auth.
-  // Se for fornecido via add_secret, usamos ele.
-  const authHeader = apiKey ? { "x-api-key": apiKey } : {};
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "anthropic-version": "2023-06-01",
+  };
 
-  // Chamada via Anthropic API (compatível com o que o AI Gateway espera ou fetch direto)
-  // Usamos fetch direto para garantir controle total sobre o prompt caching.
+  if (apiKey) {
+    headers["x-api-key"] = apiKey;
+  }
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "anthropic-version": "2023-06-01",
-      ...authHeader
-    },
+    headers,
     body: JSON.stringify({
       model,
       max_tokens: 1024,
