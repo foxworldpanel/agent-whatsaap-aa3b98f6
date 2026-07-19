@@ -16,19 +16,19 @@ type OrchestratorInput = {
   enabledModules: string[];
   customModules: Record<string, string>;
   anthropicApiKey?: string;
+  extraContext?: string;
 };
 
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
-  const { userId, message, history, enabledModules, customModules, anthropicApiKey } = input;
+  const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext } = input;
 
   const identity = await loadAgentIdentity(userId);
   const moduleKeys = selectRelevantModules(message, enabledModules);
   const modulePrompt = buildPromptFromModules(moduleKeys, customModules);
 
-  // System Prompt with V1 parity instructions for regression tests
   const systemPrompt = `
 Você é a Júlia, vendedora especialista em marketing digital na Mind SMM.
-REGRAS DE OURO (V1 PARITY):
+REGRAS DE OURO:
 - Responda de forma humana, natural e curta.
 - NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse. Pergunte.
 - YouTube e TikTok → use sempre "views", NUNCA "plays".
@@ -37,8 +37,10 @@ REGRAS DE OURO (V1 PARITY):
 - Objeções como "não é golpe?" ou "tem risco?" com ponto de interrogação NUNCA são recusa real.
 - CATEGORIAS DE INTERESSE: 
   1. DIRETO: Quer comprar.
-  2. NEUTRA: Só cortesia (oi, tudo bem). Responda com reciprocidade.
+  2. NEUTRA (SÓ CORTESIA): Oi, tudo bem, etc. Responda com reciprocidade.
   3. NEGATIVA: Recusa clara.
+
+${extraContext ? `CONTEXTO ADICIONAL:\n${extraContext}` : ""}
 
 ESTADO DA CONVERSA:
 ${modulePrompt}

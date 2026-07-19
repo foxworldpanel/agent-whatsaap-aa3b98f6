@@ -71,9 +71,33 @@ async function callAgent(opts: {
   };
 }
 
+async function callAgentWithExtra(opts: any) {
+    const fetchMock = mockAnthropicV3(opts.mockReply || "Olá!");
+    vi.stubGlobal("fetch", fetchMock);
+    process.env.ANTHROPIC_API_KEY = "test-key";
+
+    const lastMessage = opts.history[opts.history.length - 1]?.sender === "cliente" 
+      ? opts.history[opts.history.length - 1].body 
+      : "olá";
+    
+    const historyForV3 = opts.history.slice(0, -1);
+
+    const res = await runAgentV3Turn({
+      userId: "bd59fa41-3a6d-4767-8334-a69076f8e434",
+      message: lastMessage,
+      history: historyForV3,
+      enabledModules: Object.keys(DEFAULT_MODULES),
+      customModules: DEFAULT_MODULES,
+      anthropicApiKey: "test-key",
+      extraContext: opts.extraContext
+    });
+
+    return { text: res.text, fetchMock };
+}
+
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\\n\\n");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
   return "";
 }
 
