@@ -22,7 +22,7 @@ export async function callAnthropicV3(params: {
   }
 
   const body = {
-    model: model === "claude-haiku-4-5" ? "claude-3-haiku-20240307" : model,
+    model: model === "claude-haiku-4-5" ? "claude-3-5-sonnet-20241022" : (model === "claude-sonnet-5" ? "claude-3-5-sonnet-20241022" : model),
     max_tokens: 1024,
     system,
     messages
