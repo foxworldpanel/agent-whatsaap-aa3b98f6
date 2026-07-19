@@ -173,7 +173,11 @@ const mappingRegexes = [
     { from: /IMAGEM NA CONVERSA/g, to: 'IMAGEM NA CONVERSA' },
     { from: /REGRA DE CONCISÃO/g, to: 'REGRA DE CONCISÃO' },
     { from: /"vendedora especialista"/g, to: '"vendedora especialista"' },
+    { from: /nunca assume ou inventa qual rede/i, to: 'NUNCA assume ou inventa qual rede' },
+    { from: /CONFIRMAÇÃO.*nunca despedida/i, to: 'CONFIRMAÇÃO de interesse, nunca despedida' },
+    { from: /FATO TÉCNICO VERIFICADO/g, to: 'FATO TÉCNICO VERIFICADO' },
 ];
+
 
 
 
