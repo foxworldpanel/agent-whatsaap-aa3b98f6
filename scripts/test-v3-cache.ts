@@ -1,5 +1,5 @@
 
-import { runAgentV3Turn } from "./src/lib/agent-v3/orchestrator.server";
+import { runAgentV3Turn } from "../src/lib/agent-v3/orchestrator.server";
 
 async function testCache() {
   const userId = "cache-test-user-" + Date.now();
