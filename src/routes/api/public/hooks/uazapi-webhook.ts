@@ -3680,30 +3680,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .update({ last_interaction_at: nowReply, status: "em_conversa" })
           .eq("id", contact.id);
 
-        // ===== Lead scoring automático (Quente/Morno/Frio/Bloqueado) =====
+        // ===== Lead scoring automático (incorporado na chamada principal) =====
         try {
-          if (isTestNumber) {
-            // 🧪 número de teste — não altera temperatura automaticamente
-            throw new Error("__test_number_skip_scoring__");
-          }
-          const { classifyLeadTemperature } = await import("@/lib/ai.server");
-          const fullHistory = [
-            ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
-            { sender: "cliente" as const, body: inboundBody },
-            { sender: "agente" as const, body: reply },
-          ];
-          const temperatura = await classifyLeadTemperature({ history: fullHistory });
-          if (temperatura) {
+          if (!isTestNumber && leadTemperature) {
             const stamp = new Date().toISOString();
-            if (temperatura === "bloqueado") {
+            if (leadTemperature === "bloqueado") {
               await supabaseAdmin
                 .from("contacts")
-                .update({ temperatura, temperatura_updated_at: stamp, status: "bloqueado" })
+                .update({ temperatura: leadTemperature, temperatura_updated_at: stamp, status: "bloqueado" })
                 .eq("id", contact.id);
-            } else if (temperatura === "cliente") {
+            } else if (leadTemperature === "cliente") {
               await supabaseAdmin
                 .from("contacts")
-                .update({ temperatura, temperatura_updated_at: stamp, status: "convertido", perfil: "ativo" })
+                .update({ temperatura: leadTemperature, temperatura_updated_at: stamp, status: "convertido", perfil: "ativo" })
                 .eq("id", contact.id);
               await supabaseAdmin
                 .from("conversations")
@@ -3712,12 +3701,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             } else {
               await supabaseAdmin
                 .from("contacts")
-                .update({ temperatura, temperatura_updated_at: stamp })
+                .update({ temperatura: leadTemperature, temperatura_updated_at: stamp })
                 .eq("id", contact.id);
             }
           }
         } catch (e) {
-          console.error("lead scoring failed", e);
+          console.error("lead scoring persistence failed", e);
         }
 
         await releaseLock();

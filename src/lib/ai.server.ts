@@ -816,7 +816,7 @@ export async function generateAgentReplyWithMeta(params: {
   imageBase64?: string | null;
   imageMediaType?: string | null;
   userId?: string | null;
-}): Promise<{ text: string; model: string; routingReason: string }> {
+}): Promise<{ text: string; model: string; routingReason: string; leadTemperature?: LeadTemperatura | null }> {
   const { agent, contact, history, servicesContext, isInbound = true, funnelAlreadySent = false, knowledgeExamples = [], panelScreens = [], forbiddenRules = [], freeTestServices: freeTestServicesRaw = [], extraContext = null, inputKind = "texto", imageBase64 = null, imageMediaType = null, userId = null } = params;
   
   // OBRIGATÓRIO: Bloqueio de segurança V1 para o workspace Mind.
@@ -928,6 +928,16 @@ export async function generateAgentReplyWithMeta(params: {
     `REGRA ABSOLUTA DE CONTEXTO: antes de responder, leia TODAS as mensagens recebidas no array messages. O histórico completo da conversa está no array messages, em ordem cronológica. Responda considerando a conversa inteira, mas dê prioridade máxima à ÚLTIMA mensagem do cliente.`,
     `ÚLTIMA MENSAGEM DO CLIENTE: ${latestClientMessage ? `"${latestClientMessage}"` : "(não identificada)"}`,
     `REGRA DE CONCISÃO E ANTI-REPETIÇÃO: NUNCA REPETIR EXPLICAÇÃO JÁ DADA na mesma conversa sobre temas técnicos (entrega, ritmo, segurança, painel, pagamento). Se o cliente perguntar algo que você já explicou antes, reconheça que já falou sobre isso de forma curta (ex: "Como te falei antes...", "Conforme comentei...") e vá direto para o próximo passo ou dúvida nova. PROIBIDO repetir parágrafos explicativos idênticos.`,
+    `CLASSIFICAÇÃO DE TEMPERATURA DO LEAD (OBRIGATÓRIO):
+Ao final da sua resposta, inclua obrigatoriamente um marcador com a temperatura do lead entre colchetes, baseado no histórico e na última mensagem.
+Formatos permitidos: [TEMP:quente], [TEMP:morno], [TEMP:frio], [TEMP:cliente], [TEMP:bloqueado].
+Critérios:
+- [TEMP:quente]: perguntou preço, pediu link, disse que quer comprar, perguntou como pagar.
+- [TEMP:morno]: interesse com dúvidas, pediu informações, perguntou se funciona.
+- [TEMP:frio]: respostas curtas, pouco engajamento, não perguntou nada.
+- [TEMP:cliente]: confirmou pagamento/comprovante, disse "paguei"/"fechei".
+- [TEMP:bloqueado]: pediu para parar, disse que não tem interesse, xingou.
+Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
     `IDIOMA DA CONVERSA: Detecte o idioma da última mensagem do cliente e mantenha o atendimento no mesmo idioma (Português, Inglês ou Espanhol).`,
     imageBase64
       ? `IMAGEM NA CONVERSA (ABSOLUTA): a imagem que chegou é CONTEXTO ADICIONAL do momento atual da conversa.`
@@ -1267,7 +1277,8 @@ export async function generateAgentReplyWithMeta(params: {
         block.includes("RECONHECIMENTO DE RESPOSTAS CURTAS") ||
         block.includes("TESTE GRÁTIS DISPONÍVEL") ||
         block.includes("IDIOMA DA CONVERSA") ||
-        block.includes("REGRA DE CONCISÃO E ANTI-REPETIÇÃO");
+        block.includes("REGRA DE CONCISÃO E ANTI-REPETIÇÃO") ||
+        block.includes("CLASSIFICAÇÃO DE TEMPERATURA DO LEAD");
 
       if (isDynamic) dynamicBlocks.push(block);
       else stableBlocks.push(block);
@@ -1369,7 +1380,17 @@ export async function generateAgentReplyWithMeta(params: {
   }
 
   const text = (json.content?.find((c) => c.type === "text")?.text ?? "").trim();
-  const finalText = text || "…";
+  
+  // Extração de temperatura do lead do final do texto
+  let leadTemperature: LeadTemperatura | null = null;
+  let textWithoutTemp = text;
+  const tempMatch = text.match(/\[TEMP:(quente|morno|frio|cliente|bloqueado)\]\s*$/i);
+  if (tempMatch) {
+    leadTemperature = tempMatch[1].toLowerCase() as LeadTemperatura;
+    textWithoutTemp = text.replace(/\[TEMP:(quente|morno|frio|cliente|bloqueado)\]\s*$/i, "").trim();
+  }
+
+  const finalText = textWithoutTemp || "…";
   // Sanitiza tiques de escrita de IA: em-dash / en-dash no meio de frases
   // denunciam texto gerado por LLM. Substitui por vírgula (com fallback
   // para hífen quando não estiver cercado por espaços).
