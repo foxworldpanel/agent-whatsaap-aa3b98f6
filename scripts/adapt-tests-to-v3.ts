@@ -135,6 +135,8 @@ let content = header;
 if (describes) {
   describes.forEach(d => {
     let adaptedD = d.replace(/JSON\.parse\(fetchMock\.mock\.calls\[0\]\[1\]\.body\)/g, "(JSON.parse(fetchMock.mock.calls[0][1].body || '{}'))");
+    // Correctly escape double quotes inside the joined string
+    adaptedD = adaptedD.replace(/join\("\\n\\n"\)/g, 'join("\\n\\n")'); 
     content += "\n" + adaptedD;
   });
 }
