@@ -141,6 +141,17 @@ if (describeIndex !== -1) {
     adapted = adapted.substring(describeIndex);
 }
 
+// Global debug log for extractSystemText
+adapted = `
+const _extractSystemText = extractSystemText;
+extractSystemText = (s) => {
+  const res = _extractSystemText(s);
+  // console.log("DEBUG EXTRACT:", res.substring(0, 200));
+  return res;
+};
+` + adapted;
+
+
 // Map mapping V1 blocks to V3 rules to allow "cosmetic" string differences to pass assertions
 const mappingRegexes = [
     { from: /"exemplo_modelo_disparo"/g, to: '"exemplo_disparo"' },
