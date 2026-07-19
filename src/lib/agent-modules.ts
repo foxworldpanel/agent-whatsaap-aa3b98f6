@@ -69,10 +69,10 @@ Regras:
   • Plays + Ouvintes Global: R$15/1000 (mín 500)
   • Save: R$10/1000 (mín 100)
 - REGRAS ESPECÍFICAS:
-  • Plays e ouvintes funcionam normalmente.
-  • Aluguel de Playlist: 1 música em 10 playlists por 30 dias (Eclética ou Eletrônica).
-  • GÊNERO: Eletrônica é SÓ para eletrônica/house/techno. Para TODO o resto (sertanejo, funk, etc), use SOMENTE Eclética.
-  • TERMINOLOGIA: "Ouvintes" é EXCLUSIVO para Spotify. Nunca use para Instagram/YouTube/TikTok.
+  • DISPONIBILIDADE: Se o serviço aparece aqui, ele está DISPONÍVEL. Siga o preço e as regras deste módulo.
+  • TERMINOLOGIA: "Ouvintes" é EXCLUSIVO para Spotify. NUNCA use para Instagram/YouTube/TikTok.
+  • Aluguel de Playlist: 1 música em 10 playlists por 30 dias.
+  • GÊNERO: Eletrônica é SÓ para eletrônica/house/techno. Para TODO o resto (sertanejo, funk, etc), use SOMENTE Eclética. NUNCA mencione o pacote Eletrônica para outros gêneros.
 - TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
   instagram: `MÓDULO INSTAGRAM (FONTE ÚNICA)
@@ -95,6 +95,7 @@ Regras:
   • Pessoas Live: R$20 (mín 50)
   • Inscritos: R$140 (mín 100)
 - REGRAS ESPECÍFICAS:
+  • NOMENCLATURA: YouTube → INSCRITOS (nunca "seguidores"). Se o cliente pedir "seguidores", corrija gentilmente: "No YouTube o equivalente a seguidores são os inscritos! Temos inscritos disponíveis."
   • Use o termo "views" (NUNCA "plays").
 - TODA COMPRA É NO PAINEL (mindsmmpanel.com).`,
 
