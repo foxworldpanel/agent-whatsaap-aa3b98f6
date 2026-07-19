@@ -91,9 +91,7 @@ async function callAgentWithExtra(opts: any) {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("
-" + "
-");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join(String.fromCharCode(10) + String.fromCharCode(10));
   return "";
 }
 
