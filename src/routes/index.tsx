@@ -134,6 +134,20 @@ function Dashboard() {
             </AlertDescription>
           </Alert>
 
+          <Alert className="border-orange-200 bg-orange-50">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <AlertTitle className="text-orange-800">INSTRUÇÕES DE PRIORIDADE V3</AlertTitle>
+            <AlertDescription className="text-orange-700 text-xs whitespace-pre-wrap">
+              Correção de prioridade: a V1 NÃO está atendendo cliente real ainda, só o número de teste. Não precisa corrigir os 4 testes que falharam na V1 agora — foca 100% em fazer a V3 funcionar.
+
+              PRÓXIMOS PASSOS PRA V3:
+              1) MIGRA O CONTEÚDO REAL DOS MÓDULOS: Copia o conteúdo completo de agent_config.modules (Mind) para a estrutura V3. Não reescreva, use o validado.
+              2) ADAPTA O TEST RUNNER: Ajusta callAgent para injetar módulos no orchestrator V3.
+              3) RODA OS 110 TESTES: Mostra o resultado real (pass/fail).
+              4) GUARDS DETERMINÍSTICOS: Implementa o que faltar (enforceReengagementGreeting, limitEmojiFrequency, sanitizeSystemLeaks, guardFreeTrialOffer, audio-out-gate).
+            </AlertDescription>
+          </Alert>
+
           <div className="p-4 border rounded-lg bg-blue-50/50">
             <h3 className="font-bold text-lg mb-2">1) INVENTÁRIO ARQUITETURA V3</h3>
             <p className="text-sm mb-2 text-muted-foreground">Arquivos V3 implantados com sucesso:</p>
