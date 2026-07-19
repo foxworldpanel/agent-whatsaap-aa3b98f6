@@ -2,6 +2,11 @@
 import { loadAgentIdentity } from "@/lib/agent-identity.server";
 import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
 import { extractMetadataV3, type AgentResponseV3 } from "./metadata-extractor.server";
+import { 
+  sanitizeSystemLeaks, 
+  limitEmojiFrequency, 
+  enforceReengagementGreeting 
+} from "./guards.server";
 
 type OrchestratorInput = {
   userId: string;
@@ -79,8 +84,18 @@ Mensagem para o cliente aqui.
   }
 
   const data = await response.json();
-  const llmText = data.content?.[0]?.text || "";
+  const llmTextRaw = data.content?.[0]?.text || "";
 
-  // 5. Extract Metadata
-  return extractMetadataV3(llmText);
+  // 5. Apply Deterministic Guards
+  let processedText = sanitizeSystemLeaks(llmTextRaw);
+  processedText = limitEmojiFrequency(processedText);
+  processedText = enforceReengagementGreeting(processedText);
+
+  // 6. Extract Metadata (from raw text which has the tags)
+  const metadata = extractMetadataV3(llmTextRaw);
+  
+  return {
+    ...metadata,
+    body: processedText
+  };
 }
