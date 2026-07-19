@@ -1,49 +1,30 @@
 // src/lib/agent-v3/guards.server.ts
-import { containsEmoji, stripEmojis, limitEmojiFrequency as limitEmojiV1 } from "@/lib/emoji-limiter";
 
 export function sanitizeSystemLeaks(text: string): string {
-  if (!text) return "";
-  return text
-    .replace(/\[TEMP:[^\]]*\]/g, "")
-    .replace(/\[INTENT:[^\]]*\]/g, "")
-    .replace(/\[STAGE:[^\]]*\]/g, "")
-    .trim();
+  return text.replace(/\[TEMP:.*?\]|\[INTENT:.*?\]|\[STAGE:.*?\]/g, "").trim();
 }
 
-export function limitEmojiFrequency(text: string, history: any[] = []): string {
-  return limitEmojiV1(text, { 
-    history: history.map(h => ({ body: h.body || h.text })),
-    isBlastOpening: false 
-  });
-}
-
-export function enforceReengagementGreeting(text: string, greeting: string = "Olá!"): { text: string; prepended: boolean } {
-  if (!text) return { text: greeting, prepended: true };
+export function limitEmojiFrequency(text: string, history: Array<{ sender: string, body: string }>): string {
+  const lastAgentMsg = [...history].reverse().find(m => m.sender === "agente");
+  const hasEmoji = (s: string) => /[\u{1F300}-\u{1F9FF}]/u.test(s);
   
-  const greetings = ["oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"];
-  const startLower = text.toLowerCase().trim();
-  const hasGreeting = greetings.some(g => startLower.startsWith(g));
+  if (lastAgentMsg && hasEmoji(lastAgentMsg.body)) {
+    return text.replace(/[\u{1F300}-\u{1F9FF}]/u, "");
+  }
+  return text;
+}
+
+export function enforceReengagementGreeting(text: string, greeting: string = "Oi! Como posso ajudar?") {
+  const greetings = ["oi", "olá", "bom dia", "boa tarde", "boa noite", "oopa", "opa"];
+  const lower = text.toLowerCase();
+  const hasGreeting = greetings.some(g => lower.startsWith(g));
   
   if (!hasGreeting) {
     return { text: `${greeting} ${text}`, prepended: true };
   }
-  
   return { text, prepended: false };
 }
 
 export function humanizePunctuationV3(text: string): string {
-  if (!text) return "";
-  // Remove travessões (em-dash e en-dash) que o Claude ama usar
-  return text.replace(/—/g, "-").replace(/–/g, "-");
-}
-
-export function guardFreeTrialOffer(reply: string, freeTestServices: any[]): { text: string; replaced: boolean } {
-  const hasOffer = /teste gr[aá]tis|degusta[çc][aã]o/i.test(reply);
-  if (hasOffer && (!freeTestServices || freeTestServices.length === 0)) {
-    return {
-      text: "No momento não temos teste grátis disponível, mas nossos pacotes iniciais são bem acessíveis!",
-      replaced: true
-    };
-  }
-  return { text: reply, replaced: false };
+  return text.replace(/\s*—\s*/g, " - ").replace(/\s*–\s*/g, " - ").trim();
 }
