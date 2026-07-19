@@ -33,6 +33,7 @@ const mockAnthropic = mockAnthropicV3;
 
 async function callAgent(opts: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
+  message?: string;
   mockReply: string;
   freeTestServices?: any[];
   isInbound?: boolean;
@@ -41,11 +42,11 @@ async function callAgent(opts: {
   vi.stubGlobal("fetch", fetchMock);
   process.env.ANTHROPIC_API_KEY = "test-key";
 
-  const lastMessage = opts.history[opts.history.length - 1]?.sender === "cliente" 
+  const lastMessage = opts.message || (opts.history[opts.history.length - 1]?.sender === "cliente" 
     ? opts.history[opts.history.length - 1].body 
-    : "olá";
+    : "olá");
   
-  const historyForV3 = opts.history.slice(0, -1);
+  const historyForV3 = opts.message ? opts.history : opts.history.slice(0, -1);
 
   const res = await runAgentV3Turn({
     userId: "bd59fa41-3a6d-4767-8334-a69076f8e434",
