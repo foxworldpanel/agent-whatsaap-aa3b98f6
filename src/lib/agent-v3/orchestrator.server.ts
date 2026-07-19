@@ -101,6 +101,7 @@ Mensagem para o cliente aqui.
 ${extraContext ? `FATO TÉCNICO VERIFICADO:\n${extraContext}` : ""}
 `;
 
+
   // Verbose Loop Check
   if (detectVerboseLoop(history)) {
     return {
