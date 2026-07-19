@@ -98,8 +98,9 @@ Toda resposta deve começar com marcadores:
 [TEMP:frio|morno|quente] [INTENT:...] [STAGE:...] 
 Mensagem para o cliente aqui.
 
-${extraContext ? `FATO TÉCNICO VERIFICADO:\n${extraContext}` : ""}
+${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : ""}
 `;
+
 
 
   // Verbose Loop Check
