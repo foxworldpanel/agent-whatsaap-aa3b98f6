@@ -149,16 +149,17 @@ if (describes) {
     let adaptedD = d;
     
     // Fix JSON.parse calls in the tests to be safer with V3 fetch mocks
+    // This is the CRITICAL fix: ensure we access [0][1].body only if fetchMock.mock.calls[0] exists
     adaptedD = adaptedD.replace(
       /const body = JSON\.parse\(\(fetchMock\.mock\.calls\[0\] \? fetchMock\.mock\.calls\[0\]\[1\]\.body : JSON\.stringify\(\{ system: \[\] \}\)\)\);/g,
       `const lastCall = fetchMock.mock.calls[fetchMock.mock.calls.length - 1];
-       const body = JSON.parse(lastCall ? lastCall[1].body || '{}' : '{}');`
+       const body = JSON.parse(lastCall && lastCall[1] ? lastCall[1].body || '{}' : '{}');`
     );
 
-    // Some tests use a direct access
+    // Some tests use direct access
     adaptedD = adaptedD.replace(
       /JSON\.parse\(fetchMock\.mock\.calls\[0\]\[1\]\.body\)/g,
-      `(fetchMock.mock.calls[0] ? JSON.parse(fetchMock.mock.calls[0][1].body || '{}') : {})`
+      `(fetchMock.mock.calls[0] && fetchMock.mock.calls[0][1] ? JSON.parse(fetchMock.mock.calls[0][1].body || '{}') : { system: [] })`
     );
 
     // Double escape newlines for the join in generated code
