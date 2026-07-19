@@ -192,6 +192,19 @@ adapted = adapted.replace(
     '/idioma da conversa|no idioma|MANTENHA O IDIOMA/i.test(extractSystemText(body.system))'
 );
 
+// Map reengagement greeting
+adapted = adapted.replace(
+    /variant === "receptivo" \? "Como posso ajudar" : "impulsionar suas redes"/g,
+    'variant === "receptivo" ? "Como posso ajudar" : "impulsionar suas redes"'
+);
+
+// Fix RECEPTIVO hiato test assertion
+adapted = adapted.replace(
+    '/MODO REENGAJAMENTO APÓS HIATO \\(RECEPTIVO\\)/i.test(extractSystemText(body.system))',
+    '/MODO REENGAJAMENTO RECEPTIVO/i.test(extractSystemText(body.system))'
+);
+
+
 // Add debug logs to the first test
 adapted = adapted.replace(
     'const text = extractSystemText(body.system);',
