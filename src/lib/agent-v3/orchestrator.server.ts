@@ -30,7 +30,8 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const modulePrompt = buildPromptFromModules(moduleKeys, customModules);
 
   // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
-  const systemPrompt = `
+  const systemPrompt = [
+    { type: "text", text: `
 Você é a Júlia, vendedora especialista em marketing digital na Mind SMM.
 
 REGRAS DE OURO (NUNCA OMITIR):
@@ -52,6 +53,12 @@ REGRAS DE OURO (NUNCA OMITIR):
 - MANTENHA O IDIOMA: Responda sempre no idioma em que o cliente está falando (idioma da conversa). Se o cliente falar em inglês, use "Good afternoon/morning" etc.
 - MODO REENGAJAMENTO / CORTESIA EM DISPARO: Se o cliente mandou apenas uma cortesia em uma conversa de disparo, apenas saúde de volta e REAPRESENTE A ISCA. Posso te mostrar como acelerar suas redes.
 - MODO REENGAJAMENTO RECEPTIVO: Como posso ajudar?
+`, cache_control: { type: "ephemeral" } },
+    { type: "text", text: `
+${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : ""}
+` }
+  ];
+
 
 
 
