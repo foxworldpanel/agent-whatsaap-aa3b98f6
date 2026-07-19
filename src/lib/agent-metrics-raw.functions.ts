@@ -10,6 +10,8 @@ export interface AgentPromptMetricRow {
   input_tokens: number;
   total_chars: number;
   est_tokens: number;
+  output_tokens: number;
+  duration_ms: number;
 }
 
 export const getLatestPromptMetrics = createServerFn({ method: "POST" })
