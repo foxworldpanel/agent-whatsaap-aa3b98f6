@@ -758,7 +758,7 @@ export function buildSharedRules(
     REGRA_AMBIGUIDADE_DUPLA_ESCOLHA_BLOCK,
     // buildRegraPlaylistsInfoDiretaBlock e dailyPromoText movidos para Bloco 2 dinâmico no ai.server.ts
     // para garantir estabilidade absoluta do Bloco 1 (identidade/regras/tabela).
-    buildRegraFechamentoTutorialBlock(ctx.minRechargeBRL ?? 5),
+    
     `============ FIM DA IDENTIDADE ============`,
   ]
     .filter((s) => typeof s === "string" && s.length > 0)
