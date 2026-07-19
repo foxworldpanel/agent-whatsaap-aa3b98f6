@@ -27,7 +27,7 @@ function Dashboard() {
         <p className="text-muted-foreground mt-2">Construindo a nova geração em paralelo à V1 estável</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Fase Atual: Construção V3 (STARTED)</CardTitle>
@@ -40,7 +40,17 @@ function Dashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Status Cache</CardTitle>
+            <CardTitle className="text-sm font-medium">Testes Automatizados (V1)</CardTitle>
+            <CheckCircle2 className="text-green-500 h-4 w-4" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">96.3% PASS</div>
+            <p className="text-xs text-muted-foreground">106/110 cenários (Baseline)</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Status Cache (V1)</CardTitle>
             {cacheFail ? <AlertCircle className="text-destructive h-4 w-4" /> : <CheckCircle2 className="text-green-500 h-4 w-4" />}
           </CardHeader>
           <CardContent>
@@ -94,11 +104,38 @@ function Dashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Plano de Reconstrução Segura (V3)</CardTitle>
+          <CardTitle>Auditoria de Testes V1 (110 Cenários)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="p-4 border rounded-lg bg-green-50/50">
+              <h3 className="font-bold text-green-800">✅ 106 Testes Passaram</h3>
+              <p className="text-xs text-green-700 mt-1">Cobre: Split, Emojis, Áudio (Validação), Preços Spotify, Upsell, Humanização.</p>
+            </div>
+            <div className="p-4 border rounded-lg bg-red-50/50">
+              <h3 className="font-bold text-red-800">❌ 4 Testes Falharam (Baseline V1)</h3>
+              <ul className="text-xs text-red-700 mt-1 list-disc list-inside">
+                <li>Anti-invenção de rede (Regra ausente no prompt V1)</li>
+                <li>Modo Fechamento (Regra ausente no prompt V1)</li>
+                <li>Objeção "Não é golpe?" (Regex mismatch no prompt V1)</li>
+                <li>Exemplo Disparo (Inbound/Outbound logic mismatch em threads receptivas)</li>
+              </ul>
+            </div>
+          </div>
+
+          <Alert className="border-blue-200 bg-blue-50">
+            <Zap className="h-4 w-4 text-blue-600" />
+            <AlertTitle className="text-blue-800">PRÓXIMO PASSO: ADAPTAÇÃO V3</AlertTitle>
+            <AlertDescription className="text-blue-700">
+              A V3 ainda não possui os 110 testes rodando porque a cobertura de módulos está em 15% (apenas identidade base).
+              Para rodar os testes na V3, precisamos:
+              1. Copiar o conteúdo real dos módulos (Spotify, Insta, etc) para a V3.
+              2. Adaptar o <code>callAgent</code> no runner para injetar os <code>enabledModules</code> no orchestrator V3.
+            </AlertDescription>
+          </Alert>
+
           <div className="p-4 border rounded-lg bg-blue-50/50">
-            <h3 className="font-bold text-lg mb-2">1) QUAIS ARQUIVOS FORAM CRIADOS</h3>
+            <h3 className="font-bold text-lg mb-2">1) INVENTÁRIO ARQUITETURA V3</h3>
             <p className="text-sm mb-2 text-muted-foreground">Arquivos V3 implantados com sucesso:</p>
             <ul className="list-disc list-inside space-y-1 text-sm font-mono text-green-600">
               <li>src/lib/agent-v3/router.server.ts (OK)</li>
@@ -107,50 +144,19 @@ function Dashboard() {
               <li>src/lib/agent-v3/audio-processor.server.ts (OK)</li>
               <li>src/lib/agent-v3/metadata-extractor.server.ts (OK)</li>
             </ul>
-            <p className="text-xs mt-3 text-primary font-medium">✅ Pronto para testes de roteamento e transcrição.</p>
           </div>
 
           <div className="p-4 border rounded-lg">
-            <h3 className="font-bold text-lg mb-2">2) COMO O ROUTER DECIDE MÓDULO</h3>
+            <h3 className="font-bold text-lg mb-2">2) ROUTER DETERMINÍSTICO V3</h3>
             <div className="space-y-3 text-sm">
-              <p>O roteamento será <strong>determinístico (código)</strong>, não IA, para economizar tokens.</p>
+              <p>O roteamento será <strong>determinístico (código)</strong> para economizar tokens.</p>
               <div className="bg-muted p-3 rounded text-xs font-mono">
                 Exemplo: "quero comprar plays no Spotify"<br/>
                 → Keywords detectadas: ["plays", "spotify"]<br/>
                 → Módulos carregados: ["spotify", "pagamentos", "regras_gerais"]
               </div>
-              <p className="text-muted-foreground">
-                A lógica usará uma matriz de pesos de palavras-chave (Regex otimizado). Se nenhuma rede for detectada, carrega módulos de identificação/saudação.
-              </p>
             </div>
           </div>
-
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-bold text-lg mb-2">3) COMO O ÁUDIO SERÁ TRATADO</h3>
-            <div className="space-y-2 text-sm">
-              <ol className="list-decimal list-inside space-y-2">
-                <li><strong>Recepção:</strong> Webhook recebe o <code>mediaUrl</code>.</li>
-                <li><strong>Transcrição:</strong> Chamada ao Whisper via <code>transcribeAudioUrl</code>.</li>
-                <li><strong>Validação de Tipo (Ação Mecânica):</strong>
-                  <pre className="bg-muted p-2 mt-1 rounded text-[10px] font-mono">
-                    {`const transcript = await whisper();
-if (typeof transcript !== 'string' || transcript === '[object Object]') {
-  throw new Error("Falha crítica na transcrição");
-}`}
-                  </pre>
-                </li>
-                <li><strong>Injeção:</strong> A string validada entra no prompt do Haiku como se fosse texto do cliente.</li>
-              </ol>
-            </div>
-          </div>
-
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">4) CONFIRMAÇÃO DE QUE A V1 CONTINUA ATIVA</AlertTitle>
-            <AlertDescription className="text-green-700">
-              O webhook oficial (<code>uazapi-webhook.ts</code>) continuará apontando 100% para <code>generateAgentReplyWithMeta</code> (V1). A V3 será acessível apenas por rota de teste interna. Tráfego real permanece intocado.
-            </AlertDescription>
-          </Alert>
         </CardContent>
       </Card>
     </div>
