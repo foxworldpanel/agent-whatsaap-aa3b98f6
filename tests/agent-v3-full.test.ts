@@ -1117,7 +1117,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
     });
     const body = (globalThis.__last_agent_payload || {});
     expect(
-      /MODO REENGAJAMENTO APÓS HIATO \(RECEPTIVO\)/i.test(extractSystemText(body.system)),
+      /MODO REENGAJAMENTO RECEPTIVO/i.test(extractSystemText(body.system)),
       "FALHOU: variante RECEPTIVA do veto não foi injetada",
     ).toBe(true);
     expect(
