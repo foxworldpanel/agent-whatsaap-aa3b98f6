@@ -1274,12 +1274,16 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
         block.includes("BASE DE CONHECIMENTO MODULAR") ||
         block.includes("REFINAMENTOS DE TOM CONSULTIVO") ||
         block.includes("GANCHO PROMO DO DIA") ||
-        block.includes("EXEMPLO_MODELO_DISPARO") ||
         block.includes("RECONHECIMENTO DE RESPOSTAS CURTAS") ||
         block.includes("TESTE GRÁTIS DISPONÍVEL") ||
         block.includes("IDIOMA DA CONVERSA") ||
         block.includes("REGRA DE CONCISÃO E ANTI-REPETIÇÃO") ||
-        block.includes("CLASSIFICAÇÃO DE TEMPERATURA DO LEAD");
+        block.includes("CLASSIFICAÇÃO DE TEMPERATURA DO LEAD") ||
+        block.includes("LISTA REAL DE PLAYLISTS") ||
+        block.includes("PACOTE ECLÉTICA") ||
+        block.includes("PACOTE MÚSICA ELETRÔNICA") ||
+        block.includes("REGRA — LISTA DE PLAYLISTS") ||
+        block.includes("REGRA DE FECHAMENTO — TUTORIAL");
 
       if (isDynamic) dynamicBlocks.push(block);
       else stableBlocks.push(block);
