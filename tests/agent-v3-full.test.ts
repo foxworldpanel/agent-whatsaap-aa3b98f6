@@ -8,7 +8,6 @@ import * as messageSplitter from "@/lib/message-splitter";
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 
-// Re-implement definitions that the tests expect to be available globally
 const baseAgent = () => ({
     agent_name: "Júlia",
     tone: "consultivo, humano",
@@ -68,16 +67,14 @@ async function callAgent(opts: {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("
-
-");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
   return "";
 }
 
-// Map V1 internal names to their real locations for the tests
 const buildSystemPrompt = aiServer.buildSystemPrompt;
 const humanizePunctuation = aiServer.humanizePunctuation;
 const guardFreeTrialOffer = aiServer.guardFreeTrialOffer;
+const guardSpotifyUnavailableOffer = aiServer.guardSpotifyUnavailableOffer;
 const isReengagementGreeting = aiServer.isReengagementGreeting;
 const isNeutralGreetingAfterBlastOpening = aiServer.isNeutralGreetingAfterBlastOpening;
 const autoSplitLongParts = messageSplitter.autoSplitLongParts;
@@ -86,6 +83,9 @@ const stripEmojis = emojiLimiter.stripEmojis;
 const keepFirstEmojiOnly = emojiLimiter.keepFirstEmojiOnly;
 const limitEmojiFrequency = emojiLimiter.limitEmojiFrequency;
 const containsEmoji = emojiLimiter.containsEmoji;
+const countEmojis = emojiLimiter.countEmojis;
+const MIND_BRAND_BLOCKS = {}; 
+const MIND_BRAND_TEMPLATE = "";
 
 beforeEach(() => { vi.unstubAllGlobals?.(); });
 afterEach(() => { vi.unstubAllGlobals?.(); vi.restoreAllMocks(); });
