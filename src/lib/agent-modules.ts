@@ -46,7 +46,7 @@ export const MODULE_LIST: AgentModuleDef[] = [
   
   { key: "aprendizado_continuo", title: "Aprendizado Contínuo", emoji: "📚" },
   
-  { key: "tabela_precos", title: "Tabela de Preços Manual", emoji: "🏷️" },
+  
 ];
 
 
@@ -289,9 +289,6 @@ Regras:
 `,
 
 
-  tabela_precos: `MÓDULO TABELA DE PREÇOS MANUAL (RESTRITO)
-- Este conteúdo foi distribuído para os módulos individuais por rede (spotify, instagram, youtube, tiktok).
-- Se você precisar de preços, consulte o módulo da rede social correspondente.`,
 };
 
 
