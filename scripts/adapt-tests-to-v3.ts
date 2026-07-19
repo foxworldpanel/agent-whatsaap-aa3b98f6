@@ -4,6 +4,19 @@ import path from 'path';
 const originalPath = path.join(process.cwd(), 'tests/agent-conversation.test.ts');
 const originalContent = fs.readFileSync(originalPath, 'utf-8');
 
+// Map mapping V1 blocks to V3 rules to allow "cosmetic" string differences to pass assertions
+const v1ToV3Map: Record<string, string> = {
+  "EXEMPLO_MODELO_DISPARO": "exemplo_disparo",
+  "ANTI-INVENÇÃO": "REGRAS DE OURO",
+  "TERMINOLOGIA": "TERMINOLOGIA",
+  "MODO FECHAMENTO": "MODO FECHAMENTO",
+  "MODO REENGAJAMENTO APÓS HIATO": "MODO REENGAJAMENTO APÓS HIATO",
+  "IMAGEM NA CONVERSA": "IMAGEM NA CONVERSA",
+  "REGRA DE CONCISÃO": "REGRA DE CONCISÃO",
+  "PROGRESSO DO FUNIL": "MODO SUPORTE",
+  "MODO ÁUDIO": "MODO ÁUDIO"
+};
+
 const header = `
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
@@ -108,24 +121,10 @@ async function callAgentWithExtra(opts: any) {
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
   if (Array.isArray(s)) {
-    return s.map((b: any) => b.text || "").join("\n\n");
+    return s.map((b: any) => b.text || "").join("\\n\\n");
   }
   return "";
 }
-
-// Map mapping V1 blocks to V3 rules to allow "cosmetic" string differences to pass assertions
-const v1ToV3Map: Record<string, string> = {
-  "EXEMPLO_MODELO_DISPARO": "exemplo_disparo",
-  "ANTI-INVENÇÃO": "REGRAS DE OURO",
-  "TERMINOLOGIA": "TERMINOLOGIA",
-  "MODO FECHAMENTO": "MODO FECHAMENTO",
-  "MODO REENGAJAMENTO APÓS HIATO": "MODO REENGAJAMENTO APÓS HIATO",
-  "IMAGEM NA CONVERSA": "IMAGEM NA CONVERSA",
-  "REGRA DE CONCISÃO": "REGRA DE CONCISÃO",
-  "PROGRESSO DO FUNIL": "MODO SUPORTE",
-  "MODO ÁUDIO": "MODO ÁUDIO"
-};
-
 
 const buildSystemPrompt = aiServer.buildSystemPrompt;
 const humanizePunctuation = (t: string) => t.replace(/—/g, "-").replace(/–/g, "-");
@@ -146,7 +145,11 @@ const enforceReengagementGreeting = (text: string, greeting?: string) => {
     const res = v3Guards.enforceReengagementGreeting(text, greeting);
     return { text: res.text, prepended: res.prepended };
 };
-const pickReengagementGreeting = (s: string) => s + "!";
+const pickReengagementGreeting = v3Guards.pickReengagementGreeting;
+const sanitizeSystemLeaks = (text: string) => v3Guards.sanitizeSystemLeaks(text);
+const detectVerboseLoop = (history: any) => v3Guards.detectVerboseLoop(Array.isArray(history) ? history : []);
+const looksLikeConcreteAction = v3Guards.looksLikeConcreteAction;
+const VERBOSE_LOOP_FAREWELL = v3Guards.VERBOSE_LOOP_FAREWELL;
 
 const MIND_BRAND_BLOCKS = {}; 
 const MIND_BRAND_TEMPLATE = "";
