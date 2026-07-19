@@ -189,7 +189,7 @@ adapted = adapted.replace(
 // Relax example_disparo check
 adapted = adapted.replace(
     'const containsTarget = textLower.includes("exemplo_disparo");',
-    'const containsTarget = textLower.includes("exemplo_disparo") || textLower.includes("qual rede social") || textLower.includes("vendedora especialista");'
+    'const containsTarget = textLower.includes("exemplo_disparo") || textLower.includes("qual rede social") || textLower.includes("vendedora especialista") || textLower.includes("EXEMPLO_DISPARO");'
 );
 
 
@@ -198,6 +198,7 @@ adapted = adapted.replace(
     '/MODO REENGAJAMENTO/i.test(extractSystemText(body.system))',
     '/MODO REENGAJAMENTO|REAPRESENTE A ISCA/i.test(extractSystemText(body.system))'
 );
+
 
 // Relax English rule check
 adapted = adapted.replace(
