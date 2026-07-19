@@ -1250,13 +1250,43 @@ export async function generateAgentReplyWithMeta(params: {
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      system: [
-        {
-          type: "text",
-          text: fullSystemFallback,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
+      system: (() => {
+        const stableBlocks: string[] = [];
+        const dynamicBlocks: string[] = [];
+        const blocksArray = Array.isArray(systemBlocks) ? systemBlocks : [systemBlocks];
+
+        blocksArray.forEach((block: any) => {
+          if (!block || typeof block !== "string" || !block.trim()) return;
+          
+          const isDynamic = 
+            block.includes("ÚLTIMA MENSAGEM DO CLIENTE") ||
+            block.includes("MODO ÁUDIO") ||
+            block.includes("IMAGEM NA CONVERSA") ||
+            block.includes("VETO DE PRIORIDADE MÁXIMA") ||
+            block.includes("extraContext") ||
+            block.includes("🔥 PROMOÇÃO ATIVA HOJE") ||
+            block.includes("FATO TÉCNICO VERIFICADO");
+
+          if (isDynamic) dynamicBlocks.push(block);
+          else stableBlocks.push(block);
+        });
+
+        const result: any[] = [];
+        if (stableBlocks.length > 0) {
+          result.push({
+            type: "text",
+            text: stableBlocks.join("\n\n"),
+            cache_control: { type: "ephemeral" },
+          });
+        }
+        if (dynamicBlocks.length > 0) {
+          result.push({
+            type: "text",
+            text: dynamicBlocks.join("\n\n")
+          });
+        }
+        return result;
+      })(),
       messages: finalMessages,
     }),
   });
