@@ -674,7 +674,7 @@ export function buildSystemPrompt(params: BuildPromptParams): string | Array<{ t
   ].filter(Boolean);
 
   return [
-    { text: sharedRules, cache_control: { type: "ephemeral" } },
+    { text: systemBlock1, cache_control: { type: "ephemeral" } },
     { text: dynamicSystem.join("\n\n") }
   ];
 }
