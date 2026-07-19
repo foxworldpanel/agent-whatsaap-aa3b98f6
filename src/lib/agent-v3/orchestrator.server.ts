@@ -96,6 +96,6 @@ Mensagem para o cliente aqui.
   
   return {
     ...metadata,
-    body: processedText
+    text: processedText // The text property is what we call 'body' in metadata-extractor
   };
 }
