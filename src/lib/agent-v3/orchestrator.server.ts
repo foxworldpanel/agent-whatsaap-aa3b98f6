@@ -29,6 +29,12 @@ export interface AgentResponseV3 {
   replies: string[];
   rawResponse?: string;
   rawPrompt?: any;
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
 }
 
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
@@ -129,7 +135,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
       role: m.role === "agent" ? "assistant" : "user",
       content: m.content
     })),
-    model: "claude-3-5-haiku-20241022"
+    model: "claude-3-5-sonnet-20241022"
   });
 
   const rawText = response.content[0].text;
@@ -159,6 +165,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
     stage,
     replies,
     rawResponse: rawText,
-    rawPrompt: systemPrompt
+    rawPrompt: systemPrompt,
+    usage: response.usage
   };
 }
