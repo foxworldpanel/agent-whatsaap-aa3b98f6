@@ -94,23 +94,41 @@ function Dashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Ações Aplicadas (Optimization Log)</CardTitle>
+          <CardTitle>Plano de Reconstrução Segura (V3)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50">
-            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
-            <div>
-              <p className="font-semibold">Eliminação de classifyLeadTemperature</p>
-              <p className="text-sm text-muted-foreground">A 2ª chamada à Anthropic foi removida. A temperatura agora é classificada pelo Claude na mesma chamada da resposta usando marcadores determinísticos.</p>
+        <CardContent className="space-y-6">
+          <div className="p-4 border rounded-lg bg-blue-50/50">
+            <h3 className="font-bold text-lg mb-2">Arquivos que serão criados (NOVOS)</h3>
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              <li><code>src/lib/agent-v3/router.server.ts</code> (Router determinístico)</li>
+              <li><code>src/lib/agent-v3/orchestrator.server.ts</code> (Montagem de prompt sob demanda)</li>
+              <li><code>src/lib/agent-v3/audio-processor.server.ts</code> (Whisper + validação de string)</li>
+              <li><code>src/lib/agent-v3/metadata-extractor.server.ts</code> (JSON parsing da resposta)</li>
+            </ul>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-semibold mb-2">Router Determinístico</h4>
+              <p className="text-sm text-muted-foreground">
+                Decide quais módulos carregar via <code>agent_config.modules</code> usando keywords e contexto da última mensagem, reduzindo o prompt fixo em ~80%.
+              </p>
+            </div>
+            <div className="p-4 border rounded-lg">
+              <h4 className="font-semibold mb-2">Tratamento de Áudio</h4>
+              <p className="text-sm text-muted-foreground">
+                Whisper transcreve → validação rigorosa (<code>typeof === 'string'</code>) → injeta transcrição no fluxo Haiku. Corrige o bug de <code>[object Object]</code>.
+              </p>
             </div>
           </div>
-          <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50">
-            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
-            <div>
-              <p className="font-semibold">Veto de Vaza de Marcadores</p>
-              <p className="text-sm text-muted-foreground">Implementado regex de extração e limpeza em ai.server.ts para garantir que [TEMP:...] nunca apareça na mensagem final do cliente.</p>
-            </div>
-          </div>
+
+          <Alert>
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertTitle>Garantia de Estabilidade</AlertTitle>
+            <AlertDescription>
+              A V1 continua ativa e intocada em <code>src/lib/ai.server.ts</code>. A troca só ocorrerá após validação de 110 testes e 6 cenários manuais críticos.
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     </div>
