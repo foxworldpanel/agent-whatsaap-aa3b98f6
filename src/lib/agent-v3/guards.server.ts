@@ -75,6 +75,24 @@ export function pickReengagementGreeting(latestClientMsg: string, nowDate: Date 
   if (/\bboa\s*tarde\b/.test(s)) return "Boa tarde";
   if (/\bboa\s*noite\b/.test(s)) return "Boa noite";
   
+  // Se não encontrou saudação específica, faz o fallback baseado na hora
+  const hourBr = (nowDate.getUTCHours() - 3 + 24) % 24;
+  if (hourBr >= 5 && hourBr < 12) return "Bom dia";
+  if (hourBr >= 12 && hourBr < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+export function looksLikeConcreteAction(text: string): boolean {
+  return /http|www|\.com|\.br|@/i.test(text);
+}
+
+export const VERBOSE_LOOP_FAREWELL = "Entendo! Como não conseguimos avançar por aqui, vou deixar você à vontade. Se precisar de algo no futuro, é só chamar!";
+
+  const s = (latestClientMsg ?? "").toLowerCase();
+  if (/\bbom\s*dia\b/.test(s)) return "Bom dia";
+  if (/\bboa\s*tarde\b/.test(s)) return "Boa tarde";
+  if (/\bboa\s*noite\b/.test(s)) return "Boa noite";
+  
   const hourBr = (nowDate.getUTCHours() - 3 + 24) % 24;
   if (hourBr >= 5 && hourBr < 12) return "Bom dia";
   if (hourBr >= 12 && hourBr < 18) return "Boa tarde";
