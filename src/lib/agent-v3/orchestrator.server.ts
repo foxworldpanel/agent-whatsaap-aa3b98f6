@@ -26,12 +26,13 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const moduleKeys = selectRelevantModules(message, enabledModules);
   const modulePrompt = buildPromptFromModules(moduleKeys, customModules);
 
+  // V3 ORCHESTRATOR - INJECTING GOLD RULES DIRECTLY INTO SYSTEM PROMPT STRING
   const systemPrompt = `
 Você é a Júlia, vendedora especialista em marketing digital na Mind SMM.
 
 REGRAS DE OURO:
 - Responda de forma humana, natural e curta.
-- NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse. Pergunte.
+- NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse. Pergunte qual rede social ou serviço o cliente deseja.
 - YouTube e TikTok → use sempre "views", NUNCA "plays".
 - Se o cliente disser "Ok" ou "blz" após você passar o preço, entenda como CONFIRMAÇÃO de interesse, nunca despedida.
 - PROIBIDO ABSOLUTO omitir a saudação de volta quando o cliente te cumprimenta.
@@ -71,6 +72,22 @@ Toda resposta deve começar com marcadores:
 Mensagem para o cliente aqui.
 `;
 
+  const payload = {
+    model: "claude-3-haiku-20240307",
+    max_tokens: 1000,
+    system: [
+      {
+        type: "text",
+        text: systemPrompt,
+        cache_control: { type: "ephemeral" }
+      }
+    ],
+    messages: history.map(m => ({
+      role: m.sender === "agente" ? "assistant" : "user",
+      content: m.body
+    })).concat([{ role: "user", content: message }])
+  };
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -79,21 +96,7 @@ Mensagem para o cliente aqui.
       "content-type": "application/json",
       "anthropic-beta": "prompt-caching-2024-07-31"
     },
-    body: JSON.stringify({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 1000,
-      system: [
-        {
-          type: "text",
-          text: systemPrompt,
-          cache_control: { type: "ephemeral" }
-        }
-      ],
-      messages: history.map(m => ({
-        role: m.sender === "agente" ? "assistant" : "user",
-        content: m.body
-      })).concat([{ role: "user", content: message }])
-    })
+    body: JSON.stringify(payload)
   });
 
   if (!response.ok) {
