@@ -23,8 +23,8 @@ function Dashboard() {
   return (
     <div className="container mx-auto py-10 space-y-8">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight">Consolidação de Turno (V1 Optimizer)</h1>
-        <p className="text-muted-foreground mt-2">Eliminação de chamadas redundantes e controle de temperatura</p>
+        <h1 className="text-4xl font-bold tracking-tight">Arquitetura V3 (Leve & Modular)</h1>
+        <p className="text-muted-foreground mt-2">Construindo a nova geração em paralelo à V1 estável</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
