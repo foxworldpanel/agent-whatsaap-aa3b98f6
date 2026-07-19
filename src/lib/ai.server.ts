@@ -895,11 +895,10 @@ export async function generateAgentReplyWithMeta(params: {
 
   // BLOCO 1 — ESTÁVEL (Identidade, Regras, Tabela de Preços)
   // Este bloco é marcado com cache_control: ephemeral e deve ser 100% idêntico entre conversas.
+  // suppressExemploDisparo: true garante que o exemplo de disparo (inchado e dinâmico) não entre no Bloco 1.
   const systemBlock1 = buildSharedRules(identity, {
     freeTestServices,
     brandBlocks,
-    // Em produção, suprimimos o exemplo few-shot, catálogos e promoções do bloco estável 
-    // para manter a string idêntica em todas as chamadas de suporte/venda orgânica.
     suppressExemploDisparo: true,
   });
 
@@ -911,8 +910,10 @@ export async function generateAgentReplyWithMeta(params: {
       if (!t) return "";
       return `🔥 PROMOÇÃO ATIVA HOJE:\n${t}\n\nQuando fizer sentido na conversa (cliente perguntando do serviço/rede correspondente, ou perguntando se tem promoção/desconto), mencione essa promoção específica de forma natural. NUNCA invente outra promoção, desconto ou condição além desta. Se esta promoção não estiver no bloco (bloco ausente do prompt), NUNCA mencione nenhuma promoção — mantém a regra normal de "nunca dar desconto manual".`;
     })(),
+    // EXEMPLO MODELO DE DISPARO e RECONHECIMENTO DE INTERESSE entram apenas no Bloco 2 (Dinâmico)
+    // para conversas que realmente parecem disparo, evitando poluição no Bloco 1.
     effectiveBlast
-      ? buildSharedRules(identity, { suppressExemploDisparo: false })
+      ? buildSharedRules(identity, { suppressExemploDisparo: false }).split("EXEMPLO_MODELO_DISPARO")[1] || ""
       : "",
     identity.reconhecimento_interesse || "",
     anyReengagementVeto
