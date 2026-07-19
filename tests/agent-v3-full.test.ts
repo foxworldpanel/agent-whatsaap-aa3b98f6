@@ -29,6 +29,7 @@ function mockAnthropicV3(reply: string) {
     );
   });
 }
+const mockAnthropic = mockAnthropicV3;
 
 async function callAgent(opts: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
@@ -114,6 +115,7 @@ const enforceReengagementGreeting = (text: string, greeting?: string) => {
     const res = v3Guards.enforceReengagementGreeting(text, greeting);
     return { text: res.text, prepended: res.prepended };
 };
+const pickReengagementGreeting = (s: string) => s + "!";
 
 const MIND_BRAND_BLOCKS = {}; 
 const MIND_BRAND_TEMPLATE = "";
