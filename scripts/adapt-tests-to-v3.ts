@@ -97,7 +97,7 @@ async function callAgentWithExtra(opts: any) {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n" + "\n");
   return "";
 }
 
@@ -135,8 +135,8 @@ let content = header;
 if (describes) {
   describes.forEach(d => {
     let adaptedD = d.replace(/JSON\.parse\(fetchMock\.mock\.calls\[0\]\[1\]\.body\)/g, "(JSON.parse(fetchMock.mock.calls[0][1].body || '{}'))");
-    // Using a more robust string replacement for the join newline
-    adaptedD = adaptedD.replace(/join\("\\n\\n"\)/g, 'join("\\\\n" + "\\\\n")');
+    // Ensure all newlines are double-escaped before writing
+    adaptedD = adaptedD.replace(/\n/g, "\r\n");
     content += "\n" + adaptedD;
   });
 }
