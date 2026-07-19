@@ -2972,6 +2972,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
           const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
           reply = _claudeOut.text;
+          const leadTemperature = _claudeOut.leadTemperature;
           const _claudeMs = Date.now() - _claudeStart;
           const _claudeModel = _claudeOut.model;
           const _claudeRoutingReason = _claudeOut.routingReason;
@@ -3680,30 +3681,23 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .update({ last_interaction_at: nowReply, status: "em_conversa" })
           .eq("id", contact.id);
 
-        // ===== Lead scoring automático (Quente/Morno/Frio/Bloqueado) =====
+        // ===== Lead scoring automático (incorporado na chamada principal) =====
         try {
-          if (isTestNumber) {
-            // 🧪 número de teste — não altera temperatura automaticamente
-            throw new Error("__test_number_skip_scoring__");
-          }
-          const { classifyLeadTemperature } = await import("@/lib/ai.server");
-          const fullHistory = [
-            ...((history ?? []) as Array<{ sender: "agente" | "cliente"; body: string }>),
-            { sender: "cliente" as const, body: inboundBody },
-            { sender: "agente" as const, body: reply },
-          ];
-          const temperatura = await classifyLeadTemperature({ history: fullHistory });
-          if (temperatura) {
+          // leadTemperature foi extraído da resposta do generateAgentReplyWithMeta (linha ~2975)
+          // @ts-ignore - leadTemperature is defined in the same scope
+          const tempToUse = typeof leadTemperature !== 'undefined' ? leadTemperature : null;
+          
+          if (!isTestNumber && tempToUse) {
             const stamp = new Date().toISOString();
-            if (temperatura === "bloqueado") {
+            if (tempToUse === "bloqueado") {
               await supabaseAdmin
                 .from("contacts")
-                .update({ temperatura, temperatura_updated_at: stamp, status: "bloqueado" })
+                .update({ temperatura: tempToUse, temperatura_updated_at: stamp, status: "bloqueado" })
                 .eq("id", contact.id);
-            } else if (temperatura === "cliente") {
+            } else if (tempToUse === "cliente") {
               await supabaseAdmin
                 .from("contacts")
-                .update({ temperatura, temperatura_updated_at: stamp, status: "convertido", perfil: "ativo" })
+                .update({ temperatura: tempToUse, temperatura_updated_at: stamp, status: "convertido", perfil: "ativo" })
                 .eq("id", contact.id);
               await supabaseAdmin
                 .from("conversations")
@@ -3712,12 +3706,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             } else {
               await supabaseAdmin
                 .from("contacts")
-                .update({ temperatura, temperatura_updated_at: stamp })
+                .update({ temperatura: tempToUse, temperatura_updated_at: stamp })
                 .eq("id", contact.id);
             }
           }
         } catch (e) {
-          console.error("lead scoring failed", e);
+          console.error("lead scoring persistence failed", e);
         }
 
         await releaseLock();
