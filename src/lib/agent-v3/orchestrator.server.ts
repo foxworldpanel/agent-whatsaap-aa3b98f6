@@ -28,6 +28,7 @@ export interface AgentResponseV3 {
   stage: string;
   replies: string[];
   rawResponse?: string;
+  rawPrompt?: any;
 }
 
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
@@ -115,7 +116,8 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
       temperature: "frio",
       intent: "suporte",
       stage: "lead",
-      replies: ["Um momento, vou chamar um especialista para te ajudar melhor com isso."]
+      replies: ["Um momento, vou chamar um especialista para te ajudar melhor com isso."],
+      rawPrompt: systemPrompt
     };
   }
 
@@ -156,6 +158,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
     intent,
     stage,
     replies,
-    rawResponse: rawText
+    rawResponse: rawText,
+    rawPrompt: systemPrompt
   };
 }
