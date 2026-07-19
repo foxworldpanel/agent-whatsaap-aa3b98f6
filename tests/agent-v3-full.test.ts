@@ -134,7 +134,7 @@ describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)",
       ).toBeGreaterThanOrEqual(1);
       expect(model).not.toBe("rule-based");
       // Confirma que o system prompt carrega o exemplo_disparo (Claude vai decidir)
-      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const body = (globalThis.__last_agent_payload || {});
       const text = extractSystemText(body.system);
       if (!text.toLowerCase().includes("exemplo_disparo")) console.log("--- DEBUG V3 PROMPT ---", text.substring(0, 500));
       const textLower = text.toLowerCase();
@@ -176,7 +176,7 @@ describe('2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria N
         mockReply: "Bom dia! Posso te mostrar como acelerar suas redes?",
       });
       expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
-      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const body = (globalThis.__last_agent_payload || {});
       expect(
         /NEUTRA\s*\/?\s*S[OÓ]\s*CORTESIA|reciprocidade social/i.test(extractSystemText(body.system)),
         "FALHOU: prompt não contém regra de categoria NEUTRA para o Claude decidir",
@@ -485,7 +485,7 @@ describe("8c) Reengajamento respeita burst de mensagens (saudação + pergunta r
       mockReply: "Boa noite! Espero que esteja bem também. Posso te mostrar como acelerar suas redes?",
       isInbound: false,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(
       /PROIBIDO ABSOLUTO omitir a sauda[çc][aã]o de volta/i.test(extractSystemText(body.system)),
       "FALHOU: template não proíbe começar sem saudação de volta",
@@ -837,7 +837,7 @@ describe("12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext", ()
       mockReply: "Vi aqui que você já usou o teste grátis do Instagram. Posso te montar um pacote pequeno a partir de R$5?",
       extraContext: fact,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(extractSystemText(body.system).includes(fact), "FALHOU: fato técnico não chegou no system prompt").toBe(true);
     expect(
       /FATO T[ÉE]CNICO VERIFICADO/i.test(extractSystemText(body.system)),
@@ -855,7 +855,7 @@ describe("12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext", ()
       mockReply: "Vi aqui que esse link é de uma foto — views só funcionam em Reel. Me manda o link de um Reel do seu perfil!",
       extraContext: fact,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(extractSystemText(body.system).includes(fact)).toBe(true);
   });
 
@@ -868,7 +868,7 @@ describe("12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext", ()
       mockReply: "Rapidão: seu perfil tá privado, então o teste não conseguiu rodar. Deixa público por uns minutos e me manda o link de novo!",
       extraContext: fact,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(extractSystemText(body.system).includes(fact)).toBe(true);
   });
 });
@@ -888,7 +888,7 @@ describe("13) FATO TÉCNICO respeita o idioma da conversa (EN)", () => {
       mockReply: englishReply,
       extraContext: fact,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     // Confirma que a regra da identidade instrui responder no idioma do cliente
     expect(
       /idioma da conversa|no idioma|MANTENHA O IDIOMA/i.test(extractSystemText(body.system)),
@@ -929,7 +929,7 @@ describe("14) Suporte/pós-venda: 'obrigado' + 'ok' NÃO dispara pergunta de red
       isInbound: true,
     });
     expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     // 1) O prompt injeta explicitamente o bloco MODO SUPORTE / PÓS-VENDA.
     expect(
       /MODO SUPORTE\s*\/?\s*P[ÓO]S-VENDA/i.test(extractSystemText(body.system)),
@@ -979,7 +979,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
       freeTestServices: [],
       userId: null,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(
       /MODO REENGAJAMENTO|REAPRESENTE A ISCA/i.test(extractSystemText(body.system)),
       "FALHOU: prompt não contém o bloco MODO REENGAJAMENTO APÓS HIATO",
@@ -1010,7 +1010,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
       freeTestServices: [],
       userId: null,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     // Regressão fix: cortesia neutra em resposta imediata à abertura de
     // disparo agora dispara o MESMO veto do MODO REENGAJAMENTO — sem depender
     // de gap de tempo. Antes caía no genérico "Como posso te ajudar?".
@@ -1056,7 +1056,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
       freeTestServices: [],
       userId: null,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(
       /VETO DE PRIORIDADE M[AÁ]XIMA[\s\S]*MODO REENGAJAMENTO/i.test(extractSystemText(body.system)),
       "FALHOU: veto de reengajamento não foi injetado no topo do prompt em thread de disparo",
@@ -1109,7 +1109,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
       freeTestServices: [],
       userId: null,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(
       /MODO REENGAJAMENTO APÓS HIATO \(RECEPTIVO\)/i.test(extractSystemText(body.system)),
       "FALHOU: variante RECEPTIVA do veto não foi injetada",
@@ -1278,7 +1278,7 @@ describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda
       freeTestServices: [],
       userId: null,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(
       /VETO DE PRIORIDADE M[AÁ]XIMA/i.test(extractSystemText(body.system)),
       "FALHOU: veto de reengajamento foi injetado em disparo normal sem hiato",
@@ -1312,7 +1312,7 @@ describe("Áudio ininteligível / sem conteúdo claro", () => {
       inputKind: "audio",
       userId: null,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(
       /ÁUDIO ININTELIGÍVEL/i.test(extractSystemText(body.system)),
       "FALHOU: veto de áudio ininteligível ausente no MODO ÁUDIO",
@@ -1343,7 +1343,7 @@ describe("Áudio ininteligível / sem conteúdo claro", () => {
       inputKind: "texto",
       userId: null,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(/MODO ÁUDIO/i.test(extractSystemText(body.system))).toBe(false);
     expect(/ÁUDIO ININTELIGÍVEL/i.test(extractSystemText(body.system))).toBe(false);
   });
@@ -1515,7 +1515,7 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
       mockReply: "Claro! O Spotify funciona assim: você cria uma conta e...",
       isInbound: true,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(
       EXEMPLO_BODY_SIGNATURE.test(extractSystemText(body.system)),
       "FALHOU: system prompt em conversa organic carregou o few-shot de disparo",
@@ -1639,7 +1639,7 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
       imageBase64: "fake-base64-data",
       imageMediaType: "image/jpeg",
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     // Confirma que o histórico inteiro (14 turnos) chegou ao Claude — antes cortava em 8
     const msgsSerialized = JSON.stringify(body.messages);
     expect(msgsSerialized).toMatch(/Instagram/i);
@@ -1655,7 +1655,7 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
       imageBase64: "fake-base64-data",
       imageMediaType: "image/jpeg",
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     const sys = extractSystemText(body.system);
     expect(/IMAGEM NA CONVERSA/i.test(sys), "FALHOU: bloco 'IMAGEM NA CONVERSA' não injetado").toBe(true);
     expect(/PAGAMENTO|CHECKOUT|PIX|AJUDANDO A CONCLUIR/i.test(sys)).toBe(true);
@@ -1667,7 +1667,7 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
       history: advancedHistory,
       mockReply: "Beleza!",
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     expect(/IMAGEM NA CONVERSA \(ABSOLUTA/i.test(extractSystemText(body.system))).toBe(false);
   });
 
@@ -1678,7 +1678,7 @@ describe("16) Imagem em conversa avançada — histórico completo + regra de fe
       imageBase64: "fake-base64-data",
       imageMediaType: "image/jpeg",
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     const lastUser = [...body.messages].reverse().find((m: { role: string }) => m.role === "user");
     const parts = Array.isArray(lastUser?.content) ? lastUser.content : [];
     const textPart = parts.find((p: { type: string }) => p.type === "text");
@@ -1699,7 +1699,7 @@ describe("17) REGRA DE CONCISÃO — bloco injetado no system prompt", () => {
       ],
       mockReply: "É seguro sim!",
     });
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const body = (globalThis.__last_agent_payload || {});
     const sys = extractSystemText(body.system);
     expect(/REGRA DE CONCISÃO/i.test(sys)).toBe(true);
     expect(/NUNCA REPETIR EXPLICAÇÃO JÁ DADA/i.test(sys)).toBe(true);
@@ -1714,7 +1714,7 @@ describe("17) REGRA DE CONCISÃO — bloco injetado no system prompt", () => {
       ],
       mockReply: "Show!",
     });
-    const sys = extractSystemText(JSON.parse(fetchMock.mock.calls[0][1].body).system);
+    const sys = extractSystemText((globalThis.__last_agent_payload || {}).system);
     expect(/entrega|ritmo|segurança|painel|pagamento/i.test(sys)).toBe(true);
     expect(/como te falei|como comentei|como expliquei/i.test(sys)).toBe(true);
   });
