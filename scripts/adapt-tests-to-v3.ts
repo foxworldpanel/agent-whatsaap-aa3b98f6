@@ -6,9 +6,10 @@ const originalContent = fs.readFileSync(originalPath, 'utf-8');
 
 const header = `
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
-import { DEFAULT_MODULES } from "@/lib/agent-modules";
-import * as aiServer from "@/lib/ai.server";
+import { runAgentV3Turn as realRunAgentV3Turn } from "../src/lib/agent-v3/orchestrator.server";
+import { DEFAULT_MODULES } from "../src/lib/agent-modules";
+import * as aiServer from "../src/lib/ai.server";
+
 import * as emojiLimiter from "@/lib/emoji-limiter";
 import * as messageSplitter from "@/lib/message-splitter";
 
