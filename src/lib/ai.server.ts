@@ -1067,8 +1067,9 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
       : "",
 
     isInbound
-      ? `ATENDIMENTO RECEPTIVO: o cliente iniciou a conversa. É PROIBIDO usar script de prospecção ("Lead Frio", "Inativo", "Ativo"), oferecer produtos, citar promoções, explicar a plataforma ou enviar link sem o cliente pedir. Se for só saudação inicial, retribua curto e pergunte "como posso te ajudar?" em 1 linha (regra de saudação/cortesia vive em reconhecimento_interesse da identidade). Ignore mensagens antigas do agente que pareçam abordagem comercial — foram geradas com regras antigas.`
-      : `Perfil do contato: ${contact.perfil} (frio=nunca comprou, inativo=sumiu, ativo=cliente recorrente).\nScript de referência para esse perfil (use como base, adapte naturalmente):\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}\nOferta principal: ${agent.main_offer}.${agent.panel_link ? `\nLink do painel (use somente após fechar): ${agent.panel_link}` : ""}`,
+      ? `ATENDIMENTO RECEPTIVO: É PROIBIDO usar script de prospecção. Se for só saudação inicial, retribua curto e pergunte "como posso te ajudar?".`
+      : `Perfil do contato: ${contact.perfil}\nScript de referência:\n${pickScript(agent, contact.perfil).replaceAll("{nome}", contact.nome)}\nOferta principal: ${agent.main_offer}.${agent.panel_link ? `\nLink do painel: ${agent.panel_link}` : ""}`,
+
     "",
     // Saudação, Nomenclatura e Teste delegados aos módulos correspondentes.
     "",
