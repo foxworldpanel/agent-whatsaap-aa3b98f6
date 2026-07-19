@@ -1,7 +1,6 @@
-// src/lib/agent-v3/module-selector.server.ts
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
 
-const KEYWORD_MAP: Record<string, string[]> = {
+export const KEYWORD_MAP: Record<string, string[]> = {
   spotify: ["spotify", "playlist", "ouvintes", "streams", "save"],
   instagram: ["instagram", "insta", "ig ", "seguidores ig", "reels", "curtidas instagram"],
   youtube: ["youtube", "yt ", "inscritos", "views youtube", "likes youtube", "horas"],
@@ -21,6 +20,7 @@ export function selectRelevantModules(text: string, enabledModules: string[]): s
 
   // Core business logic: search for keywords
   for (const [moduleKey, keywords] of Object.entries(KEYWORD_MAP)) {
+    // Only check if module is enabled in the config
     if (enabledModules.includes(moduleKey)) {
       if (keywords.some(kw => normalizedText.includes(kw))) {
         selectedKeys.add(moduleKey);
@@ -37,9 +37,17 @@ export function selectRelevantModules(text: string, enabledModules: string[]): s
   return Array.from(selectedKeys);
 }
 
+/**
+ * Builds the prompt string from the selected module keys.
+ * Prioritizes modules from the database (customModules) if available,
+ * otherwise falls back to the local DEFAULT_MODULES (hardcoded V1 content).
+ */
 export function buildPromptFromModules(keys: string[], customModules: Record<string, string>): string {
   return keys
-    .map(key => customModules[key] || DEFAULT_MODULES[key] || "")
+    .map(key => {
+      // Use DB version if exists, otherwise fallback to local hardcoded V1 content
+      return customModules[key] || DEFAULT_MODULES[key] || "";
+    })
     .filter(Boolean)
     .join("\n\n");
 }
