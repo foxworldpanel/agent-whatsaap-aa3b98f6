@@ -22,7 +22,7 @@ export default function Index() {
         CORREÇÃO DE CONCORRÊNCIA APLICADA (globalThis removido integralmente, incluindo fullSystemFallback).
         
         1) PROVA REAL DO CACHE
-        Antes de considerar a reestruturação do cache resolvida, preciso da prova prática: testa 2 mensagens seguidas na mesma conversa (poucos segundos de diferença), com conteúdo DIFERENTE entre elas (ex: uma sobre Spotify, outra sobre YouTube, forçando módulos condicionais diferentes), e mostra os dados brutos reais das duas chamadas (cache_creation_input_tokens e cache_read_input_tokens de cada uma). Preciso ver cache_read &gt; 0 na segunda, com meus próprios olhos em número real, não afirmação de que "deveria funcionar".
+        Bom dia! Acabei de mandar 2 mensagens de teste, poucos segundos de diferença, mesma conversa (5511970116430), depois de uma noite inteira sem nenhuma edição de código. Roda a query e cola o resultado bruto:SELECT created_at, model, metadata-&gt;&apos;cache_creation_input_tokens&apos; as cache_creation, metadata-&gt;&apos;cache_read_input_tokens&apos; as cache_read, metadata-&gt;&apos;input_tokens&apos; as input_tokens FROM agent_prompt_metrics WHERE workspace_id = &apos;bd59fa41-d68d-4ac8-b995-e09ae48f52aa&apos; ORDER BY created_at DESC LIMIT 2;
 
         2) BUG NÃO RESPONDIDO — PERGUNTA REPETIDA NO FECHAMENTO
         Você não respondeu sobre o segundo problema que reportei: a Júlia, depois de direcionar o cliente pro painel corretamente, emenda uma pergunta genérica "Qual serviço você quer impulsionar?" mesmo quando o serviço já foi estabelecido antes na conversa (o cliente já tinha dito que queria plays pro Spotify).
