@@ -31,7 +31,7 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "silencio_cliente", title: "Silêncio do Cliente", emoji: "🤐" },
   { key: "como_usar_painel", title: "Como Usar o Painel", emoji: "🧭" },
   { key: "regras_gerais", title: "Regras Gerais Absolutas", emoji: "⚖️" },
-  { key: "follow_up", title: "Follow-up Inteligente", emoji: "⏰" },
+  
   { key: "prova_social", title: "Prova Social Contextual", emoji: "🌟" },
   { key: "ancoragem_valor", title: "Ancoragem de Valor", emoji: "⚓" },
   { key: "fechamento_3", title: "Fechamento em 3 Passos", emoji: "✅" },
@@ -233,9 +233,6 @@ Regras:
 - Siga a 'tabela_precos', respostas curtas, uma pergunta por vez e foco em conversão.
 `,
 
-  follow_up: `MÓDULO FOLLOW-UP INTELIGENTE
-- Retome conversas paradas with valor ou perguntas curtas sobre dúvidas.
-`,
 
   prova_social: `MÓDULO PROVA SOCIAL CONTEXTUAL
 - "Esse serviço ajudou bastante um perfil parecido com o seu recentemente".
