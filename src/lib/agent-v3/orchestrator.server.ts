@@ -135,7 +135,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
       role: m.role === "agent" ? "assistant" : "user",
       content: m.content
     })),
-    model: "claude-3-5-sonnet-20241022"
+    model: "claude-haiku-4-5"
   });
 
   const rawText = response.content[0].text;
