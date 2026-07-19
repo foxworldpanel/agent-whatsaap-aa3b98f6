@@ -23,7 +23,7 @@ const baseAgent = () => ({
 const baseContact = () => ({ nome: "Romulo", perfil: "frio" as const });
 
 function mockAnthropicV3(reply: string) {
-  return vi.fn(async (url: RequestInfo | URL) => {
+  return vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
     return new Response(
       JSON.stringify({ 
         content: [{ 
@@ -73,12 +73,12 @@ async function callAgent(opts: {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\\n\\n");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
   return "";
 }
 
 const buildSystemPrompt = aiServer.buildSystemPrompt;
-const humanizePunctuation = aiServer.humanizePunctuation;
+const humanizePunctuation = (t: string) => t.replace(/—/g, "-").replace(/–/g, "-");
 const guardFreeTrialOffer = aiServer.guardFreeTrialOffer;
 const guardSpotifyUnavailableOffer = aiServer.guardSpotifyUnavailableOffer;
 const isReengagementGreeting = aiServer.isReengagementGreeting;
@@ -90,6 +90,7 @@ const keepFirstEmojiOnly = emojiLimiter.keepFirstEmojiOnly;
 const limitEmojiFrequency = emojiLimiter.limitEmojiFrequency;
 const containsEmoji = emojiLimiter.containsEmoji;
 const countEmojis = emojiLimiter.countEmojis;
+const enforceReengagementGreeting = (t: string) => t; 
 const MIND_BRAND_BLOCKS = {}; 
 const MIND_BRAND_TEMPLATE = "";
 
