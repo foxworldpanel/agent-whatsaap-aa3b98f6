@@ -122,6 +122,13 @@ const MIND_BRAND_TEMPLATE = "";
 
 beforeEach(() => { vi.unstubAllGlobals?.(); });
 afterEach(() => { vi.unstubAllGlobals?.(); vi.restoreAllMocks(); });
+
+const _extractSystemText = extractSystemText;
+extractSystemText = (s) => {
+  const res = _extractSystemText(s);
+  // console.log("DEBUG EXTRACT:", res.substring(0, 200));
+  return res;
+};
 describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)", () => {
   it.each(["blz", "certo", "pode falar", "sim", "manda", "bora"])(
     'resposta "%s" chega ao Claude com prompt contendo exemplo_disparo',
@@ -211,7 +218,7 @@ describe("3) Anti-invenção de serviço no system prompt", () => {
       "FALHOU: bloco ANTI-INVENÇÃO ausente do system prompt",
     ).toBe(true);
     expect(
-      /nunca assume ou inventa qual rede/i.test(prompt),
+      /NUNCA assume ou inventa qual rede/i.test(prompt),
       "FALHOU: regra de não presumir rede/serviço ausente",
     ).toBe(true);
   });
@@ -393,7 +400,7 @@ describe("8) Fechamento não prematuro (não se despede antes do painel)", () =>
     ).toBe(true);
     expect(
       /CONFIRMA[ÇC][AÃ]O.*nunca despedida/is.test(prompt),
-      'FALHOU: regra "confirmação, nunca despedida" ausente do prompt',
+      'FALHOU: regra "CONFIRMAÇÃO de interesse, nunca despedida" ausente do prompt',
     ).toBe(true);
   });
 });
