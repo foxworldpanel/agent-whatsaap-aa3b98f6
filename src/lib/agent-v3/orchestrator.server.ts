@@ -5,7 +5,7 @@ import { extractMetadataV3, type AgentResponseV3 } from "./metadata-extractor.se
 import { 
   sanitizeSystemLeaks, 
   limitEmojiFrequency, 
-  enforceReengagementGreeting 
+  enforceReengagementGreeting, humanizePunctuationV3 
 } from "./guards.server";
 
 type OrchestratorInput = {
@@ -89,7 +89,8 @@ Mensagem para o cliente aqui.
   // 5. Apply Deterministic Guards
   let processedText = sanitizeSystemLeaks(llmTextRaw);
   processedText = limitEmojiFrequency(processedText);
-  processedText = enforceReengagementGreeting(processedText);
+  processedText = enforceReengagementGreeting, humanizePunctuationV3(processedText);
+  processedText = humanizePunctuationV3(processedText);
 
   // 6. Extract Metadata (from raw text which has the tags)
   const metadata = extractMetadataV3(llmTextRaw);
