@@ -82,7 +82,7 @@ function Dashboard() {
                   <TableCell className="font-mono text-xs">{m.model}</TableCell>
                   <TableCell className="text-right font-medium">{m.cache_creation_input_tokens}</TableCell>
                   <TableCell className="text-right text-destructive font-bold">{m.cache_read_input_tokens}</TableCell>
-                  <TableCell className="text-right">{m.duration_ms}ms</TableCell>
+                  <TableCell className="text-right">{m.input_tokens}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
