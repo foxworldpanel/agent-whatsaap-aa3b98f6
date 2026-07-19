@@ -14,6 +14,7 @@ export async function callAnthropicV3(params: {
   const headers: Record<string, string> = {
     "content-type": "application/json",
     "anthropic-version": "2023-06-01",
+    "anthropic-beta": "prompt-caching-2024-07-31",
   };
 
   if (apiKey) {
