@@ -41,6 +41,7 @@ export function sanitizeSystemLeaks(text: string): string {
  * Trava de emoji: impede que o agente use emojis em mensagens consecutivas.
  */
 export function limitEmojiFrequency(text: string, history: Array<{ sender: string, body: string }>): string {
+  if (!history || history.length === 0) return text;
   const lastAgentMsg = [...history].reverse().find(m => m.sender === "agente");
   const hasEmoji = (s: string) => /[\u{1F300}-\u{1F9FF}]/u.test(s);
   
@@ -55,12 +56,15 @@ export function limitEmojiFrequency(text: string, history: Array<{ sender: strin
  * Trava de custo: detecta loops verbosos (idoso leigo ou repetição sem avanço).
  */
 export function detectVerboseLoop(history: Array<{ sender: string, body: string }>): boolean {
-  if (history.length < 6) return false;
-  const lastClientMsgs = history.filter(m => m.sender === "cliente").slice(-3);
-  if (lastClientMsgs.length < 3) return false;
-
-  // Se as últimas 3 mensagens do cliente são muito curtas (< 15 chars) e similares
-  const allShort = lastClientMsgs.every(m => m.body.length < 15);
+  if (!history || history.length < 6) return false;
+  
+  const clientMsgs = history.filter(m => m.sender === "cliente");
+  if (clientMsgs.length < 3) return false;
+  
+  const last3 = clientMsgs.slice(-3);
+  
+  // Se as últimas 3 mensagens do cliente são muito curtas (< 15 chars)
+  const allShort = last3.every(m => m.body.length < 15);
   if (allShort) return true;
 
   return false;
@@ -86,7 +90,7 @@ export function looksLikeConcreteAction(text: string): boolean {
   return /http|www|\.com|\.br|@/i.test(text);
 }
 
-export const VERBOSE_LOOP_FAREWELL = "Entendo! Como não conseguimos avançar por aqui, vou deixar você à vontade. Se precisar de algo no futuro, é só chamar!";
+export const VERBOSE_LOOP_FAREWELL = "Entendo! Como não conseguimos avançar por aqui, o suporte pode te ajudar com mais detalhes. Se precisar de algo no futuro, é só chamar!";
 
 const REENG_GREETING_START_RX = /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite|oi+|ol[aá]+|opa|eae|e\s*a[ií]|hey|hi|hello)\b/i;
 
