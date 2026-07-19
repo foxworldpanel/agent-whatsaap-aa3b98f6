@@ -59,13 +59,14 @@ async function callAgent(opts: {
   });
 
   return { 
-    text: res.text, 
+    text: res.replies.join(' '), 
     temperature: res.temperature,
     intent: res.intent,
     stage: res.stage,
     model: "claude-haiku-4-5", 
     fetchMock 
   };
+
 }
 
 const generateAgentReplyWithMeta = async (opts: any) => {
@@ -84,10 +85,13 @@ function extractSystemText(s: any): string {
     return s.map((b: any) => {
       const val = b.text || b || "";
       return typeof val === "string" ? val : JSON.stringify(val);
-    }).join("\n\n");
+    }).join("
+
+");
   }
   return "";
 }
+
 
 
 
