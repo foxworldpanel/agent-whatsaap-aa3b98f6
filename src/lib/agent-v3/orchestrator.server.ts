@@ -111,7 +111,7 @@ Mensagem para o cliente aqui.
   let processedText = sanitizeSystemLeaks(metadata.text || "");
   processedText = limitEmojiFrequency(processedText, history);
   
-  const greetingGuard = enforceReengagementGreeting(processedText, "Oi! Como posso ajudar?");
+  const greetingGuard = enforceReengagementGreeting(processedText, message);
   processedText = greetingGuard.text;
   
   processedText = humanizePunctuationV3(processedText);
