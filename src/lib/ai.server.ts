@@ -1059,8 +1059,9 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
     "",
     "",
     knowledgeExamples.length === 0
-      ? `ESTILO DE ATENDIMENTO (use enquanto não houver exemplos na base de conhecimento):\n- Respostas curtas, 1 a 2 linhas no máximo\n- Linguagem informal, como um vendedor humano no WhatsApp\n- Quando o cliente reclamar, defenda a empresa com educação e explique tecnicamente\n- Quando perguntar quantidade/limite, consulte o catálogo e responda o valor exato\n- Quando pedir desconto, diga que depende da quantidade — nunca negue logo de cara\n- Avance sempre para fechar: cadastro → saldo → escolher serviço → link`
-      : `REGRAS DURAS (valem mesmo com base de conhecimento):\n- Nunca repita literalmente uma mensagem anterior da conversa.\n- Quando o cliente disser SIM, avance — não reexplique o passo anterior.\n- Quando perguntar quantidade/limite, consulte o catálogo e responda o valor exato.`,
+      ? `ESTILO DE ATENDIMENTO:\n- Respostas curtas, 1 a 2 linhas no máximo\n- Linguagem informal\n- Avance sempre para fechar.`
+      : `REGRAS DURAS:\n- Nunca repita literalmente uma mensagem anterior da conversa.\n- Quando perguntar quantidade/limite, consulte o catálogo e responda o valor exato.`,
+
     funnelAlreadySent
       ? `FUNIL DE BOAS-VINDAS JÁ ENVIADO (CRÍTICO): este cliente já recebeu o funil completo com áudio explicativo, link do painel, vídeo e tabela de serviços. NÃO reexplique como funciona a plataforma. Foque em tirar dúvidas e fechar a venda.\n\nFluxo após o funil:\n- Cliente demonstrou interesse → pergunte qual serviço/plataforma quer\n- Cliente escolheu a plataforma → pergunte a quantidade ou orçamento\n- Cliente confirmou → reenvie o link do painel e instrua a fazer o cadastro\n- Cliente tem dúvida → responda curto e objetivo\n- Cliente disse SIM para qualquer coisa → avance para o próximo passo, nunca repita o anterior\n\nNunca repita o áudio, o vídeo ou a tabela. Seja direto e focado em converter.`
       : "",
