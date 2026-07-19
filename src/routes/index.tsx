@@ -30,12 +30,12 @@ function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Fase Atual: Planejamento V3</CardTitle>
+            <CardTitle className="text-sm font-medium">Fase Atual: Construção V3 (STARTED)</CardTitle>
             <Zap className="text-primary h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">100% Paralelo</div>
-            <p className="text-xs text-muted-foreground">V1 intocada e respondendo normalmente.</p>
+            <div className="text-2xl font-bold">5 Arquivos Criados</div>
+            <p className="text-xs text-muted-foreground">V1 intocada. Roteador determinístico pronto.</p>
           </CardContent>
         </Card>
         <Card>
@@ -98,16 +98,16 @@ function Dashboard() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="p-4 border rounded-lg bg-blue-50/50">
-            <h3 className="font-bold text-lg mb-2">1) QUAIS ARQUIVOS SERÃO CRIADOS</h3>
-            <p className="text-sm mb-2 text-muted-foreground">Novos componentes isolados da V1:</p>
-            <ul className="list-disc list-inside space-y-1 text-sm font-mono">
-              <li>src/lib/agent-v3/router.server.ts</li>
-              <li>src/lib/agent-v3/module-selector.server.ts</li>
-              <li>src/lib/agent-v3/orchestrator.server.ts</li>
-              <li>src/lib/agent-v3/audio-processor.server.ts</li>
-              <li>src/lib/agent-v3/metadata-extractor.server.ts</li>
+            <h3 className="font-bold text-lg mb-2">1) QUAIS ARQUIVOS FORAM CRIADOS</h3>
+            <p className="text-sm mb-2 text-muted-foreground">Arquivos V3 implantados com sucesso:</p>
+            <ul className="list-disc list-inside space-y-1 text-sm font-mono text-green-600">
+              <li>src/lib/agent-v3/router.server.ts (OK)</li>
+              <li>src/lib/agent-v3/module-selector.server.ts (OK)</li>
+              <li>src/lib/agent-v3/orchestrator.server.ts (OK)</li>
+              <li>src/lib/agent-v3/audio-processor.server.ts (OK)</li>
+              <li>src/lib/agent-v3/metadata-extractor.server.ts (OK)</li>
             </ul>
-            <p className="text-xs mt-3 text-primary font-medium">✅ Confirmação: Todos são arquivos novos. Nenhum arquivo da V1 será sobrescrito.</p>
+            <p className="text-xs mt-3 text-primary font-medium">✅ Pronto para testes de roteamento e transcrição.</p>
           </div>
 
           <div className="p-4 border rounded-lg">
