@@ -1,15 +1,15 @@
 import { loadAgentIdentity } from "../agent-identity.server";
 import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
-import { callAnthropic } from "../llm-client.server";
+import { callAnthropicV3 } from "./llm-client.server";
 import { 
   sanitizeSystemLeaks, 
   detectVerboseLoop, 
   enforceReengagementGreeting, 
   limitEmojiFrequency,
-  humanizePunctuation
+  humanizePunctuationV3
 } from "./guards.server";
-import { extractMetadata } from "./metadata-extractor.server";
-import { autoSplitLongParts } from "./audio-processor.server";
+import { extractMetadataV3 } from "./metadata-extractor.server";
+import { autoSplitLongPartsV3 } from "./audio-processor.server";
 
 export interface OrchestratorInput {
   userId: string;
@@ -35,7 +35,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
 
   const identity = await loadAgentIdentity(userId);
   const moduleKeys = selectRelevantModules(message, enabledModules);
-  const modulePrompt = buildPromptFromModules(moduleKeys, customModules);
+  const modulePrompt = buildPromptFromModules(moduleKeys, customModules || {});
 
   // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
   const systemPrompt = [
@@ -74,7 +74,7 @@ ${identity.regra_split}
 ${identity.terminologia_redes}
 ${identity.regra_anti_invencao}
 ${identity.exemplo_disparo}
-${identity.reconhecimento_interest || identity.reconhecimento_interesse || ""}
+${identity.reconhecimento_interesse || ""}
 ${identity.regra_encerramento}
 ${identity.regra_estilo_escrita}
 
@@ -110,7 +110,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
   ];
 
   // Verbose Loop Check
-  if (detectVerboseLoop(history)) {
+  if (detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
     return {
       temperature: "frio",
       intent: "suporte",
@@ -120,7 +120,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
   }
 
   // Model Call
-  const response = await callAnthropic({
+  const response = await callAnthropicV3({
     apiKey: anthropicApiKey,
     system: systemPrompt,
     messages: history.slice(-10).map(m => ({
@@ -133,22 +133,23 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
   const rawText = response.content[0].text;
   
   // Metadata extraction
-  const { temperature, intent, stage, cleanText } = extractMetadata(rawText);
+  const { temperature, intent, stage, text: cleanText } = extractMetadataV3(rawText);
 
   // Guards & Pipeline
   let finalContent = cleanText;
   finalContent = sanitizeSystemLeaks(finalContent);
-  finalContent = enforceReengagementGreeting(finalContent, message, history, isInbound);
+  const reengagement = enforceReengagementGreeting(finalContent, message);
+  finalContent = reengagement.text;
   
   // Emoji handling
-  const lastAgentMsg = history.filter(m => m.role === "agent").pop()?.content || "";
-  finalContent = limitEmojiFrequency(finalContent, lastAgentMsg, isInbound);
+  const agentHistory = history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content }));
+  finalContent = limitEmojiFrequency(finalContent, agentHistory);
 
   // Post-processing
-  finalContent = humanizePunctuation(finalContent);
+  finalContent = humanizePunctuationV3(finalContent);
 
   // Auto-split logic
-  const replies = autoSplitLongParts(finalContent);
+  const replies = autoSplitLongPartsV3(finalContent);
 
   return {
     temperature,
