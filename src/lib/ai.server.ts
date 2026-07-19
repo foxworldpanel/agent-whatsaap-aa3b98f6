@@ -1058,7 +1058,7 @@ export async function generateAgentReplyWithMeta(params: {
       : "",
     // Regras de ouro de teste grátis: fonte única em identity.regra_teste_gratis.
     `COMPROVANTE DE PAGAMENTO (PIX / CRYPTO) — REGRA ABSOLUTA:\n- Quando o cliente mandar um comprovante de PIX ou Crypto (imagem de transferência, recibo, print de pagamento), QUEM PAGOU JÁ TEM CADASTRO. NUNCA peça para "fazer cadastro", "criar conta" ou "se cadastrar".\n- Resposta obrigatória em DUAS mensagens (use ===SPLIT===):\n  1) "Ótimo! Vi aqui que você enviou R$[valor visto no comprovante] 😊"\n  2) "Agora é só acessar o painel, escolher o serviço, colar o link e confirmar! mindsmmpanel.com"\n- Confirme SEMPRE o valor que aparece no comprovante. Oriente DIRETO para fazer o PEDIDO no painel — nunca para cadastro. O cadastro já foi feito antes do pagamento.\n- Se não conseguir ler o valor com clareza, pergunte: "Consegue me confirmar o valor que você enviou?" e depois siga o fluxo acima.`,
-    `SPOTIFY — DISPONIBILIDADE DE SERVIÇOS: Se o serviço (ex: plays, ouvintes, seguidores) aparece no módulo Spotify, ele está DISPONÍVEL — diga isso com clareza mesmo que o cliente pergunte se está funcionando. Siga o preço e as regras do módulo Spotify.`,,
+    `SPOTIFY — DISPONIBILIDADE DE SERVIÇOS: Se o serviço (ex: plays, seguidores) aparece no módulo Spotify, ele está DISPONÍVEL — diga isso com clareza mesmo que o cliente pergunte se está funcionando. Siga o preço e as regras do módulo Spotify. NUNCA use o termo "ouvintes" ao falar de Instagram, TikTok ou Kwai — "ouvintes" é exclusivo para Spotify.`,,
     `PACOTE POR GÊNERO — ELETRÔNICA vs ECLÉTICA (ABSOLUTA):\n- O pacote MÚSICA ELETRÔNICA é EXCLUSIVO pra estilos eletrônicos (eletrônica, house, techno, trance, deep house, EDM, psytrance, dnb).\n- Pra QUALQUER outro gênero (sertanejo, funk, pagode, samba, rock, pop, rap, MPB, gospel, forró, piseiro, arrocha, indie, jazz, blues, reggae, clássica, infantil, axé, brega, romântica, country, latina, etc.) ofereça SOMENTE o pacote ECLÉTICA (Todos os Gêneros). NUNCA mencione o pacote Eletrônica como opção nesses casos — nem como comparação, nem como "além disso tem também".\n- Se o cliente não disse o gênero ainda, pergunte antes de listar pacotes. Nunca dispare os dois pacotes "pra ele escolher".`,
     `NUNCA INVENTAR "MENSAGEM NÃO CHEGOU" (ABSOLUTA):\n- É PROIBIDO abrir mensagem com frases como "Ué, acho que a mensagem anterior não chegou direito", "acho que não chegou", "parece que sumiu", "o WhatsApp deu bug", "vou reenviar porque não chegou". Você não tem como saber se uma mensagem foi entregue ou lida.\n- Se por algum motivo você precisar reforçar/completar uma informação anterior, faça-o naturalmente ("Só complementando..." / "Deixa eu te dar mais um detalhe:") SEM inventar causa técnica.\n- Se o cliente reclamar que não recebeu algo, peça pra ele confirmar o que apareceu no chat dele — nunca invente que o sistema falhou.`,
     spotifyCannedAlreadyDelivered
@@ -1290,9 +1290,12 @@ export async function generateAgentReplyWithMeta(params: {
     return result;
   })();
 
-  // LOG PARA AUDITORIA DE CACHE
+  // LOG PARA AUDITORIA DE CACHE — Loga o texto COMPLETO para permitir diff literal
   const stableText = (systemPayload.find((p: any) => p.cache_control)?.text || "");
-  console.info(`[agent-ai-debug] BLOCO 1 STABLE (len=${stableText.length}):`, stableText.slice(0, 1000));
+  console.info(`[STABLE_BLOCK_1_DEBUG_START]`);
+  console.info(stableText);
+  console.info(`[STABLE_BLOCK_1_DEBUG_END]`);
+  console.info(`[agent-ai-debug] BLOCO 1 STABLE (len=${stableText.length}) logged between markers.`);
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
