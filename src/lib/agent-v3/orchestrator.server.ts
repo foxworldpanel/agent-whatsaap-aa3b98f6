@@ -138,7 +138,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
       })),
       { role: "user", content: message }
     ],
-    model: "claude-3-haiku-20240307"
+    model: "claude-haiku-4-5"
   });
 
   const rawText = response.content[0].text;
