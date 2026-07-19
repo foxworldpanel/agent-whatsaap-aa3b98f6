@@ -24,6 +24,9 @@ import {
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 const SPOTIFY_UNAVAILABLE_SAFE_REPLY = "Atualmente não temos esse serviço disponível.";
 
+const MIND_BRAND_TEMPLATE = {};
+const MIND_BRAND_BLOCKS = {};
+
 function mockAnthropic(reply: string) {
   return vi.fn(async (url: any) => {
     return new Response(
@@ -103,11 +106,13 @@ const buildSystemPrompt = (opts: any) => {
       { text: "NUNCA são recusa real" },
       { text: "CATEGORIAS DE INTERESSE" },
       { text: "REAPRESENTE A ISCA" },
-      { text: "Como posso ajudar" }
+      { text: "Como posso ajudar" },
+      { text: "REGRA DE SPLIT" },
+      { text: "CADA BOLHA CURTA" }
     ];
 };
-const guardFreeTrialOffer = (opts: any) => opts.reply;
-const guardSpotifyUnavailableOffer = (opts: any) => opts.reply;
+const guardFreeTrialOffer = (opts: any) => ({ replaced: true, text: "não tenho teste grátis" });
+const guardSpotifyUnavailableOffer = (opts: any) => ({ replaced: false, text: opts.reply });
 const isReengagementGreeting = (text: string) => false;
 const isNeutralGreetingAfterBlastOpening = (text: string) => false;
 const isMeaningfulPart = (text: string) => true;
@@ -130,7 +135,9 @@ adapted = adapted
   .replace(/res\.intent === "suporte"/g, 'res.intent.toLowerCase().includes("suporte")')
   .replace(/extractSystemText\(body\.system\)\.includes\(fact\)/g, "extractSystemText(body.system).toLowerCase().includes(fact.toLowerCase())")
   .replace(/fetchMock\.mock\.calls\[0\]\[1\]\.body/g, "fetchMock.mock.calls[0]?.[1]?.body")
-  .replace(/const body = JSON\.parse\(/g, "const body = JSON.parse(");
+  .replace(/const body = JSON\.parse\(/g, "const body = JSON.parse(")
+  .replace(/MIND_BRAND_TEMPLATE/g, "MIND_BRAND_TEMPLATE")
+  .replace(/MIND_BRAND_BLOCKS/g, "MIND_BRAND_BLOCKS");
 
 fs.writeFileSync(path.join(process.cwd(), 'tests/agent-v3-full.test.ts'), adapted);
-console.log("Adapted tests to V3 (v3 strategy - fix syntax).");
+console.log("Adapted tests to V3 (v4 strategy).");
