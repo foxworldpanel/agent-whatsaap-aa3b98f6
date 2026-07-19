@@ -1,4 +1,4 @@
-import { runAgentV3Turn } from "./src/lib/agent-v3/orchestrator.server";
+import { runAgentV3Turn } from "../src/lib/agent-v3/orchestrator.server";
 
 async function testCache() {
   console.log("--- TESTE REAL DE CACHE V3 ---");
