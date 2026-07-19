@@ -8,8 +8,20 @@ let newContent = `
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
+import * as aiServer from "@/lib/ai.server";
+import * as emojiLimiter from "@/lib/emoji-limiter";
+import * as messageSplitter from "@/lib/message-splitter";
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
+
+// Re-implement definitions that the tests expect to be available globally
+const baseAgent = () => ({
+    agent_name: "Júlia",
+    tone: "consultivo, humano",
+    base_instruction: "Você é a Júlia, atendente humana.",
+    script_frio: "", script_inativo: "", script_ativo: "", main_offer: "", panel_link: null
+});
+const baseContact = () => ({ nome: "Romulo", perfil: "frio" as const });
 
 function mockAnthropicV3(reply: string) {
   return vi.fn(async (url: RequestInfo | URL) => {
@@ -62,22 +74,34 @@ async function callAgent(opts: {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\\n\\n");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
   return "";
 }
+
+// Map V1 internal names to their real locations for the tests
+const buildSystemPrompt = aiServer.buildSystemPrompt;
+const humanizePunctuation = aiServer.humanizePunctuation;
+const guardFreeTrialOffer = aiServer.guardFreeTrialOffer;
+const isReengagementGreeting = aiServer.isReengagementGreeting;
+const isNeutralGreetingAfterBlastOpening = aiServer.isNeutralGreetingAfterBlastOpening;
+const autoSplitLongParts = messageSplitter.autoSplitLongParts;
+const isMeaningfulPart = messageSplitter.isMeaningfulPart;
+const stripEmojis = emojiLimiter.stripEmojis;
+const keepFirstEmojiOnly = emojiLimiter.keepFirstEmojiOnly;
+const limitEmojiFrequency = emojiLimiter.limitEmojiFrequency;
+const containsEmoji = emojiLimiter.containsEmoji;
 
 beforeEach(() => { vi.unstubAllGlobals?.(); });
 afterEach(() => { vi.unstubAllGlobals?.(); vi.restoreAllMocks(); });
 `;
 
+// Extract sections by matching describe blocks
 const describeRegex = /describe\([\s\S]*?\)\s*=>\s*\{[\s\S]*?\n\}\);/g;
 const describes = originalContent.match(describeRegex);
 
 if (describes) {
   describes.forEach(d => {
-    if (d.includes('buildSystemPrompt') && !d.includes('callAgent')) return;
-    if (d.includes('humanizePunctuation') && !d.includes('callAgent')) return;
-    if (d.includes('guardFreeTrialOffer') && !d.includes('callAgent')) return;
+    // We keep all behavioral tests
     newContent += "\n" + d;
   });
 }

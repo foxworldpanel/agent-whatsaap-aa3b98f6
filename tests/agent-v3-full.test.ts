@@ -2,8 +2,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
+import * as aiServer from "@/lib/ai.server";
+import * as emojiLimiter from "@/lib/emoji-limiter";
+import * as messageSplitter from "@/lib/message-splitter";
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
+
+// Re-implement definitions that the tests expect to be available globally
+const baseAgent = () => ({
+    agent_name: "Júlia",
+    tone: "consultivo, humano",
+    base_instruction: "Você é a Júlia, atendente humana.",
+    script_frio: "", script_inativo: "", script_ativo: "", main_offer: "", panel_link: null
+});
+const baseContact = () => ({ nome: "Romulo", perfil: "frio" as const });
 
 function mockAnthropicV3(reply: string) {
   return vi.fn(async (url: RequestInfo | URL) => {
@@ -56,9 +68,24 @@ async function callAgent(opts: {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("
+
+");
   return "";
 }
+
+// Map V1 internal names to their real locations for the tests
+const buildSystemPrompt = aiServer.buildSystemPrompt;
+const humanizePunctuation = aiServer.humanizePunctuation;
+const guardFreeTrialOffer = aiServer.guardFreeTrialOffer;
+const isReengagementGreeting = aiServer.isReengagementGreeting;
+const isNeutralGreetingAfterBlastOpening = aiServer.isNeutralGreetingAfterBlastOpening;
+const autoSplitLongParts = messageSplitter.autoSplitLongParts;
+const isMeaningfulPart = messageSplitter.isMeaningfulPart;
+const stripEmojis = emojiLimiter.stripEmojis;
+const keepFirstEmojiOnly = emojiLimiter.keepFirstEmojiOnly;
+const limitEmojiFrequency = emojiLimiter.limitEmojiFrequency;
+const containsEmoji = emojiLimiter.containsEmoji;
 
 beforeEach(() => { vi.unstubAllGlobals?.(); });
 afterEach(() => { vi.unstubAllGlobals?.(); vi.restoreAllMocks(); });
@@ -126,6 +153,107 @@ describe('2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria N
     },
   );
 });
+describe("3) Anti-invenção de serviço no system prompt", () => {
+  it("prompt contém ANTI-INVENÇÃO obrigando perguntar rede/serviço", () => {
+    const promptRaw = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: OPENING },
+        { sender: "cliente", body: "sim" },
+      ],
+      isInbound: false,
+    });
+    const prompt = extractSystemText(promptRaw as any);
+    expect(
+      /ANTI-INVEN[ÇC][ÃA]O/i.test(prompt),
+      "FALHOU: bloco ANTI-INVENÇÃO ausente do system prompt",
+    ).toBe(true);
+    expect(
+      /nunca assume ou inventa qual rede/i.test(prompt),
+      "FALHOU: regra de não presumir rede/serviço ausente",
+    ).toBe(true);
+  });
+});
+describe("4) Teste grátis só se elegível (guardFreeTrialOffer)", () => {
+  it("bloqueia oferta de teste grátis quando lista de elegíveis está vazia", () => {
+    const out = guardFreeTrialOffer({
+      reply: "Faço um teste grátis de 1000 seguidores pra você!",
+      freeTestServices: [],
+    });
+    expect(out.replaced, "FALHOU: guard permitiu teste grátis sem serviços elegíveis").toBe(true);
+    expect(/n[aã]o tenho teste gr[aá]tis/i.test(out.text)).toBe(true);
+  });
+
+  it("bloqueia teste grátis quando família do serviço não está liberada", () => {
+    const out = guardFreeTrialOffer({
+      reply: "Libero um teste grátis de views pra você ver a qualidade!",
+      freeTestServices: [
+        { service_name: "1000 seguidores Instagram", category: "instagram" },
+      ],
+    });
+    expect(out.replaced, "FALHOU: guard permitiu teste grátis de views quando só seguidores é elegível").toBe(true);
+  });
+
+  it("permite teste grátis quando serviço está literalmente na lista", () => {
+    const out = guardFreeTrialOffer({
+      reply: "Faço um teste grátis de seguidores pra você!",
+      freeTestServices: [
+        { service_name: "100 seguidores Instagram", category: "instagram" },
+      ],
+    });
+    expect(out.replaced, "FALHOU: guard bloqueou oferta válida").toBe(false);
+  });
+});
+describe("4.1) Spotify plays/ouvintes/saves indisponíveis", () => {
+  it("guard respeita a disponibilidade dinâmica e NÃO bloqueia quando o catálogo está vazio (bypass ativo)", () => {
+    const out = guardSpotifyUnavailableOffer({
+      latestClientMessage: "Tenho um álbum com 12 músicas, queria 1000 plays por dia. Quanto fica?",
+      history: [
+        { sender: "cliente", body: "Spotify" },
+        { sender: "cliente", body: "Tenho um álbum com 12 músicas, queria plays" },
+      ],
+      servicesContext:
+        "ID: 299 | Nome: Spotify - Aluguel de Playlist [10 Playlists Eletrônica - 30 dias] - 1 Música | Categoria: Spotify - Aluguel de Playlist | Preço por 1000: R$97 | MÍNIMO: 1000 | MÁXIMO: 1000",
+      reply:
+        "Dá sim! Podemos distribuir 1000 plays por dia entre as 12 músicas, ou fazer 30.000 plays totais. O pacote sai R$450.",
+    });
+    // Agora o guard está em modo bypass, então replaced deve ser false
+    expect(out.replaced).toBe(false);
+  });
+
+
+  it("prompt não contém mais roteiro padrão oferecendo plays/ouvintes/saves no Spotify", () => {
+    const promptRaw = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [{ sender: "cliente", body: "Spotify" }],
+      identity: MIND_BRAND_TEMPLATE,
+      brandBlocks: MIND_BRAND_BLOCKS,
+    });
+    const prompt = extractSystemText(promptRaw as any);
+    expect(prompt).not.toMatch(/No Spotify trabalhamos com plays, ouvintes, saves/i);
+  });
+});
+describe("5) Terminologia por rede (YouTube/TikTok = views)", () => {
+  it("prompt contém TERMINOLOGIA proibindo 'plays' em YouTube/TikTok", () => {
+    const promptRaw = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [{ sender: "cliente", body: "quero views no youtube" }],
+      identity: MIND_BRAND_TEMPLATE,
+    });
+    const prompt = extractSystemText(promptRaw as any);
+    expect(
+      /YouTube\s*→\s*"views".*NUNCA\s*"plays"/is.test(prompt),
+      "FALHOU: regra YouTube=views (nunca plays) ausente do prompt",
+    ).toBe(true);
+    expect(
+      /TikTok\s*→\s*"views".*NUNCA\s*"plays"/is.test(prompt),
+      "FALHOU: regra TikTok=views (nunca plays) ausente do prompt",
+    ).toBe(true);
+  });
+});
 describe("6) Sem travessão em respostas", () => {
   it("humanizePunctuation remove em-dash cercado de espaços", () => {
     const out = humanizePunctuation("Show — vamos combinar assim.");
@@ -175,6 +303,64 @@ describe("7) Split de mensagem — padrão é 1 mensagem", () => {
       text.includes("===SPLIT==="),
       `FALHOU: pipeline dividiu resposta curta (${text.length} chars): "${text}"`,
     ).toBe(false);
+  });
+});
+describe("8) Fechamento não prematuro (não se despede antes do painel)", () => {
+  it('prompt ensina que "Ok/blz" após preço é CONFIRMAÇÃO, não despedida', () => {
+    const promptRaw = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: "Pra começar, 1000 seguidores sai R$50." },
+        { sender: "cliente", body: "ok" },
+      ],
+      // Contexto é disparo (Júlia começou o funil de venda). Sem isInbound=false
+      // o EXEMPLO_MODELO_DISPARO (onde MODO FECHAMENTO vive) é suprimido do
+      // prompt — comportamento correto para conversas orgânicas/receptivas.
+      isInbound: false,
+      identity: MIND_BRAND_TEMPLATE,
+    });
+    const prompt = extractSystemText(promptRaw as any);
+    expect(
+      /MODO FECHAMENTO/i.test(prompt),
+      "FALHOU: regra MODO FECHAMENTO ausente",
+    ).toBe(true);
+    expect(
+      /CONFIRMA[ÇC][AÃ]O.*nunca despedida/is.test(prompt),
+      'FALHOU: regra "confirmação, nunca despedida" ausente do prompt',
+    ).toBe(true);
+  });
+});
+describe("8b) Não repete descoberta após 'já tem cadastro?'", () => {
+  it("prompt contém PROGRESSO DO FUNIL proibindo reperguntar rede/serviço/quantidade", () => {
+    const promptRaw = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "cliente", body: "quero views no youtube" },
+        { sender: "agente", body: "Pra começar sem compromisso, 1000 views sai R$10. Quer fechar com 1000?" },
+        { sender: "cliente", body: "começa com 1000, dando resultado eu fecho mais" },
+        { sender: "agente", body: "Perfeito! Você já tem cadastro no painel ou precisa criar agora?" },
+        { sender: "cliente", body: "tenho, não é o meu primeiro contato" },
+      ],
+      // Cenário RECEPTIVO (cliente iniciou) — regra precisa valer mesmo aqui,
+      // onde o EXEMPLO_MODELO_DISPARO está suprimido.
+      isInbound: true,
+      identity: MIND_BRAND_TEMPLATE,
+    });
+    const prompt = extractSystemText(promptRaw as any);
+    expect(
+      /PROGRESSO DO FUNIL/i.test(prompt),
+      "FALHOU: regra PROGRESSO DO FUNIL ausente do prompt em conversa receptiva",
+    ).toBe(true);
+    expect(
+      /NUNCA REPETIR DESCOBERTA/i.test(prompt),
+      "FALHOU: proibição de reperguntar rede/serviço/quantidade ausente",
+    ).toBe(true);
+    expect(
+      /j[aá]\s+tem\s+cadastro/i.test(prompt) && /vai DIRETO/i.test(prompt),
+      "FALHOU: instrução de ir direto ao fechamento após 'já tem cadastro' ausente",
+    ).toBe(true);
   });
 });
 describe("8c) Reengajamento respeita burst de mensagens (saudação + pergunta real)", () => {
@@ -1109,6 +1295,28 @@ describe("Sanitização de vazamento de prompt interno (sanitizeSystemLeaks)", (
       expect(res.text.includes(m)).toBe(false);
     }
     expect(res.text).toContain("Bom dia");
+  });
+});
+describe("Detecção de mensagem automática de WhatsApp Business (saudação + menu)", () => {
+  it("prompt contém sinais de MENU NUMERADO e proíbe pedido de desculpa", () => {
+    const promptRaw = buildSystemPrompt({
+      agent: baseAgent(),
+      contact: baseContact(),
+      history: [
+        { sender: "agente", body: OPENING },
+        {
+          sender: "cliente",
+          body:
+            "Olá, aqui é o Paulo (Responsável pela Banda Paulinho e Fábio no Bailão). Digite qual seu interesse: *Digite (01)* - Contratações *Digite (02)* - Composições *Digite (03)* - Vinhetas",
+        },
+      ],
+      isInbound: true,
+    });
+    const prompt = extractSystemText(promptRaw as any);
+    expect(/MENU NUMERADO|Digite \(01\)/i.test(prompt)).toBe(true);
+    expect(/NUNCA responda escolhendo uma opção do menu/i.test(prompt)).toBe(true);
+    expect(/acho que houve uma confus[aã]o/i.test(prompt)).toBe(true);
+    expect(/respons[aá]vel por/i.test(prompt)).toBe(true);
   });
 });
 describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
