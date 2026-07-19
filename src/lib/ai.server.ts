@@ -1088,8 +1088,9 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
           .join("\n")}`
       : "",
     exposeFreeTrialBlock
-      ? `TESTE GRÁTIS — DETALHES OPERACIONAIS (só quando cliente pediu ou demonstrou desconfiança):\n- Limite "1 teste por número" vale POR REDE (cliente pode testar Instagram e depois TikTok).\n- QUAL LINK PEDIR: Views Instagram → link de Reel/vídeo (NUNCA foto). Views YouTube/TikTok → link do vídeo. Seguidores → link do perfil. Curtidas → link do post/vídeo.\n- Spotify NÃO tem teste grátis liberado. Se o cliente pedir teste no Spotify, ofereça somente a menor opção paga ativa do catálogo.\n- Quando o cliente mandar o link, o sistema cria o teste automaticamente — não repita o link nem confirme order id.\n- Rede fora da lista de teste: "Para [REDE] não temos teste grátis disponível. Dá pra começar com o mínimo pago — sai R$X — pra testar!" (preço real do catálogo).`
+      ? `TESTE GRÁTIS — REGRAS OPERACIONAIS:\n- Views Instagram → link de Reel.\n- Spotify NÃO tem teste grátis. Ofereça menor opção paga.\n- Quando o cliente mandar o link, o sistema cria o teste automaticamente.\n- Rede fora da lista: ofereça o mínimo pago correspondente.`
       : "",
+
     // Regras de ouro de teste grátis: fonte única em identity.regra_teste_gratis.
     "",
     "",
