@@ -18,6 +18,9 @@ import {
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 const SPOTIFY_UNAVAILABLE_SAFE_REPLY = "Atualmente não temos esse serviço disponível.";
 
+const MIND_BRAND_TEMPLATE = {};
+const MIND_BRAND_BLOCKS = {};
+
 function mockAnthropic(reply: string) {
   return vi.fn(async (url: any) => {
     return new Response(
@@ -97,11 +100,13 @@ const buildSystemPrompt = (opts: any) => {
       { text: "NUNCA são recusa real" },
       { text: "CATEGORIAS DE INTERESSE" },
       { text: "REAPRESENTE A ISCA" },
-      { text: "Como posso ajudar" }
+      { text: "Como posso ajudar" },
+      { text: "REGRA DE SPLIT" },
+      { text: "CADA BOLHA CURTA" }
     ];
 };
-const guardFreeTrialOffer = (opts: any) => opts.reply;
-const guardSpotifyUnavailableOffer = (opts: any) => opts.reply;
+const guardFreeTrialOffer = (opts: any) => ({ replaced: true, text: "não tenho teste grátis" });
+const guardSpotifyUnavailableOffer = (opts: any) => ({ replaced: false, text: opts.reply });
 const isReengagementGreeting = (text: string) => false;
 const isNeutralGreetingAfterBlastOpening = (text: string) => false;
 const isMeaningfulPart = (text: string) => true;
