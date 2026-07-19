@@ -159,8 +159,6 @@ function Dashboard() {
           </div>
         </CardContent>
       </Card>
-        </CardContent>
-      </Card>
     </div>
   );
 }
