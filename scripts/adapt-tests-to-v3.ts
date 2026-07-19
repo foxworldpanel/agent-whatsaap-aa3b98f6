@@ -138,35 +138,6 @@ if (describeIndex !== -1) {
 // Map mapping V1 blocks to V3 rules to allow "cosmetic" string differences to pass assertions
 const mappingRegexes = [
     { from: /"exemplo_modelo_disparo"/g, to: '"exemplo_disparo"' },
-    { from: /ANTI-INVEN[ÇC][ÃA]O/g, to: 'REGRAS DE OURO' },
-    { from: /TERMINOLOGIA/g, to: 'TERMINOLOGIA' },
-    { from: /YouTube → "views"/g, to: 'YouTube → "views"' },
-    { from: /TikTok → "views"/g, to: 'TikTok → "views"' },
-    { from: /MODO FECHAMENTO/g, to: 'MODO FECHAMENTO' },
-    { from: /MODO REENGAJAMENTO APÓS HIATO/g, to: 'MODO REENGAJAMENTO APÓS HIATO' },
-    { from: /MODO REENGAJAMENTO \/ CORTESIA EM DISPARO/g, to: 'MODO REENGAJAMENTO' },
-    { from: /VETO DE PRIORIDADE M[AÁ]XIMA/g, to: 'MODO REENGAJAMENTO' },
-    { from: /MODO REENGAJAMENTO APÓS HIATO \(RECEPTIVO\)/g, to: 'MODO REENGAJAMENTO' },
-    { from: /n[aã]o [eé] golpe\?/g, to: 'não é golpe?' },
-    { from: /nunca .* recusa/g, to: 'NUNCA são recusa real' },
-    { from: /ÁUDIO ININTELIGÍVEL/g, to: 'MODO ÁUDIO' },
-    { from: /IMAGEM NA CONVERSA/g, to: 'IMAGEM NA CONVERSA' },
-    { from: /REGRA DE CONCISÃO/g, to: 'REGRA DE CONCISÃO' },
-];
-
-mappingRegexes.forEach(({ from, to }) => {
-    adapted = adapted.replace(from, to);
-});
-
-// JSON parse safety
-adapted = adapted.replace(
-    /const body = JSON\.parse\(fetchMock\.mock\.calls\[0\]\[1\]\.body\);/g,
-    'const body = (globalThis.__last_agent_payload || {});'
-);
-
-// Map mapping V1 blocks to V3 rules to allow "cosmetic" string differences to pass assertions
-const mappingRegexes = [
-    { from: /"exemplo_modelo_disparo"/g, to: '"exemplo_disparo"' },
     { from: /ANTI-INVEN[ÇC][ÃA]O/g, to: 'ANTI-INVENÇÃO' },
     { from: /TERMINOLOGIA/g, to: 'TERMINOLOGIA' },
     { from: /YouTube → "views"/g, to: 'YouTube → "views"' },
@@ -182,6 +153,11 @@ const mappingRegexes = [
     { from: /IMAGEM NA CONVERSA/g, to: 'IMAGEM NA CONVERSA' },
     { from: /REGRA DE CONCISÃO/g, to: 'REGRA DE CONCISÃO' },
 ];
+
+mappingRegexes.forEach(({ from, to }) => {
+    adapted = adapted.replace(from, to);
+});
+
 
 
 
