@@ -15,8 +15,10 @@ async function testCache() {
     message: "Olá, como funcionam os seguidores?",
     history: history1,
     enabledModules: ["geral"],
-    isInbound: true
+    isInbound: true,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY
   });
+  console.log("Usage 1:", JSON.stringify(res1.usage, null, 2));
   console.log("Response 1:", res1.replies.join(" | "));
   
   // We expect rawPrompt or some usage info to be returned
@@ -34,8 +36,10 @@ async function testCache() {
     message: "E pro Instagram especificamente?",
     history: history2,
     enabledModules: ["geral"],
-    isInbound: true
+    isInbound: true,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY
   });
+  console.log("Usage 2:", JSON.stringify(res2.usage, null, 2));
   console.log("Response 2:", res2.replies.join(" | "));
 }
 

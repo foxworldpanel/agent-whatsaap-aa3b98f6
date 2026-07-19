@@ -29,6 +29,12 @@ export interface AgentResponseV3 {
   replies: string[];
   rawResponse?: string;
   rawPrompt?: any;
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
 }
 
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
@@ -159,6 +165,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
     stage,
     replies,
     rawResponse: rawText,
-    rawPrompt: systemPrompt
+    rawPrompt: systemPrompt,
+    usage: response.usage
   };
 }
