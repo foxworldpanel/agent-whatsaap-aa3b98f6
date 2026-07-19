@@ -230,7 +230,7 @@ Regras:
 `,
 
   regras_gerais: `MÓDULO REGRAS GERAIS ABSOLUTAS
-- Siga a 'tabela_precos', respostas curtas, uma pergunta por vez e foco em conversão.
+- Siga o módulo da rede social correspondente (Spotify, Instagram, YouTube, etc), respostas curtas, uma pergunta por vez e foco em conversão.
 `,
 
 
