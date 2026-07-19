@@ -168,6 +168,50 @@ function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      <Card className="border-amber-200 bg-amber-50">
+        <CardHeader>
+          <CardTitle className="text-amber-800 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            Auditoria de Cache V3 (Haiku 4.5)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-amber-900 space-y-4">
+          <p className="font-semibold">Antes de atribuir o cache zerado ao ambiente, medir o tamanho exato do prefixo marcado com cache_control.</p>
+          <p>Usando o modelo <code>claude-haiku-4-5</code>, informar:</p>
+          <ol className="list-decimal list-inside space-y-1 ml-2">
+            <li>Quantos tokens existem somente no conteúdo que está antes e incluindo o breakpoint cache_control.</li>
+            <li>Quantos tokens existem no Bloco 1 estável.</li>
+            <li>Quantos tokens existem no Bloco 2 dinâmico.</li>
+            <li>Confirmar se o prefixo cacheável atinge o mínimo de 4.096 tokens exigido pelo Claude Haiku 4.5.</li>
+            <li>Mostrar os campos da resposta: <code>cache_creation_input_tokens</code>, <code>cache_read_input_tokens</code>, <code>input_tokens</code>.</li>
+          </ol>
+          <p className="italic bg-amber-100 p-2 rounded">
+            Se o prefixo tiver menos de 4.096 tokens, considerar esta a causa primária do cache zerado. Não atribuir ao Lovable ou gateway sem antes eliminar essa hipótese.
+          </p>
+          <div className="space-y-2">
+            <p>Depois, executar duas chamadas sequenciais, não paralelas, com:</p>
+            <ul className="list-disc list-inside ml-4 space-y-1">
+              <li>mesmo modelo;</li>
+              <li>mesmo bloco estável;</li>
+              <li>mesmas ferramentas;</li>
+              <li>segunda chamada dentro de cinco minutos;</li>
+              <li>apenas o bloco dinâmico e a mensagem do usuário diferentes.</li>
+            </ul>
+          </div>
+          <div className="grid grid-cols-2 gap-4 pt-2">
+            <div className="p-3 border border-amber-200 rounded bg-white">
+              <p className="font-bold text-xs uppercase text-amber-600 mb-1">Na primeira chamada:</p>
+              <code className="text-xs">cache_creation_input_tokens &gt; 0</code><br/>
+              <code className="text-xs">cache_read_input_tokens = 0</code>
+            </div>
+            <div className="p-3 border border-amber-200 rounded bg-white">
+              <p className="font-bold text-xs uppercase text-amber-600 mb-1">Na segunda chamada:</p>
+              <code className="text-xs">cache_read_input_tokens &gt; 0</code>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
