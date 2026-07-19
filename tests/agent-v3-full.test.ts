@@ -122,11 +122,15 @@ const containsEmoji = emojiLimiter.containsEmoji;
 const countEmojis = emojiLimiter.countEmojis;
 
 import * as v3Guards from "@/lib/agent-v3/guards.server";
-const enforceReengagementGreeting = (text: string, greeting?: string) => {
-    const res = v3Guards.enforceReengagementGreeting(text, greeting);
+const enforceReengagementGreeting = (text: string, latestClientMsg: string) => {
+    const res = v3Guards.enforceReengagementGreeting(text, latestClientMsg);
     return { text: res.text, prepended: res.prepended };
 };
-const pickReengagementGreeting = (s: string) => s + "!";
+const pickReengagementGreeting = v3Guards.pickReengagementGreeting;
+const sanitizeSystemLeaks = (text: string) => v3Guards.sanitizeSystemLeaks(text);
+const detectVerboseLoop = (history: any) => v3Guards.detectVerboseLoop(Array.isArray(history) ? history : []);
+const looksLikeConcreteAction = v3Guards.looksLikeConcreteAction;
+const VERBOSE_LOOP_FAREWELL = v3Guards.VERBOSE_LOOP_FAREWELL;
 
 const MIND_BRAND_BLOCKS = {}; 
 const MIND_BRAND_TEMPLATE = "";
