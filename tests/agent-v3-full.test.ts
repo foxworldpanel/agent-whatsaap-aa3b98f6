@@ -56,9 +56,7 @@ async function callAgent(opts: {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("
-
-");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
   return "";
 }
 

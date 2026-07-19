@@ -62,7 +62,7 @@ async function callAgent(opts: {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\\n\\n");
   return "";
 }
 
@@ -70,20 +70,14 @@ beforeEach(() => { vi.unstubAllGlobals?.(); });
 afterEach(() => { vi.unstubAllGlobals?.(); vi.restoreAllMocks(); });
 `;
 
-// Split by describe blocks - more robust regex
 const describeRegex = /describe\([\s\S]*?\)\s*=>\s*\{[\s\S]*?\n\}\);/g;
 const describes = originalContent.match(describeRegex);
 
 if (describes) {
   describes.forEach(d => {
-    // Skip tests that rely on V1 internal functions not present in V3
-    if (d.includes('buildSystemPrompt') && !d.includes('callAgent')) {
-       return;
-    }
-    // Skip utility functions tests (they should stay in V1 or be moved to shared)
+    if (d.includes('buildSystemPrompt') && !d.includes('callAgent')) return;
     if (d.includes('humanizePunctuation') && !d.includes('callAgent')) return;
     if (d.includes('guardFreeTrialOffer') && !d.includes('callAgent')) return;
-    
     newContent += "\n" + d;
   });
 }
