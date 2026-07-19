@@ -98,35 +98,57 @@ function Dashboard() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="p-4 border rounded-lg bg-blue-50/50">
-            <h3 className="font-bold text-lg mb-2">Arquivos que serão criados (NOVOS)</h3>
-            <ul className="list-disc list-inside space-y-1 text-sm">
-              <li><code>src/lib/agent-v3/router.server.ts</code> (Router determinístico)</li>
-              <li><code>src/lib/agent-v3/orchestrator.server.ts</code> (Montagem de prompt sob demanda)</li>
-              <li><code>src/lib/agent-v3/audio-processor.server.ts</code> (Whisper + validação de string)</li>
-              <li><code>src/lib/agent-v3/metadata-extractor.server.ts</code> (JSON parsing da resposta)</li>
+            <h3 className="font-bold text-lg mb-2">1) QUAIS ARQUIVOS SERÃO CRIADOS</h3>
+            <p className="text-sm mb-2 text-muted-foreground">Novos componentes isolados da V1:</p>
+            <ul className="list-disc list-inside space-y-1 text-sm font-mono">
+              <li>src/lib/agent-v3/router.server.ts</li>
+              <li>src/lib/agent-v3/module-selector.server.ts</li>
+              <li>src/lib/agent-v3/orchestrator.server.ts</li>
+              <li>src/lib/agent-v3/audio-processor.server.ts</li>
+              <li>src/lib/agent-v3/metadata-extractor.server.ts</li>
             </ul>
+            <p className="text-xs mt-3 text-primary font-medium">✅ Confirmação: Todos são arquivos novos. Nenhum arquivo da V1 será sobrescrito.</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-semibold mb-2">Router Determinístico</h4>
-              <p className="text-sm text-muted-foreground">
-                Decide quais módulos carregar via <code>agent_config.modules</code> usando keywords e contexto da última mensagem, reduzindo o prompt fixo em ~80%.
-              </p>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-semibold mb-2">Tratamento de Áudio</h4>
-              <p className="text-sm text-muted-foreground">
-                Whisper transcreve → validação rigorosa (<code>typeof === 'string'</code>) → injeta transcrição no fluxo Haiku. Corrige o bug de <code>[object Object]</code>.
+          <div className="p-4 border rounded-lg">
+            <h3 className="font-bold text-lg mb-2">2) COMO O ROUTER DECIDE MÓDULO</h3>
+            <div className="space-y-3 text-sm">
+              <p>O roteamento será <strong>determinístico (código)</strong>, não IA, para economizar tokens.</p>
+              <div className="bg-muted p-3 rounded text-xs font-mono">
+                Exemplo: "quero comprar plays no Spotify"<br/>
+                → Keywords detectadas: ["plays", "spotify"]<br/>
+                → Módulos carregados: ["spotify", "pagamentos", "regras_gerais"]
+              </div>
+              <p className="text-muted-foreground">
+                A lógica usará uma matriz de pesos de palavras-chave (Regex otimizado). Se nenhuma rede for detectada, carrega módulos de identificação/saudação.
               </p>
             </div>
           </div>
 
-          <Alert>
-            <CheckCircle2 className="h-4 w-4" />
-            <AlertTitle>Garantia de Estabilidade</AlertTitle>
-            <AlertDescription>
-              A V1 continua ativa e intocada em <code>src/lib/ai.server.ts</code>. A troca só ocorrerá após validação de 110 testes e 6 cenários manuais críticos.
+          <div className="p-4 border rounded-lg">
+            <h3 className="font-bold text-lg mb-2">3) COMO O ÁUDIO SERÁ TRATADO</h3>
+            <div className="space-y-2 text-sm">
+              <ol className="list-decimal list-inside space-y-2">
+                <li><strong>Recepção:</strong> Webhook recebe o <code>mediaUrl</code>.</li>
+                <li><strong>Transcrição:</strong> Chamada ao Whisper via <code>transcribeAudioUrl</code>.</li>
+                <li><strong>Validação de Tipo (Ação Mecânica):</strong>
+                  <pre className="bg-muted p-2 mt-1 rounded text-[10px] font-mono">
+                    {`const transcript = await whisper();
+if (typeof transcript !== 'string' || transcript === '[object Object]') {
+  throw new Error("Falha crítica na transcrição");
+}`}
+                  </pre>
+                </li>
+                <li><strong>Injeção:</strong> A string validada entra no prompt do Haiku como se fosse texto do cliente.</li>
+              </ol>
+            </div>
+          </div>
+
+          <Alert className="border-green-200 bg-green-50">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertTitle className="text-green-800">4) CONFIRMAÇÃO DE QUE A V1 CONTINUA ATIVA</AlertTitle>
+            <AlertDescription className="text-green-700">
+              O webhook oficial (<code>uazapi-webhook.ts</code>) continuará apontando 100% para <code>generateAgentReplyWithMeta</code> (V1). A V3 será acessível apenas por rota de teste interna. Tráfego real permanece intocado.
             </AlertDescription>
           </Alert>
         </CardContent>
