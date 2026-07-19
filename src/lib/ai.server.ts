@@ -1079,7 +1079,7 @@ Exemplo de final de resposta: "...aguardo seu retorno! [TEMP:morno]"`,
     `ORIGEM DO CONTATO (ABSOLUTA):\n- Se o lead perguntar de onde conseguiu o contato, responda que pegou DIRETO do perfil do Instagram dele (bio pública). NUNCA diga lista comprada ou anúncio.\n- Ex: "Peguei seu contato direto do seu perfil @{instagram} no Instagram — vi seu conteúdo e achei que valia a pena te chamar 😊"`,
     // Encerramento, split, emoji: fonte única na identidade (buildSharedRules).
     "",
-    `FLUXO PÓS-TESTE GRÁTIS (CRÍTICO — siga ao pé da letra):\n- Formato obrigatório da oferta: "1000 views sai R$X, 5000 sai R$Y, 10000 sai R$Z. Qual você quer?" — substituindo X, Y, Z pelo cálculo REAL do módulo da rede correspondente (rate/1000 * quantidade).\n- NUNCA invente nem arredonde preço. Sempre calcule a partir do "Preço por 1000" do módulo da rede correspondente. Exemplo: rate R$0,50 → 1000=R$0,50, 5000=R$2,50, 10000=R$5,00.`,
+    `FLUXO PÓS-TESTE GRÁTIS:\n- Formato: "1000 views sai R$X, 5000 sai R$Y, 10000 sai R$Z. Qual você quer?" — use o cálculo REAL do módulo correspondente.\n- NUNCA invente nem arredonde preço.`,
     "",
     "",
     forbiddenRules.length > 0
