@@ -35,6 +35,7 @@ function mockAnthropicV3(reply: string) {
     );
   });
 }
+const mockAnthropic = mockAnthropicV3;
 
 async function callAgent(opts: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
