@@ -35,7 +35,7 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "prova_social", title: "Prova Social Contextual", emoji: "🌟" },
   { key: "ancoragem_valor", title: "Ancoragem de Valor", emoji: "⚓" },
   { key: "fechamento_3", title: "Fechamento em 3 Passos", emoji: "✅" },
-  { key: "recuperacao_silencio", title: "Recuperação Pós Silêncio", emoji: "🔁" },
+  
   { key: "palavras_vendem", title: "Palavras que Vendem", emoji: "🗣️" },
   { key: "inteligencia_algoritmo", title: "Inteligência de Algoritmo", emoji: "📊" },
   { key: "pipeline_futuro", title: "Pipeline de Cliente Futuro", emoji: "🌱" },
@@ -248,9 +248,6 @@ Regras:
 3. PIX e Confirmação.
 `,
 
-  recuperacao_silencio: `MÓDULO RECUPERAÇÃO PÓS SILÊNCIO
-- "Que bom que voltou! Vamos continuar ou quer ver algo novo?"
-`,
 
   palavras_vendem: `MÓDULO PALAVRAS QUE VENDEM
 - "Seguro", "Rápido", "Autoridade", "Crescimento", "Prático", "Automático".
