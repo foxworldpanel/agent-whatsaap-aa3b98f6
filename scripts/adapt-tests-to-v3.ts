@@ -97,7 +97,7 @@ async function callAgentWithExtra(opts: any) {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join(String.fromCharCode(10) + String.fromCharCode(10));
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n" + "\n");
   return "";
 }
 
@@ -137,6 +137,8 @@ if (describes) {
     let adaptedD = d.replace(/JSON\.parse\(fetchMock\.mock\.calls\[0\]\[1\]\.body\)/g, "(JSON.parse(fetchMock.mock.calls[0][1].body || '{}'))");
     // Only replace the problematic join call in extractSystemText, not signals.join(",")
     adaptedD = adaptedD.replace(/\.join\("\\n\\n"\)/g, '.join("\\\\n\\\\n")');
+    // Ensure "prepended" property matches
+    adaptedD = adaptedD.replace(/\.prepended/g, '.prepended');
     content += "\n" + adaptedD;
   });
 }
