@@ -1250,13 +1250,38 @@ export async function generateAgentReplyWithMeta(params: {
     body: JSON.stringify({
       model,
       max_tokens: 800,
-      system: [
-        {
-          type: "text",
-          text: fullSystemFallback,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
+      system: (() => {
+        const stableBlocks: string[] = [];
+        const dynamicBlocks: string[] = [];
+
+        systemBlocks.forEach((block: any) => {
+          if (!block || !block.trim()) return;
+          
+          const isDynamic = 
+            block.includes("ÚLTIMA MENSAGEM DO CLIENTE") ||
+            block.includes("MODO ÁUDIO") ||
+            block.includes("IMAGEM NA CONVERSA") ||
+            block.includes("VETO DE PRIORIDADE MÁXIMA") ||
+            block.includes("extraContext") ||
+            block.includes("🔥 PROMOÇÃO ATIVA HOJE") ||
+            block.includes("FATO TÉCNICO VERIFICADO");
+
+          if (isDynamic) dynamicBlocks.push(block);
+          else stableBlocks.push(block);
+        });
+
+        return [
+          {
+            type: "text",
+            text: stableBlocks.join("\n\n"),
+            cache_control: { type: "ephemeral" },
+          },
+          {
+            type: "text",
+            text: dynamicBlocks.join("\n\n")
+          }
+        ];
+      })(),
       messages: finalMessages,
     }),
   });
