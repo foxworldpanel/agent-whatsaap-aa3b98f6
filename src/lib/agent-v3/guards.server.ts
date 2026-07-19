@@ -75,6 +75,18 @@ export function detectVerboseLoop(history: Array<{ sender: string, body: string 
  */
 export function pickReengagementGreeting(latestClientMsg: string, nowDate: Date = new Date()): string {
   const s = (latestClientMsg ?? "").toLowerCase();
+
+  // PRIORIDADE 1: Detecção de idioma
+  const isEnglish = /\b(hi|hello|hey|good\s*(morning|afternoon|evening|night))\b/i.test(s);
+
+  if (isEnglish) {
+    if (/\bgood\s*morning\b/.test(s)) return "Good morning";
+    if (/\bgood\s*afternoon\b/.test(s)) return "Good afternoon";
+    if (/\bgood\s*(evening|night)\b/.test(s)) return "Good evening";
+    return "Hi";
+  }
+
+  // Fallback para Português
   if (/\bbom\s*dia\b/.test(s)) return "Bom dia";
   if (/\bboa\s*tarde\b/.test(s)) return "Boa tarde";
   if (/\bboa\s*noite\b/.test(s)) return "Boa noite";
@@ -85,6 +97,7 @@ export function pickReengagementGreeting(latestClientMsg: string, nowDate: Date 
   if (hourBr >= 12 && hourBr < 18) return "Boa tarde";
   return "Boa noite";
 }
+
 
 export function looksLikeConcreteAction(text: string): boolean {
   return /http|www|\.com|\.br|@/i.test(text);
