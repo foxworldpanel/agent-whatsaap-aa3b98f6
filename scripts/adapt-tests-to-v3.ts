@@ -28,7 +28,7 @@ function mockAnthropicV3(reply: string) {
       JSON.stringify({ 
         content: [{ 
           type: "text", 
-          text: \`[TEMP:quente] [INTENT:compra] [STAGE:vendas] \${reply}\` 
+          text: "[TEMP:quente] [INTENT:compra] [STAGE:vendas] " + reply
         }] 
       }),
       { status: 200, headers: { "content-type": "application/json" } },
