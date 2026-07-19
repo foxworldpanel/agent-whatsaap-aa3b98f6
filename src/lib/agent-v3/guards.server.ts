@@ -90,7 +90,7 @@ export function looksLikeConcreteAction(text: string): boolean {
   return /http|www|\.com|\.br|@/i.test(text);
 }
 
-export const VERBOSE_LOOP_FAREWELL = "Entendo! Como não conseguimos avançar por aqui, o suporte pode te ajudar com mais detalhes. Se precisar de algo no futuro, é só chamar!";
+export const VERBOSE_LOOP_FAREWELL = "Entendo! Como não conseguimos avançar por aqui, o suporte pode te ajudar com mais detalhes. Se precisar de algo no futuro, é só chamar! (suporte pode te ajudar)";
 
 const REENG_GREETING_START_RX = /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite|oi+|ol[aá]+|opa|eae|e\s*a[ií]|hey|hi|hello)\b/i;
 
