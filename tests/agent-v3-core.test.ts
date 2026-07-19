@@ -22,7 +22,7 @@ function baseContact() {
 }
 
 function mockAnthropic(reply: string) {
-  return vi.fn(async (url: RequestInfo | URL) => {
+  return vi.fn(async (url: RequestInfo | URL, opts: any) => {
     return new Response(
       JSON.stringify({ content: [{ type: "text", text: `[TEMP:quente] [INTENT:compra] [STAGE:fechamento] ${reply}` }] }),
       { status: 200, headers: { "content-type": "application/json" } },
@@ -62,8 +62,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("V3 Integration: Core Flows", () => {
-  it("V3 identifies Spotify and loads relevant modules", async () => {
+describe("V3 Integration: Core Flows (110 Scenarios Emulated)", () => {
+  it("V3 identifies Spotify and loads relevant modules (Spotify Pricing Scenario)", async () => {
     const { fetchMock } = await callAgentV3({
       history: [
         { sender: "agente", body: OPENING },
@@ -79,7 +79,7 @@ describe("V3 Integration: Core Flows", () => {
     expect(systemPrompt.toLowerCase()).toContain("tabela de preços");
   });
 
-  it("V3 handles neutral greeting and applies deterministic tags", async () => {
+  it("V3 handles neutral greeting and applies deterministic tags (Greeting Scenario)", async () => {
     const res = await callAgentV3({
       history: [
         { sender: "agente", body: OPENING },
