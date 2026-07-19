@@ -7,13 +7,14 @@ import {
   limitEmojiFrequency, 
   enforceReengagementGreeting,
   humanizePunctuationV3,
-  detectVerboseLoop
+  detectVerboseLoop,
+  VERBOSE_LOOP_FAREWELL
 } from "./guards.server";
 
 type OrchestratorInput = {
   userId: string;
   message: string;
-  history: Array<{ sender: "agente" | "cliente"; body: string }>;
+  history: Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>;
   enabledModules: string[];
   customModules: Record<string, string>;
   anthropicApiKey?: string;
@@ -28,15 +29,15 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const moduleKeys = selectRelevantModules(message, enabledModules);
   const modulePrompt = buildPromptFromModules(moduleKeys, customModules);
 
-  // V3 ORCHESTRATOR - INJECTING GOLD RULES DIRECTLY INTO SYSTEM PROMPT STRING
+  // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
   const systemPrompt = `
 Você é a Júlia, vendedora especialista em marketing digital na Mind SMM.
 
 REGRAS DE OURO:
 - Responda de forma humana, natural e curta.
-- NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse. Pergunte qual rede social ou serviço o cliente deseja.
-- YouTube → "views", NUNCA "plays". TikTok → "views", NUNCA "plays".
-- Se o cliente disser "Ok" ou "blz" após você passar o preço, entenda como CONFIRMAÇÃO de interesse, nunca despedida.
+- ANTI-INVENÇÃO: NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse. Pergunte qual rede social ou serviço o cliente deseja.
+- TERMINOLOGIA: YouTube → "views", NUNCA "plays". TikTok → "views", NUNCA "plays".
+- MODO FECHAMENTO: Se o cliente disser "Ok" ou "blz" após você passar o preço, entenda como CONFIRMAÇÃO de interesse, nunca despedida.
 - PROIBIDO ABSOLUTO omitir a saudação de volta quando o cliente te cumprimenta.
 - Objeções como "não é golpe?" ou "tem risco?" com ponto de interrogação NUNCA são recusa real. Responda com confiança.
 - CATEGORIAS DE INTERESSE: 
@@ -44,9 +45,6 @@ REGRAS DE OURO:
   2. NEUTRA (SÓ CORTESIA): Oi, tudo bem, etc. Responda com reciprocidade social.
   3. NEGATIVA: Recusa clara.
 - MANTENHA O IDIOMA: Responda sempre no idioma em que o cliente está falando.
-- TERMINOLOGIA: YouTube → "views", NUNCA "plays". TikTok → "views", NUNCA "plays".
-
-${extraContext ? `CONTEXTO ADICIONAL:\n${extraContext}` : ""}
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
@@ -61,9 +59,6 @@ ${identity.exemplo_disparo}
 ${identity.reconhecimento_interesse}
 ${identity.regra_encerramento}
 ${identity.regra_estilo_escrita}
-
-ANTI-INVENÇÃO:
-- Nunca assume ou inventa qual rede ou serviço o cliente quer se ele não disse. Pergunte qual rede social ou serviço o cliente deseja.
 
 MODO SUPORTE / PÓS-VENDA:
 - Caso o cliente já tenha um pedido, foque em suporte. NÃO reinicie o funil de vendas perguntando qual rede social o cliente deseja.
@@ -81,7 +76,19 @@ OBRIGAÇÕES DE METADADOS:
 Toda resposta deve começar com marcadores:
 [TEMP:frio|morno|quente] [INTENT:...] [STAGE:...] 
 Mensagem para o cliente aqui.
+
+${extraContext ? `CONTEXTO ADICIONAL:\n${extraContext}` : ""}
 `;
+
+  // Verbose Loop Check
+  if (detectVerboseLoop(history)) {
+    return {
+      temperature: "frio",
+      intent: "suporte",
+      stage: "vendas",
+      text: VERBOSE_LOOP_FAREWELL
+    };
+  }
 
   const payload = {
     model: "claude-haiku-4-5",
