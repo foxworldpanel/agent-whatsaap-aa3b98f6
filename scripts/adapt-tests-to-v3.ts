@@ -144,7 +144,7 @@ const describes = originalContent.match(describeRegex);
 let content = header;
 if (describes) {
   describes.forEach(d => {
-    let adaptedD = d.replace(/fetchMock\.mock\.calls\[0\]\[1\]\.body/g, "(fetchMock.mock.calls[0] ? fetchMock.mock.calls[0][1].body : '{}')");
+    let adaptedD = d.replace(/fetchMock\.mock\.calls\[0\]\[1\]\.body/g, "(fetchMock.mock.calls[0] ? fetchMock.mock.calls[0][1].body : JSON.stringify({ system: [] }))");
     adaptedD = adaptedD.replace(/\.join\("\\n\\n"\)/g, '.join("\\\\n\\\\n")');
     content += "\n" + adaptedD;
   });
