@@ -2972,6 +2972,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
           const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
           reply = _claudeOut.text;
+          const leadTemperature = _claudeOut.leadTemperature;
           const _claudeMs = Date.now() - _claudeStart;
           const _claudeModel = _claudeOut.model;
           const _claudeRoutingReason = _claudeOut.routingReason;
@@ -3682,17 +3683,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // ===== Lead scoring automático (incorporado na chamada principal) =====
         try {
-          if (!isTestNumber && leadTemperature) {
+          // leadTemperature foi extraído da resposta do generateAgentReplyWithMeta (linha ~2975)
+          // @ts-ignore - leadTemperature is defined in the same scope
+          const tempToUse = typeof leadTemperature !== 'undefined' ? leadTemperature : null;
+          
+          if (!isTestNumber && tempToUse) {
             const stamp = new Date().toISOString();
-            if (leadTemperature === "bloqueado") {
+            if (tempToUse === "bloqueado") {
               await supabaseAdmin
                 .from("contacts")
-                .update({ temperatura: leadTemperature, temperatura_updated_at: stamp, status: "bloqueado" })
+                .update({ temperatura: tempToUse, temperatura_updated_at: stamp, status: "bloqueado" })
                 .eq("id", contact.id);
-            } else if (leadTemperature === "cliente") {
+            } else if (tempToUse === "cliente") {
               await supabaseAdmin
                 .from("contacts")
-                .update({ temperatura: leadTemperature, temperatura_updated_at: stamp, status: "convertido", perfil: "ativo" })
+                .update({ temperatura: tempToUse, temperatura_updated_at: stamp, status: "convertido", perfil: "ativo" })
                 .eq("id", contact.id);
               await supabaseAdmin
                 .from("conversations")
@@ -3701,7 +3706,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             } else {
               await supabaseAdmin
                 .from("contacts")
-                .update({ temperatura: leadTemperature, temperatura_updated_at: stamp })
+                .update({ temperatura: tempToUse, temperatura_updated_at: stamp })
                 .eq("id", contact.id);
             }
           }
