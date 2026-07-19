@@ -39,6 +39,7 @@ REGRAS DE OURO:
   1. DIRETO: Quer comprar.
   2. NEUTRA (SÓ CORTESIA): Oi, tudo bem, etc. Responda com reciprocidade.
   3. NEGATIVA: Recusa clara.
+- MANTENHA O IDIOMA: Responda sempre no idioma em que o cliente está falando.
 
 ${extraContext ? `CONTEXTO ADICIONAL:\n${extraContext}` : ""}
 
@@ -96,7 +97,7 @@ Mensagem para o cliente aqui.
   let processedText = sanitizeSystemLeaks(metadata.text || "");
   processedText = limitEmojiFrequency(processedText, history);
   
-  const greetingGuard = enforceReengagementGreeting(processedText);
+  const greetingGuard = enforceReengagementGreeting(processedText, "Oi! Como posso ajudar?");
   processedText = greetingGuard.text;
   
   processedText = humanizePunctuationV3(processedText);
