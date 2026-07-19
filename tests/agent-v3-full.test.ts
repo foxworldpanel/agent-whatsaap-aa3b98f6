@@ -80,10 +80,17 @@ const generateAgentReplyWithMeta = async (opts: any) => {
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
   if (Array.isArray(s)) {
-    return s.map((b: any) => b.text || "").join("\n\n");
+    // V3 uses an array of objects with a .text property
+    return s.map((b: any) => {
+      const val = b.text || b || "";
+      return typeof val === "string" ? val : JSON.stringify(val);
+    }).join("
+
+");
   }
   return "";
 }
+
 
 const buildSystemPrompt = aiServer.buildSystemPrompt;
 const humanizePunctuation = (t: string) => t.replace(/—/g, "-").replace(/–/g, "-");
