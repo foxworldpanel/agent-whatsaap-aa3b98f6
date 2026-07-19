@@ -18,7 +18,7 @@ export const MODULE_LIST: AgentModuleDef[] = [
   { key: "upsell", title: "Upsell", emoji: "📈" },
   { key: "teste_gratis", title: "Teste Grátis", emoji: "🎁" },
   { key: "suporte", title: "Suporte", emoji: "🛠️" },
-  { key: "historico_refil", title: "Histórico e Refil", emoji: "📜" },
+  
   { key: "desconto_niveis", title: "Desconto e Níveis", emoji: "🏅" },
   { key: "classificacao_contatos", title: "Classificação de Contatos", emoji: "🌡️" },
   { key: "educacao", title: "Educação e Orientação", emoji: "🎓" },
@@ -182,10 +182,6 @@ Regras:
 - REEMBOLSO: só saldo na conta via ticket. Nunca via PIX/dinheiro.
 `,
 
-  historico_refil: `MÓDULO HISTÓRICO E REFIL
-- "Você vê tudo no menu 'Histórico de Pedidos' no painel".
-- Reposição (Refill) disponível após 24h da queda, se o serviço tiver garantia.
-`,
 
   desconto_niveis: `MÓDULO DESCONTO E NÍVEIS
 - "Temos um sistema de níveis (Júnior a Master) com descontos automáticos conforme seu volume de pedidos".
