@@ -1,36 +1,48 @@
-// src/lib/agent-v3/orchestrator.server.ts
-import { loadAgentIdentity } from "@/lib/agent-identity.server";
+import { loadAgentIdentity } from "../agent-identity.server";
 import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
-import { extractMetadataV3, type AgentResponseV3 } from "./metadata-extractor.server";
+import { callAnthropicV3 } from "./llm-client.server";
 import { 
   sanitizeSystemLeaks, 
-  limitEmojiFrequency, 
-  enforceReengagementGreeting,
-  humanizePunctuationV3,
-  detectVerboseLoop,
-  VERBOSE_LOOP_FAREWELL
+  detectVerboseLoop, 
+  enforceReengagementGreeting, 
+  limitEmojiFrequency,
+  humanizePunctuationV3
 } from "./guards.server";
+import { extractMetadataV3 } from "./metadata-extractor.server";
+import { autoSplitLongPartsV3 } from "./audio-processor.server";
 
-type OrchestratorInput = {
+export interface OrchestratorInput {
   userId: string;
   message: string;
-  history: Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>;
+  history: any[];
   enabledModules: string[];
-  customModules: Record<string, string>;
+  customModules?: Record<string, string>;
   anthropicApiKey?: string;
   extraContext?: string;
   isInbound?: boolean;
-};
+}
+
+export interface AgentResponseV3 {
+  temperature: string;
+  intent: string;
+  stage: string;
+  replies: string[];
+  rawResponse?: string;
+  rawPrompt?: any;
+}
 
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
   const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true } = input;
 
   const identity = await loadAgentIdentity(userId);
   const moduleKeys = selectRelevantModules(message, enabledModules);
-  const modulePrompt = buildPromptFromModules(moduleKeys, customModules);
+  const modulePrompt = buildPromptFromModules(moduleKeys, customModules || {});
 
   // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
-  const systemPrompt = `
+  const systemPrompt = [
+    { 
+      type: "text", 
+      text: `
 Você é a Júlia, vendedora especialista em marketing digital na Mind SMM.
 
 REGRAS DE OURO (NUNCA OMITIR):
@@ -49,12 +61,9 @@ REGRAS DE OURO (NUNCA OMITIR):
   1. DIRETO: Quer comprar.
   2. NEUTRA (SÓ CORTESIA): Oi, tudo bem, etc. Responda com reciprocidade social.
   3. NEGATIVA: Recusa clara.
-- MANTENHA O IDIOMA: Responda sempre no idioma em que o cliente está falando. (idioma da conversa)
+- MANTENHA O IDIOMA: Responda sempre no idioma em que o cliente está falando (idioma da conversa). Se o cliente falar em inglês, use "Good afternoon/morning" etc.
 - MODO REENGAJAMENTO / CORTESIA EM DISPARO: Se o cliente mandou apenas uma cortesia em uma conversa de disparo, apenas saúde de volta e REAPRESENTE A ISCA. Posso te mostrar como acelerar suas redes.
 - MODO REENGAJAMENTO RECEPTIVO: Como posso ajudar?
-
-
-
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
@@ -66,7 +75,7 @@ ${identity.regra_split}
 ${identity.terminologia_redes}
 ${identity.regra_anti_invencao}
 ${identity.exemplo_disparo}
-${identity.reconhecimento_interesse}
+${identity.reconhecimento_interesse || ""}
 ${identity.regra_encerramento}
 ${identity.regra_estilo_escrita}
 
@@ -86,83 +95,70 @@ MODO ÁUDIO:
 IMAGEM NA CONVERSA:
 - Se o cliente mandou uma imagem ou print, avise que não consegue ver no momento e peça para descrever.
 
-CONTEXTO EXTRA (FATOS):
-FATO TÉCNICO VERIFICADO: ${extraContext || "Nenhum contexto extra disponível."}
-
-
-- Se o cliente enviar uma imagem, trate como comprovante ou evidência de erro. NUNCA resete o funil de vendas ao receber uma imagem.
-- PROIBIDO voltar a pergunta de descoberta. PAGAMENTO/CHECKOUT/PIX/AJUDANDO A CONCLUIR.
-
 OBRIGAÇÕES DE METADADOS:
 Toda resposta deve começar com marcadores:
 [TEMP:frio|morno|quente] [INTENT:...] [STAGE:...] 
 Mensagem para o cliente aqui.
-
-${extraContext ? `FATO TÉCNICO VERIFICADO:\n${extraContext}` : ""}
-`;
+`, 
+      cache_control: { type: "ephemeral" } 
+    },
+    { 
+      type: "text", 
+      text: `
+${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto extra disponível no momento."}
+` 
+    }
+  ];
 
   // Verbose Loop Check
-  if (detectVerboseLoop(history)) {
+  if (detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
     return {
       temperature: "frio",
       intent: "suporte",
-      stage: "vendas",
-      text: VERBOSE_LOOP_FAREWELL
+      stage: "lead",
+      replies: ["Um momento, vou chamar um especialista para te ajudar melhor com isso."],
+      rawPrompt: systemPrompt
     };
   }
 
-  const payload = {
-    model: "claude-haiku-4-5",
-    max_tokens: 1000,
-    system: [
-      {
-        type: "text",
-        text: systemPrompt,
-        cache_control: { type: "ephemeral" }
-      }
-    ],
-    messages: history.map(m => ({
-      role: m.sender === "agente" ? "assistant" : "user",
-      content: m.body
-    })).concat([{ role: "user", content: message }])
-  };
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": anthropicApiKey || "",
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-      "anthropic-beta": "prompt-caching-2024-07-31"
-    },
-    body: JSON.stringify(payload)
+  // Model Call
+  const response = await callAnthropicV3({
+    apiKey: anthropicApiKey,
+    system: systemPrompt,
+    messages: history.slice(-10).map(m => ({
+      role: m.role === "agent" ? "assistant" : "user",
+      content: m.content
+    })),
+    model: "claude-3-5-haiku-20241022"
   });
-  
-  // VITEST_HACK: For some reason Vitest fails to parse the body above if it's sent directly.
-  // We duplicate it into a closure-safe variable that the mock can see.
-  // @ts-ignore
-  globalThis.__last_agent_payload = payload;
 
+  const rawText = response.content[0].text;
+  
+  // Metadata extraction
+  const { temperature, intent, stage, text: cleanText } = extractMetadataV3(rawText);
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Anthropic V3 API failed: ${err}`);
-  }
+  // Guards & Pipeline
+  let finalContent = cleanText;
+  finalContent = sanitizeSystemLeaks(finalContent);
+  const reengagement = enforceReengagementGreeting(finalContent, message);
+  finalContent = reengagement.text;
+  
+  // Emoji handling
+  const agentHistory = history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content }));
+  finalContent = limitEmojiFrequency(finalContent, agentHistory);
 
-  const data = await response.json();
-  const llmTextRaw = data.content?.[0]?.text || "";
-  const metadata = extractMetadataV3(llmTextRaw);
-  
-  let processedText = sanitizeSystemLeaks(metadata.text || "");
-  processedText = limitEmojiFrequency(processedText, history);
-  
-  const greetingGuard = enforceReengagementGreeting(processedText, message);
-  processedText = greetingGuard.text;
-  
-  processedText = humanizePunctuationV3(processedText);
+  // Post-processing
+  finalContent = humanizePunctuationV3(finalContent);
+
+  // Auto-split logic
+  const replies = autoSplitLongPartsV3(finalContent);
 
   return {
-    ...metadata,
-    text: processedText
+    temperature,
+    intent,
+    stage,
+    replies,
+    rawResponse: rawText,
+    rawPrompt: systemPrompt
   };
 }

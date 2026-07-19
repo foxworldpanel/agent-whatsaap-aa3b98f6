@@ -1,5 +1,6 @@
 // src/lib/agent-v3/audio-processor.server.ts
 import { transcribeAudioUrl } from "@/lib/ai.server";
+import { autoSplitLongParts as legacySplitter } from "@/lib/message-splitter";
 
 export async function processAudioV3(audioUrl: string, openaiApiKey?: string): Promise<string> {
   if (!audioUrl) throw new Error("Audio URL is required");
@@ -26,4 +27,9 @@ export async function processAudioV3(audioUrl: string, openaiApiKey?: string): P
 
   console.info(`[agent-v3] Transcription successful: ${cleaned.length} chars`);
   return cleaned;
+}
+
+export function autoSplitLongPartsV3(text: string): string[] {
+  if (typeof text !== 'string') return [];
+  return legacySplitter([text]);
 }
