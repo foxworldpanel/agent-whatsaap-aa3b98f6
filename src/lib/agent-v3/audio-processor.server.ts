@@ -30,5 +30,5 @@ export async function processAudioV3(audioUrl: string, openaiApiKey?: string): P
 }
 
 export function autoSplitLongPartsV3(text: string): string[] {
-    return legacySplitter(text);
+    return legacySplitter([text]);
 }
