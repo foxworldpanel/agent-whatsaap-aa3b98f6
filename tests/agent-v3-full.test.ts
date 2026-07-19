@@ -127,8 +127,10 @@ const enforceReengagementGreeting = (text: string, latestClientMsg: string) => {
     return { text: res.text, prepended: res.prepended };
 };
 const pickReengagementGreeting = v3Guards.pickReengagementGreeting;
-const sanitizeSystemLeaks = v3Guards.sanitizeSystemLeaks;
-const detectVerboseLoop = v3Guards.detectVerboseLoop;
+const sanitizeSystemLeaks = (text: string) => v3Guards.sanitizeSystemLeaks(text);
+const detectVerboseLoop = (history: any) => v3Guards.detectVerboseLoop(Array.isArray(history) ? history : []);
+const looksLikeConcreteAction = v3Guards.looksLikeConcreteAction;
+const VERBOSE_LOOP_FAREWELL = v3Guards.VERBOSE_LOOP_FAREWELL;
 
 const MIND_BRAND_BLOCKS = {}; 
 const MIND_BRAND_TEMPLATE = "";
