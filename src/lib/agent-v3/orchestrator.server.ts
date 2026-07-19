@@ -6,7 +6,8 @@ import {
   sanitizeSystemLeaks, 
   limitEmojiFrequency, 
   enforceReengagementGreeting,
-  humanizePunctuationV3
+  humanizePunctuationV3,
+  detectVerboseLoop
 } from "./guards.server";
 
 type OrchestratorInput = {
@@ -17,10 +18,11 @@ type OrchestratorInput = {
   customModules: Record<string, string>;
   anthropicApiKey?: string;
   extraContext?: string;
+  isInbound?: boolean;
 };
 
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
-  const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext } = input;
+  const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true } = input;
 
   const identity = await loadAgentIdentity(userId);
   const moduleKeys = selectRelevantModules(message, enabledModules);
@@ -42,6 +44,7 @@ REGRAS DE OURO:
   2. NEUTRA (SÓ CORTESIA): Oi, tudo bem, etc. Responda com reciprocidade social.
   3. NEGATIVA: Recusa clara.
 - MANTENHA O IDIOMA: Responda sempre no idioma em que o cliente está falando.
+- TERMINOLOGIA: YouTube → "views", NUNCA "plays". TikTok → "views", NUNCA "plays".
 
 ${extraContext ? `CONTEXTO ADICIONAL:\n${extraContext}` : ""}
 
@@ -59,17 +62,20 @@ ${identity.reconhecimento_interesse}
 ${identity.regra_encerramento}
 ${identity.regra_estilo_escrita}
 
+ANTI-INVENÇÃO:
+- Nunca assume ou inventa qual rede ou serviço o cliente quer se ele não disse. Pergunte qual rede social ou serviço o cliente deseja.
+
+MODO SUPORTE / PÓS-VENDA:
+- Caso o cliente já tenha um pedido, foque em suporte. NÃO reinicie o funil de vendas perguntando qual rede social o cliente deseja.
+
+MODO REENGAJAMENTO APÓS HIATO:
+- Se houver hiato ou cortesia pura, REAPRESENTE A ISCA ou pergunte como pode ajudar.
+
 REGRA DE CONCISÃO:
-- Cada mensagem deve ser curta e direta.
-- Cubra tópicos como entrega, segurança, pagamento e painel de forma enxuta.
+- Cada mensagem deve ser curta e direta. Cubra entrega, segurança, pagamento e painel de forma enxuta.
 
 IMAGEM NA CONVERSA:
-- Se o cliente enviar uma imagem, trate como comprovante ou evidência de erro.
-- Siga as regras de fechamento se for um comprovante.
-- NUNCA resete o funil de vendas ao receber uma imagem.
-
-VETO DE PRIORIDADE MÁXIMA / MODO REENGAJAMENTO / CORTESIA EM DISPARO:
-Em caso de retorno após hiato (gap > 1h) ou cortesia pura em disparo, use este bloco. PROIBIDO emendar automaticamente perguntas pendentes. REAPRESENTE A ISCA ou pergunte como pode ajudar.
+- Se o cliente enviar uma imagem, trate como comprovante ou evidência de erro. NUNCA resete o funil de vendas ao receber uma imagem.
 
 OBRIGAÇÕES DE METADADOS:
 Toda resposta deve começar com marcadores:
