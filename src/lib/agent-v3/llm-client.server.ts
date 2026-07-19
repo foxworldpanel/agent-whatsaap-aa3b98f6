@@ -23,7 +23,7 @@ export async function callAnthropicV3(params: {
 
   // MAPEA OS NOMES AMIGÁVEIS PARA OS IDS REAIS DO GATEWAY/API
   let realModel = model;
-  if (model === "claude-haiku-4-5") realModel = "claude-3-haiku-20240307";
+  if (model === "claude-haiku-4-5") realModel = "claude-3-5-sonnet-20240620";
   if (model === "claude-sonnet-5") realModel = "claude-3-5-sonnet-20240620";
 
   const body = {
