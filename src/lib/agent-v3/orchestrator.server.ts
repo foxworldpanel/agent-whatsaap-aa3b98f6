@@ -131,11 +131,14 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
   const response = await callAnthropicV3({
     apiKey: anthropicApiKey,
     system: systemPrompt,
-    messages: history.slice(-10).map(m => ({
-      role: m.role === "agent" ? "assistant" : "user",
-      content: m.content
-    })),
-    model: "claude-3-5-sonnet-20241022"
+    messages: [
+      ...history.slice(-10).map(m => ({
+        role: m.role === "agent" ? "assistant" : "user",
+        content: m.content
+      })),
+      { role: "user", content: message }
+    ],
+    model: "claude-haiku-4-5"
   });
 
   const rawText = response.content[0].text;

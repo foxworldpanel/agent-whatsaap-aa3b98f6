@@ -21,15 +21,25 @@ export async function callAnthropicV3(params: {
     headers["x-api-key"] = apiKey;
   }
 
+  // MAPEA OS NOMES AMIGÁVEIS PARA OS IDS REAIS DO GATEWAY/API
+  // NA V1, USAMOS claude-haiku-4-5 E claude-sonnet-5 DIRETAMENTE.
+  let realModel = model;
+  if (model === "claude-haiku-4-5") realModel = "claude-haiku-4-5";
+  if (model === "claude-sonnet-5") realModel = "claude-sonnet-5";
+
+  const body = {
+    model: realModel,
+    max_tokens: 1024,
+    system,
+    messages
+  };
+
+  console.log(`[agent-v3] Calling Anthropic with model ${realModel}. Messages count: ${messages.length}`);
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      model,
-      max_tokens: 1024,
-      system,
-      messages
-    })
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
