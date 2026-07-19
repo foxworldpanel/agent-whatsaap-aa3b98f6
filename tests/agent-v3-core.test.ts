@@ -35,6 +35,7 @@ function mockAnthropic(reply: string) {
  */
 async function callAgentV3(opts: {
   history: Array<{ sender: "agente" | "cliente"; body: string }>;
+  message: string;
   mockReply: string;
   modules?: Record<string, string>;
   enabledModules?: string[];
@@ -45,8 +46,8 @@ async function callAgentV3(opts: {
   
   const res = await runAgentV3Turn({
     userId: "test-workspace",
-    message: opts.history[opts.history.length - 1]?.body || "",
-    history: opts.history.slice(0, -1),
+    message: opts.message,
+    history: opts.history,
     customModules: opts.modules || DEFAULT_MODULES,
     enabledModules: opts.enabledModules || Object.keys(DEFAULT_MODULES),
   });
@@ -65,14 +66,15 @@ afterEach(() => {
 describe("V3 Integration: Core Flows (110 Scenarios Emulated)", () => {
   it("V3 identifies Spotify and loads relevant modules (Spotify Pricing Scenario)", async () => {
     const { fetchMock } = await callAgentV3({
-      history: [
-        { sender: "agente", body: OPENING },
-        { sender: "cliente", body: "quais os preços do spotify?" },
-      ],
+      history: [{ sender: "agente", body: OPENING }],
+      message: "quais os preços do spotify?",
       mockReply: "Temos seguidores por R$30!",
     });
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    // Validating the request body directly
+    const callArgs = fetchMock.mock.calls[0];
+    const requestInit = callArgs[1] as RequestInit;
+    const body = JSON.parse(requestInit.body as string);
     const systemPrompt = Array.isArray(body.system) ? body.system.map((b: any) => b.text).join("\n") : body.system;
     
     expect(systemPrompt.toLowerCase()).toContain("spotify");
@@ -81,10 +83,8 @@ describe("V3 Integration: Core Flows (110 Scenarios Emulated)", () => {
 
   it("V3 handles neutral greeting and applies deterministic tags (Greeting Scenario)", async () => {
     const res = await callAgentV3({
-      history: [
-        { sender: "agente", body: OPENING },
-        { sender: "cliente", body: "oi" },
-      ],
+      history: [{ sender: "agente", body: OPENING }],
+      message: "oi",
       mockReply: "Olá! Como posso ajudar?",
     });
 
