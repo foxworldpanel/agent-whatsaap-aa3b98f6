@@ -13,7 +13,7 @@ export const Route = createFileRoute('/')({
 function Dashboard() {
   const { data: metrics, isLoading } = useQuery({
     queryKey: ['agent-prompt-metrics-raw'],
-    queryFn: () => getLatestPromptMetrics({ limit: 10 }),
+    queryFn: () => getLatestPromptMetrics({ data: { limit: 10 } }),
     refetchInterval: 5000,
   });
 
