@@ -5,7 +5,8 @@ import { extractMetadataV3, type AgentResponseV3 } from "./metadata-extractor.se
 import { 
   sanitizeSystemLeaks, 
   limitEmojiFrequency, 
-  enforceReengagementGreeting, humanizePunctuationV3 
+  enforceReengagementGreeting,
+  humanizePunctuationV3
 } from "./guards.server";
 
 type OrchestratorInput = {
@@ -52,7 +53,6 @@ Mensagem para o cliente aqui.
 `;
 
   // 4. Call LLM (Haiku for V3 efficiency)
-  // Note: Using fetch direct to Anthropic as per previous V2 pattern for full control
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -86,17 +86,17 @@ Mensagem para o cliente aqui.
   const data = await response.json();
   const llmTextRaw = data.content?.[0]?.text || "";
 
-  // 5. Apply Deterministic Guards
-  let processedText = sanitizeSystemLeaks(llmTextRaw);
-  processedText = limitEmojiFrequency(processedText);
-  processedText = enforceReengagementGreeting, humanizePunctuationV3(processedText);
-  processedText = humanizePunctuationV3(processedText);
-
   // 6. Extract Metadata (from raw text which has the tags)
   const metadata = extractMetadataV3(llmTextRaw);
   
+  // 5. Apply Deterministic Guards
+  let processedText = sanitizeSystemLeaks(metadata.text || "");
+  processedText = limitEmojiFrequency(processedText);
+  processedText = enforceReengagementGreeting(processedText);
+  processedText = humanizePunctuationV3(processedText);
+
   return {
     ...metadata,
-    text: processedText // The text property is what we call 'body' in metadata-extractor
+    text: processedText
   };
 }
