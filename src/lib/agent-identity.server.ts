@@ -59,6 +59,7 @@ export const DEFAULT_IDENTITY: AgentIdentityFields = {
 
   regra_split: `REGRA DE SPLIT (ABSOLUTA): Cada bolha individual deve ter no máximo 1 ou 2 frases curtas, separando ideias distintas com ===SPLIT===. PROIBIDO bolhas vazias, apenas com pontuação ou emojis isolados; cada mensagem deve conter texto substantivo.`,
 
+
   regra_teste_gratis: "", // Movido para módulo condicional 'teste_gratis'
 
   regra_anti_invencao: `ANTI-INVENÇÃO (ABSOLUTA):
