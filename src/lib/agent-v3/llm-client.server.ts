@@ -21,15 +21,19 @@ export async function callAnthropicV3(params: {
     headers["x-api-key"] = apiKey;
   }
 
+  // MAPEA OS NOMES AMIGÁVEIS PARA OS IDS REAIS DO GATEWAY/API
+  let realModel = model;
+  if (model === "claude-haiku-4-5") realModel = "claude-3-haiku-20240307";
+  if (model === "claude-sonnet-5") realModel = "claude-3-5-sonnet-20240620";
+
   const body = {
-    model: "claude-3-5-sonnet-20240620",
+    model: realModel,
     max_tokens: 1024,
     system,
     messages
   };
 
-  console.log(`[agent-v3] Calling Anthropic with model ${model}. Messages count: ${messages.length}`);
-  // console.log("[agent-v3] Payload body:", JSON.stringify(body, null, 2));
+  console.log(`[agent-v3] Calling Anthropic with model ${realModel}. Messages count: ${messages.length}`);
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
