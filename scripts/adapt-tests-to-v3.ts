@@ -55,7 +55,7 @@ async function callAgent(opts: {
   
   const historyForV3 = opts.message ? opts.history : opts.history.slice(0, -1);
 
-  const res = await runAgentV3Turn({
+  const res = await realRunAgentV3Turn({
     userId: "bd59fa41-3a6d-4767-8334-a69076f8e434",
     message: lastMessage,
     history: historyForV3,
@@ -64,6 +64,9 @@ async function callAgent(opts: {
     anthropicApiKey: "test-key",
     isInbound: opts.isInbound !== undefined ? opts.isInbound : true
   });
+
+  globalThis.__last_agent_payload = { system: res.rawPrompt }; 
+
 
   return { 
     text: res.replies.join(' '), 
