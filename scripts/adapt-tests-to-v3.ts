@@ -73,7 +73,7 @@ async function callAgent(opts: {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\\n\\n");
   return "";
 }
 
@@ -91,7 +91,6 @@ const limitEmojiFrequency = emojiLimiter.limitEmojiFrequency;
 const containsEmoji = emojiLimiter.containsEmoji;
 const countEmojis = emojiLimiter.countEmojis;
 
-// Mocking V3 specific guards for V1 test parity
 import * as v3Guards from "@/lib/agent-v3/guards.server";
 const enforceReengagementGreeting = (text: string, greeting?: string) => {
     const res = v3Guards.enforceReengagementGreeting(text, greeting);
@@ -105,13 +104,12 @@ beforeEach(() => { vi.unstubAllGlobals?.(); });
 afterEach(() => { vi.unstubAllGlobals?.(); vi.restoreAllMocks(); });
 `;
 
-let describeRegex = /describe\([\s\S]*?\)\s*=>\s*\{[\s\S]*?\n\}\);/g;
-let describes = originalContent.match(describeRegex);
+const describeRegex = /describe\([\s\S]*?\)\s*=>\s*\{[\s\S]*?\n\}\);/g;
+const describes = originalContent.match(describeRegex);
 
 let content = header;
 if (describes) {
   describes.forEach(d => {
-    // Replace internal extractSystemText checks in tests to handle V3 fetch mock structure
     let adaptedD = d.replace(/JSON\.parse\(fetchMock\.mock\.calls\[0\]\[1\]\.body\)/g, "(JSON.parse(fetchMock.mock.calls[0][1].body || '{}'))");
     content += "\n" + adaptedD;
   });

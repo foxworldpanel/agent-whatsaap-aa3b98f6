@@ -67,9 +67,7 @@ async function callAgent(opts: {
 
 function extractSystemText(s: any): string {
   if (typeof s === "string") return s;
-  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("
-
-");
+  if (Array.isArray(s)) return s.map((b: any) => b.text || "").join("\n\n");
   return "";
 }
 
@@ -87,7 +85,6 @@ const limitEmojiFrequency = emojiLimiter.limitEmojiFrequency;
 const containsEmoji = emojiLimiter.containsEmoji;
 const countEmojis = emojiLimiter.countEmojis;
 
-// Mocking V3 specific guards for V1 test parity
 import * as v3Guards from "@/lib/agent-v3/guards.server";
 const enforceReengagementGreeting = (text: string, greeting?: string) => {
     const res = v3Guards.enforceReengagementGreeting(text, greeting);
