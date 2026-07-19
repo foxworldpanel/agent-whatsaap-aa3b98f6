@@ -105,6 +105,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : ""}
 
 
 
+
   // Verbose Loop Check
   if (detectVerboseLoop(history)) {
     return {
