@@ -10,6 +10,8 @@ export interface AgentPromptMetricRow {
   input_tokens: number;
   total_chars: number;
   est_tokens: number;
+  output_tokens: number;
+  duration_ms: number;
 }
 
 export const getLatestPromptMetrics = createServerFn({ method: "POST" })
@@ -21,7 +23,7 @@ export const getLatestPromptMetrics = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<AgentPromptMetricRow[]> => {
     const { data: rows, error } = await context.supabase
       .from("agent_prompt_metrics")
-      .select("created_at, model, cache_creation_input_tokens, cache_read_input_tokens, input_tokens, total_chars, est_tokens")
+      .select("created_at, model, cache_creation_input_tokens, cache_read_input_tokens, input_tokens, total_chars, est_tokens, output_tokens, duration_ms")
       .order("created_at", { ascending: false })
       .limit(data.limit);
     

@@ -30,12 +30,12 @@ function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Chamadas Anthropic</CardTitle>
+            <CardTitle className="text-sm font-medium">Consolidação Anthropic</CardTitle>
             <Zap className="text-primary h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1 por Turno</div>
-            <p className="text-xs text-muted-foreground">Redução de 50% (consolidado com classifyLead)</p>
+            <div className="text-2xl font-bold">1 Chamada/Turno</div>
+            <p className="text-xs text-muted-foreground">O classifyLead (~1k tokens) foi absorvido pela chamada principal.</p>
           </CardContent>
         </Card>
         <Card>
@@ -72,6 +72,7 @@ function Dashboard() {
                 <TableHead>Modelo</TableHead>
                 <TableHead className="text-right">Creation Tokens</TableHead>
                 <TableHead className="text-right">Read Tokens</TableHead>
+                <TableHead className="text-right">Out Tokens</TableHead>
                 <TableHead className="text-right">Response Time</TableHead>
               </TableRow>
             </TableHeader>
@@ -80,9 +81,10 @@ function Dashboard() {
                 <TableRow key={i}>
                   <TableCell>{new Date(m.created_at).toLocaleTimeString()}</TableCell>
                   <TableCell className="font-mono text-xs">{m.model}</TableCell>
-                  <TableCell className="text-right font-medium">{m.cache_creation_input_tokens}</TableCell>
+                  <TableCell className="text-right font-medium">{m.cache_creation_input_tokens || m.input_tokens}</TableCell>
                   <TableCell className="text-right text-destructive font-bold">{m.cache_read_input_tokens}</TableCell>
-                  <TableCell className="text-right">{m.input_tokens}</TableCell>
+                  <TableCell className="text-right">{m.output_tokens}</TableCell>
+                  <TableCell className="text-right">{m.duration_ms}ms</TableCell>
                 </TableRow>
               ))}
             </TableBody>
