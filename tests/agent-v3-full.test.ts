@@ -85,12 +85,11 @@ function extractSystemText(s: any): string {
     return s.map((b: any) => {
       const val = b.text || b || "";
       return typeof val === "string" ? val : JSON.stringify(val);
-    }).join('
-
-');
+    }).join("\n\n");
   }
   return "";
 }
+
 
 
 
