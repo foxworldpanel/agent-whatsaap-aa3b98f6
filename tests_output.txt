@@ -1,0 +1,1234 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90m/dev-server[39m
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m1) Reconhecimento de interesse pós-abertura de disparo (via Claude)[2m > [22m[2mresposta "blz" chega ao Claude com prompt contendo exemplo_disparo
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m1) Reconhecimento de interesse pós-abertura de disparo (via Claude)[2m > [22m[2mresposta "certo" chega ao Claude com prompt contendo exemplo_disparo
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m1) Reconhecimento de interesse pós-abertura de disparo (via Claude)[2m > [22m[2mresposta "pode falar" chega ao Claude com prompt contendo exemplo_disparo
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m1) Reconhecimento de interesse pós-abertura de disparo (via Claude)[2m > [22m[2mresposta "sim" chega ao Claude com prompt contendo exemplo_disparo
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m1) Reconhecimento de interesse pós-abertura de disparo (via Claude)[2m > [22m[2mresposta "manda" chega ao Claude com prompt contendo exemplo_disparo
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m1) Reconhecimento de interesse pós-abertura de disparo (via Claude)[2m > [22m[2mresposta "bora" chega ao Claude com prompt contendo exemplo_disparo
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria NEUTRA)[2m > [22m[2msaudação "oi" chega ao Claude com regra de 3 categorias no prompt
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria NEUTRA)[2m > [22m[2msaudação "bom dia" chega ao Claude com regra de 3 categorias no prompt
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria NEUTRA)[2m > [22m[2msaudação "boa tarde" chega ao Claude com regra de 3 categorias no prompt
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m2) Cortesia neutra (Claude aplica reconhecimento_interesse categoria NEUTRA)[2m > [22m[2msaudação "olá" chega ao Claude com regra de 3 categorias no prompt
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m6) Sem travessão em respostas[2m > [22m[2mpipeline generateAgentReplyWithMeta remove travessão do LLM
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 1
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m7) Split de mensagem — padrão é 1 mensagem[2m > [22m[2mresposta curta do LLM não é dividida pelo pipeline
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 1
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m8c) Reengajamento respeita burst de mensagens (saudação + pergunta real)[2m > [22m[2mtemplate DISPARO exige saudação de volta como PRIMEIRAS PALAVRAS
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m10) "Não é golpe?" e afins — objeção, nunca encerramento[2m > [22m[2mresposta do agente para "Não é golpe?" NÃO deve conter frase de encerramento
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m10) "Não é golpe?" e afins — objeção, nunca encerramento[2m > [22m[2mresposta do agente para "não vai dar problema?" NÃO deve conter frase de encerramento
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m10) "Não é golpe?" e afins — objeção, nunca encerramento[2m > [22m[2mresposta do agente para "isso não cai não?" NÃO deve conter frase de encerramento
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m10) "Não é golpe?" e afins — objeção, nunca encerramento[2m > [22m[2mresposta do agente para "não tem risco?" NÃO deve conter frase de encerramento
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m11) Sem interceptador: agradecimentos passam pelo Claude[2m > [22m[2magradecimento "valeu" em contexto de venda ativa vai pro Claude (sem frase fixa)
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m11) Sem interceptador: agradecimentos passam pelo Claude[2m > [22m[2magradecimento "obrigado" em contexto de venda ativa vai pro Claude (sem frase fixa)
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m11) Sem interceptador: agradecimentos passam pelo Claude[2m > [22m[2magradecimento "obrigada" em contexto de venda ativa vai pro Claude (sem frase fixa)
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m11) Sem interceptador: agradecimentos passam pelo Claude[2m > [22m[2magradecimento "vlw" em contexto de venda ativa vai pro Claude (sem frase fixa)
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m11) Sem interceptador: agradecimentos passam pelo Claude[2m > [22m[2magradecimento "brigado" em contexto de venda ativa vai pro Claude (sem frase fixa)
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext[2m > [22m[2m#4 trial já usado por plataforma → fato no prompt + regra na identidade
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext[2m > [22m[2m#5 link é foto → fato técnico injetado
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext[2m > [22m[2m#6 erro do provedor (perfil privado) → fato técnico injetado
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 1
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m13) FATO TÉCNICO respeita o idioma da conversa (EN)[2m > [22m[2mconversa em inglês + fato técnico → Claude gera resposta em inglês
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m14) Suporte/pós-venda: 'obrigado' + 'ok' NÃO dispara pergunta de rede[2m > [22m[2mcliente com pedido em andamento agradece e confirma → prompt injeta MODO SUPORTE e Claude não pergunta 'qual rede'
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 5
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2mgap > 3h + saudação → prompt injeta MODO REENGAJAMENTO e não pergunta priorização
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2msem gap de tempo (mesmo minuto) + cortesia neutra em disparo → ATIVA veto (mesma resposta do reengajamento)
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2mDISPARO (isInbound=false) + gap > 12h + saudação → veto de reengajamento tem prioridade sobre funil
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 4
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2mRECEPTIVO (isInbound=true) + gap > 12h + saudação → veto usa 'Como posso ajudar', NÃO reapresenta isca
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 3
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2mGUARD de saudação em reengajamento (unit + e2e)[2m > [22m[2mRECEPTIVO: LLM devolve 'Como posso ajudar?' cru → resposta final começa com 'Boa tarde!'
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 3
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2mGUARD de saudação em reengajamento (unit + e2e)[2m > [22m[2mRECEPTIVO: cliente diz 'Bom dia' → resposta espelha a saudação
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 3
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2mGUARD de saudação em reengajamento (unit + e2e)[2m > [22m[2mRECEPTIVO: cliente diz 'Boa tarde' → resposta espelha a saudação
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 3
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2mGUARD de saudação em reengajamento (unit + e2e)[2m > [22m[2mRECEPTIVO: cliente diz 'Boa noite' → resposta espelha a saudação
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 3
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2mGUARD de saudação em reengajamento (unit + e2e)[2m > [22m[2mDISPARO: LLM omite saudação → guard prepende também no ramo de disparo
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22m[2mDISPARO normal (sem gap) → continua com REFINAMENTOS e sem veto de reengajamento
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2mÁudio ininteligível / sem conteúdo claro[2m > [22m[2minputKind=audio injeta veto de ÁUDIO ININTELIGÍVEL com frase de esclarecimento exata
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2mÁudio ininteligível / sem conteúdo claro[2m > [22m[2minputKind=texto NÃO injeta o bloco de MODO ÁUDIO (nem o veto de ininteligível)
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2mSanitização de vazamento de prompt interno (sanitizeSystemLeaks)[2m > [22m[2mpipeline generateAgentReplyWithMeta bloqueia vazamento antes de retornar texto ao caller
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 3
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2mRegressão: EXEMPLO_MODELO_DISPARO só em thread de disparo[2m > [22m[2mpipeline runtime (generateAgentReplyWithMeta) em conversa organic também NÃO injeta o exemplo
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 5
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m16) Imagem em conversa avançada — histórico completo + regra de fechamento[2m > [22m[2mcom imagem: histórico enviado ao Claude expande pra 20 turnos (não corta em 8)
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 11
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m16) Imagem em conversa avançada — histórico completo + regra de fechamento[2m > [22m[2mcom imagem: system prompt injeta bloco 'IMAGEM NA CONVERSA' com regra de fechamento
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 11
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m16) Imagem em conversa avançada — histórico completo + regra de fechamento[2m > [22m[2msem imagem: bloco 'IMAGEM NA CONVERSA' NÃO é injetado
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 11
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m16) Imagem em conversa avançada — histórico completo + regra de fechamento[2m > [22m[2mcom imagem: text block anexado à última msg inclui instrução de não resetar
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 11
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m17) REGRA DE CONCISÃO — bloco injetado no system prompt[2m > [22m[2msystem prompt inclui o bloco REGRA DE CONCISÃO com anti-repetição
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+[90mstdout[2m | tests/agent-v3-full.test.ts[2m > [22m[2m17) REGRA DE CONCISÃO — bloco injetado no system prompt[2m > [22m[2mbloco lista os tipos cobertos (entrega, segurança, pagamento, painel)
+[22m[39m[agent-v3] Calling Anthropic with model claude-haiku-4-5. Messages count: 2
+
+ [31m❯[39m tests/agent-v3-full.test.ts [2m([22m[2m110 tests[22m[2m | [22m[31m56 failed[39m[2m)[22m[32m 249[2mms[22m[39m
+[31m     [31m×[31m resposta "blz" chega ao Claude com prompt contendo exemplo_disparo[39m[32m 137[2mms[22m[39m
+     [32m✓[39m resposta "certo" chega ao Claude com prompt contendo exemplo_disparo[32m 2[2mms[22m[39m
+     [32m✓[39m resposta "pode falar" chega ao Claude com prompt contendo exemplo_disparo[32m 1[2mms[22m[39m
+     [32m✓[39m resposta "sim" chega ao Claude com prompt contendo exemplo_disparo[32m 1[2mms[22m[39m
+     [32m✓[39m resposta "manda" chega ao Claude com prompt contendo exemplo_disparo[32m 1[2mms[22m[39m
+     [32m✓[39m resposta "bora" chega ao Claude com prompt contendo exemplo_disparo[32m 1[2mms[22m[39m
+     [32m✓[39m saudação "oi" chega ao Claude com regra de 3 categorias no prompt[32m 2[2mms[22m[39m
+     [32m✓[39m saudação "bom dia" chega ao Claude com regra de 3 categorias no prompt[32m 2[2mms[22m[39m
+     [32m✓[39m saudação "boa tarde" chega ao Claude com regra de 3 categorias no prompt[32m 3[2mms[22m[39m
+     [32m✓[39m saudação "olá" chega ao Claude com regra de 3 categorias no prompt[32m 1[2mms[22m[39m
+     [32m✓[39m prompt contém ANTI-INVENÇÃO obrigando perguntar rede/serviço[32m 1[2mms[22m[39m
+     [32m✓[39m bloqueia oferta de teste grátis quando lista de elegíveis está vazia[32m 0[2mms[22m[39m
+     [32m✓[39m bloqueia teste grátis quando família do serviço não está liberada[32m 0[2mms[22m[39m
+[31m     [31m×[31m permite teste grátis quando serviço está literalmente na lista[39m[32m 14[2mms[22m[39m
+     [32m✓[39m guard respeita a disponibilidade dinâmica e NÃO bloqueia quando o catálogo está vazio (bypass ativo)[32m 0[2mms[22m[39m
+     [32m✓[39m prompt não contém mais roteiro padrão oferecendo plays/ouvintes/saves no Spotify[32m 0[2mms[22m[39m
+     [32m✓[39m prompt contém TERMINOLOGIA proibindo 'plays' em YouTube/TikTok[32m 1[2mms[22m[39m
+     [32m✓[39m humanizePunctuation remove em-dash cercado de espaços[32m 0[2mms[22m[39m
+     [32m✓[39m pipeline generateAgentReplyWithMeta remove travessão do LLM[32m 2[2mms[22m[39m
+[31m     [31m×[31m prompt contém regra de split com brevidade por bolha (1-2 frases, até 4 bolhas)[39m[32m 2[2mms[22m[39m
+     [32m✓[39m resposta curta do LLM não é dividida pelo pipeline[32m 1[2mms[22m[39m
+[31m     [31m×[31m prompt ensina que "Ok/blz" após preço é CONFIRMAÇÃO, não despedida[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m prompt contém PROGRESSO DO FUNIL proibindo reperguntar rede/serviço/quantidade[39m[32m 1[2mms[22m[39m
+     [32m✓[39m burst RECEPTIVO: 'Boa noite' + 'Poderia me passar informações?' NÃO é reengajamento[32m 1[2mms[22m[39m
+     [32m✓[39m burst DISPARO: 'Boa noite' + pergunta real NÃO é cortesia pura pós-abertura[32m 0[2mms[22m[39m
+[31m     [31m×[31m cenário original preservado: só 'Boa noite' pura continua sendo reengajamento (com hiato)[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m cenário original DISPARO: só 'Boa noite' pós-abertura continua sendo cortesia neutra[39m[32m 1[2mms[22m[39m
+     [32m✓[39m template DISPARO exige saudação de volta como PRIMEIRAS PALAVRAS[32m 2[2mms[22m[39m
+[31m     [31m×[31m resposta sem \n\n NÃO divide[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m resposta curta com \n\n DIVIDE (sinal do modelo basta, sem limite de chars)[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m resposta longa com \n\n também DIVIDE[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m preserva ===SPLIT=== explícito e ainda auto-divide partes com \n\n[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com ""[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com "   "[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com "..."[39m[32m 2[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com "…"[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com ". . ."[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com ".."[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com "!!!"[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com "??"[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com "."[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com "—"[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com "– –"[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m descarta bolha só com ",,,"[39m[32m 0[2mms[22m[39m
+     [32m✓[39m mantém bolha com pelo menos uma palavra real (mesmo com reticências)[32m 0[2mms[22m[39m
+[31m     [31m×[31m autoSplitLongParts remove partes só com reticências / pontuação / vazias[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m autoSplitLongParts remove parágrafo-fantasma dentro de bloco com \n\n[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m detecta emojis básicos e sequências ZWJ / variation selector[39m[32m 1[2mms[22m[39m
+     [32m✓[39m stripEmojis remove emojis e não quebra pontuação[32m 1[2mms[22m[39m
+     [32m✓[39m keepFirstEmojiOnly mantém só o primeiro emoji[32m 0[2mms[22m[39m
+[31m     [31m×[31m remove emoji da resposta atual se a última resposta do agente tinha emoji[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m permite 1 emoji se nenhuma das últimas respostas tinha emoji[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m mantém no máximo 1 emoji quando o modelo abusa (mesmo sem histórico com emoji)[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m garante que emoji NUNCA aparece em 2 respostas consecutivas ao longo de uma conversa[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m respeita EXCEÇÃO de abertura de disparo (não mexe no emoji)[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m preserva marcador ===SPLIT=== ao limpar emojis[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m REGRESSÃO 17:00→17:06: 2ª resposta tem emoji removido quando a 1ª já tinha[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m guard de reengajamento + limitEmojiFrequency funcionam em conjunto[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m prompt distingue recusa real de objeção com '?'[39m[32m 1[2mms[22m[39m
+     [32m✓[39m resposta do agente para "Não é golpe?" NÃO deve conter frase de encerramento[32m 2[2mms[22m[39m
+     [32m✓[39m resposta do agente para "não vai dar problema?" NÃO deve conter frase de encerramento[32m 1[2mms[22m[39m
+     [32m✓[39m resposta do agente para "isso não cai não?" NÃO deve conter frase de encerramento[32m 1[2mms[22m[39m
+     [32m✓[39m resposta do agente para "não tem risco?" NÃO deve conter frase de encerramento[32m 1[2mms[22m[39m
+     [32m✓[39m agradecimento "valeu" em contexto de venda ativa vai pro Claude (sem frase fixa)[32m 1[2mms[22m[39m
+     [32m✓[39m agradecimento "obrigado" em contexto de venda ativa vai pro Claude (sem frase fixa)[32m 1[2mms[22m[39m
+     [32m✓[39m agradecimento "obrigada" em contexto de venda ativa vai pro Claude (sem frase fixa)[32m 1[2mms[22m[39m
+     [32m✓[39m agradecimento "vlw" em contexto de venda ativa vai pro Claude (sem frase fixa)[32m 1[2mms[22m[39m
+     [32m✓[39m agradecimento "brigado" em contexto de venda ativa vai pro Claude (sem frase fixa)[32m 1[2mms[22m[39m
+     [32m✓[39m #4 trial já usado por plataforma → fato no prompt + regra na identidade[32m 1[2mms[22m[39m
+     [32m✓[39m #5 link é foto → fato técnico injetado[32m 1[2mms[22m[39m
+     [32m✓[39m #6 erro do provedor (perfil privado) → fato técnico injetado[32m 1[2mms[22m[39m
+     [32m✓[39m conversa em inglês + fato técnico → Claude gera resposta em inglês[32m 1[2mms[22m[39m
+     [32m✓[39m cliente com pedido em andamento agradece e confirma → prompt injeta MODO SUPORTE e Claude não pergunta 'qual rede'[32m 1[2mms[22m[39m
+     [32m✓[39m gap > 3h + saudação → prompt injeta MODO REENGAJAMENTO e não pergunta priorização[32m 1[2mms[22m[39m
+     [32m✓[39m sem gap de tempo (mesmo minuto) + cortesia neutra em disparo → ATIVA veto (mesma resposta do reengajamento)[32m 3[2mms[22m[39m
+     [32m✓[39m DISPARO (isInbound=false) + gap > 12h + saudação → veto de reengajamento tem prioridade sobre funil[32m 1[2mms[22m[39m
+[31m     [31m×[31m RECEPTIVO (isInbound=true) + gap > 12h + saudação → veto usa 'Como posso ajudar', NÃO reapresenta isca[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m pickReengagementGreeting espelha a saudação do cliente[39m[32m 0[2mms[22m[39m
+       [32m✓[39m enforceReengagementGreeting prepende quando falta saudação[32m 0[2mms[22m[39m
+       [32m✓[39m enforceReengagementGreeting NÃO duplica quando já tem saudação[32m 0[2mms[22m[39m
+       [32m✓[39m RECEPTIVO: LLM devolve 'Como posso ajudar?' cru → resposta final começa com 'Boa tarde!'[32m 1[2mms[22m[39m
+       [32m✓[39m RECEPTIVO: cliente diz 'Bom dia' → resposta espelha a saudação[32m 1[2mms[22m[39m
+       [32m✓[39m RECEPTIVO: cliente diz 'Boa tarde' → resposta espelha a saudação[32m 1[2mms[22m[39m
+       [32m✓[39m RECEPTIVO: cliente diz 'Boa noite' → resposta espelha a saudação[32m 1[2mms[22m[39m
+       [32m✓[39m DISPARO: LLM omite saudação → guard prepende também no ramo de disparo[32m 1[2mms[22m[39m
+[31m       [31m×[31m gap +15h receptivo com 'Bom dia' → isReengagementGreeting=true e safety-net DEVE ser pulado[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m DISPARO normal (sem gap) → continua com REFINAMENTOS e sem veto de reengajamento[39m[32m 1[2mms[22m[39m
+     [32m✓[39m inputKind=audio injeta veto de ÁUDIO ININTELIGÍVEL com frase de esclarecimento exata[32m 1[2mms[22m[39m
+[31m     [31m×[31m inputKind=texto NÃO injeta o bloco de MODO ÁUDIO (nem o veto de ininteligível)[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m remove cabeçalho de VETO ecoado pelo LLM e mantém texto legítimo[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m devolve fallback seguro quando resposta era 100% instrução interna (receptivo)[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m devolve fallback de disparo (reapresenta a isca) quando tudo era instrução em thread de blast[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m não altera resposta legítima da Júlia (sem falsos positivos)[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m pipeline generateAgentReplyWithMeta bloqueia vazamento antes de retornar texto ao caller[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m prompt contém sinais de MENU NUMERADO e proíbe pedido de desculpa[39m[32m 0[2mms[22m[39m
+     [32m✓[39m prompt de conversa organic/receptiva NÃO injeta o body do EXEMPLO_MODELO_DISPARO nem o backup de detecção[32m 0[2mms[22m[39m
+[31m     [31m×[31m prompt de disparo real (isInbound=false + abertura com pergunta-isca) CONTINUA carregando o EXEMPLO_MODELO_DISPARO[39m[32m 0[2mms[22m[39m
+     [32m✓[39m pipeline runtime (generateAgentReplyWithMeta) em conversa organic também NÃO injeta o exemplo[32m 1[2mms[22m[39m
+[31m     [31m×[31m cenário real (idoso leigo em loop de 15+ mensagens sem avanço) dispara a trava[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m conversa LONGA mas PROGREDINDO (cliente faz perguntas novas, cita valores) NÃO dispara[39m[32m 0[2mms[22m[39m
+     [32m✓[39m cliente volta com AÇÃO CONCRETA (link do Spotify) — reativa[32m 0[2mms[22m[39m
+[31m     [31m×[31m saudação neutra ou dúvida genérica NÃO conta como ação concreta[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m mesmo com 'sou leigo' + conversa curta, NÃO dispara (precisa 2+ sinais)[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m constantes exportadas batem com o spec (farewell + reason)[39m[32m 0[2mms[22m[39m
+     [32m✓[39m com imagem: histórico enviado ao Claude expande pra 20 turnos (não corta em 8)[32m 1[2mms[22m[39m
+[31m     [31m×[31m com imagem: system prompt injeta bloco 'IMAGEM NA CONVERSA' com regra de fechamento[39m[32m 2[2mms[22m[39m
+     [32m✓[39m sem imagem: bloco 'IMAGEM NA CONVERSA' NÃO é injetado[32m 1[2mms[22m[39m
+[31m     [31m×[31m com imagem: text block anexado à última msg inclui instrução de não resetar[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m system prompt inclui o bloco REGRA DE CONCISÃO com anti-repetição[39m[32m 2[2mms[22m[39m
+[31m     [31m×[31m bloco lista os tipos cobertos (entrega, segurança, pagamento, painel)[39m[32m 1[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 56 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m1) Reconhecimento de interesse pós-abertura de disparo (via Claude)[2m > [22mresposta "blz" chega ao Claude com prompt contendo exemplo_disparo
+[31m[1mSyntaxError[22m: "undefined" is not valid JSON[39m
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m135:25[22m[39m
+    [90m133|[39m       [34mexpect[39m(model)[33m.[39mnot[33m.[39m[34mtoBe[39m([32m"rule-based"[39m)[33m;[39m
+    [90m134|[39m       // Confirma que o system prompt carrega o exemplo_disparo (Claud…
+    [90m135|[39m       [35mconst[39m body [33m=[39m [33mJSON[39m[33m.[39m[34mparse[39m(fetchMock[33m.[39mmock[33m.[39mcalls[[34m0[39m][33m?.[39m[[34m1[39m][33m?.[39mbody)[33m;[39m
+    [90m   |[39m                         [31m^[39m
+    [90m136|[39m       [35mconst[39m text [33m=[39m [34mextractSystemText[39m([34mextractSystemText[39m(body[33m.[39msystem))[33m;[39m
+    [90m137|[39m       [35mconst[39m textLower [33m=[39m text[33m.[39m[34mtoLowerCase[39m()[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m4) Teste grátis só se elegível (guardFreeTrialOffer)[2m > [22mpermite teste grátis quando serviço está literalmente na lista
+[31m[1mAssertionError[22m: FALHOU: guard bloqueou oferta válida: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m241:66[22m[39m
+    [90m239|[39m       ][33m,[39m
+    [90m240|[39m     })[33m;[39m
+    [90m241|[39m     expect(out.replaced, "FALHOU: guard bloqueou oferta válida").toBe(…
+    [90m   |[39m                                                                  [31m^[39m
+    [90m242|[39m   })[33m;[39m
+    [90m243|[39m })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m7) Split de mensagem — padrão é 1 mensagem[2m > [22mprompt contém regra de split com brevidade por bolha (1-2 frases, até 4 bolhas)
+[31m[1mAssertionError[22m: FALHOU: reforço de brevidade ausente no estilo: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m345:7[22m[39m
+    [90m343|[39m       [36m/BREVIDADE|ESTILO DE ESCRITA/i[39m[33m.[39m[34mtest[39m(prompt)[33m,[39m
+    [90m344|[39m       [32m"FALHOU: reforço de brevidade ausente no estilo"[39m[33m,[39m
+    [90m345|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m346|[39m   })[33m;[39m
+    [90m347|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m8) Fechamento não prematuro (não se despede antes do painel)[2m > [22mprompt ensina que "Ok/blz" após preço é CONFIRMAÇÃO, não despedida
+[31m[1mAssertionError[22m: FALHOU: regra MODO FECHAMENTO ausente: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m384:7[22m[39m
+    [90m382|[39m       [36m/MODO FECHAMENTO/i[39m[33m.[39m[34mtest[39m(prompt)[33m,[39m
+    [90m383|[39m       [32m"FALHOU: regra MODO FECHAMENTO ausente"[39m[33m,[39m
+    [90m384|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m385|[39m     [34mexpect[39m(
+    [90m386|[39m       [36m/CONFIRMA[ÇC][AÃ]O.*nunca despedida/is[39m[33m.[39m[34mtest[39m(prompt)[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m8b) Não repete descoberta após 'já tem cadastro?'[2m > [22mprompt contém PROGRESSO DO FUNIL proibindo reperguntar rede/serviço/quantidade
+[31m[1mAssertionError[22m: FALHOU: regra PROGRESSO DO FUNIL ausente do prompt em conversa receptiva: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m413:7[22m[39m
+    [90m411|[39m       [36m/PROGRESSO DO FUNIL/i[39m[33m.[39m[34mtest[39m(prompt)[33m,[39m
+    [90m412|[39m       "FALHOU: regra PROGRESSO DO FUNIL ausente do prompt em conversa …
+    [90m413|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m414|[39m     [34mexpect[39m(
+    [90m415|[39m       [36m/NUNCA REPETIR DESCOBERTA/i[39m[33m.[39m[34mtest[39m(prompt)[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m8c) Reengajamento respeita burst de mensagens (saudação + pergunta real)[2m > [22mcenário original preservado: só 'Boa noite' pura continua sendo reengajamento (com hiato)
+[31m[1mAssertionError[22m: FALHOU: saudação pura após hiato deixou de disparar reengajamento: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m462:7[22m[39m
+    [90m460|[39m       [34misReengagementGreeting[39m(history)[33m,[39m
+    [90m461|[39m       "FALHOU: saudação pura após hiato deixou de disparar reengajamen…
+    [90m462|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m463|[39m   })[33m;[39m
+    [90m464|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m8c) Reengajamento respeita burst de mensagens (saudação + pergunta real)[2m > [22mcenário original DISPARO: só 'Boa noite' pós-abertura continua sendo cortesia neutra
+[31m[1mAssertionError[22m: FALHOU: saudação pura pós-abertura deixou de ser detectada como cortesia neutra: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m473:7[22m[39m
+    [90m471|[39m       [34misNeutralGreetingAfterBlastOpening[39m(history)[33m,[39m
+    [90m472|[39m       "FALHOU: saudação pura pós-abertura deixou de ser detectada como…
+    [90m473|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m474|[39m   })[33m;[39m
+    [90m475|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9) Auto-split de mensagens com \n\n[2m > [22mresposta sem \n\n NÃO divide
+[31m[1mAssertionError[22m: FALHOU: mensagem sem \n\n foi dividida em 0 partes — deveria continuar como 1: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m500:7[22m[39m
+    [90m498|[39m       parts[33m.[39mlength [33m===[39m [34m1[39m[33m,[39m
+    [90m499|[39m       `FALHOU: mensagem sem \\n\\n foi dividida em ${parts.length} par…
+    [90m500|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m501|[39m   })[33m;[39m
+    [90m502|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9) Auto-split de mensagens com \n\n[2m > [22mresposta curta com \n\n DIVIDE (sinal do modelo basta, sem limite de chars)
+[31m[1mAssertionError[22m: FALHOU: resposta com 3 parágrafos deveria virar 3 mensagens; virou 0: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m510:7[22m[39m
+    [90m508|[39m       parts[33m.[39mlength [33m===[39m [34m3[39m[33m,[39m
+    [90m509|[39m       `FALHOU: resposta com 3 parágrafos deveria virar 3 mensagens; vi…
+    [90m510|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m511|[39m     [34mexpect[39m(parts[[34m0[39m])[33m.[39m[34mtoMatch[39m([36m/pedido/i[39m)[33m;[39m
+    [90m512|[39m     [34mexpect[39m(parts[[34m2[39m])[33m.[39m[34mtoMatch[39m([36m/qualquer coisa/i[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9) Auto-split de mensagens com \n\n[2m > [22mresposta longa com \n\n também DIVIDE
+[31m[1mAssertionError[22m: FALHOU: resposta com 2 parágrafos deveria virar 2 mensagens; virou 0: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m524:7[22m[39m
+    [90m522|[39m       parts[33m.[39mlength [33m===[39m [34m2[39m[33m,[39m
+    [90m523|[39m       `FALHOU: resposta com 2 parágrafos deveria virar 2 mensagens; vi…
+    [90m524|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m525|[39m   })[33m;[39m
+    [90m526|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9) Auto-split de mensagens com \n\n[2m > [22mpreserva ===SPLIT=== explícito e ainda auto-divide partes com \n\n
+[31m[1mAssertionError[22m: FALHOU: esperava 3 partes (2 do split automático + 1 do link), veio 0: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m536:7[22m[39m
+    [90m534|[39m       parts[33m.[39mlength [33m===[39m [34m3[39m[33m,[39m
+    [90m535|[39m       `FALHOU: esperava 3 partes (2 do split automático + 1 do link), …
+    [90m536|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m537|[39m     [34mexpect[39m(parts[[34m2[39m])[33m.[39m[34mtoBe[39m([32m"www.mindsmmpanel.com"[39m)[33m;[39m
+    [90m538|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com ""
+[31m[1mAssertionError[22m: FALHOU: "" foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com "   "
+[31m[1mAssertionError[22m: FALHOU: "   " foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com "..."
+[31m[1mAssertionError[22m: FALHOU: "..." foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com "…"
+[31m[1mAssertionError[22m: FALHOU: "…" foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com ". . ."
+[31m[1mAssertionError[22m: FALHOU: ". . ." foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com ".."
+[31m[1mAssertionError[22m: FALHOU: ".." foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com "!!!"
+[31m[1mAssertionError[22m: FALHOU: "!!!" foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com "??"
+[31m[1mAssertionError[22m: FALHOU: "??" foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com "."
+[31m[1mAssertionError[22m: FALHOU: "." foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com "—"
+[31m[1mAssertionError[22m: FALHOU: "—" foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com "– –"
+[31m[1mAssertionError[22m: FALHOU: "– –" foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mdescarta bolha só com ",,,"
+[31m[1mAssertionError[22m: FALHOU: ",,," foi considerado conteúdo válido: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m549:9[22m[39m
+    [90m547|[39m         [34misMeaningfulPart[39m(g)[33m,[39m
+    [90m548|[39m         [32m`FALHOU: "[39m[36m${[39mg[36m}[39m[32m" foi considerado conteúdo válido`[39m[33m,[39m
+    [90m549|[39m       )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m         [31m^[39m
+    [90m550|[39m     })[33m;[39m
+    [90m551|[39m   }
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mautoSplitLongParts remove partes só com reticências / pontuação / vazias
+[31m[1mAssertionError[22m: FALHOU: esperava 2 partes válidas, veio 0: []: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m564:7[22m[39m
+    [90m562|[39m       parts[33m.[39mlength [33m===[39m [34m2[39m[33m,[39m
+    [90m563|[39m       `FALHOU: esperava 2 partes válidas, veio ${parts.length}: ${JSON…
+    [90m564|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m565|[39m     [34mexpect[39m(parts[33m.[39m[34mevery[39m((p) [33m=>[39m [34misMeaningfulPart[39m(p)))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m566|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)[2m > [22mautoSplitLongParts remove parágrafo-fantasma dentro de bloco com \n\n
+[31m[1mAssertionError[22m: FALHOU: parágrafo só com "..." deveria ser descartado; veio 0 partes: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m574:7[22m[39m
+    [90m572|[39m       parts[33m.[39mlength [33m===[39m [34m2[39m[33m,[39m
+    [90m573|[39m       `FALHOU: parágrafo só com "..." deveria ser descartado; veio ${p…
+    [90m574|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m575|[39m     [34mexpect[39m(parts[33m.[39m[34mevery[39m((p) [33m=>[39m [34misMeaningfulPart[39m(p)))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m576|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9c) Trava determinística de emoji nas respostas do agente[2m > [22mdetecta emojis básicos e sequências ZWJ / variation selector
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m584:42[22m[39m
+    [90m582|[39m describe("9c) Trava determinística de emoji nas respostas do agente", …
+    [90m583|[39m   it("detecta emojis básicos e sequências ZWJ / variation selector", (…
+    [90m584|[39m     [34mexpect[39m([34mcontainsEmoji[39m([32m"Tudo bem 😊"[39m))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m                                          [31m^[39m
+    [90m585|[39m     [34mexpect[39m([34mcontainsEmoji[39m([32m"Show 👍🏽"[39m))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m586|[39m     [34mexpect[39m([34mcontainsEmoji[39m([32m"❤️ opa"[39m))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9c) Trava determinística de emoji nas respostas do agente[2m > [22mremove emoji da resposta atual se a última resposta do agente tinha emoji
+[31m[1mTypeError[22m: history is not iterable[39m
+[36m [2m❯[22m limitEmojiFrequency src/lib/agent-v3/guards.server.ts:[2m45:28[22m[39m
+    [90m 43|[39m export function limitEmojiFrequency(text: string, history: Array<{ sen…
+    [90m 44|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m===[39m [34m0[39m) [35mreturn[39m text[33m;[39m
+    [90m 45|[39m   const lastAgentMsg = [...history].reverse().find(m => m.sender === "…
+    [90m   |[39m                            [31m^[39m
+    [90m 46|[39m   [35mconst[39m hasEmoji [33m=[39m (s[33m:[39m string) [33m=>[39m [36m/[\u{1F300}-\u{1F9FF}]/u[39m[33m.[39m[34mtest[39m(s)[33m;[39m
+    [90m 47|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m608:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9c) Trava determinística de emoji nas respostas do agente[2m > [22mpermite 1 emoji se nenhuma das últimas respostas tinha emoji
+[31m[1mTypeError[22m: history is not iterable[39m
+[36m [2m❯[22m limitEmojiFrequency src/lib/agent-v3/guards.server.ts:[2m45:28[22m[39m
+    [90m 43|[39m export function limitEmojiFrequency(text: string, history: Array<{ sen…
+    [90m 44|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m===[39m [34m0[39m) [35mreturn[39m text[33m;[39m
+    [90m 45|[39m   const lastAgentMsg = [...history].reverse().find(m => m.sender === "…
+    [90m   |[39m                            [31m^[39m
+    [90m 46|[39m   [35mconst[39m hasEmoji [33m=[39m (s[33m:[39m string) [33m=>[39m [36m/[\u{1F300}-\u{1F9FF}]/u[39m[33m.[39m[34mtest[39m(s)[33m;[39m
+    [90m 47|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m617:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9c) Trava determinística de emoji nas respostas do agente[2m > [22mmantém no máximo 1 emoji quando o modelo abusa (mesmo sem histórico com emoji)
+[31m[1mTypeError[22m: history is not iterable[39m
+[36m [2m❯[22m limitEmojiFrequency src/lib/agent-v3/guards.server.ts:[2m45:28[22m[39m
+    [90m 43|[39m export function limitEmojiFrequency(text: string, history: Array<{ sen…
+    [90m 44|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m===[39m [34m0[39m) [35mreturn[39m text[33m;[39m
+    [90m 45|[39m   const lastAgentMsg = [...history].reverse().find(m => m.sender === "…
+    [90m   |[39m                            [31m^[39m
+    [90m 46|[39m   [35mconst[39m hasEmoji [33m=[39m (s[33m:[39m string) [33m=>[39m [36m/[\u{1F300}-\u{1F9FF}]/u[39m[33m.[39m[34mtest[39m(s)[33m;[39m
+    [90m 47|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m624:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9c) Trava determinística de emoji nas respostas do agente[2m > [22mgarante que emoji NUNCA aparece em 2 respostas consecutivas ao longo de uma conversa
+[31m[1mTypeError[22m: history is not iterable[39m
+[36m [2m❯[22m limitEmojiFrequency src/lib/agent-v3/guards.server.ts:[2m45:28[22m[39m
+    [90m 43|[39m export function limitEmojiFrequency(text: string, history: Array<{ sen…
+    [90m 44|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m===[39m [34m0[39m) [35mreturn[39m text[33m;[39m
+    [90m 45|[39m   const lastAgentMsg = [...history].reverse().find(m => m.sender === "…
+    [90m   |[39m                            [31m^[39m
+    [90m 46|[39m   [35mconst[39m hasEmoji [33m=[39m (s[33m:[39m string) [33m=>[39m [36m/[\u{1F300}-\u{1F9FF}]/u[39m[33m.[39m[34mtest[39m(s)[33m;[39m
+    [90m 47|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m641:23[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9c) Trava determinística de emoji nas respostas do agente[2m > [22mrespeita EXCEÇÃO de abertura de disparo (não mexe no emoji)
+[31m[1mTypeError[22m: history is not iterable[39m
+[36m [2m❯[22m limitEmojiFrequency src/lib/agent-v3/guards.server.ts:[2m45:28[22m[39m
+    [90m 43|[39m export function limitEmojiFrequency(text: string, history: Array<{ sen…
+    [90m 44|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m===[39m [34m0[39m) [35mreturn[39m text[33m;[39m
+    [90m 45|[39m   const lastAgentMsg = [...history].reverse().find(m => m.sender === "…
+    [90m   |[39m                            [31m^[39m
+    [90m 46|[39m   [35mconst[39m hasEmoji [33m=[39m (s[33m:[39m string) [33m=>[39m [36m/[\u{1F300}-\u{1F9FF}]/u[39m[33m.[39m[34mtest[39m(s)[33m;[39m
+    [90m 47|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m656:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9c) Trava determinística de emoji nas respostas do agente[2m > [22mpreserva marcador ===SPLIT=== ao limpar emojis
+[31m[1mTypeError[22m: history is not iterable[39m
+[36m [2m❯[22m limitEmojiFrequency src/lib/agent-v3/guards.server.ts:[2m45:28[22m[39m
+    [90m 43|[39m export function limitEmojiFrequency(text: string, history: Array<{ sen…
+    [90m 44|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m===[39m [34m0[39m) [35mreturn[39m text[33m;[39m
+    [90m 45|[39m   const lastAgentMsg = [...history].reverse().find(m => m.sender === "…
+    [90m   |[39m                            [31m^[39m
+    [90m 46|[39m   [35mconst[39m hasEmoji [33m=[39m (s[33m:[39m string) [33m=>[39m [36m/[\u{1F300}-\u{1F9FF}]/u[39m[33m.[39m[34mtest[39m(s)[33m;[39m
+    [90m 47|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m665:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9c) Trava determinística de emoji nas respostas do agente[2m > [22mREGRESSÃO 17:00→17:06: 2ª resposta tem emoji removido quando a 1ª já tinha
+[31m[1mTypeError[22m: history is not iterable[39m
+[36m [2m❯[22m limitEmojiFrequency src/lib/agent-v3/guards.server.ts:[2m45:28[22m[39m
+    [90m 43|[39m export function limitEmojiFrequency(text: string, history: Array<{ sen…
+    [90m 44|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m===[39m [34m0[39m) [35mreturn[39m text[33m;[39m
+    [90m 45|[39m   const lastAgentMsg = [...history].reverse().find(m => m.sender === "…
+    [90m   |[39m                            [31m^[39m
+    [90m 46|[39m   [35mconst[39m hasEmoji [33m=[39m (s[33m:[39m string) [33m=>[39m [36m/[\u{1F300}-\u{1F9FF}]/u[39m[33m.[39m[34mtest[39m(s)[33m;[39m
+    [90m 47|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m682:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m9c) Trava determinística de emoji nas respostas do agente[2m > [22mguard de reengajamento + limitEmojiFrequency funcionam em conjunto
+[31m[1mTypeError[22m: history is not iterable[39m
+[36m [2m❯[22m limitEmojiFrequency src/lib/agent-v3/guards.server.ts:[2m45:28[22m[39m
+    [90m 43|[39m export function limitEmojiFrequency(text: string, history: Array<{ sen…
+    [90m 44|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m===[39m [34m0[39m) [35mreturn[39m text[33m;[39m
+    [90m 45|[39m   const lastAgentMsg = [...history].reverse().find(m => m.sender === "…
+    [90m   |[39m                            [31m^[39m
+    [90m 46|[39m   [35mconst[39m hasEmoji [33m=[39m (s[33m:[39m string) [33m=>[39m [36m/[\u{1F300}-\u{1F9FF}]/u[39m[33m.[39m[34mtest[39m(s)[33m;[39m
+    [90m 47|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m703:22[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m10) "Não é golpe?" e afins — objeção, nunca encerramento[2m > [22mprompt distingue recusa real de objeção com '?'
+[31m[1mAssertionError[22m: FALHOU: prompt não menciona a distinção por ponto de interrogação: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m738:7[22m[39m
+    [90m736|[39m       [36m/termine com "\?"|termina com "\?"/i[39m[33m.[39m[34mtest[39m(prompt)[33m,[39m
+    [90m737|[39m       "FALHOU: prompt não menciona a distinção por ponto de interrogaç…
+    [90m738|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m739|[39m     [34mexpect[39m(
+    [90m740|[39m       [36m/n[aã]o [eé] golpe\?/i[39m[33m.[39m[34mtest[39m(prompt)[33m,[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22mRECEPTIVO (isInbound=true) + gap > 12h + saudação → veto usa 'Como posso ajudar', NÃO reapresenta isca
+[31m[1mAssertionError[22m: FALHOU: variante RECEPTIVA do veto não foi injetada: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1113:7[22m[39m
+    [90m1111|[39m       /MODO REENGAJAMENTO APÓS HIATO \(RECEPTIVO\)/i.test(extractSyste…
+    [90m1112|[39m       [32m"FALHOU: variante RECEPTIVA do veto não foi injetada"[39m[33m,[39m
+    [90m1113|[39m     )[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m1114|[39m     [34mexpect[39m(
+    [90m1115|[39m       /Como posso ajudar/i.test(extractSystemText(extractSystemText(bo…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22mGUARD de saudação em reengajamento (unit + e2e)[2m > [22mpickReengagementGreeting espelha a saudação do cliente
+[31m[1mReferenceError[22m: pickReengagementGreeting is not defined[39m
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1130:7[22m[39m
+    [90m1128|[39m   [34mdescribe[39m([32m"GUARD de saudação em reengajamento (unit + e2e)"[39m[33m,[39m () [33m=>[39m {
+    [90m1129|[39m     it("pickReengagementGreeting espelha a saudação do cliente", () =>…
+    [90m1130|[39m       [34mexpect[39m([34mpickReengagementGreeting[39m([32m"Boa tarde"[39m))[33m.[39m[34mtoBe[39m([32m"Boa tarde"[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m1131|[39m       [34mexpect[39m([34mpickReengagementGreeting[39m([32m"bom dia!"[39m))[33m.[39m[34mtoBe[39m([32m"Bom dia"[39m)[33m;[39m
+    [90m1132|[39m       [34mexpect[39m([34mpickReengagementGreeting[39m([32m"Boa noite"[39m))[33m.[39m[34mtoBe[39m([32m"Boa noite"[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22mANTI-REGRESSÃO: safety-net do webhook não pode apagar saudação de reengajamento[2m > [22mgap +15h receptivo com 'Bom dia' → isReengagementGreeting=true e safety-net DEVE ser pulado
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1244:47[22m[39m
+    [90m1242|[39m         { sender: "cliente" as const, body: "Bom dia", created_at: now…
+    [90m1243|[39m       ][33m;[39m
+    [90m1244|[39m       [34mexpect[39m([34misReengagementGreeting[39m(history))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m                                               [31m^[39m
+    [90m1245|[39m
+    [90m1246|[39m       // Prova que, se o safety-net RODASSE, ele apagaria a saudação p…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente[2m > [22mDISPARO normal (sem gap) → continua com REFINAMENTOS e sem veto de reengajamento
+[31m[1mAssertionError[22m: FALHOU: veto de reengajamento foi injetado em disparo normal sem hiato: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1282:7[22m[39m
+    [90m1280|[39m       /VETO DE PRIORIDADE M[AÁ]XIMA/i.test(extractSystemText(extractSy…
+    [90m1281|[39m       "FALHOU: veto de reengajamento foi injetado em disparo normal se…
+    [90m1282|[39m     )[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m       [31m^[39m
+    [90m1283|[39m     [34mexpect[39m(
+    [90m1284|[39m       /REFINAMENTOS DE TOM CONSULTIVO/i.test(extractSystemText(extract…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mÁudio ininteligível / sem conteúdo claro[2m > [22minputKind=texto NÃO injeta o bloco de MODO ÁUDIO (nem o veto de ininteligível)
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1344:83[22m[39m
+    [90m1342|[39m     })[33m;[39m
+    [90m1343|[39m     [35mconst[39m body [33m=[39m [33mJSON[39m[33m.[39m[34mparse[39m(fetchMock[33m.[39mmock[33m.[39mcalls[[34m0[39m][33m?.[39m[[34m1[39m][33m?.[39mbody)[33m;[39m
+    [90m1344|[39m     expect(/MODO ÁUDIO/i.test(extractSystemText(extractSystemText(body…
+    [90m   |[39m                                                                                   [31m^[39m
+    [90m1345|[39m     expect(/ÁUDIO ININTELIGÍVEL/i.test(extractSystemText(extractSystem…
+    [90m1346|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mSanitização de vazamento de prompt interno (sanitizeSystemLeaks)[2m > [22mremove cabeçalho de VETO ecoado pelo LLM e mantém texto legítimo
+[31m[1mAssertionError[22m: expected undefined to be true // Object.is equality[39m
+
+[32m- Expected:[39m
+true
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1372:24[22m[39m
+    [90m1370|[39m       "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RE…
+    [90m1371|[39m     const out = sanitizeSystemLeaks(dirty, { isInbound: true, reengage…
+    [90m1372|[39m     [34mexpect[39m(out[33m.[39mleaked)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m                        [31m^[39m
+    [90m1373|[39m     [34mexpect[39m(out[33m.[39mtext)[33m.[39m[34mtoBe[39m([32m"Bom dia! Como posso ajudar?"[39m)[33m;[39m
+    [90m1374|[39m     [35mfor[39m ([35mconst[39m m [35mof[39m [33mINTERNAL_MARKERS[39m) {
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[41/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mSanitização de vazamento de prompt interno (sanitizeSystemLeaks)[2m > [22mdevolve fallback seguro quando resposta era 100% instrução interna (receptivo)
+[31m[1mAssertionError[22m: expected undefined to be true // Object.is equality[39m
+
+[32m- Expected:[39m
+true
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1383:24[22m[39m
+    [90m1381|[39m       "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RE…
+    [90m1382|[39m     const out = sanitizeSystemLeaks(dirty, { isInbound: true, reengage…
+    [90m1383|[39m     [34mexpect[39m(out[33m.[39mleaked)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m                        [31m^[39m
+    [90m1384|[39m     [34mexpect[39m(out[33m.[39mtext)[33m.[39m[34mtoBe[39m([32m"Oi! Como posso ajudar?"[39m)[33m;[39m
+    [90m1385|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[42/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mSanitização de vazamento de prompt interno (sanitizeSystemLeaks)[2m > [22mdevolve fallback de disparo (reapresenta a isca) quando tudo era instrução em thread de blast
+[31m[1mAssertionError[22m: expected undefined to be true // Object.is equality[39m
+
+[32m- Expected:[39m
+true
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1391:24[22m[39m
+    [90m1389|[39m       "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (DI…
+    [90m1390|[39m     const out = sanitizeSystemLeaks(dirty, { isInbound: false, reengag…
+    [90m1391|[39m     [34mexpect[39m(out[33m.[39mleaked)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m                        [31m^[39m
+    [90m1392|[39m     expect(out.text).toBe("Oi! Posso te mostrar como acelerar suas red…
+    [90m1393|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[43/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mSanitização de vazamento de prompt interno (sanitizeSystemLeaks)[2m > [22mnão altera resposta legítima da Júlia (sem falsos positivos)
+[31m[1mAssertionError[22m: expected undefined to be false // Object.is equality[39m
+
+[32m- Expected:[39m
+false
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1399:24[22m[39m
+    [90m1397|[39m       "Boa tarde! Posso te mostrar como acelerar suas redes?\n===SPLIT…
+    [90m1398|[39m     const out = sanitizeSystemLeaks(clean, { isInbound: false, reengag…
+    [90m1399|[39m     [34mexpect[39m(out[33m.[39mleaked)[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m                        [31m^[39m
+    [90m1400|[39m     [34mexpect[39m(out[33m.[39mtext)[33m.[39m[34mtoBe[39m(clean[33m.[39m[34mtrim[39m())[33m;[39m
+    [90m1401|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[44/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mSanitização de vazamento de prompt interno (sanitizeSystemLeaks)[2m > [22mpipeline generateAgentReplyWithMeta bloqueia vazamento antes de retornar texto ao caller
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1416:36[22m[39m
+    [90m1414|[39m     })[33m;[39m
+    [90m1415|[39m     [35mfor[39m ([35mconst[39m m [35mof[39m [33mINTERNAL_MARKERS[39m) {
+    [90m1416|[39m       [34mexpect[39m(res[33m.[39mtext[33m.[39m[34mincludes[39m(m))[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m                                    [31m^[39m
+    [90m1417|[39m     }
+    [90m1418|[39m     [34mexpect[39m(res[33m.[39mtext)[33m.[39m[34mtoContain[39m([32m"Bom dia"[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[45/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mDetecção de mensagem automática de WhatsApp Business (saudação + menu)[2m > [22mprompt contém sinais de MENU NUMERADO e proíbe pedido de desculpa
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1441:57[22m[39m
+    [90m1439|[39m     })[33m;[39m
+    [90m1440|[39m     [35mconst[39m prompt [33m=[39m [34mextractSystemText[39m(promptRaw [35mas[39m any)[33m;[39m
+    [90m1441|[39m     [34mexpect[39m([36m/MENU NUMERADO|Digite \(01\)/i[39m[33m.[39m[34mtest[39m(prompt))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m                                                         [31m^[39m
+    [90m1442|[39m     expect(/NUNCA responda escolhendo uma opção do menu/i.test(prompt)…
+    [90m1443|[39m     [34mexpect[39m([36m/acho que houve uma confus[aã]o/i[39m[33m.[39m[34mtest[39m(prompt))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[46/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mRegressão: EXEMPLO_MODELO_DISPARO só em thread de disparo[2m > [22mprompt de disparo real (isInbound=false + abertura com pergunta-isca) CONTINUA carregando o EXEMPLO_MODELO_DISPARO
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1503:49[22m[39m
+    [90m1501|[39m     })[33m;[39m
+    [90m1502|[39m     [35mconst[39m prompt [33m=[39m [34mextractSystemText[39m(promptRaw [35mas[39m any)[33m;[39m
+    [90m1503|[39m     [34mexpect[39m([33mEXEMPLO_BODY_SIGNATURE[39m[33m.[39m[34mtest[39m(prompt))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m                                                 [31m^[39m
+    [90m1504|[39m     [90m// E o exemplo já NÃO contém mais nome/handle real hardcoded.[39m
+    [90m1505|[39m     [34mexpect[39m(prompt)[33m.[39mnot[33m.[39m[34mtoContain[39m([32m"Romulo"[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[47/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mVerbose loop guard — trava de custo[2m > [22mcenário real (idoso leigo em loop de 15+ mensagens sem avanço) dispara a trava
+[31m[1mTypeError[22m: history.filter is not a function[39m
+[36m [2m❯[22m detectVerboseLoop src/lib/agent-v3/guards.server.ts:[2m61:30[22m[39m
+    [90m 59|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m<[39m [34m6[39m) [35mreturn[39m [35mfalse[39m[33m;[39m
+    [90m 60|[39m
+    [90m 61|[39m   [35mconst[39m clientMsgs [33m=[39m history[33m.[39m[34mfilter[39m(m [33m=>[39m m[33m.[39msender [33m===[39m [32m"cliente"[39m)[33m;[39m
+    [90m   |[39m                              [31m^[39m
+    [90m 62|[39m   [35mif[39m (clientMsgs[33m.[39mlength [33m<[39m [34m3[39m) [35mreturn[39m [35mfalse[39m[33m;[39m
+    [90m 63|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m1547:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[48/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mVerbose loop guard — trava de custo[2m > [22mconversa LONGA mas PROGREDINDO (cliente faz perguntas novas, cita valores) NÃO dispara
+[31m[1mTypeError[22m: history.filter is not a function[39m
+[36m [2m❯[22m detectVerboseLoop src/lib/agent-v3/guards.server.ts:[2m61:30[22m[39m
+    [90m 59|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m<[39m [34m6[39m) [35mreturn[39m [35mfalse[39m[33m;[39m
+    [90m 60|[39m
+    [90m 61|[39m   [35mconst[39m clientMsgs [33m=[39m history[33m.[39m[34mfilter[39m(m [33m=>[39m m[33m.[39msender [33m===[39m [32m"cliente"[39m)[33m;[39m
+    [90m   |[39m                              [31m^[39m
+    [90m 62|[39m   [35mif[39m (clientMsgs[33m.[39mlength [33m<[39m [34m3[39m) [35mreturn[39m [35mfalse[39m[33m;[39m
+    [90m 63|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m1573:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[49/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mVerbose loop guard — trava de custo[2m > [22msaudação neutra ou dúvida genérica NÃO conta como ação concreta
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1587:54[22m[39m
+    [90m1585|[39m
+    [90m1586|[39m   it("saudação neutra ou dúvida genérica NÃO conta como ação concreta"…
+    [90m1587|[39m     [34mexpect[39m([34mlooksLikeConcreteAction[39m([32m"oi, tudo bem?"[39m))[33m.[39m[34mtoBe[39m([35mfalse[39m)[33m;[39m
+    [90m   |[39m                                                      [31m^[39m
+    [90m1588|[39m     expect(looksLikeConcreteAction("me explica de novo por favor")).to…
+    [90m1589|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[50/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mVerbose loop guard — trava de custo[2m > [22mmesmo com 'sou leigo' + conversa curta, NÃO dispara (precisa 2+ sinais)
+[31m[1mTypeError[22m: history.filter is not a function[39m
+[36m [2m❯[22m detectVerboseLoop src/lib/agent-v3/guards.server.ts:[2m61:30[22m[39m
+    [90m 59|[39m   [35mif[39m ([33m![39mhistory [33m||[39m history[33m.[39mlength [33m<[39m [34m6[39m) [35mreturn[39m [35mfalse[39m[33m;[39m
+    [90m 60|[39m
+    [90m 61|[39m   [35mconst[39m clientMsgs [33m=[39m history[33m.[39m[34mfilter[39m(m [33m=>[39m m[33m.[39msender [33m===[39m [32m"cliente"[39m)[33m;[39m
+    [90m   |[39m                              [31m^[39m
+    [90m 62|[39m   [35mif[39m (clientMsgs[33m.[39mlength [33m<[39m [34m3[39m) [35mreturn[39m [35mfalse[39m[33m;[39m
+    [90m 63|[39m
+[90m [2m❯[22m tests/agent-v3-full.test.ts:[2m1597:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[51/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22mVerbose loop guard — trava de custo[2m > [22mconstantes exportadas batem com o spec (farewell + reason)
+[31m[1mReferenceError[22m: VERBOSE_LOOP_FAREWELL is not defined[39m
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1605:12[22m[39m
+    [90m1603|[39m
+    [90m1604|[39m   it("constantes exportadas batem com o spec (farewell + reason)", () …
+    [90m1605|[39m     [34mexpect[39m([33mVERBOSE_LOOP_FAREWELL[39m)[33m.[39m[34mtoMatch[39m([36m/suporte pode te ajudar/i[39m)[33m;[39m
+    [90m   |[39m            [31m^[39m
+    [90m1606|[39m     [34mexpect[39m([33mVERBOSE_LOOP_FAREWELL[39m)[33m.[39m[34mtoMatch[39m([36m/quando quiser começar/i[39m)[33m;[39m
+    [90m1607|[39m     [34mexpect[39m([33mVERBOSE_LOOP_REVIEW_REASON[39m)[33m.[39m[34mtoMatch[39m([36m/Suporte humanizado/i[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[52/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m16) Imagem em conversa avançada — histórico completo + regra de fechamento[2m > [22mcom imagem: system prompt injeta bloco 'IMAGEM NA CONVERSA' com regra de fechamento
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1659:67[22m[39m
+    [90m1657|[39m     expect(/IMAGEM NA CONVERSA/i.test(sys), "FALHOU: bloco 'IMAGEM NA …
+    [90m1658|[39m     expect(/PAGAMENTO|CHECKOUT|PIX|AJUDANDO A CONCLUIR/i.test(sys)).to…
+    [90m1659|[39m     expect(/PROIBIDO voltar a pergunta de descoberta/i.test(sys)).toBe…
+    [90m   |[39m                                                                   [31m^[39m
+    [90m1660|[39m   })[33m;[39m
+    [90m1661|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[53/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m16) Imagem em conversa avançada — histórico completo + regra de fechamento[2m > [22mcom imagem: text block anexado à última msg inclui instrução de não resetar
+[31m[1mTypeError[22m: .toMatch() expects to receive a string, but got undefined[39m
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1682:28[22m[39m
+    [90m1680|[39m     const parts = Array.isArray(lastUser?.content) ? lastUser.content …
+    [90m1681|[39m     const textPart = parts.find((p: { type: string }) => p.type === "t…
+    [90m1682|[39m     [34mexpect[39m(textPart[33m?.[39mtext)[33m.[39m[34mtoMatch[39m([36m/NÃO como um reset/i[39m)[33m;[39m
+    [90m   |[39m                            [31m^[39m
+    [90m1683|[39m     [34mexpect[39m(textPart[33m?.[39mtext)[33m.[39m[34mtoMatch[39m([36m/PAGAMENTO|CHECKOUT/i[39m)[33m;[39m
+    [90m1684|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[54/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m17) REGRA DE CONCISÃO — bloco injetado no system prompt[2m > [22msystem prompt inclui o bloco REGRA DE CONCISÃO com anti-repetição
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1702:59[22m[39m
+    [90m1700|[39m     [35mconst[39m sys [33m=[39m [34mextractSystemText[39m([34mextractSystemText[39m(body[33m.[39msystem))[33m;[39m
+    [90m1701|[39m     [34mexpect[39m([36m/REGRA DE CONCISÃO/i[39m[33m.[39m[34mtest[39m(sys))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m1702|[39m     [34mexpect[39m([36m/NUNCA REPETIR EXPLICAÇÃO JÁ DADA/i[39m[33m.[39m[34mtest[39m(sys))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   |[39m                                                           [31m^[39m
+    [90m1703|[39m     [34mexpect[39m([36m/PROIBIDO repetir/i[39m[33m.[39m[34mtest[39m(sys))[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m1704|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[55/56]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/agent-v3-full.test.ts[2m > [22m17) REGRA DE CONCISÃO — bloco injetado no system prompt[2m > [22mbloco lista os tipos cobertos (entrega, segurança, pagamento, painel)
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/agent-v3-full.test.ts:[2m1716:69[22m[39m
+    [90m1714|[39m     const sys = extractSystemText(JSON.parse(fetchMock.mock.calls[0]?.…
+    [90m1715|[39m     expect(/entrega|ritmo|segurança|painel|pagamento/i.test(sys)).toBe…
+    [90m1716|[39m     expect(/como te falei|como comentei|como expliquei/i.test(sys)).to…
+    [90m   |[39m                                                                     [31m^[39m
+    [90m1717|[39m   })[33m;[39m
+    [90m1718|[39m })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[56/56]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m56 failed[39m[22m[2m | [22m[1m[32m54 passed[39m[22m[90m (110)[39m
+[2m   Start at [22m 00:04:48
+[2m   Duration [22m 1.05s[2m (transform 317ms, setup 0ms, import 358ms, tests 249ms, environment 0ms)[22m
+
