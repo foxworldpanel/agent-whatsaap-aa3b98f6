@@ -1106,6 +1106,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
 
 
+
         let { data: contact } = await supabaseAdmin
           .from("contacts")
           .select("id, nome, perfil, status, source, source_ref, photo_url, whatsapp_number_id")

@@ -2,16 +2,16 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export async function getConversationStateV3(userId: string, phone: string): Promise<Array<{ role: "agent" | "customer"; content: string }>> {
   // Encontra a conversa pelo telefone e userId
+  // Usamos 'aguardando' ou 'agente_respondendo' como estados ativos
   const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("id")
     .eq("user_id", userId)
-    .eq("status", "open") // Preferimos conversas abertas, mas removemos se for muito restritivo
+    .in("status", ["aguardando", "agente_respondendo"])
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  // Se não achar conversa aberta, tenta qualquer uma do contato
   let conversationId = conversation?.id;
   if (!conversationId) {
     const { data: contact } = await supabaseAdmin
@@ -53,6 +53,5 @@ export async function getConversationStateV3(userId: string, phone: string): Pro
 }
 
 export async function saveConversationStateV3(userId: string, phone: string, messages: Array<{ role: "agent" | "customer"; content: string }>): Promise<void> {
-  // Histórico é persistido automaticamente via uazapi-webhook.ts ou logs do sistema.
   console.log(`[V3-STATE] Historico sincronizado para ${phone}`);
 }
