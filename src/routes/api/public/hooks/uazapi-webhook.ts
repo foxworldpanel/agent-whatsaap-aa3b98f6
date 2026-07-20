@@ -254,7 +254,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         ...history,
         { role: "customer" as const, content: finalMsgText },
         { role: "agent" as const, content: replyText }
-      ]);
+      ].slice(-100)); // Mantém um buffer maior no banco, mas o loader limita a 10 para o LLM
 
       // Busca ID da conversa para logs
       const { data: contactData } = await adminEarly
