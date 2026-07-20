@@ -675,7 +675,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const v3Response = await runAgentV3Turn({
               userId: targetUserId,
               message: msgText || "",
-              history: history.map((h: any) => ({ role: h.sender === 'agente' ? 'agent' : 'customer', content: h.body })),
+              history: history as any,
               anthropicApiKey: integ?.anthropic_api_key || ""
             });
 
@@ -683,9 +683,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
             await saveConversationStateV3(targetUserId, phoneStrLocal, [
               ...history,
-              { sender: "cliente" as const, body: msgText || "" },
-              { sender: "agente" as const, body: replyText }
-            ]);
+              { role: "customer" as const, content: msgText || "" },
+              { role: "agent" as const, content: replyText }
+            ] as any);
 
             const { data: conv } = await adminEarly
               .from("conversations")
