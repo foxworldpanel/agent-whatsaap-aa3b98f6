@@ -155,9 +155,9 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
       })),
       { role: "user", content: message }
     ],
-  console.log("[AGENT-V3-DEBUG] Final prompt length:", JSON.stringify(systemPrompt).length);
     model: "claude-haiku-4-5"
   });
+  console.log("[AGENT-V3-DEBUG] Final prompt length:", JSON.stringify(systemPrompt).length);
 
   const rawText = response.content[0].text;
   console.log("[AGENT-V3-DEBUG] Raw response:", rawText);
