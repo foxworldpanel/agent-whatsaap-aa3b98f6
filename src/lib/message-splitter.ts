@@ -17,9 +17,7 @@ export function autoSplitLongParts(
   const out: string[] = [];
   for (const raw of parts) {
     const part = raw.trim();
-    if (!isMeaningfulPart(part)) {
-      continue;
-    }
+    if (!isMeaningfulPart(part)) continue;
     
     // Verificando se contém \n\n
     if (!/\n\s*\n/.test(part)) {
