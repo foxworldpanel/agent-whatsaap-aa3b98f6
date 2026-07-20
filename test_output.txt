@@ -1,0 +1,18 @@
+
+--- TEST: Texto Simples (Bom dia) ---
+Status: 200 | Body: ok (V3 error handled - no V1 fallback)
+
+--- TEST: Duplicata MessageID (Mesmo ID) ---
+Status: 200 | Body: ok (V3 error handled - no V1 fallback)
+
+--- TEST: fromMe (Ignorar) ---
+Status: 200 | Body: ok (ignoring self)
+
+--- TEST: Detecção de Áudio ---
+Status: 200 | Body: ok (V3 error handled - no V1 fallback)
+
+--- TEST: Imagem com legenda ---
+Status: 200 | Body: ok (V3 error handled - no V1 fallback)
+
+--- TEST: Figurinha ---
+Status: 200 | Body: ok (V3 error handled - no V1 fallback)
