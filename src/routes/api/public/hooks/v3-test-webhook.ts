@@ -2508,7 +2508,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // mesma conversa — se sim, sai: o handler mais recente responderá
         // já com nossa mensagem no histórico.
         {
-          await new Promise((r) => setTimeout(r, 5000));
+          if (!isTestNumber && phone !== "5511999999999") {
+            await new Promise((r) => setTimeout(r, 5000));
+          }
           const { data: latestClient } = await supabaseAdmin
             .from("messages")
             .select("created_at, external_id")
