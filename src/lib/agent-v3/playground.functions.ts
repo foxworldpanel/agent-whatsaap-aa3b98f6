@@ -79,9 +79,19 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         sequence: nextSequence + 1,
         metadata: {
           temperature: result.temperature,
+          confidence: result.confidence,
           intent: result.intent,
           stage: result.stage,
+          purchase_probability: result.purchase_probability,
+          sentiment: result.sentiment,
+          urgency: result.urgency,
+          recommended_action: result.recommended_action,
+          reasoning: result.reasoning,
+          conversation_score: result.conversation_score,
+          conversation_feedback: result.conversation_feedback,
         },
+
+
       })
       .select()
       .single();
@@ -105,17 +115,37 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       cache_read_input_tokens: usage.cache_read_input_tokens || 0,
       cost_usd: calculateHaiku45Cost(usage),
       latency_ms: latencyMs,
-      anthropic_request_id: usage.request_id, // assumindo que callAnthropicV3 retorna isso no usage ou similar
+      anthropic_request_id: usage.request_id,
       system_prompt_snapshot: JSON.stringify(result.rawPrompt),
+      temperature: result.temperature,
+      confidence: result.confidence,
+      intent: result.intent,
+      stage: result.stage,
+      purchase_probability: result.purchase_probability,
+      sentiment: result.sentiment,
+      urgency: result.urgency,
+      recommended_action: result.recommended_action,
+      reasoning: result.reasoning,
+      conversation_score: result.conversation_score,
+      conversation_feedback: JSON.stringify(result.conversation_feedback),
     });
+
+
 
     return {
       reply: result.replies.join("\n"),
       metadata: {
         temperature: result.temperature,
+        confidence: result.confidence,
         intent: result.intent,
         stage: result.stage,
+        purchase_probability: result.purchase_probability,
+        sentiment: result.sentiment,
+        urgency: result.urgency,
+        recommended_action: result.recommended_action,
+        reasoning: result.reasoning,
       },
+
       usage: usage,
       latencyMs,
       selectedModules: result.selectedModules || []

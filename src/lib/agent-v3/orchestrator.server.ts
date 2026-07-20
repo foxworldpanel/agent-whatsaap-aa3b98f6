@@ -28,9 +28,19 @@ export interface OrchestratorInput {
 
 export interface AgentResponseV3 {
   temperature: "frio" | "morno" | "quente";
+  confidence: string;
   intent: string;
   stage: string;
+  purchase_probability: number;
+  sentiment: string;
+  urgency: string;
+  recommended_action: string;
+  reasoning: string;
+  conversation_score: number;
+  conversation_feedback: string[];
   replies: string[];
+
+
   rawResponse?: string;
   rawPrompt?: any;
   usage?: any;
@@ -91,8 +101,24 @@ REGRAS DE OURO:
 - Perguntas indicam interesse, não recusa.
 - Após o cliente confirmar uma oferta já apresentada, avance para o fechamento e envie mindsmmpanel.com.
 
+LEAD INTELLIGENCE (Obrigatório em toda resposta):
+Sempre inclua os seguintes marcadores no INÍCIO da sua resposta (antes do texto):
+[TEMP:frio|morno|quente]
+[CONF:Muito baixa|Baixa|Média|Alta|Muito alta]
+[INTENT:Saudação|Informação|Pesquisa|Comparação|Compra|Suporte|Pagamento|Pós-venda|Reclamação|Outro]
+[STAGE:Primeiro contato|Descoberta|Qualificação|Negociação|Objeções|Fechamento|Pós-venda]
+[PROB:0-100]
+[SENT:Positivo|Neutro|Negativo]
+[URG:Baixa|Média|Alta]
+[ACTION:Ação recomendada]
+[REASON:Justificativa curta]
+[SCORE:0-100] (Avaliação da qualidade da resposta da Júlia)
+[FEEDBACK:Item 1|Item 2|...] (Lista de pontos positivos/negativos separados por |)
+
+
 ESTADO DA CONVERSA:
 ${modulePrompt}
+
 
 IDENTIDADE E PERSONA:
 ${identity.persona}
@@ -115,12 +141,22 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   if (detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
     return {
       temperature: "frio",
+      confidence: "Baixa",
       intent: "suporte",
       stage: "lead",
+      purchase_probability: 0,
+      sentiment: "Neutro",
+      urgency: "Média",
+      recommended_action: "Finalizar atendimento",
+      reasoning: "Loop detectado",
+      conversation_score: 100,
+      conversation_feedback: ["Segurança ativada"],
       replies: ["Pra finalizar rapidinho seu pedido, é só acessar mindsmmpanel.com e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados."],
+
       rawPrompt: systemPrompt,
       selectedModules: moduleKeys
     };
+
   }
 
   // Model Call
@@ -162,7 +198,22 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   console.log("[AGENT-V3-DEBUG] Raw response:", rawText);
   
   // Metadata extraction
-  const { temperature, intent, stage, text: cleanText } = extractMetadataV3(rawText);
+  const { 
+    temperature, 
+    confidence,
+    intent, 
+    stage, 
+    purchase_probability,
+    sentiment,
+    urgency,
+    recommended_action,
+    reasoning,
+    conversation_score,
+    conversation_feedback,
+    text: cleanText 
+  } = extractMetadataV3(rawText);
+
+
 
   // Guards & Pipeline
   let finalContent = cleanText;
@@ -182,9 +233,19 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
 
   return {
     temperature,
+    confidence,
     intent,
     stage,
+    purchase_probability,
+    sentiment,
+    urgency,
+    recommended_action,
+    reasoning,
+    conversation_score,
+    conversation_feedback,
     replies,
+
+
     rawResponse: rawText,
     rawPrompt: systemPrompt,
     usage: response.usage,

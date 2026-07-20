@@ -606,61 +606,94 @@ export type Database = {
           anthropic_request_id: string | null
           cache_creation_input_tokens: number | null
           cache_read_input_tokens: number | null
+          confidence: string | null
+          conversation_feedback: Json | null
+          conversation_score: number | null
           cost_usd: number | null
           created_at: string
           history_chars: number | null
           id: string
           input_tokens: number | null
+          intent: string | null
           latency_ms: number | null
           message_chars: number | null
           message_id: string
           model: string
           output_tokens: number | null
+          purchase_probability: number | null
+          reasoning: string | null
+          recommended_action: string | null
           response_chars: number | null
           selected_modules: string[] | null
+          sentiment: string | null
           session_id: string
+          stage: string | null
           system_prompt_chars: number | null
           system_prompt_snapshot: string | null
+          temperature: string | null
+          urgency: string | null
         }
         Insert: {
           anthropic_request_id?: string | null
           cache_creation_input_tokens?: number | null
           cache_read_input_tokens?: number | null
+          confidence?: string | null
+          conversation_feedback?: Json | null
+          conversation_score?: number | null
           cost_usd?: number | null
           created_at?: string
           history_chars?: number | null
           id?: string
           input_tokens?: number | null
+          intent?: string | null
           latency_ms?: number | null
           message_chars?: number | null
           message_id: string
           model: string
           output_tokens?: number | null
+          purchase_probability?: number | null
+          reasoning?: string | null
+          recommended_action?: string | null
           response_chars?: number | null
           selected_modules?: string[] | null
+          sentiment?: string | null
           session_id: string
+          stage?: string | null
           system_prompt_chars?: number | null
           system_prompt_snapshot?: string | null
+          temperature?: string | null
+          urgency?: string | null
         }
         Update: {
           anthropic_request_id?: string | null
           cache_creation_input_tokens?: number | null
           cache_read_input_tokens?: number | null
+          confidence?: string | null
+          conversation_feedback?: Json | null
+          conversation_score?: number | null
           cost_usd?: number | null
           created_at?: string
           history_chars?: number | null
           id?: string
           input_tokens?: number | null
+          intent?: string | null
           latency_ms?: number | null
           message_chars?: number | null
           message_id?: string
           model?: string
           output_tokens?: number | null
+          purchase_probability?: number | null
+          reasoning?: string | null
+          recommended_action?: string | null
           response_chars?: number | null
           selected_modules?: string[] | null
+          sentiment?: string | null
           session_id?: string
+          stage?: string | null
           system_prompt_chars?: number | null
           system_prompt_snapshot?: string | null
+          temperature?: string | null
+          urgency?: string | null
         }
         Relationships: [
           {

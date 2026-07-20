@@ -83,7 +83,7 @@ function AgentPlaygroundPage() {
     enabled: !!activeSessionId,
   });
 
-  const { data: lastRun } = useQuery({
+  const { data: lastRun, refetch: refetchLastRun } = useQuery({
     queryKey: ["playground_last_run", activeSessionId],
     queryFn: async () => {
       if (!activeSessionId) return null;
@@ -98,7 +98,9 @@ function AgentPlaygroundPage() {
       return data;
     },
     enabled: !!activeSessionId,
+    refetchInterval: 1000, // Polling to ensure UI updates after server fn background tasks
   });
+
 
   // Mutations
   const createSession = useMutation({
@@ -374,61 +376,175 @@ function AgentPlaygroundPage() {
         <aside className="w-96 border rounded-lg bg-card flex flex-col overflow-hidden">
           <Tabs defaultValue="resumo" className="flex-1 flex flex-col">
             <div className="p-2 border-b">
-              <TabsList className="w-full h-8 grid grid-cols-5">
+              <TabsList className="w-full h-8 grid grid-cols-6">
                 <TabsTrigger value="resumo" className="text-[10px]"><Activity className="h-3 w-3 mr-1" /></TabsTrigger>
+                <TabsTrigger value="reasoning" className="text-[10px]"><FileJson className="h-3 w-3 mr-1" /></TabsTrigger>
                 <TabsTrigger value="modulos" className="text-[10px]"><Settings2 className="h-3 w-3 mr-1" /></TabsTrigger>
                 <TabsTrigger value="prompt" className="text-[10px]"><Code className="h-3 w-3 mr-1" /></TabsTrigger>
                 <TabsTrigger value="custo" className="text-[10px]"><Coins className="h-3 w-3 mr-1" /></TabsTrigger>
-                <TabsTrigger value="json" className="text-[10px]"><FileJson className="h-3 w-3 mr-1" /></TabsTrigger>
+                <TabsTrigger value="json" className="text-[10px]"><History className="h-3 w-3 mr-1" /></TabsTrigger>
               </TabsList>
+
             </div>
 
             <ScrollArea className="flex-1">
               <TabsContent value="resumo" className="p-4 m-0 space-y-4">
-                <Card className="border-none shadow-none bg-transparent">
-                  <CardHeader className="p-0 pb-2">
-                    <CardTitle className="text-sm">Resumo da Execução</CardTitle>
-                    <CardDescription className="text-xs">Última resposta gerada</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0 space-y-3">
-                     <div className="grid grid-cols-2 gap-2">
-                       <div className="p-2 border rounded-md bg-muted/20">
-                         <p className="text-[10px] text-muted-foreground">Modelo</p>
-                         <p className="text-xs font-medium">{lastRun?.model || "---"}</p>
-                       </div>
-                       <div className="p-2 border rounded-md bg-muted/20">
-                         <p className="text-[10px] text-muted-foreground">Status</p>
-                         <p className="text-xs font-medium flex items-center gap-1">
-                           <CheckCircle2 className="h-3 w-3 text-green-500" /> Sucesso
-                         </p>
-                       </div>
-                       <div className="p-2 border rounded-md bg-muted/20">
-                         <p className="text-[10px] text-muted-foreground">Latência total</p>
-                         <p className="text-xs font-medium">{lastRun?.latency_ms || 0}ms</p>
-                       </div>
-                       <div className="p-2 border rounded-md bg-muted/20">
-                         <p className="text-[10px] text-muted-foreground">Request ID</p>
-                         <p className="text-[9px] font-mono truncate">{lastRun?.anthropic_request_id || "---"}</p>
-                       </div>
-                     </div>
-                     <Separator />
-                     <div className="space-y-2">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Temperatura extraída:</span>
-                          <span className="font-semibold text-orange-400">QUENTE</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Intenção:</span>
-                          <span>Compra</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Estágio:</span>
-                          <span>Fechamento</span>
-                        </div>
-                     </div>
-                  </CardContent>
-                </Card>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-blue-500" /> Lead Intelligence
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Card className="p-3 space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Temperatura</p>
+                      <Badge 
+                        variant="secondary" 
+                        className={cn(
+                          "w-full justify-center py-1 text-xs",
+                          lastRun?.temperature === 'quente' ? "bg-red-500/10 text-red-500" :
+                          lastRun?.temperature === 'morno' ? "bg-orange-500/10 text-orange-500" :
+                          "bg-blue-500/10 text-blue-500"
+                        )}
+                      >
+                        {(lastRun?.temperature || "---").toUpperCase()}
+                      </Badge>
+                    </Card>
+
+                    <Card className="p-3 space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Confiança</p>
+                      <p className="text-sm font-bold text-center">{lastRun?.confidence || "---"}</p>
+                    </Card>
+
+                    <Card className="p-3 space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Intenção</p>
+                      <p className="text-sm font-bold text-center truncate">{lastRun?.intent || "---"}</p>
+                    </Card>
+
+                    <Card className="p-3 space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Estágio</p>
+                      <p className="text-sm font-bold text-center truncate">{lastRun?.stage || "---"}</p>
+                    </Card>
+                  </div>
+
+                  <Card className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground uppercase">Probabilidade de Compra</p>
+                      <span className="text-sm font-bold text-blue-500">{lastRun?.purchase_probability || 0}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="bg-blue-500 h-full transition-all duration-500" 
+                        style={{ width: `${lastRun?.purchase_probability || 0}%` }}
+                      />
+                    </div>
+                  </Card>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Card className="p-3 space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Sentimento</p>
+                      <p className={cn(
+                        "text-sm font-bold text-center",
+                        lastRun?.sentiment === 'Positivo' ? "text-green-500" :
+                        lastRun?.sentiment === 'Negativo' ? "text-red-500" : "text-muted-foreground"
+                      )}>
+                        {lastRun?.sentiment || "---"}
+                      </p>
+                    </Card>
+
+                    <Card className="p-3 space-y-1">
+                      <p className="text-[10px] text-muted-foreground uppercase">Urgência</p>
+                      <p className={cn(
+                        "text-sm font-bold text-center",
+                        lastRun?.urgency === 'Alta' ? "text-red-500" :
+                        lastRun?.urgency === 'Média' ? "text-orange-500" : "text-blue-500"
+                      )}>
+                        {lastRun?.urgency || "---"}
+                      </p>
+                    </Card>
+                  </div>
+
+                  <Card className="p-3 space-y-2 bg-blue-500/5 border-blue-500/20">
+                    <p className="text-[10px] text-blue-500 font-bold uppercase flex items-center gap-1">
+                      <Bot className="h-3 w-3" /> Próxima Ação Recomendada
+                    </p>
+                    <p className="text-xs italic leading-relaxed">
+                      {lastRun?.recommended_action || "Aguardando próxima interação..."}
+                    </p>
+                  </Card>
+
+                  <Card className="p-4 border-dashed bg-muted/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground uppercase">Conversation Score</p>
+                      <Badge variant="outline" className={cn(
+                        "text-xs font-bold",
+                        (lastRun?.conversation_score || 0) >= 80 ? "text-green-500 border-green-500/20 bg-green-500/5" :
+                        (lastRun?.conversation_score || 0) >= 50 ? "text-orange-500 border-orange-500/20 bg-orange-500/5" :
+                        "text-red-500 border-red-500/20 bg-red-500/5"
+                      )}>
+                        {lastRun?.conversation_score || 0}/100
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {(() => {
+                        let feedback = [];
+                        try {
+                          feedback = typeof lastRun?.conversation_feedback === 'string' 
+                            ? JSON.parse(lastRun.conversation_feedback) 
+                            : lastRun?.conversation_feedback || [];
+                        } catch(e) { feedback = []; }
+                        
+                        if (!Array.isArray(feedback)) feedback = [];
+
+                        if (feedback.length === 0) return <p className="text-[10px] text-muted-foreground italic">Nenhum feedback disponível.</p>;
+
+                        return feedback.map((f: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 text-[10px]">
+                            {f.startsWith('✔') || f.toLowerCase().includes('ok') || f.toLowerCase().includes('bom') ? (
+                              <CheckCircle2 className="h-3 w-3 text-green-500 mt-0.5 shrink-0" />
+                            ) : f.startsWith('⚠') || f.toLowerCase().includes('atenção') ? (
+                              <AlertTriangle className="h-3 w-3 text-orange-500 mt-0.5 shrink-0" />
+                            ) : (
+                              <XCircle className="h-3 w-3 text-red-500 mt-0.5 shrink-0" />
+                            )}
+                            <span>{f}</span>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </Card>
+                </div>
               </TabsContent>
+
+
+              <TabsContent value="reasoning" className="p-4 m-0 space-y-4">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold">Por que? (Justificativa)</h3>
+                  <Card className="p-4 bg-muted/20">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {lastRun?.reasoning || "Nenhuma justificativa fornecida para esta execução."}
+                    </p>
+                  </Card>
+                  
+                  <Separator />
+                  
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase">Timeline do Lead</h4>
+                    <div className="space-y-4 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-muted">
+                      {/* Placeholder para timeline baseada em histórico */}
+                      <div className="flex gap-4 relative">
+                        <div className="w-6 h-6 rounded-full bg-blue-500 border-4 border-background z-10" />
+                        <div className="flex-1 space-y-1">
+                          <p className="text-[10px] text-muted-foreground">Agora</p>
+                          <p className="text-xs font-medium">Estado atual: {(lastRun?.temperature || "Frio").toUpperCase()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
 
               <TabsContent value="modulos" className="p-4 m-0 space-y-4">
                 <div className="space-y-4">
