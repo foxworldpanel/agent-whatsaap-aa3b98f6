@@ -40,8 +40,8 @@ export function sanitizeSystemLeaks(text: string): string {
 /**
  * Trava de emoji: impede que o agente use emojis em mensagens consecutivas.
  */
-export function limitEmojiFrequency(text: string, history: Array<{ sender: string, body: string }>): string {
-  if (!history || history.length === 0) return text;
+export function limitEmojiFrequency(text: string, history: Array<{ sender: string, body: string }> | null | undefined): string {
+  if (!history || !Array.isArray(history) || history.length === 0) return text;
   const lastAgentMsg = [...history].reverse().find(m => m.sender === "agente");
   const hasEmoji = (s: string) => /[\u{1F300}-\u{1F9FF}]/u.test(s);
   
@@ -78,12 +78,20 @@ export function pickReengagementGreeting(latestClientMsg: string, nowDate: Date 
 
   // PRIORIDADE 1: Detecção de idioma
   const isEnglish = /\b(hi|hello|hey|good\s*(morning|afternoon|evening|night))\b/i.test(s);
+  const isSpanish = /\b(hola|buenos\s*d[ií]as|buenas\s*(tardes|noches))\b/i.test(s);
 
   if (isEnglish) {
     if (/\bgood\s*morning\b/.test(s)) return "Good morning";
     if (/\bgood\s*afternoon\b/.test(s)) return "Good afternoon";
     if (/\bgood\s*(evening|night)\b/.test(s)) return "Good evening";
     return "Hi";
+  }
+
+  if (isSpanish) {
+    if (/\bbuenos\s*d[ií]as\b/.test(s)) return "Buenos días";
+    if (/\bbuenas\s*tardes\b/.test(s)) return "Buenas tardes";
+    if (/\bbuenas\s*noches\b/.test(s)) return "Buenas noches";
+    return "Hola";
   }
 
   // Fallback para Português
@@ -105,7 +113,7 @@ export function looksLikeConcreteAction(text: string): boolean {
 
 export const VERBOSE_LOOP_FAREWELL = "Entendo! Como não conseguimos avançar por aqui, o suporte pode te ajudar com mais detalhes. Se precisar de algo no futuro, é só chamar! (suporte pode te ajudar)";
 
-const REENG_GREETING_START_RX = /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite|oi+|ol[aá]+|opa|eae|e\s*a[ií]|hey|hi|hello)\b/i;
+const REENG_GREETING_START_RX = /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite|oi+|ol[aá]+|opa|eae|e\s*a[ií]|hey|hi|hello|good\s*morning|good\s*afternoon|good\s*evening|hola|buenos\s*d[ií]as|buenas\s*tardes|buenas\s*noches)\b/i;
 
 export function enforceReengagementGreeting(text: string, latestClientMsg: string, nowDate: Date = new Date()) {
   const trimmed = (text ?? "").trim();
