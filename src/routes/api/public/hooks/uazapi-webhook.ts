@@ -479,13 +479,17 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const rawBody = await request.text();
         
         // Log persistente no banco antes de qualquer processamento
-        await supabaseAdmin.from("agent_logs").insert({
-          user_id: "f8da521a-e8db-4efe-8c9b-9bd69749c0a7", // Mind SMM ID
-          type: "webhook_raw_debug",
-          level: "info",
-          summary: `DEBUG Webhook recebido (len=${rawBody.length})`,
-          metadata: { raw: rawBody.slice(0, 3000) } as any
-        }).catch(e => console.error("DEBUG insert failed", e));
+        try {
+          await supabaseAdmin.from("agent_logs").insert({
+            user_id: "f8da521a-e8db-4efe-8c9b-9bd69749c0a7", // Mind SMM ID
+            type: "webhook_raw_debug",
+            level: "info",
+            summary: `DEBUG Webhook recebido (len=${rawBody.length})`,
+            metadata: { raw: rawBody.slice(0, 3000) } as any
+          });
+        } catch (e: any) {
+          console.error("DEBUG insert failed", e);
+        }
 
         console.log("📦 PAYLOAD_RAW (len=" + rawBody.length + "):", rawBody.slice(0, 1000));
 
