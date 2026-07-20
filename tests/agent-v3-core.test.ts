@@ -34,7 +34,7 @@ function mockAnthropic(reply: string) {
  * Helper to call the V3 orchestrator in a test environment.
  */
 async function callAgentV3(opts: {
-  history: Array<{ sender: "agente" | "cliente"; body: string }>;
+  history: Array<{ role: "agent" | "customer"; content: string }>;
   message: string;
   mockReply: string;
   modules?: Record<string, string>;
@@ -52,7 +52,7 @@ async function callAgentV3(opts: {
     enabledModules: opts.enabledModules || Object.keys(DEFAULT_MODULES),
   });
   
-  return { ...res, fetchMock };
+  return { ...res, text: res.replies.join(" "), fetchMock };
 }
 
 beforeEach(() => {
@@ -66,7 +66,7 @@ afterEach(() => {
 describe("V3 Integration: Core Flows (110 Scenarios Emulated)", () => {
   it("V3 identifies Spotify and loads relevant modules (Spotify Pricing Scenario)", async () => {
     const res = await callAgentV3({
-      history: [{ sender: "agente", body: OPENING }],
+      history: [{ role: "agent", content: OPENING }],
       message: "quais os preços do spotify?",
       mockReply: "Temos seguidores por R$30!",
     });
@@ -77,7 +77,7 @@ describe("V3 Integration: Core Flows (110 Scenarios Emulated)", () => {
 
   it("V3 handles neutral greeting and applies deterministic tags (Greeting Scenario)", async () => {
     const res = await callAgentV3({
-      history: [{ sender: "agente", body: OPENING }],
+      history: [{ role: "agent", content: OPENING }],
       message: "oi",
       mockReply: "Olá! Como posso ajudar?",
     });
