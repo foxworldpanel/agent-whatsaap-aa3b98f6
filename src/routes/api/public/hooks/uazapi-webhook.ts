@@ -242,7 +242,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         message: finalMsgText,
         history: history,
         anthropicApiKey: integ?.anthropic_api_key || "",
-        inputKind: content.kind
+        inputKind: content.kind,
+        messageId: msgId
       });
 
       const replyText = v3Response.replies.join("\n\n");
