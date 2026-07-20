@@ -10,6 +10,7 @@ import {
 } from "./guards.server";
 import { extractMetadataV3 } from "./metadata-extractor.server";
 import { autoSplitLongPartsV3 } from "./audio-processor.server";
+import { loadAgentConfigV3 } from "./config.server";
 
 export interface OrchestratorInput {
   userId: string;
@@ -40,8 +41,18 @@ export interface AgentResponseV3 {
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
   const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true } = input;
 
+  // Carrega Identidade e Configuração dinamicamente
   const identity = await loadAgentIdentity(userId);
-  const moduleKeys = selectRelevantModules(message, enabledModules);
+  const config = await loadAgentConfigV3(userId);
+
+  // Se enabledModules não foi passado (padrão legado), usa os do banco
+  const activeModules = enabledModules && enabledModules.length > 0 
+    ? enabledModules 
+    : Object.entries(config.modules_enabled)
+        .filter(([_, enabled]) => enabled)
+        .map(([name]) => name);
+
+  const moduleKeys = selectRelevantModules(message, activeModules);
   const modulePrompt = buildPromptFromModules(moduleKeys, customModules || {});
 
   // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION

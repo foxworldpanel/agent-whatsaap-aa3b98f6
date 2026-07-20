@@ -52,7 +52,7 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
           userId,
           message: payload.message?.text || "",
           history: [],
-          enabledModules: ["tabela_precos", "social_proof"],
+          enabledModules: [], // Carregamento dinâmico via agent_config
           anthropicApiKey: process.env.ANTHROPIC_API_KEY || ""
         });
 

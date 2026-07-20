@@ -13,13 +13,13 @@ export const testV3Agent = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     // Usamos um ID de usuário fixo para o teste do painel ou buscamos o primeiro admin
     // Para simplificar o teste manual agora, usamos um fallback
-    const userId = "bd59fa41-a6e5-4e3a-97a6-663c6c06a4b1"; // Mind SMM Workspace ID ou User ID
+    const userId = "f8da521a-e8db-4efe-8c9b-9bd69749c0a7"; // Mind SMM Workspace User ID
     
     const result = await runAgentV3Turn({
       userId,
       message: data.message,
       history: data.history,
-      enabledModules: ["tabela_precos", "social_proof", "pagamentos"],
+      enabledModules: [], // Deixa o orquestrador carregar dinamicamente do banco
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || ""
     });
 
