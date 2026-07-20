@@ -19,7 +19,7 @@ export const testV3Agent = createServerFn({ method: "POST" })
       userId,
       message: data.message,
       history: data.history,
-      enabledModules: ["tabela_precos", "social_proof", "pagamentos"],
+      enabledModules: [], // Deixa o orquestrador carregar dinamicamente do banco
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || ""
     });
 
