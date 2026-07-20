@@ -42,8 +42,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true } = input;
 
   // Carrega Identidade e Configuração dinamicamente
-  // WORKAROUND: Force Mind Workspace User ID if default fails or for specific test context
-  const targetUserId = userId === 'f8da521a-e8db-4efe-8c9b-9bd69749c0a7' ? userId : '09f4dee9-0a1b-4c43-b083-75cc64feb99d';
+  const targetUserId = userId;
   const identity = await loadAgentIdentity(targetUserId);
   const config = await loadAgentConfigV3(targetUserId);
 
