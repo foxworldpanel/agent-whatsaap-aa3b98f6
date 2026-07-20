@@ -495,7 +495,8 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         let payload: UazapiPayload | null = null;
         try {
           payload = JSON.parse(rawBody) as UazapiPayload;
-        } catch {
+        } catch (e) {
+          console.error("DEBUG JSON parse error", e);
           payload = null;
         }
 
@@ -731,8 +732,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // ============================================================
         {
           const AUTHORIZED_PHONES = ["5511970116430"];
-          console.log("[V3-GATE-DEBUG-PRE]", { phone, match: AUTHORIZED_PHONES.includes(phone), fromMe: msg.fromMe });
-          const authorized = AUTHORIZED_PHONES.includes(phone);
+          console.log("[V3-GATE-DEBUG-PRE]", { 
+            phone: JSON.stringify(phone), 
+            match: AUTHORIZED_PHONES.includes(String(phone)), 
+            fromMe: msg.fromMe 
+          });
+          const authorized = AUTHORIZED_PHONES.includes(String(phone));
           if (!msg.fromMe && !authorized) {
             // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
             const phoneTail = phone.slice(-4);
@@ -1041,8 +1046,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // [V3-ROUTING-GATE]
         // Se o remetente for o número autorizado, processa usando a lógica da V3 e encerra o webhook aqui.
-        console.log("[V3-GATE-DEBUG-REACHED-L1022]", { phone, match: phone === "5511970116430" });
-        if (phone === "5511970116430") {
+        console.log("[V3-GATE-DEBUG-REACHED-L1042]", { 
+          phone: JSON.stringify(phone), 
+          match: String(phone) === "5511970116430" 
+        });
+        if (String(phone) === "5511970116430") {
           console.log("[V3-GATE-DEBUG] ENTROU NO BLOCO V3");
           console.log(`[V3-ROUTING] Identificado número de teste ${phone}. Redirecionando para Agent V3...`);
           try {
