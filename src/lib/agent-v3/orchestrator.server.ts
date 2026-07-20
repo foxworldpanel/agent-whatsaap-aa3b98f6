@@ -70,9 +70,10 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
   console.log("[AGENT-V3-DEBUG] targetUserId:", targetUserId);
 
-  const isAudioInput = inputKind === "audio" || message.toLowerCase().includes("[audio]") || message.toLowerCase().includes("[transcrição]");
-  const isImageInput = inputKind === "image" || message.toLowerCase().includes("[imagem]") || message.toLowerCase().includes("[foto]");
+  const isAudioInput = inputKind === "audio";
+  const isImageInput = inputKind === "image";
   const isStickerInput = inputKind === "sticker";
+
   const hasIntentSupport = moduleKeys.includes("suporte");
 
   const systemPrompt = [
