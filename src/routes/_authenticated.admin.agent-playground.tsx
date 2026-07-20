@@ -471,8 +471,50 @@ function AgentPlaygroundPage() {
                       {lastRun?.recommended_action || "Aguardando próxima interação..."}
                     </p>
                   </Card>
+
+                  <Card className="p-4 border-dashed bg-muted/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground uppercase">Conversation Score</p>
+                      <Badge variant="outline" className={cn(
+                        "text-xs font-bold",
+                        (lastRun?.conversation_score || 0) >= 80 ? "text-green-500 border-green-500/20 bg-green-500/5" :
+                        (lastRun?.conversation_score || 0) >= 50 ? "text-orange-500 border-orange-500/20 bg-orange-500/5" :
+                        "text-red-500 border-red-500/20 bg-red-500/5"
+                      )}>
+                        {lastRun?.conversation_score || 0}/100
+                      </Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {(() => {
+                        let feedback = [];
+                        try {
+                          feedback = typeof lastRun?.conversation_feedback === 'string' 
+                            ? JSON.parse(lastRun.conversation_feedback) 
+                            : lastRun?.conversation_feedback || [];
+                        } catch(e) { feedback = []; }
+                        
+                        if (!Array.isArray(feedback)) feedback = [];
+
+                        if (feedback.length === 0) return <p className="text-[10px] text-muted-foreground italic">Nenhum feedback disponível.</p>;
+
+                        return feedback.map((f: string, i: number) => (
+                          <div key={i} className="flex items-start gap-2 text-[10px]">
+                            {f.startsWith('✔') || f.toLowerCase().includes('ok') || f.toLowerCase().includes('bom') ? (
+                              <CheckCircle2 className="h-3 w-3 text-green-500 mt-0.5 shrink-0" />
+                            ) : f.startsWith('⚠') || f.toLowerCase().includes('atenção') ? (
+                              <AlertTriangle className="h-3 w-3 text-orange-500 mt-0.5 shrink-0" />
+                            ) : (
+                              <XCircle className="h-3 w-3 text-red-500 mt-0.5 shrink-0" />
+                            )}
+                            <span>{f}</span>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </Card>
                 </div>
               </TabsContent>
+
 
               <TabsContent value="reasoning" className="p-4 m-0 space-y-4">
                 <div className="space-y-4">
