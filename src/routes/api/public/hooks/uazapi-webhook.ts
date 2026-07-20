@@ -179,7 +179,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // [V3-ROUTING-GATE]
     const content = extractContent(payload);
-    console.error(`[V3-AUDIT] ${JSON.stringify({ message_id: msgId, kind: content.kind, mime: content.mime || "none", media_url: !!content.mediaUrl })}`);
+    console.log(`[V3-AUDIT] ${JSON.stringify({ message_id: msgId, kind: content.kind, mime: content.mime || "none", media_url: !!content.mediaUrl })}`);
     
     try {
       const instanceToken = pickInstanceToken(payload);
@@ -294,7 +294,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         { conversationId: phoneStrLocal, source: "v3_error_fallback" }
       ).catch(() => {});
       
-      return new Response(`AUDIT:${JSON.stringify({ message_id: msgId, kind: content.kind, mime: content.mime || "none", media_url: !!content.mediaUrl })}`);
+      return new Response("ok (V3 error handled - no V1 fallback)");
     }
 }
 
