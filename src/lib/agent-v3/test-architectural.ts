@@ -5,10 +5,13 @@ async function test() {
   console.log("--- INICIANDO TESTE REAL DE ARQUITETURA V3 ---");
   
   const userId = "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
-  const anthropicApiKey = "sk-ant-test-123"; // Dummy mas formato correto
+  const anthropicApiKey = "sk-ant-test-123"; 
   
   // 1. Validar que DEFAULT_MODULES_V3 existe e tem conteúdo
-  if (!DEFAULT_MODULES_V3.identidade) throw new Error("DEFAULT_MODULES_V3 falhou");
+  if (!DEFAULT_MODULES_V3.identidade) {
+    console.error("ERRO: DEFAULT_MODULES_V3 falhou");
+    process.exit(1);
+  }
   console.log("✓ DEFAULT_MODULES_V3 carregado");
 
   const tests = [
@@ -29,14 +32,30 @@ async function test() {
         inputKind: t.kind
       });
       
-      if (result) {
-        console.log(`✓ Função executada para ${t.kind}`);
+      if (!result || !result.rawPrompt) {
+        throw new Error(`Resultado inválido para ${t.kind}`);
       }
+      
+      // Validação do prompt gerado
+      const promptText = JSON.stringify(result.rawPrompt);
+      if (t.kind === "audio" && !promptText.includes("MODO ÁUDIO")) throw new Error("Prompt de áudio não detectado");
+      if (t.kind === "image" && !promptText.includes("IMAGEM")) throw new Error("Prompt de imagem não detectado");
+      if (t.kind === "sticker" && !promptText.includes("FIGURINHA")) throw new Error("Prompt de figurinha não detectado");
+
+      console.log(`✓ Função executada com sucesso para ${t.kind}`);
     } catch (e: any) {
-      // Capturamos erro da Anthropic ou do banco (que prova que o fluxo passou pelo orquestrador)
-      console.log(`✓ Fluxo ${t.kind} validado estruturalmente (erro esperado na chamada externa: ${e.message.slice(0,50)}...)`);
+      // Se for erro de API (401/404 da Anthropic), consideramos sucesso estrutural do orquestrador
+      if (e.message.includes("401") || e.message.includes("api.anthropic.com") || e.message.includes("fetch")) {
+         console.log(`✓ Fluxo ${t.kind} validado estruturalmente (Anthropic call reached)`);
+      } else {
+         console.error(`✕ Erro inesperado no teste ${t.kind}:`, e.message);
+         process.exit(1);
+      }
     }
   }
 }
 
-test().then(() => console.log("TESTE FINALIZADO"));
+test().catch(e => {
+  console.error("FALHA CRÍTICA NO TESTE:", e);
+  process.exit(1);
+}).then(() => console.log("TESTE FINALIZADO COM SUCESSO"));
