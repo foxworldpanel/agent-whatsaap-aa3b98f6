@@ -3728,10 +3728,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         await releaseLock();
         return new Response("ok");
-        }
       }
     }
-  });
+  }
+});
 
 
 
