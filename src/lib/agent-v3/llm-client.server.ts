@@ -15,6 +15,7 @@ export async function callAnthropicV3(params: {
     system_prompt_chars?: number;
     history_chars?: number;
     message_chars?: number;
+    history_summary?: string; // Conteúdo resumido do histórico
   };
 }) {
   const { apiKey, system, messages, model, metadata } = params;
@@ -76,7 +77,8 @@ export async function callAnthropicV3(params: {
       output_tokens,
       cache_creation_input_tokens,
       cache_read_input_tokens,
-      request_id: requestId
+      request_id: requestId,
+      raw_usage: usage // Registre o objeto usage literal retornado pela Anthropic
     },
     metadata: {
       call_number_for_message: metadata?.call_number || 1,
@@ -85,6 +87,7 @@ export async function callAnthropicV3(params: {
       system_prompt_chars: metadata?.system_prompt_chars || 0,
       history_chars: metadata?.history_chars || 0,
       message_chars: metadata?.message_chars || 0,
+      history_summary: metadata?.history_summary || "none",
       response_chars
     },
     financial: {

@@ -124,6 +124,9 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   // Model Call
   const system_prompt_chars = JSON.stringify(systemPrompt).length;
   const history_chars = JSON.stringify(history.slice(-10)).length;
+  const history_summary = history.length > 0 
+    ? history.slice(-3).map(m => `[${m.role.toUpperCase()}: ${m.content.slice(0, 30)}...]`).join(" | ")
+    : "empty";
   const message_chars = message.length;
 
   const response = await callAnthropicV3({
@@ -143,6 +146,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
       selectedKeys: moduleKeys,
       system_prompt_chars,
       history_chars,
+      history_summary,
       message_chars
     }
   });
