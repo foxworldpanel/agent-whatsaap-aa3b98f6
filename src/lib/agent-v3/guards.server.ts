@@ -20,11 +20,9 @@ export function sanitizeSystemLeaks(text: string): string {
     /MODO SUPORTE/i,
     /OBRIGA[ÇC][ÕO]ES desta resposta/i,
     /FORMATO OBRIGAT[ÓO]RIO/i,
-    /EXEMPLO_MODELO_DISPARO/,
     /REFINAMENTOS DE TOM/i,
     /REGRA ABSOLUTA DE CONTEXTO/i,
     /SOBRESCREVE/,
-    /buildSharedRules/,
     /\[sistema\]/i,
     /system prompt/i,
     /^\s*(rede|categoria|urg[eê]ncia|classifica[cç][aã]o|prioridade|contexto|lead|temperatura|tag|etiqueta|status)\s*:/im,
@@ -111,7 +109,7 @@ export function looksLikeConcreteAction(text: string): boolean {
   return /http|www|\.com|\.br|@/i.test(text);
 }
 
-export const VERBOSE_LOOP_FAREWELL = "Entendo! Como não conseguimos avançar por aqui, o suporte pode te ajudar com mais detalhes. Se precisar de algo no futuro, é só chamar! (suporte pode te ajudar)";
+export const VERBOSE_LOOP_FAREWELL = "Pra ver todos os detalhes e fechar rapidinho, acessa mindsmmpanel.com! Lá você consegue ver todos os serviços e preços atualizados em tempo real.";
 
 const REENG_GREETING_START_RX = /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite|oi+|ol[aá]+|opa|eae|e\s*a[ií]|hey|hi|hello|good\s*morning|good\s*afternoon|good\s*evening|hola|buenos\s*d[ií]as|buenas\s*tardes|buenas\s*noches)\b/i;
 
