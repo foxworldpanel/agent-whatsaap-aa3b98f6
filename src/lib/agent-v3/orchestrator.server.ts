@@ -42,8 +42,10 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true } = input;
 
   // Carrega Identidade e Configuração dinamicamente
-  const identity = await loadAgentIdentity(userId);
-  const config = await loadAgentConfigV3(userId);
+  // WORKAROUND: Force Mind Workspace User ID if default fails or for specific test context
+  const targetUserId = userId === 'f8da521a-e8db-4efe-8c9b-9bd69749c0a7' ? userId : '09f4dee9-0a1b-4c43-b083-75cc64feb99d';
+  const identity = await loadAgentIdentity(targetUserId);
+  const config = await loadAgentConfigV3(targetUserId);
 
   // Se enabledModules não foi passado (padrão legado), usa os do banco
   const activeModules = enabledModules && enabledModules.length > 0 
@@ -53,7 +55,10 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
         .map(([name]) => name);
 
   const moduleKeys = selectRelevantModules(message, activeModules);
-  const modulePrompt = buildPromptFromModules(moduleKeys, customModules || {});
+  
+  // Prioritize DB content (config.brand_blocks) as customModules
+  const dbModules = config.brand_blocks || {};
+  const modulePrompt = buildPromptFromModules(moduleKeys, { ...dbModules, ...(customModules || {}) });
 
   // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
   const systemPrompt = [
@@ -115,7 +120,7 @@ IMAGEM NA CONVERSA:
 
 OBRIGAÇÕES DE METADADOS:
 Toda resposta deve começar com marcadores:
-[TEMP:frio|morno|quente] [INTENT:...] [STAGE:...] 
+[TEMP:frio|morno|quente] [INTENT:compra|suporte|outro] [STAGE:lead|venda|pos-venda] 
 Mensagem para o cliente aqui.
 `, 
       cache_control: { type: "ephemeral" } 

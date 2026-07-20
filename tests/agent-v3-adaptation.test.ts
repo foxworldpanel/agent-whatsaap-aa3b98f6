@@ -43,7 +43,7 @@ async function callAgent(opts: {
   });
 
   return { 
-    text: res.text, 
+    text: res.replies.join(" ") , 
     temperature: res.temperature,
     intent: res.intent,
     stage: res.stage,
