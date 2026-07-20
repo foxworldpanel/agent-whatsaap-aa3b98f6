@@ -5,7 +5,7 @@ import { selectRelevantModules } from '../src/lib/agent-v3/module-selector.serve
 // Mock simple versions of external deps if needed, but we want to test the logic
 // We'll mock callAnthropicV3 to avoid real API calls and capture prompts
 
-vi.mock('../src/lib/agent-v3/llm-client.server', () => ({
+vi.mock('../src/lib/agent-v3/llm-client.server.ts', () => ({
   callAnthropicV3: vi.fn(async (params) => {
     // Return a structured response that metadata-extractor can parse
     let responseText = "[TEMP:quente] [INTENT:vendas] [STAGE:lead] ";
