@@ -1,6 +1,6 @@
 import { it, expect, describe } from "vitest";
-import { isPureGreeting } from "./guards.server";
-import { selectRelevantModules } from "./module-selector.server";
+import { isPureGreeting } from "../../src/lib/agent-v3/guards.server";
+import { selectRelevantModules } from "../../src/lib/agent-v3/module-selector.server";
 
 describe("V3 Bug Fix Regression", () => {
   it("should correctly identify pure greetings", () => {
