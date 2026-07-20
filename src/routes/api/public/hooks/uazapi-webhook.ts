@@ -711,6 +711,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // ============================================================
         {
           const AUTHORIZED_PHONES = ["5511970116430"];
+          console.log("[V3-GATE-DEBUG-PRE]", { phone: JSON.stringify(phone), match: AUTHORIZED_PHONES.includes(phone), fromMe: msg.fromMe });
           const authorized = AUTHORIZED_PHONES.includes(phone);
           if (!msg.fromMe && !authorized) {
             // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
