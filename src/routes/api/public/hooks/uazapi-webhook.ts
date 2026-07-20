@@ -1124,41 +1124,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 metadata: { origem: "sistema", direcao: "recebido", tipo: "numero_teste" } as never,
               });
             } catch {}
-              ...history,
-              { role: "customer", content: text },
-              ...v3Response.replies.map(r => ({ role: "agent" as const, content: r }))
-            ]);
-
-            // 4. Enviar Respostas
-            for (const reply of v3Response.replies) {
-              await sendAgentTextGuarded(
-                { uazapi_url: integ.uazapi_url ?? "", uazapi_token: instanceToken ?? integ.uazapi_token ?? "" },
-                phone,
-                reply,
-                { conversationId: phone, source: "agent_v3" }
-              );
-            }
-
-            // 5. Log de Sucesso
-            await logEvent({
-              userId,
-              phone,
-              type: "agent_v3_turn",
-              level: "info",
-              summary: `V3 respondeu com ${v3Response.replies.length} mensagens`,
-              metadata: { 
-                intent: v3Response.intent, 
-                temperature: v3Response.temperature, 
-                usage: v3Response.usage 
-              }
-            });
-
-            return new Response("ok (v3 processed)");
-          } catch (gateError: any) {
-            console.error(`[V3-ERROR] falhou no routing gate:`, gateError);
-            return new Response("ok (v3 gate error)"); // Logado para diagnóstico
           }
-        }
+        } catch {}
+
+        // [V3-ROUTING-GATE-LEGACY-REMOVED]
+        // O gate agora vive no topo da função processWebhook como EARLY GATE.
 
 
 
