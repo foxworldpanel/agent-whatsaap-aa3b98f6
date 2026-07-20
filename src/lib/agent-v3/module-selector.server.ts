@@ -2,16 +2,18 @@ import { DEFAULT_MODULES } from "@/lib/agent-modules";
 
 export const KEYWORD_MAP: Record<string, string[]> = {
   spotify: ["spotify", "playlist", "ouvintes", "streams", "save", "plays"],
-  instagram: ["instagram", "insta", "ig ", "seguidores ig", "reels", "curtidas instagram"],
-  youtube: ["youtube", "yt ", "inscritos", "views", "likes", "horas"],
-  tiktok: ["tiktok", "tik tok", "views", "seguidores"],
+  instagram: ["instagram", "insta", "ig ", "seguidores ig", "reels", "curtidas instagram", "story", "stories"],
+  youtube: ["youtube", "yt ", "inscritos", "views", "likes", "horas", "visualização youtube"],
+  tiktok: ["tiktok", "tik tok", "views tiktok", "seguidores tiktok"],
   kwai: ["kwai"],
   facebook: ["facebook", "face "],
   x_twitter: ["twitter", "x "],
   pagamentos: ["pix", "pagar", "pagamento", "comprovante", "valor", "preço", "quanto", "custa", "saldo", "recarga"],
-  suporte: ["suporte", "ticket", "ajuda", "problema", "erro", "pedido", "status", "não chegou", "atraso"],
-  teste_gratis: ["teste", "gratis", "amostra", "confiável", "golpe", "funciona"],
-  como_usar_painel: ["como usar", "cadastro", "entrar", "site", "link", "painel", "conta"],
+  tabela_precos: ["tabela", "preços", "lista", "valores", "quanto é", "qual o valor"],
+  suporte: ["suporte", "ticket", "ajuda", "problema", "erro", "pedido", "status", "não chegou", "atraso", "caiu"],
+  teste_gratis: ["teste", "gratis", "amostra", "confiável", "golpe", "funciona", "testar"],
+  como_usar_painel: ["como usar", "cadastro", "entrar", "site", "link", "painel", "conta", "cadastrar"],
+  prova_social: ["confiança", "seguro", "alguém já comprou", "funciona mesmo", "prova", "print", "depoimento"],
 };
 
 export function selectRelevantModules(text: string, enabledModules: string[]): string[] {
