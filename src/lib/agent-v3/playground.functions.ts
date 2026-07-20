@@ -118,7 +118,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       },
       usage: usage,
       latencyMs,
-      selectedModules: result.rawResponse ? [] : [] // Precisamos que o runAgentV3Turn retorne isso explicitamente para o inspector
+      selectedModules: result.selectedModules || []
     };
   });
 
