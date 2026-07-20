@@ -470,7 +470,7 @@ function detectUnproductive(
   return null;
 }
 
-export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
+export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
