@@ -179,7 +179,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // [V3-ROUTING-GATE]
     const content = extractContent(payload);
-    console.log(`[AUDIT-LOG] message_id: ${msgId}, kind: ${content.kind}, mime: ${content.mime || "none"}, media_url: ${!!content.mediaUrl}`);
+    const auditData = { message_id: msgId, kind: content.kind, mime: content.mime || "none", media_url: !!content.mediaUrl };
+    require("fs").appendFileSync("/tmp/audit.log", JSON.stringify(auditData) + "\n");
+    console.log(`[AUDIT-LOG] ${JSON.stringify(auditData)}`);
     
     try {
       const instanceToken = pickInstanceToken(payload);
