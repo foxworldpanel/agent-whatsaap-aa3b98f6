@@ -1,4 +1,38 @@
-import { DEFAULT_MODULES } from "@/lib/agent-modules";
+
+export const DEFAULT_MODULES_V3: Record<string, string> = {
+  identidade: `MÓDULO IDENTIDADE
+Persona: Júlia, vendedora especialista em marketing digital na Mind SMM.
+Tom: Humano, consultivo e focado em conversão.`,
+
+  regras_gerais: `REGRAS GERAIS:
+- Respostas curtas e diretas.
+- Uma pergunta por vez.
+- Direcionar para mindsmmpanel.com para compras.`,
+
+  comportamento_humano: `COMPORTAMENTO:
+- Use gírias leves se o cliente usar.
+- Divida mensagens longas com ===SPLIT===.`,
+
+  texto_ou_audio: `MÓDULO TEXTO OU ÁUDIO:
+- Se receber áudio, responda em texto resumindo o que entendeu.`,
+
+  fluxo_vendas: `VENDAS:
+1. Saudação.
+2. Identificar necessidade.
+3. Proposta de valor.
+4. Fechamento.`,
+
+  suporte: `SUPORTE:
+- Pedir para abrir ticket em mindsmmpanel.com informando o ID do pedido.`,
+
+  tabela_precos: `PREÇOS:
+- Consulte a tabela específica da rede solicitada.`,
+
+  fechamento_3: `FECHAMENTO:
+1. Confirmar pedido.
+2. Direcionar para o painel.
+3. Solicitar cadastro.`
+};
 
 export const KEYWORD_MAP: Record<string, string[]> = {
   spotify: ["spotify", "playlist", "ouvintes", "streams", "save", "plays"],
@@ -17,85 +51,41 @@ export const KEYWORD_MAP: Record<string, string[]> = {
 };
 
 export function selectRelevantModules(text: string, enabledModules: string[]): string[] {
-  console.log("[v3-module-selector] Input text:", text);
-  
   const normalizedText = text.toLowerCase();
-  
-  // FASE 3: Progressive Module Loading Logic
-  const selectedKeys = new Set<string>(["identidade"]); // Basic Persona always present
+  const selectedKeys = new Set<string>(["identidade", "regras_gerais", "comportamento_humano"]);
 
-  // 1. Basic behavior / rules
-  selectedKeys.add("regras_gerais");
-  selectedKeys.add("comportamento_humano");
-
-  // 2. Intent Detection
   const hasCommercialIntent = ["comprar", "quero", "interesse", "ajuda", "serviço", "impulsionar", "divulgar", "seguidores", "curtidas", "views", "inscritos", "plays", "ouvintes"].some(kw => normalizedText.includes(kw));
   const isPriceRequested = ["quanto", "valor", "preço", "tabela", "custa", "lista"].some(kw => normalizedText.includes(kw));
   const isClosing = ["fechar", "quero esse", "vou querer", "blz", "ok", "manda o link"].some(kw => normalizedText.includes(kw));
   const isSupport = ["problema", "erro", "pedido", "ajuda", "status", "atraso", "caiu", "ticket"].some(kw => normalizedText.includes(kw));
 
-  // 3. Audio/Image detection (handled by orchestrator injection usually, but we ensure here)
-  if (normalizedText.includes("[audio]") || normalizedText.includes("[transcrição]")) {
-    selectedKeys.add("texto_ou_audio");
-  }
-
-  // 4. Conditional Loading Rules (Phase 3)
   if (isSupport) {
     selectedKeys.add("suporte");
-    // Rule: Don't load sales modules if it's support
   } else {
-    // Only load sales modules if NOT support
     if (hasCommercialIntent) {
       selectedKeys.add("fluxo_vendas");
-      selectedKeys.add("tecnicas_vendas");
     }
-
     if (isPriceRequested) {
       selectedKeys.add("tabela_precos");
-      selectedKeys.add("calculo_preco");
     }
-
     if (isClosing) {
       selectedKeys.add("fechamento_3");
     }
   }
 
-  // 5. Network specific modules (Add ONLY detected networks from KEYWORD_MAP)
   for (const [moduleKey, keywords] of Object.entries(KEYWORD_MAP)) {
-    // Skip general utility modules that are handled separately
-    if (["pagamentos", "tabela_precos", "suporte", "como_usar_painel", "prova_social", "calculo_preco"].includes(moduleKey)) continue;
-
+    if (["pagamentos", "tabela_precos", "suporte", "como_usar_painel", "prova_social"].includes(moduleKey)) continue;
     if (keywords.some(kw => normalizedText.includes(kw))) {
-      console.log(`[v3-module-selector] Network Module '${moduleKey}' SELECTED.`);
       selectedKeys.add(moduleKey);
     }
   }
 
-  // Global utilities if relevant
-  if (normalizedText.includes("link") || normalizedText.includes("site") || normalizedText.includes("painel")) {
-    selectedKeys.add("como_usar_painel");
-  }
-  
-  if (normalizedText.includes("pagar") || normalizedText.includes("pix") || normalizedText.includes("pagamento")) {
-    selectedKeys.add("pagamentos");
-  }
-
-  const result = Array.from(selectedKeys);
-  console.log("[v3-module-selector] Final selected modules:", result);
-  return result;
+  return Array.from(selectedKeys);
 }
 
-/**
- * Builds the prompt string from the selected module keys.
- * Prioritizes modules from the database (customModules) if available,
- * otherwise falls back to the local DEFAULT_MODULES (hardcoded V1 content).
- */
 export function buildPromptFromModules(keys: string[], customModules: Record<string, string>): string {
   return keys
-    .map(key => {
-      // Use DB version if exists, otherwise fallback to local hardcoded V1 content
-      return customModules[key] || DEFAULT_MODULES[key] || "";
-    })
+    .map(key => customModules[key] || DEFAULT_MODULES_V3[key] || "")
     .filter(Boolean)
     .join("\n\n");
 }
