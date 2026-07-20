@@ -22,6 +22,7 @@ export interface OrchestratorInput {
   anthropicApiKey: string;
   extraContext?: string;
   isInbound?: boolean;
+  inputKind?: "texto" | "audio" | "image" | "sticker";
 }
 
 export interface AgentResponseV3 {
@@ -44,7 +45,7 @@ export interface AgentResponseV3 {
  * 5. Aplicar Guards e Pós-processamento
  */
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
-  const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true } = input;
+  const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true, inputKind } = input;
 
   // Carrega Identidade e Configuração dinamicamente
   const targetUserId = userId;
@@ -69,8 +70,9 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
   console.log("[AGENT-V3-DEBUG] targetUserId:", targetUserId);
 
-  const isAudioInput = message.toLowerCase().includes("[audio]") || message.toLowerCase().includes("[transcrição]");
-  const isImageInput = message.toLowerCase().includes("[imagem]") || message.toLowerCase().includes("[foto]");
+  const isAudioInput = inputKind === "audio" || message.toLowerCase().includes("[audio]") || message.toLowerCase().includes("[transcrição]");
+  const isImageInput = inputKind === "image" || message.toLowerCase().includes("[imagem]") || message.toLowerCase().includes("[foto]");
+  const isStickerInput = inputKind === "sticker";
   const hasIntentSupport = moduleKeys.includes("suporte");
 
   const systemPrompt = [
@@ -100,6 +102,7 @@ ${hasIntentSupport ? `SUPORTE: Se houver pedido existente ou intenção de supor
 ${isAudioInput ? `MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.` : ""}
 
 ${isImageInput ? `IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.` : ""}
+${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}
 
 ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     }
