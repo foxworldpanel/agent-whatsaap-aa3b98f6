@@ -19,7 +19,18 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-500">Operacional</div>
-            <p className="text-xs text-muted-foreground mt-1">Fallback V1 desativado</p>
+            <p className="text-xs text-muted-foreground mt-1">Isolamento de módulos concluído</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Arquitetura</CardTitle>
+            <Badge variant="outline">Early Gate</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm">inputKind: Ativo</div>
+            <div className="text-sm mt-1">DEFAULT_MODULES_V3: Ativo</div>
           </CardContent>
         </Card>
       </div>
