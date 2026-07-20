@@ -640,19 +640,22 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const { supabaseAdmin: adminEarly } = await import("@/integrations/supabase/client.server");
-        const event = (payload.event ?? payload.EventType ?? "").toLowerCase();
+        const eventStr = (payload.event ?? payload.EventType ?? "").toLowerCase();
         const msgLocal = payload.message ?? payload.data ?? {};
         const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
         const phoneStrLocal = String(phoneLocal || "");
         const isV3TargetLocal = phoneStrLocal === "5511970116430";
 
-        // [V3-ROUTING-GATE-EARLY]
+        // [V3-ROUTING-GATE-EARLY] - Bypasses V1 entirely for authorized test number
         if (isV3TargetLocal && !msgLocal.fromMe) {
-          console.log("[V3-GATE-DEBUG] EARLY ATIVADO PARA:", phoneStrLocal);
+          const timestamp = new Date().toISOString();
+          console.log("[V3-GATE-DEBUG] EARLY ATIVADO PARA:", phoneStrLocal, "at", timestamp);
+          
           try {
             const instanceToken = pickInstanceToken(payload);
             const { text: msgText } = extractContent(payload);
             
+            // Resolve basic context for the instance
             const { data: num } = await adminEarly
               .from("whatsapp_numbers")
               .select("user_id, workspace_id, uazapi_url")
@@ -671,48 +674,65 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/conversation-state.server");
             const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
 
+            // Load V3 specific history
             const history = await getConversationStateV3(targetUserId, phoneStrLocal);
+            
+            // Execute V3 Orchestrator
             const v3Response = await runAgentV3Turn({
               userId: targetUserId,
               message: msgText || "",
-              history: history as any,
+              history: history,
               anthropicApiKey: integ?.anthropic_api_key || ""
             });
 
             const replyText = v3Response.replies.join("\n\n");
 
+            // Save history (V3 format)
             await saveConversationStateV3(targetUserId, phoneStrLocal, [
               ...history,
               { role: "customer" as const, content: msgText || "" },
               { role: "agent" as const, content: replyText }
-            ] as any);
+            ]);
 
-            const { data: conv } = await adminEarly
-              .from("conversations")
+            // Try to find an existing conversation ID for logs/guards
+            // We search via contact since phone is on contact table
+            const { data: contactData } = await adminEarly
+              .from("contacts")
               .select("id")
               .eq("user_id", targetUserId)
-              .eq("contact_id", (await adminEarly.from("contacts").select("id").eq("user_id", targetUserId).eq("telefone", phoneStrLocal).maybeSingle()).data?.id || "")
+              .eq("telefone", phoneStrLocal)
               .maybeSingle();
 
+            const { data: conv } = contactData ? await adminEarly
+              .from("conversations")
+              .select("id")
+              .eq("contact_id", contactData.id)
+              .maybeSingle() : { data: null };
+
+            // Send via Guarded channel (humanize + emoji control)
             await sendAgentTextGuarded(
               { uazapi_url: num?.uazapi_url || "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
               phoneStrLocal,
               replyText,
-              { conversationId: conv?.id || phoneStrLocal, source: "agent_v3", applyHumanize: true }
+              { conversationId: conv?.id || phoneStrLocal, source: "agent_v3_early", applyHumanize: true }
             );
 
+            console.log("[V3-GATE-DEBUG] SUCESSO V3 PARA:", phoneStrLocal);
             return new Response("ok (V3 processed)");
           } catch (e: any) {
             console.error("[V3-ERROR] falhou no Early Gate:", e);
             const instanceToken = pickInstanceToken(payload);
             const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
+            
+            // Attempt critical fallback notification
             await sendAgentTextGuarded(
               { uazapi_url: "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
               phoneStrLocal,
-              "Desculpa, tive um problema técnico na V3, tenta de novo em instantes.",
-              { conversationId: "", source: "v3_error_fallback" }
+              `[V3-CRITICAL-FAIL] ${e.message || "Erro desconhecido"}. Tente novamente.`,
+              { conversationId: phoneStrLocal, source: "v3_error_fallback" }
             ).catch(() => {});
-            return new Response("ok (V3 error fallback sent)");
+            
+            return new Response("ok (V3 critical error handled)");
           }
         }
 
@@ -727,15 +747,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             fromMe: msgProbe.fromMe,
             type: msgProbe.type ?? msgProbe.messageType,
             hasText: !!(msgProbe.text ?? msgProbe.content),
-            event,
+            eventStr: eventStr,
           };
           const { logEvent } = await import("@/lib/agent-logger.server");
-          await logEvent({ phone: phoneForLog, type: "message_received", level: "info", summary: `📦 Webhook | fromMe=${probe.fromMe} | type=${probe.type} | event=${event} | hasText=${probe.hasText}`, metadata: { raw: rawShort, probe } });
+          await logEvent({ phone: phoneForLog, type: "message_received", level: "info", summary: `📦 Webhook | fromMe=${probe.fromMe} | type=${probe.type} | event=${eventStr} | hasText=${probe.hasText}`, metadata: { raw: rawShort, probe } });
         } catch (e) {
           console.error("raw payload log failed", e);
         }
         // Aceita messages, messages.upsert, message etc.
-        if (event && !event.includes("message")) return new Response("ignored");
+        if (eventStr && !eventStr.includes("message")) return new Response("ignored");
 
         const msg = payload.message ?? payload.data;
         if (!msg) return new Response("no message");
