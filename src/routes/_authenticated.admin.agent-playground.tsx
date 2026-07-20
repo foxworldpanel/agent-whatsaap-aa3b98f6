@@ -409,9 +409,13 @@ function AgentPlaygroundPage() {
                   <div>
                     <h4 className="text-xs font-semibold mb-2">Módulos Selecionados</h4>
                     <div className="flex flex-wrap gap-1">
-                      {["identidade", "regras_gerais", "comportamento_humano", "fluxo_vendas"].map(m => (
-                        <Badge key={m} variant="secondary" className="text-[9px]">{m}</Badge>
-                      ))}
+                      {lastRun?.selected_modules && Array.isArray(lastRun.selected_modules) && lastRun.selected_modules.length > 0 ? (
+                        lastRun.selected_modules.map((m: string) => (
+                          <Badge key={m} variant="secondary" className="text-[9px]">{m}</Badge>
+                        ))
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic">Nenhum módulo selecionado na última execução.</span>
+                      )}
                     </div>
                   </div>
                   <Separator />
