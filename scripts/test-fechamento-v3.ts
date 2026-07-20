@@ -1,4 +1,4 @@
-import { runAgentV3Turn } from './src/lib/agent-v3/orchestrator.server';
+import { runAgentV3Turn } from '../src/lib/agent-v3/orchestrator.server';
 
 async function testFechamento() {
   const history = [
@@ -19,7 +19,7 @@ async function testFechamento() {
     try {
       console.log(`\n> Cliente: "${msg}"`);
       const result = await runAgentV3Turn({
-        userId: 'test-user',
+        userId: 'bd59fa41-d55c-449e-b8d4-8d48a1d7c35f', // Mind Workspace
         message: msg,
         history: history,
         enabledModules: ['instagram', 'pagamentos'],
