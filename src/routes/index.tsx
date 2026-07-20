@@ -64,81 +64,37 @@ function Dashboard() {
           <CardTitle className="text-blue-900">DIRETRIZ DE DIAGNÓSTICO V3</CardTitle>
         </CardHeader>
         <CardContent className="whitespace-pre-wrap text-sm text-blue-800 font-mono">
-{`NÃO faça refatoração geral da V3 ainda.
-Quero descobrir exatamente por que uma conversa simples continua consumindo tantos tokens.
+{`A instrumentação confirmou o problema principal: cada chamada Haiku está enviando aproximadamente 18.600 a 19.400 creation/input tokens, com zero cache read e respostas de apenas 28 a 78 tokens.
 
-OBJETIVO
-Medir o que realmente está sendo enviado para a Anthropic em cada turno.
-Não altere comportamento do agente nesta tarefa.
+Não faça otimização ainda. Complete o relatório solicitado.
 
-1. Instrumentação
-Antes da chamada para a Anthropic, registre em log:
-- request_id
-- runtime (V1 ou V3)
-- modelo utilizado
+Para a próxima chamada com apenas “Bom dia”, preciso ver:
+- runtime efetivamente usado
+- endpoint chamado
+- modelo
+- nomes exatos dos módulos selecionados
+- caracteres de cada módulo
+- tokens aproximados de cada módulo
+- caracteres do bloco hardcoded do orchestrator
+- caracteres de agent_identity
+- caracteres totais do system prompt
 - quantidade de mensagens do histórico
-- quantidade de caracteres do System Prompt
-- quantidade de caracteres de cada módulo carregado
-- nome de cada módulo carregado
-- tamanho total do prompt
-- quantidade de mensagens enviadas
-- input_tokens (retornado pela API)
+- caracteres e tokens do histórico
+- input_tokens
+- cache_creation_input_tokens
+- cache_read_input_tokens
 - output_tokens
-- duração da chamada
+- quantidade de chamadas Anthropic realizadas nesse único turno.
 
-2. Não quero estimativa
-Quero os valores reais retornados pela API.
+A interface mostra tabela_precos, social_proof, pagamentos e “+12”. Confirme se os 15 módulos estão sendo concatenados simultaneamente em todas as chamadas ou se essa lista representa apenas módulos disponíveis.
 
-3. Rode exatamente esta conversa
-Cliente: Bom dia
-Depois: quero comprar plays
-Depois: Spotify
-Depois: sertanejo
-Depois: manda o Pix
+Mostre também o array selectedKeys final para “Bom dia”.
 
-4. Para cada turno mostre
-Exemplo:
-Turno 1
-Módulos: identidade, regras_gerais, comportamento_humano
-Chars: identidade 740, regras_gerais 980...
-System Prompt total: 3890 chars
-History: 1 mensagem
-Input Tokens: 3120
-Output Tokens: 84
-Repita para todos os turnos.
+Explique por que todas as chamadas têm cache_creation_input_tokens alto e cache_read_input_tokens = 0. Verifique quais partes do prompt mudam entre os turnos e invalidam o cache.
 
-5. No final faça um ranking
-Quero saber quem está aumentando o prompt.
-Exemplo:
-identidade 920 tokens
-regras_gerais 610
-comportamento_humano 480
-spotify 290
-...
+Separe as métricas por origem: simulador V3; webhook V3; V1; chamadas internas do Lovable; qualquer chamada Sonnet. Não misture essas origens na mesma tabela.
 
-6. Não remova nenhum módulo nesta tarefa.
-Primeiro descubra quem é o culpado. Depois decidiremos o que remover.
-
-7. Entregue apenas o relatório.
-Não faça otimizações ainda.
-
-Por que eu faria isso?
-Porque hoje nós estamos "atirando no escuro".
-Todo mundo acha que o problema é: histórico, fallback V1, módulos, identity, cache, guards...
-Mas ninguém mediu.
-
-Pode acontecer algo como:
-identidade 3800 tokens
-spotify 200
-Então você sabe imediatamente quem é o problema.
-
-Ou:
-regras_gerais 4100
-
-Ou:
-fluxo_vendas 3200
-
-Sem medir, qualquer limpeza é chute.`}
+Não altere módulos nem comportamento até entregar essa decomposição.`}
         </CardContent>
       </Card>
 
