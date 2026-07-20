@@ -32,16 +32,42 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     // 2. Carregar histórico da sessão
     const { data: historyData, error: historyError } = await supabase
       .from("agent_playground_messages")
-      .select("role, content")
+      .select("role, content, created_at")
       .eq("session_id", sessionId)
       .order("sequence", { ascending: true });
 
     if (historyError) throw historyError;
 
-    const history = (historyData || []).map((m: any) => ({
+    let rawHistory = (historyData || []).map((m: any) => ({
       role: m.role === "user" ? ("customer" as const) : ("agent" as const),
       content: m.content,
+      created_at: m.created_at
     }));
+
+    // EXPIRAÇÃO DE 24 HORAS
+    let history = [...rawHistory];
+    let session_reset_reason: string | undefined;
+    if (historyData && historyData.length > 0) {
+      const lastMsg = historyData[historyData.length - 1];
+      const lastUpdate = new Date(lastMsg.created_at).getTime();
+      if (Date.now() - lastUpdate > 24 * 60 * 60 * 1000) {
+        history = [];
+        session_reset_reason = "inactivity_24h";
+      }
+    }
+
+    // LIMITE DE 10 MENSAGENS
+    const history_truncated = history.length > 10;
+    if (history_truncated) {
+      history = history.slice(-10);
+    }
+
+    const historyTelemetry = {
+      total_messages_stored: rawHistory.length,
+      history_truncated,
+      session_reset_reason,
+      oldest_message_sent_at: historyData?.[0]?.created_at
+    };
 
     // 3. Salvar mensagem do usuário
     const nextSequence = (historyData?.length || 0) + 1;
@@ -62,6 +88,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       userId: userId, // Usamos o ID do usuário como referência de workspace se necessário, mas o orchestrator busca por userId
       message,
       history,
+      historyTelemetry,
       enabledModules: enabledModules || session.enabled_modules || [],
       anthropicApiKey,
       inputKind,

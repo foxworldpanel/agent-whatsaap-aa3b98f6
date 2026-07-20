@@ -234,13 +234,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/conversation-state.server");
 
       // Carrega histórico V3
-      const history = await getConversationStateV3(targetUserId, phoneStrLocal);
+      const { history, telemetry: historyTelemetry } = await getConversationStateV3(targetUserId, phoneStrLocal);
       
       // Executa Orquestrador V3 (ÚNICO CAMINHO)
       const v3Response = await runAgentV3Turn({
         userId: targetUserId,
         message: finalMsgText,
         history: history,
+        historyTelemetry: historyTelemetry,
         anthropicApiKey: integ?.anthropic_api_key || "",
         inputKind: content.kind,
         messageId: msgId
@@ -253,7 +254,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         ...history,
         { role: "customer" as const, content: finalMsgText },
         { role: "agent" as const, content: replyText }
-      ]);
+      ].slice(-100)); // Mantém um buffer maior no banco, mas o loader limita a 10 para o LLM
 
       // Busca ID da conversa para logs
       const { data: contactData } = await adminEarly

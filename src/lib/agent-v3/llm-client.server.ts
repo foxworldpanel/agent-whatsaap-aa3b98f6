@@ -15,7 +15,8 @@ export async function callAnthropicV3(params: {
     system_prompt_chars?: number;
     history_chars?: number;
     message_chars?: number;
-    history_summary?: string; // Conteúdo resumido do histórico
+    history_summary?: string;
+    history_telemetry?: any;
   };
 }) {
   const { apiKey, system, messages, model, metadata } = params;
@@ -88,6 +89,7 @@ export async function callAnthropicV3(params: {
       history_chars: metadata?.history_chars || 0,
       message_chars: metadata?.message_chars || 0,
       history_summary: metadata?.history_summary || "none",
+      history_telemetry: metadata?.history_telemetry || {},
       response_chars
     },
     financial: {

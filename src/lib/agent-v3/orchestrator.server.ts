@@ -17,6 +17,7 @@ export interface OrchestratorInput {
   userId: string;
   message: string;
   history: Array<{ role: "agent" | "customer", content: string }>;
+  historyTelemetry?: { total_messages_stored: number, history_truncated: boolean, session_reset_reason?: string, oldest_message_sent_at?: string };
   enabledModules?: string[];
   customModules?: Record<string, string>;
   anthropicApiKey: string;
@@ -57,7 +58,7 @@ export interface AgentResponseV3 {
  * 5. Aplicar Guards e Pós-processamento
  */
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
-  const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true, inputKind, messageId } = input;
+  const { userId, message, history, historyTelemetry, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true, inputKind, messageId } = input;
 
   // Carrega Identidade e Configuração dinamicamente
   const targetUserId = userId;
@@ -128,6 +129,13 @@ REGRA DE CONCISÃO:
 - Seja breve e cubra somente as informações necessárias para o próximo passo.
 
 ${hasIntentSupport ? `SUPORTE: Se houver pedido existente ou intenção de suporte, priorize suporte e não reinicie o funil.` : ""}
+REGRAS DE SUPORTE PÓS-COMPRA:
+- Se o cliente mencionar: pedido, número do pedido, queda, reposição, atraso, serviço não iniciado, saldo, recarga, pagamento já realizado ou problemas técnicos;
+- Classifique como INTENT:Suporte ou Pós-venda;
+- NÃO tente resolver ou consultar status no WhatsApp;
+- Oriente o cliente a acessar mindsmmpanel.com e abrir um TICKET no suporte;
+- Mantenha a resposta curta, humana e não prometa prazos ou reposições aqui.
+
 
 ${isAudioInput ? `MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.` : ""}
 
@@ -162,7 +170,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
 
   // Model Call
   const system_prompt_chars = JSON.stringify(systemPrompt).length;
-  const history_chars = JSON.stringify(history.slice(-10)).length;
+  const history_chars = JSON.stringify(history).length;
   const history_summary = history.length > 0 
     ? history.slice(-3).map(m => `[${m.role.toUpperCase()}: ${m.content.slice(0, 30)}...]`).join(" | ")
     : "empty";
@@ -172,7 +180,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     apiKey: anthropicApiKey,
     system: systemPrompt,
     messages: [
-      ...history.slice(-10).map(m => ({
+      ...history.map(m => ({
         role: m.role === "agent" ? "assistant" : "user",
         content: m.content
       })),
@@ -186,7 +194,8 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
       system_prompt_chars,
       history_chars,
       history_summary,
-      message_chars
+      message_chars,
+      history_telemetry: historyTelemetry
     }
   });
   
