@@ -1053,11 +1053,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
               // FALLBACK simples pro número autorizado em caso de erro na V3
               await sendAgentTextGuarded(
-                userId,
+                { uazapi_url: integ.uazapi_url ?? "", uazapi_token: instanceToken ?? integ.uazapi_token ?? "" },
                 phone,
                 "Desculpa, tive um problema técnico, tenta de novo em instantes",
-                instanceToken ?? integ.uazapi_token ?? "",
-                integ.uazapi_url ?? ""
+                { conversationId: phone, source: "v3_fallback" }
               );
               return new Response("ok (v3 fallback sent)");
             }
@@ -1072,11 +1071,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // 4. Enviar Respostas
             for (const reply of v3Response.replies) {
               await sendAgentTextGuarded(
-                userId,
+                { uazapi_url: integ.uazapi_url ?? "", uazapi_token: instanceToken ?? integ.uazapi_token ?? "" },
                 phone,
                 reply,
-                instanceToken ?? integ.uazapi_token ?? "",
-                integ.uazapi_url ?? ""
+                { conversationId: phone, source: "agent_v3" }
               );
             }
 
@@ -1100,6 +1098,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             return new Response("ok (v3 gate error)"); // Silencioso para não quebrar o webhook mas logado
           }
         }
+
 
 
         let { data: contact } = await supabaseAdmin
