@@ -22,7 +22,6 @@ async function runTest(message: string, simulateError: boolean = false) {
 
   try {
     // Na lógica do webhook, se V3 falhar, enviamos mensagem técnica.
-    // Aqui simulamos a chamada ao orquestrador.
     if (!simulateError) {
       anthropic_call_count = 1;
       const result = await runAgentV3Turn(input);
@@ -36,8 +35,8 @@ async function runTest(message: string, simulateError: boolean = false) {
       runtime: "V3",
       v1_called: false,
       anthropic_call_count,
-      selectedKeys: [], // Omitido para brevidade no log mas presente no orquestrador
-      response,
+      selectedKeys: [], // Omitido para brevidade
+      response: response.slice(0, 50) + "...",
       error: null
     }, null, 2));
 
