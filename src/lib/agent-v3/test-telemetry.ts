@@ -14,9 +14,9 @@ async function runAudit() {
     await clearConversationStateV3(TEST_USER_ID, TEST_PHONE);
     
     // 2. Confirmação do estado vazio
-    const state = await getConversationStateV3(TEST_USER_ID, TEST_PHONE);
-    console.log("getConversationStateV3() retornou:", state);
-    if (state.length !== 0) {
+    const { history: stateHistory } = await getConversationStateV3(TEST_USER_ID, TEST_PHONE);
+    console.log("getConversationStateV3() retornou:", stateHistory);
+    if (stateHistory.length !== 0) {
       console.error("ERRO: O estado V3 ainda contém dados!");
       process.exit(1);
     }
