@@ -690,14 +690,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         const instanceToken = pickInstanceToken(payload);
         const phone = extractPhone(msg.chatid, msg.sender);
+        const phoneStr = String(phone);
+        const isV3Target = phoneStr === "5511970116430";
+        
         console.log("[V3-GATE-DEBUG-EXTRACT]", { 
-          phone: String(phone), 
-          isMatch: String(phone) === "5511970116430",
+          phone: phoneStr, 
+          isMatch: isV3Target,
           instanceToken, 
           chatid: msg.chatid, 
           sender: msg.sender 
         });
-        const isV3Target = String(phone) === "5511970116430";
+        
         console.log("[V3-GATE-DEBUG-MESSAGE-DATA]", { fromMe: msg.fromMe, isGroupChat, isV3Target });
         if (!instanceToken || !phone) {
           return new Response("missing token/phone", { status: 400 });
@@ -736,16 +739,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // ============================================================
         {
           const AUTHORIZED_PHONES = ["5511970116430"];
-          const phoneStr = String(phone);
+          const authorized = AUTHORIZED_PHONES.includes(phoneStr);
           console.log("[V3-GATE-DEBUG-PRE]", { 
             phoneStr, 
-            match: AUTHORIZED_PHONES.includes(phoneStr), 
+            match: authorized, 
             fromMe: msg.fromMe 
           });
-          const authorized = AUTHORIZED_PHONES.includes(phoneStr);
+          
           if (!msg.fromMe && !authorized) {
             // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
-            const phoneTail = phone.slice(-4);
+            const phoneTail = phoneStr.slice(-4);
             console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
@@ -1052,10 +1055,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // [V3-ROUTING-GATE]
         // Se o remetente for o número autorizado, processa usando a lógica da V3 e encerra o webhook aqui.
         console.log("[V3-GATE-DEBUG-REACHED-L1042]", { 
-          phone: JSON.stringify(phone), 
-          match: String(phone) === "5511970116430" 
+          phone: phoneStr, 
+          match: isV3Target 
         });
-        if (String(phone) === "5511970116430") {
+        if (isV3Target) {
           console.log("[V3-GATE-DEBUG] ENTROU NO BLOCO V3");
           console.log(`[V3-ROUTING] Identificado número de teste ${phone}. Redirecionando para Agent V3...`);
           try {
