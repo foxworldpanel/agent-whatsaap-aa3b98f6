@@ -52,10 +52,6 @@ A resposta não pode perguntar "qual rede?".`}
           </div>
         </CardContent>
       </Card>
-
-      </Card>
     </div>
   );
 }
-
-
