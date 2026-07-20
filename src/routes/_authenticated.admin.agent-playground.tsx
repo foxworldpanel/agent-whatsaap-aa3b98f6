@@ -83,7 +83,7 @@ function AgentPlaygroundPage() {
     enabled: !!activeSessionId,
   });
 
-  const { data: lastRun } = useQuery({
+  const { data: lastRun, refetch: refetchLastRun } = useQuery({
     queryKey: ["playground_last_run", activeSessionId],
     queryFn: async () => {
       if (!activeSessionId) return null;
@@ -98,7 +98,9 @@ function AgentPlaygroundPage() {
       return data;
     },
     enabled: !!activeSessionId,
+    refetchInterval: 1000, // Polling to ensure UI updates after server fn background tasks
   });
+
 
   // Mutations
   const createSession = useMutation({
