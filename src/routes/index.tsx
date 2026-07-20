@@ -342,6 +342,5 @@ Sem medir, qualquer limpeza é chute.`}
         </CardContent>
       </Card>
     </div>
-    </div>
   );
 }
