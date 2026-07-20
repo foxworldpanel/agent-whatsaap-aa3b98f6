@@ -7,7 +7,8 @@ async function test() {
     userId: "test-user",
     message: "Boa noite",
     history: [],
-    enabledModules: ["spotify", "instagram", "pagamentos"]
+    enabledModules: ["spotify", "instagram", "pagamentos"],
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY
   });
   console.log("Resposta 1:", res1.replies.join(" | "));
   
@@ -19,7 +20,8 @@ async function test() {
       { role: "customer", content: "Boa noite" },
       { role: "agent", content: res1.replies[0] }
     ],
-    enabledModules: ["spotify", "instagram", "pagamentos"]
+    enabledModules: ["spotify", "instagram", "pagamentos"],
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY
   });
   console.log("Resposta 2:", res2.replies.join(" | "));
   
