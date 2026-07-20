@@ -489,9 +489,40 @@ function AgentPlaygroundPage() {
       <ScenarioGenerator 
         open={isScenarioOpen} 
         onOpenChange={setIsScenarioOpen}
-        onGenerate={(s) => {
+        onGenerate={async (s) => {
+          if (!activeSessionId) return;
           toast.info(`Gerando cenário: ${s.selectedScenario}`);
-          // Implement logic to seed the session messages
+          
+          const templates: Record<string, Array<{ role: 'user' | 'agent', content: string }>> = {
+            novo: [{ role: 'user', content: 'Oi, boa tarde!' }],
+            quente: [
+              { role: 'user', content: 'Oi, vi os preços no site e quero comprar 5k de seguidores no Instagram.' },
+              { role: 'agent', content: 'Olá! Perfeito, os 5k de seguidores para Instagram estão por apenas R$ 49,90. Quer que eu te envie o link para pagamento?' },
+              { role: 'user', content: 'Sim, por favor.' }
+            ],
+            spotify: [
+              { role: 'user', content: 'Vocês tem plays para spotify?' },
+              { role: 'agent', content: 'Temos sim! Trabalhamos com plays mundiais e mensais. Quantas você precisa?' },
+              { role: 'user', content: 'Quero 1000 plays.' }
+            ]
+          };
+
+          const scenarioMessages = templates[s.selectedScenario] || [{ role: 'user', content: 'Teste de cenário' }];
+          
+          const { error } = await supabase.from("agent_playground_messages").insert(
+            scenarioMessages.map((m, i) => ({
+              session_id: activeSessionId,
+              role: m.role,
+              content: m.content,
+              sequence: i + 1
+            }))
+          );
+
+          if (error) toast.error(error.message);
+          else {
+            queryClient.invalidateQueries({ queryKey: ["playground_messages", activeSessionId] });
+            toast.success("Cenário gerado com sucesso");
+          }
           setIsScenarioOpen(false);
         }}
       />
