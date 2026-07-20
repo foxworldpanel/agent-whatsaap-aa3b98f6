@@ -1,12 +1,21 @@
 
 import { runAgentV3Turn } from "./orchestrator.server";
+import { supabase } from "../../integrations/supabase/client";
 
 async function main() {
   const userId = "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  
+  // No Bun environment inside sandbox, we might need to fetch from DB
+  const { data: integ } = await supabase
+    .from("integrations")
+    .select("anthropic_api_key")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const apiKey = integ?.anthropic_api_key;
 
   if (!apiKey) {
-    console.error("ANTHROPIC_API_KEY is required");
+    console.error("Could not find Anthropic API key in DB for user", userId);
     process.exit(1);
   }
 
