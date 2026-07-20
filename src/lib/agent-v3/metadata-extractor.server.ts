@@ -11,7 +11,10 @@ export type AgentResponseV3 = {
   urgency: "Baixa" | "Média" | "Alta";
   recommended_action: string;
   reasoning: string;
+  conversation_score: number;
+  conversation_feedback: string[];
 };
+
 
 export function extractMetadataV3(llmResponse: string): AgentResponseV3 {
   /**

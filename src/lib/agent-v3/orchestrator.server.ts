@@ -36,7 +36,10 @@ export interface AgentResponseV3 {
   urgency: string;
   recommended_action: string;
   reasoning: string;
+  conversation_score: number;
+  conversation_feedback: string[];
   replies: string[];
+
 
   rawResponse?: string;
   rawPrompt?: any;
@@ -109,6 +112,9 @@ Sempre inclua os seguintes marcadores no INÍCIO da sua resposta (antes do texto
 [URG:Baixa|Média|Alta]
 [ACTION:Ação recomendada]
 [REASON:Justificativa curta]
+[SCORE:0-100] (Avaliação da qualidade da resposta da Júlia)
+[FEEDBACK:Item 1|Item 2|...] (Lista de pontos positivos/negativos separados por |)
+
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
@@ -143,7 +149,10 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
       urgency: "Média",
       recommended_action: "Finalizar atendimento",
       reasoning: "Loop detectado",
+      conversation_score: 100,
+      conversation_feedback: ["Segurança ativada"],
       replies: ["Pra finalizar rapidinho seu pedido, é só acessar mindsmmpanel.com e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados."],
+
       rawPrompt: systemPrompt,
       selectedModules: moduleKeys
     };
@@ -199,8 +208,11 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     urgency,
     recommended_action,
     reasoning,
+    conversation_score,
+    conversation_feedback,
     text: cleanText 
   } = extractMetadataV3(rawText);
+
 
 
   // Guards & Pipeline
@@ -229,7 +241,10 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     urgency,
     recommended_action,
     reasoning,
+    conversation_score,
+    conversation_feedback,
     replies,
+
 
     rawResponse: rawText,
     rawPrompt: systemPrompt,

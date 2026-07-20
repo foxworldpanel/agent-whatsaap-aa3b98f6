@@ -87,7 +87,10 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
           urgency: result.urgency,
           recommended_action: result.recommended_action,
           reasoning: result.reasoning,
+          conversation_score: result.conversation_score,
+          conversation_feedback: result.conversation_feedback,
         },
+
 
       })
       .select()
@@ -123,7 +126,10 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       urgency: result.urgency,
       recommended_action: result.recommended_action,
       reasoning: result.reasoning,
+      conversation_score: result.conversation_score,
+      conversation_feedback: JSON.stringify(result.conversation_feedback),
     });
+
 
 
     return {
