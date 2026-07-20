@@ -4,9 +4,10 @@ import { autoSplitLongParts, isMeaningfulPart } from "@/lib/message-splitter";
 import { limitEmojiFrequency } from "@/lib/emoji-limiter";
 import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 
-// Uazapi webhook receiver.
-// Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
-// Eventos: messages (mensagens recebidas).
+// [V3-TEST] Webhook receiver isolado para testes da arquitetura V3.
+// URL: {site}/api/public/hooks/v3-test-webhook
+// Número autorizado: 5511999999999 (ajustável no código)
+
 
 // Trava anti-duplicata em memória (TTL 10s). Bloqueia reenvio do mesmo
 // texto para o mesmo telefone dentro da janela, mesmo que o webhook seja
