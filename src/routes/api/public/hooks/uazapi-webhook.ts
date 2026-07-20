@@ -294,7 +294,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         { conversationId: phoneStrLocal, source: "v3_error_fallback" }
       ).catch(() => {});
       
-      return new Response("ok (V3 error handled - no V1 fallback)");
+      return new Response(JSON.stringify({ audit: { message_id: msgId, kind: content.kind, mime: content.mime || "none", media_url: !!content.mediaUrl }, error: "V3 error handled" }));
     }
 }
 
