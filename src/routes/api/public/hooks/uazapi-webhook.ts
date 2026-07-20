@@ -1018,6 +1018,90 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         } catch {}
 
+        // [V3-ROUTING-GATE]
+        // Se o remetente for o número autorizado, processa usando a lógica da V3 e encerra o webhook aqui.
+        if (phone === "5511970116430") {
+          console.log(`[V3-ROUTING] Identificado número de teste ${phone}. Redirecionando para Agent V3...`);
+          try {
+            const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
+            const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/conversation-state.server");
+            const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
+            const { logEvent } = await import("@/lib/agent-logger.server");
+
+            // 1. Recuperar Histórico
+            const history = await getConversationStateV3(userId, phone);
+
+            // 2. Executar V3 Turn
+            let v3Response;
+            try {
+              v3Response = await runAgentV3Turn({
+                userId,
+                message: text,
+                history,
+                anthropicApiKey: integ.anthropic_api_key || ""
+              });
+            } catch (v3Error: any) {
+              console.error(`[V3-ERROR] falhou ao executar runAgentV3Turn:`, v3Error);
+              await logEvent({
+                userId,
+                phone,
+                type: "agent_v3_error",
+                level: "error",
+                summary: `V3 falhou para ${phone}: ${v3Error.message}`,
+                metadata: { error: v3Error.message, stack: v3Error.stack }
+              });
+
+              // FALLBACK simples pro número autorizado em caso de erro na V3
+              await sendAgentTextGuarded(
+                userId,
+                phone,
+                "Desculpa, tive um problema técnico, tenta de novo em instantes",
+                instanceToken ?? integ.uazapi_token ?? "",
+                integ.uazapi_url ?? ""
+              );
+              return new Response("ok (v3 fallback sent)");
+            }
+
+            // 3. Salvar novo estado (Mensagem do Cliente + Respostas do Agente)
+            await saveConversationStateV3(userId, phone, [
+              ...history,
+              { role: "customer", content: text },
+              ...v3Response.replies.map(r => ({ role: "agent" as const, content: r }))
+            ]);
+
+            // 4. Enviar Respostas
+            for (const reply of v3Response.replies) {
+              await sendAgentTextGuarded(
+                userId,
+                phone,
+                reply,
+                instanceToken ?? integ.uazapi_token ?? "",
+                integ.uazapi_url ?? ""
+              );
+            }
+
+            // 5. Log de Sucesso
+            await logEvent({
+              userId,
+              phone,
+              type: "agent_v3_turn",
+              level: "info",
+              summary: `V3 respondeu com ${v3Response.replies.length} mensagens`,
+              metadata: { 
+                intent: v3Response.intent, 
+                temperature: v3Response.temperature, 
+                usage: v3Response.usage 
+              }
+            });
+
+            return new Response("ok (v3 processed)");
+          } catch (gateError: any) {
+            console.error(`[V3-ERROR] falhou no routing gate:`, gateError);
+            return new Response("ok (v3 gate error)"); // Silencioso para não quebrar o webhook mas logado
+          }
+        }
+
+
         let { data: contact } = await supabaseAdmin
           .from("contacts")
           .select("id, nome, perfil, status, source, source_ref, photo_url, whatsapp_number_id")
