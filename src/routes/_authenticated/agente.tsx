@@ -227,14 +227,14 @@ function AgenteV3AdminPage() {
                          {moduleContent.length} caracteres
                        </span>
                     </div>
-                    <textarea
-                      value={moduleContent}
-                      onChange={(e) => setModuleContent(e.target.value)}
-                      placeholder="Configure aqui as instruções específicas para este módulo..."
-                      className="min-h-[500px] w-full bg-transparent p-6 font-mono text-sm leading-relaxed outline-none focus:ring-0 resize-none text-blue-100/90 scrollbar-thin"
-                      spellCheck={false}
-                    />
-                  </div>
+                      <textarea
+                        value={moduleContent}
+                        onChange={(e) => setModuleContent(e.target.value)}
+                        placeholder="Configure aqui as instruções específicas para este módulo..."
+                        className="min-h-[500px] w-full bg-transparent p-6 font-mono text-sm leading-relaxed outline-none focus:ring-0 resize-none text-foreground scrollbar-thin"
+                        spellCheck={false}
+                      />
+                    </div>
 
                   {activeModuleKey === 'tabela_precos' && (
                     <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 flex items-start gap-3">
@@ -279,7 +279,7 @@ function AgenteV3AdminPage() {
                   </div>
                   <textarea 
                     value={configQ.data?.identity.persona || ""}
-                    className="w-full min-h-[500px] bg-transparent p-6 font-mono text-sm leading-relaxed outline-none focus:ring-0 resize-none text-blue-100/90 scrollbar-thin"
+                    className="w-full min-h-[500px] bg-transparent p-6 font-mono text-sm leading-relaxed outline-none focus:ring-0 resize-none text-foreground scrollbar-thin"
                     readOnly
                   />
                 </div>
