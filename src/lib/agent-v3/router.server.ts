@@ -28,9 +28,19 @@ export async function routeAgentV3Request(input: RouterInput) {
     finalMessage = `${finalMessage}\n[CONTEXTO: O cliente enviou uma imagem/print que deve ser analisada se o histórico sugerir erro ou suporte]`.trim();
   }
 
+  // Convert history format to Orchestrator format
+  const formattedHistory: Array<{ role: "agent" | "customer"; content: string }> = input.history.map(m => ({
+    role: m.sender === "agente" ? "agent" : "customer",
+    content: m.body
+  }));
+
   // 3. Run Turn
   return await runAgentV3Turn({
-    ...input,
-    message: finalMessage
+    userId: input.userId,
+    message: finalMessage,
+    history: formattedHistory,
+    enabledModules: input.enabledModules,
+    customModules: input.customModules,
+    anthropicApiKey: input.anthropicApiKey || "",
   });
 }
