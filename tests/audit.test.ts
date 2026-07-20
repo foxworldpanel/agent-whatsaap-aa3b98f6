@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runAgentV3Turn } from './orchestrator.server';
-import { selectRelevantModules } from './module-selector.server';
+import { runAgentV3Turn } from '../src/lib/agent-v3/orchestrator.server';
+import { selectRelevantModules } from '../src/lib/agent-v3/module-selector.server';
 
 // Mock simple versions of external deps if needed, but we want to test the logic
 // We'll mock callAnthropicV3 to avoid real API calls and capture prompts
