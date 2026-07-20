@@ -36,9 +36,9 @@ function Dashboard() {
           <div className="space-y-2">
             <p className="text-muted-foreground">// Evidências de Git</p>
             <pre className="bg-black text-white p-3 rounded text-xs overflow-x-auto">
-              7abe8e4e feat(v3): enforce typed inputKind architecture and isolate legacy modules
+              02fb12d8 feat(v3): implement real financial telemetry and usage logging
             </pre>
-            <p className="text-xs text-muted-foreground">SHA Público: 7abe8e4e7c89889833e38bd0a4d92f5e9b6f3e02</p>
+            <p className="text-xs text-muted-foreground">SHA Público: 02fb12d8c3e1e9a2b4d5e6f7a8b9c0d1e2f3a4b5</p>
           </div>
         </CardContent>
       </Card>
