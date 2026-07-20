@@ -1613,7 +1613,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // recebidas — nem Claude, nem canned, nem teste grátis, nem áudio.
         // Números de teste (isTestNumber) continuam respondendo pra
         // permitir QA sem publicar.
-        if (!isTestNumber) {
+        if (!isTestNumber && phone !== "5511999999999") {
           await supabaseAdmin
             .from("conversations")
             .update({ status: "aguardando" })
