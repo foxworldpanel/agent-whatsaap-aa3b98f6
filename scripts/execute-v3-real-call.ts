@@ -1,5 +1,5 @@
 
-import { runAgentV3Turn } from "./src/lib/agent-v3/orchestrator.server";
+import { runAgentV3Turn } from "../src/lib/agent-v3/orchestrator.server";
 import { config } from "dotenv";
 
 config();
