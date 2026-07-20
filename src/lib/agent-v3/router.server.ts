@@ -29,8 +29,8 @@ export async function routeAgentV3Request(input: RouterInput) {
   }
 
   // Convert history format to Orchestrator format
-  const formattedHistory = input.history.map(m => ({
-    role: m.sender === "agente" ? "agent" : ("customer" as const),
+  const formattedHistory: Array<{ role: "agent" | "customer"; content: string }> = input.history.map(m => ({
+    role: m.sender === "agente" ? "agent" : "customer",
     content: m.body
   }));
 
