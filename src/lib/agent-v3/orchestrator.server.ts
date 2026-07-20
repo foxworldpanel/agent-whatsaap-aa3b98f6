@@ -10,6 +10,7 @@ import {
 } from "./guards.server";
 import { extractMetadataV3 } from "./metadata-extractor.server";
 import { autoSplitLongPartsV3 } from "./audio-processor.server";
+import { loadAgentConfigV3 } from "./config.server";
 
 export interface OrchestratorInput {
   userId: string;
