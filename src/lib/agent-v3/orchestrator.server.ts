@@ -120,7 +120,7 @@ IMAGEM NA CONVERSA:
 
 OBRIGAÇÕES DE METADADOS:
 Toda resposta deve começar com marcadores:
-[TEMP:frio|morno|quente] [INTENT:...] [STAGE:...] 
+[TEMP:frio|morno|quente] [INTENT:compra|suporte|outro] [STAGE:lead|venda|pos-venda] 
 Mensagem para o cliente aqui.
 `, 
       cache_control: { type: "ephemeral" } 
