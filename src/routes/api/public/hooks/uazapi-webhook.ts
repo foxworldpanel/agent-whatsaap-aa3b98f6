@@ -639,14 +639,89 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 });
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
-
+        const { supabaseAdmin: adminEarly } = await import("@/integrations/supabase/client.server");
         const event = (payload.event ?? payload.EventType ?? "").toLowerCase();
+        const msgLocal = payload.message ?? payload.data ?? {};
+        const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
+        const phoneStrLocal = String(phoneLocal || "");
+        const isV3TargetLocal = phoneStrLocal === "5511970116430";
+
+        // [V3-ROUTING-GATE-EARLY]
+        if (isV3TargetLocal && !msgLocal.fromMe) {
+          console.log("[V3-GATE-DEBUG] EARLY ATIVADO PARA:", phoneStrLocal);
+          try {
+            const instanceToken = pickInstanceToken(payload);
+            const { text: msgText } = extractContent(payload);
+            
+            const { data: num } = await adminEarly
+              .from("whatsapp_numbers")
+              .select("user_id, workspace_id, uazapi_url")
+              .eq("uazapi_token", instanceToken || "")
+              .maybeSingle();
+            
+            const targetUserId = num?.user_id || "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
+            
+            const { data: integ } = await adminEarly
+              .from("integrations")
+              .select("anthropic_api_key")
+              .eq("user_id", targetUserId)
+              .maybeSingle();
+
+            const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
+            const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/conversation-state.server");
+            const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
+
+            const history = await getConversationStateV3(targetUserId, phoneStrLocal);
+            const v3Response = await runAgentV3Turn({
+              userId: targetUserId,
+              message: msgText || "",
+              history: history as any,
+              anthropicApiKey: integ?.anthropic_api_key || ""
+            });
+
+            const replyText = v3Response.replies.join("\n\n");
+
+            await saveConversationStateV3(targetUserId, phoneStrLocal, [
+              ...history,
+              { role: "customer" as const, content: msgText || "" },
+              { role: "agent" as const, content: replyText }
+            ] as any);
+
+            const { data: conv } = await adminEarly
+              .from("conversations")
+              .select("id")
+              .eq("user_id", targetUserId)
+              .eq("contact_id", (await adminEarly.from("contacts").select("id").eq("user_id", targetUserId).eq("telefone", phoneStrLocal).maybeSingle()).data?.id || "")
+              .maybeSingle();
+
+            await sendAgentTextGuarded(
+              { uazapi_url: num?.uazapi_url || "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
+              phoneStrLocal,
+              replyText,
+              { conversationId: conv?.id || phoneStrLocal, source: "agent_v3", applyHumanize: true }
+            );
+
+            return new Response("ok (V3 processed)");
+          } catch (e: any) {
+            console.error("[V3-ERROR] falhou no Early Gate:", e);
+            const instanceToken = pickInstanceToken(payload);
+            const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
+            await sendAgentTextGuarded(
+              { uazapi_url: "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
+              phoneStrLocal,
+              "Desculpa, tive um problema técnico na V3, tenta de novo em instantes.",
+              { conversationId: "", source: "v3_error_fallback" }
+            ).catch(() => {});
+            return new Response("ok (V3 error fallback sent)");
+          }
+        }
+
         // 🔬 RAW payload dump (até 4000 chars) para diagnosticar o formato real do Uazapi.
         try {
           const raw = JSON.stringify(payload);
           const rawShort = raw.slice(0, 4000);
           console.log("📦 Payload RAW:", rawShort);
-          const phoneForLog = extractPhone(payload.message?.chatid, payload.message?.sender) ?? "unknown";
+          const phoneForLog = phoneStrLocal || "unknown";
           const msgProbe = (payload.message ?? payload.data ?? {}) as Record<string, unknown>;
           const probe = {
             fromMe: msgProbe.fromMe,
@@ -1052,95 +1127,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         } catch {}
 
-        // [V3-ROUTING-GATE]
-        // Se o remetente for o número autorizado, processa usando a lógica da V3 e encerra o webhook aqui.
-        console.log("[V3-GATE-DEBUG-REACHED-L1042]", { 
-          phone: phoneStr, 
-          match: isV3Target 
-        });
-        if (isV3Target) {
-          console.log("[V3-GATE-DEBUG] ENTROU NO BLOCO V3");
-          console.log(`[V3-ROUTING] Identificado número de teste ${phone}. Redirecionando para Agent V3...`);
-          try {
-            const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
-            const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/conversation-state.server");
-            const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
-            const { logEvent } = await import("@/lib/agent-logger.server");
-
-            // 1. Recuperar Histórico
-            const history = await getConversationStateV3(userId, phone);
-
-            // 2. Executar V3 Turn
-            let v3Response;
-            try {
-              v3Response = await runAgentV3Turn({
-                userId,
-                message: text,
-                history,
-                anthropicApiKey: integ.anthropic_api_key || ""
-              });
-            } catch (v3Error: any) {
-              console.error(`[V3-ERROR] falhou ao executar runAgentV3Turn:`, v3Error);
-              await logEvent({
-                userId,
-                phone,
-                type: "agent_v3_error",
-                level: "error",
-                summary: `V3 falhou para ${phone}: ${v3Error.message}`,
-                metadata: { error: v3Error.message, stack: v3Error.stack }
-              });
-
-              // FALLBACK simples pro número autorizado em caso de erro na V3
-              try {
-                await sendAgentTextGuarded(
-                  { uazapi_url: integ.uazapi_url ?? "", uazapi_token: instanceToken ?? integ.uazapi_token ?? "" },
-                  phone,
-                  "Desculpa, tive um problema técnico, tenta de novo em instantes",
-                  { conversationId: phone, source: "v3_fallback" }
-                );
-              } catch (sendErr) {
-                console.error("[V3-ERROR] Falha crítica ao enviar fallback:", sendErr);
-              }
-              return new Response("ok (v3 fallback handled)");
-            }
-
-            // 3. Salvar novo estado (Mensagem do Cliente + Respostas do Agente)
-            await saveConversationStateV3(userId, phone, [
-              ...history,
-              { role: "customer", content: text },
-              ...v3Response.replies.map(r => ({ role: "agent" as const, content: r }))
-            ]);
-
-            // 4. Enviar Respostas
-            for (const reply of v3Response.replies) {
-              await sendAgentTextGuarded(
-                { uazapi_url: integ.uazapi_url ?? "", uazapi_token: instanceToken ?? integ.uazapi_token ?? "" },
-                phone,
-                reply,
-                { conversationId: phone, source: "agent_v3" }
-              );
-            }
-
-            // 5. Log de Sucesso
-            await logEvent({
-              userId,
-              phone,
-              type: "agent_v3_turn",
-              level: "info",
-              summary: `V3 respondeu com ${v3Response.replies.length} mensagens`,
-              metadata: { 
-                intent: v3Response.intent, 
-                temperature: v3Response.temperature, 
-                usage: v3Response.usage 
-              }
-            });
-
-            return new Response("ok (v3 processed)");
-          } catch (gateError: any) {
-            console.error(`[V3-ERROR] falhou no routing gate:`, gateError);
-            return new Response("ok (v3 gate error)"); // Logado para diagnóstico
-          }
-        }
+        // [V3-ROUTING-GATE-LEGACY-REMOVED]
+        // O gate agora vive no topo da função processWebhook como EARLY GATE.
 
 
 
