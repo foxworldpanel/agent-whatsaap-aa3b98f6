@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
           message: payload.message?.text || "",
           history: [], // Mock simplificado para teste
           enabledModules: ["tabela_precos", "social_proof"], // Módulos padrão para teste
-          anthropicApiKey: process.env.ANTHROPIC_API_KEY
+          anthropicApiKey: process.env.ANTHROPIC_API_KEY || ""
         });
 
         console.log("[V3-TEST] Reply:", result.replies[0]);
