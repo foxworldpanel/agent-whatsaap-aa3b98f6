@@ -15,7 +15,6 @@ export type AgentResponseV3 = {
   conversation_feedback: string[];
 };
 
-
 export function extractMetadataV3(llmResponse: string): AgentResponseV3 {
   /**
    * Expected Lead Intelligence format from LLM:
@@ -28,6 +27,8 @@ export function extractMetadataV3(llmResponse: string): AgentResponseV3 {
    * [URG:Baixa|Média|Alta]
    * [ACTION:Ação recomendada]
    * [REASON:Justificativa]
+   * [SCORE:0-100]
+   * [FEEDBACK:Ponto 1|Ponto 2|...]
    */
 
   const tempMatch = llmResponse.match(/\[TEMP:(frio|morno|quente)\]/i);
@@ -39,6 +40,8 @@ export function extractMetadataV3(llmResponse: string): AgentResponseV3 {
   const urgMatch = llmResponse.match(/\[URG:(Baixa|Média|Alta)\]/i);
   const actionMatch = llmResponse.match(/\[ACTION:([^\]]+)\]/i);
   const reasonMatch = llmResponse.match(/\[REASON:([^\]]+)\]/i);
+  const scoreMatch = llmResponse.match(/\[SCORE:(\d+)\]/i);
+  const feedbackMatch = llmResponse.match(/\[FEEDBACK:([^\]]+)\]/i);
 
   const temperature = (tempMatch?.[1]?.toLowerCase() as any) || "morno";
   const confidence = (confMatch?.[1] as any) || "Média";
@@ -49,6 +52,8 @@ export function extractMetadataV3(llmResponse: string): AgentResponseV3 {
   const urgency = (urgMatch?.[1] as any) || "Média";
   const recommended_action = actionMatch?.[1] || "";
   const reasoning = reasonMatch?.[1] || "";
+  const conversation_score = parseInt(scoreMatch?.[1] || "0", 10);
+  const conversation_feedback = (feedbackMatch?.[1] || "").split("|").map(f => f.trim()).filter(Boolean);
 
   // Remove ALL markers from the text
   const cleanText = llmResponse
@@ -61,6 +66,8 @@ export function extractMetadataV3(llmResponse: string): AgentResponseV3 {
     .replace(/\[URG:[^\]]+\]/gi, "")
     .replace(/\[ACTION:[^\]]+\]/gi, "")
     .replace(/\[REASON:[^\]]+\]/gi, "")
+    .replace(/\[SCORE:[^\]]+\]/gi, "")
+    .replace(/\[FEEDBACK:[^\]]+\]/gi, "")
     .trim();
 
   return {
@@ -73,7 +80,8 @@ export function extractMetadataV3(llmResponse: string): AgentResponseV3 {
     sentiment,
     urgency,
     recommended_action,
-    reasoning
+    reasoning,
+    conversation_score,
+    conversation_feedback
   };
 }
-
