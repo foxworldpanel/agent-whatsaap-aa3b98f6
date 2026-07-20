@@ -271,18 +271,21 @@ function AgenteV3AdminPage() {
                   <Bot className="h-4 w-4 text-primary" />
                   Prompt de Persona & Identidade
                 </label>
-                <textarea 
-                  value={configQ.data?.identity.persona || ""}
-                  onChange={(e) => {
-                    // This would need another server function to update identity specifically
-                    // For now we show it as visual proof of transparency
-                  }}
-                  className="w-full min-h-[300px] bg-background/50 border border-border rounded-xl p-6 font-mono text-sm leading-relaxed outline-none focus:ring-1 focus:ring-primary text-blue-100/90"
-                  readOnly
-                />
+                <div className="relative group overflow-hidden rounded-xl border border-border bg-card">
+                  <div className="absolute top-3 right-4 z-10">
+                     <span className="text-[10px] font-mono text-muted-foreground bg-background/80 px-2 py-1 rounded-md backdrop-blur-md border border-white/5">
+                       {(configQ.data?.identity.persona || "").length} caracteres
+                     </span>
+                  </div>
+                  <textarea 
+                    value={configQ.data?.identity.persona || ""}
+                    className="w-full min-h-[500px] bg-transparent p-6 font-mono text-sm leading-relaxed outline-none focus:ring-0 resize-none text-blue-100/90 scrollbar-thin"
+                    readOnly
+                  />
+                </div>
                 <p className="text-[10px] text-muted-foreground italic flex items-center gap-1.5">
                   <Info className="h-3 w-3" />
-                  Nota: A Identidade é o "Core" da Júlia. Edite este campo para mudar o nome ou o tom geral da marca.
+                  Nota: A Identidade é o "Core" da Júlia. Esta visão é apenas para leitura e transparência.
                 </p>
               </div>
             </CardContent>
