@@ -137,7 +137,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
       temperature: "frio",
       intent: "suporte",
       stage: "lead",
-      replies: ["Um momento, vou chamar um especialista para te ajudar melhor com isso."],
+      replies: ["Pra finalizar rapidinho seu pedido, é só acessar mindsmmpanel.com e criar sua conta, leva menos de 1 minuto! Se tiver qualquer dúvida técnica, pode abrir um ticket no suporte lá dentro."],
       rawPrompt: systemPrompt
     };
   }
