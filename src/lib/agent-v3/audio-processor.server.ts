@@ -40,10 +40,11 @@ export function autoSplitLongPartsV3(text: string): string[] {
   
   // 2. Aplicar o splitter de parágrafos em cada parte
   const result = legacySplitter(explicitParts);
-  console.log(`[agent-v3] Split: Final parts count: ${result.length}`);
+  console.log(`[agent-v3] Split: Final parts result count: ${result.length}`);
   
   // 3. Garantia: se resultou vazio mas havia texto, retorna o texto original limpo
   if (result.length === 0 && trimmed.length > 0) {
+    console.log(`[agent-v3] Split: Returning original as fallback`);
     return [trimmed];
   }
   
