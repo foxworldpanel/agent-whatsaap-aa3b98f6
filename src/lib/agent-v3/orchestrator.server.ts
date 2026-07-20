@@ -138,8 +138,10 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     model: "claude-haiku-4-5"
   });
   
-  console.log("[AGENT-V3-INSTRUMENTATION] [AFTER_CALL] time:", Date.now());
-  console.log("[AGENT-V3-INSTRUMENTATION] [USAGE]", response.usage);
+  // Instrumentação detalhada no orchestrator para capturar selectedKeys
+  console.log("[RUNTIME-REAL-LOG-KEYS]", JSON.stringify({
+    selectedKeys: moduleKeys
+  }));
 
   const rawText = response.content[0].text;
   console.log("[AGENT-V3-DEBUG] Raw response:", rawText);
