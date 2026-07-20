@@ -695,12 +695,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             ]);
 
             // Try to find an existing conversation ID for logs/guards
-            const { data: conv } = await adminEarly
-              .from("conversations")
+            // We search via contact since phone is on contact table
+            const { data: contactData } = await adminEarly
+              .from("contacts")
               .select("id")
               .eq("user_id", targetUserId)
-              .eq("id", phoneStrLocal) // Using phone as a fallback ID search if no real one found
+              .eq("telefone", phoneStrLocal)
               .maybeSingle();
+
+            const { data: conv } = contactData ? await adminEarly
+              .from("conversations")
+              .select("id")
+              .eq("contact_id", contactData.id)
+              .maybeSingle() : { data: null };
 
             // Send via Guarded channel (humanize + emoji control)
             await sendAgentTextGuarded(
