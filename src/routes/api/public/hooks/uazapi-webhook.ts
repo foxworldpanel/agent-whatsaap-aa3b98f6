@@ -476,7 +476,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
       POST: async ({ request }) => {
         // Lê o RAW body PRIMEIRO para garantir o dump mesmo se algo abaixo quebrar.
         const rawBody = await request.text();
-        console.log("📦 PAYLOAD_RAW:", rawBody.slice(0, 1000));
+        console.log("📦 PAYLOAD_RAW (len=" + rawBody.length + "):", rawBody.slice(0, 1000));
 
         let payload: UazapiPayload | null = null;
         try {
