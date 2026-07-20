@@ -57,6 +57,43 @@ function Dashboard() {
       <div>
         <h1 className="text-4xl font-bold tracking-tight">Arquitetura V3 (Leve & Modular)</h1>
         <p className="text-muted-foreground mt-2">Monitoramento e Sandbox</p>
+        <div className="mt-6 p-4 bg-muted border rounded-lg text-sm space-y-4">
+          <p className="font-bold">Não altere nenhum comportamento funcional da V3. Quero apenas reduzir o tamanho do prompt preservando o mesmo comportamento.</p>
+          
+          <div>
+            <p className="font-bold text-primary">Fase 1 — Agent Identity</p>
+            <p className="text-muted-foreground italic">Faça uma auditoria campo por campo da agent_identity. Para cada campo informe: nome; caracteres; tokens estimados; onde ele é utilizado; se existe informação equivalente no orchestrator; se existe informação equivalente em algum módulo. Classifique cada campo em: obrigatório; duplicado; pode virar código; pode ser removido. Não altere nada ainda.</p>
+          </div>
+
+          <div>
+            <p className="font-bold text-primary">Fase 2 — Orchestrator</p>
+            <p className="text-muted-foreground italic">Faça o mesmo para todas as instruções hardcoded. Para cada bloco informe: caracteres; finalidade; duplicação com identity; duplicação com módulos.</p>
+          </div>
+
+          <div>
+            <p className="font-bold text-primary">Fase 3</p>
+            <p className="text-muted-foreground italic">Monte uma proposta de redução mostrando:</p>
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              <div className="p-2 border rounded bg-white">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Identity</p>
+                <div className="flex items-center gap-2">
+                  <span className="line-through text-destructive">5948 chars</span>
+                  <span className="text-lg">↓</span>
+                  <span className="text-green-600 font-bold">1400 chars</span>
+                </div>
+              </div>
+              <div className="p-2 border rounded bg-white">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Orchestrator</p>
+                <div className="flex items-center gap-2">
+                  <span className="line-through text-destructive">5120 chars</span>
+                  <span className="text-lg">↓</span>
+                  <span className="text-green-600 font-bold">1700 chars</span>
+                </div>
+              </div>
+            </div>
+            <p className="mt-2 text-muted-foreground italic">Explique exatamente quais instruções foram removidas, consolidadas ou movidas para código. Não implemente ainda.</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
