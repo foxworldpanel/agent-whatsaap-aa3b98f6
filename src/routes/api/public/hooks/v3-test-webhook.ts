@@ -2490,7 +2490,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           console.error("[verbose-loop] detection failed", e);
         }
 
-        const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
+        // const { generateAgentReplyWithMeta } = await import("@/lib/ai.server");
 
 
         // ===== Coalescência de mensagens rápidas do cliente =====
