@@ -560,6 +560,160 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_playground_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          input_kind: string | null
+          metadata: Json | null
+          role: string
+          sequence: number
+          session_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          input_kind?: string | null
+          metadata?: Json | null
+          role: string
+          sequence: number
+          session_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          input_kind?: string | null
+          metadata?: Json | null
+          role?: string
+          sequence?: number
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_playground_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "agent_playground_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_playground_runs: {
+        Row: {
+          anthropic_request_id: string | null
+          cache_creation_input_tokens: number | null
+          cache_read_input_tokens: number | null
+          cost_usd: number | null
+          created_at: string
+          history_chars: number | null
+          id: string
+          input_tokens: number | null
+          latency_ms: number | null
+          message_chars: number | null
+          message_id: string
+          model: string
+          output_tokens: number | null
+          response_chars: number | null
+          selected_modules: string[] | null
+          session_id: string
+          system_prompt_chars: number | null
+          system_prompt_snapshot: string | null
+        }
+        Insert: {
+          anthropic_request_id?: string | null
+          cache_creation_input_tokens?: number | null
+          cache_read_input_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          history_chars?: number | null
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          message_chars?: number | null
+          message_id: string
+          model: string
+          output_tokens?: number | null
+          response_chars?: number | null
+          selected_modules?: string[] | null
+          session_id: string
+          system_prompt_chars?: number | null
+          system_prompt_snapshot?: string | null
+        }
+        Update: {
+          anthropic_request_id?: string | null
+          cache_creation_input_tokens?: number | null
+          cache_read_input_tokens?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          history_chars?: number | null
+          id?: string
+          input_tokens?: number | null
+          latency_ms?: number | null
+          message_chars?: number | null
+          message_id?: string
+          model?: string
+          output_tokens?: number | null
+          response_chars?: number | null
+          selected_modules?: string[] | null
+          session_id?: string
+          system_prompt_chars?: number | null
+          system_prompt_snapshot?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_playground_runs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "agent_playground_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_playground_sessions: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled_modules: string[] | null
+          id: string
+          input_kind: string | null
+          metadata: Json | null
+          model: string | null
+          name: string
+          temperature: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled_modules?: string[] | null
+          id?: string
+          input_kind?: string | null
+          metadata?: Json | null
+          model?: string | null
+          name: string
+          temperature?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled_modules?: string[] | null
+          id?: string
+          input_kind?: string | null
+          metadata?: Json | null
+          model?: string | null
+          name?: string
+          temperature?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agent_prompt_metrics: {
         Row: {
           active_module_names: string[]
