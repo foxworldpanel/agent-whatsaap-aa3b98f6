@@ -1,43 +1,47 @@
-import { loadAgentIdentity } from "../agent-identity.server";
+// src/lib/agent-v3/orchestrator.server.ts
+import { loadAgentIdentity } from "@/lib/agent-identity.server";
+import { loadAgentConfigV3 } from "./config.server";
 import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
 import { callAnthropicV3 } from "./llm-client.server";
+import { extractMetadataV3 } from "./metadata-extractor.server";
 import { 
   sanitizeSystemLeaks, 
+  limitEmojiFrequency, 
   detectVerboseLoop, 
-  enforceReengagementGreeting, 
-  limitEmojiFrequency,
-  humanizePunctuationV3
+  enforceReengagementGreeting 
 } from "./guards.server";
-import { extractMetadataV3 } from "./metadata-extractor.server";
 import { autoSplitLongPartsV3 } from "./audio-processor.server";
-import { loadAgentConfigV3 } from "./config.server";
 
 export interface OrchestratorInput {
   userId: string;
   message: string;
-  history: any[];
-  enabledModules: string[];
+  history: Array<{ role: "agent" | "customer", content: string }>;
+  enabledModules?: string[];
   customModules?: Record<string, string>;
-  anthropicApiKey?: string;
+  anthropicApiKey: string;
   extraContext?: string;
   isInbound?: boolean;
 }
 
 export interface AgentResponseV3 {
-  temperature: string;
+  temperature: "frio" | "morno" | "quente";
   intent: string;
   stage: string;
   replies: string[];
   rawResponse?: string;
   rawPrompt?: any;
-  usage?: {
-    input_tokens: number;
-    output_tokens: number;
-    cache_creation_input_tokens?: number;
-    cache_read_input_tokens?: number;
-  };
+  usage?: any;
 }
 
+/**
+ * CORE ORCHESTRATOR V3
+ * Responsável por:
+ * 1. Carregar configuração e identidade
+ * 2. Selecionar módulos relevantes (Router Determinístico)
+ * 3. Construir system prompt com cache e breakpoint
+ * 4. Chamar o LLM (Haiku 4.5)
+ * 5. Aplicar Guards e Pós-processamento
+ */
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
   const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true } = input;
 
@@ -101,8 +105,12 @@ ${identity.exemplo_disparo}
 ${identity.reconhecimento_interesse || ""}
 ${identity.regra_encerramento}
 ${identity.regra_estilo_escrita}
-
-MODO SUPORTE / PÓS-VENDA:
+`,
+      cache_control: { type: "ephemeral" }
+    },
+    {
+      type: "text",
+      text: `MODO SUPORTE / PÓS-VENDA:
 - Caso o cliente já tenha um pedido, foque em suporte. NÃO reinicie o funil de vendas perguntando qual rede social o cliente deseja.
 
 MODO REENGAJAMENTO APÓS HIATO:
@@ -118,18 +126,7 @@ MODO ÁUDIO:
 IMAGEM NA CONVERSA:
 - Se o cliente mandou uma imagem ou print, avise que não consegue ver no momento e peça para descrever.
 
-OBRIGAÇÕES DE METADADOS:
-Toda resposta deve começar com marcadores:
-[TEMP:frio|morno|quente] [INTENT:compra|suporte|outro] [STAGE:lead|venda|pos-venda] 
-Mensagem para o cliente aqui.
-`, 
-      cache_control: { type: "ephemeral" } 
-    },
-    { 
-      type: "text", 
-      text: `
-${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto extra disponível no momento."}
-` 
+${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto extra disponível no momento."}`
     }
   ];
 
