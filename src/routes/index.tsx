@@ -56,68 +56,8 @@ function Dashboard() {
     <div className="container mx-auto py-10 space-y-8">
       <div>
         <h1 className="text-4xl font-bold tracking-tight">Arquitetura V3 (Leve & Modular)</h1>
-        <p className="text-muted-foreground mt-2">Construindo a nova geração em paralelo à V1 estável</p>
+        <p className="text-muted-foreground mt-2">Monitoramento e Sandbox</p>
       </div>
-
-      <Card className="border-blue-200 bg-blue-50/50">
-        <CardHeader>
-          <CardTitle className="text-blue-900">DIRETRIZ DE DIAGNÓSTICO V3</CardTitle>
-        </CardHeader>
-        <CardContent className="whitespace-pre-wrap text-sm text-blue-800 font-mono">
-{`Você ainda não entregou a decomposição solicitada. A tela apenas repetiu a diretriz e manteve a tabela geral.
-
-Não preciso de nova interface nem de resumo. Preciso dos dados brutos de uma única chamada nova, feita agora no simulador com histórico limpo e a mensagem:
-Bom dia
-
-Mostre a saída real em texto ou JSON, incluindo:
-request_id:
-origin:
-runtime:
-endpoint:
-model:
-anthropic_call_count:
-selectedKeys:
-modules:
-- nome: 
-  source: 
-  chars: 
-  estimated_tokens:
-orchestrator_hardcoded_chars:
-orchestrator_hardcoded_estimated_tokens:
-agent_identity_loaded:
-agent_identity_chars:
-agent_identity_estimated_tokens:
-system_prompt_chars:
-system_prompt_estimated_tokens:
-history_message_count:
-history_chars:
-history_estimated_tokens:
-current_message_chars:
-usage.input_tokens:
-usage.cache_creation_input_tokens:
-usage.cache_read_input_tokens:
-usage.output_tokens:
-response_time_ms:
-
-Imprima diretamente o objeto response.usage retornado pela Anthropic, sem renomear campos.
-
-Também mostre:
-total_billable_input = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
-Não presuma que Creation Tokens é o total de entrada.
-
-Esclareça objetivamente: O “+12” representa módulos disponíveis ou módulos realmente selecionados? Qual foi o selectedKeys exato para “Bom dia”? Qual trecho recebeu cache_control? Esse trecho é byte a byte idêntico entre chamadas? O que muda antes do breakpoint de cache?
-
-Não faça qualquer alteração de código ou otimização. Entregue apenas essa execução e os dados brutos.
-
-Um alerta sobre a conta
-Não use esta fórmula como custo financeiro direto:
-input_tokens + cache_creation_input_tokens + cache_read_input_tokens
-Ela é útil para enxergar volume processado, mas cada categoria pode ter preço diferente. A Anthropic cobra input normal, escrita em cache e leitura de cache com tarifas distintas.
-Para o Haiku 4.5, a documentação atual informa preço-base de US$1 por milhão de tokens de entrada e US$5 por milhão de saída; cache writes e cache reads seguem preços próprios.
-
-Neste momento, o Lovable está mostrando a tela, não fazendo o diagnóstico pedido. A próxima resposta aceitável precisa conter o objeto usage, o selectedKeys e o tamanho individual de cada bloco. Sem isso, ele ainda está desviando do foco`}
-        </CardContent>
-      </Card>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-primary/20 bg-primary/5">

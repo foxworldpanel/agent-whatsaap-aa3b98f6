@@ -142,6 +142,14 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
   }
 
   // Model Call
+  console.log("[AGENT-V3-INSTRUMENTATION] [BEFORE_CALL] time:", Date.now());
+  console.log("[AGENT-V3-INSTRUMENTATION] [PROMPT_INFO]", {
+    system_prompt_chars: JSON.stringify(systemPrompt).length,
+    moduleKeys,
+    history_count: history.length,
+    message_chars: message.length
+  });
+
   const response = await callAnthropicV3({
     apiKey: anthropicApiKey,
     system: systemPrompt,
@@ -154,7 +162,9 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
     ],
     model: "claude-haiku-4-5"
   });
-  console.log("[AGENT-V3-DEBUG] Final prompt length:", JSON.stringify(systemPrompt).length);
+  
+  console.log("[AGENT-V3-INSTRUMENTATION] [AFTER_CALL] time:", Date.now());
+  console.log("[AGENT-V3-INSTRUMENTATION] [USAGE]", response.usage);
 
   const rawText = response.content[0].text;
   console.log("[AGENT-V3-DEBUG] Raw response:", rawText);
