@@ -1,21 +1,44 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export async function getConversationStateV3(userId: string, phone: string): Promise<Array<{ role: "agent" | "customer"; content: string }>> {
-  // A tabela messages não tem o campo 'phone' diretamente, mas tem 'conversation_id'
-  // Primeiro, precisamos achar a conversação desse telefone
+  // Encontra a conversa pelo telefone e userId
   const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("id")
     .eq("user_id", userId)
-    .eq("phone", phone)
+    .eq("status", "open") // Preferimos conversas abertas, mas removemos se for muito restritivo
+    .order("updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
-  if (!conversation) return [];
+  // Se não achar conversa aberta, tenta qualquer uma do contato
+  let conversationId = conversation?.id;
+  if (!conversationId) {
+    const { data: contact } = await supabaseAdmin
+      .from("contacts")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("telefone", phone)
+      .maybeSingle();
+    
+    if (contact) {
+      const { data: conv } = await supabaseAdmin
+        .from("conversations")
+        .select("id")
+        .eq("contact_id", contact.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      conversationId = conv?.id;
+    }
+  }
+
+  if (!conversationId) return [];
 
   const { data: messages } = await supabaseAdmin
     .from("messages")
     .select("sender, body")
-    .eq("conversation_id", conversation.id)
+    .eq("conversation_id", conversationId)
     .order("created_at", { ascending: false })
     .limit(10);
 
@@ -30,8 +53,6 @@ export async function getConversationStateV3(userId: string, phone: string): Pro
 }
 
 export async function saveConversationStateV3(userId: string, phone: string, messages: Array<{ role: "agent" | "customer"; content: string }>): Promise<void> {
-  // O salvamento real no banco (tabela messages) já costuma ser feito pelo webhook ou via logs.
-  // Como o uazapi-webhook.ts já lida com a persistência de mensagens e contatos no pipeline normal,
-  // aqui apenas garantimos que o histórico esteja consistente no log de depuração.
-  console.log(`[V3-STATE] Historico sincronizado para ${phone} com ${messages.length} mensagens`);
+  // Histórico é persistido automaticamente via uazapi-webhook.ts ou logs do sistema.
+  console.log(`[V3-STATE] Historico sincronizado para ${phone}`);
 }

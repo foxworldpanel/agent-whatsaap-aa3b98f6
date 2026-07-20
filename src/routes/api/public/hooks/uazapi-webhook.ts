@@ -1052,13 +1052,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               });
 
               // FALLBACK simples pro número autorizado em caso de erro na V3
-              await sendAgentTextGuarded(
-                { uazapi_url: integ.uazapi_url ?? "", uazapi_token: instanceToken ?? integ.uazapi_token ?? "" },
-                phone,
-                "Desculpa, tive um problema técnico, tenta de novo em instantes",
-                { conversationId: phone, source: "v3_fallback" }
-              );
-              return new Response("ok (v3 fallback sent)");
+              try {
+                await sendAgentTextGuarded(
+                  { uazapi_url: integ.uazapi_url ?? "", uazapi_token: instanceToken ?? integ.uazapi_token ?? "" },
+                  phone,
+                  "Desculpa, tive um problema técnico, tenta de novo em instantes",
+                  { conversationId: phone, source: "v3_fallback" }
+                );
+              } catch (sendErr) {
+                console.error("[V3-ERROR] Falha crítica ao enviar fallback:", sendErr);
+              }
+              return new Response("ok (v3 fallback handled)");
             }
 
             // 3. Salvar novo estado (Mensagem do Cliente + Respostas do Agente)
@@ -1095,9 +1099,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             return new Response("ok (v3 processed)");
           } catch (gateError: any) {
             console.error(`[V3-ERROR] falhou no routing gate:`, gateError);
-            return new Response("ok (v3 gate error)"); // Silencioso para não quebrar o webhook mas logado
+            return new Response("ok (v3 gate error)"); // Logado para diagnóstico
           }
         }
+
 
 
 
