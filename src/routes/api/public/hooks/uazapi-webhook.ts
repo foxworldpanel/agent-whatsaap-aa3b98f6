@@ -675,6 +675,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const instanceToken = pickInstanceToken(payload);
         const phone = extractPhone(msg.chatid, msg.sender);
         console.log("[V3-GATE-DEBUG-EXTRACT]", { phone: JSON.stringify(phone), instanceToken: JSON.stringify(instanceToken) });
+        console.log("[V3-GATE-DEBUG-MESSAGE-DATA]", { fromMe: msg.fromMe, isGroupChat });
         if (!instanceToken || !phone) {
           return new Response("missing token/phone", { status: 400 });
         }
@@ -1022,7 +1023,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // [V3-ROUTING-GATE]
         // Se o remetente for o número autorizado, processa usando a lógica da V3 e encerra o webhook aqui.
-        console.log("[V3-GATE-DEBUG]", { phone: JSON.stringify(phone), match: phone === "5511970116430" });
+        console.log("[V3-GATE-DEBUG-REACHED-L1022]", { phone: JSON.stringify(phone), match: phone === "5511970116430" });
         if (phone === "5511970116430") {
           console.log("[V3-GATE-DEBUG] ENTROU NO BLOCO V3");
           console.log(`[V3-ROUTING] Identificado número de teste ${phone}. Redirecionando para Agent V3...`);
