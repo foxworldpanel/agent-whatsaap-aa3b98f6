@@ -2018,6 +2018,30 @@ export type Database = {
           },
         ]
       }
+      conversations_v3: {
+        Row: {
+          history: Json
+          id: string
+          phone: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          history?: Json
+          id?: string
+          phone: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          history?: Json
+          id?: string
+          phone?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       extraction_logs: {
         Row: {
           already_existed: number
