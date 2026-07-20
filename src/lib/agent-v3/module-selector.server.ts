@@ -24,12 +24,12 @@ export function selectRelevantModules(text: string, enabledModules: string[]): s
   // FASE 3: Progressive Module Loading Logic
   const selectedKeys = new Set<string>(["identidade"]); // Basic Persona always present
 
-  // 1. Basic behavior / rules - only for greetings or base state
+  // 1. Basic behavior / rules
   selectedKeys.add("regras_gerais");
   selectedKeys.add("comportamento_humano");
 
   // 2. Intent Detection
-  const hasCommercialIntent = ["comprar", "quero", "interesse", "ajuda", "serviço", "impulsionar", "divulgar"].some(kw => normalizedText.includes(kw));
+  const hasCommercialIntent = ["comprar", "quero", "interesse", "ajuda", "serviço", "impulsionar", "divulgar", "seguidores", "curtidas", "views", "inscritos", "plays", "ouvintes"].some(kw => normalizedText.includes(kw));
   const isPriceRequested = ["quanto", "valor", "preço", "tabela", "custa", "lista"].some(kw => normalizedText.includes(kw));
   const isClosing = ["fechar", "quero esse", "vou querer", "blz", "ok", "manda o link"].some(kw => normalizedText.includes(kw));
   const isSupport = ["problema", "erro", "pedido", "ajuda", "status", "atraso", "caiu", "ticket"].some(kw => normalizedText.includes(kw));
@@ -60,16 +60,14 @@ export function selectRelevantModules(text: string, enabledModules: string[]): s
     }
   }
 
-  // 5. Network specific modules (Add only detected network)
+  // 5. Network specific modules (Add ONLY detected networks from KEYWORD_MAP)
   for (const [moduleKey, keywords] of Object.entries(KEYWORD_MAP)) {
-    // Skip general modules already handled
-    if (["pagamentos", "tabela_precos", "suporte", "como_usar_painel", "prova_social"].includes(moduleKey)) continue;
+    // Skip general utility modules that are handled separately
+    if (["pagamentos", "tabela_precos", "suporte", "como_usar_painel", "prova_social", "calculo_preco"].includes(moduleKey)) continue;
 
-    if (enabledModules.includes(moduleKey)) {
-      if (keywords.some(kw => normalizedText.includes(kw))) {
-        console.log(`[v3-module-selector] Network Module '${moduleKey}' SELECTED.`);
-        selectedKeys.add(moduleKey);
-      }
+    if (keywords.some(kw => normalizedText.includes(kw))) {
+      console.log(`[v3-module-selector] Network Module '${moduleKey}' SELECTED.`);
+      selectedKeys.add(moduleKey);
     }
   }
 
