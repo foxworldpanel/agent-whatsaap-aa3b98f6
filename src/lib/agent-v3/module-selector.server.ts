@@ -20,7 +20,15 @@ export const KEYWORD_MAP: Record<string, string[]> = {
 
 export function selectRelevantModules(text: string, enabledModules: string[]): string[] {
   const normalizedText = text.toLowerCase();
-  const selectedKeys = new Set<string>(["identidade", "regras_gerais", "comportamento_humano"]);
+  
+  // Módulos Core que SEMPRE devem estar presentes
+  const CORE_MODULES = new Set([
+    "identidade",
+    "regras_gerais",
+    "comportamento_humano",
+  ]);
+
+  const selectedKeys = new Set<string>(CORE_MODULES);
 
   const hasCommercialIntent = ["comprar", "quero", "interesse", "ajuda", "serviço", "impulsionar", "divulgar", "seguidores", "curtidas", "views", "inscritos", "plays", "ouvintes"].some(kw => normalizedText.includes(kw));
   const isPriceRequested = ["quanto", "valor", "preço", "tabela", "custa", "lista"].some(kw => normalizedText.includes(kw));
@@ -48,11 +56,12 @@ export function selectRelevantModules(text: string, enabledModules: string[]): s
     }
   }
 
-  // Filtrar apenas módulos que estão habilitados OU que são core (identidade, regras_gerais, comportamento_humano)
-  const coreModules = ["identidade", "regras_gerais", "comportamento_humano"];
-  return Array.from(selectedKeys).filter(key => 
-    coreModules.includes(key) || enabledModules.includes(key)
+  // Filtragem estrita baseada em enabledModules e CORE_MODULES
+  const allowedKeys = Array.from(selectedKeys).filter(
+    key => CORE_MODULES.has(key) || enabledModules.includes(key)
   );
+
+  return allowedKeys;
 }
 
 export function buildPromptFromModules(keys: string[], customModules: Record<string, string>): string {
