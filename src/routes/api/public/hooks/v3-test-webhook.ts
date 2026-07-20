@@ -2532,7 +2532,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             !!messageId &&
             latestExt !== messageId &&
             new Date(latestAt).getTime() >= new Date(now).getTime();
-          if (isSuperseded) {
+          if (isSuperseded && !isTestNumber && phone !== "5511999999999") {
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
               await logEvent({
