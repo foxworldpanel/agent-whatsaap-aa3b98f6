@@ -5,10 +5,43 @@ import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
 // Eventos: messages (mensagens recebidas).
 
+// Trava anti-duplicata em memória (TTL 10s).
+const RECENT_SEND_TTL_MS = 10_000;
+const recentSendsMem = new Map<string, number>();
+function recentSendKey(phone: string, body: string): string {
+  return `sent:${phone}:${(body ?? "").slice(0, 20)}`;
+}
+function memWasRecentlySent(phone: string, body: string): boolean {
+  const key = recentSendKey(phone, body);
+  const expiry = recentSendsMem.get(key);
+  const now = Date.now();
+  if (expiry && expiry > now) return true;
+  // GC oportunista
+  if (recentSendsMem.size > 500) {
+    for (const [k, v] of recentSendsMem) if (v <= now) recentSendsMem.delete(k);
+  }
+  return false;
+}
+function memMarkSent(phone: string, body: string): void {
+  recentSendsMem.set(recentSendKey(phone, body), Date.now() + RECENT_SEND_TTL_MS);
+}
+
+// Contador em memória por messageId
+const messageIdHits = new Map<string, number>();
+function bumpMessageIdHit(id: string): number {
+  const n = (messageIdHits.get(id) ?? 0) + 1;
+  messageIdHits.set(id, n);
+  if (messageIdHits.size > 1000) {
+    const keys = Array.from(messageIdHits.keys()).slice(0, messageIdHits.size - 500);
+    for (const k of keys) messageIdHits.delete(k);
+  }
+  return n;
+}
+
 type UazapiPayload = {
   event?: string;
   EventType?: string;
-  token?: string; // token da instância
+  token?: string;
   instance?: { token?: string } | string;
   message?: {
     chatid?: string;
@@ -18,8 +51,17 @@ type UazapiPayload = {
     id?: string;
     fromMe?: boolean;
     type?: string;
+    messageType?: string;
     text?: string;
     content?: string;
+    mediaUrl?: string;
+    mimetype?: string;
+    mediaType?: string;
+    audioMessage?: unknown;
+    pttMessage?: unknown;
+    imageMessage?: unknown;
+    stickerMessage?: unknown;
+    caption?: string;
   };
   data?: UazapiPayload["message"];
 };
@@ -37,10 +79,72 @@ function extractPhone(chatid?: string, sender?: string): string | null {
   return digits || null;
 }
 
-function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" | "image" | "sticker" } {
+function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" | "image" | "sticker"; mime?: string; mediaUrl?: string } {
   const m = p.message ?? p.data ?? {};
-  // Simplificado para V3 routing
+  const type = (m.messageType ?? m.type ?? m.mediaType ?? "").toLowerCase();
+  const mime = (m.mimetype ?? "").toLowerCase();
+  
+  const isAudio =
+    type.includes("audio") ||
+    type.includes("ptt") ||
+    type.includes("voice") ||
+    mime.startsWith("audio/") ||
+    !!m.audioMessage ||
+    !!m.pttMessage;
+
+  if (isAudio) {
+    return { text: m.text || "[áudio recebido]", kind: "audio", mime, mediaUrl: m.mediaUrl };
+  }
+
+  const isSticker =
+    type.includes("sticker") ||
+    type.includes("figurinha") ||
+    !!m.stickerMessage;
+  if (isSticker) {
+    const caption = (m.caption ?? m.text ?? m.content ?? "").trim();
+    return { text: caption || "[figurinha recebida]", kind: "sticker", mime, mediaUrl: m.mediaUrl };
+  }
+
+  const isImage =
+    type.includes("image") || type.includes("imagem") || mime.startsWith("image/") || !!m.imageMessage;
+  if (isImage) {
+    const caption = (m.caption ?? m.text ?? "").trim();
+    return { text: caption || "[imagem recebida]", kind: "image", mime, mediaUrl: m.mediaUrl };
+  }
+
   return { text: m.text ?? m.content ?? "", kind: "texto" };
+}
+
+function extractMessageId(p: UazapiPayload): string | null {
+  const m = p.message ?? p.data ?? {};
+  return m.messageid ?? m.messageId ?? m.id ?? null;
+}
+
+function buildFallbackMessageId(phone: string, content: string): string {
+  const bucket = Math.floor(Date.now() / 10000); // 10s
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    hash = ((hash << 5) - hash + content.charCodeAt(i)) | 0;
+  }
+  return `fb:${phone}:${bucket}:${(hash >>> 0).toString(36)}`;
+}
+
+const STOP_PATTERNS = [
+  /\bpare\b/i,
+  /\bparar\b/i,
+  /\bn[aã]o\s+quero\b/i,
+  /\bn[aã]o\s+me\s+(mande|manda|envie|mand)/i,
+  /\bsai[ar]?\s+da\s+lista\b/i,
+  /\bdescadastr/i,
+  /\bme\s+tira\b/i,
+  /\bstop\b/i,
+  /\bunsubscribe\b/i,
+  /\bcancelar?\b/i,
+];
+
+function isStopRequest(text: string): boolean {
+  if (!text) return false;
+  return STOP_PATTERNS.some((re) => re.test(text));
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
@@ -49,12 +153,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
     const phoneStrLocal = String(phoneLocal || "");
     
-    // Bloqueio de mensagens enviadas pelo próprio bot
+    // 1. Bloqueio de mensagens enviadas pelo próprio bot (fromMe)
     if (msgLocal.fromMe) {
+      console.log("[V3-GATE] Ignorando fromMe");
       return new Response("ok (ignoring self)");
     }
 
-    // Validação de número autorizado (Apenas este número executa a IA V3)
+    // 2. Validação de número autorizado
     const AUTHORIZED_PHONES = ["5511970116430"];
     const isAuthorized = AUTHORIZED_PHONES.includes(phoneStrLocal);
 
@@ -64,13 +169,52 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (unauthorized number)");
     }
 
-    // [V3-ROUTING-GATE] - Runtime ÚNICO autorizado
-    console.log("[V3-GATE] Processando turno para:", phoneStrLocal);
+    // 3. Deduplicação por MessageID
+    const msgId = extractMessageId(payload) || buildFallbackMessageId(phoneStrLocal, msgLocal.text || "");
+    const hits = bumpMessageIdHit(msgId);
+    if (hits > 1) {
+      console.log(`[V3-GATE] Ignorando duplicata (msgId: ${msgId}, hit: ${hits})`);
+      return new Response("ok (duplicate msgId)");
+    }
+
+    // [V3-ROUTING-GATE]
+    console.log("[V3-GATE] Processando turno para:", phoneStrLocal, "msgId:", msgId);
     
     try {
       const instanceToken = pickInstanceToken(payload);
-      const { text: msgText } = extractContent(payload);
+      const content = extractContent(payload);
+      let finalMsgText = content.text;
       
+      // 4. Processamento de áudio (Transcrição)
+      let transcriptionAttempted = false;
+      if (content.kind === "audio" && content.mediaUrl) {
+        try {
+          console.log("[V3-GATE] Áudio detectado, iniciando transcrição...");
+          const { transcribeAudio } = await import("@/lib/agent-v3/audio-processor.server");
+          const transcription = await transcribeAudio(content.mediaUrl);
+          if (transcription) {
+            finalMsgText = transcription;
+            transcriptionAttempted = true;
+            console.log("[V3-GATE] Transcrição concluída:", finalMsgText);
+          }
+        } catch (audioErr) {
+          console.error("[V3-GATE] Erro na transcrição:", audioErr);
+        }
+      }
+
+      // 5. Proteção anti-envio duplicado (texto idêntico no TTL)
+      if (memWasRecentlySent(phoneStrLocal, finalMsgText)) {
+        console.log("[V3-GATE] Bloqueando reenvio de texto idêntico (TTL)");
+        return new Response("ok (recently sent)");
+      }
+
+      // 6. Verificação de Stop Request (Compliance)
+      if (isStopRequest(finalMsgText)) {
+        console.log("[V3-GATE] Stop request detectado. Silenciando.");
+        // Opcional: marcar no banco que o cliente pediu pra parar
+        return new Response("ok (stop request)");
+      }
+
       // Resolve contexto básico da instância
       const { data: num } = await adminEarly
         .from("whatsapp_numbers")
@@ -95,7 +239,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // Executa Orquestrador V3 (ÚNICO CAMINHO)
       const v3Response = await runAgentV3Turn({
         userId: targetUserId,
-        message: msgText || "",
+        message: finalMsgText,
         history: history,
         anthropicApiKey: integ?.anthropic_api_key || ""
       });
@@ -105,7 +249,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // Salva histórico V3
       await saveConversationStateV3(targetUserId, phoneStrLocal, [
         ...history,
-        { role: "customer" as const, content: msgText || "" },
+        { role: "customer" as const, content: finalMsgText },
         { role: "agent" as const, content: replyText }
       ]);
 
@@ -131,7 +275,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         { conversationId: conv?.id || phoneStrLocal, source: "agent_v3", applyHumanize: true }
       );
 
-      console.log("[V3-GATE] Sucesso para:", phoneStrLocal);
+      // Marca como enviado recentemente para evitar loops
+      memMarkSent(phoneStrLocal, replyText);
+
+      console.log("[V3-GATE] Sucesso para:", phoneStrLocal, "kind:", content.kind, "transcribed:", transcriptionAttempted);
       return new Response("ok (V3 processed)");
 
     } catch (e: any) {
