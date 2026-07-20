@@ -107,53 +107,6 @@ function AgenteV3AdminPage() {
         </div>
         
         <div className="flex items-center gap-3">
-          <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-            <DialogTrigger asChild>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-all text-sm font-medium border border-border">
-                <Eye className="h-4 w-4" />
-                Visualizar Prompt
-              </button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col bg-card border-border shadow-2xl">
-              <DialogHeader>
-                <DialogTitle>Prompt Final (Compilado)</DialogTitle>
-                <DialogDescription>
-                  Simulação do sistema enviado ao LLM baseado na mensagem atual.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4 overflow-hidden flex flex-col flex-1">
-                <div className="flex gap-2">
-                  <input 
-                    placeholder="Simular mensagem do cliente (ex: 'quero plays')" 
-                    className="flex-1 bg-background border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                    value={previewMsg}
-                    onChange={(e) => setPreviewMsg(e.target.value)}
-                  />
-                  <button 
-                    onClick={() => promptQ.refetch()}
-                    className="p-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${promptQ.isFetching ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-                
-                {promptQ.data && (
-                  <div className="space-y-2 flex-1 flex flex-col overflow-hidden">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase">Módulos Selecionados:</span>
-                      {promptQ.data.selectedModules.map(m => (
-                        <Badge key={m} variant="secondary" className="text-[10px]">{m}</Badge>
-                      ))}
-                    </div>
-                    <pre className="flex-1 overflow-auto bg-black/40 p-4 rounded-lg font-mono text-[11px] leading-relaxed text-blue-300/90 whitespace-pre-wrap border border-white/5 scrollbar-thin">
-                      {promptQ.data.prompt}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-
           <button
             onClick={() => activeModuleKey && saveMut.mutate({ moduleKey: activeModuleKey, content: moduleContent })}
             disabled={saveMut.isPending || !activeModuleKey}
@@ -318,18 +271,21 @@ function AgenteV3AdminPage() {
                   <Bot className="h-4 w-4 text-primary" />
                   Prompt de Persona & Identidade
                 </label>
-                <textarea 
-                  value={configQ.data?.identity.persona || ""}
-                  onChange={(e) => {
-                    // This would need another server function to update identity specifically
-                    // For now we show it as visual proof of transparency
-                  }}
-                  className="w-full min-h-[300px] bg-background/50 border border-border rounded-xl p-6 font-mono text-sm leading-relaxed outline-none focus:ring-1 focus:ring-primary text-blue-100/90"
-                  readOnly
-                />
+                <div className="relative group overflow-hidden rounded-xl border border-border bg-card">
+                  <div className="absolute top-3 right-4 z-10">
+                     <span className="text-[10px] font-mono text-muted-foreground bg-background/80 px-2 py-1 rounded-md backdrop-blur-md border border-white/5">
+                       {(configQ.data?.identity.persona || "").length} caracteres
+                     </span>
+                  </div>
+                  <textarea 
+                    value={configQ.data?.identity.persona || ""}
+                    className="w-full min-h-[500px] bg-transparent p-6 font-mono text-sm leading-relaxed outline-none focus:ring-0 resize-none text-blue-100/90 scrollbar-thin"
+                    readOnly
+                  />
+                </div>
                 <p className="text-[10px] text-muted-foreground italic flex items-center gap-1.5">
                   <Info className="h-3 w-3" />
-                  Nota: A Identidade é o "Core" da Júlia. Edite este campo para mudar o nome ou o tom geral da marca.
+                  Nota: A Identidade é o "Core" da Júlia. Esta visão é apenas para leitura e transparência.
                 </p>
               </div>
             </CardContent>
