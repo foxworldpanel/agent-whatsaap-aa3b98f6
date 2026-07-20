@@ -14,6 +14,7 @@ const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/contatos", label: "Contatos", icon: Users },
   { to: "/agente", label: "Agente IA", icon: Bot },
+  { to: "/admin/agent-playground", label: "Agent Playground", icon: Zap },
   { to: "/disparos", label: "Disparos", icon: Send },
   { to: "/conversas", label: "Conversas", icon: MessagesSquare },
   { to: "/numeros", label: "Números", icon: Phone },

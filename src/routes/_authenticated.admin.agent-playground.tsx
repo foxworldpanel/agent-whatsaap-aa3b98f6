@@ -1,0 +1,472 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect, useRef } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { 
+  Plus, 
+  Trash2, 
+  Send, 
+  RefreshCw, 
+  Copy, 
+  ChevronRight, 
+  Settings2, 
+  Activity, 
+  History, 
+  Code, 
+  Database,
+  Search,
+  AlertTriangle,
+  FileJson,
+  Edit2,
+  GitBranch,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Coins,
+  Cpu,
+  ShieldCheck
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { runPlaygroundTurn } from "@/lib/agent-v3/playground.functions";
+
+export const Route = createFileRoute("/_authenticated/admin/agent-playground")({
+  component: AgentPlaygroundPage,
+});
+
+function AgentPlaygroundPage() {
+  const queryClient = useQueryClient();
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Queries
+  const { data: sessions, isLoading: sessionsLoading } = useQuery({
+    queryKey: ["playground_sessions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("agent_playground_sessions")
+        .select("*")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: messages, isLoading: messagesLoading } = useQuery({
+    queryKey: ["playground_messages", activeSessionId],
+    queryFn: async () => {
+      if (!activeSessionId) return [];
+      const { data, error } = await supabase
+        .from("agent_playground_messages")
+        .select("*")
+        .eq("session_id", activeSessionId)
+        .order("sequence", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!activeSessionId,
+  });
+
+  const { data: lastRun } = useQuery({
+    queryKey: ["playground_last_run", activeSessionId],
+    queryFn: async () => {
+      if (!activeSessionId) return null;
+      const { data, error } = await supabase
+        .from("agent_playground_runs")
+        .select("*")
+        .eq("session_id", activeSessionId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!activeSessionId,
+  });
+
+  // Mutations
+  const createSession = useMutation({
+    mutationFn: async (name: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Não autenticado");
+      const { data, error } = await supabase
+        .from("agent_playground_sessions")
+        .insert({
+          user_id: user.id,
+          name,
+          enabled_modules: ["identidade", "regras_gerais", "comportamento_humano"],
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["playground_sessions"] });
+      setActiveSessionId(data.id);
+      toast.success("Sessão criada!");
+    },
+  });
+
+  const sendMessage = useServerFn(runPlaygroundTurn);
+
+  const sendMessageMutation = useMutation({
+    mutationFn: async (text: string) => {
+      if (!activeSessionId) return;
+      return await sendMessage({
+        data: {
+          sessionId: activeSessionId,
+          message: text,
+          inputKind: "texto",
+        }
+      });
+    },
+    onMutate: () => {
+      setMessage("");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["playground_messages", activeSessionId] });
+      queryClient.invalidateQueries({ queryKey: ["playground_last_run", activeSessionId] });
+      toast.success("Resposta recebida");
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    }
+  });
+
+  const clearSession = useMutation({
+    mutationFn: async (sid: string) => {
+      const { error } = await supabase
+        .from("agent_playground_messages")
+        .delete()
+        .eq("session_id", sid);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["playground_messages", activeSessionId] });
+      toast.success("Sessão limpa");
+    }
+  });
+
+  const deleteSession = useMutation({
+    mutationFn: async (sid: string) => {
+      const { error } = await supabase
+        .from("agent_playground_sessions")
+        .delete()
+        .eq("id", sid);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["playground_sessions"] });
+      if (activeSessionId) setActiveSessionId(null);
+      toast.success("Sessão excluída");
+    }
+  });
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const activeSession = sessions?.find(s => s.id === activeSessionId);
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-120px)] gap-4 overflow-hidden">
+      {/* Faixa de Ambiente de Teste */}
+      <div className="bg-amber-100 border-l-4 border-amber-500 p-2 text-amber-800 text-xs font-semibold flex items-center gap-2">
+        <ShieldCheck className="h-4 w-4" />
+        AMBIENTE DE TESTE — nenhuma mensagem será enviada ao WhatsApp
+      </div>
+
+      <div className="flex flex-1 gap-4 overflow-hidden">
+        {/* Coluna 1: Sessões e Testes */}
+        <aside className="w-80 border rounded-lg bg-card flex flex-col overflow-hidden">
+          <div className="p-4 border-b space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Database className="h-4 w-4" /> Sessões
+              </h3>
+              <Button size="icon" variant="outline" onClick={() => createSession.mutate(`Novo teste ${sessions?.length || 0 + 1}`)}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Filtrar sessões..." className="pl-8 h-9" />
+            </div>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-1">
+              {sessionsLoading ? (
+                <div className="p-4 text-center text-sm text-muted-foreground">Carregando...</div>
+              ) : sessions?.map((session) => (
+                <div
+                  key={session.id}
+                  onClick={() => setActiveSessionId(session.id)}
+                  className={cn(
+                    "group flex items-center justify-between p-3 rounded-md cursor-pointer text-sm transition-colors",
+                    activeSessionId === session.id 
+                      ? "bg-primary text-primary-foreground" 
+                      : "hover:bg-accent"
+                  )}
+                >
+                  <div className="flex flex-col truncate">
+                    <span className="font-medium truncate">{session.name}</span>
+                    <span className={cn("text-[10px]", activeSessionId === session.id ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                      {new Date(session.updated_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="h-7 w-7"
+                      onClick={(e) => { e.stopPropagation(); deleteSession.mutate(session.id); }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </aside>
+
+        {/* Coluna 2: Chat */}
+        <div className="flex-1 flex flex-col border rounded-lg bg-card overflow-hidden">
+          <header className="p-4 border-b flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold">{activeSession?.name || "Selecione uma sessão"}</h2>
+              <p className="text-xs text-muted-foreground">{activeSessionId ? `playgroundSessionId: ${activeSessionId}` : "Crie um novo teste para começar"}</p>
+            </div>
+            {activeSessionId && (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => clearSession.mutate(activeSessionId)}>
+                  Limpar conversa
+                </Button>
+                <Button variant="outline" size="sm">
+                  <GitBranch className="h-4 w-4 mr-2" /> Ramificar
+                </Button>
+              </div>
+            )}
+          </header>
+
+          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+            <div className="space-y-4 max-w-3xl mx-auto">
+              {messagesLoading ? (
+                <div className="flex justify-center p-8 text-muted-foreground">Carregando mensagens...</div>
+              ) : messages?.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-20 text-center space-y-4 text-muted-foreground border-2 border-dashed rounded-xl mt-10">
+                  <Bot className="h-12 w-12 opacity-20" />
+                  <div>
+                    <p className="font-medium">Nenhuma mensagem nesta sessão</p>
+                    <p className="text-sm">Inicie a conversa para testar o agente V3</p>
+                  </div>
+                </div>
+              ) : messages?.map((msg) => (
+                <div key={msg.id} className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}>
+                  <div className={cn(
+                    "max-w-[85%] p-4 rounded-2xl text-sm shadow-sm",
+                    msg.role === "user" 
+                      ? "bg-primary text-primary-foreground rounded-tr-none" 
+                      : "bg-muted text-foreground rounded-tl-none border"
+                  )}>
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <div className={cn("mt-2 flex items-center gap-2 text-[10px]", msg.role === "user" ? "text-primary-foreground/50" : "text-muted-foreground")}>
+                      <span>{new Date(msg.created_at).toLocaleTimeString()}</span>
+                      {msg.input_kind && <Badge variant="secondary" className="text-[8px] h-3 px-1">{msg.input_kind}</Badge>}
+                      {msg.role === "agent" && msg.metadata?.temperature && (
+                        <span className="font-semibold text-orange-400">[{msg.metadata.temperature.toUpperCase()}]</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-1 flex gap-2">
+                     <Button size="icon" variant="ghost" className="h-6 w-6"><Copy className="h-3 w-3" /></Button>
+                     <Button size="icon" variant="ghost" className="h-6 w-6"><Edit2 className="h-3 w-3" /></Button>
+                  </div>
+                </div>
+              ))}
+              {sendMessageMutation.isPending && (
+                <div className="flex flex-col items-start">
+                  <div className="bg-muted p-4 rounded-2xl rounded-tl-none border animate-pulse flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Júlia está digitando...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          <footer className="p-4 border-t bg-muted/30">
+            <div className="max-w-3xl mx-auto flex flex-col gap-2">
+              <div className="flex gap-2">
+                <textarea
+                  placeholder="Digite uma mensagem para testar o agente..."
+                  className="flex-1 bg-background border rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px] resize-none shadow-inner"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (message.trim() && activeSessionId) sendMessageMutation.mutate(message);
+                    }
+                  }}
+                  disabled={!activeSessionId || sendMessageMutation.isPending}
+                />
+                <Button 
+                  className="h-auto px-6" 
+                  disabled={!activeSessionId || !message.trim() || sendMessageMutation.isPending}
+                  onClick={() => sendMessageMutation.mutate(message)}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex justify-between items-center text-[10px] text-muted-foreground px-1">
+                <span>Enter para enviar, Shift + Enter para nova linha</span>
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="text-[9px]">Input: Texto</Badge>
+                  <Badge variant="outline" className="text-[9px]">Model: Haiku 4.5</Badge>
+                </div>
+              </div>
+            </div>
+          </footer>
+        </div>
+
+        {/* Coluna 3: Inspector */}
+        <aside className="w-96 border rounded-lg bg-card flex flex-col overflow-hidden">
+          <Tabs defaultValue="resumo" className="flex-1 flex flex-col">
+            <div className="p-2 border-b">
+              <TabsList className="w-full h-8 grid grid-cols-5">
+                <TabsTrigger value="resumo" className="text-[10px]"><Activity className="h-3 w-3 mr-1" /></TabsTrigger>
+                <TabsTrigger value="modulos" className="text-[10px]"><Settings2 className="h-3 w-3 mr-1" /></TabsTrigger>
+                <TabsTrigger value="prompt" className="text-[10px]"><Code className="h-3 w-3 mr-1" /></TabsTrigger>
+                <TabsTrigger value="custo" className="text-[10px]"><Coins className="h-3 w-3 mr-1" /></TabsTrigger>
+                <TabsTrigger value="json" className="text-[10px]"><FileJson className="h-3 w-3 mr-1" /></TabsTrigger>
+              </TabsList>
+            </div>
+
+            <ScrollArea className="flex-1">
+              <TabsContent value="resumo" className="p-4 m-0 space-y-4">
+                <Card className="border-none shadow-none bg-transparent">
+                  <CardHeader className="p-0 pb-2">
+                    <CardTitle className="text-sm">Resumo da Execução</CardTitle>
+                    <CardDescription className="text-xs">Última resposta gerada</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0 space-y-3">
+                     <div className="grid grid-cols-2 gap-2">
+                       <div className="p-2 border rounded-md bg-muted/20">
+                         <p className="text-[10px] text-muted-foreground">Modelo</p>
+                         <p className="text-xs font-medium">{lastRun?.model || "---"}</p>
+                       </div>
+                       <div className="p-2 border rounded-md bg-muted/20">
+                         <p className="text-[10px] text-muted-foreground">Status</p>
+                         <p className="text-xs font-medium flex items-center gap-1">
+                           <CheckCircle2 className="h-3 w-3 text-green-500" /> Sucesso
+                         </p>
+                       </div>
+                       <div className="p-2 border rounded-md bg-muted/20">
+                         <p className="text-[10px] text-muted-foreground">Latência total</p>
+                         <p className="text-xs font-medium">{lastRun?.latency_ms || 0}ms</p>
+                       </div>
+                       <div className="p-2 border rounded-md bg-muted/20">
+                         <p className="text-[10px] text-muted-foreground">Request ID</p>
+                         <p className="text-[9px] font-mono truncate">{lastRun?.anthropic_request_id || "---"}</p>
+                       </div>
+                     </div>
+                     <Separator />
+                     <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Temperatura extraída:</span>
+                          <span className="font-semibold text-orange-400">QUENTE</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Intenção:</span>
+                          <span>Compra</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Estágio:</span>
+                          <span>Fechamento</span>
+                        </div>
+                     </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="modulos" className="p-4 m-0 space-y-4">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-xs font-semibold mb-2">Módulos Selecionados</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {["identidade", "regras_gerais", "comportamento_humano", "fluxo_vendas"].map(m => (
+                        <Badge key={m} variant="secondary" className="text-[9px]">{m}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <Separator />
+                  <div>
+                    <h4 className="text-xs font-semibold mb-2">Controle de Módulos (Simulação)</h4>
+                    <div className="space-y-2">
+                      {["Instagram", "Spotify", "YouTube", "TikTok", "Fluxo de Vendas", "Suporte"].map(m => (
+                        <div key={m} className="flex items-center space-x-2">
+                          <Checkbox id={m} checked={m === "Fluxo de Vendas"} />
+                          <label htmlFor={m} className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            {m}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="prompt" className="p-0 m-0">
+                <div className="p-4 bg-muted/50 font-mono text-[10px] whitespace-pre-wrap break-all leading-relaxed h-[500px]">
+                  {lastRun?.system_prompt_snapshot || "Nenhuma execução registrada."}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="custo" className="p-4 m-0 space-y-4">
+                <div className="space-y-4">
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-muted-foreground">Input Tokens</p>
+                        <p className="text-sm font-semibold">{lastRun?.input_tokens || 0}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-muted-foreground">Output Tokens</p>
+                        <p className="text-sm font-semibold">{lastRun?.output_tokens || 0}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-muted-foreground">Cache Write</p>
+                        <p className="text-sm font-semibold">{lastRun?.cache_creation_input_tokens || 0}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-muted-foreground">Cache Read</p>
+                        <p className="text-sm font-semibold">{lastRun?.cache_read_input_tokens || 0}</p>
+                      </div>
+                   </div>
+                   <Separator />
+                   <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 flex flex-col items-center">
+                     <p className="text-[10px] text-muted-foreground">Custo Total da Execução</p>
+                     <p className="text-2xl font-bold text-primary">US$ {lastRun?.cost_usd ? Number(lastRun.cost_usd).toFixed(8) : "0.00000000"}</p>
+                   </div>
+                </div>
+              </TabsContent>
+            </ScrollArea>
+          </Tabs>
+        </aside>
+      </div>
+    </div>
+  );
+}
