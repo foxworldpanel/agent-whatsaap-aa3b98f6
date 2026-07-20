@@ -190,8 +190,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       if (content.kind === "audio" && content.mediaUrl) {
         try {
           console.log("[V3-GATE] Áudio detectado, iniciando transcrição...");
-          const { transcribeAudio } = await import("@/lib/agent-v3/audio-processor.server");
-          const transcription = await transcribeAudio(content.mediaUrl);
+          const { processAudioV3 } = await import("@/lib/agent-v3/audio-processor.server");
+          const transcription = await processAudioV3(content.mediaUrl);
           if (transcription) {
             finalMsgText = transcription;
             transcriptionAttempted = true;
