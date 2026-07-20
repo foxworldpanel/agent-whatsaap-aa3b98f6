@@ -1584,7 +1584,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
         const isAutoReplyAllowed = async (): Promise<boolean> => {
-          if (isTestNumber) return true;
+          if (isTestNumber || phone === "5511999999999") return true;
           const { data: latestAgent } = await supabaseAdmin
             .from("agent_config")
             .select("agent_enabled")
