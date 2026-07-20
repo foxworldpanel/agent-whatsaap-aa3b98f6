@@ -107,7 +107,6 @@ ${identity.reconhecimento_interesse || ""}
 ${identity.regra_encerramento}
 ${identity.regra_estilo_escrita}
 `,
-      cache_control: { type: "ephemeral" }
     },
     {
       type: "text",
