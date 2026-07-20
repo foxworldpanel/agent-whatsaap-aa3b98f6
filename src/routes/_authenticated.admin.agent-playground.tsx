@@ -24,7 +24,8 @@ import {
   Clock,
   Coins,
   Cpu,
-  ShieldCheck
+  ShieldCheck,
+  Bot
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -286,8 +287,8 @@ function AgentPlaygroundPage() {
                     <div className={cn("mt-2 flex items-center gap-2 text-[10px]", msg.role === "user" ? "text-primary-foreground/50" : "text-muted-foreground")}>
                       <span>{new Date(msg.created_at).toLocaleTimeString()}</span>
                       {msg.input_kind && <Badge variant="secondary" className="text-[8px] h-3 px-1">{msg.input_kind}</Badge>}
-                      {msg.role === "agent" && msg.metadata?.temperature && (
-                        <span className="font-semibold text-orange-400">[{msg.metadata.temperature.toUpperCase()}]</span>
+                      {msg.role === "agent" && msg.metadata && typeof msg.metadata === 'object' && !Array.isArray(msg.metadata) && msg.metadata.temperature && (
+                        <span className="font-semibold text-orange-400">[{(msg.metadata.temperature as string).toUpperCase()}]</span>
                       )}
                     </div>
                   </div>
