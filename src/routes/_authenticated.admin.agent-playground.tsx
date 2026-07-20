@@ -179,6 +179,19 @@ function AgentPlaygroundPage() {
     }
   });
 
+  const updateSessionModules = useMutation({
+    mutationFn: async ({ sid, modules }: { sid: string, modules: string[] }) => {
+      const { error } = await supabase
+        .from("agent_playground_sessions")
+        .update({ enabled_modules: modules })
+        .eq("id", sid);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["playground_sessions"] });
+    }
+  });
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -433,16 +446,41 @@ function AgentPlaygroundPage() {
                   </div>
                   <Separator />
                   <div>
-                    <h4 className="text-xs font-semibold mb-2">Controle de Módulos (Simulação)</h4>
+                    <h4 className="text-xs font-semibold mb-2">Controle de Módulos</h4>
                     <div className="space-y-2">
-                      {["Instagram", "Spotify", "YouTube", "TikTok", "Fluxo de Vendas", "Suporte"].map(m => (
-                        <div key={m} className="flex items-center space-x-2">
-                          <Checkbox id={m} checked={m === "Fluxo de Vendas"} />
-                          <label htmlFor={m} className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            {m}
-                          </label>
-                        </div>
-                      ))}
+                      {[
+                        { id: "identidade", label: "Identidade", core: true },
+                        { id: "regras_gerais", label: "Regras Gerais", core: true },
+                        { id: "comportamento_humano", label: "Comportamento Humano", core: true },
+                        { id: "fluxo_vendas", label: "Fluxo de Vendas", core: false },
+                        { id: "spotify", label: "Spotify", core: false },
+                        { id: "instagram", label: "Instagram", core: false },
+                        { id: "youtube", label: "YouTube", core: false },
+                        { id: "tiktok", label: "TikTok", core: false },
+                        { id: "suporte", label: "Suporte", core: false }
+                      ].map(m => {
+                        const isEnabled = activeSession?.enabled_modules?.includes(m.id);
+                        return (
+                          <div key={m.id} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={m.id} 
+                              disabled={m.core || !activeSessionId}
+                              checked={m.core || isEnabled} 
+                              onCheckedChange={(checked) => {
+                                if (m.core || !activeSessionId) return;
+                                const current = activeSession?.enabled_modules || [];
+                                const next = checked 
+                                  ? [...current, m.id] 
+                                  : current.filter(id => id !== m.id);
+                                updateSessionModules.mutate({ sid: activeSessionId, modules: next });
+                              }}
+                            />
+                            <label htmlFor={m.id} className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                              {m.label} {m.core && <span className="text-[10px] text-muted-foreground">(Core)</span>}
+                            </label>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
