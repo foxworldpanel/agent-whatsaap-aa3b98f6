@@ -21,6 +21,7 @@ import { Route as AuthenticatedConversasRouteImport } from './routes/_authentica
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
+import { Route as ApiPublicHooksV3TestWebhookRouteImport } from './routes/api/public/hooks/v3-test-webhook'
 import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
 import { Route as ApiPublicHooksSmmPollRouteImport } from './routes/api/public/hooks/smm-poll'
 import { Route as ApiPublicHooksCampaignDispatcherRouteImport } from './routes/api/public/hooks/campaign-dispatcher'
@@ -88,6 +89,12 @@ const AuthenticatedAgenteRoute = AuthenticatedAgenteRouteImport.update({
   path: '/agente',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const ApiPublicHooksV3TestWebhookRoute =
+  ApiPublicHooksV3TestWebhookRouteImport.update({
+    id: '/api/public/hooks/v3-test-webhook',
+    path: '/api/public/hooks/v3-test-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksUazapiWebhookRoute =
   ApiPublicHooksUazapiWebhookRouteImport.update({
     id: '/api/public/hooks/uazapi-webhook',
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
+  '/api/public/hooks/v3-test-webhook': typeof ApiPublicHooksV3TestWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -153,6 +161,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
+  '/api/public/hooks/v3-test-webhook': typeof ApiPublicHooksV3TestWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -173,6 +182,7 @@ export interface FileRoutesById {
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
+  '/api/public/hooks/v3-test-webhook': typeof ApiPublicHooksV3TestWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
+    | '/api/public/hooks/v3-test-webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
+    | '/api/public/hooks/v3-test-webhook'
   id:
     | '__root__'
     | '/'
@@ -230,6 +242,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
+    | '/api/public/hooks/v3-test-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -241,6 +254,7 @@ export interface RootRouteChildren {
   ApiPublicHooksCampaignDispatcherRoute: typeof ApiPublicHooksCampaignDispatcherRoute
   ApiPublicHooksSmmPollRoute: typeof ApiPublicHooksSmmPollRoute
   ApiPublicHooksUazapiWebhookRoute: typeof ApiPublicHooksUazapiWebhookRoute
+  ApiPublicHooksV3TestWebhookRoute: typeof ApiPublicHooksV3TestWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -329,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgenteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/v3-test-webhook': {
+      id: '/api/public/hooks/v3-test-webhook'
+      path: '/api/public/hooks/v3-test-webhook'
+      fullPath: '/api/public/hooks/v3-test-webhook'
+      preLoaderRoute: typeof ApiPublicHooksV3TestWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/uazapi-webhook': {
       id: '/api/public/hooks/uazapi-webhook'
       path: '/api/public/hooks/uazapi-webhook'
@@ -404,6 +425,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksCampaignDispatcherRoute: ApiPublicHooksCampaignDispatcherRoute,
   ApiPublicHooksSmmPollRoute: ApiPublicHooksSmmPollRoute,
   ApiPublicHooksUazapiWebhookRoute: ApiPublicHooksUazapiWebhookRoute,
+  ApiPublicHooksV3TestWebhookRoute: ApiPublicHooksV3TestWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
