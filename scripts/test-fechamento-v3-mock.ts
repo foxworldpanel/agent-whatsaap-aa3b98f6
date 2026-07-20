@@ -23,7 +23,7 @@ async function testFechamento() {
     // Na V3 real, o Claude receberia a regra reforçada.
     // Aqui validamos que o orquestrador está pronto para receber a resposta e processar.
     
-    const mockReply = `[TEMP:quente] [INTENT:fechamento] [STAGE:venda] Perfeito! Segue o link do nosso painel para você concluir: https://app.mind.bet. O cadastro é super rápido!`;
+    const mockReply = `[TEMP:quente] [INTENT:fechamento] [STAGE:venda] Perfeito! Segue o link do nosso painel para você concluir: https://mindsmmpanel.com. O cadastro é super rápido!`;
     
     // Vamos apenas verificar se o orquestrador montou o prompt com a regra nova (via log ou inspeção se tivéssemos acesso ao objeto de retorno)
     // Como já aplicamos o line_replace, a regra ESTÁ lá.
