@@ -61,21 +61,7 @@ export const DEFAULT_IDENTITY: AgentIdentityFields = {
 
   regra_teste_gratis: "", // Movido para módulo condicional 'teste_gratis'
 
-  regra_anti_invencao: `ANTI-INVENÇÃO (ABSOLUTA):
-- O agente tem que puxar os valores apenas do módulo da rede social correspondente. ESQUECE tudo de valor se estiver fora desses módulos.
-- SERVIÇOS COMPOSTOS: Trate como UM ÚNICO serviço indivisível. NUNCA ofereça separar em partes que não existem como opção própria.
-- Nunca assume ou inventa rede, serviço, quantidade ou preço. PERGUNTA ou explica a limitação.
-- NUNCA invente estatísticas ou números específicos. PROVA SOCIAL sempre genérica e qualitativa.
-- NUNCA invente status de pedido sem ver print. NUNCA prometa prazo específico.
-- QUANTIDADE + PREÇO SEMPRE JUNTOS: toda vez que apresentar opção de quantidade, a MENOR quantidade REAL + PREÇO REAL calculado têm que aparecer na MESMA mensagem. PROIBIDO perguntar "quantas você quer?" sem preço junto.
-
-PROGRESSO DO FUNIL — NUNCA REPETIR DESCOBERTA JÁ FEITA (ABSOLUTA):
-Qualquer dado já coletado É DEFINITIVO até o cliente mudar de ideia explicitamente. PROIBIDO reperguntar rede, serviço ou quantidade que o cliente já respondeu antes na mesma conversa.
-
-  MODO FECHAMENTO:
-- Se o cliente disser que JÁ TEM CADASTRO: vai DIRETO pra instrução de fechamento com os dados JÁ combinados.
-- Se o cliente disser que NÃO TEM CADASTRO: orienta criar conta rápida no painel e reforça o mesmo fechamento com os dados JÁ combinados.
-- VETO DE REPETIÇÃO DE SERVIÇO: Se o cliente já escolheu um serviço e você já passou o link do painel, a resposta seguinte às confirmações dele ("ok", "blz") DEVE ser apenas um encerramento ou oferta de ajuda adicional.`,
+  regra_anti_invencao: "", // Redundant with Orchestrator V3 Golden Rules (ANTI-INVENÇÃO, PROIBIDO ABSOLUTO, MODO FECHAMENTO)
 
 
   // BRAND — vazio no código; vem 100% do DB por workspace.
@@ -86,7 +72,7 @@ Qualquer dado já coletado É DEFINITIVO até o cliente mudar de ideia explicita
   reconhecimento_interesse: "", // Redundant with Orchestrator V3 CATEGORIAS DE INTERESSE and MODO FECHAMENTO
 
   // SAFETY genérico (versão reescrita sem citar painel/PIX/reposição).
-  regra_encerramento: `ENCERRAMENTO POR RECUSA (SAFETY):\n\nREGRA ABSOLUTA: se a mensagem do cliente termina com "?", NUNCA é recusa, mesmo contendo "não". É objeção genuína — responda com CONFIANÇA e reasseguramento apropriado ao seu negócio. PROIBIDO usar "tudo bem", "desculpa o incômodo" em resposta a pergunta com "?".\n\nSÓ QUANDO FOR RECUSA REAL (afirmação sem "?"), agradeça educadamente, NÃO insista, NÃO tente reverter, NÃO ofereça teste/desconto/alternativa. Envie APENAS uma mensagem curta e calorosa de encerramento. Adaptada ao idioma.`,
+  regra_encerramento: "", // Redundant with Orchestrator V3 Rules (Objeções ? e CATEGORIAS DE INTERESSE)
 
   // SAFETY genérico (versão reescrita sem citar Júlia/Mind).
   regra_estilo_escrita: "", // Redundant with Orchestrator V3 Golden Rules and REGRA DE CONCISÃO
