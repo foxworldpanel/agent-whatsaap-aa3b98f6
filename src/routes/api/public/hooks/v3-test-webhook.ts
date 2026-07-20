@@ -3,7 +3,7 @@ import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
 
 // [V3-TEST] Webhook receiver isolado para testes da arquitetura V3.
 // URL: {site}/api/public/hooks/v3-test-webhook
-// Número autorizado: 5511999999999
+// Número autorizado: 5511970116430
 
 type UazapiPayload = {
   event?: string;
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
         const phone = payload.message?.chatid?.split("@")[0] || payload.message?.sender?.split("@")[0];
         
         // Gate de segurança para o número de teste
-        if (phone !== "5511999999999") {
+        if (phone !== "5511970116430") {
           return new Response("Unauthorized number", { status: 403 });
         }
 
