@@ -475,13 +475,14 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
     handlers: {
       POST: async ({ request }) => {
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        // Lê o RAW body PRIMEIRO para garantir o dump mesmo se algo abaixo quebrar.
         const rawBody = await request.text();
         
-        // Log persistente no banco antes de qualquer processamento
+        // Log ultra-prioritário no console e banco
+        console.log("DEBUG_RAW_WEBHOOK_START", { length: rawBody.length });
+        
         try {
           await supabaseAdmin.from("agent_logs").insert({
-            user_id: "f8da521a-e8db-4efe-8c9b-9bd69749c0a7", // Mind SMM ID
+            user_id: "f8da521a-e8db-4efe-8c9b-9bd69749c0a7",
             type: "webhook_raw_debug",
             level: "info",
             summary: `DEBUG Webhook recebido (len=${rawBody.length})`,
