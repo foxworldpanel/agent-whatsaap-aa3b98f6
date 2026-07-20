@@ -18,33 +18,68 @@ export const KEYWORD_MAP: Record<string, string[]> = {
 
 export function selectRelevantModules(text: string, enabledModules: string[]): string[] {
   console.log("[v3-module-selector] Input text:", text);
-  console.log("[v3-module-selector] Received enabledModules:", enabledModules);
   
   const normalizedText = text.toLowerCase();
-  const selectedKeys = new Set<string>(["identidade", "regras_gerais", "comportamento_humano"]); // Always include base modules
+  
+  // FASE 3: Progressive Module Loading Logic
+  const selectedKeys = new Set<string>(["identidade"]); // Basic Persona always present
 
-  // Core business logic: search for keywords
+  // 1. Basic behavior / rules - only for greetings or base state
+  selectedKeys.add("regras_gerais");
+  selectedKeys.add("comportamento_humano");
+
+  // 2. Intent Detection
+  const hasCommercialIntent = ["comprar", "quero", "interesse", "ajuda", "serviço", "impulsionar", "divulgar"].some(kw => normalizedText.includes(kw));
+  const isPriceRequested = ["quanto", "valor", "preço", "tabela", "custa", "lista"].some(kw => normalizedText.includes(kw));
+  const isClosing = ["fechar", "quero esse", "vou querer", "blz", "ok", "manda o link"].some(kw => normalizedText.includes(kw));
+  const isSupport = ["problema", "erro", "pedido", "ajuda", "status", "atraso", "caiu", "ticket"].some(kw => normalizedText.includes(kw));
+
+  // 3. Audio/Image detection (handled by orchestrator injection usually, but we ensure here)
+  if (normalizedText.includes("[audio]") || normalizedText.includes("[transcrição]")) {
+    selectedKeys.add("texto_ou_audio");
+  }
+
+  // 4. Conditional Loading Rules (Phase 3)
+  if (isSupport) {
+    selectedKeys.add("suporte");
+    // Rule: Don't load sales modules if it's support
+  } else {
+    // Only load sales modules if NOT support
+    if (hasCommercialIntent) {
+      selectedKeys.add("fluxo_vendas");
+      selectedKeys.add("tecnicas_vendas");
+    }
+
+    if (isPriceRequested) {
+      selectedKeys.add("tabela_precos");
+      selectedKeys.add("calculo_preco");
+    }
+
+    if (isClosing) {
+      selectedKeys.add("fechamento_3");
+    }
+  }
+
+  // 5. Network specific modules (Add only detected network)
   for (const [moduleKey, keywords] of Object.entries(KEYWORD_MAP)) {
-    // Only check if module is enabled in the config
-    const isEnabled = enabledModules.includes(moduleKey);
-    if (isEnabled) {
+    // Skip general modules already handled
+    if (["pagamentos", "tabela_precos", "suporte", "como_usar_painel", "prova_social"].includes(moduleKey)) continue;
+
+    if (enabledModules.includes(moduleKey)) {
       if (keywords.some(kw => normalizedText.includes(kw))) {
-        console.log(`[v3-module-selector] Module '${moduleKey}' SELECTED via keyword match.`);
+        console.log(`[v3-module-selector] Network Module '${moduleKey}' SELECTED.`);
         selectedKeys.add(moduleKey);
-      }
-    } else {
-      // Log modules that are NOT enabled but have matching keywords to help debug
-      if (keywords.some(kw => normalizedText.includes(kw))) {
-        console.log(`[v3-module-selector] Module '${moduleKey}' matched keywords but is NOT in enabledModules list.`);
       }
     }
   }
 
-  // If after keyword search we still only have base modules, maybe it's a generic sales talk
-  if (selectedKeys.size <= 3) {
-    console.log("[v3-module-selector] No specific module selected, adding default sales modules.");
-    selectedKeys.add("fluxo_vendas");
-    selectedKeys.add("tecnicas_vendas");
+  // Global utilities if relevant
+  if (normalizedText.includes("link") || normalizedText.includes("site") || normalizedText.includes("painel")) {
+    selectedKeys.add("como_usar_painel");
+  }
+  
+  if (normalizedText.includes("pagar") || normalizedText.includes("pix") || normalizedText.includes("pagamento")) {
+    selectedKeys.add("pagamentos");
   }
 
   const result = Array.from(selectedKeys);

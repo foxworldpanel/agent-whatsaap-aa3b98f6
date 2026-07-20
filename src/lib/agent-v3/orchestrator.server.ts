@@ -71,7 +71,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
 
   const isAudioInput = message.toLowerCase().includes("[audio]") || message.toLowerCase().includes("[transcrição]");
   const isImageInput = message.toLowerCase().includes("[imagem]") || message.toLowerCase().includes("[foto]");
-  const hasIntentSupport = message.toLowerCase().includes("pedido") || message.toLowerCase().includes("problema") || message.toLowerCase().includes("ajuda");
+  const hasIntentSupport = moduleKeys.includes("suporte");
 
   const systemPrompt = [
     { 
@@ -91,13 +91,9 @@ ${modulePrompt}
 
 IDENTIDADE E PERSONA:
 ${identity.persona}
-${identity.terminologia_redes}
-${identity.exemplo_disparo}
 
 REGRA DE CONCISÃO:
 - Seja breve e cubra somente as informações necessárias para o próximo passo.
-
-RESPEITE A INTENÇÃO DETECTADA: venda, cortesia, suporte ou recusa.
 
 ${hasIntentSupport ? `SUPORTE: Se houver pedido existente ou intenção de suporte, priorize suporte e não reinicie o funil.` : ""}
 
