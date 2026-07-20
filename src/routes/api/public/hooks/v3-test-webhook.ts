@@ -2971,47 +2971,44 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Resposta final do agente
           reply = "";
 
-          const _claudeOut = await generateAgentReplyWithMeta(_claudeArgs);
-          reply = _claudeOut.text;
-          const leadTemperature = _claudeOut.leadTemperature;
+          const _enabledModules = Object.entries((agent as { modules_enabled?: Record<string, boolean> }).modules_enabled ?? {})
+            .filter(([_, enabled]) => enabled !== false)
+            .map(([key]) => key);
+
+          const _claudeOut = await runAgentV3Turn({
+            userId,
+            message: text ?? inboundBody ?? "",
+            history: aiHistory.map(m => ({ role: m.sender === "agente" ? "agent" : "user", content: m.body })),
+            enabledModules: _enabledModules,
+            anthropicApiKey: integ.anthropic_api_key ?? undefined,
+            extraContext: _claudeArgs.extraContext ?? undefined,
+            isInbound: _claudeArgs.isInbound
+          });
+
+          reply = _claudeOut.replies.join("===SPLIT===");
+          const leadTemperature = _claudeOut.temperature;
           const _claudeMs = Date.now() - _claudeStart;
-          const _claudeModel = _claudeOut.model;
-          const _claudeRoutingReason = _claudeOut.routingReason;
-          console.log('Resposta do Claude (V1):', reply);
+          const _claudeModel = "claude-haiku-4-5";
+          const _claudeRoutingReason = "v3-test-webhook";
+          console.log('Resposta do Claude (V3-TEST):', reply);
           
-          // Safety net V1: saudações repetidas
-          try {
-            const { isReengagementGreeting, isNeutralGreetingAfterBlastOpening } =
-              await import("@/lib/ai.server");
-            const inReengagementMode =
-              isReengagementGreeting(aiHistory ?? []) ||
-              isNeutralGreetingAfterBlastOpening(aiHistory ?? []);
-            const hasPriorAgent = (aiHistory ?? []).some((m) => m.sender === "agente");
-            if (hasPriorAgent && reply && !inReengagementMode) {
-              const parts = reply.split("===SPLIT===");
-              const greetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
-              parts[0] = parts[0].replace(greetRe, "").trimStart();
-              const cleaned = parts.join("===SPLIT===").trim();
-              if (cleaned.length > 0) reply = cleaned;
-            }
-          } catch {}
-          
-          // Log V1
+          // Log V3
           try {
             const { logEvent } = await import("@/lib/agent-logger.server");
             await logEvent({
               userId, phone, conversationId: conv?.id,
               type: "claude_reply", level: "info",
-              summary: `🤖 ${_claudeModel} respondeu (${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
+              summary: `🤖 ${_claudeModel} respondeu (V3-TEST, ${_claudeMs}ms): ${(reply ?? "").slice(0, 80)}`,
               prompt: JSON.stringify({
                 model: _claudeModel,
                 routingReason: _claudeRoutingReason,
                 contact: _claudeArgs.contact,
                 historyCount: aiHistory?.length ?? 0,
+                v3Usage: _claudeOut.usage
               }, null, 2),
               response: reply ?? null,
               durationMs: _claudeMs,
-              metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas" },
+              metadata: { model: _claudeModel, routingReason: _claudeRoutingReason, origem: "conversas", v3: true },
             });
           } catch {}
 
