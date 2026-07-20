@@ -624,6 +624,7 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
   },
 });
 
+
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         const event = (payload.event ?? payload.EventType ?? "").toLowerCase();
