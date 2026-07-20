@@ -607,6 +607,8 @@ export type Database = {
           cache_creation_input_tokens: number | null
           cache_read_input_tokens: number | null
           confidence: string | null
+          conversation_feedback: Json | null
+          conversation_score: number | null
           cost_usd: number | null
           created_at: string
           history_chars: number | null
@@ -636,6 +638,8 @@ export type Database = {
           cache_creation_input_tokens?: number | null
           cache_read_input_tokens?: number | null
           confidence?: string | null
+          conversation_feedback?: Json | null
+          conversation_score?: number | null
           cost_usd?: number | null
           created_at?: string
           history_chars?: number | null
@@ -665,6 +669,8 @@ export type Database = {
           cache_creation_input_tokens?: number | null
           cache_read_input_tokens?: number | null
           confidence?: string | null
+          conversation_feedback?: Json | null
+          conversation_score?: number | null
           cost_usd?: number | null
           created_at?: string
           history_chars?: number | null
