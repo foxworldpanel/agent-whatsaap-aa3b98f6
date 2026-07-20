@@ -115,10 +115,37 @@ export const VERBOSE_LOOP_FAREWELL = "Entendo! Como não conseguimos avançar po
 
 const REENG_GREETING_START_RX = /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite|oi+|ol[aá]+|opa|eae|e\s*a[ií]|hey|hi|hello|good\s*morning|good\s*afternoon|good\s*evening|hola|buenos\s*d[ií]as|buenas\s*tardes|buenas\s*noches)\b/i;
 
+/**
+ * Checa se a mensagem do cliente é puramente uma saudação.
+ */
+export function isPureGreeting(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  // Se tiver mais de 25 caracteres, provavelmente não é só saudação
+  if (normalized.length > 25) return false;
+  
+  // Lista de saudações comuns
+  const commonGreetings = [
+    "oi", "ola", "olá", "opa", "bom dia", "boa tarde", "boa noite", 
+    "hi", "hello", "hey", "good morning", "good afternoon", "good evening",
+    "hola", "buenos dias", "buenos días", "buenas tardes", "buenas noches",
+    "tudo bem", "como vai", "tudo bom", "eae", "e ai", "e aí"
+  ];
+  
+  // Remove pontuação para checar
+  const plainText = normalized.replace(/[!?.,]/g, "").trim();
+  return commonGreetings.includes(plainText);
+}
+
 export function enforceReengagementGreeting(text: string, latestClientMsg: string, nowDate: Date = new Date()) {
   const trimmed = (text ?? "").trim();
   if (!trimmed) return { text: trimmed, prepended: false };
+  
+  // Bug 1: A Júlia já começou com saudação? Se sim, não precisa prepender.
   if (REENG_GREETING_START_RX.test(trimmed)) return { text: trimmed, prepended: false };
+  
+  // Bug 1: A última mensagem do cliente foi uma saudação PURA?
+  // Se não foi, não prepender saudação automaticamente.
+  if (!isPureGreeting(latestClientMsg)) return { text: trimmed, prepended: false };
   
   const greeting = pickReengagementGreeting(latestClientMsg, nowDate);
   return { text: `${greeting}! ${trimmed}`, prepended: true };
