@@ -34,6 +34,7 @@ export interface AgentResponseV3 {
   rawResponse?: string;
   rawPrompt?: any;
   usage?: any;
+  selectedModules: string[];
 }
 
 /**
@@ -117,7 +118,8 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
       intent: "suporte",
       stage: "lead",
       replies: ["Pra finalizar rapidinho seu pedido, é só acessar mindsmmpanel.com e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados."],
-      rawPrompt: systemPrompt
+      rawPrompt: systemPrompt,
+      selectedModules: moduleKeys
     };
   }
 
@@ -185,6 +187,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     replies,
     rawResponse: rawText,
     rawPrompt: systemPrompt,
-    usage: response.usage
+    usage: response.usage,
+    selectedModules: moduleKeys
   };
 }
