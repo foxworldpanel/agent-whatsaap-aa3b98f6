@@ -2056,6 +2056,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        // [V3-TEST-GATE] Apenas o número de teste V3 passa por aqui
+        const V3_TEST_PHONE = "5511999999999"; // Substitua pelo número real de teste
+        if (phone !== V3_TEST_PHONE && !isTestNumber) {
+           console.log(`[v3-test-gate] Bloqueando acesso de ${phone} à rota de teste V3.`);
+           return new Response("ok (v3-test route restricted)");
+        }
+        
         // Arquitetura unificada: qualquer número pode receber inbound e usar
         // disparo ativo simultaneamente. O toggle disparos_mode passa a ser
         // apenas um rótulo — a Júlia sempre assume a conversa em qualquer
