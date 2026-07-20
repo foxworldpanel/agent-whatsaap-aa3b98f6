@@ -639,11 +639,11 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 });
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { supabaseAdmin: adminEarly } = await import("@/integrations/supabase/client.server");
         const event = (payload.event ?? payload.EventType ?? "").toLowerCase();
         const msgLocal = payload.message ?? payload.data ?? {};
         const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
-        const phoneStrLocal = String(phoneLocal);
+        const phoneStrLocal = String(phoneLocal || "");
         const isV3TargetLocal = phoneStrLocal === "5511970116430";
 
         // [V3-ROUTING-GATE-EARLY]
@@ -653,16 +653,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const instanceToken = pickInstanceToken(payload);
             const { text: msgText } = extractContent(payload);
             
-            const { data: num } = await supabaseAdmin
+            const { data: num } = await adminEarly
               .from("whatsapp_numbers")
               .select("user_id, workspace_id, uazapi_url")
-              .eq("uazapi_token", instanceToken)
+              .eq("uazapi_token", instanceToken || "")
               .maybeSingle();
             
             const targetUserId = num?.user_id || "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
-            const targetWorkspaceId = num?.workspace_id || "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
             
-            const { data: integ } = await supabaseAdmin
+            const { data: integ } = await adminEarly
               .from("integrations")
               .select("anthropic_api_key")
               .eq("user_id", targetUserId)
@@ -676,7 +675,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const v3Response = await runAgentV3Turn({
               userId: targetUserId,
               message: msgText || "",
-              history: history.map(h => ({ role: h.sender === 'agente' ? 'agent' : 'customer', content: h.body })),
+              history: history.map((h: any) => ({ role: h.sender === 'agente' ? 'agent' : 'customer', content: h.body })),
               anthropicApiKey: integ?.anthropic_api_key || ""
             });
 
@@ -688,7 +687,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               { sender: "agente", body: replyText }
             ]);
 
-            const { data: conv } = await supabaseAdmin
+            const { data: conv } = await adminEarly
               .from("conversations")
               .select("id")
               .eq("user_id", targetUserId)
