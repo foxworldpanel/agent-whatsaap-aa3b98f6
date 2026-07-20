@@ -1,10 +1,10 @@
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
 
 export const KEYWORD_MAP: Record<string, string[]> = {
-  spotify: ["spotify", "playlist", "ouvintes", "streams", "save"],
+  spotify: ["spotify", "playlist", "ouvintes", "streams", "save", "plays"],
   instagram: ["instagram", "insta", "ig ", "seguidores ig", "reels", "curtidas instagram"],
-  youtube: ["youtube", "yt ", "inscritos", "views youtube", "likes youtube", "horas"],
-  tiktok: ["tiktok", "tik tok", "views tiktok", "seguidores tiktok"],
+  youtube: ["youtube", "yt ", "inscritos", "views", "likes", "horas"],
+  tiktok: ["tiktok", "tik tok", "views", "seguidores"],
   kwai: ["kwai"],
   facebook: ["facebook", "face "],
   x_twitter: ["twitter", "x "],
