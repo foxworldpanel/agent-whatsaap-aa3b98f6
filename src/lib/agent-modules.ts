@@ -62,6 +62,7 @@ Regras:
 `,
 
   spotify: `MÓDULO SPOTIFY (FONTE ÚNICA)
+- RECONHECIMENTO AUTOMÁTICO: Se o cliente disser "plays" ou "ouvintes", assuma IMEDIATAMENTE que é Spotify. NUNCA pergunte "qual rede você quer".
 - SERVIÇOS DISPONÍVEIS: Aluguel de Playlist, Seguidores, Plays + Ouvintes Global, Save.
 - TABELA DE PREÇOS SPOTIFY:
   • Aluguel de Playlist: R$49,90
