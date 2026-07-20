@@ -58,7 +58,7 @@ function Dashboard() {
         <h1 className="text-4xl font-bold tracking-tight">Arquitetura V3 (Leve & Modular)</h1>
         <p className="text-muted-foreground mt-2">Monitoramento e Sandbox</p>
         <div className="mt-6 p-4 bg-muted border rounded-lg text-sm space-y-4">
-          <p className="font-bold">Quero auditar o conteúdo do orchestrator.server.ts.Não altere nada.Para cada bloco abaixo, mostre o texto completo exatamente como está sendo enviado para a Anthropic. Regras de Ouro Modo Suporte Modo Reengajamento Regra de Concisão Modo Áudio/Imagem Categorias de InteressePara cada linha informe: manter; resumir; mover para código; remover;Não implemente alterações.Apenas mostre o conteúdo.</p>
+          <p className="font-bold">A partir de agora, não altere mais nenhuma interface (src/routes/index.tsx, dashboard, cards ou componentes React). Todas as auditorias e análises devem ser respondidas apenas no chat. Modifique apenas arquivos da arquitetura quando houver autorização explícita para implementar uma mudança.</p>
         </div>
       </div>
 
