@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { selectRelevantModules } from './module-selector.server';
+import { selectRelevantModules } from '../src/lib/agent-v3/module-selector.server';
 
 describe('V3 Architectural Logic & Terminology', () => {
   it('should explicitly confirm Spotify when "plays" is mentioned', () => {
