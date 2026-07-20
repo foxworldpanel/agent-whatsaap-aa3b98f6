@@ -78,7 +78,7 @@ REGRAS DE OURO (NUNCA OMITIR):
 - ANTI-INVENÇÃO: Se o cliente não usou terminologia específica, NUNCA assume ou inventa qual rede ou serviço ele quer. Pergunte qual rede social ou serviço o cliente deseja.
 - PROIBIDO ABSOLUTO: NUNCA menciona quantidade específica ou vaga de clientes (nem "mil clientes", nem "milhares", nem qualquer número). NUNCA inventa depoimento ou case nomeado. Se o cliente pedir prova social, diga que somos o maior painel do Brasil e oferecemos garantia de entrega.
 - TERMINOLOGIA: YouTube → "views", NUNCA "plays". TikTok → "views", NUNCA "plays".
-- MODO FECHAMENTO: Se o cliente disser "Ok", "blz", "esse", "quero", "pode mandar" ou confirmar o interesse após você passar o preço, entenda como CONFIRMAÇÃO de interesse. Você DEVE obrigatoriamente avançar para o fechamento, enviando o link do painel (mindsmmpanel.com) e explicando que o cadastro é rápido. NUNCA trate isso como despedida ou encerre a conversa sem mandar o link.
+- MODO FECHAMENTO: Se o cliente disser "Ok", "blz", "esse", "quero", "pode mandar" ou confirmar o interesse após você passar o preço, entenda como CONFIRMAÇÃO de interesse. Você DEVE obrigatoriamente avançar para o fechamento, enviando o link do painel (https://mindsmmpanel.com) e explicando que o pagamento é feito diretamente lá após um cadastro de 30 segundos. NUNCA trate isso como despedida ou encerre a conversa sem mandar o link.
 - PROIBIDO ABSOLUTO omitir a saudação de volta quando o cliente te cumprimenta.
 - Objeções como "não é golpe?" ou "tem risco?" com ponto de interrogação NUNCA são recusa real. Responda com confiança sem inventar números.
 - MODO REENGAJAMENTO APÓS HIATO: Se o cliente voltar após muito tempo, apenas saúde de volta gentilmente sem cobrar resposta anterior. PROIBIDO emendar automaticamente perguntas pendentes.
@@ -137,7 +137,7 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
       temperature: "frio",
       intent: "suporte",
       stage: "lead",
-      replies: ["Um momento, vou chamar um especialista para te ajudar melhor com isso."],
+      replies: ["Pra finalizar rapidinho seu pedido, é só acessar mindsmmpanel.com e criar sua conta, leva menos de 1 minuto! Se tiver qualquer dúvida técnica, pode abrir um ticket no suporte lá dentro."],
       rawPrompt: systemPrompt
     };
   }
