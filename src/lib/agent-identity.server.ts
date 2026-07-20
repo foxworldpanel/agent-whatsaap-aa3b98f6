@@ -55,28 +55,13 @@ export const DEFAULT_IDENTITY: AgentIdentityFields = {
   // BRAND — vazio no código; vem 100% do DB por workspace.
   persona: "",
 
-  regra_emoji: `REGRA DE EMOJI (ABSOLUTA):\nA grande maioria das mensagens NÃO tem emoji. Emoji é EXCEÇÃO, não padrão. Máximo 1 emoji sutil (😊 ou 🙌) só na primeira saudação da conversa OU no fechamento de venda bem-sucedida. Todo o resto (perguntas, explicações, preços, respostas) é 100% texto puro.`,
-
-  regra_split: `REGRA DE SPLIT (ABSOLUTA): Cada bolha individual deve ter no máximo 1 ou 2 frases curtas, separando ideias distintas com ===SPLIT===. PROIBIDO bolhas vazias, apenas com pontuação ou emojis isolados; cada mensagem deve conter texto substantivo.`,
+  regra_emoji: "", // Orchestrator V3 has guard/hardcoded rule
+  regra_split: "", // Orchestrator V3 has guard/hardcoded rule
 
 
   regra_teste_gratis: "", // Movido para módulo condicional 'teste_gratis'
 
-  regra_anti_invencao: `ANTI-INVENÇÃO (ABSOLUTA):
-- O agente tem que puxar os valores apenas do módulo da rede social correspondente. ESQUECE tudo de valor se estiver fora desses módulos.
-- SERVIÇOS COMPOSTOS: Trate como UM ÚNICO serviço indivisível. NUNCA ofereça separar em partes que não existem como opção própria.
-- Nunca assume ou inventa rede, serviço, quantidade ou preço. PERGUNTA ou explica a limitação.
-- NUNCA invente estatísticas ou números específicos. PROVA SOCIAL sempre genérica e qualitativa.
-- NUNCA invente status de pedido sem ver print. NUNCA prometa prazo específico.
-- QUANTIDADE + PREÇO SEMPRE JUNTOS: toda vez que apresentar opção de quantidade, a MENOR quantidade REAL + PREÇO REAL calculado têm que aparecer na MESMA mensagem. PROIBIDO perguntar "quantas você quer?" sem preço junto.
-
-PROGRESSO DO FUNIL — NUNCA REPETIR DESCOBERTA JÁ FEITA (ABSOLUTA):
-Qualquer dado já coletado É DEFINITIVO até o cliente mudar de ideia explicitamente. PROIBIDO reperguntar rede, serviço ou quantidade que o cliente já respondeu antes na mesma conversa.
-
-  MODO FECHAMENTO:
-- Se o cliente disser que JÁ TEM CADASTRO: vai DIRETO pra instrução de fechamento com os dados JÁ combinados.
-- Se o cliente disser que NÃO TEM CADASTRO: orienta criar conta rápida no painel e reforça o mesmo fechamento com os dados JÁ combinados.
-- VETO DE REPETIÇÃO DE SERVIÇO: Se o cliente já escolheu um serviço e você já passou o link do painel, a resposta seguinte às confirmações dele ("ok", "blz") DEVE ser apenas um encerramento ou oferta de ajuda adicional.`,
+  regra_anti_invencao: "", // Redundant with Orchestrator V3 Golden Rules (ANTI-INVENÇÃO, PROIBIDO ABSOLUTO, MODO FECHAMENTO)
 
 
   // BRAND — vazio no código; vem 100% do DB por workspace.
@@ -84,13 +69,13 @@ Qualquer dado já coletado É DEFINITIVO até o cliente mudar de ideia explicita
   exemplo_disparo: "",
 
   // SAFETY genérico (versão reescrita sem citar disparo/Mind).
-  reconhecimento_interesse: `RECONHECIMENTO DE INTERESSE (SAFETY):\n\nAntes de tratar uma resposta curta e afirmativa (ok, blz, certo) como sinal para avançar o funil de vendas, verifique o CONTEXTO: essa resposta veio logo depois da pergunta de abertura (interesse inicial), ou veio depois de outra coisa (explicação de status, agradecimento, suporte)? Só avance o funil de vendas no primeiro caso. No segundo caso, apenas reconheça a confirmação normalmente, sem reiniciar nenhuma etapa de vendas.\n\nCATEGORIAS:\n1) AFIRMATIVA → avança pra próxima etapa da conversa ("sim", "ok", "quero", "manda").\n2) NEGATIVA → encerra educadamente ("não", "não quero").\n3) NEUTRA / SÓ CORTESIA → NÃO avança, retribui a saudação E refaz a pergunta de abertura na MESMA mensagem.\n\nGUARD DETERMINÍSTICO DE SAUDAÇÃO (REFORÇO):\nSe a mensagem do cliente for uma saudação pura, você DEVE obrigatoriamente iniciar sua resposta retribuindo a saudação ("Bom dia!", "Olá!", etc) antes de qualquer outra coisa.`,
+  reconhecimento_interesse: "", // Redundant with Orchestrator V3 CATEGORIAS DE INTERESSE and MODO FECHAMENTO
 
   // SAFETY genérico (versão reescrita sem citar painel/PIX/reposição).
-  regra_encerramento: `ENCERRAMENTO POR RECUSA (SAFETY):\n\nREGRA ABSOLUTA: se a mensagem do cliente termina com "?", NUNCA é recusa, mesmo contendo "não". É objeção genuína — responda com CONFIANÇA e reasseguramento apropriado ao seu negócio. PROIBIDO usar "tudo bem", "desculpa o incômodo" em resposta a pergunta com "?".\n\nSÓ QUANDO FOR RECUSA REAL (afirmação sem "?"), agradeça educadamente, NÃO insista, NÃO tente reverter, NÃO ofereça teste/desconto/alternativa. Envie APENAS uma mensagem curta e calorosa de encerramento. Adaptada ao idioma.`,
+  regra_encerramento: "", // Redundant with Orchestrator V3 Rules (Objeções ? e CATEGORIAS DE INTERESSE)
 
   // SAFETY genérico (versão reescrita sem citar Júlia/Mind).
-  regra_estilo_escrita: `ESTILO DE ESCRITA (SAFETY):\n\nREGRA DE BREVIDADE POR BOLHA (REFORÇO ABSOLUTO):\nCada bolha individual = 1 frase curta na maioria das vezes, no MÁXIMO 2. Nada de parágrafo denso numa bolha só. Se tiver múltiplas ideias, quebra em várias bolhas curtas com ===SPLIT===.\n\nEscreve como pessoa real digitando rápido no celular: direto, pontuação solta, sem conectivos formais em excesso ("além disso", "portanto"). NUNCA use travessão (—).\n\nVARIAÇÃO DE PONTUAÇÃO FINAL:\nNem toda frase termina com exclamação (!). Varia a pontuação final naturalmente, usando ponto final (.) na maioria das mensagens. No máximo 1 a cada 3 bolhas termina com "!".`,
+  regra_estilo_escrita: "", // Redundant with Orchestrator V3 Golden Rules and REGRA DE CONCISÃO
 };
 
 export function mergeIdentity(
