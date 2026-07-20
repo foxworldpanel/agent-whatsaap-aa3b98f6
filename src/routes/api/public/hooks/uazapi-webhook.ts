@@ -674,6 +674,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         const instanceToken = pickInstanceToken(payload);
         const phone = extractPhone(msg.chatid, msg.sender);
+        console.log("[V3-GATE-DEBUG-EXTRACT]", { phone: JSON.stringify(phone), instanceToken: JSON.stringify(instanceToken) });
         if (!instanceToken || !phone) {
           return new Response("missing token/phone", { status: 400 });
         }
