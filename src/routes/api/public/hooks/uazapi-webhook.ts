@@ -477,7 +477,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const rawBody = await request.text();
         
-        // Log ultra-prioritário no console e banco
+        // LOG DE ENTRADA ABSOLUTA - Força gravação imediata
         console.log("DEBUG_RAW_WEBHOOK_START", { length: rawBody.length });
         
         try {
@@ -486,7 +486,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
             type: "webhook_raw_debug",
             level: "info",
             summary: `DEBUG Webhook recebido (len=${rawBody.length})`,
-            metadata: { raw: rawBody.slice(0, 3000) } as any
+            metadata: { raw: rawBody } as any
           });
         } catch (e: any) {
           console.error("DEBUG insert failed", e);
@@ -497,10 +497,9 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
           payload = JSON.parse(rawBody) as UazapiPayload;
         } catch (e) {
           console.error("DEBUG JSON parse error", e);
-          payload = null;
         }
 
-        console.log("📦 PAYLOAD_RAW (len=" + rawBody.length + "):", rawBody.slice(0, 1000));
+        console.log("📦 PAYLOAD_RAW:", rawBody.slice(0, 500));
 
         // Persiste o RAW no banco AGUARDANDO o insert (sem fire-and-forget),
         // usando supabaseAdmin para bypassar RLS. Quando o token permite,
@@ -691,9 +690,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         const instanceToken = pickInstanceToken(payload);
         const phone = extractPhone(msg.chatid, msg.sender);
-        console.log("[V3-GATE-DEBUG-EXTRACT]", { phone, instanceToken, chatid: msg.chatid, sender: msg.sender });
-        const AUTHORIZED_PHONES = ["5511970116430"];
-        const isV3Target = phone === "5511970116430";
+        console.log("[V3-GATE-DEBUG-EXTRACT]", { 
+          phone: String(phone), 
+          isMatch: String(phone) === "5511970116430",
+          instanceToken, 
+          chatid: msg.chatid, 
+          sender: msg.sender 
+        });
+        const isV3Target = String(phone) === "5511970116430";
         console.log("[V3-GATE-DEBUG-MESSAGE-DATA]", { fromMe: msg.fromMe, isGroupChat, isV3Target });
         if (!instanceToken || !phone) {
           return new Response("missing token/phone", { status: 400 });
@@ -732,12 +736,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // ============================================================
         {
           const AUTHORIZED_PHONES = ["5511970116430"];
+          const phoneStr = String(phone);
           console.log("[V3-GATE-DEBUG-PRE]", { 
-            phone: JSON.stringify(phone), 
-            match: AUTHORIZED_PHONES.includes(String(phone)), 
+            phoneStr, 
+            match: AUTHORIZED_PHONES.includes(phoneStr), 
             fromMe: msg.fromMe 
           });
-          const authorized = AUTHORIZED_PHONES.includes(String(phone));
+          const authorized = AUTHORIZED_PHONES.includes(phoneStr);
           if (!msg.fromMe && !authorized) {
             // Log técnico SEM telefone completo (últimos 4 dígitos apenas).
             const phoneTail = phone.slice(-4);
