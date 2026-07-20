@@ -52,7 +52,8 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
           userId,
           message: payload.message?.text || "",
           history: [],
-          enabledModules: ["tabela_precos", "social_proof"]
+          enabledModules: ["tabela_precos", "social_proof"],
+          anthropicApiKey: process.env.ANTHROPIC_API_KEY || ""
         });
 
         console.log("[V3-TEST] Reply:", result.replies[0]);
