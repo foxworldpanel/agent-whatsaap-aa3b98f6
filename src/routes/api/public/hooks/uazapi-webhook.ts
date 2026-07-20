@@ -640,24 +640,119 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const { supabaseAdmin: adminEarly } = await import("@/integrations/supabase/client.server");
-        const eventStr = (payload.event ?? payload.EventType ?? "").toLowerCase();
         const msgLocal = payload.message ?? payload.data ?? {};
         const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
         const phoneStrLocal = String(phoneLocal || "");
-        const isV3TargetLocal = phoneStrLocal === "5511970116430";
+        
+        // Bloqueio de mensagens enviadas pelo próprio bot
+        if (msgLocal.fromMe) {
+          return new Response("ok (ignoring self)");
+        }
 
-        // [V3-ROUTING-GATE-EARLY] - Bypasses V1 entirely for authorized test number
-        if (isV3TargetLocal && !msgLocal.fromMe) {
-          const timestamp = new Date().toISOString();
-          console.log("[V3-GATE-DEBUG] EARLY ATIVADO PARA:", phoneStrLocal, "at", timestamp);
+        // Validação de número autorizado (Apenas este número executa a IA V3)
+        const AUTHORIZED_PHONES = ["5511970116430"];
+        const isAuthorized = AUTHORIZED_PHONES.includes(phoneStrLocal);
+
+        if (!isAuthorized) {
+          const phoneTail = phoneStrLocal.slice(-4);
+          console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
+          return new Response("ok (unauthorized number)");
+        }
+
+        // [V3-ROUTING-GATE] - Runtime ÚNICO autorizado
+        console.log("[V3-GATE] Processando turno para:", phoneStrLocal);
+        
+        try {
+          const instanceToken = pickInstanceToken(payload);
+          const { text: msgText } = extractContent(payload);
           
-          try {
-            const instanceToken = pickInstanceToken(payload);
-            const { text: msgText } = extractContent(payload);
-            
-            // Resolve basic context for the instance
-            const { data: num } = await adminEarly
-              .from("whatsapp_numbers")
+          // Resolve contexto básico da instância
+          const { data: num } = await adminEarly
+            .from("whatsapp_numbers")
+            .select("user_id, workspace_id, uazapi_url")
+            .eq("uazapi_token", instanceToken || "")
+            .maybeSingle();
+          
+          const targetUserId = num?.user_id || "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
+          
+          const { data: integ } = await adminEarly
+            .from("integrations")
+            .select("anthropic_api_key")
+            .eq("user_id", targetUserId)
+            .maybeSingle();
+
+          const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
+          const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/conversation-state.server");
+          const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
+
+          // Carrega histórico V3
+          const history = await getConversationStateV3(targetUserId, phoneStrLocal);
+          
+          // Executa Orquestrador V3 (ÚNICO CAMINHO)
+          const v3Response = await runAgentV3Turn({
+            userId: targetUserId,
+            message: msgText || "",
+            history: history,
+            anthropicApiKey: integ?.anthropic_api_key || ""
+          });
+
+          const replyText = v3Response.replies.join("\n\n");
+
+          // Salva histórico V3
+          await saveConversationStateV3(targetUserId, phoneStrLocal, [
+            ...history,
+            { role: "customer" as const, content: msgText || "" },
+            { role: "agent" as const, content: replyText }
+          ]);
+
+          // Busca ID da conversa para logs
+          const { data: contactData } = await adminEarly
+            .from("contacts")
+            .select("id")
+            .eq("user_id", targetUserId)
+            .eq("telefone", phoneStrLocal)
+            .maybeSingle();
+
+          const { data: conv } = contactData ? await adminEarly
+            .from("conversations")
+            .select("id")
+            .eq("contact_id", contactData.id)
+            .maybeSingle() : { data: null };
+
+          // Envio via canal seguro
+          await sendAgentTextGuarded(
+            { uazapi_url: num?.uazapi_url || "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
+            phoneStrLocal,
+            replyText,
+            { conversationId: conv?.id || phoneStrLocal, source: "agent_v3", applyHumanize: true }
+          );
+
+          console.log("[V3-GATE] Sucesso para:", phoneStrLocal);
+          return new Response("ok (V3 processed)");
+
+        } catch (e: any) {
+          console.error("[V3-CRITICAL-ERROR] Falha catastrófica:", e);
+          
+          const instanceToken = pickInstanceToken(payload);
+          const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
+          
+          // Envia mensagem neutra de indisponibilidade
+          await sendAgentTextGuarded(
+            { uazapi_url: "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
+            phoneStrLocal,
+            "Desculpe, tive um problema técnico momentâneo. Pode tentar de novo em instantes?",
+            { conversationId: phoneStrLocal, source: "v3_error_fallback" }
+          ).catch(() => {});
+          
+          return new Response("ok (V3 error handled - no V1 fallback)");
+        }
+}
+
+// O código abaixo desta linha é mantido apenas como referência fria (inalcançável)
+// e será removido em etapas futuras de limpeza.
+async function _LEGACY_V1_DO_NOT_CALL_processWebhook(payload: UazapiPayload): Promise<Response> {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const now = new Date().toISOString();
               .select("user_id, workspace_id, uazapi_url")
               .eq("uazapi_token", instanceToken || "")
               .maybeSingle();
