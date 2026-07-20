@@ -17,11 +17,37 @@ export const Route = createFileRoute('/')({
 });
 
 function Dashboard() {
-  const { data: metrics, isLoading } = useQuery({
+  const { data: metrics, isLoading: isMetricsLoading } = useQuery({
     queryKey: ['agent-prompt-metrics-raw'],
     queryFn: () => getLatestPromptMetrics({ data: { limit: 10 } }),
     refetchInterval: 5000,
   });
+
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState<{ role: "agent" | "customer", content: string }[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const testV3Mutation = useMutation({
+    mutationFn: (msg: string) => testV3Agent({ data: { message: msg, history: chatHistory } }),
+    onSuccess: (data) => {
+      const newReplies = data.replies.map(r => ({ role: "agent" as const, content: r }));
+      setChatHistory(prev => [...prev, ...newReplies]);
+    }
+  });
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [chatHistory]);
+
+  const handleSend = () => {
+    if (!chatMessage.trim() || testV3Mutation.isPending) return;
+    const userMsg = chatMessage;
+    setChatHistory(prev => [...prev, { role: "customer", content: userMsg }]);
+    setChatMessage("");
+    testV3Mutation.mutate(userMsg);
+  };
 
   const latestCalls = metrics || [];
   const cacheFail = latestCalls.length > 0 && latestCalls.every(m => Number(m.cache_read_input_tokens) === 0);
