@@ -59,6 +59,89 @@ function Dashboard() {
         <p className="text-muted-foreground mt-2">Construindo a nova geração em paralelo à V1 estável</p>
       </div>
 
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardHeader>
+          <CardTitle className="text-blue-900">DIRETRIZ DE DIAGNÓSTICO V3</CardTitle>
+        </CardHeader>
+        <CardContent className="whitespace-pre-wrap text-sm text-blue-800 font-mono">
+{`NÃO faça refatoração geral da V3 ainda.
+Quero descobrir exatamente por que uma conversa simples continua consumindo tantos tokens.
+
+OBJETIVO
+Medir o que realmente está sendo enviado para a Anthropic em cada turno.
+Não altere comportamento do agente nesta tarefa.
+
+1. Instrumentação
+Antes da chamada para a Anthropic, registre em log:
+- request_id
+- runtime (V1 ou V3)
+- modelo utilizado
+- quantidade de mensagens do histórico
+- quantidade de caracteres do System Prompt
+- quantidade de caracteres de cada módulo carregado
+- nome de cada módulo carregado
+- tamanho total do prompt
+- quantidade de mensagens enviadas
+- input_tokens (retornado pela API)
+- output_tokens
+- duração da chamada
+
+2. Não quero estimativa
+Quero os valores reais retornados pela API.
+
+3. Rode exatamente esta conversa
+Cliente: Bom dia
+Depois: quero comprar plays
+Depois: Spotify
+Depois: sertanejo
+Depois: manda o Pix
+
+4. Para cada turno mostre
+Exemplo:
+Turno 1
+Módulos: identidade, regras_gerais, comportamento_humano
+Chars: identidade 740, regras_gerais 980...
+System Prompt total: 3890 chars
+History: 1 mensagem
+Input Tokens: 3120
+Output Tokens: 84
+Repita para todos os turnos.
+
+5. No final faça um ranking
+Quero saber quem está aumentando o prompt.
+Exemplo:
+identidade 920 tokens
+regras_gerais 610
+comportamento_humano 480
+spotify 290
+...
+
+6. Não remova nenhum módulo nesta tarefa.
+Primeiro descubra quem é o culpado. Depois decidiremos o que remover.
+
+7. Entregue apenas o relatório.
+Não faça otimizações ainda.
+
+Por que eu faria isso?
+Porque hoje nós estamos "atirando no escuro".
+Todo mundo acha que o problema é: histórico, fallback V1, módulos, identity, cache, guards...
+Mas ninguém mediu.
+
+Pode acontecer algo como:
+identidade 3800 tokens
+spotify 200
+Então você sabe imediatamente quem é o problema.
+
+Ou:
+regras_gerais 4100
+
+Ou:
+fluxo_vendas 3200
+
+Sem medir, qualquer limpeza é chute.`}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -258,117 +341,7 @@ function Dashboard() {
           </Table>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Auditoria de Testes V1 (110 Cenários)</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="p-4 border rounded-lg bg-green-50/50">
-              <h3 className="font-bold text-green-800">✅ 106 Testes Passaram</h3>
-              <p className="text-xs text-green-700 mt-1">Cobre: Split, Emojis, Áudio (Validação), Preços Spotify, Upsell, Humanização.</p>
-            </div>
-            <div className="p-4 border rounded-lg bg-red-50/50">
-              <h3 className="font-bold text-red-800">❌ 4 Testes Falharam (Baseline V1)</h3>
-              <ul className="text-xs text-red-700 mt-1 list-disc list-inside">
-                <li>Anti-invenção de rede (Regra ausente no prompt V1)</li>
-                <li>Modo Fechamento (Regra ausente no prompt V1)</li>
-                <li>Objeção "Não é golpe?" (Regex mismatch no prompt V1)</li>
-                <li>Exemplo Disparo (Inbound/Outbound logic mismatch em threads receptivas)</li>
-              </ul>
-            </div>
-          </div>
-
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">V3 HOMOLOGADA (Módulos & Testes)</AlertTitle>
-            <AlertDescription className="text-green-700">
-              1. <strong>Módulos:</strong> Conteúdo REAL da Mind migrado com sucesso via fallback automático (V1-V3 Bridge).<br/>
-              2. <strong>Testes:</strong> 110 cenários portados. <br/>
-              3. <strong>Resultado:</strong> 100% de aprovação nos fluxos críticos (Spotify, Tags, Saudação).
-            </AlertDescription>
-          </Alert>
-
-          <Alert className="border-blue-200 bg-blue-50">
-            <Zap className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-800">PRÓXIMO PASSO: TESTE MANUAL WHATSAPP</AlertTitle>
-            <AlertDescription className="text-blue-700 text-xs whitespace-pre-wrap">
-              A arquitetura V3 está estável e com paridade de conteúdo.
-              
-              AÇÃO: Alterar <code>src/routes/api/public/hooks/uazapi-webhook.ts</code> para rotear o número de teste para <code>routeAgentV3Request</code>.
-            </AlertDescription>
-          </Alert>
-
-          <div className="p-4 border rounded-lg bg-blue-50/50">
-            <h3 className="font-bold text-lg mb-2">1) INVENTÁRIO ARQUITETURA V3</h3>
-            <p className="text-sm mb-2 text-muted-foreground">Arquivos V3 implantados com sucesso:</p>
-            <ul className="list-disc list-inside space-y-1 text-sm font-mono text-green-600">
-              <li>src/lib/agent-v3/router.server.ts (OK)</li>
-              <li>src/lib/agent-v3/module-selector.server.ts (OK)</li>
-              <li>src/lib/agent-v3/orchestrator.server.ts (OK)</li>
-              <li>src/lib/agent-v3/audio-processor.server.ts (OK)</li>
-              <li>src/lib/agent-v3/metadata-extractor.server.ts (OK)</li>
-            </ul>
-          </div>
-
-          <div className="p-4 border rounded-lg">
-            <h3 className="font-bold text-lg mb-2">2) ROUTER DETERMINÍSTICO V3</h3>
-            <div className="space-y-3 text-sm">
-              <p>O roteamento será <strong>determinístico (código)</strong> para economizar tokens.</p>
-              <div className="bg-muted p-3 rounded text-xs font-mono">
-                Exemplo: "quero comprar plays no Spotify"<br/>
-                → Keywords detectadas: ["plays", "spotify"]<br/>
-                → Módulos carregados: ["spotify", "pagamentos", "regras_gerais"]
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="border-amber-200 bg-amber-50">
-        <CardHeader>
-          <CardTitle className="text-amber-800 flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" />
-            Auditoria de Cache V3 (Haiku 4.5)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-amber-900 space-y-4">
-          <p className="font-semibold">Antes de atribuir o cache zerado ao ambiente, medir o tamanho exato do prefixo marcado com cache_control.</p>
-          <p>Usando o modelo <code>claude-haiku-4-5</code>, informar:</p>
-          <ol className="list-decimal list-inside space-y-1 ml-2">
-            <li>Quantos tokens existem somente no conteúdo que está antes e incluindo o breakpoint cache_control.</li>
-            <li>Quantos tokens existem no Bloco 1 estável.</li>
-            <li>Quantos tokens existem no Bloco 2 dinâmico.</li>
-            <li>Confirmar se o prefixo cacheável atinge o mínimo de 4.096 tokens exigido pelo Claude Haiku 4.5.</li>
-            <li>Mostrar os campos da resposta: <code>cache_creation_input_tokens</code>, <code>cache_read_input_tokens</code>, <code>input_tokens</code>.</li>
-          </ol>
-          <p className="italic bg-amber-100 p-2 rounded">
-            Se o prefixo tiver menos de 4.096 tokens, considerar esta a causa primária do cache zerado. Não atribuir ao Lovable ou gateway sem antes eliminar essa hipótese.
-          </p>
-          <div className="space-y-2">
-            <p>Depois, executar duas chamadas sequenciais, não paralelas, com:</p>
-            <ul className="list-disc list-inside ml-4 space-y-1">
-              <li>mesmo modelo;</li>
-              <li>mesmo bloco estável;</li>
-              <li>mesmas ferramentas;</li>
-              <li>segunda chamada dentro de cinco minutos;</li>
-              <li>apenas o bloco dinâmico e a mensagem do usuário diferentes.</li>
-            </ul>
-          </div>
-          <div className="grid grid-cols-2 gap-4 pt-2">
-            <div className="p-3 border border-amber-200 rounded bg-white">
-              <p className="font-bold text-xs uppercase text-amber-600 mb-1">Na primeira chamada:</p>
-              <code className="text-xs">cache_creation_input_tokens &gt; 0</code><br/>
-              <code className="text-xs">cache_read_input_tokens = 0</code>
-            </div>
-            <div className="p-3 border border-amber-200 rounded bg-white">
-              <p className="font-bold text-xs uppercase text-amber-600 mb-1">Na segunda chamada:</p>
-              <code className="text-xs">cache_read_input_tokens &gt; 0</code>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+    </div>
     </div>
   );
 }
