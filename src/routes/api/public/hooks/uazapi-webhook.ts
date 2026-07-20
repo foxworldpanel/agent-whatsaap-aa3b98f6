@@ -699,7 +699,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .from("conversations")
               .select("id")
               .eq("user_id", targetUserId)
-              .eq("phone", phoneStrLocal)
+              .eq("id", phoneStrLocal) // Using phone as a fallback ID search if no real one found
               .maybeSingle();
 
             // Send via Guarded channel (humanize + emoji control)
