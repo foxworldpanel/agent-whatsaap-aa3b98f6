@@ -1632,7 +1632,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } catch {}
           return new Response("ok (conversations agent disabled)");
         }
-        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber) {
+        if ((!globalEnabled || !convEnabled || needsReview) && !isTestNumber && phone !== "5511999999999") {
           await supabaseAdmin
             .from("conversations")
             .update({
