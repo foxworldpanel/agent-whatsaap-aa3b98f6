@@ -639,14 +639,87 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 });
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
-
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const event = (payload.event ?? payload.EventType ?? "").toLowerCase();
+        const msg = payload.message ?? payload.data ?? {};
+        const phone = extractPhone(msg.chatid, msg.sender);
+        const phoneStr = String(phone);
+        const isV3Target = phoneStr === "5511970116430";
+
+        // [V3-ROUTING-GATE-EARLY]
+        if (isV3Target && !msg.fromMe) {
+          console.log("[V3-GATE-DEBUG] EARLY ATIVADO PARA:", phoneStr);
+          try {
+            const instanceToken = pickInstanceToken(payload);
+            const { text: msgText } = extractContent(payload);
+            
+            // Resolve userId para o número de teste
+            const { data: num } = await supabaseAdmin
+              .from("whatsapp_numbers")
+              .select("user_id, workspace_id, uazapi_url")
+              .eq("uazapi_token", instanceToken)
+              .maybeSingle();
+            
+            const targetUserId = num?.user_id || "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
+            const targetWorkspaceId = num?.workspace_id || "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+            
+            // Carrega integração para pegar a API Key
+            const { data: integ } = await supabaseAdmin
+              .from("integrations")
+              .select("anthropic_api_key")
+              .eq("user_id", targetUserId)
+              .maybeSingle();
+
+            const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
+            const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/conversation-state.server");
+            const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
+
+            const history = await getConversationStateV3(targetUserId, phoneStr);
+            const v3Response = await runAgentV3Turn({
+              userId: targetUserId,
+              message: msgText || "",
+              history,
+              anthropicApiKey: integ?.anthropic_api_key || ""
+            });
+
+            await saveConversationStateV3(targetUserId, phoneStr, [
+              ...history,
+              { sender: "cliente", body: msgText || "" },
+              { sender: "agente", body: v3Response.reply }
+            ]);
+
+            await sendAgentTextGuarded({
+              userId: targetUserId,
+              workspaceId: targetWorkspaceId,
+              phone: phoneStr,
+              text: v3Response.reply,
+              instanceToken: instanceToken || "",
+              uazapiUrl: num?.uazapi_url || "https://mindsmmglobal.uazapi.com"
+            });
+
+            return new Response("ok (V3 processed)");
+          } catch (e: any) {
+            console.error("[V3-ERROR] falhou no Early Gate:", e);
+            const instanceToken = pickInstanceToken(payload);
+            const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
+            await sendAgentTextGuarded({
+              userId: "f8da521a-e8db-4efe-8c9b-9bd69749c0a7",
+              workspaceId: "bd59fa41-d68d-4ac8-b995-e09ae48f52aa",
+              phone: phoneStr,
+              text: "Desculpa, tive um problema técnico na V3, tenta de novo em instantes.",
+              instanceToken: instanceToken || "",
+              uazapiUrl: "https://mindsmmglobal.uazapi.com"
+            }).catch(() => {});
+            return new Response("ok (V3 error fallback sent)");
+          }
+        }
+
         // 🔬 RAW payload dump (até 4000 chars) para diagnosticar o formato real do Uazapi.
         try {
           const raw = JSON.stringify(payload);
           const rawShort = raw.slice(0, 4000);
           console.log("📦 Payload RAW:", rawShort);
-          const phoneForLog = extractPhone(payload.message?.chatid, payload.message?.sender) ?? "unknown";
+          const phoneForLog = phoneStr || "unknown";
           const msgProbe = (payload.message ?? payload.data ?? {}) as Record<string, unknown>;
           const probe = {
             fromMe: msgProbe.fromMe,
@@ -1054,12 +1127,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // [V3-ROUTING-GATE]
         // Se o remetente for o número autorizado, processa usando a lógica da V3 e encerra o webhook aqui.
-        console.log("[V3-GATE-DEBUG-REACHED-L1042]", { 
-          phone: phoneStr, 
-          match: isV3Target 
-        });
         if (isV3Target) {
-          console.log("[V3-GATE-DEBUG] ENTROU NO BLOCO V3");
+          console.log("[V3-GATE-DEBUG] ATIVADO PARA:", phoneStr);
           console.log(`[V3-ROUTING] Identificado número de teste ${phone}. Redirecionando para Agent V3...`);
           try {
             const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
