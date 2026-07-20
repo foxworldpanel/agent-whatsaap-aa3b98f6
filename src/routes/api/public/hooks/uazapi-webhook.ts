@@ -178,12 +178,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     // [V3-ROUTING-GATE]
+    const content = extractContent(payload);
     console.log(`[AUDIT-LOG] message_id: ${msgId}, kind: ${content.kind}, mime: ${content.mime || "none"}, media_url: ${!!content.mediaUrl}`);
-      const auditLog = { message_id: msgId, kind: content.kind, mime: content.mime || "none", media_url: !!content.mediaUrl }; await import("fs").then(fs => fs.appendFileSync("/tmp/audit.log", JSON.stringify(auditLog) + "\n"));
     
     try {
       const instanceToken = pickInstanceToken(payload);
-      const content = extractContent(payload);
       let finalMsgText = content.text;
       
       // 4. Processamento de áudio (Transcrição)
