@@ -102,6 +102,131 @@ function Dashboard() {
         </Card>
       </div>
 
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2 flex flex-col h-[600px] border-primary/20 shadow-lg">
+          <CardHeader className="border-b bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Bot className="h-5 w-5 text-primary" />
+                  Simulador V3 (Sandbox)
+                </CardTitle>
+                <CardDescription>
+                  Teste manual direto com a nova arquitetura (Haiku 4.5)
+                </CardDescription>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setChatHistory([])}
+              >
+                Limpar Chat
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-hidden p-0 relative">
+            <ScrollArea className="h-full p-4" ref={scrollRef}>
+              <div className="space-y-4 pb-4">
+                {chatHistory.length === 0 && (
+                  <div className="text-center py-10 text-muted-foreground italic">
+                    Nenhuma mensagem enviada. Comece mandando um "Oi" ou pergunte sobre o Spotify.
+                  </div>
+                )}
+                {chatHistory.map((msg, i) => (
+                  <div 
+                    key={i} 
+                    className={`flex items-start gap-3 ${msg.role === 'customer' ? 'flex-row-reverse' : ''}`}
+                  >
+                    <div className={`mt-1 p-2 rounded-full ${msg.role === 'customer' ? 'bg-primary/10' : 'bg-muted'}`}>
+                      {msg.role === 'customer' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                    </div>
+                    <div className={`max-w-[80%] p-3 rounded-lg ${
+                      msg.role === 'customer' 
+                        ? 'bg-primary text-primary-foreground rounded-tr-none' 
+                        : 'bg-muted rounded-tl-none'
+                    }`}>
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                  </div>
+                ))}
+                {testV3Mutation.isPending && (
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 p-2 rounded-full bg-muted">
+                      <Bot className="h-4 w-4" />
+                    </div>
+                    <div className="bg-muted p-3 rounded-lg rounded-tl-none flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-xs text-muted-foreground">Júlia está digitando...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+          <div className="p-4 border-t bg-muted/30">
+            <div className="flex gap-2">
+              <Input 
+                placeholder="Digite sua mensagem de teste..." 
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              />
+              <Button onClick={handleSend} disabled={testV3Mutation.isPending}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold">Configuração do Teste</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground uppercase font-bold">Módulos Ativos</p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="secondary">tabela_precos</Badge>
+                  <Badge variant="secondary">social_proof</Badge>
+                  <Badge variant="secondary">pagamentos</Badge>
+                  <Badge variant="outline">+ 12</Badge>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground uppercase font-bold">Variáveis de Ambiente</p>
+                <div className="flex items-center gap-2 text-xs text-green-600">
+                  <CheckCircle2 className="h-3 w-3" />
+                  ANTHROPIC_API_KEY Detectada
+                </div>
+              </div>
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                <h4 className="text-xs font-bold text-blue-800 mb-1">Dica de Teste:</h4>
+                <p className="text-[10px] text-blue-700 leading-tight">
+                  Tente "Quero plays no Spotify" e depois responda com "blz" para testar o <b>Modo Fechamento</b> (deve enviar o link).
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-green-200 bg-green-50/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold text-green-800">WhatsApp (Teste B)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-green-700 leading-tight mb-2">
+                Número Autorizado: <br/>
+                <code className="bg-white px-1 py-0.5 rounded border">5511970116430</code>
+              </p>
+              <p className="text-[10px] text-green-600">
+                Endpoint V3: <br/>
+                <code className="break-all font-mono">/api/public/hooks/v3-test-webhook</code>
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Métricas em Tempo Real (Últimas 10 chamadas)</CardTitle>
