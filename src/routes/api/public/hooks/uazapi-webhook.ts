@@ -683,8 +683,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
             await saveConversationStateV3(targetUserId, phoneStrLocal, [
               ...history,
-              { sender: "cliente", body: msgText || "" },
-              { sender: "agente", body: replyText }
+              { sender: "cliente" as const, body: msgText || "" },
+              { sender: "agente" as const, body: replyText }
             ]);
 
             const { data: conv } = await adminEarly
@@ -698,7 +698,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               { uazapi_url: num?.uazapi_url || "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
               phoneStrLocal,
               replyText,
-              { conversationId: conv?.id || "", source: "agent_v3", applyHumanize: true }
+              { conversationId: conv?.id || phoneStrLocal, source: "agent_v3", applyHumanize: true }
             );
 
             return new Response("ok (V3 processed)");
