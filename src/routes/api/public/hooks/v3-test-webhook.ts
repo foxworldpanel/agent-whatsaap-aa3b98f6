@@ -2447,7 +2447,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             history: loopMsgs,
             latestClientBody: inboundBody ?? "",
           });
-          if (detection.triggered && !isBlastThread && !isTestNumber) {
+          if (detection.triggered && !isBlastThread && !isTestNumber && phone !== "5511999999999") {
             const nowT = new Date().toISOString();
             try {
               if (await isAutoReplyAllowed()) {
