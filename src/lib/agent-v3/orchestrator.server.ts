@@ -55,7 +55,10 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
         .map(([name]) => name);
 
   const moduleKeys = selectRelevantModules(message, activeModules);
-  const modulePrompt = buildPromptFromModules(moduleKeys, customModules || {});
+  
+  // Prioritize DB content (config.brand_blocks) as customModules
+  const dbModules = config.brand_blocks || {};
+  const modulePrompt = buildPromptFromModules(moduleKeys, { ...dbModules, ...(customModules || {}) });
 
   // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
   const systemPrompt = [
