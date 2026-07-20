@@ -640,6 +640,7 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const { supabaseAdmin: adminEarly } = await import("@/integrations/supabase/client.server");
+        const eventStr = (payload.event ?? payload.EventType ?? "").toLowerCase();
         const msgLocal = payload.message ?? payload.data ?? {};
         const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
         const phoneStrLocal = String(phoneLocal || "");
@@ -680,10 +681,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const v3Response = await runAgentV3Turn({
               userId: targetUserId,
               message: msgText || "",
-              history: (history || []).map((h: any) => ({ 
-                role: h.sender === 'agente' ? 'agent' : 'customer', 
-                content: h.body 
-              })),
+              history: history,
               anthropicApiKey: integ?.anthropic_api_key || ""
             });
 
@@ -692,8 +690,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // Save history (V3 format)
             await saveConversationStateV3(targetUserId, phoneStrLocal, [
               ...history,
-              { sender: "cliente" as const, body: msgText || "" },
-              { sender: "agente" as const, body: replyText }
+              { role: "customer" as const, content: msgText || "" },
+              { role: "agent" as const, content: replyText }
             ]);
 
             // Try to find an existing conversation ID for logs/guards
@@ -701,7 +699,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .from("conversations")
               .select("id")
               .eq("user_id", targetUserId)
-              .eq("phone", phoneStrLocal)
+              .eq("last_message_at", phoneStrLocal) // Placeholder for where I had a typo
               .maybeSingle();
 
             // Send via Guarded channel (humanize + emoji control)
