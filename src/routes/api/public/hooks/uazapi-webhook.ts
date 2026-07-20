@@ -1124,11 +1124,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             } catch {}
           }
         } catch {}
-
+        
         // [V3-ROUTING-GATE]
-        // Se o remetente for o número autorizado, processa usando a lógica da V3 e encerra o webhook aqui.
-        if (isV3Target) {
-          console.log("[V3-GATE-DEBUG] ATIVADO PARA:", phoneStr);
+        // Mantemos o gate original aqui por segurança, mas o Early Gate acima deve capturar o número autorizado primeiro.
+        if (isV3TargetLocal) {
+          console.log("[V3-GATE-DEBUG] REFORÇO ATIVADO PARA:", phoneStrLocal);
           console.log(`[V3-ROUTING] Identificado número de teste ${phone}. Redirecionando para Agent V3...`);
           try {
             const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
