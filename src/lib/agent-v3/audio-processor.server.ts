@@ -31,5 +31,19 @@ export async function processAudioV3(audioUrl: string, openaiApiKey?: string): P
 
 export function autoSplitLongPartsV3(text: string): string[] {
   if (typeof text !== 'string') return [];
-  return legacySplitter([text]);
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  
+  // 1. Split por marcador explícito
+  const explicitParts = trimmed.split(/===SPLIT===/i).map(p => p.trim()).filter(p => p.length > 0);
+  
+  // 2. Aplicar o splitter de parágrafos em cada parte
+  const result = legacySplitter(explicitParts);
+  
+  // 3. Garantia: se resultou vazio mas havia texto, retorna o texto original limpo
+  if (result.length === 0 && trimmed.length > 0) {
+    return [trimmed];
+  }
+  
+  return result;
 }
