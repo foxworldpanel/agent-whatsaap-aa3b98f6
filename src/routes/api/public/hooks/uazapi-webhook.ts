@@ -179,7 +179,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // [V3-ROUTING-GATE]
     const content = extractContent(payload);
-    console.log(`[V3-AUDIT] ${JSON.stringify({ message_id: msgId, kind: content.kind, mime: content.mime || "none", media_url: !!content.mediaUrl })}`);
+    console.error(`[V3-AUDIT] ${JSON.stringify({ message_id: msgId, kind: content.kind, mime: content.mime || "none", media_url: !!content.mediaUrl })}`);
     
     try {
       const instanceToken = pickInstanceToken(payload);
