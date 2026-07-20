@@ -1125,59 +1125,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 metadata: { origem: "sistema", direcao: "recebido", tipo: "numero_teste" } as never,
               });
             } catch {}
-          }
-        } catch {}
-        
-        // [V3-ROUTING-GATE]
-        // Mantemos o gate original aqui por segurança, mas o Early Gate acima deve capturar o número autorizado primeiro.
-        if (isV3TargetLocal) {
-          console.log("[V3-GATE-DEBUG] REFORÇO ATIVADO PARA:", phoneStrLocal);
-          console.log(`[V3-ROUTING] Identificado número de teste ${phone}. Redirecionando para Agent V3...`);
-          try {
-            const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
-            const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/conversation-state.server");
-            const { sendAgentTextGuarded } = await import("@/lib/send-agent-guarded.server");
-            const { logEvent } = await import("@/lib/agent-logger.server");
-
-            // 1. Recuperar Histórico
-            const history = await getConversationStateV3(userId, phone);
-
-            // 2. Executar V3 Turn
-            let v3Response;
-            try {
-              v3Response = await runAgentV3Turn({
-                userId,
-                message: text,
-                history,
-                anthropicApiKey: integ.anthropic_api_key || ""
-              });
-            } catch (v3Error: any) {
-              console.error(`[V3-ERROR] falhou ao executar runAgentV3Turn:`, v3Error);
-              await logEvent({
-                userId,
-                phone,
-                type: "agent_v3_error",
-                level: "error",
-                summary: `V3 falhou para ${phone}: ${v3Error.message}`,
-                metadata: { error: v3Error.message, stack: v3Error.stack }
-              });
-
-              // FALLBACK simples pro número autorizado em caso de erro na V3
-              try {
-                await sendAgentTextGuarded(
-                  { uazapi_url: integ.uazapi_url ?? "", uazapi_token: instanceToken ?? integ.uazapi_token ?? "" },
-                  phone,
-                  "Desculpa, tive um problema técnico, tenta de novo em instantes",
-                  { conversationId: phone, source: "v3_fallback" }
-                );
-              } catch (sendErr) {
-                console.error("[V3-ERROR] Falha crítica ao enviar fallback:", sendErr);
-              }
-              return new Response("ok (v3 fallback handled)");
-            }
-
-            // 3. Salvar novo estado (Mensagem do Cliente + Respostas do Agente)
-            await saveConversationStateV3(userId, phone, [
               ...history,
               { role: "customer", content: text },
               ...v3Response.replies.map(r => ({ role: "agent" as const, content: r }))
