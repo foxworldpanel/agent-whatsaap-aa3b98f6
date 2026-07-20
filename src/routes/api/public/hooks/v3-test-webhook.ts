@@ -51,9 +51,8 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
         const result = await runAgentV3Turn({
           userId,
           message: payload.message?.text || "",
-          history: [], // Mock simplificado para teste
-          enabledModules: ["tabela_precos", "social_proof"], // Módulos padrão para teste
-          anthropicApiKey: process.env.ANTHROPIC_API_KEY || ""
+          history: [],
+          enabledModules: ["tabela_precos", "social_proof"]
         });
 
         console.log("[V3-TEST] Reply:", result.replies[0]);
@@ -69,3 +68,4 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
     },
   },
 });
+
