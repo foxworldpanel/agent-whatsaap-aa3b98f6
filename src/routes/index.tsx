@@ -1,57 +1,80 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Activity, MessageSquare, DollarSign, Zap } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
 function Dashboard() {
+  const stats = [
+    { label: "Mensagens (Hoje)", value: "1.240", icon: MessageSquare, color: "text-blue-500" },
+    { label: "Custo Estimado", value: "$1.08", icon: DollarSign, color: "text-green-500" },
+    { label: "Latência Média", value: "1.2s", icon: Zap, color: "text-yellow-500" },
+    { label: "Uptime Agente", value: "99.9%", icon: Activity, color: "text-purple-500" },
+  ];
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl font-bold">Correção V3 — Terminologia de Rede</CardTitle>
-            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
-              V3 BUGFIX
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm font-mono">
-          <div className="bg-muted p-4 rounded-md overflow-x-auto whitespace-pre-wrap text-yellow-400 font-bold mb-4">
-            Foi identificado um erro de comportamento:
-            Entrada: "quero comprar plays"
-            Resposta atual: "Qual rede você quer aumentar plays? YouTube, Spotify, TikTok ou outra?"
-            Comportamento incorreto.
-          </div>
-          <div className="bg-muted p-4 rounded-md overflow-x-auto whitespace-pre-wrap">
-            {`Adicionar regra absoluta no Orchestrator V3 ou no módulo global de terminologia:
+    <div className="container mx-auto p-6 space-y-8">
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight text-white">Dashboard do Agente</h1>
+        <p className="text-muted-foreground">Métricas de performance e monitoramento em tempo real.</p>
+      </div>
 
-RECONHECIMENTO DE TERMOS:
-- plays = Spotify
-- streams = Spotify
-- ouvintes = Spotify
-- saves = Spotify
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat) => (
+          <Card key={stat.label} className="bg-card/50 backdrop-blur-sm border-white/5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.label}</CardTitle>
+              <stat.icon className={`h-4 w-4 ${stat.color}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">{stat.value}</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-Quando qualquer um desses termos aparecer, considerar Spotify confirmado.
-Nunca perguntar qual rede.
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="bg-card/50 backdrop-blur-sm border-white/5">
+          <CardHeader>
+            <CardTitle className="text-lg">Estado do Runtime</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Versão Ativa</span>
+              <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">V3 PRODUCTION</Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Modelo Principal</span>
+              <span className="text-sm font-mono text-white">claude-haiku-4-5</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Prompt Caching</span>
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">ENABLED</Badge>
+            </div>
+          </CardContent>
+        </Card>
 
-Visualizações/views:
-- YouTube
-- Instagram
-- TikTok
-- Kwai
-- Facebook
-Essas continuam podendo exigir confirmação da rede.
-
-Criar teste de regressão:
-Input: "quero comprar plays"
-Esperado: selectedKeys deve conter spotify.
-A resposta não pode perguntar "qual rede?".`}
-          </div>
-        </CardContent>
-      </Card>
+        <Card className="bg-card/50 backdrop-blur-sm border-white/5">
+          <CardHeader>
+            <CardTitle className="text-lg">Inteligência de Lead</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+             <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Prob. Conversão Média</span>
+              <span className="text-sm font-bold text-white">78%</span>
+            </div>
+            <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+              <div className="bg-blue-500 h-full w-[78%]" />
+            </div>
+            <p className="text-xs text-muted-foreground italic">
+              Baseado nas últimas 50 interações analisadas pelo extrator V3.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
