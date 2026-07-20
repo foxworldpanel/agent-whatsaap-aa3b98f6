@@ -1806,7 +1806,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                       .in("servico", platformServiceIds)
                       .limit(1)
                       .maybeSingle();
-                    if (completedThis && !isTestNumber) {
+                    if (completedThis && !isTestNumber && phone !== "5511999999999") {
                       // #4: NÃO responde com frase fixa. Injeta fato técnico e
                       // deixa o Claude formular no idioma/tom da conversa.
                       technicalFactContext = `FATO TÉCNICO VERIFICADO: este cliente já utilizou o teste grátis de ${platformMatch.label} anteriormente (limite: 1 teste por número por rede). Não pode receber novo teste grátis dessa mesma rede. Informe isso ao cliente de forma natural, no idioma da conversa, e ofereça seguir para um pacote pago pequeno como alternativa (menor quantidade real do catálogo).`;
