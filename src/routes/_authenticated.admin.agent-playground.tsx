@@ -25,7 +25,8 @@ import {
   Coins,
   Cpu,
   ShieldCheck,
-  Bot
+  Bot,
+  Zap
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,8 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { runPlaygroundTurn } from "@/lib/agent-v3/playground.functions";
+import { ScenarioGenerator } from "@/components/agent-playground/ScenarioGenerator";
+import { HistoryEditor } from "@/components/agent-playground/HistoryEditor";
 
 export const Route = createFileRoute("/_authenticated/admin/agent-playground")({
   component: AgentPlaygroundPage,
@@ -48,6 +51,8 @@ function AgentPlaygroundPage() {
   const queryClient = useQueryClient();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [isScenarioOpen, setIsScenarioOpen] = useState(false);
+  const [isHistoryEditorOpen, setIsHistoryEditorOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Queries
@@ -198,9 +203,14 @@ function AgentPlaygroundPage() {
               <h3 className="font-semibold flex items-center gap-2">
                 <Database className="h-4 w-4" /> Sessões
               </h3>
-              <Button size="icon" variant="outline" onClick={() => createSession.mutate(`Novo teste ${sessions?.length || 0 + 1}`)}>
-                <Plus className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-1">
+                <Button size="icon" variant="outline" className="h-8 w-8" title="Criar cenário" onClick={() => setIsScenarioOpen(true)}>
+                  <Zap className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => createSession.mutate(`Novo teste ${sessions?.length || 0 + 1}`)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -253,6 +263,9 @@ function AgentPlaygroundPage() {
             </div>
             {activeSessionId && (
               <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setIsHistoryEditorOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" /> Msg manual
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => clearSession.mutate(activeSessionId)}>
                   Limpar conversa
                 </Button>
@@ -472,6 +485,35 @@ function AgentPlaygroundPage() {
           </Tabs>
         </aside>
       </div>
+
+      <ScenarioGenerator 
+        open={isScenarioOpen} 
+        onOpenChange={setIsScenarioOpen}
+        onGenerate={(s) => {
+          toast.info(`Gerando cenário: ${s.selectedScenario}`);
+          // Implement logic to seed the session messages
+          setIsScenarioOpen(false);
+        }}
+      />
+
+      <HistoryEditor
+        open={isHistoryEditorOpen}
+        onOpenChange={setIsHistoryEditorOpen}
+        onAdd={async (msg) => {
+          if (!activeSessionId) return;
+          const { error } = await supabase.from("agent_playground_messages").insert({
+            session_id: activeSessionId,
+            role: msg.role,
+            content: msg.content,
+            sequence: (messages?.length || 0) + 1
+          });
+          if (error) toast.error(error.message);
+          else {
+            queryClient.invalidateQueries({ queryKey: ["playground_messages", activeSessionId] });
+            toast.success("Mensagem adicionada");
+          }
+        }}
+      />
     </div>
   );
 }
