@@ -41,7 +41,7 @@ export async function getConversationStateV3(userId: string, phone: string): Pro
     history = history.slice(-10);
   }
 
-  const oldest_message_sent_at = data?.updated_at; // Aproximação baseada no registro
+  const oldest_message_sent_at = data?.updated_at ?? undefined; // Aproximação baseada no registro
 
   return { 
     history, 
