@@ -41,7 +41,7 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
         const { data: num } = await supabaseAdmin
           .from("whatsapp_numbers")
           .select("user_id")
-          .eq("uazapi_token", token)
+          .eq("uazapi_token", token || "")
           .maybeSingle();
 
         const userId = num?.user_id;
