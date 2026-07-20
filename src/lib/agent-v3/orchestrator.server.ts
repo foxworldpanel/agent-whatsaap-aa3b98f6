@@ -60,6 +60,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const modulePrompt = buildPromptFromModules(moduleKeys, { ...dbModules, ...(customModules || {}) });
 
   // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
+  console.log("[AGENT-V3-DEBUG] targetUserId:", targetUserId);
   const systemPrompt = [
     { 
       type: "text", 
@@ -154,10 +155,12 @@ ${extraContext ? `FATO TÉCNICO VERIFICADO: ${extraContext}` : "Nenhum contexto 
       })),
       { role: "user", content: message }
     ],
+  console.log("[AGENT-V3-DEBUG] Final prompt length:", JSON.stringify(systemPrompt).length);
     model: "claude-haiku-4-5"
   });
 
   const rawText = response.content[0].text;
+  console.log("[AGENT-V3-DEBUG] Raw response:", rawText);
   
   // Metadata extraction
   const { temperature, intent, stage, text: cleanText } = extractMetadataV3(rawText);
