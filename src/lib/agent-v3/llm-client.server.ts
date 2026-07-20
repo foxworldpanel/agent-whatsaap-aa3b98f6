@@ -8,8 +8,16 @@ export async function callAnthropicV3(params: {
   system: any;
   messages: any[];
   model: string;
+  metadata?: {
+    message_id?: string;
+    call_number?: number;
+    selectedKeys?: string[];
+    system_prompt_chars?: number;
+    history_chars?: number;
+    message_chars?: number;
+  };
 }) {
-  const { apiKey, system, messages, model } = params;
+  const { apiKey, system, messages, model, metadata } = params;
   
   const headers: Record<string, string> = {
     "content-type": "application/json",
@@ -21,18 +29,13 @@ export async function callAnthropicV3(params: {
     headers["x-api-key"] = apiKey;
   }
 
-  let realModel = model;
-  if (model === "claude-haiku-4-5") realModel = "claude-haiku-4-5";
-  if (model === "claude-sonnet-5") realModel = "claude-sonnet-5";
-
   const body = {
-    model: realModel,
+    model: model,
     max_tokens: 1024,
     system,
     messages
   };
 
-  const startTime = Date.now();
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers,
@@ -48,18 +51,49 @@ export async function callAnthropicV3(params: {
   const result = await response.json();
   const requestId = response.headers.get("request-id") || response.headers.get("x-request-id") || "unknown";
 
-  // Instrumentação solicitada pelo usuário
-  console.log("[RUNTIME-REAL-LOG]", JSON.stringify({
-    git_commit_sha: process.env.GIT_COMMIT_SHA || "85c192d6e3c5a7b68e7d2b5b3a8c4f9e7d2b5b3a", // Fallback se não injetado
-    runtime_version: "V3",
-    selectedKeys: params.system?.[0]?.text?.includes("ESTADO DA CONVERSA") ? "detectado_via_orchestrator" : [], // Placeholder se não passado
-    system_prompt_chars: JSON.stringify(system).length,
-    input_tokens: result.usage?.input_tokens || 0,
-    output_tokens: result.usage?.output_tokens || 0,
-    cache_creation_input_tokens: result.usage?.cache_creation_input_tokens || 0,
-    cache_read_input_tokens: result.usage?.cache_read_input_tokens || 0,
-    model: realModel,
-    anthropic_request_id: requestId
+  // TELEMETRIA FINANCEIRA REAL
+  const usage = result.usage || {};
+  const input_tokens = usage.input_tokens || 0;
+  const output_tokens = usage.output_tokens || 0;
+  const cache_creation_input_tokens = usage.cache_creation_input_tokens || 0;
+  const cache_read_input_tokens = usage.cache_read_input_tokens || 0;
+
+  const PRECO_CACHE_WRITE = 1.25; 
+  const PRECO_CACHE_READ = 0.10;  
+
+  const inputCost = (input_tokens * 1) / 1_000_000;
+  const outputCost = (output_tokens * 5) / 1_000_000;
+  const cacheWriteCost = (cache_creation_input_tokens * PRECO_CACHE_WRITE) / 1_000_000;
+  const cacheReadCost = (cache_read_input_tokens * PRECO_CACHE_READ) / 1_000_000;
+  const totalCost = inputCost + outputCost + cacheWriteCost + cacheReadCost;
+
+  const response_chars = result.content?.[0]?.text?.length || 0;
+
+  console.log("[ANTHROPIC-TELEMETRY-RAW]", JSON.stringify({
+    usage: {
+      model: model,
+      input_tokens,
+      output_tokens,
+      cache_creation_input_tokens,
+      cache_read_input_tokens,
+      request_id: requestId
+    },
+    metadata: {
+      call_number_for_message: metadata?.call_number || 1,
+      message_id: metadata?.message_id || "unknown",
+      selectedKeys: metadata?.selectedKeys || [],
+      system_prompt_chars: metadata?.system_prompt_chars || 0,
+      history_chars: metadata?.history_chars || 0,
+      message_chars: metadata?.message_chars || 0,
+      response_chars
+    },
+    financial: {
+      inputCost,
+      outputCost,
+      cacheWriteCost,
+      cacheReadCost,
+      totalCost
+    }
   }));
 
   return result;

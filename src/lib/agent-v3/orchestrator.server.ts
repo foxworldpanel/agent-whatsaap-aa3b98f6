@@ -23,6 +23,7 @@ export interface OrchestratorInput {
   extraContext?: string;
   isInbound?: boolean;
   inputKind?: "texto" | "audio" | "image" | "sticker";
+  messageId?: string; // Para telemetria
 }
 
 export interface AgentResponseV3 {
@@ -45,7 +46,7 @@ export interface AgentResponseV3 {
  * 5. Aplicar Guards e Pós-processamento
  */
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
-  const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true, inputKind } = input;
+  const { userId, message, history, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true, inputKind, messageId } = input;
 
   // Carrega Identidade e Configuração dinamicamente
   const targetUserId = userId;
@@ -121,13 +122,9 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   }
 
   // Model Call
-  console.log("[AGENT-V3-INSTRUMENTATION] [BEFORE_CALL] time:", Date.now());
-  console.log("[AGENT-V3-INSTRUMENTATION] [PROMPT_INFO]", {
-    system_prompt_chars: JSON.stringify(systemPrompt).length,
-    moduleKeys,
-    history_count: history.length,
-    message_chars: message.length
-  });
+  const system_prompt_chars = JSON.stringify(systemPrompt).length;
+  const history_chars = JSON.stringify(history.slice(-10)).length;
+  const message_chars = message.length;
 
   const response = await callAnthropicV3({
     apiKey: anthropicApiKey,
@@ -139,7 +136,15 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
       })),
       { role: "user", content: message }
     ],
-    model: "claude-haiku-4-5"
+    model: "claude-haiku-4-5",
+    metadata: {
+      message_id: messageId,
+      call_number: 1,
+      selectedKeys: moduleKeys,
+      system_prompt_chars,
+      history_chars,
+      message_chars
+    }
   });
   
   // Instrumentação detalhada no orchestrator para capturar selectedKeys
