@@ -57,11 +57,9 @@ export function selectRelevantModules(text: string, enabledModules: string[]): s
   }
 
   // Filtragem estrita baseada em enabledModules e CORE_MODULES
-  const allowedKeys = Array.from(selectedKeys).filter(
+  return Array.from(selectedKeys).filter(
     key => CORE_MODULES.has(key) || enabledModules.includes(key)
   );
-
-  return allowedKeys;
 }
 
 export function buildPromptFromModules(keys: string[], customModules: Record<string, string>): string {
