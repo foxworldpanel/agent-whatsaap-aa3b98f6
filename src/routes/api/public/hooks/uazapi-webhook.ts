@@ -699,7 +699,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .from("conversations")
               .select("id")
               .eq("user_id", targetUserId)
-              .eq("last_message_at", phoneStrLocal) // Placeholder for where I had a typo
+              .eq("phone", phoneStrLocal)
               .maybeSingle();
 
             // Send via Guarded channel (humanize + emoji control)
