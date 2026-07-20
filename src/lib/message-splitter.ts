@@ -14,18 +14,15 @@ export function autoSplitLongParts(
   parts: string[],
   _threshold: number = LONG_MESSAGE_THRESHOLD,
 ): string[] {
-  console.log(`[splitter] input parts: ${JSON.stringify(parts)}`);
   const out: string[] = [];
   for (const raw of parts) {
     const part = raw.trim();
     if (!isMeaningfulPart(part)) {
-      console.log(`[splitter] skipping non-meaningful part: "${part}"`);
       continue;
     }
     
     // Verificando se contém \n\n
     if (!/\n\s*\n/.test(part)) {
-      console.log(`[splitter] part has no \n\n, keeping as is: "${part}"`);
       out.push(part);
       continue;
     }
@@ -35,14 +32,11 @@ export function autoSplitLongParts(
       .map((p) => p.trim())
       .filter((p) => isMeaningfulPart(p));
       
-    console.log(`[splitter] part split into ${paragraphs.length} paragraphs`);
-    
     if (paragraphs.length <= 1) {
       out.push(part);
       continue;
     }
     for (const p of paragraphs) out.push(p);
   }
-  console.log(`[splitter] final output: ${JSON.stringify(out)}`);
   return out;
 }
