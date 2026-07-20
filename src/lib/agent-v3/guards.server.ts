@@ -121,6 +121,7 @@ export function enforceReengagementGreeting(text: string, latestClientMsg: strin
   if (REENG_GREETING_START_RX.test(trimmed)) return { text: trimmed, prepended: false };
   
   const greeting = pickReengagementGreeting(latestClientMsg, nowDate);
+  console.log(`[agent-v3] Guard: Prepending "${greeting}" to text. Full: "${greeting}! ${trimmed}"`);
   return { text: `${greeting}! ${trimmed}`, prepended: true };
 }
 
