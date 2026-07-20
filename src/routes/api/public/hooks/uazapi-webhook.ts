@@ -740,15 +740,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             fromMe: msgProbe.fromMe,
             type: msgProbe.type ?? msgProbe.messageType,
             hasText: !!(msgProbe.text ?? msgProbe.content),
-            event,
+            eventStr: eventStr,
           };
           const { logEvent } = await import("@/lib/agent-logger.server");
-          await logEvent({ phone: phoneForLog, type: "message_received", level: "info", summary: `📦 Webhook | fromMe=${probe.fromMe} | type=${probe.type} | event=${event} | hasText=${probe.hasText}`, metadata: { raw: rawShort, probe } });
+          await logEvent({ phone: phoneForLog, type: "message_received", level: "info", summary: `📦 Webhook | fromMe=${probe.fromMe} | type=${probe.type} | event=${eventStr} | hasText=${probe.hasText}`, metadata: { raw: rawShort, probe } });
         } catch (e) {
           console.error("raw payload log failed", e);
         }
         // Aceita messages, messages.upsert, message etc.
-        if (event && !event.includes("message")) return new Response("ignored");
+        if (eventStr && !eventStr.includes("message")) return new Response("ignored");
 
         const msg = payload.message ?? payload.data;
         if (!msg) return new Response("no message");
