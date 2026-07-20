@@ -48,7 +48,11 @@ export function selectRelevantModules(text: string, enabledModules: string[]): s
     }
   }
 
-  return Array.from(selectedKeys);
+  // Filtrar apenas módulos que estão habilitados OU que são core (identidade, regras_gerais, comportamento_humano)
+  const coreModules = ["identidade", "regras_gerais", "comportamento_humano"];
+  return Array.from(selectedKeys).filter(key => 
+    coreModules.includes(key) || enabledModules.includes(key)
+  );
 }
 
 export function buildPromptFromModules(keys: string[], customModules: Record<string, string>): string {
