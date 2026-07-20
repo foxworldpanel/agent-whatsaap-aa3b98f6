@@ -20,7 +20,7 @@ describe("V3 Bug Fix Regression", () => {
   });
   
   it("should associate 'views' with multiple but 'plays' only with Spotify", () => {
-    const enabled = ["spotify", "youtube", "tiktok"];
+    const enabled = ["spotify", "youtube", "tiktok", "instagram"];
     
     const spotifyOnly = selectRelevantModules("quero plays", enabled);
     expect(spotifyOnly).toContain("spotify");
