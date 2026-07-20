@@ -178,7 +178,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     // [V3-ROUTING-GATE]
-    console.log("[V3-GATE] Processando turno para:", phoneStrLocal, "msgId:", msgId);
+    console.log(`[AUDIT-LOG] message_id: ${msgId}, kind: ${content.kind}, mime: ${content.mime || "none"}, media_url: ${!!content.mediaUrl}`);
     
     try {
       const instanceToken = pickInstanceToken(payload);
