@@ -691,7 +691,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .from("conversations")
               .select("id")
               .eq("user_id", targetUserId)
-              .eq("phone", phoneStrLocal)
+              .eq("contact_id", (await adminEarly.from("contacts").select("id").eq("user_id", targetUserId).eq("telefone", phoneStrLocal).maybeSingle()).data?.id || "")
               .maybeSingle();
 
             await sendAgentTextGuarded(
