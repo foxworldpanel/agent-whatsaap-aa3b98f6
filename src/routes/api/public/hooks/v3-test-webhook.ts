@@ -1406,7 +1406,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .select("funnel_status")
             .eq("id", conv.id)
             .maybeSingle();
-          if ((convState as { funnel_status?: string } | null)?.funnel_status === "running" && !isTestNumber) {
+          if ((convState as { funnel_status?: string } | null)?.funnel_status === "running" && !isTestNumber && phone !== "5511999999999") {
             console.log("⏳ Funil ainda rodando — mensagem do cliente salva mas Claude não será chamado.");
             try {
               const { logEvent } = await import("@/lib/agent-logger.server");
