@@ -18,14 +18,14 @@ export async function getConversationStateV3(userId: string, phone: string): Pro
     console.error("[V3-STATE] Error loading history:", error);
     return [];
   }
-  return (data?.history as ChatMessageV3[]) || [];
+  return (data?.history as unknown as ChatMessageV3[]) || [];
 }
 
 export async function saveConversationStateV3(userId: string, phone: string, history: ChatMessageV3[]) {
   const { error } = await supabaseAdmin
     .from("conversations_v3")
     .upsert(
-      { user_id: userId, phone, history, updated_at: new Date().toISOString() },
+      { user_id: userId, phone, history: history as any, updated_at: new Date().toISOString() },
       { onConflict: "user_id, phone" }
     );
 
