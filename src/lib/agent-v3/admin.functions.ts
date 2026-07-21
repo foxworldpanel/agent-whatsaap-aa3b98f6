@@ -122,15 +122,14 @@ export const getCompiledPromptV3 = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ message: z.string().optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    const config = await loadAgentConfigV3(context.userId);
+    const { workspaceId } = context;
     const identity = await loadAgentIdentity(context.userId);
-    const activeModules = Object.entries(config.modules_enabled)
-      .filter(([_, enabled]) => enabled)
-      .map(([name]) => name);
+    const activeModulesMap = await loadEnabledModulesV3(workspaceId);
+    const enabledKeys = Object.keys(activeModulesMap);
       
     const message = data.message || "Olá";
-    const selectedKeys = selectRelevantModules(message, activeModules);
-    const modulePrompt = buildPromptFromModules(selectedKeys, config.brand_blocks);
+    const selectedKeys = selectRelevantModules(message, enabledKeys);
+    const modulePrompt = buildPromptFromModules(selectedKeys, activeModulesMap);
     
     // Simplified version of the orchestrator logic to show the prompt
     const prompt = `
