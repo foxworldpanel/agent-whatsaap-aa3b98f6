@@ -148,6 +148,10 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     return {
       reply: result.replies.join("\n"),
+      run: savedRun || {
+        ...insertData,
+        derived_metadata: insertData.metadata
+      },
       usage: result.usage,
       cost: result.cost,
       modules: result.modules,
