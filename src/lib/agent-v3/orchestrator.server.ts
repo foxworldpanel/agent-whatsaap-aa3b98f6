@@ -213,7 +213,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   const message_chars = message.length;
 
   const response = await callAnthropicV3({
-    apiKey: anthropicApiKey,
+    apiKey: anthropicApiKey || (typeof process !== 'undefined' ? process.env.ANTHROPIC_API_KEY : undefined),
     system: systemPrompt,
     messages: [
       ...history.map(m => ({
