@@ -20,11 +20,11 @@ export const getValidationAudit = createServerFn({ method: "GET" })
       id: m.id,
       key: m.key,
       title: m.name,
-      category: m.category,
-      enabled: m.enabled,
-      always_load: m.always_load,
-      priority: m.priority,
-      triggers: m.triggers,
+      category: m.category || "Geral",
+      enabled: m.enabled ?? false,
+      always_load: (m as any).always_load ?? false, // Temporary cast until types sync
+      priority: m.priority ?? 0,
+      triggers: (m as any).triggers ?? [], // Temporary cast until types sync
       version: m.version || 1,
       content: m.content,
       content_length: m.content?.length || 0,
