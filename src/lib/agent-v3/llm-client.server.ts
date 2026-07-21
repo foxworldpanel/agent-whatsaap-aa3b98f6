@@ -34,7 +34,7 @@ export async function callAnthropicV3(params: {
   }
 
   // Map high-level models to real Anthropic identifiers
-  const anthropicModel = "claude-3-5-sonnet-latest";
+  const anthropicModel = "claude-3-5-sonnet-20240620";
 
 
 
