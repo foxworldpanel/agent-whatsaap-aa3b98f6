@@ -180,11 +180,13 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         recommended_action: result.recommended_action,
         reasoning: result.reasoning,
       },
-
       usage: usage,
       latencyMs,
-      selectedModules: result.selectedModules || []
+      selectedModules: result.selectedModules || [],
+      modulesTelemetry,
+      promptComparison: comparison
     };
+
   });
 
 function calculateHaiku45Cost(usage: any) {
