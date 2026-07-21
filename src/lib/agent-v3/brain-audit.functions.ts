@@ -5,8 +5,9 @@ import { callAnthropicV3 } from "./llm-client.server";
 import { createHash } from "crypto";
 
 export const getBrainQualityAudit = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const workspaceId = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+  .handler(async ({ request }) => {
+    // Try to get workspace from header, or use hardcoded Mind workspace as fallback
+    const workspaceId = request.headers.get("x-workspace-id") || "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
     
     // 1. Load modules from DB
     const { data: dbModules, error } = await supabaseAdmin
