@@ -27,81 +27,81 @@ function Dashboard() {
     <div className="container mx-auto p-6 space-y-8">
       <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight text-white uppercase">SPRINT 1 — ELIMINAR A IDENTIDADE DUPLICADA DO AGENTE V3</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white uppercase">FASE 1 — CONSOLIDAR O CÉREBRO DO AGENTE V3</h1>
           <Badge variant="outline" className="text-[10px] font-mono border-blue-500/50 text-blue-400">V3 ARCHITECTURE REFACTOR</Badge>
         </div>
         
         <div className="bg-card/50 p-8 rounded-lg border border-white/5 space-y-6 text-sm text-white/80 leading-relaxed max-w-4xl font-sans">
-          <p className="font-bold text-lg text-white">Nesta tarefa, não altere o Dashboard, layout, métricas, logs ou páginas visuais.</p>
-          <p>Quero modificar somente a arquitetura da identidade do Agente V3.</p>
+          <p className="font-bold text-lg text-white">Quero iniciar agora a refatoração arquitetural do Agente V3.</p>
+          <p>Nesta etapa, não quero adicionar novas funcionalidades. O objetivo é garantir que exista apenas uma fonte da verdade:</p>
+          
+          <div className="grid grid-cols-2 gap-4 my-4 font-mono">
+            <div className="p-4 bg-white/5 border border-white/10 rounded">
+              <span className="text-blue-400 font-bold block mb-1">CMS</span>
+              <span className="text-xs">Cérebro do agente (Identidade, Regras, Conteúdo)</span>
+            </div>
+            <div className="p-4 bg-white/5 border border-white/10 rounded">
+              <span className="text-green-400 font-bold block mb-1">CÓDIGO</span>
+              <span className="text-xs">Motor técnico (Execução, APIs, Telemetria)</span>
+            </div>
+          </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             <section>
-              <h3 className="text-white font-bold mb-2">Problema atual</h3>
-              <p className="text-xs text-white/60">
-                A identidade da Júlia existe em mais de uma fonte: módulo identidade no CMS; identity.persona; arquivo agent-identity.server.ts; possíveis trechos fixos no Orchestrator ou Prompt Builder.
-                Isso viola a arquitetura definida: CMS = cérebro, Código = motor técnico.
-              </p>
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">1. Remover duplicações entre código e CMS</h3>
+              <p className="text-xs text-white/60">Auditar e corrigir qualquer conhecimento duplicado entre Prompt Base, identidade, regras de comportamento e comerciais. Manter conteúdo apenas no CMS.</p>
             </section>
 
             <section>
-              <h3 className="text-white font-bold mb-2">Objetivo</h3>
-              <p className="text-xs text-white/60">
-                Garantir que toda identidade comercial e comportamental da Júlia venha exclusivamente do módulo identidade no CMS. 
-                O código não pode definir: nome da atendente; persona; empresa representada; tom de voz; objetivo comercial; forma de atendimento; emojis; personalidade.
-              </p>
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">2. Eliminar módulos órfãos</h3>
+              <p className="text-xs text-white/60">Mapear e remover módulos que nunca são ativados pelo seletor ou que não chegam ao Prompt Builder.</p>
             </section>
 
-            <section className="space-y-4 pt-4 border-t border-white/5">
-              <h3 className="text-blue-400 font-bold uppercase tracking-wider text-xs">Alterações necessárias</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="text-white font-bold text-xs mb-1">1. Localizar todas as fontes de identidade</h4>
-                  <p className="text-[11px] text-white/50">Pesquisar por Júlia, Mind SMM Panel, persona, identity.persona, agent-identity, tom de voz, objetivo comercial.</p>
-                </div>
-                <div>
-                  <h4 className="text-white font-bold text-xs mb-1">2. Manter a identidade no CMS</h4>
-                  <p className="text-[11px] text-white/50">A fonte oficial deve ser agent_modules_v3 key = identidade. Carregar em runtime obedecendo enabled e always_load.</p>
-                </div>
-                <div>
-                  <h4 className="text-white font-bold text-xs mb-1">3. Remover identidade comercial do código</h4>
-                  <p className="text-[11px] text-white/50">Remover identity.persona e conteúdos comerciais de agent-identity.server.ts, orchestrator.server.ts e Prompt Builder.</p>
-                </div>
-                <div>
-                  <h4 className="text-white font-bold text-xs mb-1">4. Não apagar arquivos sem necessidade</h4>
-                  <p className="text-[11px] text-white/50">Manter arquivos necessários para configuração técnica, mas remover persona hardcoded.</p>
-                </div>
+            <section>
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">3. Consolidar módulos duplicados</h3>
+              <p className="text-xs text-white/60">Aplicar o princípio de responsabilidade única. Fundir módulos redundantes como "identidade + objetivo".</p>
+            </section>
+
+            <section>
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">4. Module Selector baseado no CMS</h3>
+              <p className="text-xs text-white/60">Remover gatilhos hardcoded (ex: "plays" {"->"} Spotify). Os triggers devem vir exclusivamente da configuração do módulo no CMS.</p>
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-white font-bold mb-2">5. Revisar módulos obrigatórios</h3>
+                <p className="text-xs text-white/60">Substituir obrigatoriedade hardcoded pelo campo "always_load" no CMS.</p>
+              </div>
+              <div>
+                <h3 className="text-white font-bold mb-2">6. Consolidar identidade e persona</h3>
+                <p className="text-xs text-white/60">Garantir fonte única para a persona. Remover redundâncias entre objeto de identidade e módulos.</p>
               </div>
             </section>
 
-            <section className="space-y-4 pt-4 border-t border-white/5">
-              <h3 className="text-green-400 font-bold uppercase tracking-wider text-xs">Testes obrigatórios</h3>
-              <div className="grid grid-cols-1 gap-2">
-                <div className="p-3 bg-white/5 rounded text-[11px]">
-                  <span className="text-white font-bold block">Teste A — Identidade ativa:</span>
-                  Prompt final deve conter o conteúdo do módulo identidade.
-                </div>
-                <div className="p-3 bg-white/5 rounded text-[11px]">
-                  <span className="text-white font-bold block">Teste B — Identidade alterada:</span>
-                  Alterar nome no CMS para MARCADOR_IDENTIDADE_CMS deve mudar o prompt sem mexer no código.
-                </div>
-                <div className="p-3 bg-white/5 rounded text-[11px]">
-                  <span className="text-white font-bold block">Teste C — Identidade desativada:</span>
-                  Ao desativar no CMS, a identidade não deve aparecer no prompt.
-                </div>
-                <div className="p-3 bg-white/5 rounded text-[11px]">
-                  <span className="text-white font-bold block">Teste D — Busca de hardcode:</span>
-                  Nenhum conhecimento comercial da Júlia fora do CMS.
-                </div>
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-white font-bold mb-2">7. Tratamento de mídia</h3>
+                <p className="text-xs text-white/60">Mover orientações sobre áudio e imagem para o CMS, mantendo apenas a lógica técnica no código.</p>
+              </div>
+              <div>
+                <h3 className="text-white font-bold mb-2">8. Workspace dinâmico</h3>
+                <p className="text-xs text-white/60">Eliminar UUIDs fixos. O contexto deve vir da sessão e configuração do agente.</p>
               </div>
             </section>
 
-            <section className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
-              <h3 className="text-yellow-500 font-bold mb-2 uppercase text-xs">Critérios de aceite</h3>
-              <p className="text-[11px] text-yellow-500/80">
-                Só considerar concluído quando: existir uma única fonte de identidade; persona vier exclusivamente do CMS; alterar o módulo mudar imediatamente o runtime; Playground e WhatsApp continuarem funcionando; nenhum componente visual do Dashboard alterado.
-              </p>
+            <section>
+              <h3 className="text-white font-bold mb-2">9. Prompt Builder rastreável</h3>
+              <p className="text-xs text-white/60">Implementar telemetria detalhada: módulos selecionados, hashes, tokens por módulo e razões de seleção.</p>
+            </section>
+
+            <section>
+              <h3 className="text-white font-bold mb-2">10. Testes obrigatórios</h3>
+              <p className="text-xs text-white/60">Validar cenários reais (Spotify, Pagamento, Suporte) garantindo a seleção correta de módulos e ausência de duplicações.</p>
+            </section>
+
+            <section className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+              <h3 className="text-blue-400 font-bold mb-2">11. Critérios de aceite & 12. Entrega final</h3>
+              <p className="text-xs text-blue-400/80">A fase só termina com ZERO conhecimento comercial hardcoded e todos os testes passando com evidência técnica em runtime.</p>
             </section>
           </div>
 
