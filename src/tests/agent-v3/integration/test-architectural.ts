@@ -14,18 +14,23 @@ async function runUnitTests() {
   console.log("Testando selectRelevantModules...");
 
   // Core modules sempre presentes
-  const coreKeys = selectRelevantModules("Oi", [], []).selectedModules;
+  const coreKeys = selectRelevantModules("Oi", [], {}).selectedModules;
   assert(coreKeys.includes("identidade"), "Core: identidade ausente");
   assert(coreKeys.includes("regras_gerais"), "Core: regras_gerais ausente");
   assert(coreKeys.includes("comportamento_humano"), "Core: comportamento_humano ausente");
 
   // spotify detectado + spotify habilitado
-  const keysEnabled = selectRelevantModules("Quero plays no spotify", [], ["spotify", "fluxo_vendas"]).selectedModules;
+  const keysEnabled = selectRelevantModules("Quero plays no spotify", [], {
+    spotify: { content: "Spotify content" },
+    fluxo_vendas: { content: "Fluxo content" }
+  } as any).selectedModules;
   assert(keysEnabled.includes("spotify"), "Deve incluir spotify quando habilitado");
   assert(keysEnabled.includes("fluxo_vendas"), "Deve incluir fluxo_vendas quando habilitado");
 
   // spotify detectado + spotify desabilitado
-  const keysDisabled = selectRelevantModules("Quero plays no spotify", [], ["fluxo_vendas"]).selectedModules;
+  const keysDisabled = selectRelevantModules("Quero plays no spotify", [], {
+    fluxo_vendas: { content: "Fluxo content" }
+  } as any).selectedModules;
   assert(!keysDisabled.includes("spotify"), "NÃO deve incluir spotify quando desabilitado");
   assert(keysDisabled.includes("fluxo_vendas"), "Deve incluir fluxo_vendas habilitado");
 
