@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 const calculateHaiku45Cost = (usage: any) => {
   const input = usage.input_tokens || 0;
   const output = usage.output_tokens || 0;
-  // Haiku 4.5 pricing: $0.15 / 1M input, $0.60 / 1M output
   return (input * 0.00000015) + (output * 0.00000060);
 };
 
@@ -22,24 +21,21 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { sessionId, message, inputKind = "texto" } = data;
-    const { supabase: supabaseAdmin, userId, workspaceId } = context;
+    const { userId, workspaceId } = context;
 
     const start = Date.now();
 
-    // 1. Carregar Histórico
     const { data: messages } = await supabase
       .from("agent_playground_messages")
       .select("*")
       .eq("session_id", sessionId)
       .order("sequence", { ascending: true });
 
-    // Ensure types match orchestrator expectation: agent | customer
     const history = (messages || []).map(m => ({
       role: (m.role === "assistant" ? "agent" : "customer") as "agent" | "customer",
       content: m.content
     }));
 
-    // 2. Salvar Mensagem do Usuário
     const { data: userMsg } = await supabase
       .from("agent_playground_messages")
       .insert({
@@ -54,16 +50,14 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     if (!userMsg) throw new Error("Falha ao salvar mensagem do usuário");
 
-    // 3. Executar Agente V3
     const result = await runAgentV3Turn({
       message,
       userId,
       history,
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY || "", // This will be handled by context usually, but playground might need explicit if not in orchestrator defaults
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
       inputKind: inputKind as any
     });
 
-    // 4. Salvar Mensagem do Agente
     const { data: agentMsg } = await supabase
       .from("agent_playground_messages")
       .insert({
@@ -91,13 +85,10 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     if (!agentMsg) throw new Error("Falha ao salvar resposta do agente");
 
     const latencyMs = Date.now() - start;
-
-    // 6. Salvar Telemetria (Run)
     const usage = result.usage || {};
     const modulesTelemetry = result.modulesTelemetry || [];
     const comparison = result.promptComparison || { withoutCommercial: 0, withCommercial: 0, diff: 0 };
     
-    // Using any cast to bypass temporary TS mismatch until Database types refresh
     const insertData: any = {
       session_id: sessionId,
       message_id: agentMsg.id,
