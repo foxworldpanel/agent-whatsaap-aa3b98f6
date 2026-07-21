@@ -291,13 +291,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         stack: e.stack,
         phone: phoneStrLocal,
         msgId: msgId,
-        workspaceId: num?.workspace_id || "unknown"
+        workspaceId: "unknown" // 'num' is not available in catch scope if it fails before definition
       });
       
       const instanceToken = pickInstanceToken(payload);
       
       await sendAgentTextGuarded(
-        { uazapi_url: num?.uazapi_url || "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
+        { uazapi_url: "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
         phoneStrLocal,
         "Desculpe, tive um problema técnico momentâneo. Pode tentar de novo em instantes?",
         { conversationId: phoneStrLocal, source: "v3_error_fallback" }

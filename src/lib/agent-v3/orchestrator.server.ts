@@ -35,30 +35,55 @@ export interface ModuleTelemetry {
   tokens: number;
 }
 
-export interface AgentResponseV3 {
-  temperature: "frio" | "morno" | "quente";
-  confidence: string;
-  intent: string;
-  stage: string;
-  purchase_probability: number;
-  sentiment: string;
-  urgency: string;
-  recommended_action: string;
-  reasoning: string;
-  conversation_score: number;
-  conversation_feedback: string[];
+export interface AgentV3TurnResult {
+  response: string;
   replies: string[];
+  usage: {
+    model: string;
+    request_id?: string;
+    input_tokens: number;
+    output_tokens: number;
+    cache_creation_input_tokens: number;
+    cache_read_input_tokens: number;
+    latency_ms: number;
+  };
+  cost: {
+    input_usd: number;
+    output_usd: number;
+    cache_usd: number;
+    total_usd: number;
+  };
+  modules: {
+    selected_keys: string[];
+    versions: Record<string, number>;
+    estimated_tokens_by_module: Record<string, number>;
+    commercial_tokens_added: number;
+  };
+  intelligence: {
+    temperature: "frio" | "morno" | "quente";
+    confidence: string;
+    intent: string;
+    stage: string;
+    purchase_probability: number;
+    sentiment: string;
+    urgency: string;
+    recommended_action: string;
+    reasoning: string;
+  };
+  score?: {
+    total?: number;
+    humanity?: number;
+    clarity?: number;
+    conversion?: number;
+    persona?: number;
+    objectivity?: number;
+  };
   rawResponse?: string;
   rawPrompt?: any;
-  usage?: any;
-  selectedModules: string[];
-  modulesTelemetry?: ModuleTelemetry[];
-  promptComparison?: {
-    withoutCommercial: number;
-    withCommercial: number;
-    diff: number;
-  };
 }
+
+export type AgentResponseV3 = AgentV3TurnResult;
+
 
 
 /**
@@ -70,7 +95,7 @@ export interface AgentResponseV3 {
  * 4. Chamar o LLM (Haiku 4.5)
  * 5. Aplicar Guards e Pós-processamento
  */
-export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentResponseV3> {
+export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3TurnResult> {
   const { userId, message, history, historyTelemetry, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true, inputKind, messageId } = input;
 
   // Carrega Identidade e Configuração dinamicamente
@@ -187,20 +212,43 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   if (history && history.length > 0 && detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
     console.log("[AGENT-V3-DEBUG] Verbose loop detected for user:", userId);
     return {
-      temperature: "frio",
-      confidence: "Baixa",
-      intent: "suporte",
-      stage: "lead",
-      purchase_probability: 0,
-      sentiment: "Neutro",
-      urgency: "Média",
-      recommended_action: "Finalizar atendimento",
-      reasoning: "Loop detectado",
-      conversation_score: 100,
-      conversation_feedback: ["Segurança ativada"],
+      response: `Pra finalizar rapidinho seu pedido, é só acessar ${GLOBAL_V3_CONFIG.panel_url} e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados.`,
       replies: [`Pra finalizar rapidinho seu pedido, é só acessar ${GLOBAL_V3_CONFIG.panel_url} e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados.`],
-      rawPrompt: systemPrompt,
-      selectedModules: selectedKeys
+      intelligence: {
+        temperature: "frio",
+        confidence: "Baixa",
+        intent: "suporte",
+        stage: "lead",
+        purchase_probability: 0,
+        sentiment: "Neutro",
+        urgency: "Média",
+        recommended_action: "Finalizar atendimento",
+        reasoning: "Loop detectado",
+      },
+      score: {
+        total: 100
+      },
+      usage: {
+        model: "claude-haiku-4-5",
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 0,
+        latency_ms: 0
+      },
+      cost: {
+        input_usd: 0,
+        output_usd: 0,
+        cache_usd: 0,
+        total_usd: 0
+      },
+      modules: {
+        selected_keys: selectedKeys,
+        versions: {},
+        estimated_tokens_by_module: {},
+        commercial_tokens_added: 0
+      },
+      rawPrompt: systemPrompt
     };
   }
 
@@ -212,7 +260,8 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     : "empty";
   const message_chars = message.length;
 
-  const response = await callAnthropicV3({
+  const startLlm = Date.now();
+  const llmResult = await callAnthropicV3({
     apiKey: anthropicApiKey || (typeof process !== 'undefined' ? process.env.ANTHROPIC_API_KEY : undefined),
     system: systemPrompt,
     messages: [
@@ -235,7 +284,22 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     }
   });
   
-  const rawText = response.content[0].text;
+  const rawText = llmResult.content[0].text;
+  const latency_ms = Date.now() - startLlm;
+  
+  // Calculate cost based on llm-client logic but normalized
+  const usageRaw = llmResult.usage || {};
+  const input_tokens = usageRaw.input_tokens || 0;
+  const output_tokens = usageRaw.output_tokens || 0;
+  const cache_creation_input_tokens = usageRaw.cache_creation_input_tokens || 0;
+  const cache_read_input_tokens = usageRaw.cache_read_input_tokens || 0;
+
+  const input_usd = (input_tokens * 1) / 1_000_000;
+  const output_usd = (output_tokens * 5) / 1_000_000;
+  const cache_write_usd = (cache_creation_input_tokens * 1.25) / 1_000_000;
+  const cache_read_usd = (cache_read_input_tokens * 0.10) / 1_000_000;
+  const cache_usd = cache_write_usd + cache_read_usd;
+  const total_usd = input_usd + output_usd + cache_usd;
   
   // Metadata extraction
   const { 
@@ -270,23 +334,45 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   const replies = autoSplitLongPartsV3(finalContent);
 
   return {
-    temperature,
-    confidence,
-    intent,
-    stage,
-    purchase_probability,
-    sentiment,
-    urgency,
-    recommended_action,
-    reasoning,
-    conversation_score,
-    conversation_feedback,
+    response: finalContent,
     replies,
+    intelligence: {
+      temperature,
+      confidence,
+      intent,
+      stage,
+      purchase_probability,
+      sentiment,
+      urgency,
+      recommended_action,
+      reasoning,
+    },
+    score: {
+      total: conversation_score
+      // humanity, clarity etc are derived from feedback or expanded in extractor later
+    },
+    usage: {
+      model: "claude-haiku-4-5",
+      request_id: llmResult.request_id || "unknown", // Adjust if llmResult has it differently
+      input_tokens,
+      output_tokens,
+      cache_creation_input_tokens,
+      cache_read_input_tokens,
+      latency_ms
+    },
+    cost: {
+      input_usd,
+      output_usd,
+      cache_usd,
+      total_usd
+    },
+    modules: {
+      selected_keys: selectedKeys,
+      versions: Object.fromEntries(Object.entries(activeModulesMap).map(([k, v]) => [k, (v as any).version || 1])),
+      estimated_tokens_by_module: Object.fromEntries(modulesTelemetry.map(m => [m.key, m.tokens])),
+      commercial_tokens_added: promptComparison.diff
+    },
     rawResponse: rawText,
-    rawPrompt: systemPrompt,
-    usage: response.usage,
-    selectedModules: selectedKeys,
-    modulesTelemetry,
-    promptComparison
+    rawPrompt: systemPrompt
   };
 }

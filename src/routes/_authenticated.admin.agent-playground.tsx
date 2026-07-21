@@ -95,10 +95,20 @@ function AgentPlaygroundPage() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      
+      const run = data as any;
+      // Normalização para o frontend esperar as métricas no lugar certo
+      if (run && run.metadata) {
+        const meta = typeof run.metadata === 'string' ? JSON.parse(run.metadata) : run.metadata;
+        return {
+          ...run,
+          derived_metadata: meta
+        };
+      }
+      return run;
     },
     enabled: !!activeSessionId,
-    refetchInterval: 1000, // Polling to ensure UI updates after server fn background tasks
+    refetchInterval: 1000,
   });
 
 
@@ -315,8 +325,8 @@ function AgentPlaygroundPage() {
                     <div className={cn("mt-2 flex items-center gap-2 text-[10px]", msg.role === "user" ? "text-primary-foreground/50" : "text-muted-foreground")}>
                       <span>{new Date(msg.created_at).toLocaleTimeString()}</span>
                       {msg.input_kind && <Badge variant="secondary" className="text-[8px] h-3 px-1">{msg.input_kind}</Badge>}
-                      {msg.role === "agent" && msg.metadata && typeof msg.metadata === 'object' && !Array.isArray(msg.metadata) && msg.metadata.temperature && (
-                        <span className="font-semibold text-orange-400">[{(msg.metadata.temperature as string).toUpperCase()}]</span>
+                      {msg.role === "agent" && msg.metadata && typeof msg.metadata === 'object' && !Array.isArray(msg.metadata) && (msg.metadata as any).temperature && (
+                        <span className="font-semibold text-orange-400">[{(msg.metadata as any).temperature.toUpperCase()}]</span>
                       )}
                     </div>
                   </div>
@@ -552,9 +562,23 @@ function AgentPlaygroundPage() {
                     <h4 className="text-xs font-semibold mb-2">Impacto no Prompt</h4>
                     <div className="space-y-3">
                       {(() => {
-                        const meta = (lastRun as any)?.metadata;
-                        const telemetry = meta?.modules_telemetry || [];
-                        const comparison = meta?.prompt_comparison || { withoutCommercial: 0, withCommercial: 0, diff: 0 };
+                        const run = lastRun as any;
+                        const meta = run?.derived_metadata;
+                        const modules = meta?.modules;
+                        const telemetry = modules?.estimated_tokens_by_module 
+                          ? Object.entries(modules.estimated_tokens_by_module).map(([key, tokens]) => ({
+                              key,
+                              name: key.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+                              chars: (tokens as number) * 4, // Estimativa inversa
+                              tokens: tokens as number
+                            }))
+                          : [];
+                        
+                        const comparison = {
+                          withoutCommercial: (modules?.with_commercial || 0) - (modules?.commercial_tokens_added || 0),
+                          withCommercial: modules?.with_commercial || 0,
+                          diff: modules?.commercial_tokens_added || 0
+                        };
                         
                         if (telemetry.length === 0) return <span className="text-[10px] text-muted-foreground italic">Nenhuma telemetria de módulos disponível.</span>;
 
