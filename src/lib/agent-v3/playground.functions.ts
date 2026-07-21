@@ -57,10 +57,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     // 3. Executar Agente V3
     const result = await runAgentV3Turn({
       message,
-      phone: "PLAYGROUND",
-      workspaceId,
       userId,
       history,
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY || "", // This will be handled by context usually, but playground might need explicit if not in orchestrator defaults
       inputKind: inputKind as any
     });
 
