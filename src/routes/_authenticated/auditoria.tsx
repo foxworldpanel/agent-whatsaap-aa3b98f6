@@ -18,7 +18,7 @@ import {
   Zap
 } from "lucide-react";
 
-export const Route = createFileRoute("/auditoria")({
+export const Route = createFileRoute("/_authenticated/auditoria")({
   component: AuditoriaIA,
 });
 

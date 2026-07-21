@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuditoriaRouteImport } from './routes/auditoria'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTesteGratisRouteImport } from './routes/_authenticated/teste-gratis'
@@ -21,6 +20,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedAuditoriaRouteImport } from './routes/_authenticated/auditoria'
 import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
 import { Route as AuthenticatedAdminAgentPlaygroundRouteImport } from './routes/_authenticated.admin.agent-playground'
 import { Route as ApiPublicHooksV3TestWebhookRouteImport } from './routes/api/public/hooks/v3-test-webhook'
@@ -33,11 +33,6 @@ import { Route as ApiPublicHooksAutoCampaignDispatcherRouteImport } from './rout
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuditoriaRoute = AuditoriaRouteImport.update({
-  id: '/auditoria',
-  path: '/auditoria',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -91,6 +86,11 @@ const AuthenticatedConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAuditoriaRoute = AuthenticatedAuditoriaRouteImport.update({
+  id: '/auditoria',
+  path: '/auditoria',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAgenteRoute = AuthenticatedAgenteRouteImport.update({
   id: '/agente',
   path: '/agente',
@@ -140,9 +140,9 @@ const ApiPublicHooksAutoCampaignDispatcherRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/auditoria': typeof AuditoriaRoute
   '/auth': typeof AuthRoute
   '/agente': typeof AuthenticatedAgenteRoute
+  '/auditoria': typeof AuthenticatedAuditoriaRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
@@ -161,9 +161,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auditoria': typeof AuditoriaRoute
   '/auth': typeof AuthRoute
   '/agente': typeof AuthenticatedAgenteRoute
+  '/auditoria': typeof AuthenticatedAuditoriaRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
@@ -184,9 +184,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
-  '/auditoria': typeof AuditoriaRoute
   '/auth': typeof AuthRoute
   '/_authenticated/agente': typeof AuthenticatedAgenteRoute
+  '/_authenticated/auditoria': typeof AuthenticatedAuditoriaRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contatos': typeof AuthenticatedContatosRoute
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
@@ -207,9 +207,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auditoria'
     | '/auth'
     | '/agente'
+    | '/auditoria'
     | '/configuracoes'
     | '/contatos'
     | '/conversas'
@@ -228,9 +228,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auditoria'
     | '/auth'
     | '/agente'
+    | '/auditoria'
     | '/configuracoes'
     | '/contatos'
     | '/conversas'
@@ -250,9 +250,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
-    | '/auditoria'
     | '/auth'
     | '/_authenticated/agente'
+    | '/_authenticated/auditoria'
     | '/_authenticated/configuracoes'
     | '/_authenticated/contatos'
     | '/_authenticated/conversas'
@@ -273,7 +273,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
-  AuditoriaRoute: typeof AuditoriaRoute
   AuthRoute: typeof AuthRoute
   ApiPublicHooksAutoCampaignDispatcherRoute: typeof ApiPublicHooksAutoCampaignDispatcherRoute
   ApiPublicHooksBlastDispatcherRoute: typeof ApiPublicHooksBlastDispatcherRoute
@@ -290,13 +289,6 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auditoria': {
-      id: '/auditoria'
-      path: '/auditoria'
-      fullPath: '/auditoria'
-      preLoaderRoute: typeof AuditoriaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -369,6 +361,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/auditoria': {
+      id: '/_authenticated/auditoria'
+      path: '/auditoria'
+      fullPath: '/auditoria'
+      preLoaderRoute: typeof AuthenticatedAuditoriaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/agente': {
       id: '/_authenticated/agente'
       path: '/agente'
@@ -430,6 +429,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgenteRoute: typeof AuthenticatedAgenteRoute
+  AuthenticatedAuditoriaRoute: typeof AuthenticatedAuditoriaRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContatosRoute: typeof AuthenticatedContatosRoute
   AuthenticatedConversasRoute: typeof AuthenticatedConversasRoute
@@ -443,6 +443,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgenteRoute: AuthenticatedAgenteRoute,
+  AuthenticatedAuditoriaRoute: AuthenticatedAuditoriaRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContatosRoute: AuthenticatedContatosRoute,
   AuthenticatedConversasRoute: AuthenticatedConversasRoute,
@@ -461,7 +462,6 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
-  AuditoriaRoute: AuditoriaRoute,
   AuthRoute: AuthRoute,
   ApiPublicHooksAutoCampaignDispatcherRoute:
     ApiPublicHooksAutoCampaignDispatcherRoute,
