@@ -17,13 +17,20 @@ export const getValidationAudit = createServerFn({ method: "GET" })
     if (error) throw error;
 
     const modulesList = dbModules.map(m => ({
+      id: m.id,
       key: m.key,
       title: m.name,
-      enabled: m.enabled,
-      origin: "database",
+      category: m.category || "Geral",
+      enabled: m.enabled ?? false,
+      always_load: (m as any).always_load ?? false,
+      priority: m.priority ?? 0,
+      triggers: (m as any).triggers ?? [],
       version: m.version || 1,
+      content: m.content,
       content_length: m.content?.length || 0,
-      preview: m.content ? m.content.substring(0, 50).trim() + "..." : "EMPTY"
+      preview: m.content ? m.content.substring(0, 50).trim() + "..." : "EMPTY",
+      created_at: m.created_at,
+      updated_at: m.updated_at
     }));
 
     // 2. Identify Fallbacks
