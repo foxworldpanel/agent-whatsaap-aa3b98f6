@@ -5,7 +5,7 @@ import { loadAgentConfigV3, AgentConfigV3 } from "./config.server";
 import { DEFAULT_MODULES_V3 } from "./default-modules-v3.server";
 import { loadAgentIdentity } from "@/lib/agent-identity.server";
 import { buildPromptFromModules, selectRelevantModules } from "./module-selector.server";
-import { invalidateModulesCache } from "./modules.server";
+import { invalidateModulesCache, loadEnabledModulesV3 } from "./modules.server";
 
 export const getFullAgentV3Config = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
