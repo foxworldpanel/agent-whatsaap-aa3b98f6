@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { getValidationAudit } from "@/lib/agent-v3/audit.functions";
 import { getBrainQualityAudit } from "@/lib/agent-v3/brain-audit.functions";
-import { ShieldCheck, Terminal, Cpu } from "lucide-react";
+import { ShieldCheck, Terminal } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
