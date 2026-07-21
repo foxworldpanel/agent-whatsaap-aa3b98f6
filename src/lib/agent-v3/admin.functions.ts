@@ -10,21 +10,43 @@ import { invalidateModulesCache } from "./modules.server";
 export const getFullAgentV3Config = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
+    const { supabase, workspaceId } = context;
     const config = await loadAgentConfigV3(context.userId);
     const identity = await loadAgentIdentity(context.userId);
     
-    // Combine standard modules with DB overrides (brand_blocks)
-    const allModules: Record<string, { content: string; isOverride: boolean }> = {};
+    // Load modules from DB
+    const { data: dbModules } = await supabase
+      .from("agent_modules_v3")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .order("priority", { ascending: false });
+
+    const allModules: Record<string, any> = {};
     
-    // First, standard modules
-    Object.entries(DEFAULT_MODULES_V3).forEach(([key, content]) => {
-      allModules[key] = { content, isOverride: false };
-    });
-    
-    // Then, DB overrides
-    if (config.brand_blocks) {
-      Object.entries(config.brand_blocks).forEach(([key, content]) => {
-        allModules[key] = { content, isOverride: true };
+    // Use DB modules if they exist, otherwise fallback to defaults
+    if (dbModules && dbModules.length > 0) {
+      dbModules.forEach(m => {
+        allModules[m.key] = { 
+          id: m.id,
+          content: m.content, 
+          isOverride: true,
+          enabled: m.enabled,
+          category: m.category,
+          name: m.name,
+          version: m.version,
+          updated_at: m.updated_at
+        };
+      });
+    } else {
+      Object.entries(DEFAULT_MODULES_V3).forEach(([key, content]) => {
+        allModules[key] = { 
+          content, 
+          isOverride: false, 
+          enabled: true,
+          category: "Outros",
+          name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          version: 1
+        };
       });
     }
 
@@ -42,37 +64,56 @@ export const updateV3Module = createServerFn({ method: "POST" })
     z.object({
       moduleKey: z.string(),
       content: z.string().max(20000),
-      enabled: z.boolean().optional()
+      enabled: z.boolean().optional(),
+      id: z.string().optional()
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId, workspaceId } = context;
     
-    const { data: existing } = await supabase
-      .from("agent_config")
-      .select("brand_blocks, modules_enabled")
-      .eq("user_id", userId)
+    // 1. Get current module to increment version
+    const { data: current } = await supabase
+      .from("agent_modules_v3")
+      .select("id, version, content")
       .eq("workspace_id", workspaceId)
+      .eq("key", data.moduleKey)
       .maybeSingle();
-      
-    const brand_blocks = { ...(existing?.brand_blocks as Record<string, string> || {}) };
-    const modules_enabled = { ...(existing?.modules_enabled as Record<string, boolean> || {}) };
-    
-    brand_blocks[data.moduleKey] = data.content;
-    if (data.enabled !== undefined) {
-      modules_enabled[data.moduleKey] = data.enabled;
-    }
-    
-    const { error } = await supabase
-      .from("agent_config")
+
+    const newVersion = (current?.version || 0) + 1;
+
+    // 2. Upsert the module
+    const { data: updated, error } = await supabase
+      .from("agent_modules_v3")
       .upsert({
+        id: current?.id,
         user_id: userId,
         workspace_id: workspaceId,
-        brand_blocks,
-        modules_enabled
-      }, { onConflict: "user_id,workspace_id" });
+        key: data.moduleKey,
+        content: data.content,
+        enabled: data.enabled ?? true,
+        version: newVersion,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "workspace_id,key" })
+      .select()
+      .single();
       
     if (error) throw error;
+
+    // 3. Save history
+    if (updated) {
+      await supabase
+        .from("agent_modules_v3_history")
+        .insert({
+          module_id: updated.id,
+          content: data.content,
+          version: newVersion,
+          created_by: userId
+        });
+    }
+
+    // 4. Invalidate cache
+    invalidateModulesCache(workspaceId);
+    
     return { ok: true };
   });
 
