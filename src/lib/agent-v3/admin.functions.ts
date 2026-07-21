@@ -122,8 +122,8 @@ export const getCompiledPromptV3 = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ message: z.string().optional() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { workspaceId } = context;
-    const identity = await loadAgentIdentity(context.userId);
+    const { workspaceId, userId } = context;
+    const identity = await loadAgentIdentity(userId);
     const activeModulesMap = await loadEnabledModulesV3(workspaceId);
     const enabledKeys = Object.keys(activeModulesMap);
       
