@@ -147,7 +147,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     return {
       reply: result.replies.join("\n"),
-      run: savedRun || insertData,
+      run: (savedRun || insertData) as any,
       usage: result.usage,
       cost: result.cost,
       modules: result.modules,
