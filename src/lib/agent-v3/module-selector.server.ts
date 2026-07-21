@@ -62,9 +62,23 @@ export function selectRelevantModules(text: string, enabledModules: string[]): s
   );
 }
 
-export function buildPromptFromModules(keys: string[], customModules: Record<string, string>): string {
+export function buildPromptFromModules(
+  keys: string[], 
+  customModules: Record<string, string | { content: string; source: string; fallback_reason?: string }>
+): string {
   return keys
-    .map(key => customModules[key] || DEFAULT_MODULES_V3[key] || "")
+    .map(key => {
+      const mod = customModules[key];
+      if (!mod) return "";
+      if (typeof mod === "string") return mod;
+      
+      // Telemetria silenciosa no log se for fallback
+      if (mod.source === "fallback") {
+        console.log(`[V3-FALLBACK-TELEMETRY] Module: ${key}, Reason: ${mod.fallback_reason || "unknown"}`);
+      }
+      
+      return mod.content;
+    })
     .filter(Boolean)
     .join("\n\n");
 }
