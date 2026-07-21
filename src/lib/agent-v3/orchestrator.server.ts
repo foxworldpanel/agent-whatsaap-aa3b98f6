@@ -1,6 +1,6 @@
 // src/lib/agent-v3/orchestrator.server.ts
 import { loadAgentIdentity } from "@/lib/agent-identity.server";
-import { loadAgentConfigV3 } from "./config.server";
+import { loadEnabledModulesV3 } from "./modules.server";
 import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
 import { callAnthropicV3 } from "./llm-client.server";
 import { extractMetadataV3 } from "./metadata-extractor.server";
@@ -41,7 +41,6 @@ export interface AgentResponseV3 {
   conversation_feedback: string[];
   replies: string[];
 
-
   rawResponse?: string;
   rawPrompt?: any;
   usage?: any;
@@ -63,31 +62,38 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   // Carrega Identidade e Configuração dinamicamente
   const targetUserId = userId;
   const identity = await loadAgentIdentity(targetUserId);
-  const config = await loadAgentConfigV3(targetUserId);
-
-  // Se enabledModules não foi passado (padrão legado), usa os do banco
-  const activeModules = enabledModules && enabledModules.length > 0 
-    ? enabledModules 
-    : Object.entries(config.modules_enabled)
-        .filter(([_, enabled]) => enabled)
-        .map(([name]) => name);
-
-  const moduleKeys = selectRelevantModules(message, activeModules);
   
-  // Prioritize DB content (config.brand_blocks) as customModules
-  const dbModules = config.brand_blocks || {};
-  const modulePrompt = buildPromptFromModules(moduleKeys, { ...dbModules, ...(customModules || {}) });
+  // No workspaceId we use userId to fetch config for now or get workspaceId from some other way
+  // In the real system, workspaceId is derived from the contact or the bot.
+  // For now, let's assume we can load modules if we have a way to find the workspace.
+  // We'll use a hack to get workspaceId from profiles/workspaces for this user.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: ws } = await supabaseAdmin
+    .from("workspaces")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("is_default", true)
+    .maybeSingle();
+    
+  const workspaceId = ws?.id || "";
 
-  // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
-  console.log("[AGENT-V3-DEBUG] targetUserId:", targetUserId);
-  // V3 ORCHESTRATOR - SYSTEM PROMPT CONSTRUCTION
-  console.log("[AGENT-V3-DEBUG] targetUserId:", targetUserId);
+  // 1. Carregar configuração e módulos do banco (com fallback)
+  const activeModulesMap = await loadEnabledModulesV3(workspaceId);
+  
+  // 2. Identificar módulos habilitados (se enabledModules for passado, filtra o mapa)
+  const enabledKeys = enabledModules && enabledModules.length > 0 
+    ? enabledModules 
+    : Object.keys(activeModulesMap);
+
+  // 3. Selecionar módulos relevantes baseados na mensagem
+  const selectedKeys = selectRelevantModules(message, enabledKeys);
+  const modulePrompt = buildPromptFromModules(selectedKeys, { ...activeModulesMap, ...(customModules || {}) });
 
   const isAudioInput = inputKind === "audio";
   const isImageInput = inputKind === "image";
   const isStickerInput = inputKind === "sticker";
 
-  const hasIntentSupport = moduleKeys.includes("suporte");
+  const hasIntentSupport = selectedKeys.includes("suporte") || selectedKeys.includes("suporte_pos_compra");
 
   const systemPrompt = [
     { 
@@ -149,6 +155,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
 
   // Verbose Loop Check
   if (detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
+    console.log("[AGENT-V3-DEBUG] Verbose loop detected for user:", userId);
     return {
       temperature: "frio",
       confidence: "Baixa",
@@ -162,11 +169,9 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
       conversation_score: 100,
       conversation_feedback: ["Segurança ativada"],
       replies: ["Pra finalizar rapidinho seu pedido, é só acessar mindsmmpanel.com e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados."],
-
       rawPrompt: systemPrompt,
-      selectedModules: moduleKeys
+      selectedModules: selectedKeys
     };
-
   }
 
   // Model Call
@@ -191,7 +196,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     metadata: {
       message_id: messageId,
       call_number: 1,
-      selectedKeys: moduleKeys,
+      selectedKeys: selectedKeys,
       system_prompt_chars,
       history_chars,
       history_summary,
@@ -200,13 +205,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     }
   });
   
-  // Instrumentação detalhada no orchestrator para capturar selectedKeys
-  console.log("[RUNTIME-REAL-LOG-KEYS]", JSON.stringify({
-    selectedKeys: moduleKeys
-  }));
-
   const rawText = response.content[0].text;
-  console.log("[AGENT-V3-DEBUG] Raw response:", rawText);
   
   // Metadata extraction
   const { 
@@ -223,8 +222,6 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     conversation_feedback,
     text: cleanText 
   } = extractMetadataV3(rawText);
-
-
 
   // Guards & Pipeline
   let finalContent = cleanText;
@@ -255,11 +252,9 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     conversation_score,
     conversation_feedback,
     replies,
-
-
     rawResponse: rawText,
     rawPrompt: systemPrompt,
     usage: response.usage,
-    selectedModules: moduleKeys
+    selectedModules: selectedKeys
   };
 }
