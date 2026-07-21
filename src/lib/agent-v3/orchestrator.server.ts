@@ -169,7 +169,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
       reasoning: "Loop detectado",
       conversation_score: 100,
       conversation_feedback: ["Segurança ativada"],
-      replies: ["Pra finalizar rapidinho seu pedido, é só acessar mindsmmpanel.com e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados."],
+      replies: [`Pra finalizar rapidinho seu pedido, é só acessar ${GLOBAL_V3_CONFIG.panel_url} e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados.`],
       rawPrompt: systemPrompt,
       selectedModules: selectedKeys
     };
