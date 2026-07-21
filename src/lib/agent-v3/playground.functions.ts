@@ -122,7 +122,29 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       }))
     };
 
-    await context.supabase.from("agent_playground_runs").insert(insertData);
+    const { data: savedRun, error: runError } = await context.supabase
+      .from("agent_playground_runs")
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (runError) {
+      console.error("[PLAYGROUND-RUN-SAVE-FAILED]", {
+        code: runError.code,
+        message: runError.message,
+        details: runError.details,
+        hint: runError.hint,
+        payload: insertData
+      });
+    }
+
+    console.log("[PLAYGROUND-TURN-COMPLETE]", {
+      sessionId,
+      messageId: agentMsg.id,
+      runId: savedRun?.id,
+      usage: result.usage,
+      cost: result.cost
+    });
 
     return {
       reply: result.replies.join("\n"),
