@@ -24,7 +24,7 @@ function AuditoriaIA() {
       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
       <div className="text-center">
         <p className="text-lg font-bold uppercase tracking-widest">Executando Auditoria Inteligente</p>
-        <p className="text-xs text-muted-foreground animate-pulse">Claude 3.5 Sonnet analisando o Cérebro V3...</p>
+        <p className="text-xs text-muted-foreground animate-pulse">Claude Sonnet 5 analisando o Cérebro V3...</p>
       </div>
     </div>
   );
@@ -39,9 +39,16 @@ function AuditoriaIA() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white uppercase flex items-center gap-2">
               🧪 Auditoria IA
-              <Badge variant="outline" className="text-[10px] font-mono border-blue-500/50 text-blue-400">SONNET ENGINE</Badge>
+              <Badge variant="outline" className="text-[10px] font-mono border-blue-500/50 text-blue-400">SONNET 5 ENGINE</Badge>
             </h1>
-            <p className="text-muted-foreground text-sm">Inspeção dinâmica de modularização, redundância e conflitos no CMS.</p>
+            <p className="text-muted-foreground text-sm flex items-center gap-2">
+              Inspeção dinâmica de modularização, redundância e conflitos.
+              {audit?.auditTelemetry && (
+                <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded border border-white/10 text-white/50">
+                  Modelo: {audit.auditTelemetry.model}
+                </span>
+              )}
+            </p>
           </div>
         </div>
         <div className="flex gap-4 items-center">

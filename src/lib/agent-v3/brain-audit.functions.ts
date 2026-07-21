@@ -102,14 +102,25 @@ RESPONDA EXCLUSIVAMENTE EM JSON COM ESTA ESTRUTURA:
       }
 
       const llmResponse = await callAnthropicV3({
-        model: "claude-3-5-sonnet-20240620", // Promoted to Sonnet for deeper intelligence in audit as requested
+        model: "claude-sonnet-5", // Updated to Sonnet 5 for high-fidelity audit as requested
         system: "Você é um auditor de sistemas de IA especialista em Agentes de Vendas. Você analisa módulos de prompt e retorna diagnósticos técnicos precisos. Responda apenas JSON válido sem comentários ou tags markdown. Não use caracteres de escape desnecessários.",
         messages: [{ role: "user", content: auditPrompt }]
       });
 
       const text = llmResponse.content?.[0]?.text || "{}";
       const cleanJson = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
-      auditResult = JSON.parse(cleanJson);
+      const parsed = JSON.parse(cleanJson);
+      
+      // Inject model telemetry into the result to be saved/displayed
+      auditResult = {
+        ...parsed,
+        audit_telemetry: {
+          model: "claude-sonnet-5",
+          provider: "anthropic",
+          audit_version: 1,
+          created_at: new Date().toISOString()
+        }
+      };
     } catch (e) {
       console.error("Audit LLM Error:", e);
       // Fallback object structure if LLM fails
@@ -157,6 +168,7 @@ RESPONDA EXCLUSIVAMENTE EM JSON COM ESTA ESTRUTURA:
         ...auditResult.healthIndicators,
         totalModules: dbModules.length,
         totalTokens: dbModules.reduce((acc, m) => acc + (m.content?.length || 0) / 4, 0)
-      }
+      },
+      auditTelemetry: auditResult.audit_telemetry
     };
   });
