@@ -135,8 +135,8 @@ function Dashboard() {
 
         O objetivo é que cada módulo seja totalmente independente e responsável apenas pelo seu domínio.
         Assim, adicionar uma nova rede ou um novo serviço não exige alterar outros módulos.
-      <div className="mt-8 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm">
-        <strong>Erro Identificado:</strong> fui testar o agente na pagina "Agent Playground" criei um novo teste e esta dando erro "Falha ao salvar mensagem do usuário".
+      <div className="mt-8 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-500 text-sm">
+        <strong>Correção Aplicada:</strong> O erro "Falha ao salvar mensagem do usuário" no Agent Playground foi corrigido (uso do contexto de autenticação no servidor).
       </div>
     </div>
     </div>
