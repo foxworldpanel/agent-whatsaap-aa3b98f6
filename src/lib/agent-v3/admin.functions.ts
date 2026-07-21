@@ -89,6 +89,7 @@ export const updateV3Module = createServerFn({ method: "POST" })
         user_id: userId,
         workspace_id: workspaceId,
         key: data.moduleKey,
+        name: data.moduleKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         content: data.content,
         enabled: data.enabled ?? true,
         version: newVersion,
