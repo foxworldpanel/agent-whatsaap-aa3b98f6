@@ -764,11 +764,12 @@ function isBlastNeutralGreeting(text: string): boolean {
   return greetingOnly.test(normalized);
 }
 
-function getIdentityInitialBlastInterestReply(identity: typeof DEFAULT_IDENTITY): string {
-  const example = identity.exemplo_disparo ?? DEFAULT_IDENTITY.exemplo_disparo;
+function getIdentityInitialBlastInterestReply(identity: any): string {
+  const example = (identity?.exemplo_disparo || "") as string;
   const match = example.match(/Cliente:\s*"[^"]+"[^\n]*\nJúlia:\s*"([^"]+)"/i);
   return humanizePunctuation(match?.[1]?.trim() || "Show! Bora ver o que mais combina com você. Qual rede social você mais usa hoje em dia?");
 }
+
 
 export function getInitialBlastInterestReply(history: Msg[], identity: typeof DEFAULT_IDENTITY = DEFAULT_IDENTITY): string | null {
   const latestClientIndex = (() => {

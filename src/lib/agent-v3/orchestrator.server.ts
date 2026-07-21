@@ -176,7 +176,7 @@ Sempre inclua os seguintes marcadores no INÍCIO da sua resposta (antes do texto
 [URG:Baixa|Média|Alta]
 [ACTION:Ação recomendada]
 [REASON:Justificativa curta]
-[SCORE:0-100] (Avaliação da qualidade da resposta da Júlia)
+[SCORE:0-100] (Avaliação da qualidade da resposta)
 [FEEDBACK:Item 1|Item 2|...] (Lista de pontos positivos/negativos separados por |)
 
 
@@ -184,9 +184,8 @@ ESTADO DA CONVERSA:
 ${modulePrompt}
 
 
-IDENTIDADE E PERSONA:
-[MODULE: identity_persona | origin: identity_system]
-${identity.persona}
+${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}
+
 
 REGRA DE CONCISÃO:
 - Seja breve e cubra somente as informações necessárias para o próximo passo.
@@ -324,7 +323,8 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
 
-  return {
+  const result = {
+
     response: finalContent,
     replies,
     intelligence: {
@@ -366,4 +366,26 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     rawResponse: rawText,
     rawPrompt: systemPrompt
   };
+
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("agent_playground_runs" as any).insert({
+      workspace_id: identity.workspaceId || "default",
+      agent_id: identity.agentId || "anonymous",
+      message: message,
+      response: result.response,
+      raw_prompt: result.rawPrompt,
+      raw_response: result.rawResponse,
+      usage: result.usage as any,
+      cost: result.cost as any,
+      intelligence: result.intelligence as any,
+      modules: result.modules.selected_keys
+    } as any);
+  } catch (err) {
+    console.error("[agent-v3] Failed to log playground run:", err);
+  }
+
+
+  return result;
 }
+

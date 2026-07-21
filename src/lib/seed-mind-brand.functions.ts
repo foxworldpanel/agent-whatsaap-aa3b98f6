@@ -29,22 +29,26 @@ export const seedMindBrand = createServerFn({ method: "POST" })
       throw new Error("Forbidden: only Mind owner can run this seed");
     }
 
-    const [{ DEFAULT_IDENTITY, MIND_BRAND_BLOCKS }, { DEFAULT_MODULES }, { supabaseAdmin }] = await Promise.all([
+    const [{ DEFAULT_IDENTITY, MIND_BRAND_BLOCKS, IDENTITY_FIELDS }, { DEFAULT_MODULES }, { supabaseAdmin }] = await Promise.all([
       import("@/lib/agent-identity.server"),
       import("@/lib/agent-modules"),
       import("@/integrations/supabase/client.server"),
     ]);
 
-    // 1) Upsert agent_identity com todos os 10 campos.
-    const identityRow = {
+
+    // 1) Upsert agent_identity com todos os campos suportados no banco.
+    const identityRow: any = {
       user_id: MIND_USER_ID,
       workspace_id: MIND_WORKSPACE_ID,
-      ...DEFAULT_IDENTITY,
     };
+    for (const key of IDENTITY_FIELDS) {
+      identityRow[key] = (DEFAULT_IDENTITY as any)[key];
+    }
     const { error: idErr } = await supabaseAdmin
       .from("agent_identity")
       .upsert(identityRow, { onConflict: "user_id,workspace_id" });
     if (idErr) throw new Error(`agent_identity: ${idErr.message}`);
+
 
     // 2) Update agent_config: modules e brand_blocks.
     const brandBlocks = MIND_BRAND_BLOCKS;

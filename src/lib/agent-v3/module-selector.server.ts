@@ -23,12 +23,12 @@ export function selectRelevantModules(text: string | null | undefined, enabledMo
   const normalizedText = (text || "").toLowerCase();
 
   
-  // Módulos Core que SEMPRE devem estar presentes
+  // Módulos Core
   const CORE_MODULES = new Set([
-    "identidade",
     "regras_gerais",
     "comportamento_humano",
   ]);
+
 
   const selectedKeys = new Set<string>(CORE_MODULES);
 
