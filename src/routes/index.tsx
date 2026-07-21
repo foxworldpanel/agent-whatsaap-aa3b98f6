@@ -79,42 +79,6 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/40 border-white/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase font-mono flex items-center gap-2 text-blue-400">
-              <Cpu className="w-3 h-3" /> Arquitetura de Modelos
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-1">
-              <div className="flex justify-between text-[10px] uppercase text-muted-foreground">
-                <span>Atendimento</span>
-                <span className="text-green-400">Haiku 4.5</span>
-              </div>
-              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500 w-[100%]" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between text-[10px] uppercase text-muted-foreground">
-                <span>Auditoria Técnica</span>
-                <span className="text-blue-400">Sonnet 5</span>
-              </div>
-              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 w-[100%]" />
-              </div>
-            </div>
-            {brainAudit?.auditTelemetry && (
-              <div className="pt-2 border-t border-white/5">
-                 <div className="text-[9px] font-mono text-white/30 flex justify-between">
-                    <span>Last Audit:</span>
-                    <span>{brainAudit.auditTelemetry.model}</span>
-                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         <Card className="bg-card/40 border-white/5 col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs uppercase font-mono flex items-center gap-2">
