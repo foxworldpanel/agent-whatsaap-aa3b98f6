@@ -185,6 +185,7 @@ ${modulePrompt}
 
 
 IDENTIDADE E PERSONA:
+[MODULE: identity_persona | origin: identity_system]
 ${identity.persona}
 
 REGRA DE CONCISÃO:
