@@ -27,22 +27,41 @@ function Dashboard() {
     <div className="container mx-auto p-6 space-y-8">
       <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight text-white uppercase">MÉTRICAS DO AGENTE IA</h1>
-          <Badge variant="outline" className="text-[10px] font-mono border-blue-500/50 text-blue-400">V3 RUNTIME</Badge>
+          <h1 className="text-3xl font-bold tracking-tight text-white uppercase">FASE 1 — CONSOLIDAR O CÉREBRO DO AGENTE V3</h1>
+          <Badge variant="outline" className="text-[10px] font-mono border-blue-500/50 text-blue-400">V3 ARCHITECTURE REFACTOR</Badge>
         </div>
         
-        <div className="bg-card/50 p-6 rounded-lg border border-white/5 space-y-6">
-          <div className="flex items-center justify-between border-b border-white/5 pb-4">
-            <p className="text-white font-bold flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              Performance e Atividade (Tempo Real)
-            </p>
-            <div className="flex gap-2">
-               <Badge className="bg-white/5 text-white/60 border-white/10 text-[9px]">WORKSPACE: MIND</Badge>
+        <div className="bg-card/50 p-8 rounded-lg border border-white/5 space-y-6 text-sm text-white/80 leading-relaxed max-w-4xl font-sans">
+          <p className="font-bold text-lg text-white">Quero iniciar agora a refatoração arquitetural do Agente V3.</p>
+          <p>Nesta etapa, não quero adicionar novas funcionalidades. O objetivo é garantir que exista apenas uma fonte da verdade:</p>
+          
+          <div className="grid grid-cols-2 gap-4 my-4">
+            <div className="p-4 bg-white/5 border border-white/10 rounded">
+              <span className="text-blue-400 font-mono font-bold block mb-1">CMS</span>
+              <span className="text-xs">Cérebro do agente (Regras, Identidade, Comercial)</span>
+            </div>
+            <div className="p-4 bg-white/5 border border-white/10 rounded">
+              <span className="text-green-400 font-mono font-bold block mb-1">CÓDIGO</span>
+              <span className="text-xs">Motor técnico (API, Persistência, Telemetria)</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="space-y-4 whitespace-pre-wrap">
+{`1. Remover duplicações entre código e CMS
+2. Eliminar módulos órfãos
+3. Consolidar módulos duplicados
+4. Tornar o Module Selector totalmente baseado no CMS
+5. Revisar módulos obrigatórios
+6. Consolidar identidade e persona
+7. Tratamento de mídia
+8. Workspace dinâmico
+9. Prompt Builder rastreável
+10. Testes obrigatórios
+11. Critérios de aceite
+12. Entrega final`}
+          </div>
+
+          <div className="pt-6 border-t border-white/5 grid grid-cols-1 md:grid-cols-4 gap-4">
             <MetricCard label="Módulos Ativos" value={audit?.modulesList.filter((m: any) => m.enabled).length || 0} />
             <MetricCard label="Conversas (24h)" value="12" color="text-blue-400" />
             <MetricCard label="Taxa de Conversão" value="18.5%" color="text-green-500" />
@@ -50,6 +69,7 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="bg-card/40 border-white/5">
