@@ -107,7 +107,7 @@ export const updateV3Module = createServerFn({ method: "POST" })
           selector_conflicts: (data.selectorConflicts ?? (current as any)?.selector_conflicts ?? []) as any,
           version: newVersion,
           updated_at: new Date().toISOString(),
-        },
+        } as any,
         { onConflict: "workspace_id,key" },
       )
       .select()
