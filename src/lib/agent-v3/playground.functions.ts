@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 import { runAgentV3Turn } from "./orchestrator.server";
-import { supabase } from "@/integrations/supabase/client";
+
 
 const calculateHaiku45Cost = (usage: any) => {
   const input = usage.input_tokens || 0;
@@ -25,7 +25,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     const start = Date.now();
 
-    const { data: messages } = await supabase
+    const { data: messages } = await context.supabase
       .from("agent_playground_messages")
       .select("*")
       .eq("session_id", sessionId)
@@ -36,7 +36,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       content: m.content
     }));
 
-    const { data: userMsg } = await supabase
+    const { data: userMsg } = await context.supabase
       .from("agent_playground_messages")
       .insert({
         session_id: sessionId,
@@ -58,7 +58,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       inputKind: inputKind as any
     });
 
-    const { data: agentMsg } = await supabase
+    const { data: agentMsg } = await context.supabase
       .from("agent_playground_messages")
       .insert({
         session_id: sessionId,
@@ -123,7 +123,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       }
     };
 
-    await supabase.from("agent_playground_runs").insert(insertData);
+    await context.supabase.from("agent_playground_runs").insert(insertData);
 
     return {
       reply: result.replies.join("\n"),
