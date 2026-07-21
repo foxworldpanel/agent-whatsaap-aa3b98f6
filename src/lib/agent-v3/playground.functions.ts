@@ -4,10 +4,13 @@ import { z } from "zod";
 import { runAgentV3Turn } from "./orchestrator.server";
 
 
+// Cost calculation moved to orchestrator, but we keep this as helper if needed
 const calculateHaiku45Cost = (usage: any) => {
   const input = usage.input_tokens || 0;
   const output = usage.output_tokens || 0;
-  return (input * 0.00000015) + (output * 0.00000060);
+  const cacheWrite = usage.cache_creation_input_tokens || 0;
+  const cacheRead = usage.cache_read_input_tokens || 0;
+  return (input * 0.000001) + (output * 0.000005) + (cacheWrite * 0.00000125) + (cacheRead * 0.0000001);
 };
 
 export const runPlaygroundTurn = createServerFn({ method: "POST" })
@@ -66,17 +69,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         content: result.replies.join("\n"),
         sequence: (messages?.length || 0) + 2,
         metadata: {
-          temperature: result.temperature,
-          confidence: result.confidence,
-          intent: result.intent,
-          stage: result.stage,
-          purchase_probability: result.purchase_probability,
-          sentiment: result.sentiment,
-          urgency: result.urgency,
-          recommended_action: result.recommended_action,
-          reasoning: result.reasoning,
-          conversation_score: result.conversation_score,
-          conversation_feedback: result.conversation_feedback
+          ...result.intelligence,
+          conversation_score: result.score?.total,
+          conversation_feedback: [] // Derived from reasoning or future audit
         } as any
       })
       .select()
@@ -85,43 +80,45 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     if (!agentMsg) throw new Error("Falha ao salvar resposta do agente");
 
     const latencyMs = Date.now() - start;
-    const usage = result.usage || {};
-    const modulesTelemetry = result.modulesTelemetry || [];
-    const comparison = result.promptComparison || { withoutCommercial: 0, withCommercial: 0, diff: 0 };
+    const usage = result.usage;
+    const modules = result.modules;
+    const intelligence = result.intelligence;
+    const score = result.score;
+    const cost = result.cost;
     
     const insertData: any = {
       session_id: sessionId,
       message_id: agentMsg.id,
-      model: "claude-haiku-4-5",
-      selected_modules: result.selectedModules || [],
+      model: usage.model,
+      selected_modules: modules.selected_keys,
       system_prompt_chars: JSON.stringify(result.rawPrompt).length,
       history_chars: JSON.stringify(history).length,
       message_chars: message.length,
       response_chars: agentMsg.content.length,
-      input_tokens: usage.input_tokens || 0,
-      output_tokens: usage.output_tokens || 0,
-      cache_creation_input_tokens: usage.cache_creation_input_tokens || 0,
-      cache_read_input_tokens: usage.cache_read_input_tokens || 0,
-      cost_usd: calculateHaiku45Cost(usage),
-      latency_ms: latencyMs,
+      input_tokens: usage.input_tokens,
+      output_tokens: usage.output_tokens,
+      cache_creation_input_tokens: usage.cache_creation_input_tokens,
+      cache_read_input_tokens: usage.cache_read_input_tokens,
+      cost_usd: cost.total_usd,
+      latency_ms: usage.latency_ms,
       anthropic_request_id: usage.request_id,
       system_prompt_snapshot: JSON.stringify(result.rawPrompt),
-      temperature: result.temperature,
-      confidence: result.confidence,
-      intent: result.intent,
-      stage: result.stage,
-      purchase_probability: result.purchase_probability,
-      sentiment: result.sentiment,
-      urgency: result.urgency,
-      recommended_action: result.recommended_action,
-      reasoning: result.reasoning,
-      conversation_score: result.conversation_score,
-      conversation_feedback: Array.isArray(result.conversation_feedback) 
-        ? JSON.stringify(result.conversation_feedback) 
-        : result.conversation_feedback,
+      temperature: intelligence.temperature,
+      confidence: intelligence.confidence,
+      intent: intelligence.intent,
+      stage: intelligence.stage,
+      purchase_probability: intelligence.purchase_probability,
+      sentiment: intelligence.sentiment,
+      urgency: intelligence.urgency,
+      recommended_action: intelligence.recommended_action,
+      reasoning: intelligence.reasoning,
+      conversation_score: score?.total || 0,
+      conversation_feedback: JSON.stringify([]),
       metadata: JSON.parse(JSON.stringify({
-        modules_telemetry: modulesTelemetry,
-        prompt_comparison: comparison
+        modules: modules,
+        intelligence: intelligence,
+        score: score,
+        cost: cost
       }))
     };
 
@@ -129,18 +126,10 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     return {
       reply: result.replies.join("\n"),
-      metadata: {
-        temperature: result.temperature,
-        confidence: result.confidence,
-        intent: result.intent,
-        stage: result.stage,
-        purchase_probability: result.purchase_probability,
-        sentiment: result.sentiment,
-        urgency: result.urgency,
-        recommended_action: result.recommended_action,
-        reasoning: result.reasoning,
-        conversation_score: result.conversation_score,
-        conversation_feedback: result.conversation_feedback
-      }
+      usage: result.usage,
+      cost: result.cost,
+      modules: result.modules,
+      intelligence: result.intelligence,
+      score: result.score
     };
   });
