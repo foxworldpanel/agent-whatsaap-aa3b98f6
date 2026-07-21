@@ -28,6 +28,13 @@ export interface OrchestratorInput {
   messageId?: string; // Para telemetria
 }
 
+export interface ModuleTelemetry {
+  key: string;
+  name: string;
+  chars: number;
+  tokens: number;
+}
+
 export interface AgentResponseV3 {
   temperature: "frio" | "morno" | "quente";
   confidence: string;
@@ -41,12 +48,18 @@ export interface AgentResponseV3 {
   conversation_score: number;
   conversation_feedback: string[];
   replies: string[];
-
   rawResponse?: string;
   rawPrompt?: any;
   usage?: any;
   selectedModules: string[];
+  modulesTelemetry?: ModuleTelemetry[];
+  promptComparison?: {
+    withoutCommercial: number;
+    withCommercial: number;
+    diff: number;
+  };
 }
+
 
 /**
  * CORE ORCHESTRATOR V3
