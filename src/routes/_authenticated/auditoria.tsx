@@ -41,14 +41,19 @@ function AuditoriaIA() {
               🧪 Auditoria IA
               <Badge variant="outline" className="text-[10px] font-mono border-blue-500/50 text-blue-400">SONNET 5 ENGINE</Badge>
             </h1>
-            <p className="text-muted-foreground text-sm flex items-center gap-2">
-              Inspeção dinâmica de modularização, redundância e conflitos.
+            <div className="flex flex-col gap-1">
+              <p className="text-muted-foreground text-sm">Inspeção dinâmica de modularização, redundância e conflitos.</p>
               {audit?.auditTelemetry && (
-                <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded border border-white/10 text-white/50">
-                  Modelo: {audit.auditTelemetry.model}
-                </span>
+                <div className="flex gap-2 text-[10px] font-mono">
+                  <span className="bg-white/5 px-2 py-0.5 rounded border border-white/10 text-white/50">
+                    MODELO: {audit.auditTelemetry.model}
+                  </span>
+                  <span className="bg-white/5 px-2 py-0.5 rounded border border-white/10 text-white/50">
+                    VERSÃO: {audit.auditTelemetry.audit_version}
+                  </span>
+                </div>
               )}
-            </p>
+            </div>
           </div>
         </div>
         <div className="flex gap-4 items-center">
@@ -67,10 +72,10 @@ function AuditoriaIA() {
           >
             <FileCode className="w-4 h-4" /> Exportar para ChatGPT
           </button>
-          <Card className="bg-blue-600/10 border-blue-600/20">
-            <CardHeader className="py-2 px-4"><CardTitle className="text-xs uppercase font-mono text-blue-400">Qualidade Geral</CardTitle></CardHeader>
+          <Card className="bg-blue-600/10 border-blue-600/20 min-w-[120px]">
+            <CardHeader className="py-2 px-4"><CardTitle className="text-[10px] uppercase font-mono text-blue-400">Qualidade Geral</CardTitle></CardHeader>
             <CardContent className="py-2 px-4 text-center">
-              <span className={`text-4xl font-bold ${Number(audit?.globalScore) > 7 ? 'text-green-500' : 'text-yellow-500'}`}>
+              <span className={`text-3xl font-bold ${Number(audit?.globalScore) > 7 ? 'text-green-500' : 'text-yellow-500'}`}>
                 {Number(audit?.globalScore).toFixed(1)}/10
               </span>
             </CardContent>
@@ -78,11 +83,12 @@ function AuditoriaIA() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <HealthIndicator label="Total Módulos" value={audit?.healthIndicators.totalModules} />
         <HealthIndicator label="Tokens Totais" value={Math.ceil(audit?.healthIndicators.totalTokens || 0)} />
         <HealthIndicator label="Duplicações" value={audit?.duplications.length} color="text-yellow-500" />
         <HealthIndicator label="Conflitos" value={audit?.conflicts.length} color="text-red-500" />
+        <HealthIndicator label="Eficiência Seletor" value={audit?.healthIndicators.selectorEfficiency ? `${audit.healthIndicators.selectorEfficiency}/10` : 'N/A'} color="text-blue-400" />
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
