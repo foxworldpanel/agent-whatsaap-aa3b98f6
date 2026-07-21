@@ -1,78 +1,82 @@
 import { createServerFn } from "@tanstack/react-start";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { DEFAULT_MODULES_V3 } from "./default-modules-v3.server";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { loadEnabledModulesV3 } from "./modules.server";
 import { createHash } from "crypto";
 
 export const getValidationAudit = createServerFn({ method: "GET" })
-  .handler(async () => {
-    const workspaceId = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-
-    // 1. List Modules from DB
-    const { data: dbModules, error } = await supabaseAdmin
+  .middleware([withWorkspaceScope])
+  .handler(async ({ context }) => {
+    const { supabase, workspaceId } = context;
+    const { data: dbModules, error } = await supabase
       .from("agent_modules_v3")
       .select("*")
-      .eq("workspace_id", workspaceId);
+      .eq("workspace_id", workspaceId)
+      .order("priority", { ascending: false });
 
-    if (error) throw error;
+    if (error) throw new Error(error.message);
 
-    const modulesList = dbModules.map(m => ({
-      id: m.id,
-      key: m.key,
-      title: m.name,
-      category: m.category || "Geral",
-      enabled: m.enabled ?? false,
-      always_load: (m as any).always_load ?? false,
-      priority: m.priority ?? 0,
-      triggers: (m as any).triggers ?? [],
-      version: m.version || 1,
-      content: m.content,
-      content_length: m.content?.length || 0,
-      preview: m.content ? m.content.substring(0, 50).trim() + "..." : "EMPTY",
-      created_at: m.created_at,
-      updated_at: m.updated_at
-    }));
-
-    // 2. Identify Fallbacks
-    const fallbackKeys = Object.keys(DEFAULT_MODULES_V3);
-    const fallbacks = fallbackKeys.map(key => {
-      const content = DEFAULT_MODULES_V3[key as keyof typeof DEFAULT_MODULES_V3];
-      let cat = "Unknown";
-      if (key === 'identidade' || key === 'objetivo') cat = "B) Comportamental";
-      else if (key.includes('vendas') || key === 'qualificacao_lead') cat = "C) Comercial";
-      else if (['spotify', 'youtube', 'instagram', 'tiktok', 'facebook', 'kwai'].includes(key)) cat = "D) Rede/Preços";
-      else if (key.includes('suporte') || key === 'garantia') cat = "E) Suporte";
-      else cat = "A) Técnico Mínimo";
-      
-      return { 
-        key, 
-        category: cat, 
-        length: content.length,
-        isMigrated: dbModules.some(m => m.key === key)
+    const runtimeModules = await loadEnabledModulesV3(workspaceId);
+    const modulesList = (dbModules || []).map((raw) => {
+      const m = raw as Record<string, any>;
+      const routingSignals = [
+        m.always_load === true,
+        ...(m.selector_intents || []),
+        ...(m.selector_stages || []),
+        ...(m.selector_platforms || []),
+        ...(m.selector_products || []),
+        ...(m.selector_triggers || []),
+      ];
+      return {
+        id: m.id,
+        key: m.key,
+        title: m.name,
+        category: m.category || "Geral",
+        enabled: m.enabled ?? false,
+        always_load: m.always_load ?? false,
+        priority: m.priority ?? 0,
+        version: m.version || 1,
+        content: m.content,
+        content_length: m.content?.length || 0,
+        preview: m.content ? `${m.content.substring(0, 50).trim()}...` : "EMPTY",
+        reachable: m.enabled === true && routingSignals.some(Boolean),
+        routing: {
+          intents: m.selector_intents || [],
+          stages: m.selector_stages || [],
+          platforms: m.selector_platforms || [],
+          products: m.selector_products || [],
+          triggers: m.selector_triggers || [],
+          dependencies: m.selector_dependencies || [],
+          conflicts: m.selector_conflicts || [],
+        },
+        created_at: m.created_at,
+        updated_at: m.updated_at,
       };
     });
 
-    // 3. Comparison and Hashes
-    const runtimeModules = await loadEnabledModulesV3(workspaceId);
-    const hashResults = modulesList.map(m => {
-      const dbHash = createHash("sha256").update(dbModules.find(dm => dm.key === m.key)?.content || "").digest("hex").substring(0, 8);
+    const hashResults = modulesList.map((m) => {
+      const dbHash = createHash("sha256").update(m.content || "").digest("hex").slice(0, 8);
       const runtimeContent = runtimeModules[m.key]?.content || "";
-      const runtimeHash = createHash("sha256").update(runtimeContent).digest("hex").substring(0, 8);
-      
+      const runtimeHash = createHash("sha256").update(runtimeContent).digest("hex").slice(0, 8);
       return {
         key: m.key,
         dbHash,
         runtimeHash,
         match: dbHash === runtimeHash,
-        source: runtimeModules[m.key]?.source || "unknown"
+        source: runtimeModules[m.key]?.source || "disabled",
       };
     });
+
+    const orphanModules = modulesList
+      .filter((m) => m.enabled && !m.reachable)
+      .map((m) => ({ key: m.key, reason: "Sem always_load, intenção, estágio, plataforma, produto ou gatilho no CMS" }));
 
     return {
       workspaceId,
       modulesList,
-      fallbacks,
+      fallbacks: [],
       hashResults,
-      allMigrated: fallbacks.every(f => f.category === "A) Técnico Mínimo" || f.isMigrated)
+      orphanModules,
+      allMigrated: true,
+      cmsIsSingleSource: true,
     };
   });

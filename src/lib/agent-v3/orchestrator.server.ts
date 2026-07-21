@@ -1,31 +1,38 @@
 // src/lib/agent-v3/orchestrator.server.ts
-import { loadAgentIdentity } from "@/lib/agent-identity.server";
-import { loadEnabledModulesV3 } from "./modules.server";
-import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
+import { loadEnabledModulesV3, type LoadedModuleV3 } from "./modules.server";
+import { selectModulesV3, buildPromptFromModules } from "./module-selector.server";
 import { callAnthropicV3 } from "./llm-client.server";
 import { extractMetadataV3 } from "./metadata-extractor.server";
 import { GLOBAL_V3_CONFIG } from "./global-config.server";
-import { 
-  sanitizeSystemLeaks, 
-  limitEmojiFrequency, 
-  detectVerboseLoop, 
+import {
+  sanitizeSystemLeaks,
+  limitEmojiFrequency,
+  detectVerboseLoop,
   enforceReengagementGreeting,
-  humanizePunctuationV3
+  humanizePunctuationV3,
 } from "./guards.server";
 import { autoSplitLongPartsV3 } from "./audio-processor.server";
 
 export interface OrchestratorInput {
   userId: string;
   message: string;
-  history: Array<{ role: "agent" | "customer", content: string }>;
-  historyTelemetry?: { total_messages_stored: number, history_truncated: boolean, session_reset_reason?: string, oldest_message_sent_at?: string };
+  history: Array<{ role: "agent" | "customer"; content: string }>;
+  historyTelemetry?: {
+    total_messages_stored: number;
+    history_truncated: boolean;
+    session_reset_reason?: string;
+    oldest_message_sent_at?: string;
+  };
   enabledModules?: string[];
-  customModules?: Record<string, string>;
+  customModules?: Record<string, string | LoadedModuleV3>;
   anthropicApiKey: string;
   extraContext?: string;
   isInbound?: boolean;
   inputKind?: "texto" | "audio" | "image" | "sticker";
   messageId?: string; // Para telemetria
+  workspaceId?: string;
+  conversationId?: string;
+  phone?: string;
 }
 
 export interface ModuleTelemetry {
@@ -58,6 +65,8 @@ export interface AgentV3TurnResult {
     versions: Record<string, number>;
     estimated_tokens_by_module: Record<string, number>;
     commercial_tokens_added: number;
+    selection_context?: unknown;
+    selection_reasons?: Record<string, string>;
   };
   intelligence: {
     temperature: "frio" | "morno" | "quente";
@@ -79,29 +88,38 @@ export interface AgentV3TurnResult {
     objectivity?: number;
   };
   rawResponse?: string;
-  rawPrompt?: any;
+  rawPrompt?: unknown;
 }
 
 export type AgentResponseV3 = AgentV3TurnResult;
 
-
-
 /**
  * CORE ORCHESTRATOR V3
  * Responsável por:
- * 1. Carregar configuração e identidade
- * 2. Selecionar módulos relevantes (Router Determinístico)
- * 3. Construir system prompt com cache e breakpoint
- * 4. Chamar o LLM (Haiku 4.5)
- * 5. Aplicar Guards e Pós-processamento
+ * 1. Resolver workspace e carregar módulos do CMS
+ * 2. Selecionar módulos relevantes com contexto
+ * 3. Construir o system prompt
+ * 4. Chamar o LLM
+ * 5. Aplicar guards, pós-processamento e telemetria
  */
 export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3TurnResult> {
-  const { userId, message, history, historyTelemetry, enabledModules, customModules, anthropicApiKey, extraContext, isInbound = true, inputKind, messageId } = input;
+  const {
+    userId,
+    message,
+    history,
+    historyTelemetry,
+    enabledModules,
+    customModules,
+    anthropicApiKey,
+    extraContext,
+    inputKind,
+    messageId,
+    workspaceId: inputWorkspaceId,
+    conversationId,
+    phone,
+  } = input;
 
-  // Carrega Identidade e Configuração dinamicamente
-  const targetUserId = userId;
-  const identity = await loadAgentIdentity(targetUserId);
-  
+  // A identidade da V3 vem exclusivamente do módulo `identidade` do CMS.
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: ws } = await supabaseAdmin
     .from("workspaces")
@@ -109,61 +127,105 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     .eq("user_id", userId)
     .eq("is_default", true)
     .maybeSingle();
-    
-  const workspaceId = ws?.id || "";
 
-  // 1. Carregar configuração e módulos do banco (com fallback)
+  const workspaceId = inputWorkspaceId || ws?.id;
+  if (!workspaceId) {
+    throw new Error(`[agent-v3] Workspace não encontrado para o usuário ${userId}`);
+  }
+
+  // 1. Carregar módulos do CMS e aplicar overrides explícitos do chamador.
   const activeModulesMap = await loadEnabledModulesV3(workspaceId);
-  
-  // 2. Identificar módulos habilitados (se enabledModules for passado, filtra o mapa)
-  const enabledKeys = enabledModules && enabledModules.length > 0 
-    ? enabledModules 
-    : Object.keys(activeModulesMap);
+  const mergedModulesMap: Record<string, LoadedModuleV3> = { ...activeModulesMap };
+  for (const [key, customModule] of Object.entries(customModules || {})) {
+    mergedModulesMap[key] =
+      typeof customModule === "string"
+        ? {
+            content: customModule,
+            source: "custom",
+            version: "custom",
+            routing: {
+              alwaysLoad: false,
+              intents: [],
+              stages: [],
+              platforms: [],
+              products: [],
+              triggers: [],
+              dependencies: [],
+              conflicts: [],
+              priority: 0,
+            },
+          }
+        : { ...customModule, source: "custom" };
+  }
 
-  // 3. Selecionar módulos relevantes baseados na mensagem
-  const selectedKeys = selectRelevantModules(message, enabledKeys);
-  
+  // 2. Respeitar o filtro explícito sem permitir chaves inexistentes.
+  const availableKeys = Object.keys(mergedModulesMap);
+  const enabledKeys = enabledModules?.length
+    ? enabledModules.filter((key) => availableKeys.includes(key))
+    : availableKeys;
+
+  // 3. Selecionar módulos relevantes baseados na mensagem e histórico
+  const selectableModules = Object.fromEntries(
+    enabledKeys.map((key) => [key, mergedModulesMap[key]]).filter(([, module]) => Boolean(module)),
+  );
+  const selection = selectModulesV3(message, history, selectableModules);
+  const selectedKeys = selection.selectedModules;
+  if (selectedKeys.length === 0) {
+    throw new Error(
+      "[agent-v3] Nenhum módulo foi selecionado. Aplique a migration de roteamento e configure os metadados no CMS.",
+    );
+  }
+  const selectionContext = selection.context;
+  const selectionReasons = selection.selectionReasons;
+
+  console.log(
+    `[AGENT-V3-SELECTOR] Intent: ${selectionContext.intent}, Stage: ${selectionContext.stage}, Platform: ${selectionContext.platform}, Modules: ${selectedKeys.join(", ")}`,
+  );
+
   // 3.1. Calcular Telemetria de Módulos
-  const modulesTelemetry: ModuleTelemetry[] = selectedKeys.map(key => {
-    const mod = activeModulesMap[key];
-    const content = typeof mod === 'string' ? mod : mod?.content || "";
+  const modulesTelemetry: ModuleTelemetry[] = selectedKeys.map((key) => {
+    const mod = mergedModulesMap[key];
+    const content = typeof mod === "string" ? mod : mod?.content || "";
     return {
       key,
-      name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      name: key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
       chars: content.length,
-      tokens: Math.ceil(content.length / 4)
+      tokens: Math.ceil(content.length / 4),
     };
   });
 
   // 3.2. Comparativo de Prompt (tokens comerciais)
-  const commercialKeys = ["psicologia_vendas", "objecoes_vendas", "fechamento_vendas", "recuperacao_leads", "qualificacao_lead", "fluxo_vendas"];
-  const nonCommercialKeys = selectedKeys.filter(k => !commercialKeys.includes(k));
-  
-  const promptWithCommercial = buildPromptFromModules(selectedKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
-  const promptWithoutCommercial = buildPromptFromModules(nonCommercialKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
+  const commercialKeys = [
+    "psicologia_vendas",
+    "objecoes_vendas",
+    "fechamento_vendas",
+    "recuperacao_leads",
+    "qualificacao_lead",
+    "fluxo_vendas",
+  ];
+  const nonCommercialKeys = selectedKeys.filter((k) => !commercialKeys.includes(k));
 
-  
+  const promptWithCommercial = buildPromptFromModules(selectedKeys, mergedModulesMap);
+  const promptWithoutCommercial = buildPromptFromModules(nonCommercialKeys, mergedModulesMap);
+
   const tokensWith = Math.ceil(promptWithCommercial.length / 4);
   const tokensWithout = Math.ceil(promptWithoutCommercial.length / 4);
 
   const promptComparison = {
     withoutCommercial: tokensWithout,
     withCommercial: tokensWith,
-    diff: tokensWith - tokensWithout
+    diff: tokensWith - tokensWithout,
   };
 
   const modulePrompt = promptWithCommercial;
-
 
   const isAudioInput = inputKind === "audio";
   const isImageInput = inputKind === "image";
   const isStickerInput = inputKind === "sticker";
 
-  const hasIntentSupport = selectedKeys.includes("suporte") || selectedKeys.includes("suporte_pos_compra");
-
   const systemPrompt = [
-    { 
-      type: "text", 
+    {
+      type: "text",
       text: `
 LEAD INTELLIGENCE (Obrigatório em toda resposta):
 Sempre inclua os seguintes marcadores no INÍCIO da sua resposta (antes do texto):
@@ -184,26 +246,36 @@ ESTADO DA CONVERSA:
 ${modulePrompt}
 
 
-${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}
-
+${
+  extraContext
+    ? `FATO TÉCNICO:
+${extraContext}`
+    : ""
+}
 
 REGRA DE CONCISÃO:
 - Seja breve e cubra somente as informações necessárias para o próximo passo.
 
-${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}
-
 ${isAudioInput ? `MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.` : ""}
 ${isImageInput ? `IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.` : ""}
 ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}`,
-    }
+    },
   ];
 
   // Verbose Loop Check
-  if (history && history.length > 0 && detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
+  if (
+    history &&
+    history.length > 0 &&
+    detectVerboseLoop(
+      history.map((m) => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })),
+    )
+  ) {
     console.log("[AGENT-V3-DEBUG] Verbose loop detected for user:", userId);
     return {
       response: `Pra finalizar rapidinho seu pedido, é só acessar ${GLOBAL_V3_CONFIG.panel_url} e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados.`,
-      replies: [`Pra finalizar rapidinho seu pedido, é só acessar ${GLOBAL_V3_CONFIG.panel_url} e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados.`],
+      replies: [
+        `Pra finalizar rapidinho seu pedido, é só acessar ${GLOBAL_V3_CONFIG.panel_url} e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados.`,
+      ],
       intelligence: {
         temperature: "frio",
         confidence: "Baixa",
@@ -216,7 +288,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         reasoning: "Loop detectado",
       },
       score: {
-        total: 100
+        total: 100,
       },
       usage: {
         model: "claude-haiku-4-5",
@@ -224,44 +296,59 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         output_tokens: 0,
         cache_creation_input_tokens: 0,
         cache_read_input_tokens: 0,
-        latency_ms: 0
+        latency_ms: 0,
       },
       cost: {
         input_usd: 0,
         output_usd: 0,
         cache_usd: 0,
-        total_usd: 0
+        total_usd: 0,
       },
       modules: {
         selected_keys: selectedKeys,
-        versions: {},
-        estimated_tokens_by_module: {},
-        commercial_tokens_added: 0
+        versions: Object.fromEntries(
+          selectedKeys.map((key) => [
+            key,
+            Number(mergedModulesMap[key]?.version || 1),
+          ]),
+        ),
+        estimated_tokens_by_module: Object.fromEntries(
+          modulesTelemetry.map((module) => [module.key, module.tokens]),
+        ),
+        commercial_tokens_added: promptComparison.diff,
+        selection_context: selectionContext,
+        selection_reasons: selectionReasons,
       },
-      rawPrompt: systemPrompt
+      rawPrompt: systemPrompt,
     };
   }
 
   // Model Call
   const system_prompt_chars = JSON.stringify(systemPrompt).length;
   const history_chars = JSON.stringify(history).length;
-  const history_summary = history.length > 0 
-    ? history.slice(-3).map(m => `[${m.role.toUpperCase()}: ${m.content.slice(0, 30)}...]`).join(" | ")
-    : "empty";
+  const history_summary =
+    history.length > 0
+      ? history
+          .slice(-3)
+          .map((m) => `[${m.role.toUpperCase()}: ${m.content.slice(0, 30)}...]`)
+          .join(" | ")
+      : "empty";
   const message_chars = message.length;
 
   const startLlm = Date.now();
   const llmResult = await callAnthropicV3({
-    apiKey: anthropicApiKey || (typeof process !== 'undefined' ? process.env.ANTHROPIC_API_KEY : undefined),
+    apiKey:
+      anthropicApiKey ||
+      (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined),
     system: systemPrompt,
     messages: [
-      ...history.map(m => ({
+      ...history.map((m) => ({
         role: m.role === "agent" ? "assistant" : "user",
-        content: m.content
+        content: m.content,
       })),
-      { role: "user", content: message }
+      { role: "user", content: message },
     ],
-    model: "claude-haiku-4-5",
+    model: "claude-sonnet-5",
     metadata: {
       message_id: messageId,
       call_number: 1,
@@ -270,13 +357,16 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       history_chars,
       history_summary,
       message_chars,
-      history_telemetry: historyTelemetry
-    }
+      history_telemetry: historyTelemetry,
+    },
   });
-  
-  const rawText = llmResult.content[0].text;
+
+  const rawText = llmResult.content?.find((item) => item.type === "text")?.text || "";
+  if (!rawText) {
+    throw new Error("[agent-v3] A Anthropic retornou uma resposta sem conteúdo de texto");
+  }
   const latency_ms = Date.now() - startLlm;
-  
+
   // Calculate cost based on llm-client logic but normalized
   const usageRaw = llmResult.usage || {};
   const input_tokens = usageRaw.input_tokens || 0;
@@ -287,24 +377,23 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   const input_usd = (input_tokens * 1) / 1_000_000;
   const output_usd = (output_tokens * 5) / 1_000_000;
   const cache_write_usd = (cache_creation_input_tokens * 1.25) / 1_000_000;
-  const cache_read_usd = (cache_read_input_tokens * 0.10) / 1_000_000;
+  const cache_read_usd = (cache_read_input_tokens * 0.1) / 1_000_000;
   const cache_usd = cache_write_usd + cache_read_usd;
   const total_usd = input_usd + output_usd + cache_usd;
-  
+
   // Metadata extraction
-  const { 
-    temperature, 
+  const {
+    temperature,
     confidence,
-    intent, 
-    stage, 
+    intent,
+    stage,
     purchase_probability,
     sentiment,
     urgency,
     recommended_action,
     reasoning,
     conversation_score,
-    conversation_feedback,
-    text: cleanText 
+    text: cleanText,
   } = extractMetadataV3(rawText);
 
   // Guards & Pipeline
@@ -312,9 +401,12 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   finalContent = sanitizeSystemLeaks(finalContent);
   const reengagement = enforceReengagementGreeting(finalContent, message);
   finalContent = reengagement.text;
-  
+
   // Emoji handling
-  const agentHistory = history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content }));
+  const agentHistory = history.map((m) => ({
+    sender: m.role === "agent" ? "agente" : "cliente",
+    body: m.content,
+  }));
   finalContent = limitEmojiFrequency(finalContent, agentHistory);
 
   // Post-processing
@@ -324,7 +416,6 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   const replies = autoSplitLongPartsV3(finalContent);
 
   const result = {
-
     response: finalContent,
     replies,
     intelligence: {
@@ -339,53 +430,70 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       reasoning,
     },
     score: {
-      total: conversation_score
+      total: conversation_score,
       // humanity, clarity etc are derived from feedback or expanded in extractor later
     },
     usage: {
-      model: "claude-haiku-4-5",
+      model: "claude-sonnet-5",
       request_id: llmResult.request_id || "unknown", // Adjust if llmResult has it differently
       input_tokens,
       output_tokens,
       cache_creation_input_tokens,
       cache_read_input_tokens,
-      latency_ms
+      latency_ms,
     },
     cost: {
       input_usd,
       output_usd,
       cache_usd,
-      total_usd
+      total_usd,
     },
     modules: {
       selected_keys: selectedKeys,
-      versions: Object.fromEntries(Object.entries(activeModulesMap).map(([k, v]) => [k, (v as any).version || 1])),
-      estimated_tokens_by_module: Object.fromEntries(modulesTelemetry.map(m => [m.key, m.tokens])),
-      commercial_tokens_added: promptComparison.diff
+      versions: Object.fromEntries(
+        selectedKeys.map((key) => [
+          key,
+          Number(mergedModulesMap[key]?.version || 1),
+        ]),
+      ),
+      estimated_tokens_by_module: Object.fromEntries(
+        modulesTelemetry.map((m) => [m.key, m.tokens]),
+      ),
+      commercial_tokens_added: promptComparison.diff,
+      selection_context: selectionContext,
+      selection_reasons: selectionReasons,
     },
     rawResponse: rawText,
-    rawPrompt: systemPrompt
+    rawPrompt: systemPrompt,
   };
 
   try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("agent_playground_runs" as any).insert({
-      workspace_id: identity.workspaceId || "default",
-      agent_id: identity.agentId || "anonymous",
-      message: message,
-      response: result.response,
-      raw_prompt: result.rawPrompt,
-      raw_response: result.rawResponse,
-      usage: result.usage as any,
-      cost: result.cost as any,
-      intelligence: result.intelligence as any,
-      modules: result.modules.selected_keys
-    } as any);
+    const { logEvent } = await import("@/lib/agent-logger.server");
+    await logEvent({
+      userId,
+      workspaceId,
+      phone: phone ?? null,
+      conversationId: conversationId ?? null,
+      type: "agent_v3_turn",
+      level: "info",
+      summary: `V3 respondeu com ${selectedKeys.length} módulos`,
+      prompt: JSON.stringify(result.rawPrompt),
+      response: result.rawResponse || result.response,
+      durationMs: result.usage.latency_ms,
+      metadata: {
+        message_id: messageId ?? null,
+        selected_modules: selectedKeys,
+        selection_context: selectionContext,
+        selection_reasons: selectionReasons,
+        usage: result.usage,
+        cost: result.cost,
+        intelligence: result.intelligence,
+        history_telemetry: historyTelemetry ?? null,
+      },
+    });
   } catch (err) {
-    console.error("[agent-v3] Failed to log playground run:", err);
+    console.error("[agent-v3] Failed to log production telemetry:", err);
   }
-
 
   return result;
 }
-

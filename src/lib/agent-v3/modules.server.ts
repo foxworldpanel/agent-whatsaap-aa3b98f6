@@ -1,85 +1,95 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { DEFAULT_MODULES_V3 } from "./default-modules-v3.server";
 
-export type AgentModuleV3 = {
-  id: string;
-  key: string;
-  name: string;
-  description: string | null;
-  category: string;
-  content: string;
-  enabled: boolean;
+export type ModuleRoutingV3 = {
+  alwaysLoad: boolean;
+  intents: string[];
+  stages: string[];
+  platforms: string[];
+  products: string[];
+  triggers: string[];
+  dependencies: string[];
+  conflicts: string[];
   priority: number;
-  version: number;
-  updated_at: string;
-  source?: "database" | "fallback";
-  fallback_reason?: string;
 };
 
-const modulesCache = new Map<string, { value: Record<string, string>; expiresAt: number }>();
+export type LoadedModuleV3 = {
+  content: string;
+  source: "database" | "custom";
+  version: number | string;
+  name?: string;
+  category?: string;
+  routing: ModuleRoutingV3;
+};
+
+const modulesCache = new Map<
+  string,
+  { value: Record<string, LoadedModuleV3>; expiresAt: number }
+>();
 const CACHE_TTL_MS = 30_000;
 
+const asStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+
 /**
- * Loads enabled modules from the database with fallback to DEFAULT_MODULES_V3
+ * Carrega exclusivamente os módulos habilitados no CMS.
+ * A V3 não mantém conteúdo de persona, regras ou vendas em fallback no código.
+ * Se o CMS estiver indisponível, o turno falha de forma explícita em vez de usar
+ * conhecimento desatualizado ou divergente.
  */
-export async function loadEnabledModulesV3(workspaceId: string): Promise<Record<string, { content: string; source: "database" | "fallback"; fallback_reason?: string }>> {
+export async function loadEnabledModulesV3(
+  workspaceId: string,
+): Promise<Record<string, LoadedModuleV3>> {
   const now = Date.now();
   const cached = modulesCache.get(workspaceId);
-  if (cached && cached.expiresAt > now) return cached.value as any;
+  if (cached && cached.expiresAt > now) return cached.value;
 
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("agent_modules_v3")
-      .select("key, content, enabled, category, priority")
-      .eq("workspace_id", workspaceId)
-      .eq("enabled", true)
-      .not("content", "is", null);
+  const { data, error } = await supabaseAdmin
+    .from("agent_modules_v3")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .eq("enabled", true);
 
-    if (error) throw error;
-
-    const modules: Record<string, { content: string; source: "database" | "fallback"; fallback_reason?: string }> = {};
-
-    // Initialize with fallback markers
-    Object.keys(DEFAULT_MODULES_V3).forEach(key => {
-      modules[key] = {
-        content: DEFAULT_MODULES_V3[key],
-        source: "fallback",
-        fallback_reason: "Initial state (before DB merge)"
-      };
-    });
-
-    if (data && data.length > 0) {
-      data.forEach((m) => {
-        if (m.key && m.content !== null) {
-          modules[m.key] = {
-            content: String(m.content),
-            source: "database"
-          };
-        }
-      });
-    } else {
-      // If no data, all stay as fallback with specific reason
-      Object.keys(modules).forEach(key => {
-        modules[key].fallback_reason = "No modules found in database for workspace";
-      });
-    }
-
-    modulesCache.set(workspaceId, { value: modules as any, expiresAt: now + CACHE_TTL_MS });
-    return modules;
-  } catch (err) {
-    console.warn("[v3-modules] Error loading modules from DB, using fallback:", err);
-    const fallbackModules: Record<string, { content: string; source: "database" | "fallback"; fallback_reason?: string }> = {};
-    Object.keys(DEFAULT_MODULES_V3).forEach(key => {
-      fallbackModules[key] = {
-        content: DEFAULT_MODULES_V3[key],
-        source: "fallback",
-        fallback_reason: `DB Error: ${err instanceof Error ? err.message : String(err)}`
-      };
-    });
-    return fallbackModules;
+  if (error) {
+    throw new Error(`[v3-modules] Falha ao carregar módulos do CMS: ${error.message}`);
   }
+
+  const modules: Record<string, LoadedModuleV3> = {};
+  for (const rawRow of data || []) {
+    const row = rawRow as Record<string, unknown>;
+    const key = typeof row.key === "string" ? row.key.trim() : "";
+    const content = typeof row.content === "string" ? row.content.trim() : "";
+    if (!key || !content) continue;
+
+    modules[key] = {
+      content,
+      source: "database",
+      version: typeof row.version === "number" ? row.version : 1,
+      name: typeof row.name === "string" ? row.name : key,
+      category: typeof row.category === "string" ? row.category : "Outros",
+      routing: {
+        alwaysLoad: row.always_load === true,
+        intents: asStringArray(row.selector_intents),
+        stages: asStringArray(row.selector_stages),
+        platforms: asStringArray(row.selector_platforms),
+        products: asStringArray(row.selector_products),
+        triggers: asStringArray(row.selector_triggers),
+        dependencies: asStringArray(row.selector_dependencies),
+        conflicts: asStringArray(row.selector_conflicts),
+        priority: typeof row.priority === "number" ? row.priority : 0,
+      },
+    };
+  }
+
+  if (Object.keys(modules).length === 0) {
+    throw new Error(`[v3-modules] Nenhum módulo habilitado e preenchido no CMS para ${workspaceId}`);
+  }
+
+  modulesCache.set(workspaceId, { value: modules, expiresAt: now + CACHE_TTL_MS });
+  return modules;
 }
 
-export function invalidateModulesCache(workspaceId: string) {
+export function invalidateModulesCache(workspaceId: string): void {
   modulesCache.delete(workspaceId);
 }

@@ -223,8 +223,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       
       num = numData;
       
-      const targetUserId = num?.user_id || "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
-      
+      if (!num?.user_id || !num?.workspace_id) {
+        console.error("[V3-GATE] Instância não vinculada a usuário/workspace", { hasToken: Boolean(instanceToken) });
+        return new Response("Webhook não configurado", { status: 422 });
+      }
+      const targetUserId = num.user_id;
+
       const { data: integ } = await adminEarly
         .from("integrations")
         .select("anthropic_api_key")
@@ -237,9 +241,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // Carrega histórico V3
       const { history, telemetry: historyTelemetry } = await getConversationStateV3(targetUserId, phoneStrLocal);
       
+      // Resolve IDs antes da execução para que a telemetria V3 fique vinculada
+      // ao contato e à conversa reais de produção.
+      const { data: contactData } = await adminEarly
+        .from("contacts")
+        .select("id")
+        .eq("user_id", targetUserId)
+        .eq("telefone", phoneStrLocal)
+        .maybeSingle();
+
+      const { data: conv } = contactData ? await adminEarly
+        .from("conversations")
+        .select("id")
+        .eq("contact_id", contactData.id)
+        .maybeSingle() : { data: null };
+
       // Executa Orquestrador V3 (ÚNICO CAMINHO)
       const v3Response = await runAgentV3Turn({
         userId: targetUserId,
+        workspaceId: num?.workspace_id || undefined,
+        conversationId: conv?.id || undefined,
+        phone: phoneStrLocal,
         message: finalMsgText,
         history: history,
         historyTelemetry: historyTelemetry,
@@ -257,23 +279,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         { role: "agent" as const, content: replyText }
       ].slice(-100)); // Mantém um buffer maior no banco, mas o loader limita a 10 para o LLM
 
-      // Busca ID da conversa para logs
-      const { data: contactData } = await adminEarly
-        .from("contacts")
-        .select("id")
-        .eq("user_id", targetUserId)
-        .eq("telefone", phoneStrLocal)
-        .maybeSingle();
-
-      const { data: conv } = contactData ? await adminEarly
-        .from("conversations")
-        .select("id")
-        .eq("contact_id", contactData.id)
-        .maybeSingle() : { data: null };
-
       // Envio via canal seguro
       await sendAgentTextGuarded(
-        { uazapi_url: num?.uazapi_url || "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
+        { uazapi_url: num.uazapi_url, uazapi_token: instanceToken || "" },
         phoneStrLocal,
         replyText,
         { conversationId: conv?.id || phoneStrLocal, source: "agent_v3", applyHumanize: true }
