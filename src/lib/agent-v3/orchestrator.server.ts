@@ -28,6 +28,13 @@ export interface OrchestratorInput {
   messageId?: string; // Para telemetria
 }
 
+export interface ModuleTelemetry {
+  key: string;
+  name: string;
+  chars: number;
+  tokens: number;
+}
+
 export interface AgentResponseV3 {
   temperature: "frio" | "morno" | "quente";
   confidence: string;
@@ -41,12 +48,18 @@ export interface AgentResponseV3 {
   conversation_score: number;
   conversation_feedback: string[];
   replies: string[];
-
   rawResponse?: string;
   rawPrompt?: any;
   usage?: any;
   selectedModules: string[];
+  modulesTelemetry?: ModuleTelemetry[];
+  promptComparison?: {
+    withoutCommercial: number;
+    withCommercial: number;
+    diff: number;
+  };
 }
+
 
 /**
  * CORE ORCHESTRATOR V3
@@ -84,7 +97,38 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
 
   // 3. Selecionar módulos relevantes baseados na mensagem
   const selectedKeys = selectRelevantModules(message, enabledKeys);
-  const modulePrompt = buildPromptFromModules(selectedKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
+  
+  // 3.1. Calcular Telemetria de Módulos
+  const modulesTelemetry: ModuleTelemetry[] = selectedKeys.map(key => {
+    const mod = activeModulesMap[key];
+    const content = typeof mod === 'string' ? mod : mod?.content || "";
+    return {
+      key,
+      name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      chars: content.length,
+      tokens: Math.ceil(content.length / 4)
+    };
+  });
+
+  // 3.2. Comparativo de Prompt (tokens comerciais)
+  const commercialKeys = ["psicologia_vendas", "objecoes_vendas", "fechamento_vendas", "recuperacao_leads", "qualificacao_lead", "fluxo_vendas"];
+  const nonCommercialKeys = selectedKeys.filter(k => !commercialKeys.includes(k));
+  
+  const promptWithCommercial = buildPromptFromModules(selectedKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
+  const promptWithoutCommercial = buildPromptFromModules(nonCommercialKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
+
+  
+  const tokensWith = Math.ceil(promptWithCommercial.length / 4);
+  const tokensWithout = Math.ceil(promptWithoutCommercial.length / 4);
+
+  const promptComparison = {
+    withoutCommercial: tokensWithout,
+    withCommercial: tokensWith,
+    diff: tokensWith - tokensWithout
+  };
+
+  const modulePrompt = promptWithCommercial;
+
 
   const isAudioInput = inputKind === "audio";
   const isImageInput = inputKind === "image";
@@ -140,7 +184,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   ];
 
   // Verbose Loop Check
-  if (detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
+  if (history && history.length > 0 && detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
     console.log("[AGENT-V3-DEBUG] Verbose loop detected for user:", userId);
     return {
       temperature: "frio",
@@ -169,7 +213,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   const message_chars = message.length;
 
   const response = await callAnthropicV3({
-    apiKey: anthropicApiKey,
+    apiKey: anthropicApiKey || (typeof process !== 'undefined' ? process.env.ANTHROPIC_API_KEY : undefined),
     system: systemPrompt,
     messages: [
       ...history.map(m => ({
@@ -241,6 +285,9 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     rawResponse: rawText,
     rawPrompt: systemPrompt,
     usage: response.usage,
-    selectedModules: selectedKeys
+    selectedModules: selectedKeys,
+    modulesTelemetry,
+    promptComparison
   };
+
 }

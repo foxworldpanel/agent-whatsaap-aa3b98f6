@@ -549,26 +549,68 @@ function AgentPlaygroundPage() {
               <TabsContent value="modulos" className="p-4 m-0 space-y-4">
                 <div className="space-y-4">
                   <div>
-                    <h4 className="text-xs font-semibold mb-2">Módulos Selecionados</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {lastRun?.selected_modules && Array.isArray(lastRun.selected_modules) && lastRun.selected_modules.length > 0 ? (
-                        lastRun.selected_modules.map((m: string) => (
-                          <Badge key={m} variant="secondary" className="text-[9px]">{m}</Badge>
-                        ))
-                      ) : (
-                        <span className="text-[10px] text-muted-foreground italic">Nenhum módulo selecionado na última execução.</span>
-                      )}
+                    <h4 className="text-xs font-semibold mb-2">Impacto no Prompt</h4>
+                    <div className="space-y-3">
+                      {(() => {
+                        const meta = lastRun?.metadata as any;
+                        const telemetry = meta?.modules_telemetry || [];
+                        const comparison = meta?.prompt_comparison || { withoutCommercial: 0, withCommercial: 0, diff: 0 };
+                        
+                        if (telemetry.length === 0) return <span className="text-[10px] text-muted-foreground italic">Nenhuma telemetria de módulos disponível.</span>;
+
+                        return (
+                          <>
+                            <div className="grid grid-cols-1 gap-1">
+                              {telemetry.map((t: any) => (
+                                <div key={t.key} className="flex items-center justify-between text-[10px] bg-muted/30 p-2 rounded border border-border/50">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                    <span className="font-medium">{t.name}</span>
+                                  </div>
+                                  <div className="flex gap-2 text-muted-foreground">
+                                    <span>{t.chars} chars</span>
+                                    <span className="text-primary font-bold">+{t.tokens} tokens</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            <Card className="p-3 bg-primary/5 border-primary/10">
+                              <p className="text-[9px] text-muted-foreground uppercase mb-2 font-bold">Comparativo de Inteligência Comercial</p>
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[10px]">
+                                  <span>Prompt sem módulos comerciais:</span>
+                                  <span>{comparison.withoutCommercial} tokens</span>
+                                </div>
+                                <div className="flex justify-between text-[10px] font-bold">
+                                  <span>Prompt com módulos comerciais:</span>
+                                  <span>{comparison.withCommercial} tokens</span>
+                                </div>
+                                <Separator className="my-1" />
+                                <div className="flex justify-between text-[10px] text-primary font-bold uppercase tracking-wider">
+                                  <span>Diferença de custo:</span>
+                                  <span>+{comparison.diff} tokens</span>
+                                </div>
+                              </div>
+                            </Card>
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                   <Separator />
                   <div>
-                    <h4 className="text-xs font-semibold mb-2">Controle de Módulos</h4>
+                    <h4 className="text-xs font-semibold mb-2">Controle de Módulos (Sessão)</h4>
                     <div className="space-y-2">
                       {[
                         { id: "identidade", label: "Identidade", core: true },
                         { id: "regras_gerais", label: "Regras Gerais", core: true },
                         { id: "comportamento_humano", label: "Comportamento Humano", core: true },
                         { id: "fluxo_vendas", label: "Fluxo de Vendas", core: false },
+                        { id: "psicologia_vendas", label: "Psicologia de Vendas", core: false },
+                        { id: "objecoes_vendas", label: "Objeções de Vendas", core: false },
+                        { id: "fechamento_vendas", label: "Fechamento de Vendas", core: false },
+                        { id: "qualificacao_lead", label: "Qualificação de Lead", core: false },
                         { id: "spotify", label: "Spotify", core: false },
                         { id: "instagram", label: "Instagram", core: false },
                         { id: "youtube", label: "YouTube", core: false },
@@ -599,6 +641,7 @@ function AgentPlaygroundPage() {
                       })}
                     </div>
                   </div>
+
                 </div>
               </TabsContent>
 

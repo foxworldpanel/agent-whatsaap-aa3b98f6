@@ -127,11 +127,14 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     // 6. Salvar Telemetria (Run)
     const usage = result.usage || {};
+    const modulesTelemetry = result.modulesTelemetry || [];
+    const comparison = result.promptComparison || { withoutCommercial: 0, withCommercial: 0, diff: 0 };
+    
     await supabase.from("agent_playground_runs").insert({
       session_id: sessionId,
       message_id: agentMsg.id,
       model: "claude-haiku-4-5",
-      selected_modules: result.rawPrompt?.[0]?.text ? [] : [], // O orchestrator loga isso, podemos extrair se necessário
+      selected_modules: result.selectedModules || [],
       system_prompt_chars: JSON.stringify(result.rawPrompt).length,
       history_chars: JSON.stringify(history).length,
       message_chars: message.length,
@@ -155,7 +158,13 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       reasoning: result.reasoning,
       conversation_score: result.conversation_score,
       conversation_feedback: JSON.stringify(result.conversation_feedback),
+      metadata: {
+        modules_telemetry: modulesTelemetry as any,
+        prompt_comparison: comparison as any
+      }
+
     });
+
 
 
 
@@ -172,11 +181,13 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         recommended_action: result.recommended_action,
         reasoning: result.reasoning,
       },
-
       usage: usage,
       latencyMs,
-      selectedModules: result.selectedModules || []
+      selectedModules: result.selectedModules || [],
+      modulesTelemetry,
+      promptComparison: comparison
     };
+
   });
 
 function calculateHaiku45Cost(usage: any) {
