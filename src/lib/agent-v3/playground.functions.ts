@@ -1,109 +1,76 @@
 import { createServerFn } from "@tanstack/react-start";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
+import { runAgentV3Turn } from "./orchestrator.server";
+import { supabase } from "@/integrations/supabase/client";
+
+const calculateHaiku45Cost = (usage: any) => {
+  const input = usage.input_tokens || 0;
+  const output = usage.output_tokens || 0;
+  // Haiku 4.5 pricing: $0.15 / 1M input, $0.60 / 1M output
+  return (input * 0.00000015) + (output * 0.00000060);
+};
 
 export const runPlaygroundTurn = createServerFn({ method: "POST" })
-  .inputValidator((data) =>
+  .middleware([withWorkspaceScope])
+  .inputValidator((d: unknown) => 
     z.object({
-      sessionId: z.string().uuid(),
-      message: z.string().min(1),
-      inputKind: z.enum(["texto", "audio", "image", "sticker"]).default("texto"),
-      enabledModules: z.array(z.string()).optional(),
-    }).parse(data)
+      sessionId: z.string(),
+      message: z.string(),
+      inputKind: z.string().optional()
+    }).parse(d)
   )
-  .middleware([requireSupabaseAuth])
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { sessionId, message, inputKind, enabledModules } = data;
+    const { sessionId, message, inputKind = "texto" } = data;
+    const { supabase: supabaseAdmin, userId, workspaceId } = context;
 
-    // 1. Validar que a sessão pertence ao usuário
-    const { data: session, error: sessionError } = await supabase
-      .from("agent_playground_sessions")
-      .select("*")
-      .eq("id", sessionId)
-      .eq("user_id", userId)
-      .single();
+    const start = Date.now();
 
-    if (sessionError || !session) {
-      throw new Error("Sessão não encontrada ou acesso negado.");
-    }
-
-    // 2. Carregar histórico da sessão
-    const { data: historyData, error: historyError } = await supabase
+    // 1. Carregar Histórico
+    const { data: messages } = await supabase
       .from("agent_playground_messages")
-      .select("role, content, created_at")
+      .select("*")
       .eq("session_id", sessionId)
       .order("sequence", { ascending: true });
 
-    if (historyError) throw historyError;
-
-    let rawHistory = (historyData || []).map((m: any) => ({
-      role: m.role === "user" ? ("customer" as const) : ("agent" as const),
-      content: m.content,
-      created_at: m.created_at
+    // Ensure types match orchestrator expectation: agent | customer
+    const history = (messages || []).map(m => ({
+      role: (m.role === "assistant" ? "agent" : "customer") as "agent" | "customer",
+      content: m.content
     }));
 
-    // EXPIRAÇÃO DE 24 HORAS
-    let history = [...rawHistory];
-    let session_reset_reason: string | undefined;
-    if (historyData && historyData.length > 0) {
-      const lastMsg = historyData[historyData.length - 1];
-      const lastUpdate = new Date(lastMsg.created_at).getTime();
-      if (Date.now() - lastUpdate > 24 * 60 * 60 * 1000) {
-        history = [];
-        session_reset_reason = "inactivity_24h";
-      }
-    }
-
-    // LIMITE DE 10 MENSAGENS
-    const history_truncated = history.length > 10;
-    if (history_truncated) {
-      history = history.slice(-10);
-    }
-
-    const historyTelemetry = {
-      total_messages_stored: rawHistory.length,
-      history_truncated,
-      session_reset_reason,
-      oldest_message_sent_at: historyData?.[0]?.created_at
-    };
-
-    // 3. Salvar mensagem do usuário
-    const nextSequence = (historyData?.length || 0) + 1;
-    await supabase.from("agent_playground_messages").insert({
-      session_id: sessionId,
-      role: "user",
-      content: message,
-      input_kind: inputKind,
-      sequence: nextSequence,
-    });
-
-    // 4. Executar o Agent V3
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
-    if (!anthropicApiKey) throw new Error("ANTHROPIC_API_KEY não configurada no servidor.");
-
-    const startTime = Date.now();
-    const result = await runAgentV3Turn({
-      userId: userId, // Usamos o ID do usuário como referência de workspace se necessário, mas o orchestrator busca por userId
-      message,
-      history,
-      historyTelemetry,
-      enabledModules: enabledModules || session.enabled_modules || [],
-      anthropicApiKey,
-      inputKind,
-      messageId: `playground-${sessionId}-${nextSequence + 1}`,
-    });
-    const latencyMs = Date.now() - startTime;
-
-    // 5. Salvar resposta do agente
-    const { data: agentMsg, error: agentMsgError } = await supabase
+    // 2. Salvar Mensagem do Usuário
+    const { data: userMsg } = await supabase
       .from("agent_playground_messages")
       .insert({
         session_id: sessionId,
-        role: "agent",
+        role: "user",
+        content: message,
+        sequence: (messages?.length || 0) + 1,
+        input_kind: inputKind
+      })
+      .select()
+      .single();
+
+    if (!userMsg) throw new Error("Falha ao salvar mensagem do usuário");
+
+    // 3. Executar Agente V3
+    const result = await runAgentV3Turn({
+      message,
+      userId,
+      history,
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY || "", // This will be handled by context usually, but playground might need explicit if not in orchestrator defaults
+      inputKind: inputKind as any
+    });
+
+    // 4. Salvar Mensagem do Agente
+    const { data: agentMsg } = await supabase
+      .from("agent_playground_messages")
+      .insert({
+        session_id: sessionId,
+        role: "assistant",
         content: result.replies.join("\n"),
-        sequence: nextSequence + 1,
+        sequence: (messages?.length || 0) + 2,
         metadata: {
           temperature: result.temperature,
           confidence: result.confidence,
@@ -115,22 +82,23 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
           recommended_action: result.recommended_action,
           reasoning: result.reasoning,
           conversation_score: result.conversation_score,
-          conversation_feedback: result.conversation_feedback,
-        },
-
-
+          conversation_feedback: result.conversation_feedback
+        } as any
       })
       .select()
       .single();
 
-    if (agentMsgError) throw agentMsgError;
+    if (!agentMsg) throw new Error("Falha ao salvar resposta do agente");
+
+    const latencyMs = Date.now() - start;
 
     // 6. Salvar Telemetria (Run)
     const usage = result.usage || {};
     const modulesTelemetry = result.modulesTelemetry || [];
     const comparison = result.promptComparison || { withoutCommercial: 0, withCommercial: 0, diff: 0 };
     
-    await supabase.from("agent_playground_runs").insert({
+    // Using any cast to bypass temporary TS mismatch until Database types refresh
+    const insertData: any = {
       session_id: sessionId,
       message_id: agentMsg.id,
       model: "claude-haiku-4-5",
@@ -159,14 +127,12 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       conversation_score: result.conversation_score,
       conversation_feedback: JSON.stringify(result.conversation_feedback),
       metadata: {
-        modules_telemetry: modulesTelemetry as any,
-        prompt_comparison: comparison as any
+        modules_telemetry: modulesTelemetry,
+        prompt_comparison: comparison
       }
+    };
 
-    });
-
-
-
+    await supabase.from("agent_playground_runs").insert(insertData);
 
     return {
       reply: result.replies.join("\n"),
@@ -180,25 +146,8 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         urgency: result.urgency,
         recommended_action: result.recommended_action,
         reasoning: result.reasoning,
-      },
-      usage: usage,
-      latencyMs,
-      selectedModules: result.selectedModules || [],
-      modulesTelemetry,
-      promptComparison: comparison
+        conversation_score: result.conversation_score,
+        conversation_feedback: result.conversation_feedback
+      }
     };
-
   });
-
-function calculateHaiku45Cost(usage: any) {
-  const inputRate = 0.00000025; // $0.25 / 1M
-  const outputRate = 0.00000125; // $1.25 / 1M
-  const cacheWriteRate = 0.00000030; // $0.30 / 1M (estimado/placeholder se não houver oficial)
-  
-  const input = (usage.input_tokens || 0) * inputRate;
-  const output = (usage.output_tokens || 0) * outputRate;
-  const cacheWrite = (usage.cache_creation_input_tokens || 0) * cacheWriteRate;
-  const cacheRead = (usage.cache_read_input_tokens || 0) * (inputRate * 0.1); // 90% discount
-
-  return input + output + cacheWrite + cacheRead;
-}
