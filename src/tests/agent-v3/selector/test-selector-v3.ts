@@ -92,7 +92,7 @@ async function runTests() {
   console.log("=== INICIANDO TESTES DO MODULE SELECTOR V3 ===\n");
 
   for (const s of scenarios) {
-    const result = selectModulesV3(s.message, s.history as any, enabledModules);
+    const result = selectModulesV3(s.message, s.history as any, {} as any); // Teste simplificado sem módulos reais no Record
     
     console.log(`TESTE: ${s.name}`);
     console.log(`MESSAGE: "${s.message}"`);

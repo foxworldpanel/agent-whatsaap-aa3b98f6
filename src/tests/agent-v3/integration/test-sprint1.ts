@@ -1,6 +1,7 @@
-import { loadEnabledModulesV3 } from "./modules.server";
-import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
-import { runAgentV3Turn } from "./orchestrator.server";
+import { loadEnabledModulesV3 } from "@/lib/agent-v3/brain/modules.server";
+import { selectModulesV3 as selectRelevantModules } from "@/lib/agent-v3/selector/module-selector.server";
+import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
+import { buildPromptFromModules } from "@/lib/agent-v3/prompt/prompt-builder.server";
 
 async function testSprint1() {
   const userId = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa"; // Mind Workspace
@@ -14,7 +15,7 @@ async function testSprint1() {
   console.log("Módulos no DB/Fallback:", enabledKeys);
   
   // 2. Simular seleção
-  const selectedKeys = selectRelevantModules("Quem é você?", enabledKeys);
+  const selectedKeys = selectRelevantModules("Quem é você?", [], enabledKeys as any).selectedModules;
   console.log("Módulos selecionados para 'Quem é você?':", selectedKeys);
   
   // 3. Simular construção de prompt

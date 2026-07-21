@@ -1,6 +1,6 @@
 // src/lib/agent-v3/test-telemetry.ts
-import { runAgentV3Turn } from "./orchestrator.server";
-import { getConversationStateV3, clearConversationStateV3 } from "./conversation-state.server";
+import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
+import { getConversationStateV3, clearConversationStateV3 } from "@/lib/agent-v3/memory/conversation-state.server";
 
 const TEST_PHONE = "5511970116430";
 const TEST_USER_ID = "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
