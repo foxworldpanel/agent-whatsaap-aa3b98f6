@@ -1,7 +1,7 @@
 // src/lib/agent-v3/orchestrator.server.ts
 import { loadAgentIdentity } from "@/lib/agent-identity.server";
 import { loadEnabledModulesV3 } from "./modules.server";
-import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
+import { selectRelevantModules, selectModulesV3, buildPromptFromModules } from "./module-selector.server";
 import { callAnthropicV3 } from "./llm-client.server";
 import { extractMetadataV3 } from "./metadata-extractor.server";
 import { GLOBAL_V3_CONFIG } from "./global-config.server";
@@ -120,8 +120,13 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     ? enabledModules 
     : Object.keys(activeModulesMap);
 
-  // 3. Selecionar módulos relevantes baseados na mensagem
-  const selectedKeys = selectRelevantModules(message, enabledKeys);
+  // 3. Selecionar módulos relevantes baseados na mensagem e histórico
+  const selection = selectModulesV3(message, history, enabledKeys);
+  const selectedKeys = selection.selectedModules;
+  const selectionContext = selection.context;
+  const selectionReasons = selection.selectionReasons;
+  
+  console.log(`[AGENT-V3-SELECTOR] Intent: ${selectionContext.intent}, Stage: ${selectionContext.stage}, Platform: ${selectionContext.platform}, Modules: ${selectedKeys.join(", ")}`);
   
   // 3.1. Calcular Telemetria de Módulos
   const modulesTelemetry: ModuleTelemetry[] = selectedKeys.map(key => {
