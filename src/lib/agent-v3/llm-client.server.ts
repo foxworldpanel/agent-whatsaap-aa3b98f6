@@ -30,19 +30,11 @@ export async function callAnthropicV3(params: {
   if (apiKey) {
     headers["x-api-key"] = apiKey;
     console.log("[DEBUG-V3] Using API Key:", apiKey?.slice(0, 10) + "...");
-
   }
 
   // Map high-level models to real Anthropic identifiers
-  const anthropicModel = "claude-3-5-sonnet-20240620";
-
-
-
-
-
-
-
-
+  // Usando IDs estáveis e verificados para evitar erros 404
+  const anthropicModel = model === "claude-sonnet-5" ? "claude-3-5-sonnet-20241022" : "claude-3-5-haiku-20241022";
 
   const body = {
     model: anthropicModel,
@@ -60,7 +52,7 @@ export async function callAnthropicV3(params: {
   if (!response.ok) {
     const err = await response.text();
     console.error("[agent-v3] Anthropic API Error:", err);
-    throw new Error(`Anthropic API Error: ${response.status}`);
+    throw new Error(`Anthropic API Error: ${response.status} - ${err}`);
   }
 
   const result = await response.json();
@@ -86,13 +78,13 @@ export async function callAnthropicV3(params: {
 
   console.log("[ANTHROPIC-TELEMETRY-RAW]", JSON.stringify({
     usage: {
-      model: model,
+      model: anthropicModel,
       input_tokens,
       output_tokens,
       cache_creation_input_tokens,
       cache_read_input_tokens,
       request_id: requestId,
-      raw_usage: usage // Registre o objeto usage literal retornado pela Anthropic
+      raw_usage: usage
     },
     metadata: {
       call_number_for_message: metadata?.call_number || 1,
