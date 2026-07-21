@@ -4,6 +4,7 @@ import { loadEnabledModulesV3 } from "./modules.server";
 import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
 import { callAnthropicV3 } from "./llm-client.server";
 import { extractMetadataV3 } from "./metadata-extractor.server";
+import { GLOBAL_V3_CONFIG } from "./global-config.server";
 import { 
   sanitizeSystemLeaks, 
   limitEmojiFrequency, 
