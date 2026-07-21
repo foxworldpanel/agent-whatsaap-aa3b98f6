@@ -29,20 +29,12 @@ export async function callAnthropicV3(params: {
 
   if (apiKey) {
     headers["x-api-key"] = apiKey;
-<<<<<<< HEAD
-=======
-    console.log("[DEBUG-V3] Using API Key:", apiKey?.slice(0, 10) + "...");
->>>>>>> bc0a3f805a55dd8e87f2e433be52085ae22c6160
   }
 
   // Map high-level models to real Anthropic identifiers
   // Usando IDs estáveis e verificados para evitar erros 404
-<<<<<<< HEAD
   const anthropicModel =
     model === "claude-sonnet-5" ? "claude-3-5-sonnet-20241022" : "claude-3-5-haiku-20241022";
-=======
-  const anthropicModel = model === "claude-sonnet-5" ? "claude-3-5-sonnet-20241022" : "claude-3-5-haiku-20241022";
->>>>>>> bc0a3f805a55dd8e87f2e433be52085ae22c6160
 
   const body = {
     model: anthropicModel,
@@ -94,7 +86,6 @@ export async function callAnthropicV3(params: {
 
   const response_chars = result.content?.[0]?.text?.length || 0;
 
-<<<<<<< HEAD
   console.log(
     "[ANTHROPIC-TELEMETRY-RAW]",
     JSON.stringify({
@@ -127,37 +118,6 @@ export async function callAnthropicV3(params: {
       },
     }),
   );
-=======
-  console.log("[ANTHROPIC-TELEMETRY-RAW]", JSON.stringify({
-    usage: {
-      model: anthropicModel,
-      input_tokens,
-      output_tokens,
-      cache_creation_input_tokens,
-      cache_read_input_tokens,
-      request_id: requestId,
-      raw_usage: usage
-    },
-    metadata: {
-      call_number_for_message: metadata?.call_number || 1,
-      message_id: metadata?.message_id || "unknown",
-      selectedKeys: metadata?.selectedKeys || [],
-      system_prompt_chars: metadata?.system_prompt_chars || 0,
-      history_chars: metadata?.history_chars || 0,
-      message_chars: metadata?.message_chars || 0,
-      history_summary: metadata?.history_summary || "none",
-      history_telemetry: metadata?.history_telemetry || {},
-      response_chars
-    },
-    financial: {
-      inputCost,
-      outputCost,
-      cacheWriteCost,
-      cacheReadCost,
-      totalCost
-    }
-  }));
->>>>>>> bc0a3f805a55dd8e87f2e433be52085ae22c6160
 
   return result;
 }

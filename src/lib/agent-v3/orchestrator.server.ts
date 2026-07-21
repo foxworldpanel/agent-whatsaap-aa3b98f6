@@ -1,12 +1,6 @@
 // src/lib/agent-v3/orchestrator.server.ts
-<<<<<<< HEAD
 import { loadEnabledModulesV3, type LoadedModuleV3 } from "./modules.server";
 import { selectModulesV3, buildPromptFromModules } from "./module-selector.server";
-=======
-import { loadAgentIdentity } from "@/lib/agent-identity.server";
-import { loadEnabledModulesV3 } from "./modules.server";
-import { selectRelevantModules, selectModulesV3, buildPromptFromModules } from "./module-selector.server";
->>>>>>> bc0a3f805a55dd8e87f2e433be52085ae22c6160
 import { callAnthropicV3 } from "./llm-client.server";
 import { extractMetadataV3 } from "./metadata-extractor.server";
 import { GLOBAL_V3_CONFIG } from "./global-config.server";
@@ -133,11 +127,6 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     .eq("user_id", userId)
     .eq("is_default", true)
     .maybeSingle();
-<<<<<<< HEAD
-=======
-    
-  const workspaceId = ws?.id || "bd59fa41-d68d-4ac8-b995-e09ae48f52aa"; // Mind Default fallback for authorized testing
->>>>>>> bc0a3f805a55dd8e87f2e433be52085ae22c6160
 
   const workspaceId = inputWorkspaceId || ws?.id;
   if (!workspaceId) {
@@ -193,17 +182,6 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     `[AGENT-V3-SELECTOR] Intent: ${selectionContext.intent}, Stage: ${selectionContext.stage}, Platform: ${selectionContext.platform}, Modules: ${selectedKeys.join(", ")}`,
   );
 
-<<<<<<< HEAD
-=======
-  // 3. Selecionar módulos relevantes baseados na mensagem e histórico
-  const selection = selectModulesV3(message, history, enabledKeys);
-  const selectedKeys = selection.selectedModules;
-  const selectionContext = selection.context;
-  const selectionReasons = selection.selectionReasons;
-  
-  console.log(`[AGENT-V3-SELECTOR] Intent: ${selectionContext.intent}, Stage: ${selectionContext.stage}, Platform: ${selectionContext.platform}, Modules: ${selectedKeys.join(", ")}`);
-  
->>>>>>> bc0a3f805a55dd8e87f2e433be52085ae22c6160
   // 3.1. Calcular Telemetria de Módulos
   const modulesTelemetry: ModuleTelemetry[] = selectedKeys.map((key) => {
     const mod = mergedModulesMap[key];
