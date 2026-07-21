@@ -35,30 +35,74 @@ function Dashboard() {
           <p className="font-bold text-lg text-white">Quero iniciar agora a refatoração arquitetural do Agente V3.</p>
           <p>Nesta etapa, não quero adicionar novas funcionalidades. O objetivo é garantir que exista apenas uma fonte da verdade:</p>
           
-          <div className="grid grid-cols-2 gap-4 my-4">
+          <div className="grid grid-cols-2 gap-4 my-4 font-mono">
             <div className="p-4 bg-white/5 border border-white/10 rounded">
-              <span className="text-blue-400 font-mono font-bold block mb-1">CMS</span>
-              <span className="text-xs">Cérebro do agente (Regras, Identidade, Comercial)</span>
+              <span className="text-blue-400 font-bold block mb-1">CMS</span>
+              <span className="text-xs">Cérebro do agente (Identidade, Regras, Conteúdo)</span>
             </div>
             <div className="p-4 bg-white/5 border border-white/10 rounded">
-              <span className="text-green-400 font-mono font-bold block mb-1">CÓDIGO</span>
-              <span className="text-xs">Motor técnico (API, Persistência, Telemetria)</span>
+              <span className="text-green-400 font-bold block mb-1">CÓDIGO</span>
+              <span className="text-xs">Motor técnico (Execução, APIs, Telemetria)</span>
             </div>
           </div>
 
-          <div className="space-y-4 whitespace-pre-wrap">
-{`1. Remover duplicações entre código e CMS
-2. Eliminar módulos órfãos
-3. Consolidar módulos duplicados
-4. Tornar o Module Selector totalmente baseado no CMS
-5. Revisar módulos obrigatórios
-6. Consolidar identidade e persona
-7. Tratamento de mídia
-8. Workspace dinâmico
-9. Prompt Builder rastreável
-10. Testes obrigatórios
-11. Critérios de aceite
-12. Entrega final`}
+          <div className="space-y-6">
+            <section>
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">1. Remover duplicações entre código e CMS</h3>
+              <p className="text-xs text-white/60">Auditar e corrigir qualquer conhecimento duplicado entre Prompt Base, identidade, regras de comportamento e comerciais. Manter conteúdo apenas no CMS.</p>
+            </section>
+
+            <section>
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">2. Eliminar módulos órfãos</h3>
+              <p className="text-xs text-white/60">Mapear e remover módulos que nunca são ativados pelo seletor ou que não chegam ao Prompt Builder.</p>
+            </section>
+
+            <section>
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">3. Consolidar módulos duplicados</h3>
+              <p className="text-xs text-white/60">Aplicar o princípio de responsabilidade única. Fundir módulos redundantes como "identidade + objetivo".</p>
+            </section>
+
+            <section>
+              <h3 className="text-white font-bold mb-2 flex items-center gap-2">4. Module Selector baseado no CMS</h3>
+              <p className="text-xs text-white/60">Remover gatilhos hardcoded (ex: "plays" -> Spotify). Os triggers devem vir exclusivamente da configuração do módulo no CMS.</p>
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-white font-bold mb-2">5. Revisar módulos obrigatórios</h3>
+                <p className="text-xs text-white/60">Substituir obrigatoriedade hardcoded pelo campo "always_load" no CMS.</p>
+              </div>
+              <div>
+                <h3 className="text-white font-bold mb-2">6. Consolidar identidade e persona</h3>
+                <p className="text-xs text-white/60">Garantir fonte única para a persona. Remover redundâncias entre objeto de identidade e módulos.</p>
+              </div>
+            </section>
+
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-white font-bold mb-2">7. Tratamento de mídia</h3>
+                <p className="text-xs text-white/60">Mover orientações sobre áudio e imagem para o CMS, mantendo apenas a lógica técnica no código.</p>
+              </div>
+              <div>
+                <h3 className="text-white font-bold mb-2">8. Workspace dinâmico</h3>
+                <p className="text-xs text-white/60">Eliminar UUIDs fixos. O contexto deve vir da sessão e configuração do agente.</p>
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-white font-bold mb-2">9. Prompt Builder rastreável</h3>
+              <p className="text-xs text-white/60">Implementar telemetria detalhada: módulos selecionados, hashes, tokens por módulo e razões de seleção.</p>
+            </section>
+
+            <section>
+              <h3 className="text-white font-bold mb-2">10. Testes obrigatórios</h3>
+              <p className="text-xs text-white/60">Validar cenários reais (Spotify, Pagamento, Suporte) garantindo a seleção correta de módulos e ausência de duplicações.</p>
+            </section>
+
+            <section className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+              <h3 className="text-blue-400 font-bold mb-2">11. Critérios de aceite & 12. Entrega final</h3>
+              <p className="text-xs text-blue-400/80">A fase só termina com ZERO conhecimento comercial hardcoded e todos os testes passando com evidência técnica em runtime.</p>
+            </section>
           </div>
 
           <div className="pt-6 border-t border-white/5 grid grid-cols-1 md:grid-cols-4 gap-4">
