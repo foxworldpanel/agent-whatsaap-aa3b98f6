@@ -156,7 +156,7 @@ function AgentPlaygroundPage() {
     },
     onSuccess: (response) => {
       console.log("[PLAYGROUND API RESPONSE]", response);
-      if (response && 'run' in response) {
+      if (response && typeof response === 'object' && 'run' in response) {
         console.log("[PLAYGROUND RUN RECEIVED]", (response as any).run);
       }
       queryClient.invalidateQueries({ queryKey: ["playground_messages", activeSessionId] });

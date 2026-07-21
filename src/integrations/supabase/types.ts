@@ -562,6 +562,7 @@ export type Database = {
       }
       agent_modules_v3: {
         Row: {
+          always_load: boolean
           category: string | null
           content: string
           created_at: string | null
@@ -577,6 +578,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          always_load?: boolean
           category?: string | null
           content: string
           created_at?: string | null
@@ -592,6 +594,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          always_load?: boolean
           category?: string | null
           content?: string
           created_at?: string | null
