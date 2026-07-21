@@ -152,7 +152,11 @@ function AgentPlaygroundPage() {
     onMutate: () => {
       setMessage("");
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log("[PLAYGROUND API RESPONSE]", response);
+      if (response?.run) {
+        console.log("[PLAYGROUND RUN RECEIVED]", response.run);
+      }
       queryClient.invalidateQueries({ queryKey: ["playground_messages", activeSessionId] });
       queryClient.invalidateQueries({ queryKey: ["playground_last_run", activeSessionId] });
       toast.success("Resposta recebida");
