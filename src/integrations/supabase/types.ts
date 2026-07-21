@@ -723,7 +723,6 @@ export type Database = {
           system_prompt_snapshot: string | null
           temperature: string | null
           urgency: string | null
-          metadata: Json | null
         }
         Insert: {
           anthropic_request_id?: string | null
@@ -755,7 +754,6 @@ export type Database = {
           system_prompt_snapshot?: string | null
           temperature?: string | null
           urgency?: string | null
-          metadata?: Json | null
         }
         Update: {
           anthropic_request_id?: string | null
@@ -787,7 +785,6 @@ export type Database = {
           system_prompt_snapshot?: string | null
           temperature?: string | null
           urgency?: string | null
-          metadata?: Json | null
         }
         Relationships: [
           {
