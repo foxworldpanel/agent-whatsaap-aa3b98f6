@@ -552,7 +552,7 @@ function AgentPlaygroundPage() {
                     <h4 className="text-xs font-semibold mb-2">Impacto no Prompt</h4>
                     <div className="space-y-3">
                       {(() => {
-                        const meta = lastRun?.metadata as any;
+                        const meta = (lastRun as any)?.metadata;
                         const telemetry = meta?.modules_telemetry || [];
                         const comparison = meta?.prompt_comparison || { withoutCommercial: 0, withCommercial: 0, diff: 0 };
                         
