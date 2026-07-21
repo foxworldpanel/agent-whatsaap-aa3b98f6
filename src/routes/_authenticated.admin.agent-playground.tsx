@@ -374,7 +374,7 @@ function AgentPlaygroundPage() {
 
         {/* Coluna 3: Inspector */}
         <aside className="w-96 border rounded-lg bg-card flex flex-col overflow-hidden">
-          <Tabs defaultValue="resumo" className="flex-1 flex flex-col">
+          <Tabs defaultValue="resumo" className="flex-1 flex-col">
             <div className="p-2 border-b">
               <TabsList className="w-full h-8 grid grid-cols-6">
                 <TabsTrigger value="resumo" className="text-[10px]"><Activity className="h-3 w-3 mr-1" /></TabsTrigger>
