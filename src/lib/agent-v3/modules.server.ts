@@ -30,9 +30,10 @@ export async function loadEnabledModulesV3(workspaceId: string): Promise<Record<
   try {
     const { data, error } = await supabaseAdmin
       .from("agent_modules_v3")
-      .select("key, content, enabled")
+      .select("key, content, enabled, category, priority")
       .eq("workspace_id", workspaceId)
-      .eq("enabled", true);
+      .eq("enabled", true)
+      .not("content", "is", null);
 
     if (error) throw error;
 
@@ -49,10 +50,12 @@ export async function loadEnabledModulesV3(workspaceId: string): Promise<Record<
 
     if (data && data.length > 0) {
       data.forEach((m) => {
-        modules[m.key] = {
-          content: m.content,
-          source: "database"
-        };
+        if (m.key && m.content !== null) {
+          modules[m.key] = {
+            content: String(m.content),
+            source: "database"
+          };
+        }
       });
     } else {
       // If no data, all stay as fallback with specific reason
