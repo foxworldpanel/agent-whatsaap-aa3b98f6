@@ -95,10 +95,19 @@ function AgentPlaygroundPage() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
+      
+      // Normalização para o frontend esperar as métricas no lugar certo
+      if (data && data.metadata) {
+        const meta = typeof data.metadata === 'string' ? JSON.parse(data.metadata) : data.metadata;
+        return {
+          ...data,
+          derived_metadata: meta
+        };
+      }
       return data;
     },
     enabled: !!activeSessionId,
-    refetchInterval: 1000, // Polling to ensure UI updates after server fn background tasks
+    refetchInterval: 1000,
   });
 
 
@@ -552,9 +561,23 @@ function AgentPlaygroundPage() {
                     <h4 className="text-xs font-semibold mb-2">Impacto no Prompt</h4>
                     <div className="space-y-3">
                       {(() => {
-                        const meta = (lastRun as any)?.metadata;
-                        const telemetry = meta?.modules_telemetry || [];
-                        const comparison = meta?.prompt_comparison || { withoutCommercial: 0, withCommercial: 0, diff: 0 };
+                        const run = lastRun as any;
+                        const meta = run?.derived_metadata;
+                        const modules = meta?.modules;
+                        const telemetry = modules?.estimated_tokens_by_module 
+                          ? Object.entries(modules.estimated_tokens_by_module).map(([key, tokens]) => ({
+                              key,
+                              name: key.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+                              chars: (tokens as number) * 4, // Estimativa inversa
+                              tokens: tokens as number
+                            }))
+                          : [];
+                        
+                        const comparison = {
+                          withoutCommercial: (modules?.with_commercial || 0) - (modules?.commercial_tokens_added || 0),
+                          withCommercial: modules?.with_commercial || 0,
+                          diff: modules?.commercial_tokens_added || 0
+                        };
                         
                         if (telemetry.length === 0) return <span className="text-[10px] text-muted-foreground italic">Nenhuma telemetria de módulos disponível.</span>;
 
