@@ -116,6 +116,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   
   const promptWithCommercial = buildPromptFromModules(selectedKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
   const promptWithoutCommercial = buildPromptFromModules(nonCommercialKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
+
   
   const tokensWith = Math.ceil(promptWithCommercial.length / 4);
   const tokensWithout = Math.ceil(promptWithoutCommercial.length / 4);

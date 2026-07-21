@@ -19,8 +19,9 @@ export const KEYWORD_MAP: Record<string, string[]> = {
   objecoes_vendas: ["seguro", "bot", "garantia", "barato", "funciona mesmo", "confiar", "golpe"],
 };
 
-export function selectRelevantModules(text: string, enabledModules: string[]): string[] {
-  const normalizedText = text.toLowerCase();
+export function selectRelevantModules(text: string | null | undefined, enabledModules: string[]): string[] {
+  const normalizedText = (text || "").toLowerCase();
+
   
   // Módulos Core que SEMPRE devem estar presentes
   const CORE_MODULES = new Set([
