@@ -93,18 +93,37 @@ RESPONDA EXCLUSIVAMENTE EM JSON COM ESTA ESTRUTURA:
 
     let auditResult;
     try {
+      // In case we don't have modules to analyze, avoid calling LLM
+      if (modulesToAnalyze.length === 0) {
+        throw new Error("Nenhum módulo encontrado no banco para análise.");
+      }
+
       const llmResponse = await callAnthropicV3({
         model: "claude-3-haiku-20240307", // Using Haiku for cost-efficiency in audit
-        system: "Você é um auditor de sistemas de IA. Responda apenas JSON.",
+        system: "Você é um auditor de sistemas de IA especialista em Agentes de Vendas. Você analisa módulos de prompt e retorna diagnósticos técnicos precisos. Responda apenas JSON válido sem comentários ou tags markdown.",
         messages: [{ role: "user", content: auditPrompt }]
       });
 
       const text = llmResponse.content?.[0]?.text || "{}";
-      auditResult = JSON.parse(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1));
+      const cleanJson = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+      auditResult = JSON.parse(cleanJson);
     } catch (e) {
       console.error("Audit LLM Error:", e);
       // Fallback object structure if LLM fails
-      auditResult = { globalScore: 0, modulesAudit: [] };
+      auditResult = { 
+        globalScore: 1, 
+        modulesAudit: modulesToAnalyze.map(m => ({
+          key: m.key,
+          score: 1,
+          objective: "Falha na análise via LLM.",
+          recommendedAction: "Verificar conexão com Anthropic ou conteúdo do módulo."
+        })),
+        composition: {},
+        duplications: [],
+        conflicts: [],
+        improvements: [{ type: "Erro de Sistema", suggestion: "O sistema de auditoria falhou ao processar os módulos via LLM.", impact: "alto" }],
+        healthIndicators: { totalModules: dbModules.length, totalTokens: 0 }
+      };
     }
 
     // Merge DB info with LLM Audit
