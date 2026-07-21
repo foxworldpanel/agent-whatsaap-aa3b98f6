@@ -22,9 +22,9 @@ export const getValidationAudit = createServerFn({ method: "GET" })
       title: m.name,
       category: m.category || "Geral",
       enabled: m.enabled ?? false,
-      always_load: (m as any).always_load ?? false, // Temporary cast until types sync
+      always_load: (m as any).always_load ?? false,
       priority: m.priority ?? 0,
-      triggers: (m as any).triggers ?? [], // Temporary cast until types sync
+      triggers: (m as any).triggers ?? [],
       version: m.version || 1,
       content: m.content,
       content_length: m.content?.length || 0,
