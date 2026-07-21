@@ -110,7 +110,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     .eq("is_default", true)
     .maybeSingle();
     
-  const workspaceId = ws?.id || "";
+  const workspaceId = ws?.id || "bd59fa41-d68d-4ac8-b995-e09ae48f52aa"; // Mind Default fallback for authorized testing
 
   // 1. Carregar configuração e módulos do banco (com fallback)
   const activeModulesMap = await loadEnabledModulesV3(workspaceId);
