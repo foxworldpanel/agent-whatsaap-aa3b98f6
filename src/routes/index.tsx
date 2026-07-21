@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { getValidationAudit } from "@/lib/agent-v3/audit.functions";
+import { ShieldCheck, Terminal } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -97,7 +98,7 @@ function Dashboard() {
             <div className="flex gap-2">
               <span className="text-white/20">[14:35:44]</span>
               <span className="text-blue-400 uppercase">[ROUT]</span>
-              <span className="text-white/60">Usuário perguntou preço -> Módulo "precos_pix" ativado</span>
+              <span className="text-white/60">Usuário perguntou preço {"->"} Módulo "precos_pix" ativado</span>
             </div>
           </CardContent>
         </Card>
@@ -111,11 +112,6 @@ function MetricCard({ label, value, color = "text-white" }: { label: string, val
     <div className="p-4 bg-white/5 rounded-lg border border-white/10 hover:border-white/20 transition-colors">
       <p className="text-[9px] text-muted-foreground uppercase font-mono mb-1 tracking-wider">{label}</p>
       <p className={`text-2xl font-bold ${color} font-mono tracking-tight`}>{value}</p>
-    </div>
-  );
-}
-
-import { ShieldCheck, Terminal } from "lucide-react";
     </div>
   );
 }
