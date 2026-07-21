@@ -33,8 +33,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       .eq("session_id", sessionId)
       .order("sequence", { ascending: true });
 
+    // Ensure types match orchestrator expectation: agent | customer
     const history = (messages || []).map(m => ({
-      role: m.role as "user" | "assistant",
+      role: (m.role === "assistant" ? "agent" : "customer") as "agent" | "customer",
       content: m.content
     }));
 
