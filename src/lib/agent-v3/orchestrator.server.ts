@@ -261,7 +261,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       })),
       { role: "user", content: message }
     ],
-    model: "claude-haiku-4-5",
+    model: "claude-3-haiku-20240307",
     metadata: {
       message_id: messageId,
       call_number: 1,
@@ -343,7 +343,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       // humanity, clarity etc are derived from feedback or expanded in extractor later
     },
     usage: {
-      model: "claude-haiku-4-5",
+      model: "claude-3-haiku-20240307",
       request_id: llmResult.request_id || "unknown", // Adjust if llmResult has it differently
       input_tokens,
       output_tokens,
