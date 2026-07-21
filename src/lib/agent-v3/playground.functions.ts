@@ -159,9 +159,10 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       conversation_score: result.conversation_score,
       conversation_feedback: JSON.stringify(result.conversation_feedback),
       metadata: {
-        modules_telemetry: modulesTelemetry,
-        prompt_comparison: comparison
+        modules_telemetry: modulesTelemetry as any,
+        prompt_comparison: comparison as any
       }
+
     });
 
 
