@@ -64,7 +64,7 @@ function Dashboard() {
 
             <section>
               <h3 className="text-white font-bold mb-2 flex items-center gap-2">4. Module Selector baseado no CMS</h3>
-              <p className="text-xs text-white/60">Remover gatilhos hardcoded (ex: "plays" -> Spotify). Os triggers devem vir exclusivamente da configuração do módulo no CMS.</p>
+              <p className="text-xs text-white/60">Remover gatilhos hardcoded (ex: "plays" {"->"} Spotify). Os triggers devem vir exclusivamente da configuração do módulo no CMS.</p>
             </section>
 
             <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
