@@ -1,0 +1,1 @@
+UPDATE public.agent_modules_v3 SET content = 'Preço Spotify: R$ 10.' WHERE key = 'spotify' AND workspace_id = 'bd59fa41-d68d-4ac8-b995-e09ae48f52aa';
