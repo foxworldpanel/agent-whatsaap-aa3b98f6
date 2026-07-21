@@ -183,10 +183,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     
     try {
       const instanceToken = pickInstanceToken(payload);
-      let finalMsgText = content.text;
-      
-      // 4. Processamento de áudio (Transcrição)
+      let finalMsgText = content.text || "";
       let transcriptionAttempted = false;
+      let num: any = null;
       if (content.kind === "audio" && content.mediaUrl) {
         try {
           console.log("[V3-GATE] Áudio detectado, iniciando transcrição...");
