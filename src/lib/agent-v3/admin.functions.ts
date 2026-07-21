@@ -23,7 +23,19 @@ export const getFullAgentV3Config = createServerFn({ method: "GET" })
 
     const allModules: Record<string, any> = {};
     
-    // Use DB modules if they exist, otherwise fallback to defaults
+    // 1. Start with all defaults
+    Object.entries(DEFAULT_MODULES_V3).forEach(([key, content]) => {
+      allModules[key] = { 
+        content, 
+        isOverride: false, 
+        enabled: true,
+        category: "Outros",
+        name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        version: 1
+      };
+    });
+    
+    // 2. Override with database values
     if (dbModules && dbModules.length > 0) {
       dbModules.forEach(m => {
         allModules[m.key] = { 
@@ -31,21 +43,10 @@ export const getFullAgentV3Config = createServerFn({ method: "GET" })
           content: m.content, 
           isOverride: true,
           enabled: m.enabled,
-          category: m.category,
-          name: m.name,
+          category: m.category || allModules[m.key]?.category || "Outros",
+          name: m.name || allModules[m.key]?.name || m.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
           version: m.version,
           updated_at: m.updated_at
-        };
-      });
-    } else {
-      Object.entries(DEFAULT_MODULES_V3).forEach(([key, content]) => {
-        allModules[key] = { 
-          content, 
-          isOverride: false, 
-          enabled: true,
-          category: "Outros",
-          name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          version: 1
         };
       });
     }

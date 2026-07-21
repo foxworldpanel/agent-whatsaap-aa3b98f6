@@ -39,7 +39,7 @@ export function selectRelevantModules(text: string | null | undefined, enabledMo
   const isObjection = KEYWORD_MAP.objecoes_vendas.some(kw => normalizedText.includes(kw));
 
   if (isSupport) {
-    selectedKeys.add("suporte");
+    selectedKeys.add("suporte_pos_compra");
   } else {
     if (hasCommercialIntent) {
       selectedKeys.add("fluxo_vendas");
@@ -58,7 +58,7 @@ export function selectRelevantModules(text: string | null | undefined, enabledMo
   }
 
   for (const [moduleKey, keywords] of Object.entries(KEYWORD_MAP)) {
-    if (["pagamentos", "tabela_precos", "suporte", "como_usar_painel", "prova_social", "objecoes_vendas"].includes(moduleKey)) continue;
+    if (["pagamentos", "tabela_precos", "suporte", "suporte_pos_compra", "como_usar_painel", "prova_social", "objecoes_vendas"].includes(moduleKey)) continue;
     if (keywords.some(kw => normalizedText.includes(kw))) {
       selectedKeys.add(moduleKey);
     }
@@ -78,14 +78,12 @@ export function buildPromptFromModules(
     .map(key => {
       const mod = customModules[key];
       if (!mod) return "";
-      if (typeof mod === "string") return mod;
       
-      // Telemetria silenciosa no log se for fallback
-      if (mod.source === "fallback") {
-        console.log(`[V3-FALLBACK-TELEMETRY] Module: ${key}, Reason: ${mod.fallback_reason || "unknown"}`);
-      }
-      
-      return mod.content;
+      const content = typeof mod === "string" ? mod : mod.content;
+      const source = typeof mod === "string" ? "code/unknown" : mod.source;
+      const version = (mod as any).version || (mod as any).isOverride ? "DB" : "V1";
+
+      return `[MODULE: ${key} | origin: ${source} | version: ${version}]\n${content}`;
     })
     .filter(Boolean)
     .join("\n\n");

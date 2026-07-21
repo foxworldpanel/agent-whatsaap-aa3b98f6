@@ -150,6 +150,15 @@ function AgenteV3AdminPage() {
         </div>
         
         <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            className="gap-2 border-primary/20 text-primary hover:bg-primary/5"
+            onClick={() => activeTab === "modules" ? setActiveTab("audit") : setActiveTab("modules")}
+          >
+            <Search className="h-4 w-4" />
+            {activeTab === "audit" ? "Ver Módulos" : "Auditar Cérebro"}
+          </Button>
+
           <Dialog open={isNewModuleOpen} onOpenChange={setIsNewModuleOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">
@@ -212,146 +221,284 @@ function AgenteV3AdminPage() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
-        <aside className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Pesquisar biblioteca..." 
-              className="pl-9"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+          <TabsTrigger value="modules" className="gap-2">
+            <Layers className="h-4 w-4" /> Módulos
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="gap-2">
+            <Search className="h-4 w-4" /> Auditoria
+          </TabsTrigger>
+        </TabsList>
 
-          <ScrollArea className="h-[calc(100vh-280px)] pr-4">
-            <div className="space-y-6">
-              {Object.entries(modulesByCategory).map(([category, items]) => (
-                <div key={category} className="space-y-2">
-                  <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-2 px-2">
-                    <Layers className="h-3 w-3" />
-                    {category}
-                    <Badge variant="secondary" className="ml-auto text-[8px] h-3 px-1">{items.length}</Badge>
-                  </h3>
-                  <div className="space-y-1">
-                    {items.map((m) => (
-                      <div key={m.key} className="group relative">
-                        <button
-                          onClick={() => setActiveModuleKey(m.key)}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-left ${
-                            activeModuleKey === m.key 
-                              ? "bg-primary text-primary-foreground font-semibold shadow-md" 
-                              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-transparent"
-                          }`}
-                        >
-                          <FileText className={`h-4 w-4 shrink-0 ${activeModuleKey === m.key ? 'text-primary-foreground' : 'text-primary/40'}`} />
-                          <span className="truncate flex-1">{m.name || m.key}</span>
-                          {m.isOverride && <div className={`h-1.5 w-1.5 rounded-full ${activeModuleKey === m.key ? 'bg-white' : 'bg-primary'}`} title="Override" />}
-                        </button>
+        <TabsContent value="modules" className="pt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+            <aside className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Pesquisar biblioteca..." 
+                  className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <ScrollArea className="h-[calc(100vh-320px)] pr-4">
+                <div className="space-y-6">
+                  {Object.entries(modulesByCategory).map(([category, items]) => (
+                    <div key={category} className="space-y-2">
+                      <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-2 px-2">
+                        <Layers className="h-3 w-3" />
+                        {category}
+                        <Badge variant="secondary" className="ml-auto text-[8px] h-3 px-1">{items.length}</Badge>
+                      </h3>
+                      <div className="space-y-1">
+                        {items.map((m) => (
+                          <div key={m.key} className="group relative">
+                            <button
+                              onClick={() => setActiveModuleKey(m.key)}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-left ${
+                                activeModuleKey === m.key 
+                                  ? "bg-primary text-primary-foreground font-semibold shadow-md" 
+                                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-transparent"
+                              }`}
+                            >
+                              <FileText className={`h-4 w-4 shrink-0 ${activeModuleKey === m.key ? 'text-primary-foreground' : 'text-primary/40'}`} />
+                              <span className="truncate flex-1">{m.name || m.key}</span>
+                              {m.isOverride && <div className={`h-1.5 w-1.5 rounded-full ${activeModuleKey === m.key ? 'bg-white' : 'bg-primary'}`} title="Override" />}
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </aside>
+              </ScrollArea>
+            </aside>
 
-        <main className="space-y-6">
-          {activeModuleKey && currentModule ? (
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <Card className="bg-card border-border overflow-hidden">
-                <CardHeader className="p-4 bg-muted/20 border-b flex flex-row items-center justify-between space-y-0">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                      <Zap className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-bold">{currentModule.name || activeModuleKey}</CardTitle>
-                      <CardDescription className="text-[10px] font-mono">key: {activeModuleKey} · v{currentModule.version || 1}</CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-white"
-                      title="Duplicar"
-                      onClick={() => {
-                        const newKey = `${activeModuleKey}_copy`;
-                        setNewModule({
-                          key: newKey,
-                          name: `${currentModule.name} (Cópia)`,
-                          category: currentModule.category || "Outros",
-                          content: moduleContent
-                        });
-                        setIsNewModuleOpen(true);
-                      }}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
+            <main className="space-y-6">
+              {activeModuleKey && currentModule ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <Card className="bg-card border-border overflow-hidden">
+                    <CardHeader className="p-4 bg-muted/20 border-b flex flex-row items-center justify-between space-y-0">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                          <Zap className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-bold">{currentModule.name || activeModuleKey}</CardTitle>
+                          <CardDescription className="text-[10px] font-mono">key: {activeModuleKey} · v{currentModule.version || 1}</CardDescription>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-muted-foreground hover:text-white"
+                          title="Duplicar"
+                          onClick={() => {
+                            const newKey = `${activeModuleKey}_copy`;
+                            setNewModule({
+                              key: newKey,
+                              name: `${currentModule.name} (Cópia)`,
+                              category: currentModule.category || "Outros",
+                              content: moduleContent
+                            });
+                            setIsNewModuleOpen(true);
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
                         </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Excluir Módulo</DialogTitle>
-                          <DialogDescription>
-                            Tem certeza que deseja excluir o módulo <strong>{activeModuleKey}</strong>? Esta ação removerá permanentemente essa inteligência do cérebro da Júlia.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter>
-                          <Button variant="destructive" onClick={() => deleteMut.mutate(activeModuleKey)}>Confirmar Exclusão</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0 relative">
-                  <div className="absolute top-3 right-4 z-10">
-                     <Badge variant="outline" className="bg-background/80 backdrop-blur-md text-[10px] font-mono">
-                       {moduleContent.length} chars
-                     </Badge>
-                  </div>
-                  <textarea
-                    value={moduleContent}
-                    onChange={(e) => setModuleContent(e.target.value)}
-                    placeholder="Defina aqui as instruções, preços e regras deste módulo..."
-                    className="min-h-[600px] w-full bg-transparent p-6 font-mono text-sm leading-relaxed outline-none focus:ring-0 resize-none text-foreground"
-                    spellCheck={false}
-                  />
-                </CardContent>
-              </Card>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Excluir Módulo</DialogTitle>
+                              <DialogDescription>
+                                Tem certeza que deseja excluir o módulo <strong>{activeModuleKey}</strong>? Esta ação removerá permanentemente essa inteligência do cérebro da Júlia.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button variant="destructive" onClick={() => deleteMut.mutate(activeModuleKey)}>Confirmar Exclusão</Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0 relative">
+                      <div className="absolute top-3 right-4 z-10">
+                         <Badge variant="outline" className="bg-background/80 backdrop-blur-md text-[10px] font-mono">
+                           {moduleContent.length} chars
+                         </Badge>
+                      </div>
+                      <textarea
+                        value={moduleContent}
+                        onChange={(e) => setModuleContent(e.target.value)}
+                        placeholder="Defina aqui as instruções, preços e regras deste módulo..."
+                        className="min-h-[500px] w-full bg-transparent p-6 font-mono text-sm leading-relaxed outline-none focus:ring-0 resize-none text-foreground border-none"
+                        spellCheck={false}
+                      />
+                    </CardContent>
+                  </Card>
 
-              {activeModuleKey.includes('spotify') || activeModuleKey.includes('instagram') || activeModuleKey.includes('youtube') ? (
-                <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex items-start gap-3">
-                  <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-primary">Módulo de Rede Social</h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Este módulo é independente. Adicione aqui os **preços**, **serviços** e **observações** específicos para {activeModuleKey.split('_')[0]}. O roteador V3 carregará estas instruções apenas quando o cliente demonstrar interesse nesta rede.
-                    </p>
-                  </div>
+                  {activeModuleKey.includes('spotify') || activeModuleKey.includes('instagram') || activeModuleKey.includes('youtube') ? (
+                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 flex items-start gap-3">
+                      <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-bold text-primary">Módulo de Rede Social</h4>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          Este módulo é independente. Adicione aqui os **preços**, **serviços** e **observações** específicos para {activeModuleKey.split('_')[0]}. O roteador V3 carregará estas instruções apenas quando o cliente demonstrar interesse nesta rede.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="h-[500px] flex flex-col items-center justify-center text-center p-12 bg-card/20 border border-dashed border-border rounded-2xl">
-               <Bot className="h-16 w-16 text-primary/10 mb-4" />
-               <h3 className="text-xl font-bold text-muted-foreground">Biblioteca Modular Ativa</h3>
-               <p className="text-sm text-muted-foreground/60 max-w-sm mt-2">
-                 Selecione um módulo na biblioteca à esquerda para gerenciar sua inteligência ou crie uma nova entidade de cérebro.
-               </p>
-               <Button variant="outline" className="mt-6 gap-2" onClick={() => setIsNewModuleOpen(true)}>
-                 <Plus className="h-4 w-4" /> Criar Primeiro Módulo
-               </Button>
-            </div>
-          )}
-        </main>
-      </div>
+              ) : (
+                <div className="h-[500px] flex flex-col items-center justify-center text-center p-12 bg-card/20 border border-dashed border-border rounded-2xl">
+                   <Bot className="h-16 w-16 text-primary/10 mb-4" />
+                   <h3 className="text-xl font-bold text-muted-foreground">Biblioteca Modular Ativa</h3>
+                   <p className="text-sm text-muted-foreground/60 max-w-sm mt-2">
+                     Selecione um módulo na biblioteca à esquerda para gerenciar sua inteligência ou crie uma nova entidade de cérebro.
+                   </p>
+                   <Button variant="outline" className="mt-6 gap-2" onClick={() => setIsNewModuleOpen(true)}>
+                     <Plus className="h-4 w-4" /> Criar Primeiro Módulo
+                   </Button>
+                </div>
+              )}
+            </main>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="audit" className="pt-4">
+           <Card className="bg-card border-border">
+             <CardHeader>
+               <CardTitle className="text-lg flex items-center gap-2">
+                 <Search className="h-5 w-5 text-primary" />
+                 Auditoria Completa do Cérebro
+               </CardTitle>
+               <CardDescription>
+                 Comparação em tempo real entre o CMS e o conteúdo carregado no Runtime V3.
+               </CardDescription>
+             </CardHeader>
+             <CardContent>
+               <div className="space-y-4">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                   <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                     <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Total de Módulos</div>
+                     <div className="text-2xl font-bold">{Object.keys(modules).length}</div>
+                   </div>
+                   <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                     <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Módulos no Banco</div>
+                     <div className="text-2xl font-bold text-primary">{Object.values(modules).filter((m: any) => m.isOverride).length}</div>
+                   </div>
+                   <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                     <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Módulos em Fallback</div>
+                     <div className="text-2xl font-bold text-yellow-500">{Object.values(modules).filter((m: any) => !m.isOverride).length}</div>
+                   </div>
+                 </div>
+
+                 <div className="mt-6">
+                   <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
+                     <Database className="h-4 w-4 text-primary" />
+                     Inventário de Fontes
+                   </h4>
+                   <div className="border border-border rounded-lg overflow-hidden">
+                     <table className="w-full text-sm">
+                       <thead className="bg-muted text-muted-foreground text-xs uppercase font-bold">
+                         <tr>
+                           <th className="px-4 py-3 text-left">Chave</th>
+                           <th className="px-4 py-3 text-left">Origem</th>
+                           <th className="px-4 py-3 text-left">Versão</th>
+                           <th className="px-4 py-3 text-left">Conteúdo</th>
+                           <th className="px-4 py-3 text-center">Status</th>
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-border">
+                         {Object.entries(modules).map(([key, data]: [string, any]) => (
+                           <tr key={key} className="hover:bg-muted/30">
+                             <td className="px-4 py-3 font-mono text-xs">{key}</td>
+                             <td className="px-4 py-3">
+                               {data.isOverride ? (
+                                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">DATABASE</Badge>
+                               ) : (
+                                 <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">CODE FALLBACK</Badge>
+                               )}
+                             </td>
+                             <td className="px-4 py-3 font-mono text-xs">v{data.version || 1}</td>
+                             <td className="px-4 py-3 text-muted-foreground italic truncate max-w-[200px]">
+                               {data.content?.slice(0, 40)}...
+                             </td>
+                             <td className="px-4 py-3 text-center">
+                               {data.content?.trim() ? (
+                                 <div className="h-2 w-2 rounded-full bg-green-500 mx-auto" />
+                               ) : (
+                                 <AlertTriangle className="h-4 w-4 text-destructive mx-auto" />
+                               )}
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
+                   <div className="mt-8">
+                     <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
+                       <Zap className="h-4 w-4 text-primary" />
+                       Visualização do Prompt Final (Simulação: "Olá")
+                     </h4>
+                     <PromptPreview getPrompt={getPrompt} />
+                   </div>
+                 </div>
+               </div>
+             </CardContent>
+           </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function PromptPreview({ getPrompt }: { getPrompt: any }) {
+  const [promptData, setPromptData] = useState<{ prompt: string; selectedModules: string[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadPrompt = async () => {
+    setLoading(true);
+    try {
+      const res = await getPrompt({ data: { message: "Olá" } });
+      setPromptData(res);
+    } catch (err) {
+      toast.error("Falha ao gerar preview do prompt");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Button variant="outline" size="sm" onClick={loadPrompt} disabled={loading} className="gap-2">
+        {loading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
+        Gerar Preview do Prompt
+      </Button>
+
+      {promptData && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {promptData.selectedModules.map(m => (
+              <Badge key={m} variant="secondary" className="text-[10px]">{m}</Badge>
+            ))}
+          </div>
+          <textarea
+            readOnly
+            value={promptData.prompt}
+            className="w-full h-[400px] bg-black/40 border border-border rounded-lg p-4 font-mono text-[11px] leading-relaxed resize-none text-muted-foreground focus:outline-none"
+          />
+        </div>
+      )}
     </div>
   );
 }
