@@ -190,21 +190,11 @@ ${identity.persona}
 REGRA DE CONCISÃO:
 - Seja breve e cubra somente as informações necessárias para o próximo passo.
 
-${hasIntentSupport ? `SUPORTE: Se houver pedido existente ou intenção de suporte, priorize suporte e não reinicie o funil.` : ""}
-REGRAS DE SUPORTE PÓS-COMPRA:
-- Se o cliente mencionar: pedido, número do pedido, queda, reposição, atraso, serviço não iniciado, saldo, recarga, pagamento já realizado ou problemas técnicos;
-- Classifique como INTENT:Suporte ou Pós-venda;
-- NÃO tente resolver ou consultar status no WhatsApp;
-- Oriente o cliente a acessar ${GLOBAL_V3_CONFIG.panel_url} e abrir um TICKET no suporte;
-- Mantenha a resposta curta, humana e não prometa prazos ou reposições aqui.
-
+${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}
 
 ${isAudioInput ? `MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.` : ""}
-
 ${isImageInput ? `IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.` : ""}
-${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}
-
-${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
+${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}`,
     }
   ];
 

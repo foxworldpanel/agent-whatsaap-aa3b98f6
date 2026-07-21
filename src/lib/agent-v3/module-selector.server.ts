@@ -39,7 +39,7 @@ export function selectRelevantModules(text: string | null | undefined, enabledMo
   const isObjection = KEYWORD_MAP.objecoes_vendas.some(kw => normalizedText.includes(kw));
 
   if (isSupport) {
-    selectedKeys.add("suporte");
+    selectedKeys.add("suporte_pos_compra");
   } else {
     if (hasCommercialIntent) {
       selectedKeys.add("fluxo_vendas");
@@ -58,7 +58,7 @@ export function selectRelevantModules(text: string | null | undefined, enabledMo
   }
 
   for (const [moduleKey, keywords] of Object.entries(KEYWORD_MAP)) {
-    if (["pagamentos", "tabela_precos", "suporte", "como_usar_painel", "prova_social", "objecoes_vendas"].includes(moduleKey)) continue;
+    if (["pagamentos", "tabela_precos", "suporte", "suporte_pos_compra", "como_usar_painel", "prova_social", "objecoes_vendas"].includes(moduleKey)) continue;
     if (keywords.some(kw => normalizedText.includes(kw))) {
       selectedKeys.add(moduleKey);
     }
