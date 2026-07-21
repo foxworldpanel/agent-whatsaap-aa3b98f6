@@ -113,7 +113,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       recommended_action: intelligence.recommended_action,
       reasoning: intelligence.reasoning,
       conversation_score: score?.total || 0,
-      conversation_feedback: JSON.stringify([]),
+      
       // Coluna metadata não existe no banco, removendo para evitar erro PGRST204
       // conversation_feedback é jsonb e serve para metadados complexos
       conversation_feedback: JSON.parse(JSON.stringify({
