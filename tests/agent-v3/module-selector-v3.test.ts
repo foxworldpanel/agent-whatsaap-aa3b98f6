@@ -1,11 +1,45 @@
 import { describe, expect, it } from "vitest";
-import { detectConversationContext, selectModulesV3 } from "../../src/lib/agent-v3/module-selector.server";
+import { detectConversationContext, selectModulesV3 } from "@/lib/agent-v3/selector/module-selector.server";
+import type { LoadedModuleV3, ModuleRoutingV3 } from "@/lib/agent-v3/brain/modules.server";
 
-const enabled = [
-  "identidade", "regras_gerais", "comportamento_humano", "instagram", "youtube", "spotify",
-  "fluxo_vendas", "psicologia_vendas", "tabela_precos", "fechamento_vendas",
-  "objecoes_vendas", "prova_social", "seguranca", "pagamentos", "suporte", "suporte_pos_compra",
-];
+const routing = (patch: Partial<ModuleRoutingV3> = {}): ModuleRoutingV3 => ({
+  alwaysLoad: false,
+  intents: [],
+  stages: [],
+  platforms: [],
+  products: [],
+  triggers: [],
+  dependencies: [],
+  conflicts: [],
+  priority: 0,
+  ...patch,
+});
+
+const module = (patch: Partial<ModuleRoutingV3> = {}): LoadedModuleV3 => ({
+  content: "Conteúdo de teste",
+  source: "database",
+  version: 1,
+  routing: routing(patch),
+});
+
+const enabled: Record<string, LoadedModuleV3> = {
+  identidade: module({ alwaysLoad: true, priority: 100 }),
+  regras_gerais: module({ alwaysLoad: true, priority: 99 }),
+  comportamento_humano: module({ alwaysLoad: true, priority: 98 }),
+  instagram: module({ platforms: ["instagram"] }),
+  youtube: module({ platforms: ["youtube"] }),
+  spotify: module({ platforms: ["spotify"] }),
+  fluxo_vendas: module({ intents: ["consulta_preco", "compra"] }),
+  psicologia_vendas: module({ stages: ["negociacao"] }),
+  tabela_precos: module({ intents: ["consulta_preco"] }),
+  fechamento_vendas: module({ stages: ["fechamento"] }),
+  objecoes_vendas: module({ intents: ["objecao"] }),
+  prova_social: module({ intents: ["duvida_seguranca"] }),
+  seguranca: module({ intents: ["duvida_seguranca"] }),
+  pagamentos: module({ intents: ["pagamento"] }),
+  suporte: module({ intents: ["suporte"] }),
+  suporte_pos_compra: module({ intents: ["pos_compra"] }),
+};
 
 describe("Module Selector V3 contextual", () => {
   it("normaliza acentos e detecta preço de visualizações no YouTube", () => {
@@ -31,7 +65,8 @@ describe("Module Selector V3 contextual", () => {
   });
 
   it("não reativa módulo explicitamente ausente da lista habilitada", () => {
-    const result = selectModulesV3("Quanto custa no Spotify?", [], enabled.filter(key => key !== "spotify"));
+    const { spotify: _removed, ...withoutSpotify } = enabled;
+    const result = selectModulesV3("Quanto custa no Spotify?", [], withoutSpotify);
     expect(result.selectedModules).not.toContain("spotify");
   });
 });
