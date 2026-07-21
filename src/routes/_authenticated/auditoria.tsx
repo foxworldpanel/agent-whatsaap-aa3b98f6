@@ -23,7 +23,7 @@ function AuditoriaIA() {
 
   return (
     <div className="container mx-auto p-6 space-y-8 min-h-screen bg-background text-foreground">
-      <div className="flex justify-between items-start border-b border-white/10 pb-6">
+      <div className="flex justify-between items-center border-b border-white/10 pb-6">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-500/10 rounded-lg">
             <ShieldCheck className="w-8 h-8 text-blue-500" />
@@ -36,12 +36,29 @@ function AuditoriaIA() {
             <p className="text-muted-foreground text-sm">Painel oficial de engenharia, diagnóstico e observabilidade do runtime.</p>
           </div>
         </div>
-        <Card className="bg-blue-600/10 border-blue-600/20">
-          <CardHeader className="py-2 px-4"><CardTitle className="text-xs uppercase font-mono text-blue-400">Qualidade do Cérebro</CardTitle></CardHeader>
-          <CardContent className="py-2 px-4 text-center">
-            <span className="text-4xl font-bold text-white">{audit?.globalScore}/10</span>
-          </CardContent>
-        </Card>
+        <div className="flex gap-4 items-center">
+          <button 
+            onClick={() => {
+              const auditData = JSON.stringify(audit, null, 2);
+              const blob = new Blob([auditData], { type: 'text/plain' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `auditoria_v3_${new Date().toISOString().split('T')[0]}.txt`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase rounded-lg transition-colors"
+          >
+            <FileCode className="w-4 h-4" /> Exportar para ChatGPT
+          </button>
+          <Card className="bg-blue-600/10 border-blue-600/20">
+            <CardHeader className="py-2 px-4"><CardTitle className="text-xs uppercase font-mono text-blue-400">Qualidade do Cérebro</CardTitle></CardHeader>
+            <CardContent className="py-2 px-4 text-center">
+              <span className="text-4xl font-bold text-white">{audit?.globalScore}/10</span>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
