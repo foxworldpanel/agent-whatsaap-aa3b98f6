@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { getValidationAudit } from "@/lib/agent-v3/audit.functions";
+import { getValidationAudit } from "@/lib/agent-v3/audit/audit.functions";
 import { ShieldCheck, Terminal, MessageSquare, Database, BarChart3, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

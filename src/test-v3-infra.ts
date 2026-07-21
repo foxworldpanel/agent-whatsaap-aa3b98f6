@@ -1,5 +1,5 @@
 import { runAgentV3Turn } from "./lib/agent-v3/orchestrator.server";
-import { getConversationStateV3, saveConversationStateV3 } from "./lib/agent-v3/conversation-state.server";
+import { getConversationStateV3, saveConversationStateV3 } from "./lib/agent-v3/memory/conversation-state.server";
 
 // Simulações de payloads Uazapi para teste de infraestrutura do webhook
 const AUTHORIZED_PHONE = "5511970116430";

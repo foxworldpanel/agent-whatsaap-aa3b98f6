@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runAgentV3Turn } from '../src/lib/agent-v3/orchestrator.server';
-import { selectRelevantModules } from '../src/lib/agent-v3/module-selector.server';
+import { selectRelevantModules } from '../src/lib/agent-v3/selector/module-selector.server';
 
 // Mock simple versions of external deps if needed, but we want to test the logic
 // We'll mock callAnthropicV3 to avoid real API calls and capture prompts
 
-vi.mock('../src/lib/agent-v3/llm-client.server.ts', () => ({
+vi.mock('../src/lib/agent-v3/integrations/llm-client.server.ts', () => ({
   callAnthropicV3: vi.fn(async (params) => {
     // Return a structured response that metadata-extractor can parse
     let responseText = "[TEMP:quente] [INTENT:vendas] [STAGE:lead] ";

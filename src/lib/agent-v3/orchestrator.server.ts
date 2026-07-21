@@ -1,17 +1,18 @@
 // src/lib/agent-v3/orchestrator.server.ts
-import { loadEnabledModulesV3, type LoadedModuleV3 } from "./modules.server";
-import { selectModulesV3, buildPromptFromModules } from "./module-selector.server";
-import { callAnthropicV3 } from "./llm-client.server";
-import { extractMetadataV3 } from "./metadata-extractor.server";
-import { GLOBAL_V3_CONFIG } from "./global-config.server";
+import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
+import { selectModulesV3 } from "./selector/module-selector.server";
+import { buildPromptFromModules } from "./prompt/prompt-builder.server";
+import { callAnthropicV3 } from "./integrations/llm-client.server";
+import { extractMetadataV3 } from "./memory/metadata-extractor.server";
+import { GLOBAL_V3_CONFIG } from "./brain/global-config.server";
 import {
   sanitizeSystemLeaks,
   limitEmojiFrequency,
   detectVerboseLoop,
   enforceReengagementGreeting,
   humanizePunctuationV3,
-} from "./guards.server";
-import { autoSplitLongPartsV3 } from "./audio-processor.server";
+} from "./brain/guards.server";
+import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
 
 export interface OrchestratorInput {
   userId: string;

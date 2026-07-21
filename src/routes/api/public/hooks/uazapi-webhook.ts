@@ -189,7 +189,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       if (content.kind === "audio" && content.mediaUrl) {
         try {
           console.log("[V3-GATE] Áudio detectado, iniciando transcrição...");
-          const { processAudioV3 } = await import("@/lib/agent-v3/audio-processor.server");
+          const { processAudioV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
           const transcription = await processAudioV3(content.mediaUrl);
           if (transcription) {
             finalMsgText = transcription;
@@ -236,7 +236,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .maybeSingle();
 
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
-      const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/conversation-state.server");
+      const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
 
       // Carrega histórico V3
       const { history, telemetry: historyTelemetry } = await getConversationStateV3(targetUserId, phoneStrLocal);

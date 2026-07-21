@@ -1,0 +1,3 @@
+# Memory
+
+Reserved architectural boundary for Agent V3 memory components. New files in this area must preserve CMS-driven behavior and avoid embedding business knowledge in code.

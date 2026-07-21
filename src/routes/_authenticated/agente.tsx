@@ -7,8 +7,8 @@ import {
   Search, FileText, Settings, Database, 
   Zap, Info, ExternalLink, RefreshCw, Plus, Trash2, Copy, Layers, GripVertical
 } from "lucide-react";
-import { getFullAgentV3Config, updateV3Module, deleteV3Module, getCompiledPromptV3 } from "@/lib/agent-v3/admin.functions";
-import { seedModulesToDb } from "@/lib/agent-v3/seed.functions";
+import { getFullAgentV3Config, updateV3Module, deleteV3Module, getCompiledPromptV3 } from "@/lib/agent-v3/admin/admin.functions";
+import { seedModulesToDb } from "@/lib/agent-v3/admin/seed.functions";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

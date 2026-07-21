@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
-import { getBrainQualityAudit } from "@/lib/agent-v3/brain-audit.functions";
+import { getBrainQualityAudit } from "@/lib/agent-v3/audit/brain-audit.functions";
 import { 
   Activity, Database, Layout, Search, PlayCircle, BarChart3, History, ShieldCheck, Terminal, FileCode, Zap, Star, AlertTriangle, TrendingUp
 } from "lucide-react";

@@ -39,7 +39,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { runPlaygroundTurn } from "@/lib/agent-v3/playground.functions";
+import { runPlaygroundTurn } from "@/lib/agent-v3/admin/playground.functions";
 import { ScenarioGenerator } from "@/components/agent-playground/ScenarioGenerator";
 import { HistoryEditor } from "@/components/agent-playground/HistoryEditor";
 

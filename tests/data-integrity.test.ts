@@ -1,8 +1,8 @@
 
 import { describe, it } from "vitest";
 import { loadAgentIdentity } from "@/lib/agent-identity.server";
-import { loadAgentConfigV3 } from "@/lib/agent-v3/config.server";
-import { selectRelevantModules, buildPromptFromModules } from "@/lib/agent-v3/module-selector.server";
+import { loadAgentConfigV3 } from "@/lib/agent-v3/brain/config.server";
+import { selectRelevantModules, buildPromptFromModules } from "@/lib/agent-v3/selector/module-selector.server";
 
 describe("Data Integrity", () => {
   it("check Mind data", async () => {
