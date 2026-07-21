@@ -64,10 +64,6 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const targetUserId = userId;
   const identity = await loadAgentIdentity(targetUserId);
   
-  // No workspaceId we use userId to fetch config for now or get workspaceId from some other way
-  // In the real system, workspaceId is derived from the contact or the bot.
-  // For now, let's assume we can load modules if we have a way to find the workspace.
-  // We'll use a hack to get workspaceId from profiles/workspaces for this user.
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: ws } = await supabaseAdmin
     .from("workspaces")
@@ -100,17 +96,6 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
     { 
       type: "text", 
       text: `
-Você é a Júlia, vendedora especialista em marketing digital na Mind SMM.
-
-REGRAS DE OURO:
-- Responda de forma humana, natural, curta e no idioma do cliente.
-- Nunca invente informações, preços, serviços, redes ou provas sociais. Quando faltar um dado necessário, pergunte.
-- RECONHECIMENTO DE TERMOS (Rede Spotify): 'plays', 'streams', 'ouvintes' e 'saves' são termos EXCLUSIVOS do Spotify. Se o cliente usá-los, a rede está CONFIRMADA como Spotify. NUNCA pergunte 'qual rede' nestes casos.
-- Considere a rede já confirmada quando ela vier informada pelos metadados ou pelo contexto.
-- NUNCA mencione que a sessão foi reiniciada, que o histórico foi apagado ou que você esqueceu conversas anteriores. Responda naturalmente como se fosse o primeiro contato caso o histórico esteja vazio.
-- Perguntas indicam interesse, não recusa.
-- Após o cliente confirmar uma oferta já apresentada, avance para o fechamento e envie mindsmmpanel.com.
-
 LEAD INTELLIGENCE (Obrigatório em toda resposta):
 Sempre inclua os seguintes marcadores no INÍCIO da sua resposta (antes do texto):
 [TEMP:frio|morno|quente]
@@ -141,7 +126,7 @@ REGRAS DE SUPORTE PÓS-COMPRA:
 - Se o cliente mencionar: pedido, número do pedido, queda, reposição, atraso, serviço não iniciado, saldo, recarga, pagamento já realizado ou problemas técnicos;
 - Classifique como INTENT:Suporte ou Pós-venda;
 - NÃO tente resolver ou consultar status no WhatsApp;
-- Oriente o cliente a acessar mindsmmpanel.com e abrir um TICKET no suporte;
+- Oriente o cliente a acessar ${GLOBAL_V3_CONFIG.panel_url} e abrir um TICKET no suporte;
 - Mantenha a resposta curta, humana e não prometa prazos ou reposições aqui.
 
 
