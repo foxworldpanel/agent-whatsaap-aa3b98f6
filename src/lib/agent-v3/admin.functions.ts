@@ -64,6 +64,9 @@ export const updateV3Module = createServerFn({ method: "POST" })
     z.object({
       moduleKey: z.string(),
       content: z.string().max(20000),
+      name: z.string().optional(),
+      category: z.string().optional(),
+      priority: z.number().optional(),
       enabled: z.boolean().optional(),
       id: z.string().optional()
     }).parse(d)
@@ -74,7 +77,7 @@ export const updateV3Module = createServerFn({ method: "POST" })
     // 1. Get current module to increment version
     const { data: current } = await supabase
       .from("agent_modules_v3")
-      .select("id, version, content")
+      .select("id, version, content, name, category, priority")
       .eq("workspace_id", workspaceId)
       .eq("key", data.moduleKey)
       .maybeSingle();
@@ -85,12 +88,14 @@ export const updateV3Module = createServerFn({ method: "POST" })
     const { data: updated, error } = await supabase
       .from("agent_modules_v3")
       .upsert({
-        id: current?.id,
+        id: current?.id || data.id,
         user_id: userId,
         workspace_id: workspaceId,
         key: data.moduleKey,
-        name: data.moduleKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        name: data.name || current?.name || data.moduleKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
         content: data.content,
+        category: data.category || current?.category || "Outros",
+        priority: data.priority ?? current?.priority ?? 50,
         enabled: data.enabled ?? true,
         version: newVersion,
         updated_at: new Date().toISOString()
@@ -115,6 +120,24 @@ export const updateV3Module = createServerFn({ method: "POST" })
     // 4. Invalidate cache
     invalidateModulesCache(workspaceId);
     
+    return { ok: true, id: updated.id };
+  });
+
+export const deleteV3Module = createServerFn({ method: "POST" })
+  .middleware([withWorkspaceScope])
+  .inputValidator((d: unknown) => z.object({ moduleKey: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, workspaceId } = context;
+    
+    const { error } = await supabase
+      .from("agent_modules_v3")
+      .delete()
+      .eq("workspace_id", workspaceId)
+      .eq("key", data.moduleKey);
+      
+    if (error) throw error;
+    
+    invalidateModulesCache(workspaceId);
     return { ok: true };
   });
 
