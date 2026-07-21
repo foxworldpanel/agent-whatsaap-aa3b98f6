@@ -110,7 +110,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     .eq("is_default", true)
     .maybeSingle();
     
-  const workspaceId = ws?.id || "";
+  const workspaceId = ws?.id || "bd59fa41-d68d-4ac8-b995-e09ae48f52aa"; // Mind Default fallback for authorized testing
 
   // 1. Carregar configuração e módulos do banco (com fallback)
   const activeModulesMap = await loadEnabledModulesV3(workspaceId);
@@ -261,7 +261,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       })),
       { role: "user", content: message }
     ],
-    model: "claude-haiku-4-5",
+    model: "claude-sonnet-5",
     metadata: {
       message_id: messageId,
       call_number: 1,
@@ -343,7 +343,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       // humanity, clarity etc are derived from feedback or expanded in extractor later
     },
     usage: {
-      model: "claude-haiku-4-5",
+      model: "claude-sonnet-5",
       request_id: llmResult.request_id || "unknown", // Adjust if llmResult has it differently
       input_tokens,
       output_tokens,
