@@ -184,7 +184,7 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
   ];
 
   // Verbose Loop Check
-  if (detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
+  if (history && history.length > 0 && detectVerboseLoop(history.map(m => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })))) {
     console.log("[AGENT-V3-DEBUG] Verbose loop detected for user:", userId);
     return {
       temperature: "frio",
