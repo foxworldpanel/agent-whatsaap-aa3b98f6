@@ -16,6 +16,7 @@ export const KEYWORD_MAP: Record<string, string[]> = {
   teste_gratis: ["teste", "gratis", "amostra", "confiável", "golpe", "funciona", "testar"],
   como_usar_painel: ["como usar", "cadastro", "entrar", "site", "link", "painel", "conta", "cadastrar"],
   prova_social: ["confiança", "seguro", "alguém já comprou", "funciona mesmo", "prova", "print", "depoimento"],
+  objecoes_vendas: ["seguro", "bot", "garantia", "barato", "funciona mesmo", "confiar", "golpe"],
 };
 
 export function selectRelevantModules(text: string, enabledModules: string[]): string[] {
@@ -32,25 +33,31 @@ export function selectRelevantModules(text: string, enabledModules: string[]): s
 
   const hasCommercialIntent = ["comprar", "quero", "interesse", "ajuda", "serviço", "impulsionar", "divulgar", "seguidores", "curtidas", "views", "inscritos", "plays", "streams", "saves", "ouvintes"].some(kw => normalizedText.includes(kw));
   const isPriceRequested = ["quanto", "valor", "preço", "tabela", "custa", "lista"].some(kw => normalizedText.includes(kw));
-  const isClosing = ["fechar", "quero esse", "vou querer", "blz", "ok", "manda o link"].some(kw => normalizedText.includes(kw));
+  const isClosing = ["fechar", "quero esse", "vou querer", "blz", "ok", "manda o link", "pode mandar", "esse mesmo"].some(kw => normalizedText.includes(kw));
   const isSupport = ["problema", "erro", "pedido", "ajuda", "status", "atraso", "caiu", "ticket"].some(kw => normalizedText.includes(kw));
+  const isObjection = KEYWORD_MAP.objecoes_vendas.some(kw => normalizedText.includes(kw));
 
   if (isSupport) {
     selectedKeys.add("suporte");
   } else {
     if (hasCommercialIntent) {
       selectedKeys.add("fluxo_vendas");
+      selectedKeys.add("psicologia_vendas");
+      selectedKeys.add("qualificacao_lead");
     }
     if (isPriceRequested) {
       selectedKeys.add("tabela_precos");
     }
     if (isClosing) {
-      selectedKeys.add("fechamento_3");
+      selectedKeys.add("fechamento_vendas");
+    }
+    if (isObjection) {
+      selectedKeys.add("objecoes_vendas");
     }
   }
 
   for (const [moduleKey, keywords] of Object.entries(KEYWORD_MAP)) {
-    if (["pagamentos", "tabela_precos", "suporte", "como_usar_painel", "prova_social"].includes(moduleKey)) continue;
+    if (["pagamentos", "tabela_precos", "suporte", "como_usar_painel", "prova_social", "objecoes_vendas"].includes(moduleKey)) continue;
     if (keywords.some(kw => normalizedText.includes(kw))) {
       selectedKeys.add(moduleKey);
     }
