@@ -285,19 +285,24 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (V3 processed)");
 
     } catch (e: any) {
-      console.error("[V3-CRITICAL-ERROR] Falha catastrófica:", e);
+      console.error("[V3-CRITICAL-ERROR] Falha catastrófica:", {
+        message: e.message,
+        stack: e.stack,
+        phone: phoneStrLocal,
+        msgId: msgId,
+        workspaceId: num?.workspace_id || "unknown"
+      });
       
       const instanceToken = pickInstanceToken(payload);
       
-      // Envia mensagem neutra de indisponibilidade
       await sendAgentTextGuarded(
-        { uazapi_url: "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
+        { uazapi_url: num?.uazapi_url || "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
         phoneStrLocal,
         "Desculpe, tive um problema técnico momentâneo. Pode tentar de novo em instantes?",
         { conversationId: phoneStrLocal, source: "v3_error_fallback" }
       ).catch(() => {});
       
-      return new Response("ok (V3 error handled - no V1 fallback)");
+      return new Response("ok (V3 error handled)");
     }
 }
 

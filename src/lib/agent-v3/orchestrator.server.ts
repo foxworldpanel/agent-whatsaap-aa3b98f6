@@ -287,7 +287,8 @@ ${extraContext ? `FATO TÉCNICO: ${extraContext}` : ""}`,
     usage: response.usage,
     selectedModules: selectedKeys,
     modulesTelemetry,
-    promptComparison
+    promptComparison,
+    rawPrompt: systemPrompt
   };
 
 }
