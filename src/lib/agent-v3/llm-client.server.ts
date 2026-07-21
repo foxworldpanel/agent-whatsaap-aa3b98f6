@@ -31,8 +31,15 @@ export async function callAnthropicV3(params: {
     headers["x-api-key"] = apiKey;
   }
 
+  // Map high-level models to real Anthropic identifiers
+  const anthropicModel = model === "claude-sonnet-5" 
+    ? "claude-3-5-sonnet-latest" 
+    : model === "claude-haiku-4-5" 
+      ? "claude-3-5-haiku-latest" // Using haiku 3.5 for now as 4.5 is not public/canonical name yet
+      : model;
+
   const body = {
-    model: model,
+    model: anthropicModel,
     max_tokens: 1024,
     system,
     messages
