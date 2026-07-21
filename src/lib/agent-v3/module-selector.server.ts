@@ -125,15 +125,15 @@ export function detectConversationContext(
   } else if (hasSupportSignal) {
     intent = "suporte";
     stage = "suporte";
+  } else if (hasPriceQuestion) {
+    intent = "consulta_preco";
+    stage = "negociacao";
   } else if (hasPaymentSignal) {
     intent = "pagamento";
     stage = "pos_venda";
   } else if (hasPurchaseSignal && hasQuantity) {
     intent = "compra";
     stage = "fechamento";
-  } else if (hasPriceQuestion) {
-    intent = "consulta_preco";
-    stage = "negociacao";
   } else if (normalizedText.includes("seguro") || normalizedText.includes("cai") || normalizedText.includes("golpe")) {
     intent = "duvida_seguranca";
     stage = "qualificacao";
