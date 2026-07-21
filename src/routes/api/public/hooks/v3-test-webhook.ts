@@ -61,7 +61,7 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
         return new Response(JSON.stringify({
           status: "success",
           v3_reply: result.replies[0],
-          temperature: result.temperature
+          temperature: result.intelligence.temperature
         }), {
           headers: { "Content-Type": "application/json" }
         });
