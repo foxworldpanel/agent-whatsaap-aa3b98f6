@@ -93,7 +93,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
   const isImageInput = inputKind === "image";
   const isStickerInput = inputKind === "sticker";
 
-  const hasIntentSupport = selectedKeys.includes("suporte");
+  const hasIntentSupport = selectedKeys.includes("suporte") || selectedKeys.includes("suporte_pos_compra");
 
   const systemPrompt = [
     { 
