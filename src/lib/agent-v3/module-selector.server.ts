@@ -78,14 +78,12 @@ export function buildPromptFromModules(
     .map(key => {
       const mod = customModules[key];
       if (!mod) return "";
-      if (typeof mod === "string") return mod;
       
-      // Telemetria silenciosa no log se for fallback
-      if (mod.source === "fallback") {
-        console.log(`[V3-FALLBACK-TELEMETRY] Module: ${key}, Reason: ${mod.fallback_reason || "unknown"}`);
-      }
-      
-      return mod.content;
+      const content = typeof mod === "string" ? mod : mod.content;
+      const source = typeof mod === "string" ? "code/unknown" : mod.source;
+      const version = (mod as any).version || (mod as any).isOverride ? "DB" : "V1";
+
+      return `[MODULE: ${key} | origin: ${source} | version: ${version}]\n${content}`;
     })
     .filter(Boolean)
     .join("\n\n");
