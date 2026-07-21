@@ -435,9 +435,9 @@ function AgenteV3AdminPage() {
                              </td>
                              <td className="px-4 py-3 text-center">
                                {data.content?.trim() ? (
-                                 <div className="h-2 w-2 rounded-full bg-green-500 mx-auto" title="Íntegro" />
+                                 <div className="h-2 w-2 rounded-full bg-green-500 mx-auto" />
                                ) : (
-                                 <AlertTriangle className="h-4 w-4 text-destructive mx-auto" title="Módulo Vazio!" />
+                                 <AlertTriangle className="h-4 w-4 text-destructive mx-auto" />
                                )}
                              </td>
                            </tr>
