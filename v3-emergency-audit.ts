@@ -1,21 +1,20 @@
-
 import { loadEnabledModulesV3 } from './src/lib/agent-v3/modules.server';
 import { runAgentV3Turn } from './src/lib/agent-v3/orchestrator.server';
 
 async function audit() {
-  const workspaceId = 'bd59fa41-2679-4a00-994f-4091a10058e5'; // ID do Mind SMM no log anterior
+  const workspaceId = 'bd59fa41-d68d-4ac8-b995-e09ae48f52aa';
   const userId = 'f8da521a-e8db-4efe-8c9b-9bd69749c0a7';
   
-  console.log('--- PASSO 1: AUDITORIA DE MÓDULOS ---');
+  console.log('--- DIAGNÓSTICO V3 ---');
   try {
     const modules = await loadEnabledModulesV3(workspaceId);
-    console.log('Modules loaded:', Object.keys(modules).length);
-    console.log('Sources:', Object.entries(modules).map(([k, v]) => `${k}:${v.source}`).join(', '));
+    console.log('Módulos carregados:', Object.keys(modules).length);
+    const invalidModules = Object.entries(modules).filter(([k, v]) => !v.content);
+    if (invalidModules.length > 0) console.log('MÓDULOS INVÁLIDOS:', invalidModules.map(([k]) => k));
   } catch (e) {
-    console.error('FAILED loadEnabledModulesV3:', e);
+    console.error('ERRO NO LOADER:', e);
   }
 
-  console.log('\n--- PASSO 2: TESTE DE EXECUÇÃO ---');
   try {
     const result = await runAgentV3Turn({
       userId,
@@ -23,14 +22,12 @@ async function audit() {
       history: [],
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || ''
     });
-    console.log('SUCCESS: Agent responded');
-    console.log('Selected Keys:', result.selectedModules);
-    console.log('Usage:', result.usage);
+    console.log('STATUS: SUCESSO');
+    console.log('REPLIES:', result.replies);
   } catch (e) {
-    console.log('FAILED runAgentV3Turn');
-    console.log('ERROR:', e.message);
+    console.log('STATUS: FALHA');
+    console.log('ERRO:', e.message);
     console.log('STACK:', e.stack);
   }
 }
-
 audit();
