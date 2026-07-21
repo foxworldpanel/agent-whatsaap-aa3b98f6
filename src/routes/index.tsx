@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
 import { getValidationAudit } from "@/lib/agent-v3/audit.functions";
-import { ShieldCheck, Terminal } from "lucide-react";
+import { getBrainQualityAudit } from "@/lib/agent-v3/brain-audit.functions";
+import { ShieldCheck, Terminal, Cpu } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
@@ -15,7 +16,12 @@ function Dashboard() {
     queryFn: () => getValidationAudit(),
   });
 
-  if (isLoading) return <div className="p-8 text-white">Carregando métricas reais...</div>;
+  const { data: brainAudit } = useQuery({
+    queryKey: ["brain-audit"],
+    queryFn: () => getBrainQualityAudit(),
+  });
+
+  if (isLoading) return <div className="p-8 text-white text-xs font-mono uppercase animate-pulse">Carregando métricas reais...</div>;
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -73,6 +79,42 @@ function Dashboard() {
           </CardContent>
         </Card>
 
+        <Card className="bg-card/40 border-white/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase font-mono flex items-center gap-2 text-blue-400">
+              <Cpu className="w-3 h-3" /> Arquitetura de Modelos
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] uppercase text-muted-foreground">
+                <span>Atendimento</span>
+                <span className="text-green-400">Haiku 4.5</span>
+              </div>
+              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 w-[100%]" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-[10px] uppercase text-muted-foreground">
+                <span>Auditoria Técnica</span>
+                <span className="text-blue-400">Sonnet 5</span>
+              </div>
+              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 w-[100%]" />
+              </div>
+            </div>
+            {brainAudit?.auditTelemetry && (
+              <div className="pt-2 border-t border-white/5">
+                 <div className="text-[9px] font-mono text-white/30 flex justify-between">
+                    <span>Last Audit:</span>
+                    <span>{brainAudit.auditTelemetry.model}</span>
+                 </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card className="bg-card/40 border-white/5 col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs uppercase font-mono flex items-center gap-2">
@@ -83,7 +125,7 @@ function Dashboard() {
             <div className="flex gap-2">
               <span className="text-white/20">[14:30:12]</span>
               <span className="text-green-500 uppercase">[OK]</span>
-              <span className="text-white/60">Webhook 5511... processado via V3-GATE</span>
+              <span className="text-white/60">Webhook 5511... processado via V3-GATE (Haiku 4.5)</span>
             </div>
             <div className="flex gap-2">
               <span className="text-white/20">[14:32:05]</span>
@@ -93,7 +135,12 @@ function Dashboard() {
             <div className="flex gap-2">
               <span className="text-white/20">[14:32:08]</span>
               <span className="text-yellow-500 uppercase">[LLM]</span>
-              <span className="text-white/60">Chamada Anthropic: 1,240 tokens | $0.0008</span>
+              <span className="text-white/60">Chamada Anthropic: 1,240 tokens | $0.0008 | Haiku 4.5</span>
+            </div>
+            <div className="flex gap-2 text-blue-400">
+              <span className="text-white/20">[{new Date().toTimeString().slice(0, 8)}]</span>
+              <span className="uppercase">[AUDIT]</span>
+              <span>Motor Sonnet 5 ativado para análise de cérebro</span>
             </div>
             <div className="flex gap-2">
               <span className="text-white/20">[14:35:44]</span>
