@@ -572,6 +572,13 @@ export type Database = {
           key: string
           name: string
           priority: number | null
+          selector_conflicts: string[]
+          selector_dependencies: string[]
+          selector_intents: string[]
+          selector_platforms: string[]
+          selector_products: string[]
+          selector_stages: string[]
+          selector_triggers: string[]
           updated_at: string | null
           user_id: string
           version: number | null
@@ -588,6 +595,13 @@ export type Database = {
           key: string
           name: string
           priority?: number | null
+          selector_conflicts?: string[]
+          selector_dependencies?: string[]
+          selector_intents?: string[]
+          selector_platforms?: string[]
+          selector_products?: string[]
+          selector_stages?: string[]
+          selector_triggers?: string[]
           updated_at?: string | null
           user_id: string
           version?: number | null
@@ -604,6 +618,13 @@ export type Database = {
           key?: string
           name?: string
           priority?: number | null
+          selector_conflicts?: string[]
+          selector_dependencies?: string[]
+          selector_intents?: string[]
+          selector_platforms?: string[]
+          selector_products?: string[]
+          selector_stages?: string[]
+          selector_triggers?: string[]
           updated_at?: string | null
           user_id?: string
           version?: number | null
