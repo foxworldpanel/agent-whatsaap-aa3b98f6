@@ -183,10 +183,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     
     try {
       const instanceToken = pickInstanceToken(payload);
-      let finalMsgText = content.text;
-      
-      // 4. Processamento de áudio (Transcrição)
+      let finalMsgText = content.text || "";
       let transcriptionAttempted = false;
+      let num: any = null;
       if (content.kind === "audio" && content.mediaUrl) {
         try {
           console.log("[V3-GATE] Áudio detectado, iniciando transcrição...");
@@ -216,11 +215,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       // Resolve contexto básico da instância
-      const { data: num } = await adminEarly
+      const { data: numData } = await adminEarly
         .from("whatsapp_numbers")
         .select("user_id, workspace_id, uazapi_url")
         .eq("uazapi_token", instanceToken || "")
         .maybeSingle();
+      
+      num = numData;
       
       const targetUserId = num?.user_id || "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
       

@@ -76,69 +76,134 @@ function Dashboard() {
         </Card>
       </div>
       
-      <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 text-sm text-green-500 leading-relaxed whitespace-pre-wrap mb-4">
-        ✅ MÓDULOS ATUALIZADOS — CMS V3 MODULAR IMPLEMENTADO
-        A biblioteca modular foi migrada para a arquitetura "WordPress para IA".
-        Agora cada rede social é um módulo independente com seus próprios preços e regras.
+      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-sm text-red-500 leading-relaxed whitespace-pre-wrap mb-4">
+        URGENTE — Falha ao salvar resposta do agente
+        Erro atual no Agent Playground: "Falha ao salvar resposta do agente"
+        Isso indica que a geração da resposta pode estar funcionando, mas a persistência no banco está falhando.
+        Não criar novas funcionalidades agora.
+        Investigar exatamente a operação de salvamento após runAgentV3Turn().
+
+        FLUXO A VERIFICAR
+        mensagem do usuário → runAgentV3Turn() → resposta do Claude → saveConversationStateV3 / insert da mensagem do agente → falha
+
+        1. CAPTURAR ERRO REAL DO BANCO
+        Executar no Playground: "Bom dia"
+        Mostrar:
+        - mensagem original do Supabase/Postgres;
+        - error code;
+        - error details;
+        - error hint;
+        - tabela;
+        - coluna;
+        - payload enviado;
+        - stack trace;
+        - arquivo e linha.
+        Não retornar somente: "Falha ao salvar resposta do agente".
+
+        2. VERIFICAR ALTERAÇÕES RECENTES
+        Comparar o payload de salvamento antes e depois da implementação de:
+        - telemetria por módulo;
+        - module_keys;
+        - module_versions;
+        - module_chars;
+        - estimated_tokens_by_module;
+        - module_impact;
+        - prompt comparison;
+        - Lead Intelligence;
+        - metadata comercial.
+        Verificar se algum campo novo está sendo enviado para uma coluna inexistente ou com tipo incompatível.
+
+        3. VALIDAR SCHEMA
+        Inspecionar a tabela usada para persistir mensagens e histórico, incluindo:
+        - conversations_v3;
+        - agent_playground_runs;
+        - tabela de mensagens, se separada.
+        Validar:
+        - colunas existentes;
+        - tipos;
+        - campos obrigatórios;
+        - defaults;
+        - constraints;
+        - foreign keys;
+        - unique constraints;
+        - RLS.
+
+        4. VALIDAR PAYLOAD
+        Antes do insert/update, registrar de forma segura:
+        - workspace_id;
+        - conversation_id;
+        - session_id;
+        - message_id;
+        - role;
+        - content;
+        - metadata;
+        - created_at.
+        Garantir:
+        - content sempre string;
+        - role com valor permitido;
+        - metadata serializável;
+        - nenhum undefined;
+        - nenhum BigInt;
+        - nenhum Date não serializado;
+        - nenhum campo circular;
+        - nenhum NaN ou Infinity.
+
+        5. SUSPEITA PRINCIPAL
+        A telemetria de impacto por módulo foi implementada imediatamente antes da falha.
+        Verificar especialmente se os novos objetos estão sendo salvos em metadata JSONB.
+        Normalizar antes de salvar:
+        JSON.parse(JSON.stringify(metadata))
+        ou função equivalente segura.
+        Não enviar campos extras diretamente para a tabela caso não existam como colunas.
+
+        6. TRATAMENTO CORRETO
+        A resposta do agente não deve ser perdida se apenas uma telemetria opcional falhar.
+        Separar:
+        A) salvamento obrigatório:
+        - mensagem;
+        - role;
+        - conversa;
+        - timestamps.
+        B) telemetria opcional:
+        - impacto dos módulos;
+        - tokens por módulo;
+        - comparativos;
+        - scores.
+        Se a telemetria falhar:
+        - salvar a mensagem normalmente;
+        - registrar telemetry_save_failed;
+        - não derrubar a conversa.
+
+        7. TESTES OBRIGATÓRIOS
+        Teste 1: Playground: "Bom dia"
+        Esperado:
+        - resposta gerada;
+        - resposta salva;
+        - histórico atualizado.
+        Teste 2: Playground: "Quero comprar plays"
+        Esperado:
+        - módulos comerciais carregados;
+        - resposta salva;
+        - metadata salva.
+        Teste 3: WhatsApp texto: "Bom dia"
+        Teste 4: WhatsApp áudio: "Quero comprar plays"
+        Em todos, informar:
+        - geração: sucesso/falha;
+        - persistência da mensagem: sucesso/falha;
+        - persistência da telemetria: sucesso/falha.
+
+        8. ROLLBACK
+        Se a causa for a telemetria recém-adicionada:
+        - reverter somente a persistência dos campos novos;
+        - manter a geração do agente funcionando;
+        - depois corrigir o schema ou salvar esses dados somente em agent_playground_runs.
+        Entregar:
+        - causa raiz;
+        - erro SQL completo;
+        - arquivo corrigido;
+        - migration criada, se necessária;
+        - testes executados.
       </div>
-      <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-        Evolução do CMS V3 — Biblioteca Modular
-        A página "Agente IA" deve funcionar como um CMS completo.
-        Não quero uma lista fixa de módulos.
-        Quero transformar os módulos em entidades totalmente gerenciáveis.
-
-        Implementar:
-        1. Criar módulo
-        2. Editar módulo
-        3. Duplicar módulo
-        4. Excluir módulo
-        5. Ativar/desativar módulo
-        6. Organizar por categorias
-        7. Arrastar para reorganizar (drag and drop), se possível
-
-        Categorias sugeridas:
-        - Núcleo
-        - Comercial
-        - Redes Sociais
-        - Pagamentos
-        - Suporte
-
-        Alteração importante:
-        Remover o conceito de "Tabela de Preços" como módulo único.
-        Cada rede social deve conter seus próprios:
-        - serviços;
-        - preços;
-        - regras;
-        - perguntas;
-        - exemplos;
-        - observações.
-
-        Exemplo:
-        Spotify:
-        - Plays
-        - Ouvintes
-        - Saves
-        - Playlists
-
-        YouTube:
-        - Visualizações
-        - Likes
-        - Inscritos
-        - Horas
-        - Live
-
-        Instagram:
-        - Seguidores
-        - Curtidas
-        - Reels
-        - Story
-
-        O objetivo é que cada módulo seja totalmente independente e responsável apenas pelo seu domínio.
-        Assim, adicionar uma nova rede ou um novo serviço não exige alterar outros módulos.
-      <div className="mt-8 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-500 text-sm">
-        <strong>Correção Aplicada:</strong> O erro "Falha ao salvar mensagem do usuário" no Agent Playground foi corrigido (uso do contexto de autenticação no servidor).
-      </div>
-    </div>
     </div>
   );
 }

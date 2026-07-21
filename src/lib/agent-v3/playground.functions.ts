@@ -62,7 +62,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       .from("agent_playground_messages")
       .insert({
         session_id: sessionId,
-        role: "assistant",
+        role: "agent",
         content: result.replies.join("\n"),
         sequence: (messages?.length || 0) + 2,
         metadata: {
@@ -116,11 +116,13 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       recommended_action: result.recommended_action,
       reasoning: result.reasoning,
       conversation_score: result.conversation_score,
-      conversation_feedback: JSON.stringify(result.conversation_feedback),
-      metadata: {
+      conversation_feedback: Array.isArray(result.conversation_feedback) 
+        ? JSON.stringify(result.conversation_feedback) 
+        : result.conversation_feedback,
+      metadata: JSON.parse(JSON.stringify({
         modules_telemetry: modulesTelemetry,
         prompt_comparison: comparison
-      }
+      }))
     };
 
     await context.supabase.from("agent_playground_runs").insert(insertData);
