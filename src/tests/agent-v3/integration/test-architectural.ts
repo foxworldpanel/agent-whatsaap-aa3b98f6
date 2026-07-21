@@ -1,5 +1,5 @@
-import { selectRelevantModules, buildPromptFromModules } from "./module-selector.server";
-import { DEFAULT_MODULES_V3 } from "./default-modules-v3.server";
+import { selectModulesV3 as selectRelevantModules } from "@/lib/agent-v3/selector/module-selector.server";
+import { buildPromptFromModules } from "@/lib/agent-v3/prompt/prompt-builder.server";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -14,18 +14,18 @@ async function runUnitTests() {
   console.log("Testando selectRelevantModules...");
 
   // Core modules sempre presentes
-  const coreKeys = selectRelevantModules("Oi", []);
+  const coreKeys = selectRelevantModules("Oi", [], []).selectedModules;
   assert(coreKeys.includes("identidade"), "Core: identidade ausente");
   assert(coreKeys.includes("regras_gerais"), "Core: regras_gerais ausente");
   assert(coreKeys.includes("comportamento_humano"), "Core: comportamento_humano ausente");
 
   // spotify detectado + spotify habilitado
-  const keysEnabled = selectRelevantModules("Quero plays no spotify", ["spotify", "fluxo_vendas"]);
+  const keysEnabled = selectRelevantModules("Quero plays no spotify", [], ["spotify", "fluxo_vendas"]).selectedModules;
   assert(keysEnabled.includes("spotify"), "Deve incluir spotify quando habilitado");
   assert(keysEnabled.includes("fluxo_vendas"), "Deve incluir fluxo_vendas quando habilitado");
 
   // spotify detectado + spotify desabilitado
-  const keysDisabled = selectRelevantModules("Quero plays no spotify", ["fluxo_vendas"]);
+  const keysDisabled = selectRelevantModules("Quero plays no spotify", [], ["fluxo_vendas"]).selectedModules;
   assert(!keysDisabled.includes("spotify"), "NÃO deve incluir spotify quando desabilitado");
   assert(keysDisabled.includes("fluxo_vendas"), "Deve incluir fluxo_vendas habilitado");
 

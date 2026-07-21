@@ -1,5 +1,5 @@
 
-import { selectModulesV3 } from "./module-selector.server";
+import { selectModulesV3 } from "@/lib/agent-v3/selector/module-selector.server";
 
 async function runTests() {
   const enabledModules = [
