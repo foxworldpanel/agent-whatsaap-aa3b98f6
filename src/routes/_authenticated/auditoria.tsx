@@ -19,7 +19,15 @@ function AuditoriaIA() {
     queryFn: () => getBrainQualityAudit(),
   });
 
-  if (isLoading) return <div className="p-8 text-white">Executando auditoria inteligente no cérebro V3...</div>;
+  if (isLoading) return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background text-white gap-4">
+      <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="text-center">
+        <p className="text-lg font-bold uppercase tracking-widest">Executando Auditoria Inteligente</p>
+        <p className="text-xs text-muted-foreground animate-pulse">Claude 3.5 Sonnet analisando o Cérebro V3...</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="container mx-auto p-6 space-y-8 min-h-screen bg-background text-foreground">
@@ -31,9 +39,9 @@ function AuditoriaIA() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-white uppercase flex items-center gap-2">
               🧪 Auditoria IA
-              <Badge variant="outline" className="text-[10px] font-mono border-blue-500/50 text-blue-400">AGENTE V3</Badge>
+              <Badge variant="outline" className="text-[10px] font-mono border-blue-500/50 text-blue-400">SONNET ENGINE</Badge>
             </h1>
-            <p className="text-muted-foreground text-sm">Painel oficial de engenharia, diagnóstico e observabilidade do runtime.</p>
+            <p className="text-muted-foreground text-sm">Inspeção dinâmica de modularização, redundância e conflitos no CMS.</p>
           </div>
         </div>
         <div className="flex gap-4 items-center">
@@ -48,14 +56,16 @@ function AuditoriaIA() {
               a.click();
               URL.revokeObjectURL(url);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold uppercase rounded-lg transition-colors shadow-lg shadow-blue-500/20"
           >
             <FileCode className="w-4 h-4" /> Exportar para ChatGPT
           </button>
           <Card className="bg-blue-600/10 border-blue-600/20">
-            <CardHeader className="py-2 px-4"><CardTitle className="text-xs uppercase font-mono text-blue-400">Qualidade do Cérebro</CardTitle></CardHeader>
+            <CardHeader className="py-2 px-4"><CardTitle className="text-xs uppercase font-mono text-blue-400">Qualidade Geral</CardTitle></CardHeader>
             <CardContent className="py-2 px-4 text-center">
-              <span className="text-4xl font-bold text-white">{audit?.globalScore}/10</span>
+              <span className={`text-4xl font-bold ${Number(audit?.globalScore) > 7 ? 'text-green-500' : 'text-yellow-500'}`}>
+                {Number(audit?.globalScore).toFixed(1)}/10
+              </span>
             </CardContent>
           </Card>
         </div>
