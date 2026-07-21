@@ -96,15 +96,16 @@ function AgentPlaygroundPage() {
         .maybeSingle();
       if (error) throw error;
       
+      const run = data as any;
       // Normalização para o frontend esperar as métricas no lugar certo
-      if (data && data.metadata) {
-        const meta = typeof data.metadata === 'string' ? JSON.parse(data.metadata) : data.metadata;
+      if (run && run.metadata) {
+        const meta = typeof run.metadata === 'string' ? JSON.parse(run.metadata) : run.metadata;
         return {
-          ...data,
+          ...run,
           derived_metadata: meta
         };
       }
-      return data;
+      return run;
     },
     enabled: !!activeSessionId,
     refetchInterval: 1000,
