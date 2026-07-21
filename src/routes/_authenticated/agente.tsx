@@ -8,6 +8,7 @@ import {
   Zap, Info, ExternalLink, RefreshCw
 } from "lucide-react";
 import { getFullAgentV3Config, updateV3Module, getCompiledPromptV3 } from "@/lib/agent-v3/admin.functions";
+import { seedModulesToDb } from "@/lib/agent-v3/seed.functions";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,6 +26,7 @@ function AgenteV3AdminPage() {
   const fetchConfig = useServerFn(getFullAgentV3Config);
   const updateModule = useServerFn(updateV3Module);
   const getPrompt = useServerFn(getCompiledPromptV3);
+  const seedModules = useServerFn(seedModulesToDb);
 
   const configQ = useQuery({
     queryKey: ["agent_v3_config"],
@@ -77,11 +79,48 @@ function AgenteV3AdminPage() {
     },
   });
 
+  const seedMut = useMutation({
+    mutationFn: () => seedModules(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agent_v3_config"] });
+      toast.success("Módulos migrados com sucesso!");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Falha ao migrar módulos");
+    },
+  });
+
   if (configQ.isLoading) {
     return (
       <div className="flex h-[400px] flex-col items-center justify-center gap-4">
         <RefreshCw className="h-8 w-8 animate-spin text-primary/40" />
         <div className="text-sm text-muted-foreground animate-pulse font-medium">Sincronizando arquitetura V3...</div>
+      </div>
+    );
+  }
+
+  // Se não houver módulos, oferecer migração
+  if (!configQ.data?.modules || Object.keys(configQ.data.modules).length === 0) {
+    return (
+      <div className="container mx-auto p-12 flex flex-col items-center justify-center text-center space-y-6">
+        <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <Database className="h-10 w-10" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-white">Migração Necessária</h2>
+          <p className="text-muted-foreground max-w-md">
+            O cérebro da Júlia ainda não foi migrado para o banco de dados. 
+            Clique abaixo para transformar os módulos do código na fonte oficial do painel.
+          </p>
+        </div>
+        <button 
+          onClick={() => seedMut.mutate()}
+          disabled={seedMut.isPending}
+          className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-bold shadow-lg shadow-primary/20 flex items-center gap-3 hover:bg-primary/90 transition-all disabled:opacity-50"
+        >
+          {seedMut.isPending ? <RefreshCw className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5" />}
+          Iniciar Migração V3
+        </button>
       </div>
     );
   }
