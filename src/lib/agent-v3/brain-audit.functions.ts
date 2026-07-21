@@ -102,7 +102,7 @@ RESPONDA EXCLUSIVAMENTE EM JSON COM ESTA ESTRUTURA:
       }
 
       const llmResponse = await callAnthropicV3({
-        model: "claude-3-haiku-20240307", // Using Haiku for cost-efficiency in audit
+        model: "claude-3-5-sonnet-20240620", // Promoted to Sonnet for deeper intelligence in audit as requested
         system: "Você é um auditor de sistemas de IA especialista em Agentes de Vendas. Você analisa módulos de prompt e retorna diagnósticos técnicos precisos. Responda apenas JSON válido sem comentários ou tags markdown. Não use caracteres de escape desnecessários.",
         messages: [{ role: "user", content: auditPrompt }]
       });
