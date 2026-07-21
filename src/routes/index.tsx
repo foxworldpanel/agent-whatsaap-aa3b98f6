@@ -76,6 +76,11 @@ function Dashboard() {
         </Card>
       </div>
       
+      <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 text-sm text-green-500 leading-relaxed whitespace-pre-wrap mb-4">
+        ✅ MÓDULOS ATUALIZADOS — CMS V3 MODULAR IMPLEMENTADO
+        A biblioteca modular foi migrada para a arquitetura "WordPress para IA".
+        Agora cada rede social é um módulo independente com seus próprios preços e regras.
+      </div>
       <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
         Evolução do CMS V3 — Biblioteca Modular
         A página "Agente IA" deve funcionar como um CMS completo.
