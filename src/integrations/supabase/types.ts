@@ -560,6 +560,97 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_modules_v3: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          description: string | null
+          enabled: boolean | null
+          id: string
+          key: string
+          name: string
+          priority: number | null
+          updated_at: string | null
+          user_id: string
+          version: number | null
+          workspace_id: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: string
+          key: string
+          name: string
+          priority?: number | null
+          updated_at?: string | null
+          user_id: string
+          version?: number | null
+          workspace_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          description?: string | null
+          enabled?: boolean | null
+          id?: string
+          key?: string
+          name?: string
+          priority?: number | null
+          updated_at?: string | null
+          user_id?: string
+          version?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_modules_v3_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_modules_v3_history: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          module_id: string
+          version: number
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          module_id: string
+          version: number
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          module_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_modules_v3_history_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "agent_modules_v3"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_playground_messages: {
         Row: {
           content: string
