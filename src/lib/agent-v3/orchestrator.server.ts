@@ -88,7 +88,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
 
   // 3. Selecionar módulos relevantes baseados na mensagem
   const selectedKeys = selectRelevantModules(message, enabledKeys);
-  const modulePrompt = buildPromptFromModules(selectedKeys, { ...activeModulesMap, ...(customModules || {}) });
+  const modulePrompt = buildPromptFromModules(selectedKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
 
   const isAudioInput = inputKind === "audio";
   const isImageInput = inputKind === "image";
