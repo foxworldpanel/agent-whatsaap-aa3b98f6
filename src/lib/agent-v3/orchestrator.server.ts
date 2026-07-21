@@ -97,7 +97,37 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentRes
 
   // 3. Selecionar módulos relevantes baseados na mensagem
   const selectedKeys = selectRelevantModules(message, enabledKeys);
-  const modulePrompt = buildPromptFromModules(selectedKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
+  
+  // 3.1. Calcular Telemetria de Módulos
+  const modulesTelemetry: ModuleTelemetry[] = selectedKeys.map(key => {
+    const mod = activeModulesMap[key];
+    const content = typeof mod === 'string' ? mod : mod?.content || "";
+    return {
+      key,
+      name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      chars: content.length,
+      tokens: Math.ceil(content.length / 4)
+    };
+  });
+
+  // 3.2. Comparativo de Prompt (tokens comerciais)
+  const commercialKeys = ["psicologia_vendas", "objecoes_vendas", "fechamento_vendas", "recuperacao_leads", "qualificacao_lead", "fluxo_vendas"];
+  const nonCommercialKeys = selectedKeys.filter(k => !commercialKeys.includes(k));
+  
+  const promptWithCommercial = buildPromptFromModules(selectedKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
+  const promptWithoutCommercial = buildPromptFromModules(nonCommercialKeys, { ...activeModulesMap, ...(customModules || {}) } as any);
+  
+  const tokensWith = Math.ceil(promptWithCommercial.length / 4);
+  const tokensWithout = Math.ceil(promptWithoutCommercial.length / 4);
+
+  const promptComparison = {
+    withoutCommercial: tokensWithout,
+    withCommercial: tokensWith,
+    diff: tokensWith - tokensWithout
+  };
+
+  const modulePrompt = promptWithCommercial;
+
 
   const isAudioInput = inputKind === "audio";
   const isImageInput = inputKind === "image";
