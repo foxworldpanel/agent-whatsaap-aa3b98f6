@@ -445,12 +445,60 @@ function AgenteV3AdminPage() {
                        </tbody>
                      </table>
                    </div>
+                   <div className="mt-8">
+                     <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
+                       <Zap className="h-4 w-4 text-primary" />
+                       Visualização do Prompt Final (Simulação: "Olá")
+                     </h4>
+                     <PromptPreview getPrompt={getPrompt} />
+                   </div>
                  </div>
                </div>
              </CardContent>
            </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function PromptPreview({ getPrompt }: { getPrompt: any }) {
+  const [promptData, setPromptData] = useState<{ prompt: string; selectedModules: string[] } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const loadPrompt = async () => {
+    setLoading(true);
+    try {
+      const res = await getPrompt({ data: { message: "Olá" } });
+      setPromptData(res);
+    } catch (err) {
+      toast.error("Falha ao gerar preview do prompt");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Button variant="outline" size="sm" onClick={loadPrompt} disabled={loading} className="gap-2">
+        {loading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
+        Gerar Preview do Prompt
+      </Button>
+
+      {promptData && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {promptData.selectedModules.map(m => (
+              <Badge key={m} variant="secondary" className="text-[10px]">{m}</Badge>
+            ))}
+          </div>
+          <textarea
+            readOnly
+            value={promptData.prompt}
+            className="w-full h-[400px] bg-black/40 border border-border rounded-lg p-4 font-mono text-[11px] leading-relaxed resize-none text-muted-foreground focus:outline-none"
+          />
+        </div>
+      )}
     </div>
   );
 }
