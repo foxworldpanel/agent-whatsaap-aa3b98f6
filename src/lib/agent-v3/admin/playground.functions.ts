@@ -113,15 +113,12 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       recommended_action: intelligence.recommended_action,
       reasoning: intelligence.reasoning,
       conversation_score: score?.total || 0,
-      
-      // Coluna metadata não existe no banco, removendo para evitar erro PGRST204
-      // conversation_feedback é jsonb e serve para metadados complexos
-      conversation_feedback: JSON.parse(JSON.stringify({
+      conversation_feedback: {
         modules: modules,
         intelligence: intelligence,
         score: score,
         cost: cost
-      }))
+      }
     };
 
     const { data: savedRun, error: runError } = await context.supabase
@@ -150,10 +147,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     return {
       reply: result.replies.join("\n"),
-      run: savedRun || {
-        ...insertData,
-        derived_metadata: insertData.metadata
-      },
+      run: savedRun || insertData,
       usage: result.usage,
       cost: result.cost,
       modules: result.modules,

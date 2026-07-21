@@ -22,7 +22,7 @@ function Dashboard() {
       <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <h1 className="text-3xl font-bold tracking-tight text-white uppercase">OPERATIONAL DASHBOARD</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-white uppercase">V3 OPERATIONAL DASHBOARD</h1>
             <p className="text-muted-foreground text-xs uppercase font-mono tracking-widest">Agente V3 Real-Time Monitoring</p>
           </div>
           <Badge variant="outline" className="text-[10px] font-mono border-blue-500/50 text-blue-400">V3 RUNTIME ACTIVE</Badge>
