@@ -113,8 +113,10 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       recommended_action: intelligence.recommended_action,
       reasoning: intelligence.reasoning,
       conversation_score: score?.total || 0,
-      conversation_feedback: JSON.stringify([]),
-      metadata: JSON.parse(JSON.stringify({
+      
+      // Coluna metadata não existe no banco, removendo para evitar erro PGRST204
+      // conversation_feedback é jsonb e serve para metadados complexos
+      conversation_feedback: JSON.parse(JSON.stringify({
         modules: modules,
         intelligence: intelligence,
         score: score,
@@ -122,10 +124,36 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       }))
     };
 
-    await context.supabase.from("agent_playground_runs").insert(insertData);
+    const { data: savedRun, error: runError } = await context.supabase
+      .from("agent_playground_runs")
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (runError) {
+      console.error("[PLAYGROUND-RUN-SAVE-FAILED]", {
+        code: runError.code,
+        message: runError.message,
+        details: runError.details,
+        hint: runError.hint,
+        payload: insertData
+      });
+    }
+
+    console.log("[PLAYGROUND-TURN-COMPLETE]", {
+      sessionId,
+      messageId: agentMsg.id,
+      runId: savedRun?.id,
+      usage: result.usage,
+      cost: result.cost
+    });
 
     return {
       reply: result.replies.join("\n"),
+      run: savedRun || {
+        ...insertData,
+        derived_metadata: insertData.metadata
+      },
       usage: result.usage,
       cost: result.cost,
       modules: result.modules,

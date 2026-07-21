@@ -97,9 +97,11 @@ function AgentPlaygroundPage() {
       if (error) throw error;
       
       const run = data as any;
-      // Normalização para o frontend esperar as métricas no lugar certo
-      if (run && run.metadata) {
-        const meta = typeof run.metadata === 'string' ? JSON.parse(run.metadata) : run.metadata;
+      // Normalização: conversation_feedback contém os metadados complexos
+      if (run && run.conversation_feedback) {
+        const meta = typeof run.conversation_feedback === 'string' 
+          ? JSON.parse(run.conversation_feedback) 
+          : run.conversation_feedback;
         return {
           ...run,
           derived_metadata: meta
@@ -152,7 +154,11 @@ function AgentPlaygroundPage() {
     onMutate: () => {
       setMessage("");
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log("[PLAYGROUND API RESPONSE]", response);
+      if (response?.run) {
+        console.log("[PLAYGROUND RUN RECEIVED]", response.run);
+      }
       queryClient.invalidateQueries({ queryKey: ["playground_messages", activeSessionId] });
       queryClient.invalidateQueries({ queryKey: ["playground_last_run", activeSessionId] });
       toast.success("Resposta recebida");
