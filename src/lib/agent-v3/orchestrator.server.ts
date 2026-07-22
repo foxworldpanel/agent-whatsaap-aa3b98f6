@@ -4,13 +4,12 @@ import { selectModulesV3 } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3 } from "./integrations/llm-client.server";
 import { extractMetadataV3 } from "./memory/metadata-extractor.server";
-import { GLOBAL_V3_CONFIG } from "./brain/global-config.server";
 import {
   sanitizeSystemLeaks,
   limitEmojiFrequency,
   detectVerboseLoop,
-    humanizePunctuationV3,
-    stripMarkdownFormattingV3,
+  humanizePunctuationV3,
+  stripMarkdownFormattingV3,
 } from "./brain/guards.server";
 import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
 
@@ -298,62 +297,24 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     },
   ];
 
-  // Verbose Loop Check
-  if (
-    history &&
+  // Não substitua a resposta do LLM por uma mensagem comercial fixa quando houver repetição.
+  // O detector apenas adiciona uma orientação de concisão, preservando os módulos do CMS
+  // como fonte única e evitando respostas inventadas ou links fora do contexto.
+  const verboseLoopDetected =
     history.length > 0 &&
     detectVerboseLoop(
       history.map((m) => ({ sender: m.role === "agent" ? "agente" : "cliente", body: m.content })),
-    )
-  ) {
+    );
+
+  if (verboseLoopDetected) {
     console.log("[AGENT-V3-DEBUG] Verbose loop detected for user:", userId);
-    return {
-      response: `Pra finalizar rapidinho seu pedido, é só acessar ${GLOBAL_V3_CONFIG.panel_url} e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados.`,
-      replies: [
-        `Pra finalizar rapidinho seu pedido, é só acessar ${GLOBAL_V3_CONFIG.panel_url} e criar sua conta, leva menos de 1 minuto! Lá você vê todos os preços e serviços atualizados.`,
-      ],
-      intelligence: {
-        temperature: "frio",
-        confidence: "Baixa",
-        intent: "suporte",
-        stage: "lead",
-        purchase_probability: 0,
-        sentiment: "Neutro",
-        urgency: "Média",
-        recommended_action: "Finalizar atendimento",
-        reasoning: "Loop detectado",
-      },
-      score: {
-        total: 100,
-      },
-      usage: {
-        model: "claude-haiku-4-5",
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_creation_input_tokens: 0,
-        cache_read_input_tokens: 0,
-        latency_ms: 0,
-      },
-      cost: {
-        input_usd: 0,
-        output_usd: 0,
-        cache_usd: 0,
-        total_usd: 0,
-      },
-      modules: {
-        selected_keys: effectiveSelectedKeys,
-        versions: Object.fromEntries(
-          effectiveSelectedKeys.map((key) => [key, numericModuleVersion(key)]),
-        ),
-        estimated_tokens_by_module: Object.fromEntries(
-          modulesTelemetry.map((module) => [module.key, module.tokens]),
-        ),
-        commercial_tokens_added: promptComparison.diff,
-        selection_context: selectionContext,
-        selection_reasons: selectionReasons,
-      },
-      rawPrompt: systemPrompt,
-    };
+    systemPrompt.push({
+      type: "text",
+      text: `ANTI-LOOP:
+- Não repita explicações, listas ou chamadas para ação já enviadas.
+- Responda apenas ao último pedido do cliente em no máximo 2 frases.
+- Não invente link, preço, serviço ou etapa; use somente os módulos carregados.`,
+    });
   }
 
   // Model Call
@@ -385,7 +346,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     metadata: {
       message_id: messageId,
       call_number: 1,
-      selectedKeys: selectedKeys,
+      selectedKeys: effectiveSelectedKeys,
       system_prompt_chars,
       history_chars,
       history_summary,

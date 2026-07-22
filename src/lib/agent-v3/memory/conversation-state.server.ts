@@ -6,15 +6,59 @@ export interface ChatMessageV3 {
 }
 
 export const DEFAULT_MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+const MAX_STORED_MESSAGES = 100;
+const MAX_CONTEXT_MESSAGES = 10;
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
+function digitsOnly(phone: string): string {
+  return String(phone || "").replace(/\D+/g, "");
+}
+
+/**
+ * Canonical phone format used by Agent V3.
+ * Brazilian local numbers (10 or 11 digits) are stored with country code 55.
+ * International numbers are preserved after punctuation is removed.
+ */
 export function normalizePhoneV3(phone: string): string {
-  const digits = String(phone || "").replace(/\D+/g, "");
+  let digits = digitsOnly(phone);
   if (!digits) throw new Error("[V3-STATE] Telefone inválido");
+
+  // International dialing prefix, e.g. 005511970116430.
+  if (digits.startsWith("00")) digits = digits.slice(2);
+
+  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith("55")) {
+    return `55${digits}`;
+  }
+
   return digits;
+}
+
+function phoneVariantsV3(phone: string): string[] {
+  const raw = digitsOnly(phone).replace(/^00/, "");
+  const canonical = normalizePhoneV3(phone);
+  const local = canonical.startsWith("55") && (canonical.length === 12 || canonical.length === 13)
+    ? canonical.slice(2)
+    : canonical;
+
+  return Array.from(new Set([canonical, raw, local].filter(Boolean)));
 }
 
 function resolveWorkspaceId(workspaceId?: string): string {
   return workspaceId?.trim() || DEFAULT_MIND_WORKSPACE_ID;
+}
+
+function sanitizeHistoryV3(value: unknown): ChatMessageV3[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is ChatMessageV3 => {
+      if (!item || typeof item !== "object") return false;
+      const role = (item as { role?: unknown }).role;
+      const content = (item as { content?: unknown }).content;
+      return (role === "agent" || role === "customer") && typeof content === "string" && content.trim().length > 0;
+    })
+    .map((item) => ({ role: item.role, content: item.content.trim() }))
+    .slice(-MAX_STORED_MESSAGES);
 }
 
 export async function getConversationStateV3(
@@ -30,13 +74,17 @@ export async function getConversationStateV3(
     oldest_message_sent_at?: string;
   };
 }> {
-  const normalizedPhone = normalizePhoneV3(phone);
+  void userId;
   const resolvedWorkspaceId = resolveWorkspaceId(workspaceId);
+  const variants = phoneVariantsV3(phone);
+
   const { data, error } = await supabaseAdmin
     .from("conversations_v3")
-    .select("history, updated_at")
+    .select("history, updated_at, phone")
     .eq("workspace_id", resolvedWorkspaceId)
-    .eq("phone", normalizedPhone)
+    .in("phone", variants)
+    .order("updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) {
@@ -44,18 +92,19 @@ export async function getConversationStateV3(
     return { history: [], telemetry: { total_messages_stored: 0, history_truncated: false } };
   }
 
-  const rawHistory = (data?.history as unknown as ChatMessageV3[]) || [];
+  const rawHistory = sanitizeHistoryV3(data?.history);
   const total_messages_stored = rawHistory.length;
   let history = [...rawHistory];
   let session_reset_reason: string | undefined;
 
-  if (data?.updated_at && Date.now() - new Date(data.updated_at).getTime() > 24 * 60 * 60 * 1000) {
+  const updatedAtMs = data?.updated_at ? new Date(data.updated_at).getTime() : Number.NaN;
+  if (Number.isFinite(updatedAtMs) && Date.now() - updatedAtMs > SESSION_TTL_MS) {
     history = [];
     session_reset_reason = "inactivity_24h";
   }
 
-  const history_truncated = history.length > 10;
-  if (history_truncated) history = history.slice(-10);
+  const history_truncated = history.length > MAX_CONTEXT_MESSAGES;
+  if (history_truncated) history = history.slice(-MAX_CONTEXT_MESSAGES);
 
   return {
     history,
@@ -76,18 +125,23 @@ export async function saveConversationStateV3(
 ) {
   const normalizedPhone = normalizePhoneV3(phone);
   const resolvedWorkspaceId = resolveWorkspaceId(workspaceId);
+  const safeHistory = sanitizeHistoryV3(history);
+
   const { error } = await supabaseAdmin.from("conversations_v3").upsert(
     {
       workspace_id: resolvedWorkspaceId,
       user_id: userId,
       phone: normalizedPhone,
-      history: history as any,
+      history: safeHistory as any,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "workspace_id, phone" },
   );
 
-  if (error) console.error("[V3-STATE] Error saving history:", error);
+  if (error) {
+    console.error("[V3-STATE] Error saving history:", error);
+    throw error;
+  }
 }
 
 export async function clearConversationStateV3(
@@ -95,10 +149,9 @@ export async function clearConversationStateV3(
   phone: string,
   workspaceId?: string,
 ) {
-  const normalizedPhone = normalizePhoneV3(phone);
+  void userId;
   const resolvedWorkspaceId = resolveWorkspaceId(workspaceId);
-  const localPhone = normalizedPhone.startsWith("55") ? normalizedPhone.slice(2) : normalizedPhone;
-  const variants = Array.from(new Set([normalizedPhone, localPhone]));
+  const variants = phoneVariantsV3(phone);
 
   const { error } = await supabaseAdmin
     .from("conversations_v3")

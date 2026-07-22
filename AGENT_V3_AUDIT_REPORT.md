@@ -69,3 +69,12 @@ Validação:
 
 - A instalação de dependências via `npm ci` excedeu o limite disponível nesta execução.
 - Portanto, os testes Vitest ainda não foram executados neste checkpoint.
+
+## 2026-07-22 — Correção do anti-loop do orchestrator
+
+- Removida a resposta comercial fixa que ignorava o CMS quando `detectVerboseLoop()` retornava verdadeiro.
+- O detector agora apenas adiciona uma instrução de concisão ao system prompt.
+- Evita link/preço/serviço inventado e preserva os módulos selecionados como fonte única.
+- Corrigida a telemetria enviada ao cliente Anthropic para usar apenas `effectiveSelectedKeys`.
+- Corrigida a estimativa de tokens para excluir módulos descartados pelo prompt builder.
+- Adicionado teste de regressão `tests/agent-v3/orchestrator-no-canned-loop.test.ts`.

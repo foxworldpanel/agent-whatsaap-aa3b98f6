@@ -1,5 +1,3 @@
-// src/lib/agent-v3/metadata-extractor.server.ts
-
 export type AgentResponseV3 = {
   text: string;
   temperature: "frio" | "morno" | "quente";
@@ -15,73 +13,59 @@ export type AgentResponseV3 = {
   conversation_feedback: string[];
 };
 
+const TEMPERATURES = ["frio", "morno", "quente"] as const;
+const CONFIDENCES = ["Muito baixa", "Baixa", "Média", "Alta", "Muito alta"] as const;
+const INTENTS = ["Saudação", "Informação", "Pesquisa", "Comparação", "Compra", "Suporte", "Pagamento", "Pós-venda", "Reclamação", "Outro"] as const;
+const STAGES = ["Primeiro contato", "Descoberta", "Qualificação", "Negociação", "Objeções", "Fechamento", "Pós-venda"] as const;
+const SENTIMENTS = ["Positivo", "Neutro", "Negativo"] as const;
+const URGENCIES = ["Baixa", "Média", "Alta"] as const;
+
+function normalizeLabel<T extends readonly string[]>(value: string | undefined, allowed: T, fallback: T[number]): T[number] {
+  const normalized = value?.trim().toLocaleLowerCase("pt-BR");
+  const match = allowed.find((item) => item.toLocaleLowerCase("pt-BR") === normalized);
+  return (match ?? fallback) as T[number];
+}
+
+function boundedInteger(value: string | undefined): number {
+  const parsed = Number.parseInt(value ?? "0", 10);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.min(100, Math.max(0, parsed));
+}
+
 export function extractMetadataV3(llmResponse: string): AgentResponseV3 {
-  /**
-   * Expected Lead Intelligence format from LLM:
-   * [TEMP:frio|morno|quente]
-   * [CONF:Muito baixa|Baixa|Média|Alta|Muito alta]
-   * [INTENT:Saudação|Informação|...]
-   * [STAGE:Primeiro contato|Descoberta|...]
-   * [PROB:0-100]
-   * [SENT:Positivo|Neutro|Negativo]
-   * [URG:Baixa|Média|Alta]
-   * [ACTION:Ação recomendada]
-   * [REASON:Justificativa]
-   * [SCORE:0-100]
-   * [FEEDBACK:Ponto 1|Ponto 2|...]
-   */
+  const source = String(llmResponse || "");
+  const tempMatch = source.match(/\[TEMP:([^\]]+)\]/i);
+  const confMatch = source.match(/\[CONF:([^\]]+)\]/i);
+  const intentMatch = source.match(/\[INTENT:([^\]]+)\]/i);
+  const stageMatch = source.match(/\[STAGE:([^\]]+)\]/i);
+  const probMatch = source.match(/\[PROB:([+-]?\d+)\]/i);
+  const sentMatch = source.match(/\[SENT:([^\]]+)\]/i);
+  const urgMatch = source.match(/\[URG:([^\]]+)\]/i);
+  const actionMatch = source.match(/\[ACTION:([^\]]+)\]/i);
+  const reasonMatch = source.match(/\[REASON:([^\]]+)\]/i);
+  const scoreMatch = source.match(/\[SCORE:([+-]?\d+)\]/i);
+  const feedbackMatch = source.match(/\[FEEDBACK:([^\]]+)\]/i);
 
-  const tempMatch = llmResponse.match(/\[TEMP:(frio|morno|quente)\]/i);
-  const confMatch = llmResponse.match(/\[CONF:([^\]]+)\]/i);
-  const intentMatch = llmResponse.match(/\[INTENT:([^\]]+)\]/i);
-  const stageMatch = llmResponse.match(/\[STAGE:([^\]]+)\]/i);
-  const probMatch = llmResponse.match(/\[PROB:(\d+)\]/i);
-  const sentMatch = llmResponse.match(/\[SENT:(Positivo|Neutro|Negativo)\]/i);
-  const urgMatch = llmResponse.match(/\[URG:(Baixa|Média|Alta)\]/i);
-  const actionMatch = llmResponse.match(/\[ACTION:([^\]]+)\]/i);
-  const reasonMatch = llmResponse.match(/\[REASON:([^\]]+)\]/i);
-  const scoreMatch = llmResponse.match(/\[SCORE:(\d+)\]/i);
-  const feedbackMatch = llmResponse.match(/\[FEEDBACK:([^\]]+)\]/i);
-
-  const temperature = (tempMatch?.[1]?.toLowerCase() as any) || "morno";
-  const confidence = (confMatch?.[1] as any) || "Média";
-  const intent = (intentMatch?.[1] as any) || "Informação";
-  const stage = (stageMatch?.[1] as any) || "Descoberta";
-  const purchase_probability = parseInt(probMatch?.[1] || "0", 10);
-  const sentiment = (sentMatch?.[1] as any) || "Neutro";
-  const urgency = (urgMatch?.[1] as any) || "Média";
-  const recommended_action = actionMatch?.[1] || "";
-  const reasoning = reasonMatch?.[1] || "";
-  const conversation_score = parseInt(scoreMatch?.[1] || "0", 10);
-  const conversation_feedback = (feedbackMatch?.[1] || "").split("|").map(f => f.trim()).filter(Boolean);
-
-  // Remove ALL markers from the text
-  const cleanText = llmResponse
-    .replace(/\[TEMP:[^\]]+\]/gi, "")
-    .replace(/\[CONF:[^\]]+\]/gi, "")
-    .replace(/\[INTENT:[^\]]+\]/gi, "")
-    .replace(/\[STAGE:[^\]]+\]/gi, "")
-    .replace(/\[PROB:[^\]]+\]/gi, "")
-    .replace(/\[SENT:[^\]]+\]/gi, "")
-    .replace(/\[URG:[^\]]+\]/gi, "")
-    .replace(/\[ACTION:[^\]]+\]/gi, "")
-    .replace(/\[REASON:[^\]]+\]/gi, "")
-    .replace(/\[SCORE:[^\]]+\]/gi, "")
-    .replace(/\[FEEDBACK:[^\]]+\]/gi, "")
+  const cleanText = source
+    .replace(/\[(?:TEMP|CONF|INTENT|STAGE|PROB|SENT|URG|ACTION|REASON|SCORE|FEEDBACK):[^\]]*\]/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 
   return {
     text: cleanText,
-    temperature,
-    confidence,
-    intent,
-    stage,
-    purchase_probability,
-    sentiment,
-    urgency,
-    recommended_action,
-    reasoning,
-    conversation_score,
-    conversation_feedback
+    temperature: normalizeLabel(tempMatch?.[1], TEMPERATURES, "morno"),
+    confidence: normalizeLabel(confMatch?.[1], CONFIDENCES, "Média"),
+    intent: normalizeLabel(intentMatch?.[1], INTENTS, "Informação"),
+    stage: normalizeLabel(stageMatch?.[1], STAGES, "Descoberta"),
+    purchase_probability: boundedInteger(probMatch?.[1]),
+    sentiment: normalizeLabel(sentMatch?.[1], SENTIMENTS, "Neutro"),
+    urgency: normalizeLabel(urgMatch?.[1], URGENCIES, "Média"),
+    recommended_action: actionMatch?.[1]?.trim() || "",
+    reasoning: reasonMatch?.[1]?.trim() || "",
+    conversation_score: boundedInteger(scoreMatch?.[1]),
+    conversation_feedback: (feedbackMatch?.[1] || "")
+      .split("|")
+      .map((item) => item.trim())
+      .filter(Boolean),
   };
 }
