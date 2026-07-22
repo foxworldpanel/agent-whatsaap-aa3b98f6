@@ -76,13 +76,11 @@ export const listAgentLogs = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => listAgentLogsSchema.parse(d ?? {}))
   .handler(async ({ data, context }) => {
-    const userIds = await getSharedUazapiUserIds(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     let query = supabaseAdmin
       .from("agent_logs")
       .select("id, phone, conversation_id, type, level, summary, prompt, response, error, duration_ms, metadata, created_at")
-      .in("user_id", userIds)
       .eq("workspace_id", context.workspaceId)
       .order("created_at", { ascending: false })
       .limit(500);
