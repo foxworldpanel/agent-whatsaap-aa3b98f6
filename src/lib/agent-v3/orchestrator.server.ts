@@ -121,10 +121,19 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   } = input;
 
   // A identidade da V3 vem prioritariamente do workspaceId informado, ou do singleton da Mind se o usuário não tiver um próprio.
-  const { resolveWorkspaceId } = await import("@/lib/workspace-scope.server");
-  const workspaceId = inputWorkspaceId || (await resolveWorkspaceId(userId));
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  let workspaceId = inputWorkspaceId;
   
   if (!workspaceId) {
+    const { data: ws } = await supabaseAdmin
+      .from("workspaces")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("is_default", true)
+      .maybeSingle();
+    workspaceId = ws?.id || "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+  }
+
     throw new Error(`[agent-v3] Workspace não encontrado para o usuário ${userId}`);
   }
 
