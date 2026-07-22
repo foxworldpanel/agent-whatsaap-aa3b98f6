@@ -299,7 +299,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
-        workspaceId: num.workspace_id,
+        workspaceId: num.workspace_id ?? undefined,
         conversationId: conversationId ?? undefined,
         phone: phoneStr,
         message: finalMsgText,
@@ -318,7 +318,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         { role: "agent" as const, content: replyText }
       ].slice(-100));
 
-      const finalConvId: string = conversationId ?? phoneStr;
+      const finalConvId: string = (conversationId || phoneStr) as string;
 
       await sendAgentTextGuarded(
         { uazapi_url: num.uazapi_url, uazapi_token: instanceToken },
