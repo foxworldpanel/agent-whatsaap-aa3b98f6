@@ -56,11 +56,12 @@ export async function getConversationStateV3(userId: string, phone: string): Pro
 }
 
 export async function saveConversationStateV3(userId: string, phone: string, history: ChatMessageV3[]) {
+  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
   const { error } = await supabaseAdmin
     .from("conversations_v3")
     .upsert(
-      { user_id: userId, phone, history: history as any, updated_at: new Date().toISOString() },
-      { onConflict: "user_id, phone" }
+      { workspace_id: MIND_ID, user_id: userId, phone, history: history as any, updated_at: new Date().toISOString() },
+      { onConflict: "workspace_id, phone" }
     );
 
   if (error) {
