@@ -295,14 +295,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
         workspaceId: num.workspace_id,
-        conversationId: conversationId ?? undefined,
+        conversationId: (conversationId as string) || undefined,
         phone: phoneStr,
         message: finalMsgText,
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey: integ?.anthropic_api_key || "",
         inputKind: content.kind,
-        messageId: msgId ?? undefined
+        messageId: msgId || undefined
       });
 
       const replyText = v3Response.replies.join("\n\n");
@@ -317,7 +317,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         { uazapi_url: num.uazapi_url, uazapi_token: instanceToken },
         phoneStr,
         replyText,
-        { conversationId: conversationId ?? phoneStr, source: "agent_v3", applyHumanize: true }
+        { 
+          conversationId: (conversationId as string) || phoneStr, 
+          source: "agent_v3", 
+          applyHumanize: true 
+        }
       );
 
       memMarkSent(phoneStr, replyText);
