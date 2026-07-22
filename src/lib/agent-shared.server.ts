@@ -1,23 +1,9 @@
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
+// SECURITY: Previously this helper expanded access to every user that shared
+// the same self-reported `integrations.uazapi_token` value. Because that
+// field is user-writable via saveIntegrations, any tenant could type another
+// tenant's token and instantly gain read/write access to their conversations,
+// contacts, and WhatsApp numbers. Cross-tenant sharing must be modeled with
+// an explicit owner-approved membership table before it can be reintroduced.
 export async function getSharedUazapiUserIds(context: { userId: string }) {
-  const { data: ownIntegration, error } = await supabaseAdmin
-    .from("integrations")
-    .select("uazapi_token")
-    .eq("user_id", context.userId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-
-  const token = ownIntegration?.uazapi_token;
-  if (!token) return [context.userId];
-
-  const { data: sharedRows, error: sharedError } = await supabaseAdmin
-    .from("integrations")
-    .select("user_id")
-    .eq("uazapi_token", token);
-  if (sharedError) throw new Error(sharedError.message);
-
-  return Array.from(
-    new Set([context.userId, ...(sharedRows ?? []).map((row) => row.user_id as string)]),
-  );
+  return [context.userId];
 }

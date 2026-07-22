@@ -2,20 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
+// SECURITY: token-based cross-tenant sharing removed. See agent-shared.server.ts.
 async function getSharedUazapiUserIds(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: own } = await supabaseAdmin
-    .from("integrations")
-    .select("uazapi_token")
-    .eq("user_id", userId)
-    .maybeSingle();
-  const token = own?.uazapi_token;
-  if (!token) return [userId];
-  const { data: peers } = await supabaseAdmin
-    .from("integrations")
-    .select("user_id")
-    .eq("uazapi_token", token);
-  return Array.from(new Set([userId, ...(peers ?? []).map((r) => r.user_id)]));
+  return [userId];
 }
 
 export const listNumbers = createServerFn({ method: "GET" })
