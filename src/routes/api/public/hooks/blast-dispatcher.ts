@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { assertCronAuthorized } from "@/lib/cron-auth.server";
 
 // SECURITY: token-based cross-tenant sharing removed. Each user only sees
 // their own WhatsApp numbers in blast dispatch. See agent-shared.server.ts.
@@ -16,6 +17,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const unauth = assertCronAuthorized(request);
+        if (unauth) return unauth;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
         const {
