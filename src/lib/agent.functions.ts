@@ -571,7 +571,6 @@ export const setConversationAgentEnabled = createServerFn({ method: "POST" })
     z.object({ conversationId: z.string().uuid(), enabled: z.boolean() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const userIds = await getSharedUazapiUserIds(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: updated, error } = await supabaseAdmin
       .from("conversations")
@@ -588,8 +587,7 @@ export const setConversationAgentEnabled = createServerFn({ method: "POST" })
           : {}),
       })
       .eq("id", data.conversationId)
-      .in("user_id", userIds)
-      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
+      .eq("workspace_id", context.workspaceId)
       .select("id, agent_enabled, contact_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -613,7 +611,6 @@ export const reactivateConversation = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const userIds = await getSharedUazapiUserIds(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: conv, error: convErr } = await supabaseAdmin
       .from("conversations")
@@ -626,8 +623,7 @@ export const reactivateConversation = createServerFn({ method: "POST" })
         status: "aguardando",
       })
       .eq("id", data.conversationId)
-      .in("user_id", userIds)
-      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
+      .eq("workspace_id", context.workspaceId)
       .select("id, contact_id")
       .maybeSingle();
     if (convErr) throw new Error(convErr.message);
@@ -646,7 +642,6 @@ export const blockConversation = createServerFn({ method: "POST" })
     z.object({ conversationId: z.string().uuid(), reason: z.string().max(200).optional() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const userIds = await getSharedUazapiUserIds(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: conv, error } = await supabaseAdmin
       .from("conversations")
@@ -658,8 +653,7 @@ export const blockConversation = createServerFn({ method: "POST" })
         internal_note: "Conversa bloqueada manualmente pelo painel.",
       })
       .eq("id", data.conversationId)
-      .in("user_id", userIds)
-      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
+      .eq("workspace_id", context.workspaceId)
       .select("id, contact_id")
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -675,12 +669,10 @@ export const blockConversation = createServerFn({ method: "POST" })
 export const countConversationsToReview = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    const userIds = await getSharedUazapiUserIds(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { count, error } = await supabaseAdmin
       .from("conversations")
       .select("id", { count: "exact", head: true })
-      .in("user_id", userIds)
       .eq("workspace_id", context.workspaceId)
       .eq("needs_review", true);
     if (error) throw new Error(error.message);
