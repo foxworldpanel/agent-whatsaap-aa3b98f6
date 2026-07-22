@@ -343,7 +343,13 @@ export function selectModulesV3(
   for (const [key, module] of orderedModules) {
     const routing = module.routing;
     if (routing.alwaysLoad || key === "identidade" || key === "regras_gerais") {
-      add(key, routing.alwaysLoad ? "always_load definido no CMS" : "Módulo estrutural V3");
+      // Módulos always_load e estruturais são obrigatórios e não podem ser
+      // descartados pelo limite de módulos primários.
+      add(
+        key,
+        routing.alwaysLoad ? "always_load definido no CMS" : "Módulo estrutural V3",
+        { required: true },
+      );
     }
 
 
@@ -371,10 +377,19 @@ export function selectModulesV3(
     if (trigger) add(key, `Gatilho “${trigger}” definido no CMS`);
   }
 
-  // Dependências são resolvidas depois da seleção inicial.
-  for (const key of Array.from(selected)) {
+  // Dependências são resolvidas transitivamente depois da seleção inicial.
+  // O loop por fila garante A -> B -> C, além de impedir ciclos infinitos.
+  const dependencyQueue = Array.from(selected);
+  const expandedDependencies = new Set<string>();
+  while (dependencyQueue.length > 0) {
+    const key = dependencyQueue.shift();
+    if (!key || expandedDependencies.has(key)) continue;
+    expandedDependencies.add(key);
+
     for (const dependency of modules[key]?.routing.dependencies || []) {
+      const wasSelected = selected.has(dependency);
       add(dependency, `Dependência do módulo ${key}`, { required: true });
+      if (!wasSelected && selected.has(dependency)) dependencyQueue.push(dependency);
     }
   }
 

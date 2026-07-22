@@ -1,7 +1,7 @@
 // src/lib/agent-v3/orchestrator.server.ts
 import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
 import { selectModulesV3 } from "./selector/module-selector.server";
-import { buildPromptFromModules } from "./prompt/prompt-builder.server";
+import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3 } from "./integrations/llm-client.server";
 import { extractMetadataV3 } from "./memory/metadata-extractor.server";
 import { GLOBAL_V3_CONFIG } from "./brain/global-config.server";
@@ -127,11 +127,19 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   // 1. Carregar módulos do CMS e aplicar overrides explícitos do chamador.
   const activeModulesMap = await loadEnabledModulesV3(workspaceId);
   const mergedModulesMap: Record<string, LoadedModuleV3> = { ...activeModulesMap };
-  for (const [key, customModule] of Object.entries(customModules || {})) {
+  for (const [rawKey, customModule] of Object.entries(customModules || {})) {
+    const key = rawKey.trim().toLowerCase();
+    if (!key) continue;
+    const content = typeof customModule === "string" ? customModule.trim() : customModule.content?.trim();
+    if (!content) {
+      console.warn(`[agent-v3] Módulo customizado ignorado por estar vazio: ${rawKey}`);
+      continue;
+    }
+
     mergedModulesMap[key] =
       typeof customModule === "string"
         ? {
-            content: customModule,
+            content,
             source: "custom",
             version: "custom",
             routing: {
@@ -146,13 +154,19 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
               priority: 0,
             },
           }
-        : { ...customModule, source: "custom" };
+        : { ...customModule, content, source: "custom" };
   }
 
   // 2. Respeitar o filtro explícito sem permitir chaves inexistentes.
   const availableKeys = Object.keys(mergedModulesMap);
   const enabledKeys = enabledModules?.length
-    ? enabledModules.filter((key) => availableKeys.includes(key))
+    ? Array.from(
+        new Set(
+          enabledModules
+            .map((key) => key.trim().toLowerCase())
+            .filter((key) => availableKeys.includes(key)),
+        ),
+      )
     : availableKeys;
 
   // 3. Selecionar módulos relevantes baseados na mensagem e histórico
@@ -196,8 +210,23 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   ];
   const nonCommercialKeys = selectedKeys.filter((k) => !commercialKeys.includes(k));
 
-  const promptWithCommercial = buildPromptFromModules(selectedKeys, mergedModulesMap);
-  const promptWithoutCommercial = buildPromptFromModules(nonCommercialKeys, mergedModulesMap);
+  const promptWithCommercialResult = buildPromptFromModulesDetailed(selectedKeys, mergedModulesMap);
+  const promptWithoutCommercialResult = buildPromptFromModulesDetailed(
+    nonCommercialKeys,
+    mergedModulesMap,
+  );
+
+  if (promptWithCommercialResult.warnings.length > 0) {
+    console.warn("[agent-v3] Módulos ignorados durante a montagem do prompt:", promptWithCommercialResult.warnings);
+  }
+
+  const promptWithCommercial = promptWithCommercialResult.prompt;
+  const promptWithoutCommercial = promptWithoutCommercialResult.prompt;
+  const effectiveSelectedKeys = promptWithCommercialResult.includedKeys;
+
+  if (!promptWithCommercial.trim()) {
+    throw new Error("[agent-v3] Os módulos selecionados não produziram conteúdo válido para o prompt");
+  }
 
   const tokensWith = Math.ceil(promptWithCommercial.length / 4);
   const tokensWithout = Math.ceil(promptWithoutCommercial.length / 4);
@@ -209,6 +238,11 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   };
 
   const modulePrompt = promptWithCommercial;
+
+  const numericModuleVersion = (key: string): number => {
+    const parsed = Number(mergedModulesMap[key]?.version);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+  };
 
   const isAudioInput = inputKind === "audio";
   const isImageInput = inputKind === "image";
@@ -307,12 +341,9 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         total_usd: 0,
       },
       modules: {
-        selected_keys: selectedKeys,
+        selected_keys: effectiveSelectedKeys,
         versions: Object.fromEntries(
-          selectedKeys.map((key) => [
-            key,
-            Number(mergedModulesMap[key]?.version || 1),
-          ]),
+          effectiveSelectedKeys.map((key) => [key, numericModuleVersion(key)]),
         ),
         estimated_tokens_by_module: Object.fromEntries(
           modulesTelemetry.map((module) => [module.key, module.tokens]),
@@ -450,12 +481,9 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       total_usd,
     },
     modules: {
-      selected_keys: selectedKeys,
+      selected_keys: effectiveSelectedKeys,
       versions: Object.fromEntries(
-        selectedKeys.map((key) => [
-          key,
-          Number(mergedModulesMap[key]?.version || 1),
-        ]),
+        effectiveSelectedKeys.map((key) => [key, numericModuleVersion(key)]),
       ),
       estimated_tokens_by_module: Object.fromEntries(
         modulesTelemetry.map((m) => [m.key, m.tokens]),
@@ -477,13 +505,13 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       conversationId: conversationId ?? null,
       type: "agent_v3_turn",
       level: "info",
-      summary: `V3 respondeu com ${selectedKeys.length} módulos`,
+      summary: `V3 respondeu com ${effectiveSelectedKeys.length} módulos`,
       prompt: JSON.stringify(result.rawPrompt),
       response: result.rawResponse || result.response,
       durationMs: result.usage.latency_ms,
       metadata: {
         message_id: messageId ?? null,
-        selected_modules: selectedKeys,
+        selected_modules: effectiveSelectedKeys,
         selection_context: selectionContext,
         selection_reasons: selectionReasons,
         usage: result.usage,
