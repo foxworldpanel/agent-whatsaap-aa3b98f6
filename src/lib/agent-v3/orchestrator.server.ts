@@ -235,22 +235,23 @@ Sempre inclua os seguintes marcadores no INÍCIO da sua resposta (antes do texto
 
 
 ESTADO DA CONVERSA:
-${modulePrompt}
+\${modulePrompt}
 
 
-${
+\${
   extraContext
-    ? `FATO TÉCNICO:
-${extraContext}`
+    ? \`FATO TÉCNICO:
+\${extraContext}\`
     : ""
 }
 
 REGRA DE CONCISÃO:
 - Seja breve e cubra somente as informações necessárias para o próximo passo.
 
-${isAudioInput ? `MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.` : ""}
-${isImageInput ? `IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.` : ""}
-${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}`,
+\${isAudioInput ? \`MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.\` : ""}
+\${isImageInput ? \`IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.\` : ""}
+\${isStickerInput ? \`FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.\` : ""}`,
+      cache_control: { type: "ephemeral" }
     },
   ];
 
@@ -340,7 +341,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       })),
       { role: "user", content: message },
     ],
-    model: "claude-sonnet-5",
+    model: "claude-haiku-4-5",
     metadata: {
       message_id: messageId,
       call_number: 1,
@@ -426,7 +427,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       // humanity, clarity etc are derived from feedback or expanded in extractor later
     },
     usage: {
-      model: "claude-sonnet-5",
+      model: "claude-haiku-4-5",
       request_id: llmResult.request_id || "unknown", // Adjust if llmResult has it differently
       input_tokens,
       output_tokens,
