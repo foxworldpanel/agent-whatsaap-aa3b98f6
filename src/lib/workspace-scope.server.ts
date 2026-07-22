@@ -19,42 +19,8 @@ export async function resolveWorkspaceId(
   userId: string,
   headerValue: string | null,
 ): Promise<string> {
-  const hdr = headerValue?.trim();
-  if (hdr && /^[0-9a-f-]{36}$/i.test(hdr)) {
-    // Trust after user_owns_workspace check
-    const { data } = await supabase
-      .from("workspaces")
-      .select("id")
-      .eq("id", hdr)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (data?.id) return data.id;
-    // Header requested the singleton Mind workspace but this user doesn't
-    // own it — allow it anyway (single-tenant project).
-    if (hdr.toLowerCase() === MIND_WORKSPACE_ID) return MIND_WORKSPACE_ID;
-  }
-  const { data, error } = await supabase
-    .from("workspaces")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("is_default", true)
-    .maybeSingle();
-  if (error || !data?.id) {
-    // If no default found, check if ANY workspace exists for this user
-    const { data: anyWs } = await supabase
-      .from("workspaces")
-      .select("id")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle();
-
-    if (anyWs?.id) return anyWs.id;
-
-    // Single-tenant fallback: the DB trigger enforces that only the Mind
-    // workspace id can exist, so any authenticated user maps to it.
-    return MIND_WORKSPACE_ID;
-  }
-  return data.id;
+  // ALWAYS return Mind Workspace for this single-tenant project
+  return MIND_WORKSPACE_ID;
 }
 
 /**
