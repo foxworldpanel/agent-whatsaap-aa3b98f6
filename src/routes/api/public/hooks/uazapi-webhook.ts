@@ -204,47 +204,50 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .single();
 
       if (contactErr) throw contactErr;
-      contactId = contact.id;
+      if (contact?.id) contactId = contact.id;
 
       // Upsert Conversation
-      const { data: conv, error: convErr } = await supabaseAdmin
-        .from("conversations")
-        .upsert({
-          contact_id: contactId,
-          user_id: num.user_id,
-          workspace_id: num.workspace_id,
-          whatsapp_number_id: num.id,
-          last_message_preview: content.text.slice(0, 100),
-          last_message_at: new Date().toISOString(),
-          status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
-        }, { onConflict: "contact_id" })
-        .select("id")
-        .single();
+      if (contactId) {
+        const { data: conv, error: convErr } = await supabaseAdmin
+          .from("conversations")
+          .upsert({
+            contact_id: contactId,
+            user_id: num.user_id,
+            workspace_id: num.workspace_id,
+            whatsapp_number_id: num.id,
+            last_message_preview: content.text.slice(0, 100),
+            last_message_at: new Date().toISOString(),
+            status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
+          }, { onConflict: "contact_id" })
+          .select("id")
+          .single();
 
-      if (convErr) throw convErr;
-      conversationId = conv.id;
+        if (convErr) throw convErr;
+        if (conv?.id) conversationId = conv.id;
+      }
 
       // Insert Message
-      // Map 'image' and 'sticker' to 'texto' since the enum only allows 'texto' and 'audio'
-      const dbKind: "texto" | "audio" = content.kind === "audio" ? "audio" : "texto";
+      if (conversationId) {
+        // Map 'image' and 'sticker' to 'texto' since the enum only allows 'texto' and 'audio'
+        const dbKind: "texto" | "audio" = content.kind === "audio" ? "audio" : "texto";
 
-      const { error: msgErr } = await supabaseAdmin
-        .from("messages")
-        .insert({
-          conversation_id: conversationId,
-          user_id: num.user_id,
-          workspace_id: num.workspace_id,
-          sender: msgLocal.fromMe ? "agente" : "cliente",
-          kind: dbKind,
-          body: content.text,
-          audio_url: content.mediaUrl || undefined,
-          external_id: msgId,
-        });
+        const { error: msgErr } = await supabaseAdmin
+          .from("messages")
+          .insert({
+            conversation_id: conversationId,
+            user_id: num.user_id,
+            workspace_id: num.workspace_id,
+            sender: msgLocal.fromMe ? "agente" : "cliente",
+            kind: dbKind,
+            body: content.text,
+            audio_url: content.mediaUrl || undefined,
+            external_id: msgId,
+          });
 
-      if (msgErr) throw msgErr;
+        if (msgErr) throw msgErr;
+      }
     } catch (syncErr: any) {
       console.error("[UAZ-WEBHOOK] Error syncing to CRM:", syncErr.message);
-      // We continue anyway to try AI if authorized
     }
 
     // 3. AI GATE
