@@ -100,7 +100,10 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "atraso",
     "recarga nao caiu",
     "sumiu",
+    "nao entregou",
+    "faltando",
   ],
+
   seguranca: [
     "teste",
     "gratis",
