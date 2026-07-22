@@ -72,24 +72,24 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const workspaces = (workspacesQ.data ?? []) as Workspace[];
 
-  // Ensure activeWorkspaceId is valid; fall back to default.
+  // Ensure activeWorkspaceId is valid; fall back to default or singleton Mind.
   useEffect(() => {
     if (!hasSession) return;
-    if (!workspaces.length && !workspacesQ.isLoading) return;
-    if (!workspaces.length) return;
+    if (workspacesQ.isLoading) return;
     
-    // Check if we have a Mind workspace available
-    const mindWorkspace = workspaces.find((w) => /mind/i.test(w.nome));
+    const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+    
+    // Check if we have a Mind workspace available in the fetched list
+    const mindInList = workspaces.find((w) => w.id === MIND_ID || /mind/i.test(w.nome));
     const stored = activeWorkspaceId;
-    const currentIsValid = stored && workspaces.some((w) => w.id === stored);
+    const currentIsValid = stored && (workspaces.some((w) => w.id === stored) || stored === MIND_ID);
 
-    // If no workspace is active, or if we found a Mind workspace and it's not the active one
-    // (This forces the "Mind" workspace to be active if it exists for the user)
-    if (mindWorkspace && activeWorkspaceId !== mindWorkspace.id) {
-      console.log(`[WorkspaceContext] Switching to Mind workspace: ${mindWorkspace.id}`);
-      setActiveWorkspaceId(mindWorkspace.id);
+    // If we found a Mind workspace in the list but it's not the active one, force it
+    if (mindInList && activeWorkspaceId !== mindInList.id) {
+      console.log(`[WorkspaceContext] Switching to Mind workspace from list: ${mindInList.id}`);
+      setActiveWorkspaceId(mindInList.id);
       try {
-        window.localStorage.setItem(STORAGE_KEY, mindWorkspace.id);
+        window.localStorage.setItem(STORAGE_KEY, mindInList.id);
       } catch (err) {
         console.error("[WorkspaceContext] Failed to store activeWorkspaceId", err);
       }
@@ -97,21 +97,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // If no valid workspace is active, fall back
     if (!currentIsValid) {
-      // Prioritize Mind workspace if found, otherwise default, otherwise first.
-      const def = mindWorkspace ?? workspaces.find((w) => w.is_default) ?? workspaces[0];
-      if (def) {
-        console.log(`[WorkspaceContext] Falling back to default workspace: ${def.id}`);
-        setActiveWorkspaceId(def.id);
-        try {
-          window.localStorage.setItem(STORAGE_KEY, def.id);
-        } catch (err) {
-          console.error("[WorkspaceContext] Failed to store activeWorkspaceId", err);
-        }
-        void qc.invalidateQueries({ refetchType: "all" });
+      // 1. Mind in list, 2. Default in list, 3. First in list, 4. Singleton Mind Hardcode
+      const def = mindInList ?? workspaces.find((w) => w.is_default) ?? workspaces[0];
+      const fallbackId = def?.id || MIND_ID;
+
+      console.log(`[WorkspaceContext] Falling back to workspace: ${fallbackId}`);
+      setActiveWorkspaceId(fallbackId);
+      try {
+        window.localStorage.setItem(STORAGE_KEY, fallbackId);
+      } catch (err) {
+        console.error("[WorkspaceContext] Failed to store activeWorkspaceId", err);
       }
+      void qc.invalidateQueries({ refetchType: "all" });
     }
-  }, [workspaces, activeWorkspaceId, qc, hasSession]);
+  }, [workspaces, workspacesQ.isLoading, activeWorkspaceId, qc, hasSession]);
 
   const switchWorkspace = useCallback(
     (id: string) => {

@@ -25,13 +25,20 @@ export function WorkspaceSwitcher() {
     );
   }
 
-  if (!workspaces.length) {
+  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+  const effectiveWorkspaces = workspaces.length > 0 
+    ? workspaces 
+    : (activeWorkspaceId === MIND_ID ? [{ id: MIND_ID, nome: "Mind SMM Panel", icone: "🧠", cor: "blue", is_default: true }] : []);
+
+  if (!effectiveWorkspaces.length) {
     return (
       <div className="mx-3 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
         Nenhum workspace válido encontrado. Selecione ou solicite acesso ao workspace Mind.
       </div>
     );
   }
+
+  const active = activeWorkspace || effectiveWorkspaces.find(w => w.id === activeWorkspaceId);
 
   return (
     <>
@@ -43,8 +50,8 @@ export function WorkspaceSwitcher() {
             "mx-3 mt-3 flex w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/40 px-3 py-2 text-left text-sm font-medium text-sidebar-foreground transition hover:bg-sidebar-accent",
           )}
         >
-          <span className="text-lg leading-none">{activeWorkspace?.icone ?? "📱"}</span>
-          <span className="flex-1 truncate">{activeWorkspace?.nome ?? "Selecionar workspace"}</span>
+          <span className="text-lg leading-none">{active?.icone ?? "📱"}</span>
+          <span className="flex-1 truncate">{active?.nome ?? "Selecionar workspace"}</span>
           <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
@@ -53,7 +60,7 @@ export function WorkspaceSwitcher() {
           Trocar de workspace
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {workspaces.map((w) => {
+        {effectiveWorkspaces.map((w) => {
           const isActive = w.id === activeWorkspaceId;
           return (
             <DropdownMenuItem
