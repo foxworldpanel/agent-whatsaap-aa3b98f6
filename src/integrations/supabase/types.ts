@@ -2327,6 +2327,7 @@ export type Database = {
           phone: string
           updated_at: string | null
           user_id: string
+          workspace_id: string
         }
         Insert: {
           history?: Json
@@ -2334,6 +2335,7 @@ export type Database = {
           phone: string
           updated_at?: string | null
           user_id: string
+          workspace_id: string
         }
         Update: {
           history?: Json
@@ -2341,8 +2343,17 @@ export type Database = {
           phone?: string
           updated_at?: string | null
           user_id?: string
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversations_v3_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       extraction_logs: {
         Row: {
