@@ -134,9 +134,6 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     workspaceId = ws?.id || "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
   }
 
-    throw new Error(`[agent-v3] Workspace não encontrado para o usuário ${userId}`);
-  }
-
 
   // 1. Carregar módulos do CMS e aplicar overrides explícitos do chamador.
   const activeModulesMap = await loadEnabledModulesV3(workspaceId);
