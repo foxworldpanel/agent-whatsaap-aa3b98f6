@@ -298,7 +298,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
         workspaceId: num.workspace_id,
-        conversationId: conversationId,
+        conversationId: conversationId as string | undefined,
         phone: phoneStr,
         message: finalMsgText,
         history: history,
@@ -321,7 +321,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         phoneStr,
         replyText,
         { 
-          conversationId: conversationId || phoneStr, 
+          conversationId: (conversationId as string) || phoneStr, 
           source: "agent_v3", 
           applyHumanize: true 
         }
