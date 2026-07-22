@@ -120,19 +120,14 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     phone,
   } = input;
 
-  // A identidade da V3 vem exclusivamente do módulo `identidade` do CMS.
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: ws } = await supabaseAdmin
-    .from("workspaces")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("is_default", true)
-    .maybeSingle();
-
-  const workspaceId = inputWorkspaceId || ws?.id;
+  // A identidade da V3 vem prioritariamente do workspaceId informado, ou do singleton da Mind se o usuário não tiver um próprio.
+  const { resolveWorkspaceId } = await import("@/lib/workspace-scope.server");
+  const workspaceId = inputWorkspaceId || (await resolveWorkspaceId(userId));
+  
   if (!workspaceId) {
     throw new Error(`[agent-v3] Workspace não encontrado para o usuário ${userId}`);
   }
+
 
   // 1. Carregar módulos do CMS e aplicar overrides explícitos do chamador.
   const activeModulesMap = await loadEnabledModulesV3(workspaceId);
