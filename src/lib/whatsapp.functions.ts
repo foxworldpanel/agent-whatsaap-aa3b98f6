@@ -2,25 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
+// SECURITY: token-based cross-tenant sharing removed. See agent-shared.server.ts.
 async function getSharedUazapiUserIds(context: { supabase: any; userId: string }) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: ownIntegration, error } = await supabaseAdmin
-    .from("integrations")
-    .select("uazapi_token")
-    .eq("user_id", context.userId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-
-  const token = ownIntegration?.uazapi_token;
-  if (!token) return [context.userId];
-
-  const { data: sharedRows, error: sharedError } = await supabaseAdmin
-    .from("integrations")
-    .select("user_id")
-    .eq("uazapi_token", token);
-  if (sharedError) throw new Error(sharedError.message);
-
-  return Array.from(new Set([context.userId, ...(sharedRows ?? []).map((row) => row.user_id)]));
+  return [context.userId];
 }
 
 // List conversations with contact info

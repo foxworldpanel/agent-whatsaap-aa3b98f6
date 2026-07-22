@@ -152,7 +152,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const msgLocal = payload.message ?? payload.data ?? {};
     const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
     const phoneStrLocal = String(phoneLocal || "");
-    
+
+    // 0. SECURITY: verify the instance token matches a real, provisioned
+    // WhatsApp number BEFORE trusting anything else in the payload. Without
+    // this, anyone could POST a crafted body to the public webhook and force
+    // the AI agent to run against a phone number chosen by the attacker,
+    // burning Anthropic/OpenAI credits and spamming real inboxes.
+    const instanceTokenEarly = pickInstanceToken(payload);
+    if (!instanceTokenEarly) {
+      console.log("[V3-GATE] Rejected: missing instance token");
+      return new Response("unauthorized (no instance token)", { status: 401 });
+    }
+    const { data: numEarly } = await adminEarly
+      .from("whatsapp_numbers")
+      .select("id")
+      .eq("uazapi_token", instanceTokenEarly)
+      .maybeSingle();
+    if (!numEarly) {
+      console.log("[V3-GATE] Rejected: instance token not provisioned");
+      return new Response("unauthorized (unknown instance)", { status: 401 });
+    }
+
     // 1. Bloqueio de mensagens enviadas pelo próprio bot (fromMe)
     if (msgLocal.fromMe) {
       console.log("[V3-GATE] Ignorando fromMe");

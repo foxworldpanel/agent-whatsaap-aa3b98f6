@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { assertCronAuthorized } from "@/lib/cron-auth.server";
 
 // pg_cron chama este endpoint a cada minuto.
 // Para cada campanha "rodando" do usuário:
@@ -12,7 +13,9 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        const unauth = assertCronAuthorized(request);
+        if (unauth) return unauth;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
         const { generateAgentReply } = await import("@/lib/ai.server");

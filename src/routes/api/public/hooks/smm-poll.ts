@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { assertCronAuthorized } from "@/lib/cron-auth.server";
 
 // Polls MIND SMM Panel for pending free-trial orders.
 // Called by pg_cron every 5 minutes.
@@ -8,7 +9,9 @@ const TIMEOUT_HOURS = 24;
 export const Route = createFileRoute("/api/public/hooks/smm-poll")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        const unauth = assertCronAuthorized(request);
+        if (unauth) return unauth;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { smmOrderStatus } = await import("@/lib/smm.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
