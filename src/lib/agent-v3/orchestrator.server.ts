@@ -426,7 +426,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       // humanity, clarity etc are derived from feedback or expanded in extractor later
     },
     usage: {
-      model: "claude-sonnet-5",
+      model: "claude-haiku-4-5",
       request_id: llmResult.request_id || "unknown", // Adjust if llmResult has it differently
       input_tokens,
       output_tokens,
