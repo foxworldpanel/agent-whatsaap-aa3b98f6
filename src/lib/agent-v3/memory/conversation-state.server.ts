@@ -76,10 +76,11 @@ export async function saveConversationStateV3(userId: string, phone: string, his
  * Remove o histórico da tabela conversations_v3 sem afetar mensagens reais no WhatsApp (tabela conversations/messages).
  */
 export async function clearConversationStateV3(userId: string, phone: string) {
+  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
   const { error } = await supabaseAdmin
     .from("conversations_v3")
     .delete()
-    .eq("user_id", userId)
+    .eq("workspace_id", MIND_ID)
     .eq("phone", phone);
 
   if (error) {
