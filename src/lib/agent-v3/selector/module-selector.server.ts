@@ -146,7 +146,11 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "fechar",
     "quero comprar",
     "quero esse",
+    "me manda",
+    "como faco",
+    "como eu compro",
   ],
+
 };
 
 const PLATFORM_PATTERNS: Array<[NonNullable<ConversationContext["platform"]>, string[]]> = [
