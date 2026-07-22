@@ -26,16 +26,10 @@ export function WorkspaceSwitcher() {
   }
 
   const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-  const effectiveWorkspaces = workspaces.length > 0 
-    ? workspaces 
-    : (activeWorkspaceId === MIND_ID ? [{ id: MIND_ID, nome: "Mind SMM Panel", icone: "🧠", cor: "blue", is_default: true }] : []);
+  const effectiveWorkspaces = [{ id: MIND_ID, nome: "Mind SMM Panel", icone: "🧠", cor: "blue", is_default: true }];
 
-  if (!effectiveWorkspaces.length) {
-    return (
-      <div className="mx-3 mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-        Nenhum workspace válido encontrado. Selecione ou solicite acesso ao workspace Mind.
-      </div>
-    );
+  if (activeWorkspaceId !== MIND_ID && !isLoading) {
+    return null; // Don't show anything until forced
   }
 
   const active = activeWorkspace || effectiveWorkspaces.find(w => w.id === activeWorkspaceId);
@@ -74,14 +68,7 @@ export function WorkspaceSwitcher() {
             </DropdownMenuItem>
           );
         })}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => setWizardOpen(true)}
-          className="flex items-center gap-2 text-primary focus:text-primary"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="flex-1">Criar novo workspace</span>
-        </DropdownMenuItem>
+        {/* Novo workspace desativado para manter single-tenant Mind */}
       </DropdownMenuContent>
     </DropdownMenu>
     <CreateWorkspaceWizard open={wizardOpen} onOpenChange={setWizardOpen} />
