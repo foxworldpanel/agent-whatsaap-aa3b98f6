@@ -7,10 +7,11 @@ export interface ChatMessageV3 {
 }
 
 export async function getConversationStateV3(userId: string, phone: string): Promise<{ history: ChatMessageV3[], telemetry: { total_messages_stored: number, session_reset_reason?: string, history_truncated: boolean, oldest_message_sent_at?: string } }> {
+  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
   const { data, error } = await supabaseAdmin
     .from("conversations_v3")
     .select("history, updated_at")
-    .eq("user_id", userId)
+    .eq("workspace_id", MIND_ID)
     .eq("phone", phone)
     .maybeSingle();
 
