@@ -220,8 +220,37 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
       type: "text",
       text: `
 LEAD INTELLIGENCE (Obrigatório em toda resposta):
-...
-${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}`,
+Sempre inclua os seguintes marcadores no INÍCIO da sua resposta (antes do texto):
+[TEMP:frio|morno|quente]
+[CONF:Muito baixa|Baixa|Média|Alta|Muito alta]
+[INTENT:Saudação|Informação|Pesquisa|Comparação|Compra|Suporte|Pagamento|Pós-venda|Reclamação|Outro]
+[STAGE:Primeiro contato|Descoberta|Qualificação|Negociação|Objeções|Fechamento|Pós-venda]
+[PROB:0-100]
+[SENT:Positivo|Neutro|Negativo]
+[URG:Baixa|Média|Alta]
+[ACTION:Ação recomendada]
+[REASON:Justificativa curta]
+[SCORE:0-100] (Avaliação da qualidade da resposta)
+[FEEDBACK:Item 1|Item 2|...] (Lista de pontos positivos/negativos separados por |)
+
+
+ESTADO DA CONVERSA:
+\${modulePrompt}
+
+
+\${
+  extraContext
+    ? \`FATO TÉCNICO:
+\${extraContext}\`
+    : ""
+}
+
+REGRA DE CONCISÃO:
+- Seja breve e cubra somente as informações necessárias para o próximo passo.
+
+\${isAudioInput ? \`MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.\` : ""}
+\${isImageInput ? \`IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.\` : ""}
+\${isStickerInput ? \`FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.\` : ""}`,
       cache_control: { type: "ephemeral" }
     },
   ];
