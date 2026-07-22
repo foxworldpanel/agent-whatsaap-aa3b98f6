@@ -318,7 +318,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         { role: "agent" as const, content: replyText }
       ].slice(-100));
 
-      const finalConvId: string = (conversationId || phoneStr) as string;
+      const finalConvId = String(conversationId || phoneStr);
 
       await sendAgentTextGuarded(
         { uazapi_url: num.uazapi_url, uazapi_token: instanceToken },
