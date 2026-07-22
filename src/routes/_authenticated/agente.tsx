@@ -65,6 +65,14 @@ function AgenteV3AdminPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewModuleOpen, setIsNewModuleOpen] = useState(false);
   
+  // Form for new module
+  const [newModule, setNewModule] = useState({
+    key: "",
+    name: "",
+    category: "Outros",
+    content: ""
+  });
+
   // Local state for categories to allow reordering
   const [localModules, setLocalModules] = useState<any[]>([]);
 
@@ -282,7 +290,7 @@ function AgenteV3AdminPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={() => createMut.mutate()} disabled={createMut.isPending || !newModule.key}>
+                <Button onClick={() => createMut.mutate(newModule)} disabled={createMut.isPending || !newModule.key}>
                   {createMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                   Criar Módulo
                 </Button>
