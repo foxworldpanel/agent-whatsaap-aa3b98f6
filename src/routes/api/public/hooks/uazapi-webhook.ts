@@ -148,140 +148,152 @@ function isStopRequest(text: string): boolean {
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
-    const { supabaseAdmin: adminEarly } = await import("@/integrations/supabase/client.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const msgLocal = payload.message ?? payload.data ?? {};
     const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
-    const phoneStrLocal = String(phoneLocal || "");
+    const phoneStr = String(phoneLocal || "");
+    const instanceToken = pickInstanceToken(payload);
 
-    // 0. SECURITY: verify the instance token matches a real, provisioned
-    // WhatsApp number BEFORE trusting anything else in the payload. Without
-    // this, anyone could POST a crafted body to the public webhook and force
-    // the AI agent to run against a phone number chosen by the attacker,
-    // burning Anthropic/OpenAI credits and spamming real inboxes.
-    const instanceTokenEarly = pickInstanceToken(payload);
-    if (!instanceTokenEarly) {
-      console.log("[V3-GATE] Rejected: missing instance token");
+    if (!phoneStr) {
+      return new Response("ok (no phone)");
+    }
+
+    // 0. SECURITY & RESOLUTION
+    if (!instanceToken) {
+      console.log("[UAZ-WEBHOOK] Rejected: missing instance token");
       return new Response("unauthorized (no instance token)", { status: 401 });
     }
-    const { data: numEarly } = await adminEarly
+
+    const { data: num } = await supabaseAdmin
       .from("whatsapp_numbers")
-      .select("id")
-      .eq("uazapi_token", instanceTokenEarly)
+      .select("id, user_id, workspace_id, uazapi_url")
+      .eq("uazapi_token", instanceToken)
       .maybeSingle();
-    if (!numEarly) {
-      console.log("[V3-GATE] Rejected: instance token not provisioned");
+
+    if (!num) {
+      console.log("[UAZ-WEBHOOK] Rejected: instance token not provisioned");
       return new Response("unauthorized (unknown instance)", { status: 401 });
     }
 
-    // 1. Bloqueio de mensagens enviadas pelo próprio bot (fromMe)
-    if (msgLocal.fromMe) {
-      console.log("[V3-GATE] Ignorando fromMe");
-      return new Response("ok (ignoring self)");
-    }
-
-    // 2. Validação de número autorizado
-    const AUTHORIZED_PHONES = ["5511970116430"];
-    const isAuthorized = AUTHORIZED_PHONES.includes(phoneStrLocal);
-
-    if (!isAuthorized) {
-      const phoneTail = phoneStrLocal.slice(-4);
-      console.log(`🚫 AI disabled for non-authorized contact (…${phoneTail})`);
-      return new Response("ok (unauthorized number)");
-    }
-
-    // 3. Deduplicação por MessageID
-    const msgId = extractMessageId(payload) || buildFallbackMessageId(phoneStrLocal, msgLocal.text || "");
+    // 1. Deduplicação por MessageID
+    const msgId = extractMessageId(payload) || buildFallbackMessageId(phoneStr, msgLocal.text || "");
     const hits = bumpMessageIdHit(msgId);
     if (hits > 1) {
-      console.log(`[V3-GATE] Ignorando duplicata (msgId: ${msgId}, hit: ${hits})`);
+      console.log(`[UAZ-WEBHOOK] Ignorando duplicata (msgId: ${msgId}, hit: ${hits})`);
       return new Response("ok (duplicate msgId)");
     }
 
-    // [V3-ROUTING-GATE]
     const content = extractContent(payload);
-    console.log(`[V3-AUDIT] ${JSON.stringify({ message_id: msgId, kind: content.kind, mime: content.mime || "none", media_url: !!content.mediaUrl })}`);
-    
+
+    // 2. SYNC TO CRM (Always do this for all incoming messages)
+    let contactId: string | null = null;
+    let conversationId: string | null = null;
+
     try {
-      const instanceToken = pickInstanceToken(payload);
+      // Upsert Contact
+      const { data: contact, error: contactErr } = await supabaseAdmin
+        .from("contacts")
+        .upsert({
+          telefone: phoneStr,
+          user_id: num.user_id,
+          workspace_id: num.workspace_id,
+          whatsapp_number_id: num.id,
+          nome: msgLocal.sender?.split("@")[0] || phoneStr,
+        }, { onConflict: "user_id,telefone" })
+        .select("id")
+        .single();
+
+      if (contactErr) throw contactErr;
+      contactId = contact.id;
+
+      // Upsert Conversation
+      const { data: conv, error: convErr } = await supabaseAdmin
+        .from("conversations")
+        .upsert({
+          contact_id: contactId,
+          user_id: num.user_id,
+          workspace_id: num.workspace_id,
+          whatsapp_number_id: num.id,
+          last_message_preview: content.text.slice(0, 100),
+          last_message_at: new Date().toISOString(),
+          status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
+        }, { onConflict: "contact_id" })
+        .select("id")
+        .single();
+
+      if (convErr) throw convErr;
+      conversationId = conv.id;
+
+      // Insert Message
+      const { error: msgErr } = await supabaseAdmin
+        .from("messages")
+        .insert({
+          conversation_id: conversationId,
+          user_id: num.user_id,
+          workspace_id: num.workspace_id,
+          sender: msgLocal.fromMe ? "agente" : "cliente",
+          kind: content.kind,
+          body: content.text,
+          audio_url: content.mediaUrl,
+          external_id: msgId,
+        });
+
+      if (msgErr) throw msgErr;
+    } catch (syncErr: any) {
+      console.error("[UAZ-WEBHOOK] Error syncing to CRM:", syncErr.message);
+      // We continue anyway to try AI if authorized
+    }
+
+    // 3. AI GATE
+    if (msgLocal.fromMe) {
+      return new Response("ok (sync only for fromMe)");
+    }
+
+    const AUTHORIZED_PHONES = ["5511970116430"];
+    const isAuthorized = AUTHORIZED_PHONES.includes(phoneStr);
+
+    if (!isAuthorized) {
+      console.log(`[UAZ-WEBHOOK] AI disabled for …${phoneStr.slice(-4)}`);
+      return new Response("ok (sync only)");
+    }
+
+    // 4. AI PROCESSING (V3)
+    try {
       let finalMsgText = content.text || "";
-      let transcriptionAttempted = false;
-      let num: any = null;
       if (content.kind === "audio" && content.mediaUrl) {
         try {
-          console.log("[V3-GATE] Áudio detectado, iniciando transcrição...");
           const { processAudioV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
           const transcription = await processAudioV3(content.mediaUrl);
-          if (transcription) {
-            finalMsgText = transcription;
-            transcriptionAttempted = true;
-            console.log("[V3-GATE] Transcrição concluída:", finalMsgText);
-          }
+          if (transcription) finalMsgText = transcription;
         } catch (audioErr) {
-          console.error("[V3-GATE] Erro na transcrição:", audioErr);
+          console.error("[UAZ-WEBHOOK] Transcription failed:", audioErr);
         }
       }
 
-      // 5. Proteção anti-envio duplicado (texto idêntico no TTL)
-      if (memWasRecentlySent(phoneStrLocal, finalMsgText)) {
-        console.log("[V3-GATE] Bloqueando reenvio de texto idêntico (TTL)");
+      if (memWasRecentlySent(phoneStr, finalMsgText)) {
         return new Response("ok (recently sent)");
       }
 
-      // 6. Verificação de Stop Request (Compliance)
       if (isStopRequest(finalMsgText)) {
-        console.log("[V3-GATE] Stop request detectado. Silenciando.");
-        // Opcional: marcar no banco que o cliente pediu pra parar
         return new Response("ok (stop request)");
       }
 
-      // Resolve contexto básico da instância
-      const { data: numData } = await adminEarly
-        .from("whatsapp_numbers")
-        .select("user_id, workspace_id, uazapi_url")
-        .eq("uazapi_token", instanceToken || "")
-        .maybeSingle();
-      
-      num = numData;
-      
-      if (!num?.user_id || !num?.workspace_id) {
-        console.error("[V3-GATE] Instância não vinculada a usuário/workspace", { hasToken: Boolean(instanceToken) });
-        return new Response("Webhook não configurado", { status: 422 });
-      }
-      const targetUserId = num.user_id;
-
-      const { data: integ } = await adminEarly
+      const { data: integ } = await supabaseAdmin
         .from("integrations")
         .select("anthropic_api_key")
-        .eq("user_id", targetUserId)
+        .eq("user_id", num.user_id)
         .maybeSingle();
 
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
 
-      // Carrega histórico V3
-      const { history, telemetry: historyTelemetry } = await getConversationStateV3(targetUserId, phoneStrLocal);
-      
-      // Resolve IDs antes da execução para que a telemetria V3 fique vinculada
-      // ao contato e à conversa reais de produção.
-      const { data: contactData } = await adminEarly
-        .from("contacts")
-        .select("id")
-        .eq("workspace_id", num.workspace_id)
-        .eq("telefone", phoneStrLocal)
-        .maybeSingle();
+      const { history, telemetry: historyTelemetry } = await getConversationStateV3(num.user_id, phoneStr);
 
-      const { data: conv } = contactData ? await adminEarly
-        .from("conversations")
-        .select("id")
-        .eq("contact_id", contactData.id)
-        .maybeSingle() : { data: null };
-
-      // Executa Orquestrador V3 (ÚNICO CAMINHO)
       const v3Response = await runAgentV3Turn({
-        userId: targetUserId,
-        workspaceId: num?.workspace_id || undefined,
-        conversationId: conv?.id || undefined,
-        phone: phoneStrLocal,
+        userId: num.user_id,
+        workspaceId: num.workspace_id,
+        conversationId: conversationId || undefined,
+        phone: phoneStr,
         message: finalMsgText,
         history: history,
         historyTelemetry: historyTelemetry,
@@ -292,46 +304,25 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const replyText = v3Response.replies.join("\n\n");
 
-      // Salva histórico V3
-      await saveConversationStateV3(targetUserId, phoneStrLocal, [
+      await saveConversationStateV3(num.user_id, phoneStr, [
         ...history,
         { role: "customer" as const, content: finalMsgText },
         { role: "agent" as const, content: replyText }
-      ].slice(-100)); // Mantém um buffer maior no banco, mas o loader limita a 10 para o LLM
+      ].slice(-100));
 
-      // Envio via canal seguro
       await sendAgentTextGuarded(
-        { uazapi_url: num.uazapi_url, uazapi_token: instanceToken || "" },
-        phoneStrLocal,
+        { uazapi_url: num.uazapi_url, uazapi_token: instanceToken },
+        phoneStr,
         replyText,
-        { conversationId: conv?.id || phoneStrLocal, source: "agent_v3", applyHumanize: true }
+        { conversationId: conversationId || phoneStr, source: "agent_v3", applyHumanize: true }
       );
 
-      // Marca como enviado recentemente para evitar loops
-      memMarkSent(phoneStrLocal, replyText);
-
-      console.log("[V3-GATE] Sucesso para:", phoneStrLocal, "kind:", content.kind, "transcribed:", transcriptionAttempted);
-      return new Response("ok (V3 processed)");
+      memMarkSent(phoneStr, replyText);
+      return new Response("ok (AI processed)");
 
     } catch (e: any) {
-      console.error("[V3-CRITICAL-ERROR] Falha catastrófica:", {
-        message: e.message,
-        stack: e.stack,
-        phone: phoneStrLocal,
-        msgId: msgId,
-        workspaceId: "unknown" // 'num' is not available in catch scope if it fails before definition
-      });
-      
-      const instanceToken = pickInstanceToken(payload);
-      
-      await sendAgentTextGuarded(
-        { uazapi_url: "https://mindsmmglobal.uazapi.com", uazapi_token: instanceToken || "" },
-        phoneStrLocal,
-        "Desculpe, tive um problema técnico momentâneo. Pode tentar de novo em instantes?",
-        { conversationId: phoneStrLocal, source: "v3_error_fallback" }
-      ).catch(() => {});
-      
-      return new Response("ok (V3 error handled)");
+      console.error("[UAZ-WEBHOOK] AI Critical Error:", e.message);
+      return new Response("ok (AI error handled)");
     }
 }
 
@@ -340,22 +331,11 @@ export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
     handlers: {
       POST: async ({ request }) => {
         const rawBody = await request.text();
-        let payload: UazapiPayload | null = null;
         try {
-          payload = JSON.parse(rawBody) as UazapiPayload;
-        } catch (e) {
-          return new Response("invalid json", { status: 400 });
-        }
-
-        if (!payload) {
-          return new Response("no payload", { status: 400 });
-        }
-
-        try {
+          const payload = JSON.parse(rawBody) as UazapiPayload;
           return await processWebhook(payload);
         } catch (e) {
-          console.error("webhook process catched", e);
-          return new Response("internal error", { status: 500 });
+          return new Response("error", { status: 500 });
         }
       },
     },
