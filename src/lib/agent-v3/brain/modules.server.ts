@@ -29,7 +29,9 @@ const CACHE_TTL_MS = 30_000;
 
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    ? value
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .map((item) => item.trim().toLowerCase())
     : [];
 
 /**
@@ -58,7 +60,7 @@ export async function loadEnabledModulesV3(
   const modules: Record<string, LoadedModuleV3> = {};
   for (const rawRow of data || []) {
     const row = rawRow as Record<string, unknown>;
-    const key = typeof row.key === "string" ? row.key.trim() : "";
+    const key = typeof row.key === "string" ? row.key.trim().toLowerCase() : "";
     const content = typeof row.content === "string" ? row.content.trim() : "";
     if (!key || !content) continue;
 

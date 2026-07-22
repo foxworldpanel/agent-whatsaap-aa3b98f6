@@ -55,7 +55,7 @@ export type SelectionResultV3 = {
   selectionReasons: Record<string, string>;
 };
 
-const MAX_SELECTED_MODULES = 11;
+const MAX_PRIMARY_MODULES = 11;
 const RECENT_CUSTOMER_MESSAGES = 6;
 
 export const KEYWORD_MAP: Record<string, string[]> = {
@@ -332,8 +332,9 @@ export function selectModulesV3(
     ([, a], [, b]) => b.routing.priority - a.routing.priority,
   );
 
-  const add = (key: string, reason: string) => {
-    if (!modules[key] || selected.size >= MAX_SELECTED_MODULES) return;
+  const add = (key: string, reason: string, options?: { required?: boolean }) => {
+    if (!modules[key] || selected.has(key)) return;
+    if (!options?.required && selected.size >= MAX_PRIMARY_MODULES) return;
     selected.add(key);
     reasons[key] ||= reason;
   };
@@ -355,6 +356,11 @@ export function selectModulesV3(
     if (context.platform && routing.platforms.includes(context.platform)) {
       add(key, `Plataforma ${context.platform} definida no CMS`);
     }
+    // Fallback estrutural: um módulo ativo com a mesma chave da plataforma
+    // deve ser carregado mesmo quando os metadados do CMS ainda não foram migrados.
+    if (context.platform && key === context.platform) {
+      add(key, `Módulo correspondente à plataforma ${context.platform}`, { required: true });
+    }
     if (context.product && routing.products.includes(context.product)) {
       add(key, `Produto ${context.product} definido no CMS`);
     }
@@ -368,7 +374,7 @@ export function selectModulesV3(
   // Dependências são resolvidas depois da seleção inicial.
   for (const key of Array.from(selected)) {
     for (const dependency of modules[key]?.routing.dependencies || []) {
-      add(dependency, `Dependência do módulo ${key}`);
+      add(dependency, `Dependência do módulo ${key}`, { required: true });
     }
   }
 

@@ -120,9 +120,8 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     phone,
   } = input;
 
-  // Single-tenant project: ALWAYS use Mind Workspace ID
-  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-  const workspaceId = MIND_ID;
+  const DEFAULT_MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+  const workspaceId = inputWorkspaceId?.trim() || DEFAULT_MIND_WORKSPACE_ID;
 
 
   // 1. Carregar módulos do CMS e aplicar overrides explícitos do chamador.

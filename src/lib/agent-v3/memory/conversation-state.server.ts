@@ -1,4 +1,3 @@
-// src/lib/agent-v3/conversation-state.server.ts
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export interface ChatMessageV3 {
@@ -6,13 +5,38 @@ export interface ChatMessageV3 {
   content: string;
 }
 
-export async function getConversationStateV3(userId: string, phone: string): Promise<{ history: ChatMessageV3[], telemetry: { total_messages_stored: number, session_reset_reason?: string, history_truncated: boolean, oldest_message_sent_at?: string } }> {
-  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+export const DEFAULT_MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+
+export function normalizePhoneV3(phone: string): string {
+  const digits = String(phone || "").replace(/\D+/g, "");
+  if (!digits) throw new Error("[V3-STATE] Telefone inválido");
+  return digits;
+}
+
+function resolveWorkspaceId(workspaceId?: string): string {
+  return workspaceId?.trim() || DEFAULT_MIND_WORKSPACE_ID;
+}
+
+export async function getConversationStateV3(
+  userId: string,
+  phone: string,
+  workspaceId?: string,
+): Promise<{
+  history: ChatMessageV3[];
+  telemetry: {
+    total_messages_stored: number;
+    session_reset_reason?: string;
+    history_truncated: boolean;
+    oldest_message_sent_at?: string;
+  };
+}> {
+  const normalizedPhone = normalizePhoneV3(phone);
+  const resolvedWorkspaceId = resolveWorkspaceId(workspaceId);
   const { data, error } = await supabaseAdmin
     .from("conversations_v3")
     .select("history, updated_at")
-    .eq("workspace_id", MIND_ID)
-    .eq("phone", phone)
+    .eq("workspace_id", resolvedWorkspaceId)
+    .eq("phone", normalizedPhone)
     .maybeSingle();
 
   if (error) {
@@ -25,67 +49,65 @@ export async function getConversationStateV3(userId: string, phone: string): Pro
   let history = [...rawHistory];
   let session_reset_reason: string | undefined;
 
-  // EXPIRAÇÃO DE 24 HORAS
-  if (data?.updated_at) {
-    const lastUpdate = new Date(data.updated_at).getTime();
-    const now = Date.now();
-    if (now - lastUpdate > 24 * 60 * 60 * 1000) {
-      console.log(`[V3-STATE] Sessão expirada (24h) para ${phone}`);
-      history = [];
-      session_reset_reason = "inactivity_24h";
-    }
+  if (data?.updated_at && Date.now() - new Date(data.updated_at).getTime() > 24 * 60 * 60 * 1000) {
+    history = [];
+    session_reset_reason = "inactivity_24h";
   }
 
-  // LIMITE DE 10 MENSAGENS
   const history_truncated = history.length > 10;
-  if (history_truncated) {
-    history = history.slice(-10);
-  }
+  if (history_truncated) history = history.slice(-10);
 
-  const oldest_message_sent_at = data?.updated_at ?? undefined; // Aproximação baseada no registro
-
-  return { 
-    history, 
-    telemetry: { 
-      total_messages_stored, 
-      session_reset_reason, 
+  return {
+    history,
+    telemetry: {
+      total_messages_stored,
+      session_reset_reason,
       history_truncated,
-      oldest_message_sent_at
-    } 
+      oldest_message_sent_at: data?.updated_at ?? undefined,
+    },
   };
 }
 
-export async function saveConversationStateV3(userId: string, phone: string, history: ChatMessageV3[]) {
-  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-  const { error } = await supabaseAdmin
-    .from("conversations_v3")
-    .upsert(
-      { workspace_id: MIND_ID, user_id: userId, phone, history: history as any, updated_at: new Date().toISOString() },
-      { onConflict: "workspace_id, phone" }
-    );
+export async function saveConversationStateV3(
+  userId: string,
+  phone: string,
+  history: ChatMessageV3[],
+  workspaceId?: string,
+) {
+  const normalizedPhone = normalizePhoneV3(phone);
+  const resolvedWorkspaceId = resolveWorkspaceId(workspaceId);
+  const { error } = await supabaseAdmin.from("conversations_v3").upsert(
+    {
+      workspace_id: resolvedWorkspaceId,
+      user_id: userId,
+      phone: normalizedPhone,
+      history: history as any,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "workspace_id, phone" },
+  );
 
-  if (error) {
-    console.error("[V3-STATE] Error saving history:", error);
-  } else {
-    console.log(`[V3-STATE] Historico sincronizado para ${phone}`);
-  }
+  if (error) console.error("[V3-STATE] Error saving history:", error);
 }
 
-/**
- * LIMPEZA EXCLUSIVA V3
- * Remove o histórico da tabela conversations_v3 sem afetar mensagens reais no WhatsApp (tabela conversations/messages).
- */
-export async function clearConversationStateV3(userId: string, phone: string) {
-  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+export async function clearConversationStateV3(
+  userId: string,
+  phone: string,
+  workspaceId?: string,
+) {
+  const normalizedPhone = normalizePhoneV3(phone);
+  const resolvedWorkspaceId = resolveWorkspaceId(workspaceId);
+  const localPhone = normalizedPhone.startsWith("55") ? normalizedPhone.slice(2) : normalizedPhone;
+  const variants = Array.from(new Set([normalizedPhone, localPhone]));
+
   const { error } = await supabaseAdmin
     .from("conversations_v3")
     .delete()
-    .eq("workspace_id", MIND_ID)
-    .eq("phone", phone);
+    .eq("workspace_id", resolvedWorkspaceId)
+    .in("phone", variants);
 
   if (error) {
     console.error("[V3-STATE] Error clearing history:", error);
     throw error;
   }
-  console.log(`[V3-STATE] Estado V3 LIMPO para ${phone}`);
 }

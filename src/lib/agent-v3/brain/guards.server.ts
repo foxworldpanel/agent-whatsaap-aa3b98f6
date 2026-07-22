@@ -54,18 +54,29 @@ export function limitEmojiFrequency(text: string, history: Array<{ sender: strin
  * Trava de custo: detecta loops verbosos (idoso leigo ou repetição sem avanço).
  */
 export function detectVerboseLoop(history: Array<{ sender: string, body: string }>): boolean {
-  if (!history || history.length < 6) return false;
-  
-  const clientMsgs = history.filter(m => m.sender === "cliente");
-  if (clientMsgs.length < 3) return false;
-  
-  const last3 = clientMsgs.slice(-3);
-  
-  // Se as últimas 3 mensagens do cliente são muito curtas (< 15 chars)
-  const allShort = last3.every(m => m.body.length < 15);
-  if (allShort) return true;
+  if (!history || history.length < 8) return false;
 
-  return false;
+  const normalize = (value: string) =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const clientMsgs = history
+    .filter((m) => m.sender === "cliente")
+    .map((m) => normalize(m.body))
+    .filter(Boolean);
+  if (clientMsgs.length < 4) return false;
+
+  // Só considera loop quando o cliente repete essencialmente a mesma mensagem.
+  // Mensagens curtas diferentes (ex.: "boa tarde", "tenho interesse", "Spotify")
+  // são progresso normal da conversa e não devem encerrar o atendimento.
+  const last4 = clientMsgs.slice(-4);
+  const unique = new Set(last4);
+  return unique.size <= 2;
 }
 
 /**

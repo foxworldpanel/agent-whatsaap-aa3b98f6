@@ -257,15 +257,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (sync only for fromMe)");
     }
 
-    const AUTHORIZED_PHONES = ["5511970116430"];
-    const isAuthorized = AUTHORIZED_PHONES.includes(phoneStr);
-
-    if (!isAuthorized) {
-      console.log(`[UAZ-WEBHOOK] AI disabled for …${phoneStr.slice(-4)}`);
-      return new Response("ok (sync only)");
-    }
-
     // 4. AI PROCESSING (V3)
+    // O webhook já é protegido pelo token da instância provisionada.
+    // Não limitar o agente a um telefone fixo de teste em produção.
     try {
       const { data: integ } = await supabaseAdmin
         .from("integrations")
@@ -295,7 +289,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
 
-      const { history, telemetry: historyTelemetry } = await getConversationStateV3(num.user_id, phoneStr);
+      const { history, telemetry: historyTelemetry } = await getConversationStateV3(
+        num.user_id,
+        phoneStr,
+        num.workspace_id ?? undefined,
+      );
 
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
@@ -312,11 +310,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const replyText = v3Response.replies.join("\n\n");
 
-      await saveConversationStateV3(num.user_id, phoneStr, [
-        ...history,
-        { role: "customer" as const, content: finalMsgText },
-        { role: "agent" as const, content: replyText }
-      ].slice(-100));
+      await saveConversationStateV3(
+        num.user_id,
+        phoneStr,
+        [
+          ...history,
+          { role: "customer" as const, content: finalMsgText },
+          { role: "agent" as const, content: replyText },
+        ].slice(-100),
+        num.workspace_id ?? undefined,
+      );
 
       const finalConvId = String(conversationId || phoneStr);
 
