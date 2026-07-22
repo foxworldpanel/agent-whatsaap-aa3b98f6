@@ -320,55 +320,39 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const finalConvId = String(conversationId || phoneStr);
 
-      const uazapiCreds = {
-        uazapi_url: num.uazapi_url ?? "",
-        uazapi_token: instanceToken,
-      };
+      const creds = { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken };
+      let sentAsAudio = false;
 
-      if (content.kind === "audio") {
-        if (!integ?.elevenlabs_api_key || !integ?.elevenlabs_voice_id) {
-          console.error(
-            "[UAZ-WEBHOOK] Cliente enviou áudio, mas ElevenLabs API Key ou Voice ID não está configurado. Enviando texto como fallback.",
-          );
-          await sendAgentTextGuarded(uazapiCreds, phoneStr, replyText, {
-            conversationId: finalConvId,
-            source: "agent_v3_audio_fallback_no_tts",
-            applyHumanize: true,
+      if (content.kind === "audio" && integ?.elevenlabs_api_key && integ?.elevenlabs_voice_id) {
+        try {
+          const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+          const { uazapiSendAudio, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
+          await uazapiSendRecording(creds, phoneStr, 1200).catch(() => undefined);
+          const audioBase64 = await ttsElevenLabsBase64({
+            apiKey: integ.elevenlabs_api_key,
+            voiceId: integ.elevenlabs_voice_id,
+            text: replyText,
           });
-        } else {
-          try {
-            const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
-            const { uazapiSendAudio, uazapiSendRecording, uazapiClearPresence } = await import(
-              "@/lib/uazapi.server"
-            );
-
-            await uazapiSendRecording(uazapiCreds, phoneStr, 1200).catch(() => undefined);
-            const audioBase64 = await ttsElevenLabsBase64({
-              apiKey: integ.elevenlabs_api_key,
-              voiceId: integ.elevenlabs_voice_id,
-              text: replyText,
-            });
-            await uazapiSendAudio(uazapiCreds, phoneStr, audioBase64);
-            await uazapiClearPresence(uazapiCreds, phoneStr).catch(() => undefined);
-            console.info("[UAZ-WEBHOOK] Resposta do agente enviada por áudio");
-          } catch (ttsErr) {
-            console.error(
-              "[UAZ-WEBHOOK] Falha ao gerar/enviar áudio. Enviando texto como fallback:",
-              ttsErr,
-            );
-            await sendAgentTextGuarded(uazapiCreds, phoneStr, replyText, {
-              conversationId: finalConvId,
-              source: "agent_v3_audio_fallback_tts_error",
-              applyHumanize: true,
-            });
-          }
+          await uazapiSendAudio(creds, phoneStr, audioBase64);
+          await uazapiClearPresence(creds, phoneStr).catch(() => undefined);
+          sentAsAudio = true;
+          console.log("[UAZ-WEBHOOK] Resposta do Agent V3 enviada por áudio");
+        } catch (audioSendErr) {
+          console.error("[UAZ-WEBHOOK] Falha ao responder por áudio; usando texto:", audioSendErr);
         }
-      } else {
-        await sendAgentTextGuarded(uazapiCreds, phoneStr, replyText, {
-          conversationId: finalConvId,
-          source: "agent_v3",
-          applyHumanize: true,
-        });
+      }
+
+      if (!sentAsAudio) {
+        await sendAgentTextGuarded(
+          creds,
+          phoneStr,
+          replyText,
+          {
+            conversationId: finalConvId,
+            source: "agent_v3",
+            applyHumanize: true
+          }
+        );
       }
 
       memMarkSent(phoneStr, replyText);

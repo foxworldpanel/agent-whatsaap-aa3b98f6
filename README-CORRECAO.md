@@ -1,40 +1,29 @@
-# Correção Agent V3: módulos e resposta por áudio
+# Correção Agent V3
 
-Substitua no GitHub estes dois arquivos, preservando os mesmos caminhos:
+Arquivos corrigidos:
 
-1. `src/lib/agent-v3/orchestrator.server.ts`
-2. `src/routes/api/public/hooks/uazapi-webhook.ts`
+- `src/lib/agent-v3/orchestrator.server.ts`
+- `src/lib/agent-v3/brain/guards.server.ts`
+- `src/routes/api/public/hooks/uazapi-webhook.ts`
 
-## O que foi corrigido
+## Correções
 
-- O conteúdo real dos módulos passa a ser interpolado no prompt enviado à Anthropic.
-- `extraContext`, modo áudio, imagem e figurinha também passam a ser interpolados corretamente.
-- A integração agora lê `openai_api_key`, `elevenlabs_api_key` e `elevenlabs_voice_id`.
-- A transcrição do áudio usa a chave OpenAI salva na integração.
-- Quando o cliente envia áudio, a resposta do agente é convertida em MP3 pelo ElevenLabs e enviada pela Uazapi como áudio.
-- Se ElevenLabs não estiver configurado ou ocorrer erro no TTS/envio, o sistema envia texto como fallback para não deixar o cliente sem resposta.
+1. Corrige a interpolação real de `${modulePrompt}`, `${extraContext}` e modos de mídia.
+2. Impede o agente de inventar serviços não presentes nos módulos selecionados.
+3. Para interesse vago, pergunta somente qual rede social ou serviço o cliente procura.
+4. Remove Markdown antes do envio: `**`, `__`, crases, títulos e citações.
+5. Quando o cliente envia áudio, transcreve usando OpenAI e responde por áudio com ElevenLabs + Uazapi.
+6. Se o envio de áudio falhar ou o ElevenLabs não estiver configurado, responde em texto como fallback.
 
-## Configurações obrigatórias
+## Commit sugerido
 
-Na tela de integrações, configure:
-
-- Anthropic API Key
-- OpenAI API Key (Whisper, para transcrever o áudio recebido)
-- ElevenLabs API Key
-- ElevenLabs Voice ID
-- Uazapi URL e token
-
-## Teste recomendado
-
-1. Faça o deploy.
-2. Aguarde pelo menos 30 segundos após editar módulos, por causa do cache local.
-3. Envie um áudio curto pelo número autorizado.
-4. Confirme nos logs:
-   - transcrição concluída;
-   - módulos selecionados;
-   - `Resposta do agente enviada por áudio`.
-5. Confirme no WhatsApp que a resposta chegou como áudio.
+`Corrige fonte dos módulos, Markdown e resposta por áudio`
 
 ## Observação
 
-O arquivo `src/lib/audio-out-gate.ts` não era usado pelo webhook de produção. A correção não usa esse gate porque a regra solicitada é direta: entrada em áudio deve gerar saída em áudio.
+O build não foi executado neste ambiente porque as dependências do projeto não estavam instaladas (`vite: not found`). Execute localmente:
+
+```bash
+npm install
+npm run build
+```

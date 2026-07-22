@@ -10,6 +10,7 @@ import {
   limitEmojiFrequency,
   detectVerboseLoop,
     humanizePunctuationV3,
+    stripMarkdownFormattingV3,
 } from "./brain/guards.server";
 import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
 
@@ -244,10 +245,20 @@ ${extraContext}`
     : ""
 }
 
+REGRA DE FONTE ÚNICA E ANTI-INVENÇÃO:
+- Use exclusivamente as informações presentes nos módulos carregados em ESTADO DA CONVERSA.
+- Nunca invente, complete por conhecimento próprio ou liste serviços que não estejam escritos nos módulos selecionados.
+- Não ofereça Tráfego, Telegram ou qualquer categoria ausente dos módulos carregados.
+- Quando o cliente disser apenas "tenho interesse" ou algo vago, pergunte somente qual rede social ou serviço ele procura. Não apresente um catálogo inventado.
+- Se a informação não estiver nos módulos, diga que precisa confirmar, sem criar uma resposta.
+
+FORMATAÇÃO PARA WHATSAPP:
+- Responda em texto simples. Não use Markdown, asteriscos duplos, títulos com #, crases ou formatação em negrito.
+
 REGRA DE CONCISÃO:
 - Seja breve e cubra somente as informações necessárias para o próximo passo.
 
-${isAudioInput ? `MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.` : ""}
+${isAudioInput ? `MODO ÁUDIO: O cliente enviou áudio. Responda de forma curta, natural e adequada para ser narrada em áudio. Se o áudio estiver ininteligível, peça para enviar novamente ou escrever.` : ""}
 ${isImageInput ? `IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.` : ""}
 ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}`,
       cache_control: { type: "ephemeral" }
@@ -401,6 +412,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
 
   // Post-processing
   finalContent = humanizePunctuationV3(finalContent);
+  finalContent = stripMarkdownFormattingV3(finalContent);
 
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);

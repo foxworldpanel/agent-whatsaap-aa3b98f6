@@ -152,3 +152,20 @@ export function enforceReengagementGreeting(text: string, latestClientMsg: strin
 export function humanizePunctuationV3(text: string): string {
   return text.replace(/\s*[—–]\s*/g, ", ").trim();
 }
+/**
+ * Remove Markdown da resposta antes do envio ao WhatsApp.
+ * Evita exibir **, __, crases e títulos literais para o cliente.
+ */
+export function stripMarkdownFormattingV3(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/```[\s\S]*?```/g, (block) => block.replace(/```(?:\w+)?\n?/g, ""))
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/~~([^~]+)~~/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s*>\s?/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "- ")
+    .trim();
+}
