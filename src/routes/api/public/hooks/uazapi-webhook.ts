@@ -225,6 +225,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       conversationId = conv.id;
 
       // Insert Message
+      // Map 'image' and 'sticker' to 'texto' since the enum only allows 'texto' and 'audio'
+      const dbKind: "texto" | "audio" = content.kind === "audio" ? "audio" : "texto";
+
       const { error: msgErr } = await supabaseAdmin
         .from("messages")
         .insert({
@@ -232,9 +235,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           user_id: num.user_id,
           workspace_id: num.workspace_id,
           sender: msgLocal.fromMe ? "agente" : "cliente",
-          kind: content.kind,
+          kind: dbKind,
           body: content.text,
-          audio_url: content.mediaUrl,
+          audio_url: content.mediaUrl || undefined,
           external_id: msgId,
         });
 
@@ -299,7 +302,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         historyTelemetry: historyTelemetry,
         anthropicApiKey: integ?.anthropic_api_key || "",
         inputKind: content.kind,
-        messageId: msgId
+        messageId: msgId || undefined
       });
 
       const replyText = v3Response.replies.join("\n\n");
