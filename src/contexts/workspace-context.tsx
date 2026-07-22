@@ -74,6 +74,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   // Ensure activeWorkspaceId is valid; fall back to default.
   useEffect(() => {
+    if (!hasSession) return;
+    if (!workspaces.length && !workspacesQ.isLoading) return;
     if (!workspaces.length) return;
     
     // Check if we have a Mind workspace available
@@ -109,7 +111,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         void qc.invalidateQueries({ refetchType: "all" });
       }
     }
-  }, [workspaces, activeWorkspaceId, qc]);
+  }, [workspaces, activeWorkspaceId, qc, hasSession]);
 
   const switchWorkspace = useCallback(
     (id: string) => {
