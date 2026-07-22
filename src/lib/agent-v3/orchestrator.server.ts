@@ -340,7 +340,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       })),
       { role: "user", content: message },
     ],
-    model: "claude-sonnet-5",
+    model: "claude-haiku-4-5",
     metadata: {
       message_id: messageId,
       call_number: 1,

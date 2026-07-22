@@ -266,7 +266,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const { data: contactData } = await adminEarly
         .from("contacts")
         .select("id")
-        .eq("user_id", targetUserId)
+        .eq("workspace_id", num.workspace_id)
         .eq("telefone", phoneStrLocal)
         .maybeSingle();
 
