@@ -391,8 +391,6 @@ REGRA DE CONCISÃO:
   // Guards & Pipeline
   let finalContent = cleanText;
   finalContent = sanitizeSystemLeaks(finalContent);
-  const reengagement = enforceReengagementGreeting(finalContent, message);
-  finalContent = reengagement.text;
 
   // Emoji handling
   const agentHistory = history.map((m) => ({
