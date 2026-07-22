@@ -186,8 +186,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const content = extractContent(payload);
 
     // 2. SYNC TO CRM (Always do this for all incoming messages)
-    let contactId: string | null = null;
-    let conversationId: string | null = null;
+    let contactId: string | undefined = undefined;
+    let conversationId: string | undefined = undefined;
 
     try {
       // Upsert Contact
@@ -295,14 +295,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
         workspaceId: num.workspace_id,
-        conversationId: (conversationId as string) || undefined,
+        conversationId: conversationId,
         phone: phoneStr,
         message: finalMsgText,
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey: integ?.anthropic_api_key || "",
         inputKind: content.kind,
-        messageId: msgId || undefined
+        messageId: msgId ?? undefined
       });
 
       const replyText = v3Response.replies.join("\n\n");
@@ -318,7 +318,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         phoneStr,
         replyText,
         { 
-          conversationId: (conversationId as string) || phoneStr, 
+          conversationId: conversationId || phoneStr, 
           source: "agent_v3", 
           applyHumanize: true 
         }
