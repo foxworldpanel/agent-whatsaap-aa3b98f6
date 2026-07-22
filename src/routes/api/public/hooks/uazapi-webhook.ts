@@ -267,11 +267,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // 4. AI PROCESSING (V3)
     try {
+      const { data: integ } = await supabaseAdmin
+        .from("integrations")
+        .select("anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id")
+        .eq("user_id", num.user_id)
+        .maybeSingle();
+
       let finalMsgText = content.text || "";
       if (content.kind === "audio" && content.mediaUrl) {
         try {
           const { processAudioV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
-          const transcription = await processAudioV3(content.mediaUrl);
+          const transcription = await processAudioV3(content.mediaUrl, integ?.openai_api_key || undefined);
           if (transcription) finalMsgText = transcription;
         } catch (audioErr) {
           console.error("[UAZ-WEBHOOK] Transcription failed:", audioErr);
@@ -285,12 +291,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       if (isStopRequest(finalMsgText)) {
         return new Response("ok (stop request)");
       }
-
-      const { data: integ } = await supabaseAdmin
-        .from("integrations")
-        .select("anthropic_api_key")
-        .eq("user_id", num.user_id)
-        .maybeSingle();
 
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
@@ -320,16 +320,56 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const finalConvId = String(conversationId || phoneStr);
 
-      await sendAgentTextGuarded(
-        { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken },
-        phoneStr,
-        replyText,
-        { 
-          conversationId: finalConvId, 
-          source: "agent_v3", 
-          applyHumanize: true 
+      const uazapiCreds = {
+        uazapi_url: num.uazapi_url ?? "",
+        uazapi_token: instanceToken,
+      };
+
+      if (content.kind === "audio") {
+        if (!integ?.elevenlabs_api_key || !integ?.elevenlabs_voice_id) {
+          console.error(
+            "[UAZ-WEBHOOK] Cliente enviou áudio, mas ElevenLabs API Key ou Voice ID não está configurado. Enviando texto como fallback.",
+          );
+          await sendAgentTextGuarded(uazapiCreds, phoneStr, replyText, {
+            conversationId: finalConvId,
+            source: "agent_v3_audio_fallback_no_tts",
+            applyHumanize: true,
+          });
+        } else {
+          try {
+            const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+            const { uazapiSendAudio, uazapiSendRecording, uazapiClearPresence } = await import(
+              "@/lib/uazapi.server"
+            );
+
+            await uazapiSendRecording(uazapiCreds, phoneStr, 1200).catch(() => undefined);
+            const audioBase64 = await ttsElevenLabsBase64({
+              apiKey: integ.elevenlabs_api_key,
+              voiceId: integ.elevenlabs_voice_id,
+              text: replyText,
+            });
+            await uazapiSendAudio(uazapiCreds, phoneStr, audioBase64);
+            await uazapiClearPresence(uazapiCreds, phoneStr).catch(() => undefined);
+            console.info("[UAZ-WEBHOOK] Resposta do agente enviada por áudio");
+          } catch (ttsErr) {
+            console.error(
+              "[UAZ-WEBHOOK] Falha ao gerar/enviar áudio. Enviando texto como fallback:",
+              ttsErr,
+            );
+            await sendAgentTextGuarded(uazapiCreds, phoneStr, replyText, {
+              conversationId: finalConvId,
+              source: "agent_v3_audio_fallback_tts_error",
+              applyHumanize: true,
+            });
+          }
         }
-      );
+      } else {
+        await sendAgentTextGuarded(uazapiCreds, phoneStr, replyText, {
+          conversationId: finalConvId,
+          source: "agent_v3",
+          applyHumanize: true,
+        });
+      }
 
       memMarkSent(phoneStr, replyText);
       return new Response("ok (AI processed)");
