@@ -31,10 +31,15 @@ export async function callAnthropicV3(params: {
     headers["x-api-key"] = apiKey;
   }
 
-  // Map high-level models to real Anthropic identifiers
-  // Usando IDs estáveis e verificados para evitar erros 404
-  const anthropicModel =
-    model === "claude-sonnet-5" ? "claude-3-5-sonnet-20241022" : "claude-3-5-haiku-20241022";
+  // O restante da V3 já seleciona um identificador válido da Anthropic
+  // (ex.: "claude-haiku-4-5" ou "claude-sonnet-5").
+  // Não converta para modelos antigos e datados: eles podem ser removidos
+  // da API e provocar erro 404 (model not found).
+  const anthropicModel = model.trim();
+
+  if (!anthropicModel) {
+    throw new Error("Anthropic model is required");
+  }
 
   const body = {
     model: anthropicModel,
