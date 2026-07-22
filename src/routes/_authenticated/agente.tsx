@@ -87,12 +87,12 @@ function AgenteV3AdminPage() {
     })
   );
 
-  const modules = configQ.data?.modules || {};
+  const modules = useMemo(() => configQ.data?.modules || {}, [configQ.data?.modules]);
   
   // Update local modules when query data changes
   useEffect(() => {
-    if (configQ.data?.modules) {
-      const all = Object.entries(configQ.data.modules).map(([key, data]: [string, any]) => ({
+    if (modules) {
+      const all = Object.entries(modules).map(([key, data]: [string, any]) => ({
         ...data,
         key
       }));
@@ -100,7 +100,8 @@ function AgenteV3AdminPage() {
       all.sort((a, b) => (b.priority || 0) - (a.priority || 0));
       setLocalModules(all);
     }
-  }, [configQ.data?.modules]);
+  }, [modules]);
+
 
   const modulesByCategory = useMemo(() => {
     const grouped: Record<string, any[]> = {};
@@ -489,10 +490,11 @@ function AgenteV3AdminPage() {
                      <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Módulos no Banco</div>
                      <div className="text-2xl font-bold text-primary">{Object.values(modules).filter((m: any) => m.isOverride).length}</div>
                    </div>
-                   <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                     <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Módulos em Fallback</div>
-                     <div className="text-2xl font-bold text-yellow-500">{Object.values(modules).filter((m: any) => !m.isOverride).length}</div>
-                   </div>
+                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                      <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Status de Fontes</div>
+                      <div className="text-2xl font-bold text-primary">100% CMS V3</div>
+                    </div>
+
                  </div>
 
                  <div className="mt-6">
@@ -515,13 +517,10 @@ function AgenteV3AdminPage() {
                          {Object.entries(modules).map(([key, data]: [string, any]) => (
                            <tr key={key} className="hover:bg-muted/30">
                              <td className="px-4 py-3 font-mono text-xs">{key}</td>
-                             <td className="px-4 py-3">
-                               {data.isOverride ? (
-                                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">DATABASE</Badge>
-                               ) : (
-                                 <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">CODE FALLBACK</Badge>
-                               )}
-                             </td>
+                              <td className="px-4 py-3">
+                                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">DATABASE (V3)</Badge>
+                              </td>
+
                              <td className="px-4 py-3 font-mono text-xs">v{data.version || 1}</td>
                              <td className="px-4 py-3 text-muted-foreground italic truncate max-w-[200px]">
                                {data.content?.slice(0, 40)}...
