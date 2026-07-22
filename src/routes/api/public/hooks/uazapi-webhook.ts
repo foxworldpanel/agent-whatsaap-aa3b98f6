@@ -177,7 +177,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // 1. Deduplicação por MessageID
     const extractedId = extractMessageId(payload);
-    const msgId: string = extractedId || buildFallbackMessageId(phoneStr, msgLocal.text || "");
+    const msgId: string = extractedId ?? buildFallbackMessageId(phoneStr, msgLocal.text ?? "");
     
     const hits = bumpMessageIdHit(msgId);
     if (hits > 1) {
