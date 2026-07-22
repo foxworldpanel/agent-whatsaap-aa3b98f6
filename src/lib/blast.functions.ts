@@ -27,6 +27,7 @@ export const listBlastCampaigns = createServerFn({ method: "GET" })
         .from("blast_campaigns")
         .insert({
           user_id: context.userId,
+          workspace_id: context.workspaceId,
           name: SEED_NAME,
           start_time: "09:00",
           end_time: "20:00",
