@@ -48,3 +48,24 @@
 ## Validação local
 
 Foi criado teste automático para o seletor do Spotify e para dependências acima do limite primário. O ambiente de auditoria não conseguiu concluir `npm install` dentro do tempo disponível, portanto o Vitest e o build completo não foram executados aqui.
+
+## Iteração: webhook e gates de segurança (2026-07-22)
+
+Arquivos alterados:
+
+- `src/routes/api/public/hooks/uazapi-webhook.ts`
+- `tests/uazapi-webhook-ai-gates.test.ts`
+
+Correções aplicadas:
+
+1. O webhook agora consulta `agent_config.agent_enabled` por usuário e workspace antes de chamar o Agent V3.
+2. O webhook agora respeita `conversations.agent_enabled=false` e `conversations.needs_review=true`.
+3. Mensagens continuam sendo sincronizadas no CRM mesmo com o agente desligado, porém nenhuma resposta automática é gerada.
+4. Áudios sem URL, sem chave OpenAI ou com falha de transcrição deixam de enviar o placeholder `[áudio recebido]` ao LLM.
+5. Conteúdo vazio deixa de acionar o LLM.
+6. Foram adicionados testes de regressão baseados no código-fonte para os gates globais, por conversa e para falhas de áudio.
+
+Validação:
+
+- A instalação de dependências via `npm ci` excedeu o limite disponível nesta execução.
+- Portanto, os testes Vitest ainda não foram executados neste checkpoint.

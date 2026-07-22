@@ -257,6 +257,41 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (sync only for fromMe)");
     }
 
+    // Respeita os kill switches globais e por conversa. O recebimento continua
+    // sincronizado no CRM, mas nenhuma resposta automática é gerada.
+    const { data: agentConfig, error: agentConfigErr } = await supabaseAdmin
+      .from("agent_config")
+      .select("agent_enabled")
+      .eq("user_id", num.user_id)
+      .eq("workspace_id", num.workspace_id)
+      .maybeSingle();
+
+    if (agentConfigErr) {
+      console.error("[UAZ-WEBHOOK] Failed to read global agent gate:", agentConfigErr);
+      return new Response("ok (agent gate unavailable)");
+    }
+
+    if (!agentConfig || agentConfig.agent_enabled === false) {
+      return new Response("ok (agent disabled globally)");
+    }
+
+    if (conversationId) {
+      const { data: conversationGate, error: conversationGateErr } = await supabaseAdmin
+        .from("conversations")
+        .select("agent_enabled, needs_review")
+        .eq("id", conversationId)
+        .maybeSingle();
+
+      if (conversationGateErr) {
+        console.error("[UAZ-WEBHOOK] Failed to read conversation gate:", conversationGateErr);
+        return new Response("ok (conversation gate unavailable)");
+      }
+
+      if (conversationGate?.agent_enabled === false || conversationGate?.needs_review === true) {
+        return new Response("ok (agent disabled for conversation)");
+      }
+    }
+
     // 4. AI PROCESSING (V3)
     // O webhook já é protegido pelo token da instância provisionada.
     // Não limitar o agente a um telefone fixo de teste em produção.
@@ -268,14 +303,24 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .maybeSingle();
 
       let finalMsgText = content.text || "";
-      if (content.kind === "audio" && content.mediaUrl) {
+      if (content.kind === "audio") {
+        if (!content.mediaUrl || !integ?.openai_api_key) {
+          console.error("[UAZ-WEBHOOK] Audio received without media URL or OpenAI key");
+          return new Response("ok (audio unavailable)");
+        }
+
         try {
           const { processAudioV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
-          const transcription = await processAudioV3(content.mediaUrl, integ?.openai_api_key || undefined);
-          if (transcription) finalMsgText = transcription;
+          const transcription = await processAudioV3(content.mediaUrl, integ.openai_api_key);
+          finalMsgText = transcription?.trim() || "";
         } catch (audioErr) {
           console.error("[UAZ-WEBHOOK] Transcription failed:", audioErr);
+          return new Response("ok (audio transcription failed)");
         }
+      }
+
+      if (!finalMsgText.trim()) {
+        return new Response("ok (empty content)");
       }
 
       if (memWasRecentlySent(phoneStr, finalMsgText)) {
