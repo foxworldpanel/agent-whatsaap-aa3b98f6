@@ -176,7 +176,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     // 1. Deduplicação por MessageID
-    const msgId: string = extractMessageId(payload) || buildFallbackMessageId(phoneStr, msgLocal.text || "");
+    const extractedId = extractMessageId(payload);
+    const msgId: string = extractedId || buildFallbackMessageId(phoneStr, msgLocal.text || "");
+    
     const hits = bumpMessageIdHit(msgId);
     if (hits > 1) {
       console.log(`[UAZ-WEBHOOK] Ignorando duplicata (msgId: ${msgId}, hit: ${hits})`);
@@ -298,7 +300,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
         workspaceId: num.workspace_id,
-        conversationId: conversationId,
+        conversationId: conversationId || undefined,
         phone: phoneStr,
         message: finalMsgText,
         history: history,
