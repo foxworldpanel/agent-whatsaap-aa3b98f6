@@ -13,23 +13,17 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
     const { data: ownInt } = await supabaseAdmin
       .from("integrations")
       .select("uazapi_token, uazapi_url")
-      .eq("user_id", context.userId)
+      .eq("workspace_id", context.workspaceId)
       .maybeSingle();
+      
     if (!ownInt?.uazapi_token || !ownInt?.uazapi_url) {
       return { ok: false, inserted: 0, error: "Configure a Uazapi primeiro." };
     }
-
-    const { data: shared } = await supabaseAdmin
-      .from("integrations")
-      .select("user_id, uazapi_url, uazapi_token")
-      .eq("uazapi_token", ownInt.uazapi_token);
-    const userIds = Array.from(new Set([context.userId, ...(shared ?? []).map((r) => r.user_id)]));
 
     // Load active conversations (cap to most-recent 50 to keep request fast)
     const { data: convsRaw } = await supabaseAdmin
       .from("conversations")
       .select("id, user_id, workspace_id, contact_id, contact:contacts(telefone)")
-      .in("user_id", userIds)
       .eq("workspace_id", context.workspaceId)
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(50);
