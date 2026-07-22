@@ -120,19 +120,9 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     phone,
   } = input;
 
-  // A identidade da V3 vem prioritariamente do workspaceId informado, ou do singleton da Mind se o usuário não tiver um próprio.
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  let workspaceId = inputWorkspaceId;
-  
-  if (!workspaceId) {
-    const { data: ws } = await supabaseAdmin
-      .from("workspaces")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("is_default", true)
-      .maybeSingle();
-    workspaceId = ws?.id || "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-  }
+  // Single-tenant project: ALWAYS use Mind Workspace ID
+  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+  const workspaceId = MIND_ID;
 
 
   // 1. Carregar módulos do CMS e aplicar overrides explícitos do chamador.
