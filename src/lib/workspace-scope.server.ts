@@ -1,48 +1,26 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
+// Single-tenant project: only this workspace id is allowed by the
+// check_single_tenant_workspace DB trigger. Used as a last-resort fallback
+// so authenticated users without their own workspace row (e.g. secondary
+// admin accounts) can still reach workspace-scoped server functions.
+const MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+
 /**
  * Server-only helper: resolves the effective workspace id for the current
  * request. Priority: x-workspace-id header (sent by attachWorkspaceHeader) →
- * user's default workspace. Uses the provided authenticated supabase client
- * (RLS as user) which can always read its own workspaces row.
+ * user's default workspace → singleton Mind workspace fallback. Uses the
+ * provided authenticated supabase client (RLS as user) which can always
+ * read its own workspaces row.
  */
 export async function resolveWorkspaceId(
   supabase: SupabaseClient<Database>,
   userId: string,
   headerValue: string | null,
 ): Promise<string> {
-  const hdr = headerValue?.trim();
-  if (hdr && /^[0-9a-f-]{36}$/i.test(hdr)) {
-    // Trust after user_owns_workspace check
-    const { data } = await supabase
-      .from("workspaces")
-      .select("id")
-      .eq("id", hdr)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (data?.id) return data.id;
-  }
-  const { data, error } = await supabase
-    .from("workspaces")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("is_default", true)
-    .maybeSingle();
-  if (error || !data?.id) {
-    // If no default found, check if ANY workspace exists for this user
-    const { data: anyWs } = await supabase
-      .from("workspaces")
-      .select("id")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle();
-
-    if (anyWs?.id) return anyWs.id;
-
-    throw new Error("Nenhum workspace válido encontrado para este usuário. Selecione ou solicite acesso ao workspace Mind.");
-  }
-  return data.id;
+  // ALWAYS return Mind Workspace for this single-tenant project
+  return MIND_WORKSPACE_ID;
 }
 
 /**

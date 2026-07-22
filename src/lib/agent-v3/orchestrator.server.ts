@@ -120,19 +120,10 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     phone,
   } = input;
 
-  // A identidade da V3 vem exclusivamente do módulo `identidade` do CMS.
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: ws } = await supabaseAdmin
-    .from("workspaces")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("is_default", true)
-    .maybeSingle();
+  // Single-tenant project: ALWAYS use Mind Workspace ID
+  const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
+  const workspaceId = MIND_ID;
 
-  const workspaceId = inputWorkspaceId || ws?.id;
-  if (!workspaceId) {
-    throw new Error(`[agent-v3] Workspace não encontrado para o usuário ${userId}`);
-  }
 
   // 1. Carregar módulos do CMS e aplicar overrides explícitos do chamador.
   const activeModulesMap = await loadEnabledModulesV3(workspaceId);
@@ -244,22 +235,23 @@ Sempre inclua os seguintes marcadores no INÍCIO da sua resposta (antes do texto
 
 
 ESTADO DA CONVERSA:
-${modulePrompt}
+\${modulePrompt}
 
 
-${
+\${
   extraContext
-    ? `FATO TÉCNICO:
-${extraContext}`
+    ? \`FATO TÉCNICO:
+\${extraContext}\`
     : ""
 }
 
 REGRA DE CONCISÃO:
 - Seja breve e cubra somente as informações necessárias para o próximo passo.
 
-${isAudioInput ? `MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.` : ""}
-${isImageInput ? `IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.` : ""}
-${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}`,
+\${isAudioInput ? \`MODO ÁUDIO: Se o input for áudio, seja compreensiva. ÁUDIO ININTELIGÍVEL: Peça para escrever ou mandar de novo se não entender. PROIBIDO imitar o tom.\` : ""}
+\${isImageInput ? \`IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.\` : ""}
+\${isStickerInput ? \`FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.\` : ""}`,
+      cache_control: { type: "ephemeral" }
     },
   ];
 
@@ -349,7 +341,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       })),
       { role: "user", content: message },
     ],
-    model: "claude-sonnet-5",
+    model: "claude-haiku-4-5",
     metadata: {
       message_id: messageId,
       call_number: 1,
@@ -435,7 +427,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       // humanity, clarity etc are derived from feedback or expanded in extractor later
     },
     usage: {
-      model: "claude-sonnet-5",
+      model: "claude-haiku-4-5",
       request_id: llmResult.request_id || "unknown", // Adjust if llmResult has it differently
       input_tokens,
       output_tokens,

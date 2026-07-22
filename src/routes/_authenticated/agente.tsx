@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { 
@@ -7,7 +7,26 @@ import {
   Search, FileText, Settings, Database, 
   Zap, Info, ExternalLink, RefreshCw, Plus, Trash2, Copy, Layers, GripVertical
 } from "lucide-react";
+import { 
+  DndContext, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { restrictToVerticalAxis, restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers';
 import { getFullAgentV3Config, updateV3Module, deleteV3Module, getCompiledPromptV3 } from "@/lib/agent-v3/admin/admin.functions";
+import { updateV3ModulesOrder } from "@/lib/agent-v3/admin/reorder.functions";
 import { seedModulesToDb } from "@/lib/agent-v3/admin/seed.functions";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +49,7 @@ function AgenteV3AdminPage() {
   const qc = useQueryClient();
   const fetchConfig = useServerFn(getFullAgentV3Config);
   const updateModule = useServerFn(updateV3Module);
+  const reorderModules = useServerFn(updateV3ModulesOrder);
   const removeModule = useServerFn(deleteV3Module);
   const getPrompt = useServerFn(getCompiledPromptV3);
   const seedModules = useServerFn(seedModulesToDb);
@@ -53,16 +73,48 @@ function AgenteV3AdminPage() {
     content: ""
   });
 
-  const modules = configQ.data?.modules || {};
+  // Local state for categories to allow reordering
+  const [localModules, setLocalModules] = useState<any[]>([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const modules = useMemo(() => configQ.data?.modules || {}, [configQ.data?.modules]);
   
+  // Update local modules when query data changes
+  useEffect(() => {
+    if (modules) {
+      const all = Object.entries(modules).map(([key, data]: [string, any]) => ({
+        ...data,
+        key
+      }));
+      // Sort by priority initially
+      all.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+      setLocalModules(all);
+    }
+  }, [modules]);
+
+
   const modulesByCategory = useMemo(() => {
     const grouped: Record<string, any[]> = {};
     CATEGORIES.forEach(cat => grouped[cat] = []);
     
-    Object.entries(modules).forEach(([key, data]: [string, any]) => {
-      const cat = data.category || "Outros";
-      if (!grouped[cat]) grouped["Outros"].push({ ...data, key });
-      else grouped[cat].push({ ...data, key });
+    localModules.forEach((m) => {
+      const cat = m.category || "Outros";
+      if (!grouped[cat]) {
+        if (!grouped["Outros"]) grouped["Outros"] = [];
+        grouped["Outros"].push(m);
+      } else {
+        grouped[cat].push(m);
+      }
     });
 
     // Filter by search
@@ -77,7 +129,7 @@ function AgenteV3AdminPage() {
     }
 
     return grouped;
-  }, [modules, searchTerm]);
+  }, [localModules, searchTerm]);
 
   useEffect(() => {
     if (activeModuleKey && modules[activeModuleKey]) {
@@ -94,12 +146,49 @@ function AgenteV3AdminPage() {
     onError: (err: any) => toast.error(err.message || "Falha ao salvar módulo"),
   });
 
+  const reorderMut = useMutation({
+    mutationFn: (orders: { key: string; priority: number }[]) => reorderModules({ data: { orders } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agent_v3_config"] });
+    },
+    onError: (err: any) => toast.error("Falha ao salvar ordem: " + err.message),
+  });
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      const activeModule = localModules.find(m => m.key === active.id);
+      const overModule = localModules.find(m => m.key === over.id);
+      
+      if (activeModule && overModule && activeModule.category === overModule.category) {
+        setLocalModules((items) => {
+          const oldIndex = items.findIndex(m => m.key === active.id);
+          const newIndex = items.findIndex(m => m.key === over.id);
+          
+          const newItems = arrayMove(items, oldIndex, newIndex);
+          
+          // Recalculate priorities based on new order within the category
+          // Higher index (lower in list) = lower priority
+          // But we only want to update priorities for the items that changed
+          const orders = newItems.map((m, idx) => ({
+            key: m.key,
+            priority: (newItems.length - idx) * 10
+          }));
+          
+          reorderMut.mutate(orders);
+          return newItems;
+        });
+      }
+    }
+  }, [localModules, reorderMut]);
+
   const createMut = useMutation({
-    mutationFn: () => updateModule({ data: { 
-      moduleKey: newModule.key, 
-      content: newModule.content || "Instruções iniciais...",
-      name: newModule.name,
-      category: newModule.category
+    mutationFn: (data: typeof newModule) => updateModule({ data: { 
+      moduleKey: data.key, 
+      content: data.content || "Instruções iniciais...",
+      name: data.name,
+      category: data.category
     } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agent_v3_config"] });
@@ -120,7 +209,7 @@ function AgenteV3AdminPage() {
     },
   });
 
-  if (configQ.isLoading) {
+  if (configQ.isLoading && localModules.length === 0) {
     return (
       <div className="flex h-[400px] flex-col items-center justify-center gap-4">
         <RefreshCw className="h-8 w-8 animate-spin text-primary/40" />
@@ -202,7 +291,7 @@ function AgenteV3AdminPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={() => createMut.mutate()} disabled={createMut.isPending || !newModule.key}>
+                <Button onClick={() => createMut.mutate(newModule)} disabled={createMut.isPending || !newModule.key}>
                   {createMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                   Criar Módulo
                 </Button>
@@ -246,33 +335,38 @@ function AgenteV3AdminPage() {
 
               <ScrollArea className="h-[calc(100vh-320px)] pr-4">
                 <div className="space-y-6">
-                  {Object.entries(modulesByCategory).map(([category, items]) => (
-                    <div key={category} className="space-y-2">
-                      <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-2 px-2">
-                        <Layers className="h-3 w-3" />
-                        {category}
-                        <Badge variant="secondary" className="ml-auto text-[8px] h-3 px-1">{items.length}</Badge>
-                      </h3>
-                      <div className="space-y-1">
-                        {items.map((m) => (
-                          <div key={m.key} className="group relative">
-                            <button
-                              onClick={() => setActiveModuleKey(m.key)}
-                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-left ${
-                                activeModuleKey === m.key 
-                                  ? "bg-primary text-primary-foreground font-semibold shadow-md" 
-                                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-transparent"
-                              }`}
-                            >
-                              <FileText className={`h-4 w-4 shrink-0 ${activeModuleKey === m.key ? 'text-primary-foreground' : 'text-primary/40'}`} />
-                              <span className="truncate flex-1">{m.name || m.key}</span>
-                              {m.isOverride && <div className={`h-1.5 w-1.5 rounded-full ${activeModuleKey === m.key ? 'bg-white' : 'bg-primary'}`} title="Override" />}
-                            </button>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                    modifiers={[restrictToVerticalAxis, restrictToFirstScrollableAncestor]}
+                  >
+                    {Object.entries(modulesByCategory).map(([category, items]) => (
+                      <div key={category} className="space-y-2">
+                        <h3 className="text-[10px] font-bold uppercase tracking-wider text-primary flex items-center gap-2 px-2">
+                          <Layers className="h-3 w-3" />
+                          {category}
+                          <Badge variant="secondary" className="ml-auto text-[8px] h-3 px-1">{items.length}</Badge>
+                        </h3>
+                        
+                        <SortableContext 
+                          items={items.map(m => m.key)} 
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-1">
+                            {items.map((m) => (
+                              <SortableModuleItem 
+                                key={m.key} 
+                                m={m} 
+                                isActive={activeModuleKey === m.key}
+                                onClick={() => setActiveModuleKey(m.key)}
+                              />
+                            ))}
                           </div>
-                        ))}
+                        </SortableContext>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </DndContext>
                 </div>
               </ScrollArea>
             </aside>
@@ -396,10 +490,11 @@ function AgenteV3AdminPage() {
                      <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Módulos no Banco</div>
                      <div className="text-2xl font-bold text-primary">{Object.values(modules).filter((m: any) => m.isOverride).length}</div>
                    </div>
-                   <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                     <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Módulos em Fallback</div>
-                     <div className="text-2xl font-bold text-yellow-500">{Object.values(modules).filter((m: any) => !m.isOverride).length}</div>
-                   </div>
+                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                      <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Status de Fontes</div>
+                      <div className="text-2xl font-bold text-primary">100% CMS V3</div>
+                    </div>
+
                  </div>
 
                  <div className="mt-6">
@@ -422,13 +517,10 @@ function AgenteV3AdminPage() {
                          {Object.entries(modules).map(([key, data]: [string, any]) => (
                            <tr key={key} className="hover:bg-muted/30">
                              <td className="px-4 py-3 font-mono text-xs">{key}</td>
-                             <td className="px-4 py-3">
-                               {data.isOverride ? (
-                                 <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">DATABASE</Badge>
-                               ) : (
-                                 <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">CODE FALLBACK</Badge>
-                               )}
-                             </td>
+                              <td className="px-4 py-3">
+                                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">DATABASE (V3)</Badge>
+                              </td>
+
                              <td className="px-4 py-3 font-mono text-xs">v{data.version || 1}</td>
                              <td className="px-4 py-3 text-muted-foreground italic truncate max-w-[200px]">
                                {data.content?.slice(0, 40)}...
@@ -499,6 +591,48 @@ function PromptPreview({ getPrompt }: { getPrompt: any }) {
           />
         </div>
       )}
+    </div>
+  );
+}
+
+function SortableModuleItem({ m, isActive, onClick }: { m: any, isActive: boolean, onClick: () => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: m.key });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className="group relative"
+    >
+      <button
+        onClick={onClick}
+        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all text-left ${
+          isActive 
+            ? "bg-primary text-primary-foreground font-semibold shadow-md" 
+            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground border border-transparent"
+        }`}
+      >
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing hover:text-white transition-colors">
+          <GripVertical className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary-foreground' : 'text-primary/40'}`} />
+        </div>
+        <FileText className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary-foreground' : 'text-primary/40'}`} />
+        <span className="truncate flex-1">{m.name || m.key}</span>
+        {m.isOverride && <div className={`h-1.5 w-1.5 rounded-full ${isActive ? 'bg-white' : 'bg-primary'}`} title="Override" />}
+      </button>
     </div>
   );
 }

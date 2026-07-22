@@ -1,5 +1,5 @@
 // src/lib/agent-v3/router.server.ts
-import { processAudioV3 } from "../integrations/audio-processor.server";
+import { processAudioV3 } from "./integrations/audio-processor.server";
 import { runAgentV3Turn } from "./orchestrator.server";
 
 type RouterInput = {

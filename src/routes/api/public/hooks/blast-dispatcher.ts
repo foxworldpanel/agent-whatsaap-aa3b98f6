@@ -1,24 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { assertCronAuthorized } from "@/lib/cron-auth.server";
 
-// Números Uazapi podem ser compartilhados entre usuários que usam o mesmo
-// uazapi_token (mesmo "workspace" Uazapi). O dispatcher precisa considerar
-// esse pool compartilhado — não só numbers.user_id == camp.user_id — senão
-// campanhas de um usuário que usa um número cadastrado por outro do mesmo
-// workspace veem "nenhum número conectado disponível".
+// SECURITY: token-based cross-tenant sharing removed. Each user only sees
+// their own WhatsApp numbers in blast dispatch. See agent-shared.server.ts.
 async function getSharedUazapiUserIdsForDispatcher(userId: string): Promise<string[]> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: own } = await supabaseAdmin
-    .from("integrations")
-    .select("uazapi_token")
-    .eq("user_id", userId)
-    .maybeSingle();
-  const token = own?.uazapi_token;
-  if (!token) return [userId];
-  const { data: peers } = await supabaseAdmin
-    .from("integrations")
-    .select("user_id")
-    .eq("uazapi_token", token);
-  return Array.from(new Set([userId, ...(peers ?? []).map((r) => r.user_id as string)]));
+  return [userId];
 }
 
 // Disparos ativos. Chamado por pg_cron a cada minuto.
@@ -31,6 +17,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const unauth = assertCronAuthorized(request);
+        if (unauth) return unauth;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
         const {

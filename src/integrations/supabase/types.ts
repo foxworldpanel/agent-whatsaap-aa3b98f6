@@ -562,6 +562,7 @@ export type Database = {
       }
       agent_modules_v3: {
         Row: {
+          always_load: boolean
           category: string | null
           content: string
           created_at: string | null
@@ -571,12 +572,20 @@ export type Database = {
           key: string
           name: string
           priority: number | null
+          selector_conflicts: string[]
+          selector_dependencies: string[]
+          selector_intents: string[]
+          selector_platforms: string[]
+          selector_products: string[]
+          selector_stages: string[]
+          selector_triggers: string[]
           updated_at: string | null
           user_id: string
           version: number | null
           workspace_id: string
         }
         Insert: {
+          always_load?: boolean
           category?: string | null
           content: string
           created_at?: string | null
@@ -586,12 +595,20 @@ export type Database = {
           key: string
           name: string
           priority?: number | null
+          selector_conflicts?: string[]
+          selector_dependencies?: string[]
+          selector_intents?: string[]
+          selector_platforms?: string[]
+          selector_products?: string[]
+          selector_stages?: string[]
+          selector_triggers?: string[]
           updated_at?: string | null
           user_id: string
           version?: number | null
           workspace_id: string
         }
         Update: {
+          always_load?: boolean
           category?: string | null
           content?: string
           created_at?: string | null
@@ -601,6 +618,13 @@ export type Database = {
           key?: string
           name?: string
           priority?: number | null
+          selector_conflicts?: string[]
+          selector_dependencies?: string[]
+          selector_intents?: string[]
+          selector_platforms?: string[]
+          selector_products?: string[]
+          selector_stages?: string[]
+          selector_triggers?: string[]
           updated_at?: string | null
           user_id?: string
           version?: number | null
@@ -2303,6 +2327,7 @@ export type Database = {
           phone: string
           updated_at: string | null
           user_id: string
+          workspace_id: string
         }
         Insert: {
           history?: Json
@@ -2310,6 +2335,7 @@ export type Database = {
           phone: string
           updated_at?: string | null
           user_id: string
+          workspace_id: string
         }
         Update: {
           history?: Json
@@ -2317,8 +2343,17 @@ export type Database = {
           phone?: string
           updated_at?: string | null
           user_id?: string
+          workspace_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversations_v3_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       extraction_logs: {
         Row: {

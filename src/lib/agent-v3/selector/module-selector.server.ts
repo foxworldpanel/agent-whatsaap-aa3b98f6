@@ -100,7 +100,10 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "atraso",
     "recarga nao caiu",
     "sumiu",
+    "nao entregou",
+    "faltando",
   ],
+
   seguranca: [
     "teste",
     "gratis",
@@ -143,7 +146,11 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "fechar",
     "quero comprar",
     "quero esse",
+    "me manda",
+    "como faco",
+    "como eu compro",
   ],
+
 };
 
 const PLATFORM_PATTERNS: Array<[NonNullable<ConversationContext["platform"]>, string[]]> = [
@@ -334,7 +341,10 @@ export function selectModulesV3(
   // Toda decisão de carregamento vem dos metadados do CMS.
   for (const [key, module] of orderedModules) {
     const routing = module.routing;
-    if (routing.alwaysLoad) add(key, "always_load definido no CMS");
+    if (routing.alwaysLoad || key === "identidade" || key === "regras_gerais") {
+      add(key, routing.alwaysLoad ? "always_load definido no CMS" : "Módulo estrutural V3");
+    }
+
 
     if (routing.intents.includes(context.intent)) {
       add(key, `Intenção ${context.intent} definida no CMS`);

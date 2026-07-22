@@ -72,44 +72,22 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const workspaces = (workspacesQ.data ?? []) as Workspace[];
 
-  // Ensure activeWorkspaceId is valid; fall back to default.
+  // Force Mind workspace globally
   useEffect(() => {
-    if (!workspaces.length) return;
+    if (!hasSession) return;
+    const MIND_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
     
-    // Check if we have a Mind workspace available
-    const mindWorkspace = workspaces.find((w) => /mind/i.test(w.nome));
-    const stored = activeWorkspaceId;
-    const currentIsValid = stored && workspaces.some((w) => w.id === stored);
-
-    // If no workspace is active, or if we found a Mind workspace and it's not the active one
-    // (This forces the "Mind" workspace to be active if it exists for the user)
-    if (mindWorkspace && activeWorkspaceId !== mindWorkspace.id) {
-      console.log(`[WorkspaceContext] Switching to Mind workspace: ${mindWorkspace.id}`);
-      setActiveWorkspaceId(mindWorkspace.id);
+    if (activeWorkspaceId !== MIND_ID) {
+      console.log(`[WorkspaceContext] Enforcing Mind singleton: ${MIND_ID}`);
+      setActiveWorkspaceId(MIND_ID);
       try {
-        window.localStorage.setItem(STORAGE_KEY, mindWorkspace.id);
+        window.localStorage.setItem(STORAGE_KEY, MIND_ID);
       } catch (err) {
         console.error("[WorkspaceContext] Failed to store activeWorkspaceId", err);
       }
       void qc.invalidateQueries({ refetchType: "all" });
-      return;
     }
-
-    if (!currentIsValid) {
-      // Prioritize Mind workspace if found, otherwise default, otherwise first.
-      const def = mindWorkspace ?? workspaces.find((w) => w.is_default) ?? workspaces[0];
-      if (def) {
-        console.log(`[WorkspaceContext] Falling back to default workspace: ${def.id}`);
-        setActiveWorkspaceId(def.id);
-        try {
-          window.localStorage.setItem(STORAGE_KEY, def.id);
-        } catch (err) {
-          console.error("[WorkspaceContext] Failed to store activeWorkspaceId", err);
-        }
-        void qc.invalidateQueries({ refetchType: "all" });
-      }
-    }
-  }, [workspaces, activeWorkspaceId, qc]);
+  }, [hasSession, activeWorkspaceId, qc]);
 
   const switchWorkspace = useCallback(
     (id: string) => {

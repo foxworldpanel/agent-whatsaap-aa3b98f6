@@ -2,35 +2,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 
+// SECURITY: token-based cross-tenant sharing removed. See agent-shared.server.ts.
 async function getSharedUazapiUserIds(userId: string) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: own } = await supabaseAdmin
-    .from("integrations")
-    .select("uazapi_token")
-    .eq("user_id", userId)
-    .maybeSingle();
-  const token = own?.uazapi_token;
-  if (!token) return [userId];
-  const { data: peers } = await supabaseAdmin
-    .from("integrations")
-    .select("user_id")
-    .eq("uazapi_token", token);
-  return Array.from(new Set([userId, ...(peers ?? []).map((r) => r.user_id)]));
+  return [userId];
 }
 
 export const listNumbers = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    const userIds = await getSharedUazapiUserIds(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data, error } = await supabaseAdmin
       .from("whatsapp_numbers")
       .select("id, nome, uazapi_url, status, meta_ads_enabled, disparos_mode, last_connected_at, created_at, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, last_risk_check_at")
-      .in("user_id", userIds)
-      // Own rows must match the active workspace; peer rows (shared via
-      // uazapi_token, owned by another user) pass through regardless of
-      // workspace_id since workspaces are per-user.
-      .or(`workspace_id.eq.${context.workspaceId},user_id.neq.${context.userId}`)
+      .eq("workspace_id", context.workspaceId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -95,12 +79,11 @@ export const connectNumber = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const userIds = await getSharedUazapiUserIds(context.userId);
     const { data: row, error } = await supabaseAdmin
       .from("whatsapp_numbers")
       .select("uazapi_url, uazapi_token")
       .eq("id", data.id)
-      .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!row?.uazapi_url || !row.uazapi_token) throw new Error("Número sem credenciais");
@@ -127,12 +110,11 @@ export const refreshNumberStatus = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const userIds = await getSharedUazapiUserIds(context.userId);
     const { data: row, error } = await supabaseAdmin
       .from("whatsapp_numbers")
       .select("uazapi_url, uazapi_token")
       .eq("id", data.id)
-      .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!row?.uazapi_url || !row.uazapi_token) return { status: null };
@@ -151,12 +133,11 @@ export const disconnectNumber = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const userIds = await getSharedUazapiUserIds(context.userId);
     const { data: row } = await supabaseAdmin
       .from("whatsapp_numbers")
       .select("uazapi_url, uazapi_token")
       .eq("id", data.id)
-      .in("user_id", userIds)
+      .eq("workspace_id", context.workspaceId)
       .maybeSingle();
     if (row?.uazapi_url && row.uazapi_token) {
       const { uazapiDisconnect } = await import("./uazapi.server");
@@ -173,13 +154,12 @@ export const deleteNumber = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
-    const userIds = await getSharedUazapiUserIds(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("whatsapp_numbers")
       .delete()
       .eq("id", data.id)
-      .in("user_id", userIds);
+      .eq("workspace_id", context.workspaceId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -203,13 +183,12 @@ export const updateNumberToggles = createServerFn({ method: "POST" })
     if (data.nome !== undefined) patch.nome = data.nome;
     if (data.warmup_enabled !== undefined) patch.warmup_enabled = data.warmup_enabled;
     if (data.auto_pause_on_risk !== undefined) patch.auto_pause_on_risk = data.auto_pause_on_risk;
-    const userIds = await getSharedUazapiUserIds(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("whatsapp_numbers")
       .update(patch as never)
       .eq("id", data.id)
-      .in("user_id", userIds);
+      .eq("workspace_id", context.workspaceId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
