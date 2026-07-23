@@ -13,6 +13,24 @@ const routing = (patch: Partial<ModuleRoutingV3> = {}): ModuleRoutingV3 => ({
   conflicts: [],
   priority: 0,
   ...patch,
+  it("não transforma plataforma ausente do CMS em categoria genérica hardcoded", () => {
+    expect(detectConversationContext("vocês trabalham com Telegram?", []).platform).toBeNull();
+    expect(detectConversationContext("tem serviço para Twitch?", []).platform).toBeNull();
+  });
+
+  it("gatilhos do CMS respeitam palavra/frase inteira e não substring", () => {
+    const modules: Record<string, LoadedModuleV3> = {
+      identidade: module({ alwaysLoad: true, priority: 100 }),
+      especial: module({ triggers: ["face"], priority: 50 }),
+    };
+
+    const falsePositive = selectModulesV3("essa interface está dando erro", [], modules);
+    expect(falsePositive.selectedModules).not.toContain("especial");
+
+    const exactTrigger = selectModulesV3("quero face agora", [], modules);
+    expect(exactTrigger.selectedModules).toContain("especial");
+  });
+
 });
 
 const module = (patch: Partial<ModuleRoutingV3> = {}): LoadedModuleV3 => ({
@@ -20,6 +38,24 @@ const module = (patch: Partial<ModuleRoutingV3> = {}): LoadedModuleV3 => ({
   source: "database",
   version: 1,
   routing: routing(patch),
+  it("não transforma plataforma ausente do CMS em categoria genérica hardcoded", () => {
+    expect(detectConversationContext("vocês trabalham com Telegram?", []).platform).toBeNull();
+    expect(detectConversationContext("tem serviço para Twitch?", []).platform).toBeNull();
+  });
+
+  it("gatilhos do CMS respeitam palavra/frase inteira e não substring", () => {
+    const modules: Record<string, LoadedModuleV3> = {
+      identidade: module({ alwaysLoad: true, priority: 100 }),
+      especial: module({ triggers: ["face"], priority: 50 }),
+    };
+
+    const falsePositive = selectModulesV3("essa interface está dando erro", [], modules);
+    expect(falsePositive.selectedModules).not.toContain("especial");
+
+    const exactTrigger = selectModulesV3("quero face agora", [], modules);
+    expect(exactTrigger.selectedModules).toContain("especial");
+  });
+
 });
 
 const enabled: Record<string, LoadedModuleV3> = {
@@ -87,6 +123,24 @@ describe("Module Selector V3 contextual", () => {
 
   it("não detecta plataforma por substring dentro de outra palavra", () => {
     expect(detectConversationContext("essa interface está dando erro", []).platform).toBeNull();
+  });
+
+  it("não transforma plataforma ausente do CMS em categoria genérica hardcoded", () => {
+    expect(detectConversationContext("vocês trabalham com Telegram?", []).platform).toBeNull();
+    expect(detectConversationContext("tem serviço para Twitch?", []).platform).toBeNull();
+  });
+
+  it("gatilhos do CMS respeitam palavra/frase inteira e não substring", () => {
+    const modules: Record<string, LoadedModuleV3> = {
+      identidade: module({ alwaysLoad: true, priority: 100 }),
+      especial: module({ triggers: ["face"], priority: 50 }),
+    };
+
+    const falsePositive = selectModulesV3("essa interface está dando erro", [], modules);
+    expect(falsePositive.selectedModules).not.toContain("especial");
+
+    const exactTrigger = selectModulesV3("quero face agora", [], modules);
+    expect(exactTrigger.selectedModules).toContain("especial");
   });
 
 });

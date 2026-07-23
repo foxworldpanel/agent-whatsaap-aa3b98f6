@@ -163,7 +163,6 @@ const PLATFORM_PATTERNS: Array<[NonNullable<ConversationContext["platform"]>, st
   ["tiktok", KEYWORD_MAP.tiktok],
   ["kwai", KEYWORD_MAP.kwai],
   ["facebook", KEYWORD_MAP.facebook],
-  ["outra", ["twitter", "x twitter", "threads", "telegram", "twitch", "soundcloud"]],
 ];
 
 const PRODUCT_PATTERNS: Array<[NonNullable<ConversationContext["product"]>, string[]]> = [
@@ -388,9 +387,7 @@ export function selectModulesV3(
       add(key, `Produto ${context.product} definido no CMS`);
     }
 
-    const trigger = routing.triggers.find((term) =>
-      normalizedText.includes(normalizeText(term)),
-    );
+    const trigger = routing.triggers.find((term) => containsAny(normalizedText, [term]));
     if (trigger) add(key, `Gatilho “${trigger}” definido no CMS`);
   }
 
