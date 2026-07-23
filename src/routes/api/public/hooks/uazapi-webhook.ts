@@ -379,11 +379,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const lockKey = `${workspaceId}:${phoneStr}`;
     return await withConversationLock(lockKey, async () => {
       try {
-      const { data: integ } = await supabaseAdmin
+      const { data: integ, error: integErr } = await supabaseAdmin
         .from("integrations")
         .select("anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id")
         .eq("user_id", num.user_id)
         .maybeSingle();
+
+      if (integErr) {
+        console.error("[UAZ-WEBHOOK] Failed to load AI integrations:", integErr);
+        if (conversationId) {
+          await supabaseAdmin
+            .from("conversations")
+            .update({
+              needs_review: true,
+              review_reason: "falha ao carregar integrações de IA",
+            })
+            .eq("id", conversationId)
+            .then(({ error }) => {
+              if (error) console.error("[UAZ-WEBHOOK] Failed to flag integration error for review:", error);
+            });
+        }
+        return new Response("ok (AI integrations unavailable)");
+      }
 
       let finalMsgText = content.text || "";
       if (content.kind === "audio") {
@@ -541,8 +558,26 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (AI processed)");
 
       } catch (e: any) {
-        console.error("[UAZ-WEBHOOK] AI Critical Error:", e.message);
-        return new Response("ok (AI error handled)");
+        console.error("[UAZ-WEBHOOK] AI Critical Error:", e?.message ?? e);
+
+        // A mensagem do cliente já foi persistida no CRM antes deste ponto.
+        // Não pedimos retry ao provedor para evitar uma segunda resposta, mas
+        // também não deixamos a falha silenciosa: a conversa fica visível para
+        // atendimento humano/revisão.
+        if (conversationId) {
+          const { error: reviewErr } = await supabaseAdmin
+            .from("conversations")
+            .update({
+              needs_review: true,
+              review_reason: "falha crítica no Agent V3",
+            })
+            .eq("id", conversationId);
+          if (reviewErr) {
+            console.error("[UAZ-WEBHOOK] Failed to flag AI error for review:", reviewErr);
+          }
+        }
+
+        return new Response("ok (AI error flagged for review)");
       }
     });
 }
