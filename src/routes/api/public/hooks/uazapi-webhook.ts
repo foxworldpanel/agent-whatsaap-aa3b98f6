@@ -385,7 +385,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       if (content.kind === "audio") {
         if (!content.mediaUrl || !integ?.openai_api_key) {
           console.error("[UAZ-WEBHOOK] Audio received without media URL or OpenAI key");
-          return new Response("ok (audio unavailable)");
+          if (conversationId) {
+            const { error: reviewErr } = await supabaseAdmin
+              .from("conversations")
+              .update({
+                needs_review: true,
+                review_reason: !content.mediaUrl
+                  ? "áudio recebido sem URL de mídia"
+                  : "áudio recebido sem chave OpenAI para transcrição",
+              })
+              .eq("id", conversationId);
+            if (reviewErr) {
+              console.error("[UAZ-WEBHOOK] Failed to flag unavailable audio for review:", reviewErr);
+            }
+          }
+          return new Response("ok (audio unavailable; flagged for review)");
         }
 
         try {
@@ -394,7 +408,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           finalMsgText = transcription?.trim() || "";
         } catch (audioErr) {
           console.error("[UAZ-WEBHOOK] Transcription failed:", audioErr);
-          return new Response("ok (audio transcription failed)");
+          if (conversationId) {
+            const { error: reviewErr } = await supabaseAdmin
+              .from("conversations")
+              .update({
+                needs_review: true,
+                review_reason: "falha ao transcrever áudio recebido",
+              })
+              .eq("id", conversationId);
+            if (reviewErr) {
+              console.error("[UAZ-WEBHOOK] Failed to flag transcription error for review:", reviewErr);
+            }
+          }
+          return new Response("ok (audio transcription failed; flagged for review)");
         }
       }
 
