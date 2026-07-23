@@ -5,7 +5,6 @@ export interface ChatMessageV3 {
   content: string;
 }
 
-export const DEFAULT_MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
 const MAX_STORED_MESSAGES = 100;
 const MAX_CONTEXT_MESSAGES = 10;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
@@ -44,7 +43,11 @@ function phoneVariantsV3(phone: string): string[] {
 }
 
 function resolveWorkspaceId(workspaceId?: string): string {
-  return workspaceId?.trim() || DEFAULT_MIND_WORKSPACE_ID;
+  const resolved = workspaceId?.trim();
+  if (!resolved) {
+    throw new Error("[V3-STATE] workspaceId é obrigatório; memória não pode usar fallback entre workspaces");
+  }
+  return resolved;
 }
 
 function sanitizeHistoryV3(value: unknown): ChatMessageV3[] {

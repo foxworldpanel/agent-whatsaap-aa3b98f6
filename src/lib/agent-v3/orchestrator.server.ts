@@ -119,8 +119,10 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     phone,
   } = input;
 
-  const DEFAULT_MIND_WORKSPACE_ID = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
-  const workspaceId = inputWorkspaceId?.trim() || DEFAULT_MIND_WORKSPACE_ID;
+  const workspaceId = inputWorkspaceId?.trim();
+  if (!workspaceId) {
+    throw new Error("[agent-v3] workspaceId é obrigatório; o V3 não usa fallback entre workspaces");
+  }
 
 
   // 1. Carregar módulos do CMS e aplicar overrides explícitos do chamador.
