@@ -49,16 +49,23 @@ async function withConversationLock<T>(key: string, task: () => Promise<T>): Pro
   }
 }
 
-// Contador em memória por messageId
-const messageIdHits = new Map<string, number>();
-function bumpMessageIdHit(id: string): number {
-  const n = (messageIdHits.get(id) ?? 0) + 1;
-  messageIdHits.set(id, n);
-  if (messageIdHits.size > 1000) {
-    const keys = Array.from(messageIdHits.keys()).slice(0, messageIdHits.size - 500);
-    for (const k of keys) messageIdHits.delete(k);
+// Deduplicação em memória por messageId. O TTL evita crescimento permanente do
+// mapa e cobre as retransmissões normais do provedor. A proteção definitiva
+// entre reinícios/instâncias é feita também pelo external_id persistido no banco.
+const MESSAGE_ID_DEDUP_TTL_MS = 24 * 60 * 60 * 1000;
+const seenMessageIds = new Map<string, number>();
+function wasMessageIdRecentlySeen(id: string): boolean {
+  const now = Date.now();
+  const expiry = seenMessageIds.get(id);
+  if (expiry && expiry > now) return true;
+
+  seenMessageIds.set(id, now + MESSAGE_ID_DEDUP_TTL_MS);
+  if (seenMessageIds.size > 1000) {
+    for (const [key, value] of seenMessageIds) {
+      if (value <= now) seenMessageIds.delete(key);
+    }
   }
-  return n;
+  return false;
 }
 
 type UazapiPayload = {
@@ -153,19 +160,16 @@ function buildFallbackMessageId(phone: string, content: string): string {
 }
 
 const STOP_PATTERNS = [
-  /\bpare\b/i,
-  /\bparar\b/i,
-  /\bn[aã]o\s+quero\b/i,
-  /\bn[aã]o\s+me\s+(mande|manda|envie|mand)/i,
+  /^\s*(pare|parar|stop|unsubscribe|cancelar)\s*[.!]?\s*$/i,
+  /\bn[aã]o\s+quero\s+mais\s+(mensagens?|contato|receber)/i,
+  /\bn[aã]o\s+me\s+(mande|manda|envie|mandar)\s+mais/i,
+  /\bpare\s+de\s+(mandar|enviar)/i,
   /\bsai[ar]?\s+da\s+lista\b/i,
   /\bdescadastr/i,
-  /\bme\s+tira\b/i,
-  /\bstop\b/i,
-  /\bunsubscribe\b/i,
-  /\bcancelar?\b/i,
+  /\bme\s+tira\s+(daqui|da[ií]|da\s+lista|dos\s+contatos)/i,
 ];
 
-function isStopRequest(text: string): boolean {
+export function isStopRequest(text: string): boolean {
   if (!text) return false;
   return STOP_PATTERNS.some((re) => re.test(text));
 }
@@ -202,9 +206,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const extractedId = extractMessageId(payload);
     const msgId: string = extractedId ?? buildFallbackMessageId(phoneStr, msgLocal.text ?? "");
     
-    const hits = bumpMessageIdHit(msgId);
-    if (hits > 1) {
-      console.log(`[UAZ-WEBHOOK] Ignorando duplicata (msgId: ${msgId}, hit: ${hits})`);
+    if (wasMessageIdRecentlySeen(msgId)) {
+      console.log(`[UAZ-WEBHOOK] Ignorando duplicata em memória (msgId: ${msgId})`);
       return new Response("ok (duplicate msgId)");
     }
 
@@ -213,6 +216,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // 2. SYNC TO CRM (Always do this for all incoming messages)
     let contactId: string | undefined = undefined;
     let conversationId: string | undefined = undefined;
+    let duplicateMessageInDb = false;
 
     try {
       // Upsert Contact
@@ -269,10 +273,24 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             external_id: msgId,
           });
 
-        if (msgErr) throw msgErr;
+        if (msgErr) {
+          if (msgErr.code === "23505") {
+            duplicateMessageInDb = true;
+          } else {
+            throw msgErr;
+          }
+        }
       }
     } catch (syncErr: any) {
       console.error("[UAZ-WEBHOOK] Error syncing to CRM:", syncErr.message);
+    }
+
+    // Uma retransmissão recebida após restart ou em outra instância pode escapar
+    // do mapa em memória. O external_id único no banco impede que ela gere uma
+    // segunda resposta automática.
+    if (duplicateMessageInDb) {
+      console.log(`[UAZ-WEBHOOK] Ignorando duplicata persistida (msgId: ${msgId})`);
+      return new Response("ok (duplicate persisted msgId)");
     }
 
     // 3. AI GATE
@@ -353,7 +371,53 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       if (isStopRequest(finalMsgText)) {
-        return new Response("ok (stop request)");
+        const nowIso = new Date().toISOString();
+        const persistenceTasks: PromiseLike<unknown>[] = [];
+
+        if (conversationId) {
+          persistenceTasks.push(
+            supabaseAdmin
+              .from("conversations")
+              .update({
+                agent_enabled: false,
+                needs_review: true,
+                review_reason: "opt-out solicitado pelo contato",
+                auto_paused_at: nowIso,
+                internal_note: "Contato pediu para não receber novas mensagens automáticas.",
+              })
+              .eq("id", conversationId),
+          );
+        }
+
+        if (contactId) {
+          persistenceTasks.push(
+            supabaseAdmin
+              .from("contacts")
+              .update({
+                status: "bloqueado",
+                temperatura: "bloqueado",
+                temperatura_updated_at: nowIso,
+              })
+              .eq("id", contactId),
+          );
+        }
+
+        const stopResults = await Promise.all(persistenceTasks);
+        for (const result of stopResults) {
+          const error = (result as { error?: unknown }).error;
+          if (error) console.error("[UAZ-WEBHOOK] Failed to persist stop request:", error);
+        }
+
+        const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
+        await clearConversationStateV3(
+          num.user_id,
+          phoneStr,
+          num.workspace_id ?? undefined,
+        ).catch((error) => {
+          console.error("[UAZ-WEBHOOK] Failed to clear V3 state after stop request:", error);
+        });
+
+        return new Response("ok (stop request persisted)");
       }
 
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
