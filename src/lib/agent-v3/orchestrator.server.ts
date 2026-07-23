@@ -3,7 +3,6 @@ import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.serve
 import { selectModulesV3 } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
-import { extractMetadataV3 } from "./memory/metadata-extractor.server";
 import {
   sanitizeSystemLeaks,
   limitEmojiFrequency,
@@ -255,20 +254,11 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     {
       type: "text",
       text: `
-LEAD INTELLIGENCE (Obrigatório em toda resposta):
-Sempre inclua os seguintes marcadores no INÍCIO da sua resposta (antes do texto):
-[TEMP:frio|morno|quente]
-[CONF:Muito baixa|Baixa|Média|Alta|Muito alta]
-[INTENT:Saudação|Informação|Pesquisa|Comparação|Compra|Suporte|Pagamento|Pós-venda|Reclamação|Outro]
-[STAGE:Primeiro contato|Descoberta|Qualificação|Negociação|Objeções|Fechamento|Pós-venda]
-[PROB:0-100]
-[SENT:Positivo|Neutro|Negativo]
-[URG:Baixa|Média|Alta]
-[ACTION:Ação recomendada]
-[REASON:Justificativa curta]
-[SCORE:0-100] (Avaliação da qualidade da resposta)
-[FEEDBACK:Item 1|Item 2|...] (Lista de pontos positivos/negativos separados por |)
-
+RESPOSTA AO CLIENTE:
+- Gere somente a mensagem que será enviada ao cliente.
+- Não escreva metadados, análise interna, score, intenção, temperatura, justificativa ou marcadores entre colchetes.
+- Não repita informações já explicadas no histórico, salvo quando forem indispensáveis para responder ao último pedido.
+- Prefira 1 a 4 frases curtas. Use lista apenas quando ela realmente facilitar a resposta.
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
@@ -293,6 +283,8 @@ FORMATAÇÃO PARA WHATSAPP:
 
 REGRA DE CONCISÃO:
 - Seja breve e cubra somente as informações necessárias para o próximo passo.
+- Não recapitule preço, prazo, garantia, processo ou perguntas anteriores quando o cliente estiver pedindo apenas uma informação pontual.
+- Evite encerrar toda mensagem com várias perguntas; faça no máximo uma pergunta necessária por vez.
 
 ${isAudioInput ? `MODO ÁUDIO: O cliente enviou áudio. Responda de forma curta, natural e adequada para ser narrada em áudio. Se o áudio estiver ininteligível, peça para enviar novamente ou escrever.` : ""}
 ${isImageInput ? `IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.` : ""}
@@ -380,27 +372,74 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   const cache_usd = cache_write_usd + cache_read_usd;
   const total_usd = input_usd + output_usd + cache_usd;
 
-  // Metadata extraction
-  const {
-    temperature,
-    confidence,
-    intent,
-    stage,
-    purchase_probability,
-    sentiment,
-    urgency,
-    recommended_action,
-    reasoning,
-    conversation_score,
-    text: cleanText,
-  } = extractMetadataV3(rawText);
+  // A inteligência comercial é derivada do contexto já calculado pelo selector.
+  // Isso evita pagar tokens de saída para o LLM gerar metadados que nunca são enviados ao cliente.
+  const intentMap: Record<string, string> = {
+    saudacao: "Saudação",
+    descoberta: "Informação",
+    consulta_preco: "Pesquisa",
+    compra: "Compra",
+    duvida_seguranca: "Informação",
+    pagamento: "Pagamento",
+    suporte: "Suporte",
+    pos_compra: "Pós-venda",
+    recuperacao: "Pós-venda",
+    encerramento: "Outro",
+    desconhecido: "Outro",
+  };
+  const stageMap: Record<string, string> = {
+    inicio: "Primeiro contato",
+    qualificacao: "Qualificação",
+    apresentacao: "Descoberta",
+    negociacao: "Negociação",
+    fechamento: "Fechamento",
+    pos_venda: "Pós-venda",
+    suporte: "Pós-venda",
+  };
+  const confidence =
+    selectionContext.confidence >= 0.85
+      ? "Muito alta"
+      : selectionContext.confidence >= 0.7
+        ? "Alta"
+        : selectionContext.confidence >= 0.55
+          ? "Média"
+          : selectionContext.confidence >= 0.4
+            ? "Baixa"
+            : "Muito baixa";
+
+  let purchase_probability = 20;
+  if (selectionContext.intent === "consulta_preco") purchase_probability = 50;
+  if (selectionContext.intent === "compra") purchase_probability = selectionContext.hasQuantity ? 80 : 70;
+  if (selectionContext.intent === "pagamento") purchase_probability = 90;
+  if (selectionContext.hasPaidSignal) purchase_probability = 95;
+  if (selectionContext.intent === "suporte" || selectionContext.intent === "pos_compra") purchase_probability = 25;
+
+  const temperature: "frio" | "morno" | "quente" =
+    purchase_probability >= 75 ? "quente" : purchase_probability >= 40 ? "morno" : "frio";
+  const intent = intentMap[selectionContext.intent] || "Outro";
+  const stage = stageMap[selectionContext.stage] || "Descoberta";
+  const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
+  const sentiment = /(?:problema|erro|golpe|atras|não chegou|nao chegou|reclama|ruim|péssim|pessim)/i.test(normalizedCustomerMessage)
+    ? "Negativo"
+    : /(?:obrigad|valeu|ótimo|otimo|perfeito|show|top)/i.test(normalizedCustomerMessage)
+      ? "Positivo"
+      : "Neutro";
+  const urgency = selectionContext.hasPaymentSignal || selectionContext.hasPaidSignal ? "Alta" : selectionContext.hasPurchaseSignal ? "Média" : "Baixa";
+  const recommended_action =
+    selectionContext.intent === "pagamento"
+      ? "Orientar o pagamento usando apenas as informações do módulo carregado."
+      : selectionContext.intent === "compra"
+        ? "Conduzir para o próximo passo da compra sem repetir informações."
+        : selectionContext.intent === "suporte"
+          ? "Resolver a dúvida de suporte com objetividade."
+          : "Responder diretamente ao último pedido do cliente.";
+  const reasoning = `Contexto derivado pelo selector: ${selectionContext.intent}/${selectionContext.stage}.`;
+  const conversation_score = Math.max(0, Math.min(100, Math.round(selectionContext.confidence * 100)));
 
   // Guards & Pipeline
-  let finalContent = cleanText;
-  if (!finalContent.trim()) {
-    throw new Error(
-      "[agent-v3] A resposta da Anthropic continha somente metadados internos e nenhum texto para o cliente",
-    );
+  let finalContent = rawText.trim();
+  if (!finalContent) {
+    throw new Error("[agent-v3] A Anthropic retornou uma resposta vazia");
   }
   finalContent = sanitizeSystemLeaks(finalContent);
 
