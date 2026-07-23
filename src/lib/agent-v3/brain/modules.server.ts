@@ -29,10 +29,35 @@ const CACHE_TTL_MS = 30_000;
 
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value)
-    ? value
-        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-        .map((item) => item.trim().toLowerCase())
+    ? Array.from(
+        new Set(
+          value
+            .filter(
+              (item): item is string => typeof item === "string" && item.trim().length > 0,
+            )
+            .map((item) => item.trim().toLowerCase()),
+        ),
+      )
     : [];
+
+const cloneModule = (module: LoadedModuleV3): LoadedModuleV3 => ({
+  ...module,
+  routing: {
+    ...module.routing,
+    intents: [...module.routing.intents],
+    stages: [...module.routing.stages],
+    platforms: [...module.routing.platforms],
+    products: [...module.routing.products],
+    triggers: [...module.routing.triggers],
+    dependencies: [...module.routing.dependencies],
+    conflicts: [...module.routing.conflicts],
+  },
+});
+
+const cloneModulesMap = (
+  modules: Record<string, LoadedModuleV3>,
+): Record<string, LoadedModuleV3> =>
+  Object.fromEntries(Object.entries(modules).map(([key, module]) => [key, cloneModule(module)]));
 
 /**
  * Carrega exclusivamente os módulos habilitados no CMS.
@@ -43,15 +68,22 @@ const asStringArray = (value: unknown): string[] =>
 export async function loadEnabledModulesV3(
   workspaceId: string,
 ): Promise<Record<string, LoadedModuleV3>> {
+  const normalizedWorkspaceId = workspaceId?.trim();
+  if (!normalizedWorkspaceId) {
+    throw new Error("[v3-modules] workspaceId é obrigatório para carregar módulos do CMS");
+  }
+
   const now = Date.now();
-  const cached = modulesCache.get(workspaceId);
-  if (cached && cached.expiresAt > now) return cached.value;
+  const cached = modulesCache.get(normalizedWorkspaceId);
+  if (cached && cached.expiresAt > now) return cloneModulesMap(cached.value);
 
   const { data, error } = await supabaseAdmin
     .from("agent_modules_v3")
     .select("*")
-    .eq("workspace_id", workspaceId)
-    .eq("enabled", true);
+    .eq("workspace_id", normalizedWorkspaceId)
+    .eq("enabled", true)
+    .order("priority", { ascending: false })
+    .order("key", { ascending: true });
 
   if (error) {
     throw new Error(`[v3-modules] Falha ao carregar módulos do CMS: ${error.message}`);
@@ -64,12 +96,12 @@ export async function loadEnabledModulesV3(
     const content = typeof row.content === "string" ? row.content.trim() : "";
     if (!key || !content) continue;
 
-    modules[key] = {
+    const nextModule: LoadedModuleV3 = {
       content,
       source: "database",
       version: typeof row.version === "number" ? row.version : 1,
-      name: typeof row.name === "string" ? row.name : key,
-      category: typeof row.category === "string" ? row.category : "Outros",
+      name: typeof row.name === "string" ? row.name.trim() || key : key,
+      category: typeof row.category === "string" ? row.category.trim() || "Outros" : "Outros",
       routing: {
         alwaysLoad: row.always_load === true,
         intents: asStringArray(row.selector_intents),
@@ -79,19 +111,38 @@ export async function loadEnabledModulesV3(
         triggers: asStringArray(row.selector_triggers),
         dependencies: asStringArray(row.selector_dependencies),
         conflicts: asStringArray(row.selector_conflicts),
-        priority: typeof row.priority === "number" ? row.priority : 0,
+        priority: typeof row.priority === "number" && Number.isFinite(row.priority) ? row.priority : 0,
       },
     };
+
+    if (modules[key]) {
+      console.warn(
+        `[v3-modules] Chave duplicada após normalização no workspace ${normalizedWorkspaceId}: ${key}. Mantendo o primeiro módulo da ordenação determinística.`,
+      );
+      continue;
+    }
+
+    modules[key] = nextModule;
   }
 
   if (Object.keys(modules).length === 0) {
-    throw new Error(`[v3-modules] Nenhum módulo habilitado e preenchido no CMS para ${workspaceId}`);
+    throw new Error(
+      `[v3-modules] Nenhum módulo habilitado e preenchido no CMS para ${normalizedWorkspaceId}`,
+    );
   }
 
-  modulesCache.set(workspaceId, { value: modules, expiresAt: now + CACHE_TTL_MS });
-  return modules;
+  modulesCache.set(normalizedWorkspaceId, {
+    value: cloneModulesMap(modules),
+    expiresAt: now + CACHE_TTL_MS,
+  });
+  return cloneModulesMap(modules);
 }
 
 export function invalidateModulesCache(workspaceId: string): void {
-  modulesCache.delete(workspaceId);
+  const normalizedWorkspaceId = workspaceId?.trim();
+  if (normalizedWorkspaceId) modulesCache.delete(normalizedWorkspaceId);
+}
+
+export function clearModulesCache(): void {
+  modulesCache.clear();
 }
