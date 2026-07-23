@@ -116,11 +116,6 @@ export function pickReengagementGreeting(latestClientMsg: string, nowDate: Date 
 }
 
 
-export function looksLikeConcreteAction(text: string): boolean {
-  return /http|www|\.com|\.br|@/i.test(text);
-}
-
-export const VERBOSE_LOOP_FAREWELL = "Pra ver todos os detalhes e fechar rapidinho, acessa mindsmmpanel.com! Lá você consegue ver todos os serviços e preços atualizados em tempo real.";
 
 const REENG_GREETING_START_RX = /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite|oi+|ol[aá]+|opa|eae|e\s*a[ií]|hey|hi|hello|good\s*morning|good\s*afternoon|good\s*evening|hola|buenos\s*d[ií]as|buenas\s*tardes|buenas\s*noches)\b/i;
 

@@ -26,16 +26,51 @@ function memMarkSent(phone: string, body: string): void {
   recentSendsMem.set(recentSendKey(phone, body), Date.now() + RECENT_SEND_TTL_MS);
 }
 
-// Contador em memória por messageId
-const messageIdHits = new Map<string, number>();
-function bumpMessageIdHit(id: string): number {
-  const n = (messageIdHits.get(id) ?? 0) + 1;
-  messageIdHits.set(id, n);
-  if (messageIdHits.size > 1000) {
-    const keys = Array.from(messageIdHits.keys()).slice(0, messageIdHits.size - 500);
-    for (const k of keys) messageIdHits.delete(k);
+// Serializa o processamento do agente por conversa dentro da mesma instância.
+// Isso evita que duas mensagens quase simultâneas leiam o mesmo histórico e
+// sobrescrevam uma à outra no saveConversationStateV3. Em ambientes com várias
+// instâncias, a garantia definitiva ainda deve ser feita no banco/queue.
+const conversationLocks = new Map<string, Promise<void>>();
+async function withConversationLock<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = conversationLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.catch(() => undefined).then(() => current);
+  conversationLocks.set(key, tail);
+
+  await previous.catch(() => undefined);
+  try {
+    return await task();
+  } finally {
+    release();
+    if (conversationLocks.get(key) === tail) conversationLocks.delete(key);
   }
-  return n;
+}
+
+// Deduplicação em memória por messageId. O TTL evita crescimento permanente do
+// mapa e cobre as retransmissões normais do provedor. A proteção definitiva
+// entre reinícios/instâncias é feita também pelo external_id persistido no banco.
+const MESSAGE_ID_DEDUP_TTL_MS = 24 * 60 * 60 * 1000;
+const seenMessageIds = new Map<string, number>();
+function wasMessageIdRecentlySeen(id: string): boolean {
+  const now = Date.now();
+  const expiry = seenMessageIds.get(id);
+  if (expiry && expiry > now) return true;
+
+  if (expiry) seenMessageIds.delete(id);
+  return false;
+}
+
+function markMessageIdSeen(id: string): void {
+  const now = Date.now();
+  seenMessageIds.set(id, now + MESSAGE_ID_DEDUP_TTL_MS);
+  if (seenMessageIds.size > 1000) {
+    for (const [key, value] of seenMessageIds) {
+      if (value <= now) seenMessageIds.delete(key);
+    }
+  }
 }
 
 type UazapiPayload = {
@@ -130,19 +165,18 @@ function buildFallbackMessageId(phone: string, content: string): string {
 }
 
 const STOP_PATTERNS = [
-  /\bpare\b/i,
-  /\bparar\b/i,
-  /\bn[aã]o\s+quero\b/i,
-  /\bn[aã]o\s+me\s+(mande|manda|envie|mand)/i,
+  // "cancelar" sozinho é ambíguo: normalmente pode significar cancelar um pedido,
+  // não retirar consentimento para mensagens. Só bloqueamos pedidos inequívocos.
+  /^\s*(pare|parar|stop|unsubscribe)\s*[.!]?\s*$/i,
+  /\bn[aã]o\s+quero\s+mais\s+(mensagens?|contato|receber)/i,
+  /\bn[aã]o\s+me\s+(mande|manda|envie|mandar)\s+mais/i,
+  /\bpare\s+de\s+(mandar|enviar)/i,
   /\bsai[ar]?\s+da\s+lista\b/i,
   /\bdescadastr/i,
-  /\bme\s+tira\b/i,
-  /\bstop\b/i,
-  /\bunsubscribe\b/i,
-  /\bcancelar?\b/i,
+  /\bme\s+tira\s+(daqui|da[ií]|da\s+lista|dos\s+contatos)/i,
 ];
 
-function isStopRequest(text: string): boolean {
+export function isStopRequest(text: string): boolean {
   if (!text) return false;
   return STOP_PATTERNS.some((re) => re.test(text));
 }
@@ -175,21 +209,25 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("unauthorized (unknown instance)", { status: 401 });
     }
 
-    // 1. Deduplicação por MessageID
+    const content = extractContent(payload);
+
+    // 1. Deduplicação por MessageID. Não marcamos o ID como concluído antes da
+    // persistência: se houver uma falha transitória no CRM, o provedor precisa
+    // conseguir retransmitir a mensagem em vez de ela ficar perdida por 24h.
     const extractedId = extractMessageId(payload);
-    const msgId: string = extractedId ?? buildFallbackMessageId(phoneStr, msgLocal.text ?? "");
-    
-    const hits = bumpMessageIdHit(msgId);
-    if (hits > 1) {
-      console.log(`[UAZ-WEBHOOK] Ignorando duplicata (msgId: ${msgId}, hit: ${hits})`);
+    const fallbackIdentity = [content.kind, content.text, content.mediaUrl ?? ""].join(":");
+    const msgId: string = extractedId ?? buildFallbackMessageId(phoneStr, fallbackIdentity);
+
+    if (wasMessageIdRecentlySeen(msgId)) {
+      console.log(`[UAZ-WEBHOOK] Ignorando duplicata em memória (msgId: ${msgId})`);
       return new Response("ok (duplicate msgId)");
     }
-
-    const content = extractContent(payload);
 
     // 2. SYNC TO CRM (Always do this for all incoming messages)
     let contactId: string | undefined = undefined;
     let conversationId: string | undefined = undefined;
+    let duplicateMessageInDb = false;
+    let messagePersistedInDb = false;
 
     try {
       // Upsert Contact
@@ -229,27 +267,61 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       // Insert Message
-      if (conversationId) {
-        // Map 'image' and 'sticker' to 'texto' since the enum only allows 'texto' and 'audio'
-        const dbKind: "texto" | "audio" = content.kind === "audio" ? "audio" : "texto";
+      if (!conversationId) {
+        throw new Error("CRM sync não retornou conversationId");
+      }
 
-        const { error: msgErr } = await supabaseAdmin
-          .from("messages")
-          .insert({
-            conversation_id: conversationId,
-            user_id: num.user_id,
-            workspace_id: num.workspace_id,
-            sender: msgLocal.fromMe ? "agente" : "cliente",
-            kind: dbKind,
-            body: content.text,
-            audio_url: content.mediaUrl || undefined,
-            external_id: msgId,
-          });
+      // Map 'image' and 'sticker' to 'texto' since the enum only allows 'texto' and 'audio'
+      const dbKind: "texto" | "audio" = content.kind === "audio" ? "audio" : "texto";
 
-        if (msgErr) throw msgErr;
+      const { error: msgErr } = await supabaseAdmin
+        .from("messages")
+        .insert({
+          conversation_id: conversationId,
+          user_id: num.user_id,
+          workspace_id: num.workspace_id,
+          sender: msgLocal.fromMe ? "agente" : "cliente",
+          kind: dbKind,
+          body: content.text,
+          audio_url: content.mediaUrl || undefined,
+          external_id: msgId,
+        });
+
+      if (msgErr) {
+        if (msgErr.code === "23505") {
+          duplicateMessageInDb = true;
+        } else {
+          throw msgErr;
+        }
+      } else {
+        messagePersistedInDb = true;
       }
     } catch (syncErr: any) {
       console.error("[UAZ-WEBHOOK] Error syncing to CRM:", syncErr.message);
+    }
+
+    // Só considera o ID concluído depois que a sincronização terminou. Em caso
+    // de indisponibilidade do banco, deixamos a retransmissão futura tentar de novo.
+    if (messagePersistedInDb || duplicateMessageInDb) {
+      markMessageIdSeen(msgId);
+    }
+
+    // Uma retransmissão recebida após restart ou em outra instância pode escapar
+    // do mapa em memória. O external_id único no banco impede que ela gere uma
+    // segunda resposta automática.
+    if (duplicateMessageInDb) {
+      console.log(`[UAZ-WEBHOOK] Ignorando duplicata persistida (msgId: ${msgId})`);
+      return new Response("ok (duplicate persisted msgId)");
+    }
+
+    // Nunca execute a IA quando a mensagem de entrada não foi persistida.
+    // Caso o CRM esteja indisponível, responder mesmo assim cria dois riscos:
+    // 1) o histórico fica diferente do que foi gravado no banco; e
+    // 2) uma retransmissão do provedor pode gerar uma segunda resposta automática.
+    // Retornamos 503 para permitir retry do provedor sem marcar o messageId como concluído.
+    if (!messagePersistedInDb) {
+      console.error(`[UAZ-WEBHOOK] CRM sync incompleto; adiando processamento do msgId ${msgId}`);
+      return new Response("retry (crm sync incomplete)", { status: 503 });
     }
 
     // 3. AI GATE
@@ -263,7 +335,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       .from("agent_config")
       .select("agent_enabled")
       .eq("user_id", num.user_id)
-      .eq("workspace_id", num.workspace_id)
+      .eq("workspace_id", num.workspace_id!)
       .maybeSingle();
 
     if (agentConfigErr) {
@@ -295,7 +367,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // 4. AI PROCESSING (V3)
     // O webhook já é protegido pelo token da instância provisionada.
     // Não limitar o agente a um telefone fixo de teste em produção.
-    try {
+    const lockKey = `${num.workspace_id ?? "default"}:${phoneStr}`;
+    return await withConversationLock(lockKey, async () => {
+      try {
       const { data: integ } = await supabaseAdmin
         .from("integrations")
         .select("anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id")
@@ -328,7 +402,53 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       if (isStopRequest(finalMsgText)) {
-        return new Response("ok (stop request)");
+        const nowIso = new Date().toISOString();
+        const persistenceTasks: PromiseLike<unknown>[] = [];
+
+        if (conversationId) {
+          persistenceTasks.push(
+            supabaseAdmin
+              .from("conversations")
+              .update({
+                agent_enabled: false,
+                needs_review: true,
+                review_reason: "opt-out solicitado pelo contato",
+                auto_paused_at: nowIso,
+                internal_note: "Contato pediu para não receber novas mensagens automáticas.",
+              })
+              .eq("id", conversationId),
+          );
+        }
+
+        if (contactId) {
+          persistenceTasks.push(
+            supabaseAdmin
+              .from("contacts")
+              .update({
+                status: "bloqueado",
+                temperatura: "bloqueado",
+                temperatura_updated_at: nowIso,
+              })
+              .eq("id", contactId),
+          );
+        }
+
+        const stopResults = await Promise.all(persistenceTasks);
+        for (const result of stopResults) {
+          const error = (result as { error?: unknown }).error;
+          if (error) console.error("[UAZ-WEBHOOK] Failed to persist stop request:", error);
+        }
+
+        const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
+        await clearConversationStateV3(
+          num.user_id,
+          phoneStr,
+          num.workspace_id ?? undefined,
+        ).catch((error) => {
+          console.error("[UAZ-WEBHOOK] Failed to clear V3 state after stop request:", error);
+        });
+
+        return new Response("ok (stop request persisted)");
       }
 
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
@@ -355,16 +475,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const replyText = v3Response.replies.join("\n\n");
 
-      await saveConversationStateV3(
-        num.user_id,
-        phoneStr,
-        [
-          ...history,
-          { role: "customer" as const, content: finalMsgText },
-          { role: "agent" as const, content: replyText },
-        ].slice(-100),
-        num.workspace_id ?? undefined,
-      );
+      const nextHistory = [
+        ...history,
+        { role: "customer" as const, content: finalMsgText },
+        { role: "agent" as const, content: replyText },
+      ].slice(-100);
 
       const finalConvId = String(conversationId || phoneStr);
 
@@ -373,10 +488,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       if (content.kind === "audio" && integ?.elevenlabs_api_key && integ?.elevenlabs_voice_id) {
         try {
-          const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+          const { textToSpeechV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
           const { uazapiSendAudio, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
           await uazapiSendRecording(creds, phoneStr, 1200).catch(() => undefined);
-          const audioBase64 = await ttsElevenLabsBase64({
+          const audioBase64 = await textToSpeechV3({
             apiKey: integ.elevenlabs_api_key,
             voiceId: integ.elevenlabs_voice_id,
             text: replyText,
@@ -403,13 +518,24 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         );
       }
 
+      // Só persiste a resposta do agente depois que o envio foi confirmado.
+      // Antes, uma falha no WhatsApp deixava o histórico afirmando que o cliente
+      // recebeu uma resposta que nunca foi entregue.
+      await saveConversationStateV3(
+        num.user_id,
+        phoneStr,
+        nextHistory,
+        num.workspace_id ?? undefined,
+      );
+
       memMarkSent(phoneStr, replyText);
       return new Response("ok (AI processed)");
 
-    } catch (e: any) {
-      console.error("[UAZ-WEBHOOK] AI Critical Error:", e.message);
-      return new Response("ok (AI error handled)");
-    }
+      } catch (e: any) {
+        console.error("[UAZ-WEBHOOK] AI Critical Error:", e.message);
+        return new Response("ok (AI error handled)");
+      }
+    });
 }
 
 export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({

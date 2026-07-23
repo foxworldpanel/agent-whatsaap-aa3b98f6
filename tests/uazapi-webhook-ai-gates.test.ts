@@ -23,4 +23,13 @@ describe("Uazapi webhook — AI safety gates", () => {
     expect(source).toContain('return new Response("ok (audio transcription failed)")');
     expect(source).toContain('return new Response("ok (audio unavailable)")');
   });
+
+  it("never invokes AI when inbound CRM persistence failed", () => {
+    const persistenceGuard = source.indexOf('if (!messagePersistedInDb)');
+    const aiProcessing = source.indexOf('// 4. AI PROCESSING (V3)');
+
+    expect(persistenceGuard).toBeGreaterThan(-1);
+    expect(source).toContain('return new Response("retry (crm sync incomplete)", { status: 503 })');
+    expect(aiProcessing).toBeGreaterThan(persistenceGuard);
+  });
 });

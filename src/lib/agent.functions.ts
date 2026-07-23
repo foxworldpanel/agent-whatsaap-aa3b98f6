@@ -5,6 +5,7 @@ import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 import { getSharedUazapiUserIds } from "@/lib/agent-shared.server";
 import { mergeAgentModulesForSave } from "@/lib/agent-modules";
+import { invalidateAgentConfigCache } from "@/lib/agent-v3/brain/config.server";
 
 type PanelShot = { url: string; path?: string; label?: string };
 
@@ -159,6 +160,7 @@ export const saveAgentConfig = createServerFn({ method: "POST" })
       .from("agent_config")
       .upsert({ user_id: context.userId, workspace_id: context.workspaceId, ...patch }, { onConflict: "user_id,workspace_id" });
     if (error) throw new Error(error.message);
+    invalidateAgentConfigCache(context.userId, context.workspaceId);
     return { ok: true };
   });
 
@@ -199,6 +201,7 @@ export const saveAgentModules = createServerFn({ method: "POST" })
       .from("agent_config")
       .upsert(payload, { onConflict: "user_id,workspace_id" });
     if (error) throw new Error(error.message);
+    invalidateAgentConfigCache(context.userId, context.workspaceId);
     return { ok: true };
   });
 
@@ -429,6 +432,7 @@ export const setCatalogFlags = createServerFn({ method: "POST" })
       .from("agent_config")
       .upsert(patch, { onConflict: "user_id,workspace_id" });
     if (error) throw new Error(error.message);
+    invalidateAgentConfigCache(context.userId, context.workspaceId);
     return { ok: true };
   });
 

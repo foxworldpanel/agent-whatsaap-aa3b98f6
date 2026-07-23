@@ -2,7 +2,7 @@
 import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
 import { selectModulesV3 } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
-import { callAnthropicV3 } from "./integrations/llm-client.server";
+import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
 import { extractMetadataV3 } from "./memory/metadata-extractor.server";
 import {
   sanitizeSystemLeaks,
@@ -186,19 +186,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     `[AGENT-V3-SELECTOR] Intent: ${selectionContext.intent}, Stage: ${selectionContext.stage}, Platform: ${selectionContext.platform}, Modules: ${selectedKeys.join(", ")}`,
   );
 
-  // 3.1. Calcular Telemetria de Módulos
-  const modulesTelemetry: ModuleTelemetry[] = selectedKeys.map((key) => {
-    const mod = mergedModulesMap[key];
-    const content = typeof mod === "string" ? mod : mod?.content || "";
-    return {
-      key,
-      name: key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-      chars: content.length,
-      tokens: Math.ceil(content.length / 4),
-    };
-  });
-
-  // 3.2. Comparativo de Prompt (tokens comerciais)
+  // 3.1. Comparativo de Prompt (tokens comerciais)
   const commercialKeys = [
     "psicologia_vendas",
     "objecoes_vendas",
@@ -222,6 +210,20 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   const promptWithCommercial = promptWithCommercialResult.prompt;
   const promptWithoutCommercial = promptWithoutCommercialResult.prompt;
   const effectiveSelectedKeys = promptWithCommercialResult.includedKeys;
+
+  // A telemetria deve refletir apenas os módulos que realmente entraram no prompt.
+  // Chaves descartadas pelo prompt-builder (ausentes ou vazias) não podem aparecer
+  // nos tokens estimados, versões ou contagem de módulos usados.
+  const modulesTelemetry: ModuleTelemetry[] = effectiveSelectedKeys.map((key) => {
+    const mod = mergedModulesMap[key];
+    const content = mod?.content || "";
+    return {
+      key,
+      name: mod?.name?.trim() || key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+      chars: content.length,
+      tokens: Math.ceil(content.length / 4),
+    };
+  });
 
   if (!promptWithCommercial.trim()) {
     throw new Error("[agent-v3] Os módulos selecionados não produziram conteúdo válido para o prompt");
@@ -280,7 +282,7 @@ ${extraContext}`
 REGRA DE FONTE ÚNICA E ANTI-INVENÇÃO:
 - Use exclusivamente as informações presentes nos módulos carregados em ESTADO DA CONVERSA.
 - Nunca invente, complete por conhecimento próprio ou liste serviços que não estejam escritos nos módulos selecionados.
-- Não ofereça Tráfego, Telegram ou qualquer categoria ausente dos módulos carregados.
+- Não ofereça nenhuma categoria, plataforma, produto ou serviço que esteja ausente dos módulos carregados.
 - Quando o cliente disser apenas "tenho interesse" ou algo vago, pergunte somente qual rede social ou serviço ele procura. Não apresente um catálogo inventado.
 - Se a informação não estiver nos módulos, diga que precisa confirmar, sem criar uma resposta.
 
@@ -314,7 +316,8 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
 - Não repita explicações, listas ou chamadas para ação já enviadas.
 - Responda apenas ao último pedido do cliente em no máximo 2 frases.
 - Não invente link, preço, serviço ou etapa; use somente os módulos carregados.`,
-    });
+      cache_control: { type: "ephemeral" },
+    } as any);
   }
 
   // Model Call
@@ -355,7 +358,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     },
   });
 
-  const rawText = llmResult.content?.find((item) => item.type === "text")?.text || "";
+  const rawText = extractAnthropicTextV3(llmResult);
   if (!rawText) {
     throw new Error("[agent-v3] A Anthropic retornou uma resposta sem conteúdo de texto");
   }
@@ -392,6 +395,11 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
 
   // Guards & Pipeline
   let finalContent = cleanText;
+  if (!finalContent.trim()) {
+    throw new Error(
+      "[agent-v3] A resposta da Anthropic continha somente metadados internos e nenhum texto para o cliente",
+    );
+  }
   finalContent = sanitizeSystemLeaks(finalContent);
 
   // Emoji handling
@@ -403,7 +411,13 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
 
   // Post-processing
   finalContent = humanizePunctuationV3(finalContent);
-  finalContent = stripMarkdownFormattingV3(finalContent);
+  finalContent = stripMarkdownFormattingV3(finalContent).trim();
+
+  if (!finalContent) {
+    throw new Error(
+      "[agent-v3] A resposta ficou vazia após os filtros de segurança e formatação",
+    );
+  }
 
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);

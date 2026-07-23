@@ -82,7 +82,7 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "valores",
     "quanto e",
     "qual o valor",
-    "quanto",
+    "quanto custa",
     "valor",
     "preco",
     "custa",
@@ -94,7 +94,10 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "ajuda",
     "problema",
     "erro",
-    "pedido",
+    "meu pedido",
+    "status do pedido",
+    "pedido em andamento",
+    "pedido pendente",
     "status",
     "nao chegou",
     "atraso",
@@ -160,7 +163,6 @@ const PLATFORM_PATTERNS: Array<[NonNullable<ConversationContext["platform"]>, st
   ["tiktok", KEYWORD_MAP.tiktok],
   ["kwai", KEYWORD_MAP.kwai],
   ["facebook", KEYWORD_MAP.facebook],
-  ["outra", ["twitter", "x twitter", "threads", "telegram", "twitch", "soundcloud"]],
 ];
 
 const PRODUCT_PATTERNS: Array<[NonNullable<ConversationContext["product"]>, string[]]> = [
@@ -186,8 +188,22 @@ function normalizeText(value: string): string {
     .trim();
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Faz correspondência por palavra/frase inteira sobre texto já normalizado.
+ * Evita falsos positivos de substring, por exemplo "face" dentro de
+ * "interface" ou "live" dentro de outra palavra.
+ */
 function containsAny(text: string, terms: string[]): boolean {
-  return terms.some((term) => text.includes(normalizeText(term)));
+  return terms.some((term) => {
+    const normalizedTerm = normalizeText(term);
+    if (!normalizedTerm) return false;
+    const phrase = escapeRegex(normalizedTerm).replace(/\s+/g, "\\s+");
+    return new RegExp(`(?:^|\\s)${phrase}(?=$|\\s)`).test(text);
+  });
 }
 
 function findContextValue<T>(
@@ -371,9 +387,7 @@ export function selectModulesV3(
       add(key, `Produto ${context.product} definido no CMS`);
     }
 
-    const trigger = routing.triggers.find((term) =>
-      normalizedText.includes(normalizeText(term)),
-    );
+    const trigger = routing.triggers.find((term) => containsAny(normalizedText, [term]));
     if (trigger) add(key, `Gatilho “${trigger}” definido no CMS`);
   }
 
@@ -395,6 +409,8 @@ export function selectModulesV3(
 
   // Conflitos: mantém o módulo de maior prioridade; em empate, mantém o primeiro.
   for (const key of Array.from(selected)) {
+    if (!selected.has(key)) continue;
+
     for (const conflict of modules[key]?.routing.conflicts || []) {
       if (!selected.has(conflict)) continue;
       const currentPriority = modules[key]?.routing.priority || 0;
@@ -405,7 +421,30 @@ export function selectModulesV3(
       } else {
         selected.delete(key);
         delete reasons[key];
+        break;
       }
+    }
+  }
+
+  // Um conflito pode remover uma dependência obrigatória. Nesse caso, manter o
+  // módulo dependente produziria um prompt incompleto e potencialmente contraditório.
+  // Remove dependentes inválidos de forma transitiva até a seleção estabilizar.
+  let removedInvalidDependency = true;
+  while (removedInvalidDependency) {
+    removedInvalidDependency = false;
+
+    for (const key of Array.from(selected)) {
+      const missingDependency = (modules[key]?.routing.dependencies || []).find(
+        (dependency) => !selected.has(dependency),
+      );
+      if (!missingDependency) continue;
+
+      selected.delete(key);
+      delete reasons[key];
+      removedInvalidDependency = true;
+      console.warn(
+        `[agent-v3-selector] Módulo ${key} removido porque a dependência obrigatória ${missingDependency} não permaneceu após a resolução de conflitos.`,
+      );
     }
   }
 

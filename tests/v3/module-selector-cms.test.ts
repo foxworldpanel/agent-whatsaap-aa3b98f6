@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { detectConversationContext, selectModulesV3 } from "../../src/lib/agent-v3/module-selector.server";
-import type { LoadedModuleV3, ModuleRoutingV3 } from "../../src/lib/agent-v3/modules.server";
+import { detectConversationContext, selectModulesV3 } from "../../src/lib/agent-v3/selector/module-selector.server";
+import type { LoadedModuleV3, ModuleRoutingV3 } from "../../src/lib/agent-v3/brain/modules.server";
 
 const routing = (patch: Partial<ModuleRoutingV3> = {}): ModuleRoutingV3 => ({
   alwaysLoad: false,

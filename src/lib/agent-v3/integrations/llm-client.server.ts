@@ -16,6 +16,18 @@ export type AnthropicV3Result = {
   request_id?: string;
 };
 
+
+export function extractAnthropicTextV3(result: AnthropicV3Result): string {
+  return (result.content || [])
+    .filter(
+      (item): item is { type?: string; text: string } =>
+        item.type === "text" && typeof item.text === "string" && item.text.trim().length > 0,
+    )
+    .map((item) => item.text.trim())
+    .join("\n\n")
+    .trim();
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -25,6 +37,11 @@ function retryDelayMs(attempt: number, retryAfter: string | null): number {
     const seconds = Number(retryAfter);
     if (Number.isFinite(seconds) && seconds >= 0) {
       return Math.min(seconds * 1_000, 10_000);
+    }
+
+    const retryDateMs = Date.parse(retryAfter);
+    if (Number.isFinite(retryDateMs)) {
+      return Math.min(Math.max(0, retryDateMs - Date.now()), 10_000);
     }
   }
 

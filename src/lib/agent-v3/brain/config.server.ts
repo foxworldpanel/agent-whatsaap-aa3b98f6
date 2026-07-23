@@ -25,23 +25,35 @@ const emptyConfig = (): AgentConfigV3 => ({
 });
 
 /** Loads the full configuration for the agent from agent_config table. */
-export async function loadAgentConfigV3(userId: string): Promise<AgentConfigV3> {
+export async function loadAgentConfigV3(
+  userId: string,
+  workspaceId?: string,
+): Promise<AgentConfigV3> {
   const normalizedUserId = userId?.trim();
+  const normalizedWorkspaceId = workspaceId?.trim();
   if (!normalizedUserId) {
     console.warn("[v3-config] userId vazio; usando configuração segura padrão");
     return emptyConfig();
   }
 
+  const cacheKey = normalizedWorkspaceId
+    ? `${normalizedUserId}:${normalizedWorkspaceId}`
+    : normalizedUserId;
   const now = Date.now();
-  const cached = configCache.get(normalizedUserId);
+  const cached = configCache.get(cacheKey);
   if (cached && cached.expiresAt > now) return cloneConfig(cached.value);
 
   try {
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("agent_config")
       .select("modules_enabled, brand_blocks, catalog_in_prompt, catalog_only_relevant")
-      .eq("user_id", normalizedUserId)
-      .maybeSingle();
+      .eq("user_id", normalizedUserId);
+
+    if (normalizedWorkspaceId) {
+      query = query.eq("workspace_id", normalizedWorkspaceId);
+    }
+
+    const { data, error } = await query.maybeSingle();
 
     if (error) throw error;
 
@@ -60,7 +72,7 @@ export async function loadAgentConfigV3(userId: string): Promise<AgentConfigV3> 
         typeof data?.catalog_only_relevant === "boolean" ? data.catalog_only_relevant : true,
     };
 
-    configCache.set(normalizedUserId, {
+    configCache.set(cacheKey, {
       value: cloneConfig(config),
       expiresAt: now + CACHE_TTL_MS,
     });
@@ -71,9 +83,22 @@ export async function loadAgentConfigV3(userId: string): Promise<AgentConfigV3> 
   }
 }
 
-export function invalidateAgentConfigCache(userId: string): void {
+export function invalidateAgentConfigCache(userId: string, workspaceId?: string): void {
   const normalizedUserId = userId?.trim();
-  if (normalizedUserId) configCache.delete(normalizedUserId);
+  const normalizedWorkspaceId = workspaceId?.trim();
+  if (!normalizedUserId) return;
+
+  if (normalizedWorkspaceId) {
+    configCache.delete(`${normalizedUserId}:${normalizedWorkspaceId}`);
+    return;
+  }
+
+  // Sem workspace explícito, invalida todas as entradas deste usuário.
+  for (const key of configCache.keys()) {
+    if (key === normalizedUserId || key.startsWith(`${normalizedUserId}:`)) {
+      configCache.delete(key);
+    }
+  }
 }
 
 export function clearAgentConfigCache(): void {

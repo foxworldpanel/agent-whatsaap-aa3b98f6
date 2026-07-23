@@ -11,16 +11,18 @@ export const listKnowledge = createServerFn({ method: "GET" })
       .from("knowledge_base")
       .select("id, kind, context, content, image_url, created_at")
       .eq("user_id", context.userId)
+      .eq("workspace_id", context.workspaceId)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     return data ?? [];
   });
 
-async function assertUnderLimit(supabase: any, userId: string) {
+async function assertUnderLimit(supabase: any, userId: string, workspaceId: string) {
   const { count, error } = await supabase
     .from("knowledge_base")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("workspace_id", workspaceId);
   if (error) throw new Error(error.message);
   if ((count ?? 0) >= MAX_EXAMPLES) {
     throw new Error(`Limite de ${MAX_EXAMPLES} exemplos atingido. Remova alguns antes de adicionar novos.`);
@@ -36,11 +38,12 @@ export const addTextExample = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertUnderLimit(context.supabase, context.userId);
+    await assertUnderLimit(context.supabase, context.userId, context.workspaceId);
     const { data: row, error } = await context.supabase
       .from("knowledge_base")
       .insert({
         user_id: context.userId,
+        workspace_id: context.workspaceId,
         kind: "text",
         context: data.context ?? null,
         content: data.content,
@@ -60,13 +63,14 @@ export const addImageExample = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    await assertUnderLimit(context.supabase, context.userId);
+    await assertUnderLimit(context.supabase, context.userId, context.workspaceId);
     const { extractConversationFromImage } = await import("@/lib/ai.server");
     const content = await extractConversationFromImage(data.image_url);
     const { data: row, error } = await context.supabase
       .from("knowledge_base")
       .insert({
         user_id: context.userId,
+        workspace_id: context.workspaceId,
         kind: "image",
         context: data.context ?? null,
         image_url: data.image_url,
@@ -86,7 +90,8 @@ export const deleteKnowledge = createServerFn({ method: "POST" })
       .from("knowledge_base")
       .delete()
       .eq("id", data.id)
-      .eq("user_id", context.userId);
+      .eq("user_id", context.userId)
+      .eq("workspace_id", context.workspaceId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

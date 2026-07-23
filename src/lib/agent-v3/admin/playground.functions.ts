@@ -58,6 +58,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       userId,
       history,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
+      workspaceId,
       inputKind: inputKind as any
     });
 

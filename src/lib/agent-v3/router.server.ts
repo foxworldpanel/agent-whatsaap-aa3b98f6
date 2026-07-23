@@ -4,6 +4,9 @@ import { runAgentV3Turn } from "./orchestrator.server";
 
 type RouterInput = {
   userId: string;
+  workspaceId?: string;
+  conversationId?: string;
+  phone?: string;
   kind: "texto" | "audio" | "image";
   message: string;
   mediaUrl?: string;
@@ -42,5 +45,8 @@ export async function routeAgentV3Request(input: RouterInput) {
     enabledModules: input.enabledModules,
     customModules: input.customModules,
     anthropicApiKey: input.anthropicApiKey || "",
+    workspaceId: input.workspaceId,
+    conversationId: input.conversationId,
+    phone: input.phone,
   });
 }

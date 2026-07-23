@@ -8,24 +8,34 @@ export const updateV3ModulesOrder = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({
       orders: z.array(z.object({
-        key: z.string(),
-        priority: z.number()
-      }))
+        key: z.string().trim().min(1).max(120),
+        priority: z.number().finite()
+      })).min(1).max(200)
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
     const { supabase, workspaceId } = context;
 
-    // Use a single RPC call if possible, or multiple updates
-    // For simplicity and since modules are few (usually < 50), we can do individual updates
-    // Or a bulk upsert if we have the full rows, but we only want to update priority
-    
-    for (const item of data.orders) {
-      await supabase
+    const normalizedOrders = data.orders.map((item) => ({
+      key: item.key.trim().toLowerCase(),
+      priority: item.priority,
+    }));
+
+    const uniqueKeys = new Set(normalizedOrders.map((item) => item.key));
+    if (uniqueKeys.size !== normalizedOrders.length) {
+      throw new Error("A ordenação contém módulos duplicados");
+    }
+
+    for (const item of normalizedOrders) {
+      const { error } = await supabase
         .from("agent_modules_v3")
         .update({ priority: item.priority })
         .eq("workspace_id", workspaceId)
         .eq("key", item.key);
+
+      if (error) {
+        throw new Error(`[v3-admin] Falha ao atualizar prioridade de ${item.key}: ${error.message}`);
+      }
     }
 
     invalidateModulesCache(workspaceId);
