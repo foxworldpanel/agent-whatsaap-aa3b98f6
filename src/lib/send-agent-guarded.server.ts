@@ -20,7 +20,7 @@
 // independente de qual caminho as gerou.
 
 import { limitEmojiFrequency } from "@/lib/emoji-limiter";
-import { humanizePunctuation } from "@/lib/ai.server";
+import { humanizePunctuationV3 } from "@/lib/agent-v3/brain/guards.server";
 
 type UazapiCreds = Parameters<typeof import("@/lib/uazapi.server").uazapiSendText>[0];
 
@@ -69,7 +69,7 @@ export async function sendAgentTextGuarded(
 
   let out = text ?? "";
   const original = out;
-  if (opts.applyHumanize) out = humanizePunctuation(out);
+  if (opts.applyHumanize) out = humanizePunctuationV3(out);
   const beforeEmoji = out;
   out = limitEmojiFrequency(out, {
     recentAgentBodies: recent,

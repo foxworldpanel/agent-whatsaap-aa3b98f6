@@ -62,6 +62,18 @@ function AgenteV3AdminPage() {
   const [activeTab, setActiveTab] = useState<string>("modules");
   const [activeModuleKey, setActiveModuleKey] = useState<string | null>(null);
   const [moduleContent, setModuleContent] = useState<string>("");
+  const [moduleRouting, setModuleRouting] = useState({
+    enabled: true,
+    alwaysLoad: false,
+    priority: 50,
+    intents: "",
+    stages: "",
+    platforms: "",
+    products: "",
+    triggers: "",
+    dependencies: "",
+    conflicts: "",
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewModuleOpen, setIsNewModuleOpen] = useState(false);
   
@@ -133,12 +145,40 @@ function AgenteV3AdminPage() {
 
   useEffect(() => {
     if (activeModuleKey && modules[activeModuleKey]) {
-      setModuleContent(modules[activeModuleKey].content);
+      const current = modules[activeModuleKey];
+      setModuleContent(current.content);
+      setModuleRouting({
+        enabled: current.enabled ?? true,
+        alwaysLoad: current.always_load ?? false,
+        priority: current.priority ?? 50,
+        intents: (current.selector_intents ?? []).join(", "),
+        stages: (current.selector_stages ?? []).join(", "),
+        platforms: (current.selector_platforms ?? []).join(", "),
+        products: (current.selector_products ?? []).join(", "),
+        triggers: (current.selector_triggers ?? []).join(", "),
+        dependencies: (current.selector_dependencies ?? []).join(", "),
+        conflicts: (current.selector_conflicts ?? []).join(", "),
+      });
     }
   }, [activeModuleKey, modules]);
 
   const saveMut = useMutation({
-    mutationFn: (data: { moduleKey: string; content: string; name?: string; category?: string }) => updateModule({ data }),
+    mutationFn: (data: {
+      moduleKey: string;
+      content: string;
+      name?: string;
+      category?: string;
+      enabled?: boolean;
+      alwaysLoad?: boolean;
+      priority?: number;
+      selectorIntents?: string[];
+      selectorStages?: string[];
+      selectorPlatforms?: string[];
+      selectorProducts?: string[];
+      selectorTriggers?: string[];
+      selectorDependencies?: string[];
+      selectorConflicts?: string[];
+    }) => updateModule({ data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agent_v3_config"] });
       toast.success("Módulo atualizado com sucesso!");
@@ -300,7 +340,24 @@ function AgenteV3AdminPage() {
           </Dialog>
 
           <Button
-            onClick={() => activeModuleKey && saveMut.mutate({ moduleKey: activeModuleKey, content: moduleContent })}
+            onClick={() => {
+              if (!activeModuleKey) return;
+              const csv = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
+              saveMut.mutate({
+                moduleKey: activeModuleKey,
+                content: moduleContent,
+                enabled: moduleRouting.enabled,
+                alwaysLoad: moduleRouting.alwaysLoad,
+                priority: Number.isFinite(moduleRouting.priority) ? moduleRouting.priority : 50,
+                selectorIntents: csv(moduleRouting.intents),
+                selectorStages: csv(moduleRouting.stages),
+                selectorPlatforms: csv(moduleRouting.platforms),
+                selectorProducts: csv(moduleRouting.products),
+                selectorTriggers: csv(moduleRouting.triggers),
+                selectorDependencies: csv(moduleRouting.dependencies),
+                selectorConflicts: csv(moduleRouting.conflicts),
+              });
+            }}
             disabled={saveMut.isPending || !activeModuleKey}
             className="gap-2 shadow-lg shadow-primary/20"
           >
@@ -437,6 +494,62 @@ function AgenteV3AdminPage() {
                         className="min-h-[500px] w-full bg-transparent p-6 font-mono text-sm leading-relaxed outline-none focus:ring-0 resize-none text-foreground border-none"
                         spellCheck={false}
                       />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-card border-border">
+                    <CardHeader className="p-4 border-b">
+                      <CardTitle className="text-base">Roteamento do módulo</CardTitle>
+                      <CardDescription>
+                        Define quando o seletor V3 deve carregar este módulo. Separe múltiplos valores por vírgula.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={moduleRouting.enabled}
+                            onChange={(e) => setModuleRouting((prev) => ({ ...prev, enabled: e.target.checked }))}
+                          />
+                          Módulo ativo
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={moduleRouting.alwaysLoad}
+                            onChange={(e) => setModuleRouting((prev) => ({ ...prev, alwaysLoad: e.target.checked }))}
+                          />
+                          Carregar sempre
+                        </label>
+                        <div className="grid gap-1">
+                          <label className="text-xs text-muted-foreground">Prioridade</label>
+                          <Input
+                            type="number"
+                            value={moduleRouting.priority}
+                            onChange={(e) => setModuleRouting((prev) => ({ ...prev, priority: Number(e.target.value) }))}
+                          />
+                        </div>
+                      </div>
+
+                      {[
+                        ["Plataformas", "platforms", "spotify, youtube, instagram"],
+                        ["Intenções", "intents", "consulta_preco, compra, suporte"],
+                        ["Estágios", "stages", "inicio, negociacao, fechamento"],
+                        ["Produtos", "products", "plays, seguidores, visualizacoes"],
+                        ["Gatilhos", "triggers", "playlist, quanto custa, pix"],
+                        ["Dependências", "dependencies", "regras_gerais"],
+                        ["Conflitos", "conflicts", "tabela_precos"],
+                      ].map(([label, field, placeholder]) => (
+                        <div className="grid gap-1" key={field}>
+                          <label className="text-xs text-muted-foreground">{label}</label>
+                          <Input
+                            value={moduleRouting[field as keyof typeof moduleRouting] as string}
+                            placeholder={placeholder}
+                            onChange={(e) => setModuleRouting((prev) => ({ ...prev, [field]: e.target.value }))}
+                          />
+                        </div>
+                      ))}
                     </CardContent>
                   </Card>
 
