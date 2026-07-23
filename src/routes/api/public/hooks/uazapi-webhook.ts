@@ -28,6 +28,52 @@ async function withConversationLock<T>(key: string, task: () => Promise<T>): Pro
   }
 }
 
+// Lock persistente por conversation_id para proteger também ambientes com
+// múltiplas instâncias/processos. A PK da tabela torna a aquisição atômica.
+const DB_CONVERSATION_LOCK_STALE_MS = 2 * 60 * 1000;
+
+async function acquireConversationDbLock(
+  supabaseAdmin: any,
+  conversationId: string,
+  holder: string,
+): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from("agent_generation_locks")
+    .insert({ conversation_id: conversationId, holder, acquired_at: new Date().toISOString() });
+
+  if (!error) return true;
+  if (error.code !== "23505") throw error;
+
+  // Recuperação defensiva de lock órfão após crash.
+  const staleBefore = new Date(Date.now() - DB_CONVERSATION_LOCK_STALE_MS).toISOString();
+  await supabaseAdmin
+    .from("agent_generation_locks")
+    .delete()
+    .eq("conversation_id", conversationId)
+    .lt("acquired_at", staleBefore);
+
+  const { error: retryError } = await supabaseAdmin
+    .from("agent_generation_locks")
+    .insert({ conversation_id: conversationId, holder, acquired_at: new Date().toISOString() });
+
+  if (!retryError) return true;
+  if (retryError.code === "23505") return false;
+  throw retryError;
+}
+
+async function releaseConversationDbLock(
+  supabaseAdmin: any,
+  conversationId: string,
+  holder: string,
+): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from("agent_generation_locks")
+    .delete()
+    .eq("conversation_id", conversationId)
+    .eq("holder", holder);
+  if (error) console.error("[UAZ-WEBHOOK] Falha ao liberar lock persistente:", error);
+}
+
 // Deduplicação em memória por messageId. O TTL evita crescimento permanente do
 // mapa e cobre as retransmissões normais do provedor. A proteção definitiva
 // entre reinícios/instâncias é feita também pelo external_id persistido no banco.
@@ -357,6 +403,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // Não limitar o agente a um telefone fixo de teste em produção.
     const lockKey = `${workspaceId}:${phoneStr}`;
     return await withConversationLock(lockKey, async () => {
+      const lockHolder = `v3:${msgId}:${Date.now()}`;
+      if (conversationId) {
+        const acquired = await acquireConversationDbLock(supabaseAdmin, conversationId, lockHolder);
+        if (!acquired) {
+          console.log(`[UAZ-WEBHOOK] Conversa já está sendo processada em outra instância: ${conversationId}`);
+          return new Response("ok (conversation busy)");
+        }
+      }
+
       try {
       const { data: integ, error: integErr } = await supabaseAdmin
         .from("integrations")
@@ -523,6 +578,26 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           await uazapiSendAudio(creds, phoneStr, audioBase64);
           await uazapiClearPresence(creds, phoneStr).catch(() => undefined);
           sentAsAudio = true;
+
+          // Registra explicitamente o outbound de áudio. O arquivo TTS é enviado
+          // como base64 e não possui URL persistente; o body mantém a transcrição
+          // exata usada para gerar o áudio e a memória conversacional.
+          if (conversationId) {
+            const { error: audioPersistErr } = await supabaseAdmin
+              .from("messages")
+              .insert({
+                conversation_id: conversationId,
+                user_id: num.user_id,
+                workspace_id: workspaceId,
+                sender: "agente",
+                kind: "audio",
+                body: replyText,
+              });
+            if (audioPersistErr) {
+              console.error("[UAZ-WEBHOOK] Áudio enviado, mas falhou ao persistir outbound no CRM:", audioPersistErr);
+            }
+          }
+
           console.log("[UAZ-WEBHOOK] Resposta do Agent V3 enviada por áudio");
         } catch (audioSendErr) {
           console.error("[UAZ-WEBHOOK] Falha ao responder por áudio; usando texto:", audioSendErr);
@@ -617,6 +692,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         return new Response("ok (AI error flagged for review)");
+      } finally {
+        if (conversationId) {
+          await releaseConversationDbLock(supabaseAdmin, conversationId, lockHolder);
+        }
       }
     });
 }
