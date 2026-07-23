@@ -36,19 +36,37 @@ export function sanitizeSystemLeaks(text: string): string {
 }
 
 /**
- * Trava de emoji: impede que o agente use emojis em mensagens consecutivas.
+ * Trava de emoji:
+ * - no máximo 1 emoji por resposta;
+ * - não permite emoji quando qualquer uma das últimas 3 mensagens do agente já usou emoji.
+ * O objetivo é manter a Júlia natural e profissional, sem aparência de bot promocional.
  */
-export function limitEmojiFrequency(text: string, history: Array<{ sender: string, body: string }> | null | undefined): string {
-  if (!history || !Array.isArray(history) || history.length === 0) return text;
-  const lastAgentMsg = [...history].reverse().find(m => m.sender === "agente");
+export function limitEmojiFrequency(
+  text: string,
+  history: Array<{ sender: string; body: string }> | null | undefined,
+): string {
+  const emojiRx = /[\u{1F300}-\u{1F9FF}]/gu;
   const hasEmoji = (s: string) => /[\u{1F300}-\u{1F9FF}]/u.test(s);
-  
-  if (lastAgentMsg && hasEmoji(lastAgentMsg.body)) {
-    // Remove TODOS os emojis se a anterior já tinha
-    return text.replace(/[\u{1F300}-\u{1F9FF}]/gu, "").trim();
+
+  const recentAgentMessages = Array.isArray(history)
+    ? history.filter((m) => m.sender === "agente").slice(-3)
+    : [];
+
+  if (recentAgentMessages.some((m) => hasEmoji(m.body))) {
+    return text.replace(emojiRx, "").replace(/\s{2,}/g, " ").trim();
   }
-  return text;
+
+  let keptEmoji = false;
+  return text
+    .replace(emojiRx, (emoji) => {
+      if (keptEmoji) return "";
+      keptEmoji = true;
+      return emoji;
+    })
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
+
 
 /**
  * Trava de custo: detecta loops verbosos (idoso leigo ou repetição sem avanço).
