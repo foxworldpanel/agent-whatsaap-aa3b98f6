@@ -314,6 +314,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (duplicate persisted msgId)");
     }
 
+    // Nunca execute a IA quando a mensagem de entrada não foi persistida.
+    // Caso o CRM esteja indisponível, responder mesmo assim cria dois riscos:
+    // 1) o histórico fica diferente do que foi gravado no banco; e
+    // 2) uma retransmissão do provedor pode gerar uma segunda resposta automática.
+    // Retornamos 503 para permitir retry do provedor sem marcar o messageId como concluído.
+    if (!messagePersistedInDb) {
+      console.error(`[UAZ-WEBHOOK] CRM sync incompleto; adiando processamento do msgId ${msgId}`);
+      return new Response("retry (crm sync incomplete)", { status: 503 });
+    }
+
     // 3. AI GATE
     if (msgLocal.fromMe) {
       return new Response("ok (sync only for fromMe)");
