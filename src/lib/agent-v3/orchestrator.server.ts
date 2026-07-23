@@ -2,7 +2,7 @@
 import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
 import { selectModulesV3 } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
-import { callAnthropicV3 } from "./integrations/llm-client.server";
+import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
 import { extractMetadataV3 } from "./memory/metadata-extractor.server";
 import {
   sanitizeSystemLeaks,
@@ -358,7 +358,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     },
   });
 
-  const rawText = llmResult.content?.find((item) => item.type === "text")?.text || "";
+  const rawText = extractAnthropicTextV3(llmResult);
   if (!rawText) {
     throw new Error("[agent-v3] A Anthropic retornou uma resposta sem conteúdo de texto");
   }
@@ -395,6 +395,11 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
 
   // Guards & Pipeline
   let finalContent = cleanText;
+  if (!finalContent.trim()) {
+    throw new Error(
+      "[agent-v3] A resposta da Anthropic continha somente metadados internos e nenhum texto para o cliente",
+    );
+  }
   finalContent = sanitizeSystemLeaks(finalContent);
 
   // Emoji handling
@@ -406,7 +411,13 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
 
   // Post-processing
   finalContent = humanizePunctuationV3(finalContent);
-  finalContent = stripMarkdownFormattingV3(finalContent);
+  finalContent = stripMarkdownFormattingV3(finalContent).trim();
+
+  if (!finalContent) {
+    throw new Error(
+      "[agent-v3] A resposta ficou vazia após os filtros de segurança e formatação",
+    );
+  }
 
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
