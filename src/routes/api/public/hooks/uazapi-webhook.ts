@@ -329,13 +329,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (sync only for fromMe)");
     }
 
+    const workspaceId = num.workspace_id?.trim();
+    if (!workspaceId) {
+      console.error("[UAZ-WEBHOOK] Número sem workspace_id; bloqueando Agent V3 para evitar vazamento entre workspaces", {
+        userId: num.user_id,
+        phone: phoneStr,
+      });
+      return new Response("workspace configuration missing", { status: 503 });
+    }
+
     // Respeita os kill switches globais e por conversa. O recebimento continua
     // sincronizado no CRM, mas nenhuma resposta automática é gerada.
     const { data: agentConfig, error: agentConfigErr } = await supabaseAdmin
       .from("agent_config")
       .select("agent_enabled")
       .eq("user_id", num.user_id)
-      .eq("workspace_id", num.workspace_id!)
+      .eq("workspace_id", workspaceId)
       .maybeSingle();
 
     if (agentConfigErr) {
@@ -367,7 +376,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // 4. AI PROCESSING (V3)
     // O webhook já é protegido pelo token da instância provisionada.
     // Não limitar o agente a um telefone fixo de teste em produção.
-    const lockKey = `${num.workspace_id ?? "default"}:${phoneStr}`;
+    const lockKey = `${workspaceId}:${phoneStr}`;
     return await withConversationLock(lockKey, async () => {
       try {
       const { data: integ } = await supabaseAdmin
@@ -443,7 +452,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         await clearConversationStateV3(
           num.user_id,
           phoneStr,
-          num.workspace_id ?? undefined,
+          workspaceId,
         ).catch((error) => {
           console.error("[UAZ-WEBHOOK] Failed to clear V3 state after stop request:", error);
         });
@@ -457,12 +466,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const { history, telemetry: historyTelemetry } = await getConversationStateV3(
         num.user_id,
         phoneStr,
-        num.workspace_id ?? undefined,
+        workspaceId,
       );
 
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
-        workspaceId: num.workspace_id ?? undefined,
+        workspaceId,
         conversationId: conversationId ?? undefined,
         phone: phoneStr,
         message: finalMsgText,
@@ -525,7 +534,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         num.user_id,
         phoneStr,
         nextHistory,
-        num.workspace_id ?? undefined,
+        workspaceId,
       );
 
       memMarkSent(phoneStr, replyText);

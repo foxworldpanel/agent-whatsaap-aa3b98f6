@@ -113,6 +113,51 @@ function AgentPlaygroundPage() {
     refetchInterval: 1000,
   });
 
+  const { data: sessionUsage } = useQuery({
+    queryKey: ["playground_session_usage", activeSessionId],
+    queryFn: async () => {
+      if (!activeSessionId) {
+        return {
+          calls: 0,
+          costUsd: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheWriteTokens: 0,
+          cacheReadTokens: 0,
+        };
+      }
+
+      const { data, error } = await supabase
+        .from("agent_playground_runs")
+        .select("cost_usd,input_tokens,output_tokens,cache_creation_input_tokens,cache_read_input_tokens")
+        .eq("session_id", activeSessionId);
+
+      if (error) throw error;
+
+      return (data || []).reduce(
+        (acc: any, run: any) => ({
+          calls: acc.calls + 1,
+          costUsd: acc.costUsd + Number(run.cost_usd || 0),
+          inputTokens: acc.inputTokens + Number(run.input_tokens || 0),
+          outputTokens: acc.outputTokens + Number(run.output_tokens || 0),
+          cacheWriteTokens: acc.cacheWriteTokens + Number(run.cache_creation_input_tokens || 0),
+          cacheReadTokens: acc.cacheReadTokens + Number(run.cache_read_input_tokens || 0),
+        }),
+        {
+          calls: 0,
+          costUsd: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheWriteTokens: 0,
+          cacheReadTokens: 0,
+        },
+      );
+    },
+    enabled: !!activeSessionId,
+    refetchInterval: 1000,
+  });
+
+
 
   // Mutations
   const createSession = useMutation({
@@ -575,15 +620,25 @@ function AgentPlaygroundPage() {
                           ? Object.entries(modules.estimated_tokens_by_module).map(([key, tokens]) => ({
                               key,
                               name: key.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-                              chars: (tokens as number) * 4, // Estimativa inversa
-                              tokens: tokens as number
+                              chars: Number(modules?.estimated_chars_by_module?.[key] ?? (Number(tokens) * 4)),
+                              tokens: Number(tokens)
                             }))
                           : [];
-                        
+
+                        // Estes valores são estimativas do tamanho dos módulos (chars / 4).
+                        // O uso real faturável da Anthropic aparece na aba Custo, usando usage da própria API.
+                        const estimatedWithCommercial = Number(
+                          modules?.prompt_tokens_with_commercial ??
+                          telemetry.reduce((sum: number, item: any) => sum + Number(item.tokens || 0), 0)
+                        );
+                        const commercialDiff = Number(modules?.commercial_tokens_added || 0);
                         const comparison = {
-                          withoutCommercial: (modules?.with_commercial || 0) - (modules?.commercial_tokens_added || 0),
-                          withCommercial: modules?.with_commercial || 0,
-                          diff: modules?.commercial_tokens_added || 0
+                          withoutCommercial: Number(
+                            modules?.prompt_tokens_without_commercial ??
+                            Math.max(0, estimatedWithCommercial - commercialDiff)
+                          ),
+                          withCommercial: estimatedWithCommercial,
+                          diff: commercialDiff
                         };
                         
                         if (telemetry.length === 0) return <span className="text-[10px] text-muted-foreground italic">Nenhuma telemetria de módulos disponível.</span>;
@@ -606,7 +661,8 @@ function AgentPlaygroundPage() {
                             </div>
 
                             <Card className="p-3 bg-primary/5 border-primary/10">
-                              <p className="text-[9px] text-muted-foreground uppercase mb-2 font-bold">Comparativo de Inteligência Comercial</p>
+                              <p className="text-[9px] text-muted-foreground uppercase mb-1 font-bold">Comparativo de Inteligência Comercial</p>
+                              <p className="text-[9px] text-muted-foreground mb-2">Estimativa do prompt dos módulos (não é o usage faturável da Anthropic).</p>
                               <div className="space-y-1">
                                 <div className="flex justify-between text-[10px]">
                                   <span>Prompt sem módulos comerciais:</span>
@@ -702,9 +758,28 @@ function AgentPlaygroundPage() {
                       </div>
                    </div>
                    <Separator />
-                   <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 flex flex-col items-center">
-                     <p className="text-[10px] text-muted-foreground">Custo Total da Execução</p>
-                     <p className="text-2xl font-bold text-primary">US$ {lastRun?.cost_usd ? Number(lastRun.cost_usd).toFixed(8) : "0.00000000"}</p>
+                   <div className="grid grid-cols-1 gap-3">
+                     <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 flex flex-col items-center">
+                       <p className="text-[10px] text-muted-foreground">Custo desta execução</p>
+                       <p className="text-2xl font-bold text-primary">US$ {lastRun?.cost_usd ? Number(lastRun.cost_usd).toFixed(8) : "0.00000000"}</p>
+                     </div>
+
+                     <div className="p-4 bg-muted/30 rounded-lg border space-y-3">
+                       <div className="flex items-center justify-between">
+                         <div>
+                           <p className="text-[10px] text-muted-foreground">Custo acumulado desta conversa</p>
+                           <p className="text-lg font-bold">US$ {Number(sessionUsage?.costUsd || 0).toFixed(8)}</p>
+                         </div>
+                         <Badge variant="outline">{sessionUsage?.calls || 0} chamadas</Badge>
+                       </div>
+                       <div className="grid grid-cols-2 gap-2 text-[10px]">
+                         <div><span className="text-muted-foreground">Input:</span> <strong>{sessionUsage?.inputTokens || 0}</strong></div>
+                         <div><span className="text-muted-foreground">Output:</span> <strong>{sessionUsage?.outputTokens || 0}</strong></div>
+                         <div><span className="text-muted-foreground">Cache Write:</span> <strong>{sessionUsage?.cacheWriteTokens || 0}</strong></div>
+                         <div><span className="text-muted-foreground">Cache Read:</span> <strong>{sessionUsage?.cacheReadTokens || 0}</strong></div>
+                       </div>
+                       <p className="text-[9px] text-muted-foreground">Valores calculados a partir do usage retornado pela Anthropic em cada chamada salva nesta sessão. O painel da Anthropic pode exibir arredondamentos ou agregações diferentes.</p>
+                     </div>
                    </div>
                 </div>
               </TabsContent>

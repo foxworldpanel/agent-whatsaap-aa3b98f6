@@ -48,6 +48,10 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
         if (!userId) {
           return new Response("unauthorized (unknown instance)", { status: 401 });
         }
+        const workspaceId = num?.workspace_id?.trim();
+        if (!workspaceId) {
+          return new Response("workspace configuration missing", { status: 503 });
+        }
 
         const phone = payload.message?.chatid?.split("@")[0] || payload.message?.sender?.split("@")[0];
         if (payload.message?.fromMe) {
@@ -62,7 +66,7 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
         // Chama V3
         const result = await runAgentV3Turn({
           userId,
-          workspaceId: num?.workspace_id ?? undefined,
+          workspaceId,
           phone,
           message,
           history: [],

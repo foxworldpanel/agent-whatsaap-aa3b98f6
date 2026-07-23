@@ -28,13 +28,18 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     const start = Date.now();
 
-    const { data: messages } = await context.supabase
+    // O playground envia apenas a janela recente. Reenviar a sessão inteira a cada turno
+    // aumenta o custo de input indefinidamente e não representa o runtime de produção.
+    const { data: recentMessages } = await context.supabase
       .from("agent_playground_messages")
       .select("*")
       .eq("session_id", sessionId)
-      .order("sequence", { ascending: true });
+      .order("sequence", { ascending: false })
+      .limit(10);
 
-    const history = (messages || []).map(m => ({
+    const messages = recentMessages || [];
+    const nextSequence = Number(messages[0]?.sequence || 0) + 1;
+    const history = [...messages].reverse().map(m => ({
       role: (m.role === "assistant" ? "agent" : "customer") as "agent" | "customer",
       content: m.content
     }));
@@ -45,7 +50,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         session_id: sessionId,
         role: "user",
         content: message,
-        sequence: (messages?.length || 0) + 1,
+        sequence: nextSequence,
         input_kind: inputKind
       })
       .select()
@@ -68,7 +73,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         session_id: sessionId,
         role: "agent",
         content: result.replies.join("\n"),
-        sequence: (messages?.length || 0) + 2,
+        sequence: nextSequence + 1,
         metadata: {
           ...result.intelligence,
           conversation_score: result.score?.total,
