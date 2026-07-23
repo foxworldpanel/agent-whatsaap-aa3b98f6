@@ -395,6 +395,8 @@ export function selectModulesV3(
 
   // Conflitos: mantém o módulo de maior prioridade; em empate, mantém o primeiro.
   for (const key of Array.from(selected)) {
+    if (!selected.has(key)) continue;
+
     for (const conflict of modules[key]?.routing.conflicts || []) {
       if (!selected.has(conflict)) continue;
       const currentPriority = modules[key]?.routing.priority || 0;
@@ -405,7 +407,30 @@ export function selectModulesV3(
       } else {
         selected.delete(key);
         delete reasons[key];
+        break;
       }
+    }
+  }
+
+  // Um conflito pode remover uma dependência obrigatória. Nesse caso, manter o
+  // módulo dependente produziria um prompt incompleto e potencialmente contraditório.
+  // Remove dependentes inválidos de forma transitiva até a seleção estabilizar.
+  let removedInvalidDependency = true;
+  while (removedInvalidDependency) {
+    removedInvalidDependency = false;
+
+    for (const key of Array.from(selected)) {
+      const missingDependency = (modules[key]?.routing.dependencies || []).find(
+        (dependency) => !selected.has(dependency),
+      );
+      if (!missingDependency) continue;
+
+      selected.delete(key);
+      delete reasons[key];
+      removedInvalidDependency = true;
+      console.warn(
+        `[agent-v3-selector] Módulo ${key} removido porque a dependência obrigatória ${missingDependency} não permaneceu após a resolução de conflitos.`,
+      );
     }
   }
 
