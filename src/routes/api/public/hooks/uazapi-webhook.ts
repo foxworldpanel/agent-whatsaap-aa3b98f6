@@ -551,6 +551,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             },
           );
           deliveredParts.push(sendResult.transformed);
+
+          // O envio via Uazapi não garante que o webhook de eco fromMe será
+          // entregue. Persistimos cada parte confirmada aqui para que o CRM
+          // reflita exatamente o que o cliente recebeu. Não usamos external_id:
+          // se o provedor também ecoar a mensagem, o fluxo fromMe continua
+          // responsável por registrar o evento externo sem colisão artificial.
+          if (conversationId) {
+            const { error: outboundPersistErr } = await supabaseAdmin
+              .from("messages")
+              .insert({
+                conversation_id: conversationId,
+                user_id: num.user_id,
+                workspace_id: workspaceId,
+                sender: "agente",
+                kind: "texto",
+                body: sendResult.transformed,
+              });
+            if (outboundPersistErr) {
+              console.error("[UAZ-WEBHOOK] Resposta enviada, mas falhou ao persistir parte no CRM:", outboundPersistErr);
+            }
+          }
         }
 
         deliveredReplyText = deliveredParts.join("\n\n");
