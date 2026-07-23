@@ -3,7 +3,7 @@ import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
 
 // [V3-TEST] Webhook receiver isolado para testes da arquitetura V3.
 // URL: {site}/api/public/hooks/v3-test-webhook
-// Número autorizado: 5511970116430
+// Desabilitado por padrão. Ative apenas em ambiente controlado com V3_TEST_WEBHOOK_ENABLED=true.
 
 type UazapiPayload = {
   event?: string;
@@ -22,6 +22,10 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        if (process.env.V3_TEST_WEBHOOK_ENABLED !== "true") {
+          return new Response("not found", { status: 404 });
+        }
+
         const payload = (await request.json()) as UazapiPayload;
 
         // SECURITY: verify the sender BEFORE trusting any payload fields.
@@ -37,7 +41,7 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: num } = await supabaseAdmin
           .from("whatsapp_numbers")
-          .select("user_id")
+          .select("user_id, workspace_id")
           .eq("uazapi_token", token)
           .maybeSingle();
         const userId = num?.user_id;
@@ -46,17 +50,21 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
         }
 
         const phone = payload.message?.chatid?.split("@")[0] || payload.message?.sender?.split("@")[0];
-        if (phone !== "5511970116430") {
-          return new Response("Unauthorized number", { status: 403 });
-        }
         if (payload.message?.fromMe) {
           return new Response("ok");
+        }
+
+        const message = payload.message?.text?.trim() || "";
+        if (!message) {
+          return new Response("ok (empty message)");
         }
 
         // Chama V3
         const result = await runAgentV3Turn({
           userId,
-          message: payload.message?.text || "",
+          workspaceId: num?.workspace_id ?? undefined,
+          phone,
+          message,
           history: [],
           enabledModules: [], // Carregamento dinâmico via agent_config
           anthropicApiKey: process.env.ANTHROPIC_API_KEY || ""
