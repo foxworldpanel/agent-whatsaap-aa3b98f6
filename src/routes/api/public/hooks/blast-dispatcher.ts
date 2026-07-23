@@ -525,7 +525,9 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                         : {}),
                     } as never,
                   });
-                } catch {}
+                } catch (logErr) {
+                  console.warn("[blast-dispatcher] Falha ao registrar blast_sent:", logErr);
+                }
                 if (i < messageParts.length - 1) {
                   // Delay natural entre linhas (1s–3s) simulando digitação
                   const wait = 1000 + Math.random() * 2000;
@@ -545,7 +547,9 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   error: errMsg,
                   metadata: { origem: "disparo", direcao: "enviado", tipo: "erro" } as never,
                 });
-              } catch {}
+              } catch (logErr) {
+                console.warn("[blast-dispatcher] Falha ao registrar blast_failed:", logErr);
+              }
             }
 
             await supabaseAdmin.from("blast_logs").insert({
