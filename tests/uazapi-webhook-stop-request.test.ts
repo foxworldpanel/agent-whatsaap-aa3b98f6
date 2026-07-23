@@ -16,6 +16,7 @@ describe("uazapi webhook stop requests", () => {
   it.each([
     "não quero esse pacote, tem outro?",
     "pode mandar os preços",
+    "cancelar",
     "quero cancelar só este pedido",
   ])("não bloqueia frases comerciais ambíguas: %s", (message) => {
     expect(isStopRequest(message)).toBe(false);

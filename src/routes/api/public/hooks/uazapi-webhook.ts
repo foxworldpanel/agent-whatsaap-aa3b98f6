@@ -59,13 +59,18 @@ function wasMessageIdRecentlySeen(id: string): boolean {
   const expiry = seenMessageIds.get(id);
   if (expiry && expiry > now) return true;
 
+  if (expiry) seenMessageIds.delete(id);
+  return false;
+}
+
+function markMessageIdSeen(id: string): void {
+  const now = Date.now();
   seenMessageIds.set(id, now + MESSAGE_ID_DEDUP_TTL_MS);
   if (seenMessageIds.size > 1000) {
     for (const [key, value] of seenMessageIds) {
       if (value <= now) seenMessageIds.delete(key);
     }
   }
-  return false;
 }
 
 type UazapiPayload = {
@@ -160,7 +165,9 @@ function buildFallbackMessageId(phone: string, content: string): string {
 }
 
 const STOP_PATTERNS = [
-  /^\s*(pare|parar|stop|unsubscribe|cancelar)\s*[.!]?\s*$/i,
+  // "cancelar" sozinho é ambíguo: normalmente pode significar cancelar um pedido,
+  // não retirar consentimento para mensagens. Só bloqueamos pedidos inequívocos.
+  /^\s*(pare|parar|stop|unsubscribe)\s*[.!]?\s*$/i,
   /\bn[aã]o\s+quero\s+mais\s+(mensagens?|contato|receber)/i,
   /\bn[aã]o\s+me\s+(mande|manda|envie|mandar)\s+mais/i,
   /\bpare\s+de\s+(mandar|enviar)/i,
@@ -202,21 +209,25 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("unauthorized (unknown instance)", { status: 401 });
     }
 
-    // 1. Deduplicação por MessageID
+    const content = extractContent(payload);
+
+    // 1. Deduplicação por MessageID. Não marcamos o ID como concluído antes da
+    // persistência: se houver uma falha transitória no CRM, o provedor precisa
+    // conseguir retransmitir a mensagem em vez de ela ficar perdida por 24h.
     const extractedId = extractMessageId(payload);
-    const msgId: string = extractedId ?? buildFallbackMessageId(phoneStr, msgLocal.text ?? "");
-    
+    const fallbackIdentity = [content.kind, content.text, content.mediaUrl ?? ""].join(":");
+    const msgId: string = extractedId ?? buildFallbackMessageId(phoneStr, fallbackIdentity);
+
     if (wasMessageIdRecentlySeen(msgId)) {
       console.log(`[UAZ-WEBHOOK] Ignorando duplicata em memória (msgId: ${msgId})`);
       return new Response("ok (duplicate msgId)");
     }
 
-    const content = extractContent(payload);
-
     // 2. SYNC TO CRM (Always do this for all incoming messages)
     let contactId: string | undefined = undefined;
     let conversationId: string | undefined = undefined;
     let duplicateMessageInDb = false;
+    let messagePersistedInDb = false;
 
     try {
       // Upsert Contact
@@ -256,33 +267,43 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       // Insert Message
-      if (conversationId) {
-        // Map 'image' and 'sticker' to 'texto' since the enum only allows 'texto' and 'audio'
-        const dbKind: "texto" | "audio" = content.kind === "audio" ? "audio" : "texto";
+      if (!conversationId) {
+        throw new Error("CRM sync não retornou conversationId");
+      }
 
-        const { error: msgErr } = await supabaseAdmin
-          .from("messages")
-          .insert({
-            conversation_id: conversationId,
-            user_id: num.user_id,
-            workspace_id: num.workspace_id,
-            sender: msgLocal.fromMe ? "agente" : "cliente",
-            kind: dbKind,
-            body: content.text,
-            audio_url: content.mediaUrl || undefined,
-            external_id: msgId,
-          });
+      // Map 'image' and 'sticker' to 'texto' since the enum only allows 'texto' and 'audio'
+      const dbKind: "texto" | "audio" = content.kind === "audio" ? "audio" : "texto";
 
-        if (msgErr) {
-          if (msgErr.code === "23505") {
-            duplicateMessageInDb = true;
-          } else {
-            throw msgErr;
-          }
+      const { error: msgErr } = await supabaseAdmin
+        .from("messages")
+        .insert({
+          conversation_id: conversationId,
+          user_id: num.user_id,
+          workspace_id: num.workspace_id,
+          sender: msgLocal.fromMe ? "agente" : "cliente",
+          kind: dbKind,
+          body: content.text,
+          audio_url: content.mediaUrl || undefined,
+          external_id: msgId,
+        });
+
+      if (msgErr) {
+        if (msgErr.code === "23505") {
+          duplicateMessageInDb = true;
+        } else {
+          throw msgErr;
         }
+      } else {
+        messagePersistedInDb = true;
       }
     } catch (syncErr: any) {
       console.error("[UAZ-WEBHOOK] Error syncing to CRM:", syncErr.message);
+    }
+
+    // Só considera o ID concluído depois que a sincronização terminou. Em caso
+    // de indisponibilidade do banco, deixamos a retransmissão futura tentar de novo.
+    if (messagePersistedInDb || duplicateMessageInDb) {
+      markMessageIdSeen(msgId);
     }
 
     // Uma retransmissão recebida após restart ou em outra instância pode escapar
