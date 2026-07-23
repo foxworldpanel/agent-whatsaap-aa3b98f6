@@ -186,19 +186,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     `[AGENT-V3-SELECTOR] Intent: ${selectionContext.intent}, Stage: ${selectionContext.stage}, Platform: ${selectionContext.platform}, Modules: ${selectedKeys.join(", ")}`,
   );
 
-  // 3.1. Calcular Telemetria de Módulos
-  const modulesTelemetry: ModuleTelemetry[] = selectedKeys.map((key) => {
-    const mod = mergedModulesMap[key];
-    const content = typeof mod === "string" ? mod : mod?.content || "";
-    return {
-      key,
-      name: key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-      chars: content.length,
-      tokens: Math.ceil(content.length / 4),
-    };
-  });
-
-  // 3.2. Comparativo de Prompt (tokens comerciais)
+  // 3.1. Comparativo de Prompt (tokens comerciais)
   const commercialKeys = [
     "psicologia_vendas",
     "objecoes_vendas",
@@ -222,6 +210,20 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   const promptWithCommercial = promptWithCommercialResult.prompt;
   const promptWithoutCommercial = promptWithoutCommercialResult.prompt;
   const effectiveSelectedKeys = promptWithCommercialResult.includedKeys;
+
+  // A telemetria deve refletir apenas os módulos que realmente entraram no prompt.
+  // Chaves descartadas pelo prompt-builder (ausentes ou vazias) não podem aparecer
+  // nos tokens estimados, versões ou contagem de módulos usados.
+  const modulesTelemetry: ModuleTelemetry[] = effectiveSelectedKeys.map((key) => {
+    const mod = mergedModulesMap[key];
+    const content = mod?.content || "";
+    return {
+      key,
+      name: mod?.name?.trim() || key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+      chars: content.length,
+      tokens: Math.ceil(content.length / 4),
+    };
+  });
 
   if (!promptWithCommercial.trim()) {
     throw new Error("[agent-v3] Os módulos selecionados não produziram conteúdo válido para o prompt");
