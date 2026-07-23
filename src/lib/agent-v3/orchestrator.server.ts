@@ -63,6 +63,9 @@ export interface AgentV3TurnResult {
     selected_keys: string[];
     versions: Record<string, number>;
     estimated_tokens_by_module: Record<string, number>;
+    estimated_chars_by_module: Record<string, number>;
+    prompt_tokens_without_commercial: number;
+    prompt_tokens_with_commercial: number;
     commercial_tokens_added: number;
     selection_context?: unknown;
     selection_reasons?: Record<string, string>;
@@ -504,6 +507,11 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       estimated_tokens_by_module: Object.fromEntries(
         modulesTelemetry.map((m) => [m.key, m.tokens]),
       ),
+      estimated_chars_by_module: Object.fromEntries(
+        modulesTelemetry.map((m) => [m.key, m.chars]),
+      ),
+      prompt_tokens_without_commercial: promptComparison.withoutCommercial,
+      prompt_tokens_with_commercial: promptComparison.withCommercial,
       commercial_tokens_added: promptComparison.diff,
       selection_context: selectionContext,
       selection_reasons: selectionReasons,

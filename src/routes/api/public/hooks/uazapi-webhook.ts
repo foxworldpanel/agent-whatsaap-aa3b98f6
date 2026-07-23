@@ -5,27 +5,6 @@ import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
 // Eventos: messages (mensagens recebidas).
 
-// Trava anti-duplicata em memória (TTL 10s).
-const RECENT_SEND_TTL_MS = 10_000;
-const recentSendsMem = new Map<string, number>();
-function recentSendKey(phone: string, body: string): string {
-  return `sent:${phone}:${(body ?? "").slice(0, 20)}`;
-}
-function memWasRecentlySent(phone: string, body: string): boolean {
-  const key = recentSendKey(phone, body);
-  const expiry = recentSendsMem.get(key);
-  const now = Date.now();
-  if (expiry && expiry > now) return true;
-  // GC oportunista
-  if (recentSendsMem.size > 500) {
-    for (const [k, v] of recentSendsMem) if (v <= now) recentSendsMem.delete(k);
-  }
-  return false;
-}
-function memMarkSent(phone: string, body: string): void {
-  recentSendsMem.set(recentSendKey(phone, body), Date.now() + RECENT_SEND_TTL_MS);
-}
-
 // Serializa o processamento do agente por conversa dentro da mesma instância.
 // Isso evita que duas mensagens quase simultâneas leiam o mesmo histórico e
 // sobrescrevam uma à outra no saveConversationStateV3. Em ambientes com várias
@@ -379,11 +358,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const lockKey = `${workspaceId}:${phoneStr}`;
     return await withConversationLock(lockKey, async () => {
       try {
-      const { data: integ } = await supabaseAdmin
+      const { data: integ, error: integErr } = await supabaseAdmin
         .from("integrations")
         .select("anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id")
         .eq("user_id", num.user_id)
         .maybeSingle();
+
+      if (integErr) {
+        console.error("[UAZ-WEBHOOK] Failed to load AI integrations:", integErr);
+        if (conversationId) {
+          await supabaseAdmin
+            .from("conversations")
+            .update({
+              needs_review: true,
+              review_reason: "falha ao carregar integrações de IA",
+            })
+            .eq("id", conversationId)
+            .then(({ error }) => {
+              if (error) console.error("[UAZ-WEBHOOK] Failed to flag integration error for review:", error);
+            });
+        }
+        return new Response("ok (AI integrations unavailable)");
+      }
 
       let finalMsgText = content.text || "";
       if (content.kind === "audio") {
@@ -406,9 +402,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (empty content)");
       }
 
-      if (memWasRecentlySent(phoneStr, finalMsgText)) {
-        return new Response("ok (recently sent)");
-      }
 
       if (isStopRequest(finalMsgText)) {
         const nowIso = new Date().toISOString();
@@ -537,12 +530,29 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         workspaceId,
       );
 
-      memMarkSent(phoneStr, replyText);
       return new Response("ok (AI processed)");
 
       } catch (e: any) {
-        console.error("[UAZ-WEBHOOK] AI Critical Error:", e.message);
-        return new Response("ok (AI error handled)");
+        console.error("[UAZ-WEBHOOK] AI Critical Error:", e?.message ?? e);
+
+        // A mensagem do cliente já foi persistida no CRM antes deste ponto.
+        // Não pedimos retry ao provedor para evitar uma segunda resposta, mas
+        // também não deixamos a falha silenciosa: a conversa fica visível para
+        // atendimento humano/revisão.
+        if (conversationId) {
+          const { error: reviewErr } = await supabaseAdmin
+            .from("conversations")
+            .update({
+              needs_review: true,
+              review_reason: "falha crítica no Agent V3",
+            })
+            .eq("id", conversationId);
+          if (reviewErr) {
+            console.error("[UAZ-WEBHOOK] Failed to flag AI error for review:", reviewErr);
+          }
+        }
+
+        return new Response("ok (AI error flagged for review)");
       }
     });
 }
