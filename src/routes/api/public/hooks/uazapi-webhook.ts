@@ -26,6 +26,29 @@ function memMarkSent(phone: string, body: string): void {
   recentSendsMem.set(recentSendKey(phone, body), Date.now() + RECENT_SEND_TTL_MS);
 }
 
+// Serializa o processamento do agente por conversa dentro da mesma instância.
+// Isso evita que duas mensagens quase simultâneas leiam o mesmo histórico e
+// sobrescrevam uma à outra no saveConversationStateV3. Em ambientes com várias
+// instâncias, a garantia definitiva ainda deve ser feita no banco/queue.
+const conversationLocks = new Map<string, Promise<void>>();
+async function withConversationLock<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = conversationLocks.get(key) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.catch(() => undefined).then(() => current);
+  conversationLocks.set(key, tail);
+
+  await previous.catch(() => undefined);
+  try {
+    return await task();
+  } finally {
+    release();
+    if (conversationLocks.get(key) === tail) conversationLocks.delete(key);
+  }
+}
+
 // Contador em memória por messageId
 const messageIdHits = new Map<string, number>();
 function bumpMessageIdHit(id: string): number {
@@ -295,7 +318,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // 4. AI PROCESSING (V3)
     // O webhook já é protegido pelo token da instância provisionada.
     // Não limitar o agente a um telefone fixo de teste em produção.
-    try {
+    const lockKey = `${num.workspace_id ?? "default"}:${phoneStr}`;
+    return await withConversationLock(lockKey, async () => {
+      try {
       const { data: integ } = await supabaseAdmin
         .from("integrations")
         .select("anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id")
@@ -355,16 +380,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const replyText = v3Response.replies.join("\n\n");
 
-      await saveConversationStateV3(
-        num.user_id,
-        phoneStr,
-        [
-          ...history,
-          { role: "customer" as const, content: finalMsgText },
-          { role: "agent" as const, content: replyText },
-        ].slice(-100),
-        num.workspace_id ?? undefined,
-      );
+      const nextHistory = [
+        ...history,
+        { role: "customer" as const, content: finalMsgText },
+        { role: "agent" as const, content: replyText },
+      ].slice(-100);
 
       const finalConvId = String(conversationId || phoneStr);
 
@@ -403,13 +423,24 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         );
       }
 
+      // Só persiste a resposta do agente depois que o envio foi confirmado.
+      // Antes, uma falha no WhatsApp deixava o histórico afirmando que o cliente
+      // recebeu uma resposta que nunca foi entregue.
+      await saveConversationStateV3(
+        num.user_id,
+        phoneStr,
+        nextHistory,
+        num.workspace_id ?? undefined,
+      );
+
       memMarkSent(phoneStr, replyText);
       return new Response("ok (AI processed)");
 
-    } catch (e: any) {
-      console.error("[UAZ-WEBHOOK] AI Critical Error:", e.message);
-      return new Response("ok (AI error handled)");
-    }
+      } catch (e: any) {
+        console.error("[UAZ-WEBHOOK] AI Critical Error:", e.message);
+        return new Response("ok (AI error handled)");
+      }
+    });
 }
 
 export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
