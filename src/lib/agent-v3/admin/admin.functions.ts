@@ -3,14 +3,14 @@ import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 import { loadAgentConfigV3 } from "../brain/config.server";
 import { selectModulesV3 } from "../selector/module-selector.server";
-import { buildPromptFromModules } from "../prompt/prompt-builder.server";
+import { buildPromptFromModulesDetailed } from "../prompt/prompt-builder.server";
 import { invalidateModulesCache, loadEnabledModulesV3 } from "../brain/modules.server";
 
 export const getFullAgentV3Config = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
     const { supabase, workspaceId } = context;
-    const config = await loadAgentConfigV3(context.userId);
+    const config = await loadAgentConfigV3(context.userId, workspaceId);
     // Load modules from DB
     const { data: dbModules } = await supabase
       .from("agent_modules_v3")
@@ -49,7 +49,7 @@ export const updateV3Module = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        moduleKey: z.string(),
+        moduleKey: z.string().trim().min(1).max(120),
         content: z.string().max(20000),
         name: z.string().optional(),
         category: z.string().optional(),
@@ -69,14 +69,17 @@ export const updateV3Module = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId, workspaceId } = context;
+    const moduleKey = data.moduleKey.trim().toLowerCase();
 
     // 1. Get current module to increment version
-    const { data: current } = await supabase
+    const { data: current, error: currentError } = await supabase
       .from("agent_modules_v3")
       .select("*")
       .eq("workspace_id", workspaceId)
-      .eq("key", data.moduleKey)
+      .eq("key", moduleKey)
       .maybeSingle();
+
+    if (currentError) throw currentError;
 
     const newVersion = (current?.version || 0) + 1;
 
@@ -88,15 +91,15 @@ export const updateV3Module = createServerFn({ method: "POST" })
           id: current?.id || data.id,
           user_id: userId,
           workspace_id: workspaceId,
-          key: data.moduleKey,
+          key: moduleKey,
           name:
             data.name ||
             current?.name ||
-            data.moduleKey.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+            moduleKey.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
           content: data.content,
           category: data.category || current?.category || "Outros",
           priority: data.priority ?? current?.priority ?? 50,
-          enabled: data.enabled ?? true,
+          enabled: data.enabled ?? current?.enabled ?? true,
           always_load: data.alwaysLoad ?? (current as any)?.always_load ?? false,
           selector_intents: (data.selectorIntents ?? (current as any)?.selector_intents ?? []) as any,
           selector_stages: (data.selectorStages ?? (current as any)?.selector_stages ?? []) as any,
@@ -117,12 +120,15 @@ export const updateV3Module = createServerFn({ method: "POST" })
 
     // 3. Save history
     if (updated) {
-      await supabase.from("agent_modules_v3_history").insert({
+      const { error: historyError } = await supabase.from("agent_modules_v3_history").insert({
         module_id: updated.id,
         content: data.content,
         version: newVersion,
         created_by: userId,
       });
+      if (historyError) {
+        console.warn("[v3-admin] Módulo salvo, mas o histórico não pôde ser registrado:", historyError);
+      }
     }
 
     // 4. Invalidate cache
@@ -133,15 +139,16 @@ export const updateV3Module = createServerFn({ method: "POST" })
 
 export const deleteV3Module = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
-  .inputValidator((d: unknown) => z.object({ moduleKey: z.string() }).parse(d))
+  .inputValidator((d: unknown) => z.object({ moduleKey: z.string().trim().min(1).max(120) }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, workspaceId } = context;
+    const moduleKey = data.moduleKey.trim().toLowerCase();
 
     const { error } = await supabase
       .from("agent_modules_v3")
       .delete()
       .eq("workspace_id", workspaceId)
-      .eq("key", data.moduleKey);
+      .eq("key", moduleKey);
 
     if (error) throw error;
 
@@ -158,7 +165,8 @@ export const getCompiledPromptV3 = createServerFn({ method: "POST" })
     const message = data.message || "Olá";
     const selection = selectModulesV3(message, [], activeModulesMap);
     const selectedKeys = selection.selectedModules;
-    const modulePrompt = buildPromptFromModules(selectedKeys, activeModulesMap);
+    const promptBuild = buildPromptFromModulesDetailed(selectedKeys, activeModulesMap);
+    const modulePrompt = promptBuild.prompt;
 
     // Simplified version of the orchestrator logic to show the prompt
     const prompt = `
@@ -175,7 +183,8 @@ REGRA DE CONCISÃO:
 
     return {
       prompt: prompt.trim(),
-      selectedModules: selectedKeys,
+      selectedModules: promptBuild.includedKeys,
+      promptWarnings: promptBuild.warnings,
       selectionContext: selection.context,
       selectionReasons: selection.selectionReasons,
     };
