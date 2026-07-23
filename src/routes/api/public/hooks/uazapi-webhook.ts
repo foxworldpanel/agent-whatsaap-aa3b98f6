@@ -457,10 +457,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       if (content.kind === "audio" && integ?.elevenlabs_api_key && integ?.elevenlabs_voice_id) {
         try {
-          const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
+          const { textToSpeechV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
           const { uazapiSendAudio, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
           await uazapiSendRecording(creds, phoneStr, 1200).catch(() => undefined);
-          const audioBase64 = await ttsElevenLabsBase64({
+          const audioBase64 = await textToSpeechV3({
             apiKey: integ.elevenlabs_api_key,
             voiceId: integ.elevenlabs_voice_id,
             text: replyText,
