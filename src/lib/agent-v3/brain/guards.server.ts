@@ -156,7 +156,15 @@ export function enforceReengagementGreeting(text: string, latestClientMsg: strin
 }
 
 export function humanizePunctuationV3(text: string): string {
-  return text.replace(/\s*[—–]\s*/g, ", ").trim();
+  if (!text) return text;
+  let out = text;
+  // Em/en dash com espaços vira vírgula; mantém hífen normal de palavras compostas.
+  out = out.replace(/\s+[—–]\s+/g, ", ");
+  // Dash colado no meio da frase também é normalizado sem juntar palavras.
+  out = out.replace(/([^\s])[—–]([^\s])/g, "$1, $2");
+  // Evita pontuação quebrada criada pela normalização.
+  out = out.replace(/,\s*,/g, ",").replace(/,\s*([.!?…;:])/g, "$1");
+  return out.trim();
 }
 /**
  * Remove Markdown da resposta antes do envio ao WhatsApp.

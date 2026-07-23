@@ -501,18 +501,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         messageId: msgId
       });
 
-      const replyText = v3Response.replies.join("\n\n");
-
-      const nextHistory = [
-        ...history,
-        { role: "customer" as const, content: finalMsgText },
-        { role: "agent" as const, content: replyText },
-      ].slice(-100);
+      const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
+      const replyText = replyParts.join("\n\n");
 
       const finalConvId = String(conversationId || phoneStr);
 
       const creds = { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken };
       let sentAsAudio = false;
+      let deliveredReplyText = replyText;
 
       if (content.kind === "audio" && integ?.elevenlabs_api_key && integ?.elevenlabs_voice_id) {
         try {
@@ -534,17 +530,38 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       if (!sentAsAudio) {
-        await sendAgentTextGuarded(
-          creds,
-          phoneStr,
-          replyText,
-          {
-            conversationId: finalConvId,
-            source: "agent_v3",
-            applyHumanize: true
-          }
-        );
+        const recentAgentBodies = history
+          .filter((item) => item.role === "agent")
+          .map((item) => item.content)
+          .slice(-3);
+        const deliveredParts: string[] = [];
+
+        // O orchestrator já separa respostas longas/parágrafos em partes próprias.
+        // Enviar o join() como uma única mensagem anulava completamente o splitter.
+        for (const part of replyParts) {
+          const sendResult = await sendAgentTextGuarded(
+            creds,
+            phoneStr,
+            part,
+            {
+              conversationId: finalConvId,
+              source: "agent_v3",
+              applyHumanize: true,
+              recentAgentBodiesOverride: [...recentAgentBodies, ...deliveredParts].slice(-3),
+            },
+          );
+          deliveredParts.push(sendResult.transformed);
+        }
+
+        deliveredReplyText = deliveredParts.join("\n\n");
       }
+
+      const nextHistory = [
+        ...history,
+        { role: "customer" as const, content: finalMsgText },
+        // Salva exatamente o texto que chegou ao cliente após humanização/emoji guard.
+        { role: "agent" as const, content: deliveredReplyText },
+      ].slice(-100);
 
       // Só persiste a resposta do agente depois que o envio foi confirmado.
       // Antes, uma falha no WhatsApp deixava o histórico afirmando que o cliente
