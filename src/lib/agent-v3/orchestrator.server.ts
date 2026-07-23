@@ -314,7 +314,8 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
 - Não repita explicações, listas ou chamadas para ação já enviadas.
 - Responda apenas ao último pedido do cliente em no máximo 2 frases.
 - Não invente link, preço, serviço ou etapa; use somente os módulos carregados.`,
-    });
+      cache_control: { type: "ephemeral" },
+    } as any);
   }
 
   // Model Call

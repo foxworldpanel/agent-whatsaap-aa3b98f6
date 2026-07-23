@@ -263,7 +263,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       .from("agent_config")
       .select("agent_enabled")
       .eq("user_id", num.user_id)
-      .eq("workspace_id", num.workspace_id)
+      .eq("workspace_id", num.workspace_id!)
       .maybeSingle();
 
     if (agentConfigErr) {
