@@ -69,4 +69,24 @@ describe("Module Selector V3 contextual", () => {
     const result = selectModulesV3("Quanto custa no Spotify?", [], withoutSpotify);
     expect(result.selectedModules).not.toContain("spotify");
   });
+  it("não confunde intenção de compra com suporte só por conter a palavra pedido", () => {
+    const context = detectConversationContext("quero fazer um pedido de 1000 seguidores", []);
+    expect(context.intent).toBe("compra");
+    expect(context.hasSupportSignal).toBe(false);
+  });
+
+  it("continua reconhecendo suporte quando pedido aparece em contexto de pós-venda", () => {
+    expect(detectConversationContext("meu pedido está pendente", []).intent).toBe("suporte");
+    expect(detectConversationContext("qual o status do pedido?", []).intent).toBe("suporte");
+  });
+
+  it("não trata pergunta de prazo como consulta de preço só pela palavra quanto", () => {
+    expect(detectConversationContext("quanto tempo demora para entregar?", []).intent).not.toBe("consulta_preco");
+    expect(detectConversationContext("quanto custa 1000 plays?", []).intent).toBe("consulta_preco");
+  });
+
+  it("não detecta plataforma por substring dentro de outra palavra", () => {
+    expect(detectConversationContext("essa interface está dando erro", []).platform).toBeNull();
+  });
+
 });

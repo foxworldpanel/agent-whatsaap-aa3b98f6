@@ -82,7 +82,7 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "valores",
     "quanto e",
     "qual o valor",
-    "quanto",
+    "quanto custa",
     "valor",
     "preco",
     "custa",
@@ -94,7 +94,10 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "ajuda",
     "problema",
     "erro",
-    "pedido",
+    "meu pedido",
+    "status do pedido",
+    "pedido em andamento",
+    "pedido pendente",
     "status",
     "nao chegou",
     "atraso",
@@ -186,8 +189,22 @@ function normalizeText(value: string): string {
     .trim();
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Faz correspondência por palavra/frase inteira sobre texto já normalizado.
+ * Evita falsos positivos de substring, por exemplo "face" dentro de
+ * "interface" ou "live" dentro de outra palavra.
+ */
 function containsAny(text: string, terms: string[]): boolean {
-  return terms.some((term) => text.includes(normalizeText(term)));
+  return terms.some((term) => {
+    const normalizedTerm = normalizeText(term);
+    if (!normalizedTerm) return false;
+    const phrase = escapeRegex(normalizedTerm).replace(/\s+/g, "\\s+");
+    return new RegExp(`(?:^|\\s)${phrase}(?=$|\\s)`).test(text);
+  });
 }
 
 function findContextValue<T>(
