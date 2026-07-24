@@ -70,12 +70,40 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     // Playground permanece rápido por padrão. O atraso só é aplicado quando
     // explicitamente habilitado na aba Tempo e Humanização.
-    const { data: humanizationRow } = await (context.supabase as any)
-      .from("agent_humanization_settings")
-      .select("*")
+    const { data: humanizationConfigRow } = await (context.supabase as any)
+      .from("agent_config")
+      .select("modules, response_delay_min_sec, response_delay_max_sec, typing_indicator_enabled")
+      .eq("user_id", userId)
       .eq("workspace_id", workspaceId)
       .maybeSingle();
-    const humanization = normalizeHumanizationSettings(humanizationRow);
+
+    const legacyModules =
+      humanizationConfigRow?.modules &&
+      typeof humanizationConfigRow.modules === "object"
+        ? humanizationConfigRow.modules
+        : {};
+
+    const storedHumanization =
+      (legacyModules as any)?.__humanization_settings;
+
+    const humanization = normalizeHumanizationSettings(
+      storedHumanization && typeof storedHumanization === "object"
+        ? storedHumanization
+        : {
+            min_response_delay_ms:
+              Number.isFinite(Number(humanizationConfigRow?.response_delay_min_sec))
+                ? Number(humanizationConfigRow.response_delay_min_sec) * 1000
+                : undefined,
+            max_response_delay_ms:
+              Number.isFinite(Number(humanizationConfigRow?.response_delay_max_sec))
+                ? Number(humanizationConfigRow.response_delay_max_sec) * 1000
+                : undefined,
+            typing_enabled:
+              typeof humanizationConfigRow?.typing_indicator_enabled === "boolean"
+                ? humanizationConfigRow.typing_indicator_enabled
+                : undefined,
+          },
+    );
     if (humanization.enabled && humanization.playground_delay_enabled) {
       const targetMs = calculateHumanResponseTargetMs(
         result.replies.join("\n"),

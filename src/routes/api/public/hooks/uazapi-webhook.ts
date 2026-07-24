@@ -1339,9 +1339,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         sleepMs,
       } = await import("@/lib/agent-v3/humanization.server");
 
-      const { data: humanizationRow, error: humanizationError } = await (supabaseAdmin as any)
-        .from("agent_humanization_settings")
-        .select("*")
+      const { data: humanizationConfigRow, error: humanizationError } = await (supabaseAdmin as any)
+        .from("agent_config")
+        .select("modules, response_delay_min_sec, response_delay_max_sec, typing_indicator_enabled")
+        .eq("user_id", num.user_id)
         .eq("workspace_id", workspaceId)
         .maybeSingle();
 
@@ -1349,8 +1350,33 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         console.warn("[UAZ-WEBHOOK] Falha ao carregar configuração de humanização; usando padrão:", humanizationError);
       }
 
+      const legacyModules =
+        humanizationConfigRow?.modules &&
+        typeof humanizationConfigRow.modules === "object"
+          ? humanizationConfigRow.modules
+          : {};
+
+      const storedHumanization =
+        (legacyModules as any)?.__humanization_settings;
+
       const humanization = normalizeHumanizationSettings(
-        humanizationRow || DEFAULT_AGENT_HUMANIZATION,
+        storedHumanization && typeof storedHumanization === "object"
+          ? storedHumanization
+          : {
+              ...DEFAULT_AGENT_HUMANIZATION,
+              min_response_delay_ms:
+                Number.isFinite(Number(humanizationConfigRow?.response_delay_min_sec))
+                  ? Number(humanizationConfigRow.response_delay_min_sec) * 1000
+                  : DEFAULT_AGENT_HUMANIZATION.min_response_delay_ms,
+              max_response_delay_ms:
+                Number.isFinite(Number(humanizationConfigRow?.response_delay_max_sec))
+                  ? Number(humanizationConfigRow.response_delay_max_sec) * 1000
+                  : DEFAULT_AGENT_HUMANIZATION.max_response_delay_ms,
+              typing_enabled:
+                typeof humanizationConfigRow?.typing_indicator_enabled === "boolean"
+                  ? humanizationConfigRow.typing_indicator_enabled
+                  : DEFAULT_AGENT_HUMANIZATION.typing_enabled,
+            },
       );
       // Enquanto o modelo prepara uma resposta em texto, já exibimos "digitando...".
       // A espera final considera o tempo já gasto pelo processamento para não deixar

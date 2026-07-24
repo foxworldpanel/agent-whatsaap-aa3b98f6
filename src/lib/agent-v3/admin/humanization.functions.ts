@@ -22,18 +22,47 @@ const schema = z.object({
   message: "O intervalo máximo entre partes deve ser maior ou igual ao mínimo.",
 });
 
+const HUMANIZATION_CONFIG_KEY = "__humanization_settings";
+
+function extractHumanizationFromAgentConfig(row: any) {
+  const modules = row?.modules && typeof row.modules === "object" ? row.modules : {};
+  const stored = modules[HUMANIZATION_CONFIG_KEY];
+  if (stored && typeof stored === "object") {
+    return normalizeHumanizationSettings(stored);
+  }
+
+  // Compatibilidade com os campos históricos já existentes em agent_config.
+  return normalizeHumanizationSettings({
+    enabled: true,
+    min_response_delay_ms:
+      Number.isFinite(Number(row?.response_delay_min_sec))
+        ? Number(row.response_delay_min_sec) * 1000
+        : DEFAULT_AGENT_HUMANIZATION.min_response_delay_ms,
+    max_response_delay_ms:
+      Number.isFinite(Number(row?.response_delay_max_sec))
+        ? Number(row.response_delay_max_sec) * 1000
+        : DEFAULT_AGENT_HUMANIZATION.max_response_delay_ms,
+    typing_enabled:
+      typeof row?.typing_indicator_enabled === "boolean"
+        ? row.typing_indicator_enabled
+        : DEFAULT_AGENT_HUMANIZATION.typing_enabled,
+  });
+}
+
 export const getAgentHumanizationSettings = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    const { supabase, workspaceId } = context;
+    const { supabase, userId, workspaceId } = context;
+
     const { data, error } = await (supabase as any)
-      .from("agent_humanization_settings")
-      .select("*")
+      .from("agent_config")
+      .select("modules, response_delay_min_sec, response_delay_max_sec, typing_indicator_enabled")
+      .eq("user_id", userId)
       .eq("workspace_id", workspaceId)
       .maybeSingle();
 
     if (error) throw error;
-    return normalizeHumanizationSettings(data || DEFAULT_AGENT_HUMANIZATION);
+    return extractHumanizationFromAgentConfig(data);
   });
 
 export const updateAgentHumanizationSettings = createServerFn({ method: "POST" })
@@ -43,16 +72,40 @@ export const updateAgentHumanizationSettings = createServerFn({ method: "POST" }
     const { supabase, userId, workspaceId } = context;
     const normalized = normalizeHumanizationSettings(data);
 
+    // Lê o JSON atual para não sobrescrever nenhum dado legado de modules.
+    const { data: current, error: readError } = await (supabase as any)
+      .from("agent_config")
+      .select("modules")
+      .eq("user_id", userId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (readError) throw readError;
+
+    const currentModules =
+      current?.modules && typeof current.modules === "object"
+        ? current.modules
+        : {};
+
+    const mergedModules = {
+      ...currentModules,
+      [HUMANIZATION_CONFIG_KEY]: normalized,
+    };
+
     const { error } = await (supabase as any)
-      .from("agent_humanization_settings")
+      .from("agent_config")
       .upsert(
         {
-          workspace_id: workspaceId,
           user_id: userId,
-          ...normalized,
+          workspace_id: workspaceId,
+          modules: mergedModules,
+          // Mantém os campos antigos sincronizados para compatibilidade.
+          response_delay_min_sec: Math.round(normalized.min_response_delay_ms / 1000),
+          response_delay_max_sec: Math.round(normalized.max_response_delay_ms / 1000),
+          typing_indicator_enabled: normalized.typing_enabled,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "workspace_id" },
+        { onConflict: "user_id,workspace_id" },
       );
 
     if (error) throw error;

@@ -65,7 +65,7 @@ function AgenteV3AdminPage() {
   });
 
   const humanizationQ = useQuery({
-    queryKey: ["agent_humanization_settings"],
+    queryKey: ["agent_humanization_config"],
     queryFn: () => getHumanization(),
   });
 
@@ -128,7 +128,7 @@ function AgenteV3AdminPage() {
   const humanizationMut = useMutation({
     mutationFn: () => updateHumanization({ data: humanization }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agent_humanization_settings"] });
+      qc.invalidateQueries({ queryKey: ["agent_humanization_config"] });
       toast.success("Tempo e humanização atualizados!");
     },
     onError: (err: any) => toast.error(err.message || "Falha ao salvar humanização"),
