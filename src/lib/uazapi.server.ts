@@ -192,11 +192,39 @@ export async function uazapiSendAudio(
   to: string,
   audioUrlOrBase64: string,
 ): Promise<void> {
-  await uazapiPost(creds, "/send/media", {
-    number: normalizePhone(to),
-    type: "audio",
+  const phone = normalizePhone(to);
+  assertIndividualPhone(phone, "/send/media");
+
+  // Para respostas do agente queremos nota de voz (PTT), não um MP3 como anexo.
+  // UAZAPI 2.x aceita URL pública ou data URI base64 em `file`.
+  const payload = {
+    number: phone,
+    type: "ptt",
     file: audioUrlOrBase64,
-  });
+    mimetype: "audio/mpeg",
+  };
+
+  try {
+    const resp = await uazapiPost(creds, "/send/media", payload);
+    console.log("[uazapi/send-audio] PTT enviado", {
+      to: phone,
+      raw: resp,
+    });
+    return;
+  } catch (pttError) {
+    // Compatibilidade defensiva com instâncias antigas que não aceitem `ptt`.
+    console.warn("[uazapi/send-audio] PTT falhou; tentando type=audio:", pttError);
+    const resp = await uazapiPost(creds, "/send/media", {
+      number: phone,
+      type: "audio",
+      file: audioUrlOrBase64,
+      mimetype: "audio/mpeg",
+    });
+    console.log("[uazapi/send-audio] áudio fallback enviado", {
+      to: phone,
+      raw: resp,
+    });
+  }
 }
 
 export async function uazapiSendMedia(

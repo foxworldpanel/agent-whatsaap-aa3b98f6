@@ -857,31 +857,63 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (AI integrations unavailable)");
       }
 
+      const anthropicApiKey =
+        integ?.anthropic_api_key?.trim() || process.env.ANTHROPIC_API_KEY?.trim() || "";
+      const openaiApiKey =
+        integ?.openai_api_key?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
+      const elevenlabsApiKey =
+        integ?.elevenlabs_api_key?.trim() || process.env.ELEVENLABS_API_KEY?.trim() || "";
+      const elevenlabsVoiceId =
+        integ?.elevenlabs_voice_id?.trim() || process.env.ELEVENLABS_VOICE_ID?.trim() || "";
+
+      const creds = { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken };
+
       let finalMsgText = content.text || "";
       if (content.kind === "audio") {
-        if (!content.mediaUrl || !integ?.openai_api_key) {
-          console.error("[UAZ-WEBHOOK] Audio received without media URL or OpenAI key");
+        if (!openaiApiKey) {
+          console.error("[AUDIO-V3] Whisper indisponível: OPENAI_API_KEY ausente");
           if (conversationId) {
-            const { error: reviewErr } = await supabaseAdmin
+            await supabaseAdmin
               .from("conversations")
               .update({
                 needs_review: true,
-                review_reason: !content.mediaUrl
-                  ? "áudio recebido sem URL de mídia"
-                  : "áudio recebido sem chave OpenAI para transcrição",
+                review_reason: "áudio recebido sem chave OpenAI para transcrição",
               })
               .eq("id", conversationId);
-            if (reviewErr) {
-              console.error("[UAZ-WEBHOOK] Failed to flag unavailable audio for review:", reviewErr);
-            }
           }
           return new Response("ok (audio unavailable; flagged for review)");
         }
 
         try {
+          console.log("[AUDIO-V3] 1/5 áudio inbound detectado", {
+            msgId,
+            mime: content.mime || null,
+            webhookMediaUrl: !!content.mediaUrl,
+          });
+
+          // Nem todo payload Uazapi traz mediaUrl. Quando faltar, baixa a mídia
+          // pelo messageId usando o endpoint oficial /message/download.
+          let inboundAudioUrl = content.mediaUrl?.trim() || "";
+          if (!inboundAudioUrl) {
+            const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
+            const downloaded = await uazapiDownloadMedia(creds, msgId);
+            inboundAudioUrl = downloaded.fileURL?.trim() || "";
+            console.log("[AUDIO-V3] mídia resolvida via /message/download", {
+              hasUrl: !!inboundAudioUrl,
+              mimetype: downloaded.mimetype,
+            });
+          }
+
+          if (!inboundAudioUrl) {
+            throw new Error("Uazapi não forneceu URL utilizável para o áudio recebido");
+          }
+
           const { processAudioV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
-          const transcription = await processAudioV3(content.mediaUrl, integ.openai_api_key);
+          const transcription = await processAudioV3(inboundAudioUrl, openaiApiKey);
           finalMsgText = transcription?.trim() || "";
+          console.log("[AUDIO-V3] 2/5 Whisper concluído", {
+            chars: finalMsgText.length,
+          });
         } catch (audioErr) {
           console.error("[UAZ-WEBHOOK] Transcription failed:", audioErr);
           if (conversationId) {
@@ -978,8 +1010,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const humanization = normalizeHumanizationSettings(
         humanizationRow || DEFAULT_AGENT_HUMANIZATION,
       );
-      const creds = { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken };
-
       // Enquanto o modelo prepara uma resposta em texto, já exibimos "digitando...".
       // A espera final considera o tempo já gasto pelo processamento para não deixar
       // o atendimento artificialmente lento.
@@ -1012,13 +1042,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         message: finalMsgText,
         history: history,
         historyTelemetry: historyTelemetry,
-        anthropicApiKey: integ?.anthropic_api_key || "",
+        anthropicApiKey,
         inputKind: content.kind,
         messageId: msgId
       });
 
       const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
       const replyText = replyParts.join("\n\n");
+
+      if (content.kind === "audio") {
+        console.log("[AUDIO-V3] 3/5 Claude concluiu resposta", {
+          chars: replyText.length,
+        });
+      }
 
       const finalConvId = String(conversationId || phoneStr);
 
@@ -1032,7 +1068,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       let sentAsAudio = false;
       let deliveredReplyText = replyText;
 
-      if (content.kind === "audio" && integ?.elevenlabs_api_key && integ?.elevenlabs_voice_id) {
+      if (content.kind === "audio" && elevenlabsApiKey && elevenlabsVoiceId) {
         try {
           const { textToSpeechV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
           const { uazapiSendAudio, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
@@ -1048,9 +1084,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
 
           const audioBase64 = await textToSpeechV3({
-            apiKey: integ.elevenlabs_api_key,
-            voiceId: integ.elevenlabs_voice_id,
+            apiKey: elevenlabsApiKey,
+            voiceId: elevenlabsVoiceId,
             text: replyText,
+          });
+
+          console.log("[AUDIO-V3] 4/5 ElevenLabs concluiu TTS", {
+            chars: replyText.length,
+            audioDataChars: audioBase64.length,
+            voiceId: `${elevenlabsVoiceId.slice(0, 4)}…`,
           });
 
           // O tempo de geração do Claude/TTS conta como parte da espera humana.
@@ -1061,6 +1103,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           await sleepMs(remainingAudioDelayMs);
 
           await uazapiSendAudio(creds, phoneStr, audioBase64);
+          console.log("[AUDIO-V3] 5/5 nota de voz enviada pela Uazapi");
           await uazapiClearPresence(creds, phoneStr).catch(() => undefined);
           sentAsAudio = true;
 
@@ -1087,6 +1130,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         } catch (audioSendErr) {
           console.error("[UAZ-WEBHOOK] Falha ao responder por áudio; usando texto:", audioSendErr);
         }
+      }
+
+      if (
+        content.kind === "audio" &&
+        (!elevenlabsApiKey || !elevenlabsVoiceId)
+      ) {
+        console.error("[AUDIO-V3] Resposta em áudio desativada por configuração incompleta", {
+          hasElevenLabsKey: !!elevenlabsApiKey,
+          hasVoiceId: !!elevenlabsVoiceId,
+        });
       }
 
       if (!sentAsAudio) {

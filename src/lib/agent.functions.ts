@@ -687,6 +687,7 @@ export const getIntegrations = createServerFn({ method: "GET" })
       .from("integrations")
       .select("*")
       .eq("user_id", context.userId)
+      .eq("workspace_id", context.workspaceId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     const mask0 = (v: unknown) => (typeof v === "string" && v.length > 0 ? "••••••" : null);
@@ -694,6 +695,8 @@ export const getIntegrations = createServerFn({ method: "GET" })
       return {
         anthropic_api_key: mask0(process.env.ANTHROPIC_API_KEY),
         openai_api_key: mask0(process.env.OPENAI_API_KEY),
+        elevenlabs_api_key: mask0(process.env.ELEVENLABS_API_KEY),
+        elevenlabs_voice_id: process.env.ELEVENLABS_VOICE_ID?.trim() || null,
       };
     }
     // Mask secret values before returning to the browser: expose only whether
@@ -704,7 +707,8 @@ export const getIntegrations = createServerFn({ method: "GET" })
       uazapi_token: mask(data.uazapi_token),
       uazapi_admin_token: mask(data.uazapi_admin_token),
       anthropic_api_key: mask(data.anthropic_api_key) ?? mask(process.env.ANTHROPIC_API_KEY),
-      elevenlabs_api_key: mask(data.elevenlabs_api_key),
+      elevenlabs_api_key: mask(data.elevenlabs_api_key) ?? mask(process.env.ELEVENLABS_API_KEY),
+      elevenlabs_voice_id: data.elevenlabs_voice_id ?? process.env.ELEVENLABS_VOICE_ID ?? null,
       openai_api_key: mask(data.openai_api_key) ?? mask(process.env.OPENAI_API_KEY),
       smm_api_key: mask(data.smm_api_key),
     };
@@ -762,15 +766,18 @@ export const previewVoice = createServerFn({ method: "POST" })
       .from("integrations")
       .select("elevenlabs_api_key, elevenlabs_voice_id")
       .eq("user_id", context.userId)
+      .eq("workspace_id", context.workspaceId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!integ?.elevenlabs_api_key || !integ.elevenlabs_voice_id) {
+    const apiKey = integ?.elevenlabs_api_key?.trim() || process.env.ELEVENLABS_API_KEY?.trim() || "";
+    const voiceId = integ?.elevenlabs_voice_id?.trim() || process.env.ELEVENLABS_VOICE_ID?.trim() || "";
+    if (!apiKey || !voiceId) {
       throw new Error("Configure a API Key e o Voice ID do ElevenLabs antes.");
     }
     const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
     const audio = await ttsElevenLabsBase64({
-      apiKey: integ.elevenlabs_api_key,
-      voiceId: integ.elevenlabs_voice_id,
+      apiKey,
+      voiceId,
       text: data.text ?? "Oi! Aqui é a sua agente vendedora. Tudo certo com a voz?",
     });
     return { audio };
