@@ -245,42 +245,136 @@ export async function uazapiSendMedia(
 export async function uazapiDownloadMedia(
   creds: UazapiCreds,
   messageId: string,
-): Promise<{ fileURL: string | null; mimetype: string | null; transcription: string | null }> {
+): Promise<{
+  fileURL: string | null;
+  fileData: string | null;
+  mimetype: string | null;
+  transcription: string | null;
+}> {
   const base = creds.uazapi_url.replace(/\/+$/, "");
-  const res = await fetch(`${base}/message/download`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      token: creds.uazapi_token,
-    },
-    body: JSON.stringify({ id: messageId, transcribe: true }),
-  });
-  if (!res.ok) {
-    const t = await res.text().catch(() => "");
-    throw new Error(`Uazapi /message/download falhou (${res.status}): ${t.slice(0, 300)}`);
+
+  const bodies = [
+    { id: messageId, transcribe: false },
+    { messageId, transcribe: false },
+    { messageid: messageId, transcribe: false },
+  ];
+
+  let lastStatus = 0;
+  let lastText = "";
+  let payload: Record<string, unknown> | null = null;
+
+  for (const body of bodies) {
+    const res = await fetch(`${base}/message/download`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        token: creds.uazapi_token,
+      },
+      body: JSON.stringify(body),
+    });
+
+    lastStatus = res.status;
+    lastText = await res.text().catch(() => "");
+
+    if (!res.ok) continue;
+
+    try {
+      payload = lastText ? JSON.parse(lastText) as Record<string, unknown> : {};
+    } catch {
+      payload = {};
+    }
+    break;
   }
-  const j = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+
+  if (!payload) {
+    throw new Error(
+      `Uazapi /message/download falhou (${lastStatus}): ${lastText.slice(0, 300)}`,
+    );
+  }
+
+  const findString = (
+    value: unknown,
+    wantedKeys: string[],
+    depth = 0,
+  ): string | null => {
+    if (depth > 5 || value == null) return null;
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed || null;
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = findString(item, wantedKeys, depth + 1);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    if (typeof value === "object") {
+      const obj = value as Record<string, unknown>;
+      for (const key of wantedKeys) {
+        if (key in obj) {
+          const found = findString(obj[key], wantedKeys, depth + 1);
+          if (found) return found;
+        }
+      }
+      for (const nested of Object.values(obj)) {
+        const found = findString(nested, wantedKeys, depth + 1);
+        if (found) return found;
+      }
+    }
+
+    return null;
+  };
+
+  const urlCandidate = findString(payload, [
+    "fileURL", "fileUrl", "mediaUrl", "mediaURL", "downloadUrl", "downloadURL", "url",
+  ]);
+
+  const base64Candidate = findString(payload, [
+    "base64", "fileBase64", "mediaBase64", "data", "file",
+  ]);
+
+  const mimetype = findString(payload, [
+    "mimetype", "mimeType", "mime", "contentType", "type",
+  ]);
+
+  const transcription = findString(payload, [
+    "transcription", "transcript", "text",
+  ]);
+
   const fileURL =
-    (j.fileURL as string | undefined) ??
-    (j.fileUrl as string | undefined) ??
-    (j.url as string | undefined) ??
-    (j.mediaUrl as string | undefined) ??
-    (j.link as string | undefined) ??
-    null;
-  const mimetype =
-    (j.mimetype as string | undefined) ??
-    (j.mimeType as string | undefined) ??
-    (j.type as string | undefined) ??
-    null;
-  const transcription =
-    (j.transcription as string | undefined) ??
-    (j.transcript as string | undefined) ??
-    (j.text as string | undefined) ??
-    null;
-  return {
-    fileURL: fileURL && /^https?:\/\//i.test(fileURL) ? fileURL : null,
+    urlCandidate && /^https?:\/\//i.test(urlCandidate)
+      ? urlCandidate
+      : null;
+
+  let fileData: string | null = null;
+  if (base64Candidate) {
+    if (/^data:audio\//i.test(base64Candidate)) {
+      fileData = base64Candidate;
+    } else if (
+      base64Candidate.length > 500 &&
+      /^[A-Za-z0-9+/=\r\n]+$/.test(base64Candidate)
+    ) {
+      fileData = `data:${mimetype || "audio/ogg"};base64,${base64Candidate.replace(/\s+/g, "")}`;
+    }
+  }
+
+  console.log("[uazapi/message-download]", {
+    messageId,
+    hasFileURL: !!fileURL,
+    hasFileData: !!fileData,
     mimetype,
-    transcription: transcription?.trim() || null,
+    hasTranscription: !!transcription,
+  });
+
+  return {
+    fileURL,
+    fileData,
+    mimetype,
+    transcription,
   };
 }
 

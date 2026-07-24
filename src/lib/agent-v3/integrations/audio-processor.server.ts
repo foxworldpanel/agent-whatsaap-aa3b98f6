@@ -10,26 +10,55 @@ function isMeaningfulPart(raw: string): boolean {
 /**
  * Transcrição própria da V3. Mantém a integração técnica isolada do legado V1/V2.
  */
-export async function processAudioV3(audioUrl: string, openaiApiKey?: string): Promise<string> {
-  const url = audioUrl?.trim();
-  if (!url) throw new Error("Audio URL is required");
+export async function processAudioV3(audioSource: string, openaiApiKey?: string): Promise<string> {
+  const source = audioSource?.trim();
+  if (!source) throw new Error("Audio source is required");
 
   const apiKey = openaiApiKey?.trim() || process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) throw new Error("OPENAI_API_KEY ausente para transcrição do Agent V3");
 
   console.info("[agent-v3] Starting audio transcription...");
 
-  const audio = await fetch(url);
-  if (!audio.ok) throw new Error(`Falha ao baixar áudio (${audio.status})`);
+  let blob: Blob;
+  let inferredMime = "";
 
-  const blob = await audio.blob();
-  const headerMime = (blob.type || "").split(";")[0].trim().toLowerCase();
+  if (/^data:audio\//i.test(source)) {
+    const match = source.match(/^data:([^;,]+);base64,(.+)$/s);
+    if (!match) throw new Error("Data URI de áudio inválida");
+    inferredMime = match[1].toLowerCase();
+    const bytes = Buffer.from(match[2], "base64");
+    blob = new Blob([bytes], { type: inferredMime });
+  } else if (
+    !/^https?:\/\//i.test(source) &&
+    source.length > 500 &&
+    /^[A-Za-z0-9+/=\r\n]+$/.test(source)
+  ) {
+    const bytes = Buffer.from(source.replace(/\s+/g, ""), "base64");
+    inferredMime = "audio/ogg";
+    blob = new Blob([bytes], { type: inferredMime });
+  } else {
+    const audio = await fetch(source);
+    if (!audio.ok) {
+      throw new Error(`Falha ao baixar áudio (${audio.status})`);
+    }
+    blob = await audio.blob();
+    inferredMime = (blob.type || "").split(";")[0].trim().toLowerCase();
+  }
+
+  if (!blob.size) throw new Error("Arquivo de áudio vazio");
+
+  const headerMime =
+    inferredMime ||
+    (blob.type || "").split(";")[0].trim().toLowerCase();
+
   const ext =
     headerMime.includes("mpeg") ? "mp3" :
     headerMime.includes("mp4") || headerMime.includes("m4a") ? "m4a" :
     headerMime.includes("wav") ? "wav" :
     headerMime.includes("webm") ? "webm" :
-    headerMime.includes("flac") ? "flac" : "ogg";
+    headerMime.includes("flac") ? "flac" :
+    headerMime.includes("ogg") || headerMime.includes("opus") ? "ogg" :
+    "ogg";
 
   const form = new FormData();
   form.append("model", "whisper-1");

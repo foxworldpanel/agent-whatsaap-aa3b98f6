@@ -115,6 +115,13 @@ type UazapiPayload = {
     text?: string;
     content?: string;
     mediaUrl?: string;
+    mediaURL?: string;
+    url?: string;
+    fileURL?: string;
+    fileUrl?: string;
+    file?: string;
+    base64?: string;
+    data?: unknown;
     mimetype?: string;
     mediaType?: string;
     audioMessage?: unknown;
@@ -139,6 +146,50 @@ function extractPhone(chatid?: string, sender?: string): string | null {
   return digits || null;
 }
 
+function findMediaReference(value: unknown, depth = 0): string | undefined {
+  if (depth > 5 || value == null) return undefined;
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (
+      /^https?:\/\//i.test(trimmed) ||
+      /^data:audio\//i.test(trimmed) ||
+      (/^[A-Za-z0-9+/=\r\n]+$/.test(trimmed) && trimmed.length > 500)
+    ) {
+      return trimmed;
+    }
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findMediaReference(item, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const preferredKeys = [
+      "mediaUrl", "mediaURL", "fileURL", "fileUrl", "downloadUrl",
+      "downloadURL", "url", "file", "base64", "data",
+    ];
+    for (const key of preferredKeys) {
+      if (key in obj) {
+        const found = findMediaReference(obj[key], depth + 1);
+        if (found) return found;
+      }
+    }
+    for (const nested of Object.values(obj)) {
+      const found = findMediaReference(nested, depth + 1);
+      if (found) return found;
+    }
+  }
+
+  return undefined;
+}
+
 function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audio" | "image" | "sticker"; mime?: string; mediaUrl?: string } {
   const m = p.message ?? p.data ?? {};
   const type = (m.messageType ?? m.type ?? m.mediaType ?? "").toLowerCase();
@@ -153,7 +204,25 @@ function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audi
     !!m.pttMessage;
 
   if (isAudio) {
-    return { text: m.text || "[áudio recebido]", kind: "audio", mime, mediaUrl: m.mediaUrl };
+    const mediaUrl =
+      m.mediaUrl ||
+      m.mediaURL ||
+      m.fileURL ||
+      m.fileUrl ||
+      m.url ||
+      m.file ||
+      m.base64 ||
+      findMediaReference(m.audioMessage) ||
+      findMediaReference(m.pttMessage) ||
+      findMediaReference(m.data) ||
+      findMediaReference(m);
+
+    return {
+      text: m.text || "[áudio recebido]",
+      kind: "audio",
+      mime,
+      mediaUrl,
+    };
   }
 
   const isSticker =
@@ -897,9 +966,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           if (!inboundAudioUrl) {
             const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
             const downloaded = await uazapiDownloadMedia(creds, msgId);
-            inboundAudioUrl = downloaded.fileURL?.trim() || "";
+            inboundAudioUrl =
+              downloaded.fileURL?.trim() ||
+              downloaded.fileData?.trim() ||
+              "";
             console.log("[AUDIO-V3] mídia resolvida via /message/download", {
-              hasUrl: !!inboundAudioUrl,
+              hasUrl: !!downloaded.fileURL,
+              hasData: !!downloaded.fileData,
               mimetype: downloaded.mimetype,
             });
           }
@@ -914,6 +987,36 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           console.log("[AUDIO-V3] 2/5 Whisper concluído", {
             chars: finalMsgText.length,
           });
+
+          // A mensagem inbound foi persistida antes da transcrição para garantir
+          // deduplicação. Agora substituímos "[áudio recebido]" pelo texto real
+          // do Whisper para o CRM, histórico e tela de Conversas mostrarem o conteúdo.
+          if (conversationId && finalMsgText) {
+            const { error: transcriptPersistErr } = await supabaseAdmin
+              .from("messages")
+              .update({
+                body: finalMsgText,
+                kind: "audio",
+              })
+              .eq("conversation_id", conversationId)
+              .eq("external_id", msgId);
+
+            if (transcriptPersistErr) {
+              console.error("[AUDIO-V3] Whisper funcionou, mas falhou ao salvar transcrição no CRM:", transcriptPersistErr);
+            }
+
+            const { error: previewPersistErr } = await supabaseAdmin
+              .from("conversations")
+              .update({
+                last_message_preview: finalMsgText.slice(0, 120),
+                last_message_at: new Date().toISOString(),
+              })
+              .eq("id", conversationId);
+
+            if (previewPersistErr) {
+              console.error("[AUDIO-V3] Falha ao atualizar preview transcrito:", previewPersistErr);
+            }
+          }
         } catch (audioErr) {
           console.error("[UAZ-WEBHOOK] Transcription failed:", audioErr);
           if (conversationId) {
