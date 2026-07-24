@@ -982,91 +982,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Caminho principal: a própria Uazapi baixa/descriptografa a mídia e
           // pede ao Whisper a transcrição. Isso evita depender de mediaUrl temporária
           // ou de campos diferentes entre versões do webhook.
-          const { uazapiDownloadMedia, uazapiListMessages } = await import("@/lib/uazapi.server");
+          const { uazapiResolveInboundMedia } = await import("@/lib/uazapi.server");
 
-          console.log("[AUDIO-V3] Identificador usado para download", {
-            msgId,
-            isFallbackId: msgId.startsWith("fb:"),
+          const downloaded = await uazapiResolveInboundMedia({
+            creds,
+            webhookMessageId: msgId,
+            chatPhone: phoneStr,
+            mediaKind: "audio",
+            openaiApiKey,
           });
 
-          let downloaded:
-            | Awaited<ReturnType<typeof uazapiDownloadMedia>>
-            | null = null;
-          let downloadMessageId = msgId;
-
-          try {
-            downloaded = await uazapiDownloadMedia(
-              creds,
-              downloadMessageId,
-              openaiApiKey,
-            );
-
-            // Algumas versões retornam HTTP 200 mesmo quando o ID não resolveu
-            // uma mídia útil. Isso também deve acionar a recuperação do ID real.
-            if (
-              !downloaded.transcription &&
-              !downloaded.fileURL &&
-              !downloaded.fileData
-            ) {
-              throw new Error(
-                "Uazapi respondeu 200, mas sem transcrição ou arquivo para este messageId",
-              );
-            }
-          } catch (primaryDownloadErr) {
-            console.warn(
-              "[AUDIO-V3] Download pelo ID do webhook falhou/vazio; buscando ID real nas mensagens recentes:",
-              primaryDownloadErr,
-            );
-
-            // Recuperação: consulta as mensagens reais da conversa na Uazapi.
-            // Isso cobre payloads onde o webhook usa key_id/wa_messageid/nested key
-            // ou quando algum proxy remove o identificador original.
-            const recentMessages = await uazapiListMessages(creds, phoneStr, 20);
-            const recentInboundAudio = recentMessages.find((row) => {
-              const kind = String(row.type || "").toLowerCase();
-              return (
-                !row.from_me &&
-                (kind.includes("audio") ||
-                  kind.includes("ptt") ||
-                  kind.includes("voice"))
-              );
-            });
-
-            if (!recentInboundAudio?.external_id) {
-              throw new Error(
-                `Não foi possível recuperar o ID real do áudio. Erro original: ${
-                  primaryDownloadErr instanceof Error
-                    ? primaryDownloadErr.message
-                    : String(primaryDownloadErr)
-                }`,
-              );
-            }
-
-            downloadMessageId = recentInboundAudio.external_id;
-            console.log("[AUDIO-V3] ID real recuperado via /message/find", {
-              webhookMsgId: msgId,
-              recoveredMsgId: downloadMessageId,
-              type: recentInboundAudio.type,
-            });
-
-            downloaded = await uazapiDownloadMedia(
-              creds,
-              downloadMessageId,
-              openaiApiKey,
-            );
-
-            if (
-              !downloaded.transcription &&
-              !downloaded.fileURL &&
-              !downloaded.fileData
-            ) {
-              throw new Error(
-                "Uazapi não retornou transcrição nem arquivo mesmo após recuperar o ID real",
-              );
-            }
-          }
-
-          let inboundAudioUrl =
+          const inboundAudioUrl =
             downloaded.fileURL?.trim() ||
             downloaded.fileData?.trim() ||
             content.mediaUrl?.trim() ||
@@ -1169,6 +1095,84 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
           }
           return new Response("ok (audio transcription failed; flagged for review)");
+        }
+      }
+
+      let resolvedImageSource:
+        | { url?: string; data?: string; mediaType?: string }
+        | undefined;
+
+      if (content.kind === "image") {
+        try {
+          const { uazapiResolveInboundMedia } = await import("@/lib/uazapi.server");
+          const image = await uazapiResolveInboundMedia({
+            creds,
+            webhookMessageId: msgId,
+            chatPhone: phoneStr,
+            mediaKind: "image",
+          });
+
+          const mime =
+            image.mimetype?.includes("png") ? "image/png" :
+            image.mimetype?.includes("gif") ? "image/gif" :
+            image.mimetype?.includes("webp") ? "image/webp" :
+            "image/jpeg";
+
+          if (image.fileData) {
+            const match = image.fileData.match(/^data:([^;,]+);base64,(.+)$/s);
+            if (match) {
+              resolvedImageSource = {
+                data: match[2],
+                mediaType: /^image\/(jpeg|png|gif|webp)$/i.test(match[1])
+                  ? match[1].toLowerCase()
+                  : mime,
+              };
+            }
+          }
+
+          if (!resolvedImageSource && image.fileURL) {
+            const response = await fetch(image.fileURL);
+            if (response.ok) {
+              const bytes = Buffer.from(await response.arrayBuffer());
+              if (bytes.length > 0) {
+                const responseMime =
+                  response.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ||
+                  mime;
+                resolvedImageSource = {
+                  data: bytes.toString("base64"),
+                  mediaType: /^image\/(jpeg|png|gif|webp)$/i.test(responseMime)
+                    ? responseMime
+                    : mime,
+                };
+              }
+            }
+          }
+
+          if (!resolvedImageSource) {
+            throw new Error("Imagem resolvida pela Uazapi, mas sem bytes utilizáveis");
+          }
+
+          finalMsgText =
+            content.text && content.text !== "[imagem recebida]"
+              ? content.text
+              : "Analise a imagem enviada e responda de acordo com o contexto da conversa.";
+
+          console.log("[IMAGE-V3] imagem pronta para Claude Vision", {
+            messageId: image.messageId,
+            mediaType: resolvedImageSource.mediaType,
+          });
+        } catch (imageError) {
+          console.error("[IMAGE-V3] Falha ao resolver imagem:", imageError);
+          if (conversationId) {
+            await supabaseAdmin
+              .from("conversations")
+              .update({
+                needs_review: true,
+                review_reason: "falha ao carregar imagem para análise visual",
+              })
+              .eq("id", conversationId);
+          }
+          return new Response("ok (image unavailable; flagged for review)");
         }
       }
 
@@ -1284,6 +1288,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
         inputKind: content.kind,
+        imageSource: resolvedImageSource,
         messageId: msgId
       });
 

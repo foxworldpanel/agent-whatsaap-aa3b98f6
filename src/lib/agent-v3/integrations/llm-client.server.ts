@@ -152,10 +152,15 @@ export async function callAnthropicV3(params: {
 
       // Mantém a telemetria existente. Os valores financeiros finais também são
       // calculados no orchestrator para compatibilidade com a UI atual.
-      const inputCost = (input_tokens * 1) / 1_000_000;
-      const outputCost = (output_tokens * 5) / 1_000_000;
-      const cacheWriteCost = (cache_creation_input_tokens * 1.25) / 1_000_000;
-      const cacheReadCost = (cache_read_input_tokens * 0.1) / 1_000_000;
+      const pricing =
+        anthropicModel === "claude-sonnet-5"
+          ? { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.2 }
+          : { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 };
+
+      const inputCost = (input_tokens * pricing.input) / 1_000_000;
+      const outputCost = (output_tokens * pricing.output) / 1_000_000;
+      const cacheWriteCost = (cache_creation_input_tokens * pricing.cacheWrite) / 1_000_000;
+      const cacheReadCost = (cache_read_input_tokens * pricing.cacheRead) / 1_000_000;
       const totalCost = inputCost + outputCost + cacheWriteCost + cacheReadCost;
 
       const response_chars = (result.content || [])

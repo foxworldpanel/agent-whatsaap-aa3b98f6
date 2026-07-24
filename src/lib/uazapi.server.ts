@@ -644,3 +644,166 @@ export async function uazapiListMessages(
   }
   return out;
 }
+
+export type UazapiResolvedMedia = {
+  messageId: string;
+  type: string | null;
+  fileURL: string | null;
+  fileData: string | null;
+  mimetype: string | null;
+  transcription: string | null;
+};
+
+/**
+ * Resolve a mídia inbound de forma tolerante a versões diferentes da Uazapi.
+ * 1) tenta /message/download com o ID recebido pelo webhook;
+ * 2) se falhar/vier vazio, consulta /message/find e recupera o ID real da mídia;
+ * 3) tenta /message/download novamente com o ID canônico.
+ */
+export async function uazapiResolveInboundMedia(params: {
+  creds: UazapiCreds;
+  webhookMessageId: string;
+  chatPhone: string;
+  mediaKind: "audio" | "image";
+  openaiApiKey?: string;
+}): Promise<UazapiResolvedMedia> {
+  const { creds, webhookMessageId, chatPhone, mediaKind, openaiApiKey } = params;
+
+  const useful = (value: Awaited<ReturnType<typeof uazapiDownloadMedia>>) =>
+    Boolean(value.transcription || value.fileURL || value.fileData);
+
+  if (webhookMessageId && !webhookMessageId.startsWith("fb:")) {
+    try {
+      const direct = await uazapiDownloadMedia(
+        creds,
+        webhookMessageId,
+        mediaKind === "audio" ? openaiApiKey : undefined,
+      );
+      if (useful(direct)) {
+        return {
+          messageId: webhookMessageId,
+          type: mediaKind,
+          ...direct,
+        };
+      }
+    } catch (error) {
+      console.warn("[uazapi/media-resolver] download direto falhou:", error);
+    }
+  }
+
+  const base = creds.uazapi_url.replace(/\/+$/, "");
+  const phone = normalizePhone(chatPhone);
+  const res = await fetch(`${base}/message/find`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      token: creds.uazapi_token,
+    },
+    body: JSON.stringify({
+      operator: "AND",
+      sort: "-messageTimestamp",
+      limit: 30,
+      wa_chatid: `${phone}@s.whatsapp.net`,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`/message/find falhou (${res.status}): ${body.slice(0, 300)}`);
+  }
+
+  const payload = (await res.json().catch(() => null)) as any;
+  const rows: any[] = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.messages)
+      ? payload.messages
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+
+  const getId = (r: any): string =>
+    String(
+      r?.messageid ??
+      r?.messageId ??
+      r?.id ??
+      r?.key_id ??
+      r?.wa_messageid ??
+      r?.key?.id ??
+      "",
+    ).trim();
+
+  const getType = (r: any): string =>
+    String(
+      r?.messageType ??
+      r?.type ??
+      r?.mediaType ??
+      r?.mimetype ??
+      r?.mimeType ??
+      r?.contentType ??
+      "",
+    ).toLowerCase();
+
+  const matchesKind = (r: any): boolean => {
+    const type = getType(r);
+    const fromMe = Boolean(r?.fromMe ?? r?.fromme ?? r?.from_me ?? false);
+    if (fromMe) return false;
+
+    if (mediaKind === "audio") {
+      return (
+        type.includes("audio") ||
+        type.includes("ptt") ||
+        type.includes("voice") ||
+        Boolean(r?.audioMessage) ||
+        Boolean(r?.pttMessage)
+      );
+    }
+
+    return (
+      type.includes("image") ||
+      type.includes("imagem") ||
+      Boolean(r?.imageMessage)
+    );
+  };
+
+  const matchingRows = rows.filter((r) => getId(r) && matchesKind(r));
+  if (matchingRows.length === 0) {
+    throw new Error(
+      `Nenhuma mensagem ${mediaKind} inbound recente encontrada em /message/find`,
+    );
+  }
+
+  let lastError: unknown;
+  for (const row of matchingRows.slice(0, 5)) {
+    const realId = getId(row);
+    try {
+      const downloaded = await uazapiDownloadMedia(
+        creds,
+        realId,
+        mediaKind === "audio" ? openaiApiKey : undefined,
+      );
+      if (!useful(downloaded)) continue;
+
+      console.log("[uazapi/media-resolver] mídia resolvida", {
+        mediaKind,
+        webhookMessageId,
+        realMessageId: realId,
+        type: getType(row),
+        hasUrl: !!downloaded.fileURL,
+        hasData: !!downloaded.fileData,
+        hasTranscription: !!downloaded.transcription,
+      });
+
+      return {
+        messageId: realId,
+        type: getType(row) || mediaKind,
+        ...downloaded,
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Não foi possível baixar a mídia ${mediaKind} pela Uazapi`);
+}
