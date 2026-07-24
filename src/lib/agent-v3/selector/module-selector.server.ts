@@ -248,11 +248,22 @@ export function detectConversationContext(
   const hasPaymentSignal =
     hasPaidSignal ||
     containsAny(normalizedText, [
+      "pix",
+      "manda o pix",
+      "manda pix",
+      "me manda o pix",
+      "me passa o pix",
+      "passa o pix",
+      "qual o pix",
+      "chave pix",
       "como pagar",
       "como faco o pix",
       "como fazer o pix",
       "aceita pix",
-      "chave pix",
+      "quero pagar",
+      "vou pagar",
+      "onde pago",
+      "pagar agora",
       "pagamento",
       "comprovante",
       "recarga",
@@ -282,15 +293,17 @@ export function detectConversationContext(
   } else if (hasSecuritySignal) {
     intent = "duvida_seguranca";
     stage = "qualificacao";
+  } else if (hasPaymentSignal) {
+    // Pagamento tem prioridade sobre sinais genéricos de compra como "quero".
+    // Ex.: "quero pagar" / "manda o pix" já são fechamento, não nova qualificação.
+    intent = "pagamento";
+    stage = "fechamento";
   } else if (hasPurchaseSignal) {
     intent = "compra";
     stage = hasQuantity || product ? "fechamento" : "negociacao";
   } else if (hasPriceQuestion) {
     intent = "consulta_preco";
     stage = "negociacao";
-  } else if (hasPaymentSignal) {
-    intent = "pagamento";
-    stage = "fechamento";
   } else if (
     containsAny(normalizedText, [
       "como funciona",
