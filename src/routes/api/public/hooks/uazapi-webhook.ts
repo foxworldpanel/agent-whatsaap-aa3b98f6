@@ -443,9 +443,16 @@ async function shouldCancelRunningFunnel(params: {
     return false;
   }
 
-  return (data || []).some((row: any) =>
-    isConversationDeferralMessage(String(row?.body || "")),
-  );
+  return (data || []).some((row: any) => {
+    const body = String(row?.body || "").trim();
+    if (!body) return false;
+
+    // Qualquer nova fala substantiva do cliente durante o funil significa que
+    // ele começou uma conversa real. Interrompe as próximas peças automáticas
+    // para não mandar tabela/vídeo por cima da pergunta dele.
+    if (isConversationDeferralMessage(body)) return true;
+    return body.length >= 2;
+  });
 }
 
 function normalizeFunnelText(value: string): string {
@@ -538,7 +545,7 @@ async function executeWelcomeFunnel(params: {
       startedAtIso: funnelStartedAtIso,
     });
     if (cancelled) {
-      throw new Error("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_DEFERRAL");
+      throw new Error("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_MESSAGE");
     }
   };
 
@@ -1028,12 +1035,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 } catch (funnelSendErr) {
                   if (
                     funnelSendErr instanceof Error &&
-                    funnelSendErr.message === "WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_DEFERRAL"
+                    funnelSendErr.message === "WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_MESSAGE"
                   ) {
                     // Mantém o claim: cliente normal continua com regra "funil uma vez".
                     // Apenas interrompe as etapas restantes porque pediu para falar depois.
-                    console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" interrompido: cliente pediu para continuar depois`);
-                    return new Response("ok (welcome funnel paused by customer)");
+                    console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" interrompido: cliente iniciou conversa durante o envio`);
+                    return new Response("ok (welcome funnel paused for live conversation)");
                   }
 
                   console.error("[WELCOME-FUNNEL] Falha durante envio:", funnelSendErr);
