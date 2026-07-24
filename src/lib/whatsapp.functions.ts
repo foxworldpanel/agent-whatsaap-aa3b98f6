@@ -72,6 +72,35 @@ export const listConversations = createServerFn({ method: "GET" })
       }
     }
 
+    const commercialMemory = new Map<string, any>();
+    try {
+      const contactIds = rows
+        .map((row: any) => row.contact?.id)
+        .filter(Boolean);
+
+      for (let i = 0; i < contactIds.length; i += 200) {
+        const ids = contactIds.slice(i, i + 200);
+        const { data: memoryRows, error: memoryError } = await (supabaseAdmin as any)
+          .from("customer_commercial_memory")
+          .select(
+            "contact_id, lifecycle, converted_at, purchase_count, preferred_platform, preferred_product, next_opportunity, repurchase_potential, updated_at",
+          )
+          .eq("workspace_id", context.workspaceId)
+          .in("contact_id", ids);
+
+        if (memoryError) {
+          console.warn("[conversas] Memória comercial indisponível:", memoryError);
+          break;
+        }
+
+        for (const memory of memoryRows || []) {
+          commercialMemory.set(memory.contact_id, memory);
+        }
+      }
+    } catch (memoryError) {
+      console.warn("[conversas] Falha ao carregar memória comercial:", memoryError);
+    }
+
     const { data: testRows } = await supabaseAdmin
       .from("test_numbers")
       .select("phone")
@@ -83,6 +112,9 @@ export const listConversations = createServerFn({ method: "GET" })
       ...r,
       is_test: r.contact?.telefone ? testSet.has(r.contact.telefone) : false,
       lead_intelligence: latestIntelligence.get(r.id) ?? null,
+      customer_memory: r.contact?.id
+        ? commercialMemory.get(r.contact.id) ?? null
+        : null,
     }));
   });
 

@@ -36,6 +36,16 @@ type Conv = {
   auto_paused_at?: string | null;
   internal_note?: string | null;
   is_test?: boolean;
+  customer_memory?: {
+    lifecycle?: "novo_lead" | "interessado" | "negociacao" | "pronto_para_comprar" | "cliente" | "cliente_recorrente" | string;
+    converted_at?: string | null;
+    purchase_count?: number;
+    preferred_platform?: string | null;
+    preferred_product?: string | null;
+    next_opportunity?: string | null;
+    repurchase_potential?: "baixo" | "medio" | "alto" | string;
+    updated_at?: string | null;
+  } | null;
   lead_intelligence?: {
     temperature?: "frio" | "morno" | "quente" | string;
     confidence?: string;
@@ -1002,6 +1012,31 @@ function Conversas() {
               )}
             </div>
           </header>
+
+          {active?.customer_memory && (
+            active.customer_memory.lifecycle === "cliente" ||
+            active.customer_memory.lifecycle === "cliente_recorrente"
+          ) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-semibold text-emerald-800">✓ Cliente convertido</span>
+                <span className="text-emerald-700">
+                  · {active.customer_memory.purchase_count || 1} compra(s)
+                </span>
+                <span className="text-emerald-700">
+                  · Recompra {active.customer_memory.repurchase_potential || "médio"}
+                </span>
+              </div>
+              {active.customer_memory.next_opportunity && (
+                <span
+                  className="max-w-[420px] truncate text-[11px] text-emerald-700"
+                  title={active.customer_memory.next_opportunity}
+                >
+                  Próxima oportunidade: {active.customer_memory.next_opportunity}
+                </span>
+              )}
+            </div>
+          )}
 
           {active && (
             active.lead_intelligence ? (

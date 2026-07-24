@@ -11,6 +11,7 @@ import {
   stripMarkdownFormattingV3,
 } from "./brain/guards.server";
 import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
+import { isConfirmedPurchaseMessage } from "./memory/customer-memory.server";
 
 export interface OrchestratorInput {
   userId: string;
@@ -26,6 +27,8 @@ export interface OrchestratorInput {
   customModules?: Record<string, string | LoadedModuleV3>;
   anthropicApiKey: string;
   extraContext?: string;
+  customerLifecycle?: "novo_lead" | "interessado" | "negociacao" | "pronto_para_comprar" | "cliente" | "cliente_recorrente";
+  repurchasePotential?: "baixo" | "medio" | "alto";
   isInbound?: boolean;
   inputKind?: "texto" | "audio" | "image" | "sticker";
   imageSource?: {
@@ -119,6 +122,8 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     customModules,
     anthropicApiKey,
     extraContext,
+    customerLifecycle,
+    repurchasePotential,
     inputKind,
     imageSource,
     messageId,
@@ -281,7 +286,8 @@ ${extraContext}`
 }
 
 REGRA DE FONTE ÚNICA E ANTI-INVENÇÃO:
-- Use exclusivamente as informações presentes nos módulos carregados em ESTADO DA CONVERSA.
+- Para preços, serviços, prazos, garantias e regras comerciais, use exclusivamente as informações presentes nos módulos carregados em ESTADO DA CONVERSA.
+- A MEMÓRIA COMERCIAL PERSISTENTE pode ser usada para lembrar quem é o cliente, se já comprou, plataforma/serviço anterior e próxima oportunidade; ela NÃO é fonte de preço ou característica do produto.
 - Nunca invente, complete por conhecimento próprio ou liste serviços que não estejam escritos nos módulos selecionados.
 - Não ofereça nenhuma categoria, plataforma, produto ou serviço que esteja ausente dos módulos carregados.
 - Quando o cliente disser apenas "tenho interesse" ou algo vago, pergunte somente qual rede social ou serviço ele procura. Não apresente um catálogo inventado.
@@ -545,10 +551,30 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     purchase_probability = Math.max(purchase_probability, 90);
   }
 
+  const purchaseConfirmedThisTurn = isConfirmedPurchaseMessage(message);
+  const isExistingCustomer =
+    customerLifecycle === "cliente" ||
+    customerLifecycle === "cliente_recorrente" ||
+    purchaseConfirmedThisTurn;
+
+  if (isExistingCustomer) {
+    purchase_probability = 100;
+  }
+
   const temperature: "frio" | "morno" | "quente" =
-    purchase_probability >= 75 ? "quente" : purchase_probability >= 40 ? "morno" : "frio";
-  const intent = intentMap[selectionContext.intent] || "Outro";
-  const stage = stageMap[selectionContext.stage] || "Descoberta";
+    isExistingCustomer
+      ? "quente"
+      : purchase_probability >= 75
+        ? "quente"
+        : purchase_probability >= 40
+          ? "morno"
+          : "frio";
+  const intent = isExistingCustomer
+    ? "Pós-venda"
+    : intentMap[selectionContext.intent] || "Outro";
+  const stage = isExistingCustomer
+    ? "Pós-venda"
+    : stageMap[selectionContext.stage] || "Descoberta";
   const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
   const sentiment = /(?:problema|erro|golpe|atras|não chegou|nao chegou|reclama|ruim|péssim|pessim)/i.test(normalizedCustomerMessage)
     ? "Negativo"
@@ -557,14 +583,20 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       : "Neutro";
   const urgency = selectionContext.hasPaymentSignal || selectionContext.hasPaidSignal ? "Alta" : selectionContext.hasPurchaseSignal ? "Média" : "Baixa";
   const recommended_action =
-    selectionContext.intent === "pagamento"
+    isExistingCustomer
+      ? `Atender como cliente existente. Potencial de recompra: ${repurchasePotential || "não definido"}. Não reiniciar qualificação.`
+      : selectionContext.intent === "pagamento"
       ? "Orientar o pagamento usando apenas as informações do módulo carregado."
       : selectionContext.intent === "compra"
         ? "Conduzir para o próximo passo da compra sem repetir informações."
         : selectionContext.intent === "suporte"
           ? "Resolver a dúvida de suporte com objetividade."
           : "Responder diretamente ao último pedido do cliente.";
-  const reasoning = `Contexto derivado pelo selector: ${selectionContext.intent}/${selectionContext.stage}.`;
+  const reasoning = isExistingCustomer
+    ? purchaseConfirmedThisTurn
+      ? `Compra confirmada nesta mensagem; contexto atual ${selectionContext.intent}/${selectionContext.stage}.`
+      : `Memória comercial persistente: ${customerLifecycle}; contexto atual ${selectionContext.intent}/${selectionContext.stage}.`
+    : `Contexto derivado pelo selector: ${selectionContext.intent}/${selectionContext.stage}.`;
   const conversation_score = Math.max(0, Math.min(100, Math.round(selectionContext.confidence * 100)));
 
   // Guards & Pipeline

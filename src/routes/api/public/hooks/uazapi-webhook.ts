@@ -351,6 +351,16 @@ function shouldReplyWithAudio(params: {
   );
 }
 
+function isReactionOnlyMessage(value: string): boolean {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  // Somente emoji/reação curta, sem letras ou números. Evita responder a 👍 🤝 ❤️ etc.
+  const stripped = text
+    .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D\s]+/gu, "")
+    .trim();
+  return stripped.length === 0 && text.length <= 24;
+}
+
 export function isHumanHandoffRequest(text: string): boolean {
   const normalized = String(text || "")
     .replace(/\s+/g, " ")
@@ -668,6 +678,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // 2. SYNC TO CRM (Always do this for all incoming messages)
     let contactId: string | undefined = undefined;
+    let contactProfile: string | null = null;
+    let contactTemperature: string | null = null;
     let conversationId: string | undefined = undefined;
     let duplicateMessageInDb = false;
     let messagePersistedInDb = false;
@@ -683,11 +695,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           whatsapp_number_id: num.id,
           nome: msgLocal.sender?.split("@")[0] || phoneStr,
         }, { onConflict: "user_id,telefone" })
-        .select("id, photo_url")
+        .select("id, photo_url, perfil, temperatura")
         .single();
 
       if (contactErr) throw contactErr;
       if (contact?.id) contactId = contact.id;
+      contactProfile = contact?.perfil ?? null;
+      contactTemperature = contact?.temperatura ?? null;
 
       // Hidrata a foto real do WhatsApp quando o contato ainda não possui uma.
       // O menu Conversas usa contacts.photo_url; sem este passo o avatar ficava
@@ -864,11 +878,47 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("workspace configuration missing", { status: 503 });
     }
 
+    let customerMemory = null as any;
+    let customerMemoryContext = "";
+
+    if (contactId) {
+      const {
+        loadCustomerCommercialMemory,
+        customerMemoryPromptContext,
+      } = await import("@/lib/agent-v3/memory/customer-memory.server");
+
+      customerMemory = await loadCustomerCommercialMemory({
+        supabaseAdmin,
+        workspaceId,
+        contactId,
+        contactTemperature,
+        contactProfile,
+      });
+      customerMemoryContext = customerMemoryPromptContext(customerMemory);
+    }
+
+    // Reações simples não precisam consumir Claude nem gerar "qualquer coisa chama".
+    // A mensagem continua salva no CRM, apenas não há resposta automática.
+    if (content.kind === "texto" && isReactionOnlyMessage(content.text)) {
+      return new Response("ok (reaction only)");
+    }
+
     // 3.5. WELCOME FUNNEL — independente do liga/desliga do Agent V3.
     // IMPORTANTE: primeiro verificamos se a mensagem realmente bate em um gatilho.
     // Mensagens comuns NÃO consultam welcome_funnel_runs e nunca ficam dependentes
     // de migrations novas do funil.
-    if (contactId && conversationId && content.kind === "texto") {
+    const isKnownCustomer =
+      customerMemory?.lifecycle === "cliente" ||
+      customerMemory?.lifecycle === "cliente_recorrente" ||
+      contactTemperature === "cliente" ||
+      contactProfile === "ativo";
+
+    if (
+      contactId &&
+      conversationId &&
+      content.kind === "texto" &&
+      (!isKnownCustomer || canRepeatWelcomeFunnelForTest(phoneStr))
+    ) {
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
         .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
@@ -1553,10 +1603,65 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
+        extraContext: customerMemoryContext || undefined,
+        customerLifecycle: customerMemory?.lifecycle,
+        repurchasePotential: customerMemory?.repurchasePotential,
         inputKind: content.kind,
         imageSource: resolvedImageSource,
         messageId: msgId
       });
+
+      if (contactId) {
+        try {
+          const { persistCustomerCommercialMemory } = await import(
+            "@/lib/agent-v3/memory/customer-memory.server"
+          );
+
+          customerMemory = await persistCustomerCommercialMemory({
+            supabaseAdmin,
+            workspaceId,
+            userId: num.user_id,
+            contactId,
+            current: customerMemory,
+            customerMessage: finalMsgText,
+            platform:
+              (v3Response.modules.selection_context as any)?.platform ??
+              customerMemory?.preferredPlatform ??
+              null,
+            product:
+              (v3Response.modules.selection_context as any)?.product ??
+              customerMemory?.preferredProduct ??
+              null,
+            intent: (v3Response.modules.selection_context as any)?.intent ?? null,
+            stage: v3Response.intelligence.stage,
+            purchaseProbability: v3Response.intelligence.purchase_probability,
+          });
+
+          if (
+            customerMemory.lifecycle === "cliente" ||
+            customerMemory.lifecycle === "cliente_recorrente"
+          ) {
+            if (conversationId) {
+              await supabaseAdmin
+                .from("conversations")
+                .update({ status: "convertido" })
+                .eq("id", conversationId)
+                .eq("workspace_id", workspaceId);
+            }
+
+            // O turno que confirmou a compra também deve aparecer como convertido
+            // imediatamente no Lead Intelligence.
+            v3Response.intelligence.temperature = "quente";
+            v3Response.intelligence.intent = "Pós-venda";
+            v3Response.intelligence.stage = "Pós-venda";
+            v3Response.intelligence.purchase_probability = 100;
+            v3Response.intelligence.recommended_action =
+              `Cliente convertido. Potencial de recompra: ${customerMemory.repurchasePotential}.`;
+          }
+        } catch (memoryPersistError) {
+          console.warn("[CUSTOMER-MEMORY] Falha ao atualizar memória comercial:", memoryPersistError);
+        }
+      }
 
       const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
       const replyText = replyParts.join("\n\n");
