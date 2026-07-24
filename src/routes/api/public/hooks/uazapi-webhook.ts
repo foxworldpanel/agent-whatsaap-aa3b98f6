@@ -305,6 +305,52 @@ const HUMAN_HANDOFF_PATTERNS = [
   /\bfalar\s+com\s+humano\b/i,
 ];
 
+function shouldReplyWithAudio(params: {
+  inputKind: "texto" | "audio" | "image" | "sticker";
+  replyText: string;
+  intent?: string;
+  stage?: string;
+}): boolean {
+  if (params.inputKind !== "audio") return false;
+
+  const text = String(params.replyText || "").trim();
+  if (!text) return false;
+
+  const sentenceCount = text
+    .split(/[.!?]+/)
+    .map((part) => part.trim())
+    .filter(Boolean).length;
+
+  const normalizedIntent = String(params.intent || "").toLowerCase();
+  const normalizedStage = String(params.stage || "").toLowerCase();
+
+  const complexIntent =
+    normalizedIntent.includes("tecnico") ||
+    normalizedIntent.includes("suporte") ||
+    normalizedIntent.includes("tutorial") ||
+    normalizedIntent.includes("explic") ||
+    normalizedIntent.includes("duvida_complexa");
+
+  const complexStage =
+    normalizedStage.includes("suporte") ||
+    normalizedStage.includes("resolucao") ||
+    normalizedStage.includes("diagnostico");
+
+  const hasStepByStepLanguage =
+    /\b(passo a passo|primeiro|depois|em seguida|acesse|vá até|clique|selecione|configure)\b/i.test(text);
+
+  // Regra híbrida:
+  // - respostas simples continuam em texto;
+  // - explicações realmente maiores/complexas viram nota de voz.
+  return (
+    text.length >= 260 ||
+    sentenceCount >= 4 ||
+    complexIntent ||
+    complexStage ||
+    (hasStepByStepLanguage && text.length >= 160)
+  );
+}
+
 export function isHumanHandoffRequest(text: string): boolean {
   const normalized = String(text || "")
     .replace(/\s+/g, " ")
@@ -1419,9 +1465,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
       const replyText = replyParts.join("\n\n");
 
+      const replyWithAudio = shouldReplyWithAudio({
+        inputKind: content.kind,
+        replyText,
+        intent: v3Response.intelligence.intent,
+        stage: v3Response.intelligence.stage,
+      });
+
       if (content.kind === "audio") {
         console.log("[AUDIO-V3] 3/5 Claude concluiu resposta", {
           chars: replyText.length,
+          replyMode: replyWithAudio ? "audio" : "texto",
+          intent: v3Response.intelligence.intent,
+          stage: v3Response.intelligence.stage,
         });
       }
 
@@ -1437,7 +1493,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       let sentAsAudio = false;
       let deliveredReplyText = replyText;
 
-      if (content.kind === "audio" && elevenlabsApiKey && elevenlabsVoiceId) {
+      if (replyWithAudio && elevenlabsApiKey && elevenlabsVoiceId) {
         try {
           const { textToSpeechV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
           const { uazapiSendAudio, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
@@ -1502,7 +1558,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       if (
-        content.kind === "audio" &&
+        replyWithAudio &&
         (!elevenlabsApiKey || !elevenlabsVoiceId)
       ) {
         console.error("[AUDIO-V3] Resposta em áudio desativada por configuração incompleta", {

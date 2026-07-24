@@ -335,7 +335,13 @@ REGRA GERAL DE PAGAMENTO E LINK:
 - Quando houver dúvida sobre o link, diga objetivamente qual link corresponde ao serviço usando apenas o módulo da plataforma.
 - Depois que o cliente demonstrar intenção clara de pagamento, não volte para etapas anteriores de qualificação.
 
-${isAudioInput ? `MODO ÁUDIO: O cliente enviou áudio. Responda de forma curta, natural e adequada para ser narrada em áudio. Se o áudio estiver ininteligível, peça para enviar novamente ou escrever.` : ""}
+${isAudioInput ? `MODO ÁUDIO:
+- O cliente enviou áudio, mas isso NÃO significa que a resposta também será em áudio.
+- Responda normalmente e de forma curta.
+- Respostas simples, preços, confirmações e perguntas objetivas devem funcionar bem em texto.
+- Quando a dúvida exigir uma explicação maior, várias etapas ou contexto técnico, escreva uma resposta natural que também fique boa se narrada.
+- O runtime decide automaticamente se envia texto ou nota de voz.
+- Se o áudio estiver ininteligível, peça para enviar novamente ou escrever.` : ""}
 ${isImageInput ? `MODO VISÃO:
 - A imagem real está anexada nesta mensagem.
 - Analise a imagem diretamente antes de responder.
