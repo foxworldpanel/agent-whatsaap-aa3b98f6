@@ -565,44 +565,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("workspace configuration missing", { status: 503 });
     }
 
-    // Respeita os kill switches globais e por conversa. O recebimento continua
-    // sincronizado no CRM, mas nenhuma resposta automática é gerada.
-    const { data: agentConfig, error: agentConfigErr } = await supabaseAdmin
-      .from("agent_config")
-      .select("agent_enabled")
-      .eq("user_id", num.user_id)
-      .eq("workspace_id", workspaceId)
-      .maybeSingle();
-
-    if (agentConfigErr) {
-      console.error("[UAZ-WEBHOOK] Failed to read global agent gate:", agentConfigErr);
-      return new Response("ok (agent gate unavailable)");
-    }
-
-    if (!agentConfig || agentConfig.agent_enabled === false) {
-      return new Response("ok (agent disabled globally)");
-    }
-
-    if (conversationId) {
-      const { data: conversationGate, error: conversationGateErr } = await supabaseAdmin
-        .from("conversations")
-        .select("agent_enabled, needs_review")
-        .eq("id", conversationId)
-        .maybeSingle();
-
-      if (conversationGateErr) {
-        console.error("[UAZ-WEBHOOK] Failed to read conversation gate:", conversationGateErr);
-        return new Response("ok (conversation gate unavailable)");
-      }
-
-      if (conversationGate?.agent_enabled === false || conversationGate?.needs_review === true) {
-        return new Response("ok (agent disabled for conversation)");
-      }
-    }
-
-    // 4. WELCOME FUNNEL GATE
-    // O funil tem prioridade sobre o Agent V3. Enquanto um funil estiver rodando
-    // para o contato, nenhuma resposta da IA é gerada.
+    // 3.5. WELCOME FUNNEL — independente do liga/desliga do Agent V3.
+    // O funil pertence ao número/campanha, não ao estado da IA. Assim, qualquer
+    // contato que bater no gatilho recebe o funil completo. Depois, nas mensagens
+    // seguintes, o Agent V3 só assume se as chaves global e individual estiverem ligadas.
     if (contactId && conversationId && content.kind === "texto") {
       const { data: runningFunnel, error: runningErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
@@ -784,6 +750,43 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
 
         // completed = este contato já recebeu este funil; segue normalmente para o V3.
+      }
+    }
+
+
+    // 4. AGENT GATES — aplicados DEPOIS do funil.
+    // A chave global desliga/liga a IA em todas as conversas; a chave individual
+    // permite exceção manual por conversa. O recebimento continua sincronizado no CRM.
+    const { data: agentConfig, error: agentConfigErr } = await supabaseAdmin
+      .from("agent_config")
+      .select("agent_enabled")
+      .eq("user_id", num.user_id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (agentConfigErr) {
+      console.error("[UAZ-WEBHOOK] Failed to read global agent gate:", agentConfigErr);
+      return new Response("ok (agent gate unavailable)");
+    }
+
+    if (!agentConfig || agentConfig.agent_enabled === false) {
+      return new Response("ok (agent disabled globally)");
+    }
+
+    if (conversationId) {
+      const { data: conversationGate, error: conversationGateErr } = await supabaseAdmin
+        .from("conversations")
+        .select("agent_enabled, needs_review")
+        .eq("id", conversationId)
+        .maybeSingle();
+
+      if (conversationGateErr) {
+        console.error("[UAZ-WEBHOOK] Failed to read conversation gate:", conversationGateErr);
+        return new Response("ok (conversation gate unavailable)");
+      }
+
+      if (conversationGate?.agent_enabled === false || conversationGate?.needs_review === true) {
+        return new Response("ok (agent disabled for conversation)");
       }
     }
 

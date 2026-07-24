@@ -545,23 +545,9 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const patch = data.enabled
-      ? {
-          agent_enabled: true,
-          needs_review: false,
-          review_reason: null,
-          auto_paused_at: null,
-          internal_note: null,
-        }
-      : { agent_enabled: false };
-      
-    const { error: convErr } = await supabaseAdmin
-      .from("conversations")
-      .update(patch)
-      .eq("workspace_id", context.workspaceId);
-      
-    if (convErr) throw new Error(convErr.message);
+    // Master switch global: não sobrescreve os toggles individuais.
+    // Global OFF bloqueia toda resposta do Agent V3; Global ON volta a respeitar
+    // o estado salvo em cada conversa.
     return { ok: true, agent_enabled: saved.agent_enabled };
   });
 
