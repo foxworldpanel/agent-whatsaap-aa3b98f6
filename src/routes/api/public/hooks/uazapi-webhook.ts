@@ -476,24 +476,81 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       if (contactErr) throw contactErr;
       if (contact?.id) contactId = contact.id;
 
-      // Upsert Conversation
+      // Resolve Conversation sem depender do nome exato de uma constraint UNIQUE.
+      // Produção já passou por várias migrations (contact_id, user_id+contact_id,
+      // índices parciais). Usar onConflict aqui pode derrubar TODAS as mensagens se
+      // o schema real estiver um passo diferente do código.
       if (contactId) {
-        const { data: conv, error: convErr } = await supabaseAdmin
-          .from("conversations")
-          .upsert({
-            contact_id: contactId,
-            user_id: num.user_id,
-            workspace_id: num.workspace_id,
-            whatsapp_number_id: num.id,
-            last_message_preview: content.text.slice(0, 100),
-            last_message_at: new Date().toISOString(),
-            status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
-          }, { onConflict: "user_id,contact_id" })
-          .select("id")
-          .single();
+        const conversationPatch = {
+          workspace_id: num.workspace_id,
+          whatsapp_number_id: num.id,
+          last_message_preview: content.text.slice(0, 100),
+          last_message_at: new Date().toISOString(),
+          status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
+        };
 
-        if (convErr) throw convErr;
-        if (conv?.id) conversationId = conv.id;
+        const { data: existingConv, error: existingConvErr } = await supabaseAdmin
+          .from("conversations")
+          .select("id")
+          .eq("user_id", num.user_id)
+          .eq("contact_id", contactId)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingConvErr) throw existingConvErr;
+
+        if (existingConv?.id) {
+          const { data: updatedConv, error: updateConvErr } = await supabaseAdmin
+            .from("conversations")
+            .update(conversationPatch)
+            .eq("id", existingConv.id)
+            .select("id")
+            .single();
+
+          if (updateConvErr) throw updateConvErr;
+          conversationId = updatedConv.id;
+        } else {
+          const { data: insertedConv, error: insertConvErr } = await supabaseAdmin
+            .from("conversations")
+            .insert({
+              contact_id: contactId,
+              user_id: num.user_id,
+              ...conversationPatch,
+              // Não dependemos do default histórico do banco para novas conversas.
+              agent_enabled: true,
+            })
+            .select("id")
+            .single();
+
+          if (insertConvErr) {
+            // Corrida entre duas mensagens/instâncias: se outra criou primeiro,
+            // buscamos a canônica em vez de perder o inbound.
+            if (insertConvErr.code === "23505") {
+              const { data: racedConv, error: racedConvErr } = await supabaseAdmin
+                .from("conversations")
+                .select("id")
+                .eq("user_id", num.user_id)
+                .eq("contact_id", contactId)
+                .order("created_at", { ascending: true })
+                .limit(1)
+                .maybeSingle();
+
+              if (racedConvErr || !racedConv?.id) throw racedConvErr || insertConvErr;
+
+              const { error: racedUpdateErr } = await supabaseAdmin
+                .from("conversations")
+                .update(conversationPatch)
+                .eq("id", racedConv.id);
+              if (racedUpdateErr) throw racedUpdateErr;
+              conversationId = racedConv.id;
+            } else {
+              throw insertConvErr;
+            }
+          } else if (insertedConv?.id) {
+            conversationId = insertedConv.id;
+          }
+        }
       }
 
       // Insert Message
@@ -780,6 +837,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .from("integrations")
         .select("anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id")
         .eq("user_id", num.user_id)
+        .eq("workspace_id", workspaceId)
         .maybeSingle();
 
       if (integErr) {
