@@ -206,6 +206,207 @@ export function isStopRequest(text: string): boolean {
   return STOP_PATTERNS.some((re) => re.test(text));
 }
 
+type WelcomeFunnelStep = {
+  enabled?: boolean;
+  text?: string;
+  caption?: string;
+  url?: string;
+  delay_seconds?: number;
+};
+
+type WelcomeFunnelSteps = {
+  welcome_text?: WelcomeFunnelStep;
+  audio?: WelcomeFunnelStep;
+  panel_text?: WelcomeFunnelStep;
+  video?: WelcomeFunnelStep;
+  services_text?: WelcomeFunnelStep;
+};
+
+type WelcomeFunnelRow = {
+  id: string;
+  name: string;
+  delay_seconds: number;
+  trigger_keywords: string;
+  steps: WelcomeFunnelSteps | null;
+  sort_order: number;
+};
+
+function normalizeFunnelText(value: string): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function funnelMatchesMessage(triggerKeywords: string, message: string): boolean {
+  const normalizedMessage = normalizeFunnelText(message);
+  if (!normalizedMessage) return false;
+
+  const triggers = String(triggerKeywords || "")
+    .split(",")
+    .map((item) => normalizeFunnelText(item))
+    .filter(Boolean);
+
+  if (triggers.length === 0) return false;
+  return triggers.some((trigger) => normalizedMessage.includes(trigger));
+}
+
+function funnelStepDelayMs(step: WelcomeFunnelStep | undefined, fallbackSeconds: number): number {
+  const raw = step?.delay_seconds ?? fallbackSeconds ?? 0;
+  const seconds = Math.max(0, Math.min(180, Number(raw) || 0));
+  return Math.round(seconds * 1000);
+}
+
+async function persistFunnelOutbound(params: {
+  supabaseAdmin: any;
+  conversationId: string;
+  userId: string;
+  workspaceId: string;
+  kind: "texto" | "audio";
+  body: string;
+  audioUrl?: string;
+}): Promise<void> {
+  const { error } = await params.supabaseAdmin
+    .from("messages")
+    .insert({
+      conversation_id: params.conversationId,
+      user_id: params.userId,
+      workspace_id: params.workspaceId,
+      sender: "agente",
+      kind: params.kind,
+      body: params.body,
+      ...(params.audioUrl ? { audio_url: params.audioUrl } : {}),
+    });
+
+  if (error) {
+    console.error("[WELCOME-FUNNEL] Enviado, mas falhou ao persistir outbound no CRM:", error);
+  }
+}
+
+async function executeWelcomeFunnel(params: {
+  supabaseAdmin: any;
+  funnel: WelcomeFunnelRow;
+  contactId: string;
+  conversationId: string;
+  userId: string;
+  workspaceId: string;
+  phone: string;
+  creds: { uazapi_url: string; uazapi_token: string };
+}): Promise<void> {
+  const {
+    supabaseAdmin,
+    funnel,
+    contactId,
+    conversationId,
+    userId,
+    workspaceId,
+    phone,
+    creds,
+  } = params;
+
+  const { uazapiSendAudio, uazapiSendMedia, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } =
+    await import("@/lib/uazapi.server");
+  const { sleepMs } = await import("@/lib/agent-v3/humanization.server");
+
+  const steps = funnel.steps || {};
+  let stepIndex = 0;
+
+  const markStep = async (label: string) => {
+    stepIndex += 1;
+    const { error } = await (supabaseAdmin as any)
+      .from("welcome_funnel_runs")
+      .update({
+        last_step: label,
+        last_step_index: stepIndex,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("funnel_id", funnel.id)
+      .eq("contact_id", contactId);
+    if (error) console.warn("[WELCOME-FUNNEL] Falha ao atualizar progresso:", error);
+  };
+
+  const sendTextStep = async (
+    key: "welcome_text" | "panel_text" | "services_text",
+    source: string,
+  ) => {
+    const step = steps[key];
+    const text = step?.text?.trim();
+    if (!step?.enabled || !text) return;
+
+    const delayMs = funnelStepDelayMs(step, funnel.delay_seconds);
+    if (delayMs > 0) {
+      await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
+      await sleepMs(delayMs);
+    }
+
+    const result = await sendAgentTextGuarded(creds, phone, text, {
+      conversationId,
+      source,
+      isBlastOpening: key === "welcome_text",
+    });
+    await persistFunnelOutbound({
+      supabaseAdmin,
+      conversationId,
+      userId,
+      workspaceId,
+      kind: "texto",
+      body: result.transformed,
+    });
+    await markStep(key);
+  };
+
+  // Ordem configurada no menu Números:
+  // 1 texto opcional → 2 áudio → 3 painel → 4 vídeo → 5 tabela.
+  // Para o fluxo Meta Ads desejado, basta deixar "Texto de boas-vindas" desligado,
+  // fazendo o Áudio ser efetivamente a primeira saída.
+  await sendTextStep("welcome_text", "welcome_funnel_welcome_text");
+
+  if (steps.audio?.enabled && steps.audio.url?.trim()) {
+    const delayMs = funnelStepDelayMs(steps.audio, funnel.delay_seconds);
+    if (delayMs > 0) {
+      await uazapiSendRecording(creds, phone, delayMs).catch(() => undefined);
+      await sleepMs(delayMs);
+    }
+    await uazapiSendAudio(creds, phone, steps.audio.url.trim());
+    await uazapiClearPresence(creds, phone).catch(() => undefined);
+    await persistFunnelOutbound({
+      supabaseAdmin,
+      conversationId,
+      userId,
+      workspaceId,
+      kind: "audio",
+      body: "[Áudio do funil de boas-vindas]",
+      audioUrl: steps.audio.url.trim(),
+    });
+    await markStep("audio");
+  }
+
+  await sendTextStep("panel_text", "welcome_funnel_panel_text");
+
+  if (steps.video?.enabled && steps.video.url?.trim()) {
+    const delayMs = funnelStepDelayMs(steps.video, funnel.delay_seconds);
+    if (delayMs > 0) {
+      await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
+      await sleepMs(delayMs);
+    }
+    const caption = steps.video.caption?.trim() || undefined;
+    await uazapiSendMedia(creds, phone, "video", steps.video.url.trim(), caption);
+    await persistFunnelOutbound({
+      supabaseAdmin,
+      conversationId,
+      userId,
+      workspaceId,
+      kind: "texto",
+      body: caption || "[Vídeo explicativo do funil]",
+    });
+    await markStep("video");
+  }
+
+  await sendTextStep("services_text", "welcome_funnel_services_text");
+}
+
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const inboundStartedAt = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -399,7 +600,194 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
     }
 
-    // 4. AI PROCESSING (V3)
+    // 4. WELCOME FUNNEL GATE
+    // O funil tem prioridade sobre o Agent V3. Enquanto um funil estiver rodando
+    // para o contato, nenhuma resposta da IA é gerada.
+    if (contactId && conversationId && content.kind === "texto") {
+      const { data: runningFunnel, error: runningErr } = await (supabaseAdmin as any)
+        .from("welcome_funnel_runs")
+        .select("funnel_id, status, updated_at")
+        .eq("contact_id", contactId)
+        .eq("workspace_id", workspaceId)
+        .eq("status", "running")
+        .limit(1)
+        .maybeSingle();
+
+      if (runningErr) {
+        console.error("[WELCOME-FUNNEL] Falha ao verificar execução ativa:", runningErr);
+        return new Response("ok (funnel gate unavailable)");
+      }
+
+      if (runningFunnel) {
+        const updatedAtMs = runningFunnel.updated_at
+          ? new Date(runningFunnel.updated_at).getTime()
+          : Date.now();
+        const stale = Date.now() - updatedAtMs > 20 * 60 * 1000;
+
+        if (!stale) {
+          console.log("[WELCOME-FUNNEL] Funil ainda em execução; Agent V3 bloqueado neste turno");
+          return new Response("ok (welcome funnel running)");
+        }
+
+        console.warn("[WELCOME-FUNNEL] Recuperando execução órfã com mais de 20 minutos");
+        await (supabaseAdmin as any)
+          .from("welcome_funnel_runs")
+          .update({
+            status: "failed",
+            error_message: "execução órfã recuperada após 20 minutos",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("funnel_id", runningFunnel.funnel_id)
+          .eq("contact_id", contactId)
+          .eq("status", "running");
+      }
+
+      const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
+        .from("welcome_funnels")
+        .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
+        .eq("user_id", num.user_id)
+        .eq("workspace_id", workspaceId)
+        .eq("whatsapp_number_id", num.id)
+        .eq("enabled", true)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (funnelErr) {
+        console.error("[WELCOME-FUNNEL] Falha ao carregar funis:", funnelErr);
+        return new Response("ok (funnel load unavailable)");
+      }
+
+      const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
+        funnelMatchesMessage(row.trigger_keywords, content.text),
+      );
+
+      if (matchingFunnel) {
+        const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
+          .from("welcome_funnel_runs")
+          .select("status, fired_at")
+          .eq("funnel_id", matchingFunnel.id)
+          .eq("contact_id", contactId)
+          .maybeSingle();
+
+        if (existingRunErr) {
+          console.error("[WELCOME-FUNNEL] Falha ao verificar histórico do funil:", existingRunErr);
+          return new Response("ok (funnel history unavailable)");
+        }
+
+        if (!existingRun || existingRun.status === "failed") {
+          // Claim atômico. A PK (funnel_id, contact_id) impede duas instâncias
+          // de dispararem o mesmo funil ao mesmo tempo.
+          let claimed = false;
+          if (!existingRun) {
+            const { error: claimErr } = await (supabaseAdmin as any)
+              .from("welcome_funnel_runs")
+              .insert({
+                funnel_id: matchingFunnel.id,
+                contact_id: contactId,
+                user_id: num.user_id,
+                workspace_id: workspaceId,
+                status: "running",
+                last_step: null,
+                last_step_index: 0,
+                fired_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              });
+            if (!claimErr) claimed = true;
+            else if (claimErr.code !== "23505") {
+              console.error("[WELCOME-FUNNEL] Falha ao reservar execução:", claimErr);
+              return new Response("ok (funnel claim failed)");
+            }
+          } else {
+            const { data: retryClaim, error: retryClaimErr } = await (supabaseAdmin as any)
+              .from("welcome_funnel_runs")
+              .update({
+                status: "running",
+                error_message: null,
+                last_step: null,
+                last_step_index: 0,
+                fired_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("funnel_id", matchingFunnel.id)
+              .eq("contact_id", contactId)
+              .eq("status", "failed")
+              .select("funnel_id")
+              .maybeSingle();
+            if (retryClaimErr) {
+              console.error("[WELCOME-FUNNEL] Falha ao reservar retry:", retryClaimErr);
+              return new Response("ok (funnel retry claim failed)");
+            }
+            claimed = !!retryClaim;
+          }
+
+          if (claimed) {
+            const creds = { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken };
+            try {
+              console.log(`[WELCOME-FUNNEL] Disparando "${matchingFunnel.name}" para ${phoneStr}`);
+              await executeWelcomeFunnel({
+                supabaseAdmin,
+                funnel: matchingFunnel,
+                contactId,
+                conversationId,
+                userId: num.user_id,
+                workspaceId,
+                phone: phoneStr,
+                creds,
+              });
+
+              const { error: completeErr } = await (supabaseAdmin as any)
+                .from("welcome_funnel_runs")
+                .update({
+                  status: "completed",
+                  completed_at: new Date().toISOString(),
+                  error_message: null,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("funnel_id", matchingFunnel.id)
+                .eq("contact_id", contactId);
+
+              if (completeErr) {
+                console.error("[WELCOME-FUNNEL] Funil enviado, mas falhou ao marcar completo:", completeErr);
+              }
+
+              console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" concluído; Agent V3 assume nas próximas mensagens`);
+              return new Response("ok (welcome funnel completed)");
+            } catch (funnelSendErr) {
+              console.error("[WELCOME-FUNNEL] Falha durante envio:", funnelSendErr);
+              await (supabaseAdmin as any)
+                .from("welcome_funnel_runs")
+                .update({
+                  status: "failed",
+                  error_message: String(
+                    funnelSendErr instanceof Error ? funnelSendErr.message : funnelSendErr,
+                  ).slice(0, 1000),
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("funnel_id", matchingFunnel.id)
+                .eq("contact_id", contactId);
+
+              if (conversationId) {
+                await supabaseAdmin
+                  .from("conversations")
+                  .update({
+                    needs_review: true,
+                    review_reason: "falha no funil de boas-vindas",
+                  })
+                  .eq("id", conversationId);
+              }
+              return new Response("ok (welcome funnel failed; flagged for review)");
+            }
+          }
+
+          // Outra instância ganhou o claim. Não deixe a IA responder junto.
+          return new Response("ok (welcome funnel claimed elsewhere)");
+        }
+
+        // completed = este contato já recebeu este funil; segue normalmente para o V3.
+      }
+    }
+
+    // 5. AI PROCESSING (V3)
     // O webhook já é protegido pelo token da instância provisionada.
     // Não limitar o agente a um telefone fixo de teste em produção.
     const lockKey = `${workspaceId}:${phoneStr}`;
