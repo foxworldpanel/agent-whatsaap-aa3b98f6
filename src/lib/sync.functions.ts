@@ -7,6 +7,7 @@ type Conv = {
   workspace_id: string;
   contact_id: string;
   contact_phone: string;
+  contact_photo_url?: string | null;
 };
 
 function digits(value: string): string {
@@ -171,7 +172,7 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
     for (let from = 0; ; from += pageSize) {
       const { data: convsRaw, error } = await supabaseAdmin
         .from("conversations")
-        .select("id, user_id, workspace_id, contact_id, contact:contacts(telefone)")
+        .select("id, user_id, workspace_id, contact_id, contact:contacts(telefone, photo_url)")
         .eq("workspace_id", context.workspaceId)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .range(from, from + pageSize - 1);
@@ -186,11 +187,38 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
             workspace_id: c.workspace_id,
             contact_id: c.contact_id,
             contact_phone: c.contact?.telefone ?? "",
+            contact_photo_url: c.contact?.photo_url ?? null,
           }))
           .filter((c: Conv) => c.contact_phone)),
       );
 
       if (!convsRaw || convsRaw.length < pageSize) break;
+    }
+
+    // 3.5. Backfill de fotos para contatos antigos.
+    // O webhook normalmente preenche fotos em contatos novos, mas históricos antigos
+    // podem ter sido criados antes dessa lógica. O botão "Sincronizar" corrige isso.
+    const missingPhotoConvs = convs.filter(
+      (conv) => !conv.contact_photo_url && conv.contact_phone,
+    );
+
+    // Limita cada clique para não transformar a sincronização numa rajada excessiva
+    // contra a API externa. Novos cliques continuam de onde faltou.
+    for (const conv of missingPhotoConvs.slice(0, 150)) {
+      try {
+        const photoUrl = await uazapiGetProfilePic(creds, conv.contact_phone);
+        if (!photoUrl) continue;
+
+        const { error: photoErr } = await supabaseAdmin
+          .from("contacts")
+          .update({ photo_url: photoUrl })
+          .eq("id", conv.contact_id)
+          .eq("workspace_id", context.workspaceId);
+
+        if (!photoErr) photosUpdated += 1;
+      } catch (error) {
+        console.warn("[sync-whatsapp] Falha no backfill de foto:", conv.contact_phone, error);
+      }
     }
 
     // 4. Backfill maior para auditoria. 500 mensagens por conversa cobre históricos longos

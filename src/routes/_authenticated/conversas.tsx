@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, RefreshCw, Ban, ShieldCheck, Search, X, Copy, BrainCircuit } from "lucide-react";
+import { Send, Trash2, RefreshCw, Ban, ShieldCheck, Search, X, Copy, BrainCircuit, Flame, Megaphone, UserCheck } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -122,6 +122,103 @@ function avatarColor(seed: string): string {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
+function digitsOnly(value: string | null | undefined): string {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function isLikelyInternalWhatsAppId(value: string | null | undefined): boolean {
+  const raw = String(value || "").trim();
+  if (!raw) return true;
+  if (/@(?:lid|s\.whatsapp\.net|g\.us)$/i.test(raw)) return true;
+
+  const digits = digitsOnly(raw);
+  // Telefones BR com DDI normalmente têm 12–13 dígitos. IDs LID costumam ser
+  // sequências maiores/sem formato telefônico.
+  return /^\d+$/.test(raw) && (digits.length > 13 || digits.length < 10);
+}
+
+function formatPhone(value: string | null | undefined): string {
+  let digits = digitsOnly(value);
+  if (!digits) return "—";
+
+  // Remove sufixos acidentalmente persistidos como JID quando possível.
+  if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+    const ddd = digits.slice(2, 4);
+    const local = digits.slice(4);
+    if (local.length === 9) {
+      return `+55 ${ddd} ${local.slice(0, 5)}-${local.slice(5)}`;
+    }
+    if (local.length === 8) {
+      return `+55 ${ddd} ${local.slice(0, 4)}-${local.slice(4)}`;
+    }
+  }
+
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+
+  if (digits.length > 13 || digits.length < 10) {
+    return "Telefone não identificado";
+  }
+
+  return digits;
+}
+
+function contactPrimaryLabel(contact: Conv["contact"]): string {
+  if (!contact) return "Contato";
+  const name = String(contact.nome || "").trim();
+  const phone = formatPhone(contact.telefone);
+
+  if (
+    name &&
+    !isLikelyInternalWhatsAppId(name) &&
+    digitsOnly(name) !== digitsOnly(contact.telefone)
+  ) {
+    return name;
+  }
+
+  return phone !== "—" ? phone : "Contato";
+}
+
+function ContactAvatar({
+  contact,
+  size = "md",
+}: {
+  contact: Conv["contact"];
+  size?: "sm" | "md";
+}) {
+  const [failed, setFailed] = useState(false);
+  const sizeCls = size === "sm" ? "h-10 w-10 text-xs" : "h-12 w-12 text-sm";
+  const label = contactPrimaryLabel(contact);
+  const photo = contact?.photo_url;
+
+  if (photo && !failed) {
+    return (
+      <img
+        src={photo}
+        alt={label}
+        className={`${sizeCls} shrink-0 rounded-full object-cover ring-1 ring-neutral-200`}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`flex ${sizeCls} shrink-0 items-center justify-center rounded-full font-semibold text-white`}
+      style={{ background: avatarColor(contact?.id || contact?.telefone || label) }}
+      title={photo && failed ? "Foto indisponível — usando avatar local" : label}
+    >
+      {initials(label)}
+    </div>
+  );
+}
+
 function isConversationBlocked(conversation: Conv | null): boolean {
   if (!conversation) return false;
   return (
@@ -148,6 +245,7 @@ function Conversas() {
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [quickFilter, setQuickFilter] = useState<"all" | "human" | "meta" | "hot">("all");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<"live" | "syncing" | "error">("live");
@@ -170,14 +268,61 @@ function Conversas() {
 
   const filteredConversations = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return conversations;
+
     return conversations.filter((c) => {
       const nome = c.contact?.nome?.toLowerCase() ?? "";
       const tel = c.contact?.telefone?.toLowerCase() ?? "";
+      const prettyTel = formatPhone(c.contact?.telefone).toLowerCase();
       const preview = c.last_message_preview?.toLowerCase() ?? "";
-      return nome.includes(q) || tel.includes(q) || preview.includes(q);
+
+      const searchMatches =
+        !q ||
+        nome.includes(q) ||
+        tel.includes(q) ||
+        prettyTel.includes(q) ||
+        preview.includes(q);
+
+      if (!searchMatches) return false;
+
+      if (quickFilter === "human") {
+        return (
+          c.needs_review === true ||
+          c.review_reason?.toLowerCase().includes("humano") === true ||
+          c.internal_note?.toLowerCase().includes("humano") === true
+        );
+      }
+      if (quickFilter === "meta") return c.contact?.source === "meta_ads";
+      if (quickFilter === "hot") {
+        return (
+          c.contact?.temperatura === "quente" ||
+          c.lead_intelligence?.temperature === "quente" ||
+          Number(c.lead_intelligence?.purchase_probability || 0) >= 70
+        );
+      }
+
+      return true;
     });
-  }, [conversations, searchTerm]);
+  }, [conversations, searchTerm, quickFilter]);
+
+  const quickCounts = useMemo(
+    () => ({
+      all: conversations.length,
+      human: conversations.filter(
+        (c) =>
+          c.needs_review === true ||
+          c.review_reason?.toLowerCase().includes("humano") === true ||
+          c.internal_note?.toLowerCase().includes("humano") === true,
+      ).length,
+      meta: conversations.filter((c) => c.contact?.source === "meta_ads").length,
+      hot: conversations.filter(
+        (c) =>
+          c.contact?.temperatura === "quente" ||
+          c.lead_intelligence?.temperature === "quente" ||
+          Number(c.lead_intelligence?.purchase_probability || 0) >= 70,
+      ).length,
+    }),
+    [conversations],
+  );
 
   const [activeId, setActiveId] = useState<string | null>(null);
   useEffect(() => {
@@ -576,6 +721,36 @@ function Conversas() {
                 </button>
               )}
             </div>
+
+            <div className="flex gap-1 overflow-x-auto pb-0.5">
+              {[
+                { key: "all", label: "Todos", count: quickCounts.all, icon: null },
+                { key: "human", label: "Humano", count: quickCounts.human, icon: UserCheck },
+                { key: "meta", label: "Meta Ads", count: quickCounts.meta, icon: Megaphone },
+                { key: "hot", label: "Quentes", count: quickCounts.hot, icon: Flame },
+              ].map((item) => {
+                const Icon = item.icon;
+                const activeFilter = quickFilter === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setQuickFilter(item.key as typeof quickFilter)}
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium transition ${
+                      activeFilter
+                        ? "border-primary bg-primary text-white"
+                        : "border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50"
+                    }`}
+                  >
+                    {Icon && <Icon className="h-3 w-3" />}
+                    {item.label}
+                    <span className={activeFilter ? "text-white/80" : "text-neutral-400"}>
+                      {item.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="max-h-56 overflow-y-auto md:max-h-none md:min-h-0 md:flex-1">
             {convsQ.isLoading && (
@@ -588,15 +763,18 @@ function Conversas() {
             )}
             {!convsQ.isLoading && conversations.length > 0 && filteredConversations.length === 0 && (
               <p className="p-4 text-sm text-neutral-500">
-                Nenhuma conversa encontrada para "{searchTerm}".
+                {searchTerm
+                  ? `Nenhuma conversa encontrada para "${searchTerm}".`
+                  : "Nenhuma conversa neste filtro."}
               </p>
             )}
             {filteredConversations.map((c) => {
               const sel = c.id === activeId;
-              const name = c.contact?.nome ?? "—";
-              const photo = c.contact?.photo_url;
-              const phone = c.contact?.telefone;
-              const displayName = phone ? `${phone} · ${name}` : name;
+              const primaryLabel = contactPrimaryLabel(c.contact);
+              const secondaryPhone =
+                c.contact && primaryLabel !== formatPhone(c.contact.telefone)
+                  ? formatPhone(c.contact.telefone)
+                  : null;
               return (
                 <button
                   key={c.id}
@@ -605,26 +783,19 @@ function Conversas() {
                     sel ? "bg-primary/10" : "hover:bg-neutral-50"
                   }`}
                 >
-                  {photo ? (
-                    <img
-                      src={photo}
-                      alt={name}
-                      className="h-12 w-12 shrink-0 rounded-full object-cover"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                    />
-                  ) : (
-                    <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                      style={{ background: avatarColor(c.contact?.id ?? c.id) }}
-                    >
-                      {initials(name)}
-                    </div>
-                  )}
+                  <ContactAvatar contact={c.contact} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium text-neutral-900">
-                        {displayName}
-                      </span>
+                      <div className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-neutral-900">
+                          {primaryLabel}
+                        </span>
+                        {secondaryPhone && (
+                          <span className="block truncate text-[10px] text-neutral-400">
+                            {secondaryPhone}
+                          </span>
+                        )}
+                      </div>
                       <span className="shrink-0 text-[11px] text-neutral-500">
                         {formatTime(c.last_message_at)}
                       </span>
@@ -667,28 +838,20 @@ function Conversas() {
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-3">
             <div className="flex min-w-0 items-center gap-3">
               {active?.contact ? (
-                active.contact.photo_url ? (
-                  <img
-                    src={active.contact.photo_url}
-                    alt={active.contact.nome}
-                    className="h-10 w-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold text-white"
-                    style={{ background: avatarColor(active.contact.id) }}
-                  >
-                    {initials(active.contact.nome)}
-                  </div>
-                )
+                <ContactAvatar contact={active.contact} size="sm" />
               ) : (
                 <div className="h-10 w-10 rounded-full bg-neutral-200" />
               )}
               <div>
-                <h2 className="text-sm font-semibold text-neutral-900">
-                  {active?.contact?.nome ?? "Selecione uma conversa"}
+                <h2 className="max-w-[360px] truncate text-sm font-semibold text-neutral-900">
+                  {active?.contact ? contactPrimaryLabel(active.contact) : "Selecione uma conversa"}
                 </h2>
-                <p className="text-[11px] flex items-center gap-1.5">
+                {active?.contact && (
+                  <p className="text-[11px] text-neutral-500">
+                    {formatPhone(active.contact.telefone)}
+                  </p>
+                )}
+                <p className="mt-0.5 text-[11px] flex items-center gap-1.5">
                   {active && (
                     <>
                       <span
@@ -841,68 +1004,70 @@ function Conversas() {
           </header>
 
           {active && (
-            <div className="border-b border-neutral-200 bg-white px-4 py-3">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <BrainCircuit className="h-4 w-4 text-primary" />
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-700">
-                    Lead Intelligence
-                  </h3>
-                </div>
-                {active.lead_intelligence?.updated_at && (
-                  <span className="text-[10px] text-neutral-400">
-                    Atualizado {formatDateTime(active.lead_intelligence.updated_at)}
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
-                {[
-                  ["Temperatura", active.lead_intelligence?.temperature ?? "—"],
-                  ["Confiança", active.lead_intelligence?.confidence ?? "—"],
-                  ["Intenção", active.lead_intelligence?.intent ?? "—"],
-                  ["Estágio", active.lead_intelligence?.stage ?? "—"],
-                  ["Sentimento", active.lead_intelligence?.sentiment ?? "—"],
-                  ["Urgência", active.lead_intelligence?.urgency ?? "—"],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-400">{label}</p>
-                    <p className="mt-0.5 truncate text-xs font-semibold text-neutral-800">{value}</p>
+            active.lead_intelligence ? (
+              <div className="border-b border-neutral-200 bg-white px-4 py-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <BrainCircuit className="h-4 w-4 text-primary" />
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-700">
+                      Lead Intelligence
+                    </h3>
                   </div>
-                ))}
-
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2">
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-400">
-                    Probabilidade de Compra
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{
-                          width: `${Math.max(
-                            0,
-                            Math.min(100, Number(active.lead_intelligence?.purchase_probability ?? 0)),
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-xs font-bold text-neutral-800">
-                      {Math.max(
-                        0,
-                        Math.min(100, Number(active.lead_intelligence?.purchase_probability ?? 0)),
-                      )}%
+                  {active.lead_intelligence.updated_at && (
+                    <span className="text-[10px] text-neutral-400">
+                      Atualizado {formatDateTime(active.lead_intelligence.updated_at)}
                     </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+                  {[
+                    ["Temperatura", active.lead_intelligence.temperature ?? "—"],
+                    ["Confiança", active.lead_intelligence.confidence ?? "—"],
+                    ["Intenção", active.lead_intelligence.intent ?? "—"],
+                    ["Estágio", active.lead_intelligence.stage ?? "—"],
+                    ["Sentimento", active.lead_intelligence.sentiment ?? "—"],
+                    ["Urgência", active.lead_intelligence.urgency ?? "—"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-400">{label}</p>
+                      <p className="mt-0.5 truncate text-xs font-semibold text-neutral-800">{value}</p>
+                    </div>
+                  ))}
+
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-400">
+                      Probabilidade de Compra
+                    </p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{
+                            width: `${Math.max(
+                              0,
+                              Math.min(100, Number(active.lead_intelligence.purchase_probability ?? 0)),
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs font-bold text-neutral-800">
+                        {Math.max(
+                          0,
+                          Math.min(100, Number(active.lead_intelligence.purchase_probability ?? 0)),
+                        )}%
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {!active.lead_intelligence && (
-                <p className="mt-2 text-[11px] text-neutral-400">
-                  A inteligência aparecerá após o Agent V3 processar uma mensagem desta conversa.
-                </p>
-              )}
-            </div>
+            ) : (
+              <div className="flex items-center gap-2 border-b border-neutral-200 bg-white px-4 py-2.5 text-xs text-neutral-500">
+                <BrainCircuit className="h-4 w-4 text-primary" />
+                <span className="font-medium text-neutral-700">Lead Intelligence</span>
+                <span>· aguardando primeira análise do Agent V3</span>
+              </div>
+            )
           )}
 
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-6 py-5">

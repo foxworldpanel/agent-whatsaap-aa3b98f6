@@ -529,10 +529,39 @@ export async function uazapiListChats(creds: UazapiCreds): Promise<UazapiChatSum
   const out: UazapiChatSummary[] = [];
   for (const item of raw) {
     const r = item as Record<string, unknown>;
-    const id = (r.wa_chatid as string | undefined) ?? (r.id as string | undefined) ?? (r.chatid as string | undefined) ?? "";
+    const id =
+      (r.wa_chatid as string | undefined) ??
+      (r.id as string | undefined) ??
+      (r.chatid as string | undefined) ??
+      "";
     if (!id || id.includes("@g.us") || id.includes("broadcast") || id.includes("status")) continue;
-    const phone = normalizePhone(id.split("@")[0] ?? "");
-    if (!phone || phone.length < 8) continue;
+
+    // Algumas contas/versões retornam @lid no chat id. LID é identificador
+    // interno do WhatsApp e não deve aparecer como telefone na interface.
+    const explicitPhoneCandidates = [
+      r.wa_phone,
+      r.lead_phone,
+      r.phone,
+      r.number,
+      r.telefone,
+      r.contactPhone,
+    ]
+      .map((value) => normalizePhone(String(value || "")))
+      .filter((value) => value.length >= 10 && value.length <= 13);
+
+    const idLocal = normalizePhone(id.split("@")[0] ?? "");
+    const idLooksLikePhone =
+      !id.includes("@lid") &&
+      idLocal.length >= 10 &&
+      idLocal.length <= 13;
+
+    const phone = explicitPhoneCandidates[0] || (idLooksLikePhone ? idLocal : "");
+    if (!phone) {
+      console.debug("[uazapi/chat-find] chat sem telefone real; ignorando LID interno", {
+        chatId: id,
+      });
+      continue;
+    }
     const ts =
       (r.wa_lastMsgTimestamp as number | undefined) ??
       (r.lastMessageTimestamp as number | undefined) ??
