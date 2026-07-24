@@ -294,6 +294,25 @@ export function isStopRequest(text: string): boolean {
   return STOP_PATTERNS.some((re) => re.test(text));
 }
 
+const HUMAN_HANDOFF_PATTERNS = [
+  /\bfalar\s+com\s+(?:um\s+|uma\s+)?(?:atendente\s+)?humano\b/i,
+  /\bfalar\s+com\s+(?:um\s+|uma\s+)?pessoa\b/i,
+  /\bquero\s+falar\s+com\s+(?:um\s+|uma\s+)?(?:atendente\s+)?humano\b/i,
+  /\bquero\s+falar\s+com\s+(?:uma\s+)?pessoa\b/i,
+  /\bquero\s+(?:um\s+|uma\s+)?atendente\b/i,
+  /\batendente\s+humano\b/i,
+  /\bpessoa\s+de\s+verdade\b/i,
+  /\bfalar\s+com\s+humano\b/i,
+];
+
+export function isHumanHandoffRequest(text: string): boolean {
+  const normalized = String(text || "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return false;
+  return HUMAN_HANDOFF_PATTERNS.some((re) => re.test(normalized));
+}
+
 type WelcomeFunnelStep = {
   enabled?: boolean;
   text?: string;
@@ -1180,6 +1199,85 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (empty content)");
       }
 
+
+      if (isHumanHandoffRequest(finalMsgText)) {
+        const handoffReply =
+          "Claro. Vou encaminhar seu atendimento para nossa equipe. Assim que um atendente estiver disponível, ele continua por aqui.";
+
+        try {
+          if (conversationId) {
+            const { error: handoffConvErr } = await supabaseAdmin
+              .from("conversations")
+              .update({
+                agent_enabled: false,
+                needs_review: true,
+                review_reason: "cliente solicitou atendimento humano",
+                auto_paused_at: new Date().toISOString(),
+                status: "aguardando",
+                internal_note:
+                  "Cliente solicitou atendimento humano pelo WhatsApp. Agent V3 pausado até reativação manual.",
+              })
+              .eq("id", conversationId);
+
+            if (handoffConvErr) throw handoffConvErr;
+          }
+
+          // Confirma UMA vez e encerra o turno. Depois disso agent_enabled=false
+          // impede novas respostas automáticas até reativação manual no painel.
+          const sendResult = await sendAgentTextGuarded(
+            creds,
+            phoneStr,
+            handoffReply,
+            {
+              conversationId: conversationId || undefined,
+              source: "human_handoff",
+            },
+          );
+
+          if (conversationId) {
+            const { error: handoffMessageErr } = await supabaseAdmin
+              .from("messages")
+              .insert({
+                conversation_id: conversationId,
+                user_id: num.user_id,
+                workspace_id: workspaceId,
+                sender: "agente",
+                kind: "texto",
+                body: sendResult.transformed,
+              });
+
+            if (handoffMessageErr) {
+              console.error(
+                "[HUMAN-HANDOFF] Confirmação enviada, mas falhou ao persistir:",
+                handoffMessageErr,
+              );
+            }
+          }
+
+          // Limpa a memória operacional do Agent V3. Quando o operador decidir
+          // reativar a conversa, o agente não retoma um estado comercial antigo.
+          const { clearConversationStateV3 } = await import(
+            "@/lib/agent-v3/memory/conversation-state.server"
+          );
+          await clearConversationStateV3(
+            num.user_id,
+            phoneStr,
+            workspaceId,
+          ).catch((error) => {
+            console.warn("[HUMAN-HANDOFF] Falha ao limpar memória V3:", error);
+          });
+
+          console.log("[HUMAN-HANDOFF] Agent V3 pausado para atendimento humano", {
+            conversationId,
+            phone: phoneStr,
+          });
+
+          return new Response("ok (human handoff)");
+        } catch (handoffErr) {
+          console.error("[HUMAN-HANDOFF] Falha no handoff:", handoffErr);
+          return new Response("ok (human handoff failed)");
+        }
+      }
 
       if (isStopRequest(finalMsgText)) {
         const nowIso = new Date().toISOString();

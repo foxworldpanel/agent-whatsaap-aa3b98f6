@@ -297,6 +297,13 @@ REGRA DE CONCISÃO:
 - Faça no máximo UMA pergunta por mensagem.
 - Emoji não é obrigatório. Na maioria das mensagens, não use emoji. Quando fizer sentido, use no máximo 1 e nunca para enfeitar cada frase.
 
+SAUDAÇÃO INICIAL:
+- Em uma saudação simples de primeiro contato, não use emoji.
+- Responda de forma natural e curta.
+- Exemplo de estilo: "Boa noite! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?"
+- Preserve o período do cliente: bom dia, boa tarde ou boa noite.
+- Evite "Bem-vindo à Mind" e frases publicitárias na saudação.
+
 FLUXO COMERCIAL PROGRESSIVO:
 - Conduza a conversa um passo por vez: rede/plataforma → serviço → quantidade → valor → pagamento/painel.
 - Se o cliente disser apenas que tem interesse, descubra primeiro a rede/plataforma. Não despeje tabela, preços ou catálogo.
@@ -530,6 +537,28 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     throw new Error(
       "[agent-v3] A resposta ficou vazia após os filtros de segurança e formatação",
     );
+  }
+
+  // Primeiro contato: padroniza a saudação aprovada e elimina variações
+  // excessivas do LLM como "Bem-vindo" ou emoji de mão.
+  const greetingOnly =
+    /^(?:oi|ol[áa]|bom\s+dia|boa\s+tarde|boa\s+noite|e\s*a[ií]|opa)[!.?\s]*$/i.test(
+      message.trim(),
+    );
+  const isFirstTurn = history.length === 0;
+
+  if (greetingOnly && isFirstTurn) {
+    const normalizedGreeting = message.trim().toLocaleLowerCase("pt-BR");
+    const greeting =
+      normalizedGreeting.includes("bom dia")
+        ? "Bom dia"
+        : normalizedGreeting.includes("boa tarde")
+          ? "Boa tarde"
+          : normalizedGreeting.includes("boa noite")
+            ? "Boa noite"
+            : "Olá";
+
+    finalContent = `${greeting}! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?`;
   }
 
   // Auto-split logic
