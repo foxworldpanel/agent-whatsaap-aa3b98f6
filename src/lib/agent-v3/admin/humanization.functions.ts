@@ -8,12 +8,12 @@ import {
 
 const schema = z.object({
   enabled: z.boolean(),
-  min_response_delay_ms: z.number().int().min(0).max(30000),
-  max_response_delay_ms: z.number().int().min(0).max(30000),
+  min_response_delay_ms: z.number().int().min(0).max(120000),
+  max_response_delay_ms: z.number().int().min(0).max(120000),
   typing_enabled: z.boolean(),
   proportional_to_length: z.boolean(),
-  min_part_delay_ms: z.number().int().min(0).max(10000),
-  max_part_delay_ms: z.number().int().min(0).max(10000),
+  min_part_delay_ms: z.number().int().min(0).max(30000),
+  max_part_delay_ms: z.number().int().min(0).max(30000),
   audio_recording_enabled: z.boolean(),
   playground_delay_enabled: z.boolean(),
 }).refine((v) => v.max_response_delay_ms >= v.min_response_delay_ms, {

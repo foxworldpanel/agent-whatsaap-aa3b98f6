@@ -29,17 +29,17 @@ export function normalizeHumanizationSettings(
   raw?: Partial<AgentHumanizationSettings> | null,
 ): AgentHumanizationSettings {
   const merged = { ...DEFAULT_AGENT_HUMANIZATION, ...(raw || {}) };
-  const minResponse = clamp(Number(merged.min_response_delay_ms) || 1500, 0, 30_000);
+  const minResponse = clamp(Number(merged.min_response_delay_ms) || 1500, 0, 120_000);
   const maxResponse = clamp(
     Number(merged.max_response_delay_ms) || 8000,
     minResponse,
-    30_000,
+    120_000,
   );
-  const minPart = clamp(Number(merged.min_part_delay_ms) || 1200, 0, 10_000);
+  const minPart = clamp(Number(merged.min_part_delay_ms) || 1200, 0, 30_000);
   const maxPart = clamp(
     Number(merged.max_part_delay_ms) || 2800,
     minPart,
-    10_000,
+    30_000,
   );
 
   return {

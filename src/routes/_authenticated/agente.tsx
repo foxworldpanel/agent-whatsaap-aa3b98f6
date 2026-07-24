@@ -654,7 +654,7 @@ function AgenteV3AdminPage() {
                       <Input
                         type="number"
                         min={0}
-                        max={30}
+                        max={120}
                         step={0.5}
                         value={humanization.min_response_delay_ms / 1000}
                         onChange={(e) => setHumanization((prev) => ({
@@ -673,7 +673,7 @@ function AgenteV3AdminPage() {
                       <Input
                         type="number"
                         min={0}
-                        max={30}
+                        max={120}
                         step={0.5}
                         value={humanization.max_response_delay_ms / 1000}
                         onChange={(e) => setHumanization((prev) => ({
@@ -720,7 +720,7 @@ function AgenteV3AdminPage() {
                         <Input
                           type="number"
                           min={0}
-                          max={10}
+                          max={30}
                           step={0.1}
                           value={humanization.min_part_delay_ms / 1000}
                           onChange={(e) => setHumanization((prev) => ({
@@ -737,7 +737,7 @@ function AgenteV3AdminPage() {
                         <Input
                           type="number"
                           min={0}
-                          max={10}
+                          max={30}
                           step={0.1}
                           value={humanization.max_part_delay_ms / 1000}
                           onChange={(e) => setHumanization((prev) => ({
