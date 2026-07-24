@@ -389,12 +389,25 @@ export function selectModulesV3(
       add(key, `Estágio ${context.stage} definido no CMS`);
     }
     if (context.platform && routing.platforms.includes(context.platform)) {
-      add(key, `Plataforma ${context.platform} definida no CMS`);
+      // Módulos de plataforma "amplos" podem ser selecionados apenas pela rede.
+      // Submódulos especializados (preços, prazos, garantia, links etc.) só entram
+      // quando também houver intenção, produto ou gatilho compatível. Isso evita
+      // carregar toda a família spotify_* / youtube_* em cada turno.
+      const hasFineGrainedRouting =
+        routing.intents.length > 0 ||
+        routing.stages.length > 0 ||
+        routing.products.length > 0 ||
+        routing.triggers.length > 0;
+
+      if (!hasFineGrainedRouting) {
+        add(key, `Plataforma ${context.platform} definida no CMS`);
+      }
     }
-    // Fallback estrutural: um módulo ativo com a mesma chave da plataforma
-    // deve ser carregado mesmo quando os metadados do CMS ainda não foram migrados.
+    // Compatibilidade com módulos legados de chave exata da plataforma.
+    // Depois da migração modular eles ficam desativados, mas workspaces antigos
+    // continuam funcionando até serem migrados.
     if (context.platform && key === context.platform) {
-      add(key, `Módulo correspondente à plataforma ${context.platform}`, { required: true });
+      add(key, `Módulo legado correspondente à plataforma ${context.platform}`, { required: true });
     }
     if (context.product && routing.products.includes(context.product)) {
       add(key, `Produto ${context.product} definido no CMS`);
