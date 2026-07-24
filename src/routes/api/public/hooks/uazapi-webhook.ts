@@ -1594,6 +1594,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         workspaceId,
       );
 
+      const { shouldStaySilentForNaturalConversation } = await import(
+        "@/lib/agent-v3/brain/guards.server"
+      );
+      const naturalSilence = shouldStaySilentForNaturalConversation({
+        message: finalMsgText,
+        history: history.map((item) => ({
+          sender: item.role === "agent" ? "agente" : "cliente",
+          body: item.content,
+        })),
+      });
+
+      if (content.kind === "texto" && naturalSilence) {
+        console.log("[NATURALIDADE-V3] Silêncio natural: mensagem não exige resposta");
+        return new Response("ok (natural conversational silence)");
+      }
+
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
         workspaceId,

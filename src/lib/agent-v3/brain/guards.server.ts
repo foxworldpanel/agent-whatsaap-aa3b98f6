@@ -201,3 +201,27 @@ export function stripMarkdownFormattingV3(text: string): string {
     .replace(/^\s*[-*+]\s+/gm, "- ")
     .trim();
 }
+
+
+export function shouldStaySilentForNaturalConversation(params: {
+  message: string;
+  history?: Array<{ sender: string; body: string }> | null;
+}): boolean {
+  const raw = String(params.message || "").trim();
+  if (!raw || raw.includes("?")) return false;
+
+  const text = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/\s+/g, " ").trim();
+
+  if (/\b(nao consegui|erro|problema|ajuda|como|onde|quanto|pix|pagar|pagamento|comprei|pedido|fiz aqui|ja consegui)\b/i.test(text)) {
+    return false;
+  }
+
+  return [
+    /^vou (?:olhar|ver|assistir|conferir|testar)(?: aqui| agora)?(?: como funciona)?(?: no video| o video)?[.!]*$/i,
+    /^vou dar uma olhada[.!]*$/i,
+    /^deixa eu (?:olhar|ver|conferir)(?: aqui)?[.!]*$/i,
+    /^(?:beleza|blz|certo|entendi|tranquilo),?\s*(?:vou (?:olhar|ver|assistir|conferir))[^?]*$/i,
+    /^ok,?\s*(?:vou (?:olhar|ver|assistir|conferir))[^?]*$/i,
+  ].some((pattern) => pattern.test(text));
+}
