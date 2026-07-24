@@ -497,7 +497,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             last_message_preview: content.text.slice(0, 100),
             last_message_at: new Date().toISOString(),
             status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
-          }, { onConflict: "contact_id" })
+          }, { onConflict: "user_id,contact_id" })
           .select("id")
           .single();
 
