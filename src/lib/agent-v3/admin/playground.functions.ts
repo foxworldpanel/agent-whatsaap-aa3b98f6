@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 import { runAgentV3Turn } from "../orchestrator.server";
+import { normalizeHumanizationSettings, calculateHumanResponseTargetMs, sleepMs } from "../humanization.server";
 
 
 // Cost calculation moved to orchestrator, but we keep this as helper if needed
@@ -66,6 +67,23 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       workspaceId,
       inputKind: inputKind as any
     });
+
+    // Playground permanece rápido por padrão. O atraso só é aplicado quando
+    // explicitamente habilitado na aba Tempo e Humanização.
+    const { data: humanizationRow } = await (context.supabase as any)
+      .from("agent_humanization_settings")
+      .select("*")
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+    const humanization = normalizeHumanizationSettings(humanizationRow);
+    if (humanization.enabled && humanization.playground_delay_enabled) {
+      const targetMs = calculateHumanResponseTargetMs(
+        result.replies.join("\n"),
+        humanization,
+      );
+      const elapsedMs = Date.now() - start;
+      await sleepMs(Math.max(0, targetMs - elapsedMs));
+    }
 
     const { data: agentMsg } = await context.supabase
       .from("agent_playground_messages")

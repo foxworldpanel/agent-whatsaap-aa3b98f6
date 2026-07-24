@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { 
   Bot, Save, Check, RotateCcw, AlertTriangle, Eye, 
   Search, FileText, Settings, Database, 
-  Zap, Info, ExternalLink, RefreshCw, Plus, Trash2, Copy, Layers, GripVertical
+  Zap, Info, ExternalLink, RefreshCw, Plus, Trash2, Copy, Layers, GripVertical, Clock
 } from "lucide-react";
 import { 
   DndContext, 
@@ -26,6 +26,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis, restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers';
 import { getFullAgentV3Config, updateV3Module, deleteV3Module, getCompiledPromptV3 } from "@/lib/agent-v3/admin/admin.functions";
+import { getAgentHumanizationSettings, updateAgentHumanizationSettings } from "@/lib/agent-v3/admin/humanization.functions";
 import { updateV3ModulesOrder } from "@/lib/agent-v3/admin/reorder.functions";
 import { seedModulesToDb } from "@/lib/agent-v3/admin/seed.functions";
 import { toast } from "sonner";
@@ -36,6 +37,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/agente")({
   ssr: false,
@@ -53,10 +56,29 @@ function AgenteV3AdminPage() {
   const removeModule = useServerFn(deleteV3Module);
   const getPrompt = useServerFn(getCompiledPromptV3);
   const seedModules = useServerFn(seedModulesToDb);
+  const getHumanization = useServerFn(getAgentHumanizationSettings);
+  const updateHumanization = useServerFn(updateAgentHumanizationSettings);
 
   const configQ = useQuery({
     queryKey: ["agent_v3_config"],
     queryFn: () => fetchConfig(),
+  });
+
+  const humanizationQ = useQuery({
+    queryKey: ["agent_humanization_settings"],
+    queryFn: () => getHumanization(),
+  });
+
+  const [humanization, setHumanization] = useState({
+    enabled: true,
+    min_response_delay_ms: 1500,
+    max_response_delay_ms: 8000,
+    typing_enabled: true,
+    proportional_to_length: true,
+    min_part_delay_ms: 1200,
+    max_part_delay_ms: 2800,
+    audio_recording_enabled: true,
+    playground_delay_enabled: false,
   });
 
   const [activeTab, setActiveTab] = useState<string>("modules");
@@ -98,6 +120,19 @@ function AgenteV3AdminPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  useEffect(() => {
+    if (humanizationQ.data) setHumanization(humanizationQ.data);
+  }, [humanizationQ.data]);
+
+  const humanizationMut = useMutation({
+    mutationFn: () => updateHumanization({ data: humanization }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agent_humanization_settings"] });
+      toast.success("Tempo e humanização atualizados!");
+    },
+    onError: (err: any) => toast.error(err.message || "Falha ao salvar humanização"),
+  });
 
   const modules = useMemo(() => configQ.data?.modules || {}, [configQ.data?.modules]);
   
@@ -282,12 +317,13 @@ function AgenteV3AdminPage() {
           <Button 
             variant="outline" 
             className="gap-2 border-primary/20 text-primary hover:bg-primary/5"
-            onClick={() => activeTab === "modules" ? setActiveTab("audit") : setActiveTab("modules")}
+            onClick={() => activeTab === "audit" ? setActiveTab("modules") : setActiveTab("audit")}
           >
             <Search className="h-4 w-4" />
             {activeTab === "audit" ? "Ver Módulos" : "Auditar Cérebro"}
           </Button>
 
+          {activeTab === "modules" && (
           <Dialog open={isNewModuleOpen} onOpenChange={setIsNewModuleOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">
@@ -338,7 +374,9 @@ function AgenteV3AdminPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          )}
 
+          {activeTab === "modules" && (
           <Button
             onClick={() => {
               if (!activeModuleKey) return;
@@ -364,13 +402,17 @@ function AgenteV3AdminPage() {
             {saveMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Salvar Alterações
           </Button>
+          )}
         </div>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+        <TabsList className="grid w-full grid-cols-3 max-w-[620px]">
           <TabsTrigger value="modules" className="gap-2">
             <Layers className="h-4 w-4" /> Módulos
+          </TabsTrigger>
+          <TabsTrigger value="humanization" className="gap-2">
+            <Clock className="h-4 w-4" /> Tempo e Humanização
           </TabsTrigger>
           <TabsTrigger value="audit" className="gap-2">
             <Search className="h-4 w-4" /> Auditoria
@@ -578,6 +620,187 @@ function AgenteV3AdminPage() {
                 </div>
               )}
             </main>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="humanization" className="pt-4">
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  Tempo e Humanização
+                </CardTitle>
+                <CardDescription>
+                  Simula o ritmo de um atendente humano no WhatsApp. O tempo gasto pela IA já conta dentro da espera.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <Label className="font-semibold">Humanização ativa</Label>
+                    <p className="text-xs text-muted-foreground mt-1">Aplica atraso variável e presença de digitação no WhatsApp.</p>
+                  </div>
+                  <Switch
+                    checked={humanization.enabled}
+                    onCheckedChange={(checked) => setHumanization((prev) => ({ ...prev, enabled: checked }))}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label>Atraso mínimo da primeira resposta</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={30}
+                        step={0.5}
+                        value={humanization.min_response_delay_ms / 1000}
+                        onChange={(e) => setHumanization((prev) => ({
+                          ...prev,
+                          min_response_delay_ms: Math.round(Number(e.target.value) * 1000),
+                        }))}
+                      />
+                      <span className="text-sm text-muted-foreground">seg</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Preset: 1,5 s</p>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Atraso máximo da primeira resposta</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={30}
+                        step={0.5}
+                        value={humanization.max_response_delay_ms / 1000}
+                        onChange={(e) => setHumanization((prev) => ({
+                          ...prev,
+                          max_response_delay_ms: Math.round(Number(e.target.value) * 1000),
+                        }))}
+                      />
+                      <span className="text-sm text-muted-foreground">seg</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Preset: 8 s</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <Label className="font-semibold">Tempo proporcional ao tamanho</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Respostas curtas saem mais rápido; respostas maiores levam mais tempo, com pequena variação aleatória.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={humanization.proportional_to_length}
+                    onCheckedChange={(checked) => setHumanization((prev) => ({ ...prev, proportional_to_length: checked }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <Label className="font-semibold">Mostrar “digitando...”</Label>
+                    <p className="text-xs text-muted-foreground mt-1">Ativa a presença de digitação pela Uazapi durante o processamento.</p>
+                  </div>
+                  <Switch
+                    checked={humanization.typing_enabled}
+                    onCheckedChange={(checked) => setHumanization((prev) => ({ ...prev, typing_enabled: checked }))}
+                  />
+                </div>
+
+                <div className="border-t border-border pt-5">
+                  <h3 className="text-sm font-bold mb-4">Mensagens divididas em partes</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label>Intervalo mínimo</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={10}
+                          step={0.1}
+                          value={humanization.min_part_delay_ms / 1000}
+                          onChange={(e) => setHumanization((prev) => ({
+                            ...prev,
+                            min_part_delay_ms: Math.round(Number(e.target.value) * 1000),
+                          }))}
+                        />
+                        <span className="text-sm text-muted-foreground">seg</span>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Intervalo máximo</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={10}
+                          step={0.1}
+                          value={humanization.max_part_delay_ms / 1000}
+                          onChange={(e) => setHumanization((prev) => ({
+                            ...prev,
+                            max_part_delay_ms: Math.round(Number(e.target.value) * 1000),
+                          }))}
+                        />
+                        <span className="text-sm text-muted-foreground">seg</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Preset: 1,2–2,8 s entre uma mensagem e outra.</p>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <Label className="font-semibold">Simular “gravando áudio...”</Label>
+                    <p className="text-xs text-muted-foreground mt-1">Quando a resposta for por voz, mostra presença de gravação antes do envio.</p>
+                  </div>
+                  <Switch
+                    checked={humanization.audio_recording_enabled}
+                    onCheckedChange={(checked) => setHumanization((prev) => ({ ...prev, audio_recording_enabled: checked }))}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div>
+                    <Label className="font-semibold">Aplicar atraso no Playground</Label>
+                    <p className="text-xs text-muted-foreground mt-1">Desligado por padrão para os testes de conversa continuarem rápidos.</p>
+                  </div>
+                  <Switch
+                    checked={humanization.playground_delay_enabled}
+                    onCheckedChange={(checked) => setHumanization((prev) => ({ ...prev, playground_delay_enabled: checked }))}
+                  />
+                </div>
+
+                <Button
+                  className="gap-2"
+                  onClick={() => humanizationMut.mutate()}
+                  disabled={humanizationMut.isPending}
+                >
+                  {humanizationMut.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Salvar Tempo e Humanização
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border-border h-fit">
+              <CardHeader>
+                <CardTitle className="text-base">Preset Mind recomendado</CardTitle>
+                <CardDescription>Já configurado como padrão.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">Saudação curta</span><strong>~1,5–3 s</strong></div>
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">Preço / frase curta</span><strong>~2–4,5 s</strong></div>
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">2–3 frases</span><strong>~3,5–6 s</strong></div>
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">Resposta maior</span><strong>até ~8 s</strong></div>
+                <div className="flex justify-between gap-4"><span className="text-muted-foreground">Entre partes</span><strong>1,2–2,8 s</strong></div>
+                <div className="pt-3 border-t border-border text-xs text-muted-foreground leading-relaxed">
+                  O cálculo considera o tamanho da resposta e uma variação aleatória. O tempo que Claude, banco e TTS já gastaram entra na conta para evitar espera artificial excessiva.
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 

@@ -207,6 +207,7 @@ export function isStopRequest(text: string): boolean {
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
+    const inboundStartedAt = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const msgLocal = payload.message ?? payload.data ?? {};
     const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
@@ -536,6 +537,46 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
+      const {
+        DEFAULT_AGENT_HUMANIZATION,
+        normalizeHumanizationSettings,
+        calculateHumanResponseTargetMs,
+        calculatePartDelayMs,
+        sleepMs,
+      } = await import("@/lib/agent-v3/humanization.server");
+
+      const { data: humanizationRow, error: humanizationError } = await (supabaseAdmin as any)
+        .from("agent_humanization_settings")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
+
+      if (humanizationError) {
+        console.warn("[UAZ-WEBHOOK] Falha ao carregar configuração de humanização; usando padrão:", humanizationError);
+      }
+
+      const humanization = normalizeHumanizationSettings(
+        humanizationRow || DEFAULT_AGENT_HUMANIZATION,
+      );
+      const creds = { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken };
+
+      // Enquanto o modelo prepara uma resposta em texto, já exibimos "digitando...".
+      // A espera final considera o tempo já gasto pelo processamento para não deixar
+      // o atendimento artificialmente lento.
+      if (
+        humanization.enabled &&
+        humanization.typing_enabled &&
+        content.kind !== "audio"
+      ) {
+        const { uazapiSendTyping } = await import("@/lib/uazapi.server");
+        await uazapiSendTyping(
+          creds,
+          phoneStr,
+          humanization.max_response_delay_ms,
+        ).catch((error) => {
+          console.warn("[UAZ-WEBHOOK] Não foi possível sinalizar digitando:", error);
+        });
+      }
 
       const { history, telemetry: historyTelemetry } = await getConversationStateV3(
         num.user_id,
@@ -561,7 +602,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const finalConvId = String(conversationId || phoneStr);
 
-      const creds = { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken };
+      const targetHumanDelayMs = calculateHumanResponseTargetMs(replyText, humanization);
+      const elapsedBeforeDeliveryMs = Date.now() - inboundStartedAt;
+      const remainingFirstReplyDelayMs = Math.max(
+        0,
+        targetHumanDelayMs - elapsedBeforeDeliveryMs,
+      );
+
       let sentAsAudio = false;
       let deliveredReplyText = replyText;
 
@@ -569,12 +616,30 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         try {
           const { textToSpeechV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
           const { uazapiSendAudio, uazapiSendRecording, uazapiClearPresence } = await import("@/lib/uazapi.server");
-          await uazapiSendRecording(creds, phoneStr, 1200).catch(() => undefined);
+
+          if (humanization.enabled && humanization.audio_recording_enabled) {
+            await uazapiSendRecording(
+              creds,
+              phoneStr,
+              Math.max(3000, remainingFirstReplyDelayMs),
+            ).catch((error) => {
+              console.warn("[UAZ-WEBHOOK] Não foi possível sinalizar gravando áudio:", error);
+            });
+          }
+
           const audioBase64 = await textToSpeechV3({
             apiKey: integ.elevenlabs_api_key,
             voiceId: integ.elevenlabs_voice_id,
             text: replyText,
           });
+
+          // O tempo de geração do Claude/TTS conta como parte da espera humana.
+          const remainingAudioDelayMs = Math.max(
+            0,
+            targetHumanDelayMs - (Date.now() - inboundStartedAt),
+          );
+          await sleepMs(remainingAudioDelayMs);
+
           await uazapiSendAudio(creds, phoneStr, audioBase64);
           await uazapiClearPresence(creds, phoneStr).catch(() => undefined);
           sentAsAudio = true;
@@ -613,7 +678,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // O orchestrator já separa respostas longas/parágrafos em partes próprias.
         // Enviar o join() como uma única mensagem anulava completamente o splitter.
-        for (const part of replyParts) {
+        for (let partIndex = 0; partIndex < replyParts.length; partIndex += 1) {
+          const part = replyParts[partIndex];
+
+          if (humanization.enabled) {
+            if (partIndex === 0) {
+              await sleepMs(remainingFirstReplyDelayMs);
+            } else {
+              const partDelayMs = calculatePartDelayMs(humanization);
+              if (humanization.typing_enabled) {
+                const { uazapiSendTyping } = await import("@/lib/uazapi.server");
+                await uazapiSendTyping(creds, phoneStr, partDelayMs).catch(() => undefined);
+              }
+              await sleepMs(partDelayMs);
+            }
+          }
+
           const sendResult = await sendAgentTextGuarded(
             creds,
             phoneStr,
