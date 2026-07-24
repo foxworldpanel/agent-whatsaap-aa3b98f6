@@ -960,33 +960,74 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             webhookMediaUrl: !!content.mediaUrl,
           });
 
-          // Nem todo payload Uazapi traz mediaUrl. Quando faltar, baixa a mídia
-          // pelo messageId usando o endpoint oficial /message/download.
-          let inboundAudioUrl = content.mediaUrl?.trim() || "";
-          if (!inboundAudioUrl) {
-            const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
-            const downloaded = await uazapiDownloadMedia(creds, msgId);
-            inboundAudioUrl =
-              downloaded.fileURL?.trim() ||
-              downloaded.fileData?.trim() ||
-              "";
-            console.log("[AUDIO-V3] mídia resolvida via /message/download", {
-              hasUrl: !!downloaded.fileURL,
-              hasData: !!downloaded.fileData,
-              mimetype: downloaded.mimetype,
-            });
+          // Caminho principal: a própria Uazapi baixa/descriptografa a mídia e
+          // pede ao Whisper a transcrição. Isso evita depender de mediaUrl temporária
+          // ou de campos diferentes entre versões do webhook.
+          const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
+          const downloaded = await uazapiDownloadMedia(
+            creds,
+            msgId,
+            openaiApiKey,
+          );
+
+          let inboundAudioUrl =
+            downloaded.fileURL?.trim() ||
+            downloaded.fileData?.trim() ||
+            content.mediaUrl?.trim() ||
+            "";
+
+          finalMsgText = downloaded.transcription?.trim() || "";
+
+          console.log("[AUDIO-V3] /message/download concluído", {
+            hasTranscription: !!finalMsgText,
+            hasUrl: !!downloaded.fileURL,
+            hasData: !!downloaded.fileData,
+            mimetype: downloaded.mimetype,
+          });
+
+          // Fallback: se a Uazapi não retornou a transcrição, usamos nosso
+          // processador Whisper diretamente com a mídia resolvida.
+          if (!finalMsgText) {
+            if (!inboundAudioUrl) {
+              throw new Error(
+                "Uazapi não retornou transcrição nem mídia utilizável para o áudio",
+              );
+            }
+
+            const { processAudioV3 } = await import(
+              "@/lib/agent-v3/integrations/audio-processor.server"
+            );
+            const transcription = await processAudioV3(
+              inboundAudioUrl,
+              openaiApiKey,
+            );
+            finalMsgText = transcription?.trim() || "";
           }
 
-          if (!inboundAudioUrl) {
-            throw new Error("Uazapi não forneceu URL utilizável para o áudio recebido");
+          if (!finalMsgText) {
+            throw new Error("Whisper retornou transcrição vazia");
           }
 
-          const { processAudioV3 } = await import("@/lib/agent-v3/integrations/audio-processor.server");
-          const transcription = await processAudioV3(inboundAudioUrl, openaiApiKey);
-          finalMsgText = transcription?.trim() || "";
           console.log("[AUDIO-V3] 2/5 Whisper concluído", {
             chars: finalMsgText.length,
           });
+
+          // Se a Uazapi disponibilizou uma URL reproduzível, salva no CRM também.
+          // Assim o player da conversa deixa de exibir 0:00 quando houver mídia pública.
+          if (conversationId && downloaded.fileURL) {
+            const { error: audioUrlPersistErr } = await supabaseAdmin
+              .from("messages")
+              .update({ audio_url: downloaded.fileURL })
+              .eq("conversation_id", conversationId)
+              .eq("external_id", msgId);
+
+            if (audioUrlPersistErr) {
+              console.warn(
+                "[AUDIO-V3] Falha ao salvar URL reproduzível do áudio:",
+                audioUrlPersistErr,
+              );
+            }
+          }
 
           // A mensagem inbound foi persistida antes da transcrição para garantir
           // deduplicação. Agora substituímos "[áudio recebido]" pelo texto real

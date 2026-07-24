@@ -245,6 +245,7 @@ export async function uazapiSendMedia(
 export async function uazapiDownloadMedia(
   creds: UazapiCreds,
   messageId: string,
+  openaiApiKey?: string,
 ): Promise<{
   fileURL: string | null;
   fileData: string | null;
@@ -253,10 +254,27 @@ export async function uazapiDownloadMedia(
 }> {
   const base = creds.uazapi_url.replace(/\/+$/, "");
 
+  const openaiKey = openaiApiKey?.trim() || "";
+  const transcribe = Boolean(openaiKey);
+
+  // Uazapi v2 suporta transcrição do áudio no próprio /message/download
+  // via Whisper quando enviamos transcribe=true + openai_apikey.
   const bodies = [
-    { id: messageId, transcribe: false },
-    { messageId, transcribe: false },
-    { messageid: messageId, transcribe: false },
+    {
+      id: messageId,
+      transcribe,
+      ...(openaiKey ? { openai_apikey: openaiKey } : {}),
+    },
+    {
+      messageId,
+      transcribe,
+      ...(openaiKey ? { openai_apikey: openaiKey } : {}),
+    },
+    {
+      messageid: messageId,
+      transcribe,
+      ...(openaiKey ? { openai_apikey: openaiKey } : {}),
+    },
   ];
 
   let lastStatus = 0;
