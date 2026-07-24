@@ -56,7 +56,7 @@ export type SelectionResultV3 = {
 };
 
 const MAX_PRIMARY_MODULES = 11;
-const RECENT_CUSTOMER_MESSAGES = 6;
+const RECENT_CUSTOMER_MESSAGES = 12;
 
 export const KEYWORD_MAP: Record<string, string[]> = {
   spotify: ["spotify", "playlist", "ouvintes", "streams", "save", "plays", "podcast"],
@@ -233,10 +233,14 @@ export function detectConversationContext(
 
   const platform = findContextValue(normalizedText, recentCustomerText, PLATFORM_PATTERNS);
   const product = findContextValue(normalizedText, recentCustomerText, PRODUCT_PATTERNS);
+  const accumulatedCustomerText = [recentCustomerText, normalizedText].filter(Boolean).join(" ");
 
-  const hasQuantity = /\b\d+(?:[.,]\d+)?\s*(?:k|mil)?\b/.test(normalizedText);
-  const hasPriceQuestion = containsAny(normalizedText, KEYWORD_MAP.tabela_precos);
-  const hasPaidSignal = containsAny(normalizedText, [
+  // Sinais comerciais são acumulativos. Uma última mensagem curta como "ok",
+  // "beleza" ou um novo gatilho de anúncio não pode apagar que o cliente já
+  // escolheu produto, quantidade ou chegou ao pagamento.
+  const hasQuantity = /\b\d+(?:[.,]\d+)?\s*(?:k|mil)?\b/.test(accumulatedCustomerText);
+  const hasPriceQuestion = containsAny(accumulatedCustomerText, KEYWORD_MAP.tabela_precos);
+  const hasPaidSignal = containsAny(accumulatedCustomerText, [
     "ja paguei",
     "paguei",
     "fiz o pix",
@@ -247,7 +251,7 @@ export function detectConversationContext(
   ]);
   const hasPaymentSignal =
     hasPaidSignal ||
-    containsAny(normalizedText, [
+    containsAny(accumulatedCustomerText, [
       "pix",
       "manda o pix",
       "manda pix",
@@ -271,8 +275,8 @@ export function detectConversationContext(
     ]);
   const hasSupportSignal = containsAny(normalizedText, KEYWORD_MAP.suporte);
   const hasPurchaseSignal =
-    containsAny(normalizedText, KEYWORD_MAP.fechamento) ||
-    containsAny(normalizedText, ["comprar", "quero", "preciso de"]);
+    containsAny(accumulatedCustomerText, KEYWORD_MAP.fechamento) ||
+    containsAny(accumulatedCustomerText, ["comprar", "quero", "preciso de"]);
   const hasSecuritySignal =
     containsAny(normalizedText, KEYWORD_MAP.seguranca) ||
     containsAny(normalizedText, ["vai cair", "pode cair", "tem risco"]);
@@ -301,6 +305,16 @@ export function detectConversationContext(
   } else if (hasPurchaseSignal) {
     intent = "compra";
     stage = hasQuantity || product ? "fechamento" : "negociacao";
+  } else if (
+    history.length > 0 &&
+    platform &&
+    product &&
+    hasQuantity &&
+    containsAny(normalizedText, ["ok", "beleza", "blz", "vou olhar", "vou ver", "entendi", "certo"])
+  ) {
+    // Confirmações curtas preservam o estágio comercial acumulado.
+    intent = "compra";
+    stage = "fechamento";
   } else if (hasPriceQuestion) {
     intent = "consulta_preco";
     stage = "negociacao";

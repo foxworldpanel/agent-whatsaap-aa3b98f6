@@ -336,6 +336,15 @@ VENDA CONCLUÍDA E PÓS-VENDA:
 - Se o módulo do YouTube trouxer Global e Premium, pode apresentar e comparar essas opções conforme o conteúdo cadastrado no módulo, inclusive os respectivos preços. Não invente vantagens, qualidade, engajamento, origem do público ou outras diferenças que não estejam escritas no módulo.
 - Se o cliente estiver descontraído ("kkk", brincadeira, agradecimento informal), acompanhe o tom com naturalidade, mantendo a resposta curta. Emoji continua opcional e no máximo 1 quando realmente combinar.
 
+VALIDAÇÃO DE LINKS ENVIADOS PELO CLIENTE:
+- Não peça link como pré-requisito da venda. Porém, SE o cliente enviar um link espontaneamente, valide se o tipo do link corresponde ao serviço que já está sendo tratado.
+- Spotify Plays/Ouvintes para uma música: o link correto deve ser da faixa (open.spotify.com/track/...). Não oriente usar link de usuário/perfil (/user/) para plays de uma música.
+- Spotify Seguidores: use o link do artista (open.spotify.com/artist/...) quando essa for a exigência cadastrada no módulo.
+- Spotify Playlist: diferencie link de playlist (/playlist/) de track, artist e user.
+- YouTube Visualizações/Likes: se o serviço for para um vídeo específico, confirme que o link enviado aponta para vídeo e não para canal/perfil, salvo se o módulo disser o contrário.
+- Se o link estiver incompatível, explique em uma frase qual link o cliente deve copiar. Não invente requisitos fora do módulo.
+- Se não houver certeza suficiente para validar o formato, não confirme que o link está correto.
+
 REGRA GERAL DE PAGAMENTO E LINK:
 - Sinais como "manda o pix", "qual o pix", "me passa o pix", "quero pagar", "vou pagar", "onde pago" ou equivalentes significam que o cliente quer FECHAR. Pare de qualificar e conduza imediatamente para o procedimento de pagamento descrito nos módulos carregados.
 - Se o pagamento da empresa é feito pelo painel conforme os módulos carregados, explique diretamente: acessar o painel, fazer login/cadastro, recarregar saldo via Pix e escolher o serviço. Não peça mais dados antes disso.
@@ -519,6 +528,22 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   if (selectionContext.intent === "pagamento") purchase_probability = 90;
   if (selectionContext.hasPaidSignal) purchase_probability = 95;
   if (selectionContext.intent === "suporte" || selectionContext.intent === "pos_compra") purchase_probability = 25;
+
+  // A inteligência deve refletir a jornada acumulada, não apenas a última frase.
+  // Ex.: depois de Spotify + Plays + 1000 + instrução de painel, um "Ok" não
+  // transforma o lead novamente em frio.
+  if (
+    selectionContext.platform &&
+    selectionContext.product &&
+    selectionContext.hasQuantity &&
+    selectionContext.intent !== "suporte" &&
+    selectionContext.intent !== "pos_compra"
+  ) {
+    purchase_probability = Math.max(purchase_probability, 78);
+  }
+  if (selectionContext.hasPaymentSignal && selectionContext.intent !== "suporte") {
+    purchase_probability = Math.max(purchase_probability, 90);
+  }
 
   const temperature: "frio" | "morno" | "quente" =
     purchase_probability >= 75 ? "quente" : purchase_probability >= 40 ? "morno" : "frio";

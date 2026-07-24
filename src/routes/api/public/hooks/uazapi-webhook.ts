@@ -396,6 +396,48 @@ function canRepeatWelcomeFunnelForTest(phone: string): boolean {
   return WELCOME_FUNNEL_REPEAT_TEST_PHONES.has(normalizeFunnelPhone(phone));
 }
 
+function isConversationDeferralMessage(value: string): boolean {
+  const text = normalizeFunnelText(value);
+  if (!text) return false;
+  return [
+    /\bmais tarde\b/,
+    /\bfalamos depois\b/,
+    /\bdepois falamos\b/,
+    /\bdepois a gente fala\b/,
+    /\bte chamo depois\b/,
+    /\bchamo mais tarde\b/,
+    /\bagora nao posso\b/,
+    /\bestou trabalhando\b/,
+    /\bto trabalhando\b/,
+    /\bamanha (?:falamos|te chamo|eu chamo)\b/,
+    /\bdepois das \d{1,2}(?::\d{2})?\b/,
+  ].some((pattern) => pattern.test(text));
+}
+
+async function shouldCancelRunningFunnel(params: {
+  supabaseAdmin: any;
+  conversationId: string;
+  startedAtIso: string;
+}): Promise<boolean> {
+  const { data, error } = await params.supabaseAdmin
+    .from("messages")
+    .select("body, sender, created_at")
+    .eq("conversation_id", params.conversationId)
+    .eq("sender", "cliente")
+    .gt("created_at", params.startedAtIso)
+    .order("created_at", { ascending: false })
+    .limit(8);
+
+  if (error) {
+    console.warn("[WELCOME-FUNNEL] Não foi possível verificar pausa do cliente:", error);
+    return false;
+  }
+
+  return (data || []).some((row: any) =>
+    isConversationDeferralMessage(String(row?.body || "")),
+  );
+}
+
 function normalizeFunnelText(value: string): string {
   return String(value || "")
     .normalize("NFD")
@@ -477,6 +519,18 @@ async function executeWelcomeFunnel(params: {
 
   const steps = funnel.steps || {};
   let stepIndex = 0;
+  const funnelStartedAtIso = new Date().toISOString();
+
+  const ensureCustomerDidNotPause = async () => {
+    const cancelled = await shouldCancelRunningFunnel({
+      supabaseAdmin,
+      conversationId,
+      startedAtIso: funnelStartedAtIso,
+    });
+    if (cancelled) {
+      throw new Error("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_DEFERRAL");
+    }
+  };
 
   const markStep = async (label: string) => {
     stepIndex += 1;
@@ -491,10 +545,12 @@ async function executeWelcomeFunnel(params: {
     const text = step?.text?.trim();
     if (!step?.enabled || !text) return;
 
+    await ensureCustomerDidNotPause();
     const delayMs = funnelStepDelayMs(step, funnel.delay_seconds);
     if (delayMs > 0) {
       await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
       await sleepMs(delayMs);
+      await ensureCustomerDidNotPause();
     }
 
     const result = await sendAgentTextGuarded(creds, phone, text, {
@@ -520,10 +576,12 @@ async function executeWelcomeFunnel(params: {
   await sendTextStep("welcome_text", "welcome_funnel_welcome_text");
 
   if (steps.audio?.enabled && steps.audio.url?.trim()) {
+    await ensureCustomerDidNotPause();
     const delayMs = funnelStepDelayMs(steps.audio, funnel.delay_seconds);
     if (delayMs > 0) {
       await uazapiSendRecording(creds, phone, delayMs).catch(() => undefined);
       await sleepMs(delayMs);
+      await ensureCustomerDidNotPause();
     }
     await uazapiSendAudio(creds, phone, steps.audio.url.trim());
     await uazapiClearPresence(creds, phone).catch(() => undefined);
@@ -542,10 +600,12 @@ async function executeWelcomeFunnel(params: {
   await sendTextStep("panel_text", "welcome_funnel_panel_text");
 
   if (steps.video?.enabled && steps.video.url?.trim()) {
+    await ensureCustomerDidNotPause();
     const delayMs = funnelStepDelayMs(steps.video, funnel.delay_seconds);
     if (delayMs > 0) {
       await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
       await sleepMs(delayMs);
+      await ensureCustomerDidNotPause();
     }
     const caption = steps.video.caption?.trim() || undefined;
     await uazapiSendMedia(creds, phone, "video", steps.video.url.trim(), caption);
@@ -916,9 +976,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" concluído; Agent V3 assume nas próximas mensagens`);
                   return new Response("ok (welcome funnel completed)");
                 } catch (funnelSendErr) {
+                  if (
+                    funnelSendErr instanceof Error &&
+                    funnelSendErr.message === "WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_DEFERRAL"
+                  ) {
+                    // Mantém o claim: cliente normal continua com regra "funil uma vez".
+                    // Apenas interrompe as etapas restantes porque pediu para falar depois.
+                    console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" interrompido: cliente pediu para continuar depois`);
+                    return new Response("ok (welcome funnel paused by customer)");
+                  }
+
                   console.error("[WELCOME-FUNNEL] Falha durante envio:", funnelSendErr);
 
-                  // Se falhou, remove o marcador para permitir novo gatilho/retry.
+                  // Se houve falha técnica real, remove o marcador para permitir retry.
                   await (supabaseAdmin as any)
                     .from("welcome_funnel_runs")
                     .delete()
