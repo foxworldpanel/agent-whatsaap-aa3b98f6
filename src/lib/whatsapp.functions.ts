@@ -7,7 +7,8 @@ async function getSharedUazapiUserIds(context: { supabase: any; userId: string }
   return [context.userId];
 }
 
-// List conversations with contact info
+// List conversations with contact info + latest Agent V3 intelligence.
+// Pagina explicitamente para não depender do limite padrão de 1.000 linhas do Supabase.
 export const listConversations = createServerFn({ method: "GET" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
@@ -15,29 +16,73 @@ export const listConversations = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    let q = supabaseAdmin
-      .from("conversations")
-      .select(
-        "id, status, last_message_preview, last_message_at, agent_enabled, whatsapp_number_id, needs_review, review_reason, auto_paused_at, internal_note, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline, photo_url)",
-      )
-      .eq("workspace_id", context.workspaceId)
-      .order("last_message_at", { ascending: false, nullsFirst: false });
-    
-    if (data?.numberId) q = q.eq("whatsapp_number_id", data.numberId);
-    
-    const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
-    if (!rows || rows.length === 0) return [];
+
+    const rows: any[] = [];
+    const pageSize = 1000;
+    for (let from = 0; ; from += pageSize) {
+      let q = supabaseAdmin
+        .from("conversations")
+        .select(
+          "id, status, last_message_preview, last_message_at, agent_enabled, whatsapp_number_id, needs_review, review_reason, auto_paused_at, internal_note, contact:contacts(id, nome, telefone, perfil, temperatura, source, source_ref, source_url, source_headline, photo_url)",
+        )
+        .eq("workspace_id", context.workspaceId)
+        .order("last_message_at", { ascending: false, nullsFirst: false })
+        .range(from, from + pageSize - 1);
+
+      if (data?.numberId) q = q.eq("whatsapp_number_id", data.numberId);
+
+      const { data: page, error } = await q;
+      if (error) throw new Error(error.message);
+      rows.push(...(page || []));
+      if (!page || page.length < pageSize) break;
+    }
+
+    if (rows.length === 0) return [];
+
+    const conversationIds = rows.map((row) => row.id);
+
+    // Busca logs recentes do V3 em blocos para anexar a inteligência mais atual.
+    const latestIntelligence = new Map<string, any>();
+    const chunkSize = 200;
+    for (let i = 0; i < conversationIds.length; i += chunkSize) {
+      const ids = conversationIds.slice(i, i + chunkSize);
+      const { data: logs, error: logsError } = await supabaseAdmin
+        .from("agent_logs")
+        .select("conversation_id, metadata, created_at")
+        .eq("type", "agent_v3_turn")
+        .in("conversation_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(Math.max(1000, ids.length * 8));
+
+      if (logsError) {
+        console.warn("[conversas] Falha ao carregar Lead Intelligence:", logsError);
+        continue;
+      }
+
+      for (const log of logs || []) {
+        if (!log.conversation_id || latestIntelligence.has(log.conversation_id)) continue;
+        const metadata = (log.metadata || {}) as Record<string, any>;
+        const intelligence = metadata.intelligence;
+        if (intelligence && typeof intelligence === "object") {
+          latestIntelligence.set(log.conversation_id, {
+            ...intelligence,
+            updated_at: log.created_at,
+          });
+        }
+      }
+    }
 
     const { data: testRows } = await supabaseAdmin
       .from("test_numbers")
       .select("phone")
       .eq("workspace_id", context.workspaceId);
-      
+
     const testSet = new Set((testRows ?? []).map((r) => r.phone));
+
     return rows.map((r: any) => ({
       ...r,
       is_test: r.contact?.telefone ? testSet.has(r.contact.telefone) : false,
+      lead_intelligence: latestIntelligence.get(r.id) ?? null,
     }));
   });
 
@@ -46,14 +91,26 @@ export const listMessages = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: rows, error } = await supabaseAdmin
-      .from("messages")
-      .select("id, sender, kind, body, audio_url, created_at")
-      .eq("workspace_id", context.workspaceId)
-      .eq("conversation_id", data.conversationId)
-      .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
-    return rows ?? [];
+
+    // Sem .limit(): o Supabase costuma limitar respostas a 1.000 registros.
+    // Pagina até acabar para a tela de auditoria realmente exibir a conversa inteira.
+    const allRows: any[] = [];
+    const pageSize = 1000;
+    for (let from = 0; ; from += pageSize) {
+      const { data: page, error } = await supabaseAdmin
+        .from("messages")
+        .select("id, sender, kind, body, audio_url, created_at, external_id")
+        .eq("workspace_id", context.workspaceId)
+        .eq("conversation_id", data.conversationId)
+        .order("created_at", { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (error) throw new Error(error.message);
+      allRows.push(...(page || []));
+      if (!page || page.length < pageSize) break;
+    }
+
+    return allRows;
   });
 
 // Manual send from the Conversas screen.

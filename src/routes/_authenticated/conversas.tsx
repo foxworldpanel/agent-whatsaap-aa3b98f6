@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, RefreshCw, Ban, ShieldCheck, Search, X } from "lucide-react";
+import { Send, Trash2, RefreshCw, Ban, ShieldCheck, Search, X, Copy, BrainCircuit } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -36,6 +36,18 @@ type Conv = {
   auto_paused_at?: string | null;
   internal_note?: string | null;
   is_test?: boolean;
+  lead_intelligence?: {
+    temperature?: "frio" | "morno" | "quente" | string;
+    confidence?: string;
+    intent?: string;
+    stage?: string;
+    purchase_probability?: number;
+    sentiment?: string;
+    urgency?: string;
+    recommended_action?: string;
+    reasoning?: string;
+    updated_at?: string;
+  } | null;
   contact: {
     id: string;
     nome: string;
@@ -81,6 +93,17 @@ function formatTime(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
   return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function initials(name: string): string {
@@ -187,6 +210,52 @@ function Conversas() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [activeId, msgsQ.data?.length]);
+
+  const copyFullConversation = async () => {
+    if (!active) return;
+    const messages = (msgsQ.data ?? []) as Array<{
+      sender: string;
+      kind: string;
+      body: string;
+      created_at: string;
+    }>;
+
+    const header = [
+      `Conversa: ${active.contact?.nome ?? "Sem nome"}`,
+      `Telefone: ${active.contact?.telefone ?? "—"}`,
+      `Mensagens: ${messages.length}`,
+      "",
+    ];
+
+    const lines = messages.map((m) => {
+      const who = m.sender === "agente" ? "Mind Global" : (active.contact?.nome || active.contact?.telefone || "Cliente");
+      const media =
+        m.kind === "audio"
+          ? " [ÁUDIO / TRANSCRIÇÃO]"
+          : m.kind === "image"
+            ? " [IMAGEM]"
+            : "";
+      return `[${formatDateTime(m.created_at)}] ${who}${media}: ${m.body || ""}`;
+    });
+
+    const intelligence = active.lead_intelligence;
+    const intelligenceLines = intelligence
+      ? [
+          "",
+          "--- Lead Intelligence ---",
+          `Temperatura: ${intelligence.temperature ?? "—"}`,
+          `Confiança: ${intelligence.confidence ?? "—"}`,
+          `Intenção: ${intelligence.intent ?? "—"}`,
+          `Estágio: ${intelligence.stage ?? "—"}`,
+          `Probabilidade de Compra: ${Math.max(0, Math.min(100, Number(intelligence.purchase_probability ?? 0)))}%`,
+          `Sentimento: ${intelligence.sentiment ?? "—"}`,
+          `Urgência: ${intelligence.urgency ?? "—"}`,
+        ]
+      : [];
+
+    await navigator.clipboard.writeText([...header, ...lines, ...intelligenceLines].join("\n"));
+    toast.success("Conversa completa copiada.");
+  };
 
   const [text, setText] = useState("");
   const sendMut = useMutation({
@@ -324,11 +393,22 @@ function Conversas() {
     onSuccess: (res: any) => {
       setLastSyncAt(new Date());
       setSyncStatus("live");
-      if (res?.inserted > 0) {
-        toast.success(`${res.inserted} nova(s) mensagem(ns) sincronizada(s)`);
-        qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, activeId] });
-        qc.invalidateQueries({ queryKey: ["conversations"] });
-      }
+
+      qc.invalidateQueries({ queryKey: ["messages", activeWorkspaceId, activeId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+
+      const parts = [
+        res?.createdConversations ? `${res.createdConversations} conversa(s) nova(s)` : null,
+        res?.inserted ? `${res.inserted} mensagem(ns)` : null,
+        res?.photosUpdated ? `${res.photosUpdated} foto(s)` : null,
+      ].filter(Boolean);
+
+      toast.success(
+        parts.length > 0
+          ? `Sincronização concluída: ${parts.join(", ")}.`
+          : "WhatsApp já está sincronizado.",
+      );
     },
     onError: () => {
       setSyncStatus("error");
@@ -443,7 +523,7 @@ function Conversas() {
             onClick={() => syncMut.mutate()}
             disabled={syncMut.isPending}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-60"
-            title="Busca mensagens recentes da Uazapi (inclui mensagens enviadas pelo celular)"
+            title="Sincroniza chats, fotos e histórico do WhatsApp para auditoria"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${syncMut.isPending ? "animate-spin" : ""}`} />
             {syncMut.isPending ? "Sincronizando…" : "Sincronizar"}
@@ -665,6 +745,18 @@ function Conversas() {
               {active && (
                 <button
                   type="button"
+                  onClick={() => void copyFullConversation()}
+                  disabled={msgsQ.isLoading}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50 disabled:opacity-50"
+                  title="Copiar toda a conversa com transcrições dos áudios"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copiar conversa
+                </button>
+              )}
+              {active && (
+                <button
+                  type="button"
                   onClick={() => {
                     const shouldEnable = !active.agent_enabled || activeBlocked;
                     if (shouldEnable) {
@@ -748,6 +840,71 @@ function Conversas() {
             </div>
           </header>
 
+          {active && (
+            <div className="border-b border-neutral-200 bg-white px-4 py-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <BrainCircuit className="h-4 w-4 text-primary" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-700">
+                    Lead Intelligence
+                  </h3>
+                </div>
+                {active.lead_intelligence?.updated_at && (
+                  <span className="text-[10px] text-neutral-400">
+                    Atualizado {formatDateTime(active.lead_intelligence.updated_at)}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+                {[
+                  ["Temperatura", active.lead_intelligence?.temperature ?? "—"],
+                  ["Confiança", active.lead_intelligence?.confidence ?? "—"],
+                  ["Intenção", active.lead_intelligence?.intent ?? "—"],
+                  ["Estágio", active.lead_intelligence?.stage ?? "—"],
+                  ["Sentimento", active.lead_intelligence?.sentiment ?? "—"],
+                  ["Urgência", active.lead_intelligence?.urgency ?? "—"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-400">{label}</p>
+                    <p className="mt-0.5 truncate text-xs font-semibold text-neutral-800">{value}</p>
+                  </div>
+                ))}
+
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-2">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-400">
+                    Probabilidade de Compra
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{
+                          width: `${Math.max(
+                            0,
+                            Math.min(100, Number(active.lead_intelligence?.purchase_probability ?? 0)),
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-neutral-800">
+                      {Math.max(
+                        0,
+                        Math.min(100, Number(active.lead_intelligence?.purchase_probability ?? 0)),
+                      )}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {!active.lead_intelligence && (
+                <p className="mt-2 text-[11px] text-neutral-400">
+                  A inteligência aparecerá após o Agent V3 processar uma mensagem desta conversa.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-6 py-5">
             {!active && (
               <p className="text-sm text-neutral-500">Nada selecionado.</p>
@@ -798,8 +955,15 @@ function Conversas() {
                         className="mb-2 w-64 max-w-full"
                       />
                     )}
+                    {m.kind === "audio" && (
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                        Áudio · transcrição
+                      </p>
+                    )}
                     <p className="whitespace-pre-wrap leading-snug">
-                      {hasAudio && m.body === "[áudio recebido]" ? "Áudio recebido" : m.body}
+                      {m.body === "[áudio recebido]"
+                        ? "Áudio recebido — aguardando transcrição."
+                        : m.body}
                     </p>
                     <p className="mt-1 text-right text-[10px] text-neutral-500">
                       {formatTime(m.created_at)}

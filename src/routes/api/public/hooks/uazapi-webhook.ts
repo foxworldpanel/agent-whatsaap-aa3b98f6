@@ -623,11 +623,37 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           whatsapp_number_id: num.id,
           nome: msgLocal.sender?.split("@")[0] || phoneStr,
         }, { onConflict: "user_id,telefone" })
-        .select("id")
+        .select("id, photo_url")
         .single();
 
       if (contactErr) throw contactErr;
       if (contact?.id) contactId = contact.id;
+
+      // Hidrata a foto real do WhatsApp quando o contato ainda não possui uma.
+      // O menu Conversas usa contacts.photo_url; sem este passo o avatar ficava
+      // eternamente nas iniciais para contatos criados diretamente pelo webhook.
+      if (contact?.id && !contact.photo_url && !msgLocal.fromMe) {
+        try {
+          const { uazapiGetProfilePic } = await import("@/lib/uazapi.server");
+          const profilePic = await uazapiGetProfilePic(
+            {
+              uazapi_url: num.uazapi_url ?? "",
+              uazapi_token: instanceToken,
+            },
+            phoneStr,
+          );
+
+          if (profilePic) {
+            await supabaseAdmin
+              .from("contacts")
+              .update({ photo_url: profilePic })
+              .eq("id", contact.id)
+              .eq("workspace_id", num.workspace_id);
+          }
+        } catch (profilePicErr) {
+          console.warn("[UAZ-WEBHOOK] Não foi possível atualizar foto do contato:", profilePicErr);
+        }
+      }
 
       // Resolve Conversation sem depender do nome exato de uma constraint UNIQUE.
       // Produção já passou por várias migrations (contact_id, user_id+contact_id,
