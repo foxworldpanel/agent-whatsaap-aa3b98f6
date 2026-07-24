@@ -231,6 +231,18 @@ type WelcomeFunnelRow = {
   sort_order: number;
 };
 
+const WELCOME_FUNNEL_REPEAT_TEST_PHONES = new Set([
+  "5511970116430",
+]);
+
+function normalizeFunnelPhone(value: string): string {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function canRepeatWelcomeFunnelForTest(phone: string): boolean {
+  return WELCOME_FUNNEL_REPEAT_TEST_PHONES.has(normalizeFunnelPhone(phone));
+}
+
 function normalizeFunnelText(value: string): string {
   return String(value || "")
     .normalize("NFD")
@@ -638,6 +650,35 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         if (existingRunErr) {
           console.error("[WELCOME-FUNNEL] Falha ao verificar histórico do funil:", existingRunErr);
           return new Response("ok (funnel history unavailable)");
+        }
+
+        const repeatForTest = canRepeatWelcomeFunnelForTest(phoneStr);
+
+        // Clientes normais recebem o funil uma única vez.
+        // O número pessoal de teste pode repetir o mesmo funil indefinidamente:
+        // cada novo gatilho transforma o run completed em failed temporariamente,
+        // permitindo que o fluxo de claim/retry existente execute novamente.
+        if (repeatForTest && existingRun?.status === "completed") {
+          const { error: resetTestRunErr } = await (supabaseAdmin as any)
+            .from("welcome_funnel_runs")
+            .update({
+              status: "failed",
+              completed_at: null,
+              error_message: "reset automático para número de teste",
+              last_step: null,
+              last_step_index: 0,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("funnel_id", matchingFunnel.id)
+            .eq("contact_id", contactId)
+            .eq("status", "completed");
+
+          if (resetTestRunErr) {
+            console.error("[WELCOME-FUNNEL] Falha ao resetar run do número de teste:", resetTestRunErr);
+            return new Response("ok (test funnel reset failed)");
+          }
+
+          existingRun.status = "failed";
         }
 
         if (!existingRun || existingRun.status === "failed") {
