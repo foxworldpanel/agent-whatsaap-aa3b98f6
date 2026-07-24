@@ -265,16 +265,6 @@ export async function uazapiDownloadMedia(
       transcribe,
       ...(openaiKey ? { openai_apikey: openaiKey } : {}),
     },
-    {
-      messageId,
-      transcribe,
-      ...(openaiKey ? { openai_apikey: openaiKey } : {}),
-    },
-    {
-      messageid: messageId,
-      transcribe,
-      ...(openaiKey ? { openai_apikey: openaiKey } : {}),
-    },
   ];
 
   let lastStatus = 0;
@@ -310,36 +300,41 @@ export async function uazapiDownloadMedia(
     );
   }
 
-  const findString = (
+  const findStringByKeys = (
     value: unknown,
     wantedKeys: string[],
     depth = 0,
   ): string | null => {
-    if (depth > 5 || value == null) return null;
-
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      return trimmed || null;
-    }
+    if (depth > 6 || value == null) return null;
 
     if (Array.isArray(value)) {
       for (const item of value) {
-        const found = findString(item, wantedKeys, depth + 1);
+        const found = findStringByKeys(item, wantedKeys, depth + 1);
         if (found) return found;
       }
       return null;
     }
 
-    if (typeof value === "object") {
-      const obj = value as Record<string, unknown>;
-      for (const key of wantedKeys) {
-        if (key in obj) {
-          const found = findString(obj[key], wantedKeys, depth + 1);
-          if (found) return found;
-        }
+    if (typeof value !== "object") return null;
+
+    const obj = value as Record<string, unknown>;
+
+    for (const key of wantedKeys) {
+      const candidate = obj[key];
+      if (typeof candidate === "string" && candidate.trim()) {
+        return candidate.trim();
       }
-      for (const nested of Object.values(obj)) {
-        const found = findString(nested, wantedKeys, depth + 1);
+      if (candidate && typeof candidate === "object") {
+        const nestedCandidate = findStringByKeys(candidate, wantedKeys, depth + 1);
+        if (nestedCandidate) return nestedCandidate;
+      }
+    }
+
+    // Descemos nos objetos apenas para procurar AS MESMAS CHAVES.
+    // Nunca tratamos uma string arbitrária (id, status, type...) como transcrição.
+    for (const nested of Object.values(obj)) {
+      if (nested && typeof nested === "object") {
+        const found = findStringByKeys(nested, wantedKeys, depth + 1);
         if (found) return found;
       }
     }
@@ -347,19 +342,19 @@ export async function uazapiDownloadMedia(
     return null;
   };
 
-  const urlCandidate = findString(payload, [
+  const urlCandidate = findStringByKeys(payload, [
     "fileURL", "fileUrl", "mediaUrl", "mediaURL", "downloadUrl", "downloadURL", "url",
   ]);
 
-  const base64Candidate = findString(payload, [
-    "base64", "fileBase64", "mediaBase64", "data", "file",
+  const base64Candidate = findStringByKeys(payload, [
+    "base64", "fileBase64", "mediaBase64", "fileData", "data", "file",
   ]);
 
-  const mimetype = findString(payload, [
-    "mimetype", "mimeType", "mime", "contentType", "type",
+  const mimetype = findStringByKeys(payload, [
+    "mimetype", "mimeType", "mime", "contentType",
   ]);
 
-  const transcription = findString(payload, [
+  const transcription = findStringByKeys(payload, [
     "transcription", "transcript", "text",
   ]);
 
@@ -386,6 +381,7 @@ export async function uazapiDownloadMedia(
     hasFileData: !!fileData,
     mimetype,
     hasTranscription: !!transcription,
+    responseKeys: Object.keys(payload).slice(0, 20),
   });
 
   return {

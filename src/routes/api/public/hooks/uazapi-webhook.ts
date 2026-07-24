@@ -109,6 +109,9 @@ type UazapiPayload = {
     messageid?: string;
     messageId?: string;
     id?: string;
+    key_id?: string;
+    wa_messageid?: string;
+    key?: { id?: string };
     fromMe?: boolean;
     type?: string;
     messageType?: string;
@@ -246,7 +249,23 @@ function extractContent(p: UazapiPayload): { text: string; kind: "texto" | "audi
 
 function extractMessageId(p: UazapiPayload): string | null {
   const m = p.message ?? p.data ?? {};
-  return m.messageid ?? m.messageId ?? m.id ?? null;
+
+  const candidates = [
+    m.messageid,
+    m.messageId,
+    m.id,
+    m.key_id,
+    m.wa_messageid,
+    m.key?.id,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
 }
 
 function buildFallbackMessageId(phone: string, content: string): string {
@@ -963,12 +982,89 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Caminho principal: a própria Uazapi baixa/descriptografa a mídia e
           // pede ao Whisper a transcrição. Isso evita depender de mediaUrl temporária
           // ou de campos diferentes entre versões do webhook.
-          const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
-          const downloaded = await uazapiDownloadMedia(
-            creds,
+          const { uazapiDownloadMedia, uazapiListMessages } = await import("@/lib/uazapi.server");
+
+          console.log("[AUDIO-V3] Identificador usado para download", {
             msgId,
-            openaiApiKey,
-          );
+            isFallbackId: msgId.startsWith("fb:"),
+          });
+
+          let downloaded:
+            | Awaited<ReturnType<typeof uazapiDownloadMedia>>
+            | null = null;
+          let downloadMessageId = msgId;
+
+          try {
+            downloaded = await uazapiDownloadMedia(
+              creds,
+              downloadMessageId,
+              openaiApiKey,
+            );
+
+            // Algumas versões retornam HTTP 200 mesmo quando o ID não resolveu
+            // uma mídia útil. Isso também deve acionar a recuperação do ID real.
+            if (
+              !downloaded.transcription &&
+              !downloaded.fileURL &&
+              !downloaded.fileData
+            ) {
+              throw new Error(
+                "Uazapi respondeu 200, mas sem transcrição ou arquivo para este messageId",
+              );
+            }
+          } catch (primaryDownloadErr) {
+            console.warn(
+              "[AUDIO-V3] Download pelo ID do webhook falhou/vazio; buscando ID real nas mensagens recentes:",
+              primaryDownloadErr,
+            );
+
+            // Recuperação: consulta as mensagens reais da conversa na Uazapi.
+            // Isso cobre payloads onde o webhook usa key_id/wa_messageid/nested key
+            // ou quando algum proxy remove o identificador original.
+            const recentMessages = await uazapiListMessages(creds, phoneStr, 20);
+            const recentInboundAudio = recentMessages.find((row) => {
+              const kind = String(row.type || "").toLowerCase();
+              return (
+                !row.from_me &&
+                (kind.includes("audio") ||
+                  kind.includes("ptt") ||
+                  kind.includes("voice"))
+              );
+            });
+
+            if (!recentInboundAudio?.external_id) {
+              throw new Error(
+                `Não foi possível recuperar o ID real do áudio. Erro original: ${
+                  primaryDownloadErr instanceof Error
+                    ? primaryDownloadErr.message
+                    : String(primaryDownloadErr)
+                }`,
+              );
+            }
+
+            downloadMessageId = recentInboundAudio.external_id;
+            console.log("[AUDIO-V3] ID real recuperado via /message/find", {
+              webhookMsgId: msgId,
+              recoveredMsgId: downloadMessageId,
+              type: recentInboundAudio.type,
+            });
+
+            downloaded = await uazapiDownloadMedia(
+              creds,
+              downloadMessageId,
+              openaiApiKey,
+            );
+
+            if (
+              !downloaded.transcription &&
+              !downloaded.fileURL &&
+              !downloaded.fileData
+            ) {
+              throw new Error(
+                "Uazapi não retornou transcrição nem arquivo mesmo após recuperar o ID real",
+              );
+            }
+          }
 
           let inboundAudioUrl =
             downloaded.fileURL?.trim() ||
@@ -1073,111 +1169,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
           }
           return new Response("ok (audio transcription failed; flagged for review)");
-        }
-      }
-
-      let resolvedImageSource:
-        | { url?: string; data?: string; mediaType?: string }
-        | undefined;
-
-      if (content.kind === "image") {
-        try {
-          console.log("[IMAGE-V3] 1/3 imagem inbound detectada", {
-            msgId,
-            mime: content.mime || null,
-            webhookMediaUrl: !!content.mediaUrl,
-          });
-
-          const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
-          let imageUrl = content.mediaUrl?.trim() || "";
-          let imageData = "";
-          let imageMime = content.mime?.trim().toLowerCase() || "";
-
-          // Sempre tentamos /message/download porque a mídia do WhatsApp pode vir
-          // criptografada/temporária no webhook. Uazapi resolve a mídia real.
-          try {
-            const downloaded = await uazapiDownloadMedia(creds, msgId);
-            imageUrl = downloaded.fileURL?.trim() || imageUrl;
-            imageData = downloaded.fileData?.trim() || "";
-            imageMime = downloaded.mimetype?.trim().toLowerCase() || imageMime;
-          } catch (downloadErr) {
-            console.warn("[IMAGE-V3] /message/download falhou; tentando mídia do webhook:", downloadErr);
-          }
-
-          const normalizedImageMime =
-            imageMime.includes("png") ? "image/png" :
-            imageMime.includes("gif") ? "image/gif" :
-            imageMime.includes("webp") ? "image/webp" :
-            "image/jpeg";
-
-          if (imageData) {
-            const dataMatch = imageData.match(/^data:([^;,]+);base64,(.+)$/s);
-            if (!dataMatch) {
-              throw new Error("Imagem base64 recebida em formato inválido");
-            }
-            resolvedImageSource = {
-              data: dataMatch[2],
-              mediaType:
-                /^image\/(jpeg|png|gif|webp)$/i.test(dataMatch[1])
-                  ? dataMatch[1].toLowerCase()
-                  : normalizedImageMime,
-            };
-          } else if (imageUrl && /^https?:\/\//i.test(imageUrl)) {
-            // Preferimos converter para base64 no servidor. URLs temporárias do
-            // WhatsApp/Uazapi podem não ser acessíveis externamente pelo Anthropic.
-            try {
-              const imageResponse = await fetch(imageUrl);
-              if (!imageResponse.ok) {
-                throw new Error(`download HTTP ${imageResponse.status}`);
-              }
-
-              const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-              if (!imageBuffer.length) throw new Error("imagem vazia");
-
-              const responseMime =
-                imageResponse.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ||
-                normalizedImageMime;
-
-              resolvedImageSource = {
-                data: imageBuffer.toString("base64"),
-                mediaType:
-                  /^image\/(jpeg|png|gif|webp)$/i.test(responseMime)
-                    ? responseMime
-                    : normalizedImageMime,
-              };
-            } catch (imageFetchErr) {
-              console.warn("[IMAGE-V3] Não foi possível converter URL para base64; usando URL:", imageFetchErr);
-              resolvedImageSource = {
-                url: imageUrl,
-                mediaType: normalizedImageMime,
-              };
-            }
-          }
-
-          if (!resolvedImageSource) {
-            throw new Error("Uazapi não retornou imagem utilizável para o Claude");
-          }
-
-          console.log("[IMAGE-V3] 2/3 mídia visual resolvida", {
-            source: resolvedImageSource.data ? "base64" : "url",
-            mediaType: resolvedImageSource.mediaType,
-          });
-
-          if (!finalMsgText.trim() || finalMsgText === "[imagem recebida]") {
-            finalMsgText = "Analise a imagem enviada e responda de acordo com o contexto da conversa.";
-          }
-        } catch (imageErr) {
-          console.error("[IMAGE-V3] Falha ao resolver imagem:", imageErr);
-          if (conversationId) {
-            await supabaseAdmin
-              .from("conversations")
-              .update({
-                needs_review: true,
-                review_reason: "falha ao carregar imagem para análise visual",
-              })
-              .eq("id", conversationId);
-          }
-          return new Response("ok (image unavailable; flagged for review)");
         }
       }
 
@@ -1293,19 +1284,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
         inputKind: content.kind,
-        imageSource: resolvedImageSource,
         messageId: msgId
       });
 
       const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
       const replyText = replyParts.join("\n\n");
-
-      if (content.kind === "image") {
-        console.log("[IMAGE-V3] 3/3 Sonnet 5 concluiu análise visual", {
-          chars: replyText.length,
-          model: v3Response.usage.model,
-        });
-      }
 
       if (content.kind === "audio") {
         console.log("[AUDIO-V3] 3/5 Claude concluiu resposta", {

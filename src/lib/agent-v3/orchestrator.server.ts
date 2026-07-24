@@ -28,11 +28,6 @@ export interface OrchestratorInput {
   extraContext?: string;
   isInbound?: boolean;
   inputKind?: "texto" | "audio" | "image" | "sticker";
-  imageSource?: {
-    url?: string;
-    data?: string;
-    mediaType?: string;
-  };
   messageId?: string; // Para telemetria
   workspaceId?: string;
   conversationId?: string;
@@ -120,7 +115,6 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     anthropicApiKey,
     extraContext,
     inputKind,
-    imageSource,
     messageId,
     workspaceId: inputWorkspaceId,
     conversationId,
@@ -317,13 +311,7 @@ REGRA GERAL DE PAGAMENTO E LINK:
 - Depois que o cliente demonstrar intenção clara de pagamento, não volte para etapas anteriores de qualificação.
 
 ${isAudioInput ? `MODO ÁUDIO: O cliente enviou áudio. Responda de forma curta, natural e adequada para ser narrada em áudio. Se o áudio estiver ininteligível, peça para enviar novamente ou escrever.` : ""}
-${isImageInput ? `MODO VISÃO:
-- O cliente enviou uma imagem REAL que está anexada nesta mesma mensagem para análise visual.
-- Analise a imagem diretamente antes de responder.
-- Não diga que não consegue ver a imagem.
-- Se houver texto legível, erro, tela, comprovante, pedido, perfil, postagem ou interface, use o conteúdo visual para responder à dúvida do cliente.
-- Não invente detalhes que não estejam visíveis.
-- Seja curto e natural; só descreva a imagem inteira se o cliente pedir.` : ""}
+${isImageInput ? `IMAGEM: Se o cliente mandou imagem, avise que não consegue ver no momento e peça para descrever.` : ""}
 ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}`,
       cache_control: { type: "ephemeral" }
     },
@@ -362,39 +350,6 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       : "empty";
   const message_chars = message.length;
 
-  const currentUserContent: unknown =
-    isImageInput && imageSource
-      ? [
-          imageSource.data
-            ? {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: imageSource.mediaType || "image/jpeg",
-                  data: imageSource.data,
-                },
-              }
-            : {
-                type: "image",
-                source: {
-                  type: "url",
-                  url: imageSource.url,
-                },
-              },
-          {
-            type: "text",
-            text:
-              message && message !== "[imagem recebida]"
-                ? message
-                : "Analise a imagem enviada e responda de forma útil de acordo com o contexto da conversa.",
-          },
-        ]
-      : message;
-
-  // Visão usa Sonnet 5 deliberadamente. Texto/áudio permanecem no Haiku para
-  // preservar o custo do atendimento normal.
-  const model = isImageInput ? "claude-sonnet-5" : "claude-haiku-4-5";
-
   const startLlm = Date.now();
   const llmResult = await callAnthropicV3({
     apiKey:
@@ -406,9 +361,9 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         role: m.role === "agent" ? "assistant" : "user",
         content: m.content,
       })),
-      { role: "user", content: currentUserContent },
+      { role: "user", content: message },
     ],
-    model,
+    model: "claude-haiku-4-5",
     metadata: {
       message_id: messageId,
       call_number: 1,
@@ -434,15 +389,10 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   const cache_creation_input_tokens = usageRaw.cache_creation_input_tokens || 0;
   const cache_read_input_tokens = usageRaw.cache_read_input_tokens || 0;
 
-  const pricing =
-    model === "claude-sonnet-5"
-      ? { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.2 }
-      : { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 };
-
-  const input_usd = (input_tokens * pricing.input) / 1_000_000;
-  const output_usd = (output_tokens * pricing.output) / 1_000_000;
-  const cache_write_usd = (cache_creation_input_tokens * pricing.cacheWrite) / 1_000_000;
-  const cache_read_usd = (cache_read_input_tokens * pricing.cacheRead) / 1_000_000;
+  const input_usd = (input_tokens * 1) / 1_000_000;
+  const output_usd = (output_tokens * 5) / 1_000_000;
+  const cache_write_usd = (cache_creation_input_tokens * 1.25) / 1_000_000;
+  const cache_read_usd = (cache_read_input_tokens * 0.1) / 1_000_000;
   const cache_usd = cache_write_usd + cache_read_usd;
   const total_usd = input_usd + output_usd + cache_usd;
 
@@ -556,7 +506,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       // humanity, clarity etc are derived from feedback or expanded in extractor later
     },
     usage: {
-      model,
+      model: "claude-haiku-4-5",
       request_id: llmResult.request_id || "unknown", // Adjust if llmResult has it differently
       input_tokens,
       output_tokens,
