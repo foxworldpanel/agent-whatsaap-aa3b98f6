@@ -1076,6 +1076,111 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
 
+      let resolvedImageSource:
+        | { url?: string; data?: string; mediaType?: string }
+        | undefined;
+
+      if (content.kind === "image") {
+        try {
+          console.log("[IMAGE-V3] 1/3 imagem inbound detectada", {
+            msgId,
+            mime: content.mime || null,
+            webhookMediaUrl: !!content.mediaUrl,
+          });
+
+          const { uazapiDownloadMedia } = await import("@/lib/uazapi.server");
+          let imageUrl = content.mediaUrl?.trim() || "";
+          let imageData = "";
+          let imageMime = content.mime?.trim().toLowerCase() || "";
+
+          // Sempre tentamos /message/download porque a mídia do WhatsApp pode vir
+          // criptografada/temporária no webhook. Uazapi resolve a mídia real.
+          try {
+            const downloaded = await uazapiDownloadMedia(creds, msgId);
+            imageUrl = downloaded.fileURL?.trim() || imageUrl;
+            imageData = downloaded.fileData?.trim() || "";
+            imageMime = downloaded.mimetype?.trim().toLowerCase() || imageMime;
+          } catch (downloadErr) {
+            console.warn("[IMAGE-V3] /message/download falhou; tentando mídia do webhook:", downloadErr);
+          }
+
+          const normalizedImageMime =
+            imageMime.includes("png") ? "image/png" :
+            imageMime.includes("gif") ? "image/gif" :
+            imageMime.includes("webp") ? "image/webp" :
+            "image/jpeg";
+
+          if (imageData) {
+            const dataMatch = imageData.match(/^data:([^;,]+);base64,(.+)$/s);
+            if (!dataMatch) {
+              throw new Error("Imagem base64 recebida em formato inválido");
+            }
+            resolvedImageSource = {
+              data: dataMatch[2],
+              mediaType:
+                /^image\/(jpeg|png|gif|webp)$/i.test(dataMatch[1])
+                  ? dataMatch[1].toLowerCase()
+                  : normalizedImageMime,
+            };
+          } else if (imageUrl && /^https?:\/\//i.test(imageUrl)) {
+            // Preferimos converter para base64 no servidor. URLs temporárias do
+            // WhatsApp/Uazapi podem não ser acessíveis externamente pelo Anthropic.
+            try {
+              const imageResponse = await fetch(imageUrl);
+              if (!imageResponse.ok) {
+                throw new Error(`download HTTP ${imageResponse.status}`);
+              }
+
+              const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
+              if (!imageBuffer.length) throw new Error("imagem vazia");
+
+              const responseMime =
+                imageResponse.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ||
+                normalizedImageMime;
+
+              resolvedImageSource = {
+                data: imageBuffer.toString("base64"),
+                mediaType:
+                  /^image\/(jpeg|png|gif|webp)$/i.test(responseMime)
+                    ? responseMime
+                    : normalizedImageMime,
+              };
+            } catch (imageFetchErr) {
+              console.warn("[IMAGE-V3] Não foi possível converter URL para base64; usando URL:", imageFetchErr);
+              resolvedImageSource = {
+                url: imageUrl,
+                mediaType: normalizedImageMime,
+              };
+            }
+          }
+
+          if (!resolvedImageSource) {
+            throw new Error("Uazapi não retornou imagem utilizável para o Claude");
+          }
+
+          console.log("[IMAGE-V3] 2/3 mídia visual resolvida", {
+            source: resolvedImageSource.data ? "base64" : "url",
+            mediaType: resolvedImageSource.mediaType,
+          });
+
+          if (!finalMsgText.trim() || finalMsgText === "[imagem recebida]") {
+            finalMsgText = "Analise a imagem enviada e responda de acordo com o contexto da conversa.";
+          }
+        } catch (imageErr) {
+          console.error("[IMAGE-V3] Falha ao resolver imagem:", imageErr);
+          if (conversationId) {
+            await supabaseAdmin
+              .from("conversations")
+              .update({
+                needs_review: true,
+                review_reason: "falha ao carregar imagem para análise visual",
+              })
+              .eq("id", conversationId);
+          }
+          return new Response("ok (image unavailable; flagged for review)");
+        }
+      }
+
       if (!finalMsgText.trim()) {
         return new Response("ok (empty content)");
       }
@@ -1188,11 +1293,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
         inputKind: content.kind,
+        imageSource: resolvedImageSource,
         messageId: msgId
       });
 
       const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
       const replyText = replyParts.join("\n\n");
+
+      if (content.kind === "image") {
+        console.log("[IMAGE-V3] 3/3 Sonnet 5 concluiu análise visual", {
+          chars: replyText.length,
+          model: v3Response.usage.model,
+        });
+      }
 
       if (content.kind === "audio") {
         console.log("[AUDIO-V3] 3/5 Claude concluiu resposta", {
