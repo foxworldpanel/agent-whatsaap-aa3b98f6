@@ -46,6 +46,7 @@ export type ConversationContext = {
   hasPaidSignal: boolean;
   hasSupportSignal: boolean;
   hasPurchaseSignal: boolean;
+  hasGrowthGoal: boolean;
   confidence: number;
 };
 
@@ -280,6 +281,10 @@ export function detectConversationContext(
   const hasSecuritySignal =
     containsAny(normalizedText, KEYWORD_MAP.seguranca) ||
     containsAny(normalizedText, ["vai cair", "pode cair", "tem risco"]);
+  const hasGrowthGoal = containsAny(normalizedText, [
+    "engajar", "engajamento", "divulgar minha musica", "divulgar a musica",
+    "crescer minha musica", "mais alcance", "dar visibilidade", "promover minha musica"
+  ]);
 
   let intent: ConversationContext["intent"] = "desconhecido";
   let stage: ConversationContext["stage"] = history.length === 0 ? "inicio" : "qualificacao";
@@ -302,6 +307,11 @@ export function detectConversationContext(
     // Ex.: "quero pagar" / "manda o pix" já são fechamento, não nova qualificação.
     intent = "pagamento";
     stage = "fechamento";
+  } else if (hasGrowthGoal) {
+    // O cliente informou o objetivo, não necessariamente sabe qual SKU comprar.
+    // A Júlia deve assumir papel consultivo em vez de devolver outro menu.
+    intent = "descoberta";
+    stage = "apresentacao";
   } else if (hasPurchaseSignal) {
     intent = "compra";
     stage = hasQuantity || product ? "fechamento" : "negociacao";
@@ -357,6 +367,7 @@ export function detectConversationContext(
     hasPaidSignal,
     hasSupportSignal,
     hasPurchaseSignal,
+    hasGrowthGoal,
     confidence,
   };
 }

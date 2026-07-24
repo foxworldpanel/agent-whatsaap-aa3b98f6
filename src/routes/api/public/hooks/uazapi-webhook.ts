@@ -1601,11 +1601,33 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         workspaceId,
       );
 
+      // Agrupa rajadas curtas do mesmo cliente (ex.: "Inscritos" + "E comentário").
+      // Isso evita responder à primeira metade como se ela fosse a intenção completa.
+      let effectiveAgentMessage = finalMsgText;
+      if (conversationId && content.kind === "texto") {
+        const burstSince = new Date(Date.now() - 12_000).toISOString();
+        const { data: burstRows } = await supabaseAdmin
+          .from("messages")
+          .select("body, created_at")
+          .eq("conversation_id", conversationId)
+          .eq("sender", "cliente")
+          .gte("created_at", burstSince)
+          .order("created_at", { ascending: true })
+          .limit(4);
+
+        const burstBodies = (burstRows || [])
+          .map((row: any) => String(row?.body || "").trim())
+          .filter(Boolean);
+        if (burstBodies.length > 1) {
+          effectiveAgentMessage = burstBodies.join("\n");
+        }
+      }
+
       const { shouldStaySilentForNaturalConversation } = await import(
         "@/lib/agent-v3/brain/guards.server"
       );
       const naturalSilence = shouldStaySilentForNaturalConversation({
-        message: finalMsgText,
+        message: effectiveAgentMessage,
         history: history.map((item) => ({
           sender: item.role === "agent" ? "agente" : "cliente",
           body: item.content,
@@ -1622,7 +1644,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         workspaceId,
         conversationId: conversationId ?? undefined,
         phone: phoneStr,
-        message: finalMsgText,
+        message: effectiveAgentMessage,
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
@@ -1797,6 +1819,25 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .map((item) => item.content)
           .slice(-3);
         const deliveredParts: string[] = [];
+
+        // Se outra mensagem do cliente chegou enquanto esta resposta estava sendo
+        // preparada/humanizada, não envia uma resposta obsoleta para a metade anterior.
+        if (conversationId && content.kind === "texto") {
+          const { data: latestInbound } = await supabaseAdmin
+            .from("messages")
+            .select("body, created_at")
+            .eq("conversation_id", conversationId)
+            .eq("sender", "cliente")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const latestBody = String((latestInbound as any)?.body || "").trim();
+          if (latestBody && latestBody !== finalMsgText.trim() && !effectiveAgentMessage.endsWith(latestBody)) {
+            console.log("[AGENT-V3] Resposta antiga suprimida: cliente enviou complemento");
+            return new Response("ok (superseded by newer customer message)");
+          }
+        }
 
         // O orchestrator já separa respostas longas/parágrafos em partes próprias.
         // Enviar o join() como uma única mensagem anulava completamente o splitter.

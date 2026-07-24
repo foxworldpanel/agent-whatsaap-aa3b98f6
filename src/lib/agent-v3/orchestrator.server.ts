@@ -337,6 +337,20 @@ NATURALIDADE CONVERSACIONAL — PRIORIDADE ALTA:
 - Prefira "Beleza. 1.000 fica R$ 15." a "Ótimo! Nosso serviço de 1.000 plays sai por R$ 15,00."
 - Nunca force simpatia. Ser humano aqui significa ser contextual, breve e útil.
 
+ATENDIMENTO CONSULTIVO — ENTENDA O OBJETIVO:
+- Nem todo cliente conhece o nome do serviço certo. Quando ele disser o objetivo (ex.: "quero engajar minha música", "quero mais alcance", "quero divulgar"), NÃO devolva um catálogo nem pergunte novamente "qual serviço?".
+- Recomende de forma curta os serviços mais coerentes ENTRE OS MÓDULOS CARREGADOS. Ex.: no YouTube, engajamento pode envolver visualizações, curtidas e comentários quando esses serviços estiverem disponíveis no contexto.
+- Explique a recomendação em linguagem simples, sem prometer resultado algorítmico garantido.
+- Se houver mais de uma plataforma em jogo, reconheça isso e conduza uma por vez: "Podemos trabalhar os dois. Quer começar pelo YouTube ou Spotify?"
+- Se o cliente disser duas coisas em mensagens próximas, como "Inscritos" e depois "E comentário", trate como complemento da mesma intenção, não como assuntos isolados.
+- Quando o cliente corrigir "não é isso" e explicar o objetivo, abandone imediatamente a trilha anterior e responda ao objetivo novo. Não ofereça novamente a mesma lista que ele acabou de rejeitar.
+
+QUEBRA NATURAL DE EXPLICAÇÕES:
+- Respostas normais continuam em 1–2 frases curtas.
+- Se uma explicação realmente precisar ficar maior, divida em DUAS mensagens curtas usando exatamente ===SPLIT=== entre elas.
+- Cada parte deve parecer uma mensagem humana independente; não faça blocos longos nem quebre uma frase no meio.
+- Não use ===SPLIT=== em respostas simples.
+
 FLUXO COMERCIAL PROGRESSIVO:
 - Conduza a conversa um passo por vez: rede/plataforma → serviço → quantidade → valor → pagamento/painel.
 - Se o cliente disser apenas que tem interesse, descubra primeiro a rede/plataforma. Não despeje tabela, preços ou catálogo.
@@ -557,6 +571,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
 
   let purchase_probability = 20;
   if (selectionContext.intent === "consulta_preco") purchase_probability = 50;
+  if (selectionContext.hasGrowthGoal) purchase_probability = Math.max(purchase_probability, 45);
   if (selectionContext.intent === "compra") purchase_probability = selectionContext.hasQuantity ? 80 : 70;
   if (selectionContext.intent === "pagamento") purchase_probability = 90;
   if (selectionContext.hasPaidSignal) purchase_probability = 95;
@@ -608,7 +623,11 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     : /(?:obrigad|valeu|ótimo|otimo|perfeito|show|top)/i.test(normalizedCustomerMessage)
       ? "Positivo"
       : "Neutro";
-  const urgency = selectionContext.hasPaymentSignal || selectionContext.hasPaidSignal ? "Alta" : selectionContext.hasPurchaseSignal ? "Média" : "Baixa";
+  const urgency = selectionContext.hasPaymentSignal || selectionContext.hasPaidSignal
+    ? "Alta"
+    : selectionContext.hasPurchaseSignal || selectionContext.hasGrowthGoal
+      ? "Média"
+      : "Baixa";
   const recommended_action =
     isExistingCustomer
       ? `Atender como cliente existente. Potencial de recompra: ${repurchasePotential || "não definido"}. Não reiniciar qualificação.`
