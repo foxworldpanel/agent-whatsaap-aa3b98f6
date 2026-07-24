@@ -810,7 +810,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (agent gate unavailable)");
     }
 
-    if (!agentConfig || agentConfig.agent_enabled === false) {
+    // Sem registro ainda = comportamento padrão ON, igual ao painel.
+    // Somente `agent_enabled = false` desliga explicitamente o master switch.
+    if (agentConfig?.agent_enabled === false) {
       return new Response("ok (agent disabled globally)");
     }
 
@@ -826,7 +828,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (conversation gate unavailable)");
       }
 
-      if (conversationGate?.agent_enabled === false || conversationGate?.needs_review === true) {
+      // `needs_review` é sinalização para auditoria/atendimento humano, não um
+      // segundo botão invisível. Quem controla resposta automática nesta conversa
+      // é `agent_enabled`. Opt-out e bloqueio manual já gravam agent_enabled=false.
+      if (conversationGate?.agent_enabled === false) {
         return new Response("ok (agent disabled for conversation)");
       }
     }
