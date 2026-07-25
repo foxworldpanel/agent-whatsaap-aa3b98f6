@@ -1089,22 +1089,36 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     purchase_probability = 100;
   }
 
+  if (criticalComplaintSignal) {
+    purchase_probability = Math.min(purchase_probability, 20);
+  }
+
   const temperature: "frio" | "morno" | "quente" =
-    isExistingCustomer
-      ? "quente"
-      : purchase_probability >= 75
+    criticalComplaintSignal
+      ? "frio"
+      : isExistingCustomer
         ? "quente"
-        : purchase_probability >= 40
-          ? "morno"
-          : "frio";
-  const intent = isExistingCustomer
-    ? "Pós-venda"
-    : intentMap[selectionContext.intent] || "Outro";
+        : purchase_probability >= 75
+          ? "quente"
+          : purchase_probability >= 40
+            ? "morno"
+            : "frio";
+  const intent = criticalComplaintSignal
+    ? "Reclamação"
+    : isExistingCustomer
+      ? "Pós-venda"
+      : intentMap[selectionContext.intent] || "Outro";
   const stage = isExistingCustomer
     ? "Pós-venda"
     : stageMap[selectionContext.stage] || "Descoberta";
   const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
-  const sentiment = /(?:problema|erro|golpe|atras|não chegou|nao chegou|reclama|ruim|péssim|pessim)/i.test(normalizedCustomerMessage)
+  const criticalComplaintSignal =
+    /(?:den[úu]ncia|procon|advogad|process|justi[çc]a|bloquead|n[aã]o resolvem|n[aã]o respondem|sem acesso ao suporte|n[aã]o consigo acessar o suporte|perdi quase todos|conta restrita|restri[çc][aã]o)/i.test(
+      normalizedCustomerMessage,
+    );
+
+  const sentiment = criticalComplaintSignal ||
+    /(?:problema|erro|golpe|atras|não chegou|nao chegou|reclama|ruim|péssim|pessim)/i.test(normalizedCustomerMessage)
     ? "Negativo"
     : /(?:obrigad|valeu|ótimo|otimo|perfeito|show|top)/i.test(normalizedCustomerMessage)
       ? "Positivo"
@@ -1115,11 +1129,13 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
   const paymentExplicitlyDeferred = /\b(amanha|mais tarde|depois|outro dia|quando der)\b/.test(recentCustomerJourneyText);
-  const urgency = selectionContext.hasPaymentSignal || selectionContext.hasPaidSignal
-    ? paymentExplicitlyDeferred ? "Média" : "Alta"
-    : selectionContext.hasPurchaseSignal || selectionContext.hasGrowthGoal
-      ? "Média"
-      : "Baixa";
+  const urgency = criticalComplaintSignal
+    ? "Alta"
+    : selectionContext.hasPaymentSignal || selectionContext.hasPaidSignal
+      ? paymentExplicitlyDeferred ? "Média" : "Alta"
+      : selectionContext.hasPurchaseSignal || selectionContext.hasGrowthGoal
+        ? "Média"
+        : "Baixa";
   const recommended_action =
     isExistingCustomer
       ? `Atender como cliente existente. Potencial de recompra: ${repurchasePotential || "não definido"}. Não reiniciar qualificação.`

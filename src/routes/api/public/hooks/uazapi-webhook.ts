@@ -305,6 +305,100 @@ const HUMAN_HANDOFF_PATTERNS = [
   /\bfalar\s+com\s+humano\b/i,
 ];
 
+function normalizeEscalationText(value: string): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function detectCriticalHumanEscalation(params: {
+  supabaseAdmin: any;
+  conversationId?: string | null;
+  currentText: string;
+}): Promise<{ escalate: boolean; reason?: string }> {
+  const { supabaseAdmin, conversationId, currentText } = params;
+
+  let recentCustomerText = "";
+  if (conversationId) {
+    const { data, error } = await supabaseAdmin
+      .from("messages")
+      .select("body, created_at")
+      .eq("conversation_id", conversationId)
+      .eq("sender", "cliente")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.warn("[HUMAN-ESCALATION] Falha ao ler histórico recente:", error);
+    } else {
+      recentCustomerText = (data || [])
+        .map((row: any) => String(row?.body || ""))
+        .reverse()
+        .join(" ");
+    }
+  }
+
+  const current = normalizeEscalationText(currentText);
+  const journey = normalizeEscalationText(`${recentCustomerText} ${currentText}`);
+
+  // Risco jurídico/reputacional: humano imediatamente.
+  const legalRisk =
+    /\b(denuncia|denunciar|procon|advogad[oa]|processo|processar|acao judicial|justica|boletim de ocorrencia|policia|reclamacao formal|chargeback|contestacao do pagamento)\b/.test(journey);
+
+  if (legalRisk) {
+    return {
+      escalate: true,
+      reason: "risco de denúncia, contestação ou escalada jurídica",
+    };
+  }
+
+  const supportUnavailable =
+    /\b(nao consigo (?:abrir|acessar|falar com) (?:o )?suporte|sem acesso (?:ao|a) suporte|suporte (?:esta )?bloqueado|bloquead[oa].{0,45}suporte|nao tenho acesso ao suporte|nao da.{0,30}(?:ticket|suporte)|ticket.{0,30}(?:bloqueado|nao abre|nao funciona)|volta (?:a|para) pagina inicial)\b/.test(journey);
+
+  const unresolvedSupport =
+    /\b(nao resolvem|nao respondem|ninguem responde|ja reclamei|reclamei e|sem solucao|nao solucionaram|continuo com o problema)\b/.test(journey);
+
+  const operationalProblem =
+    /\b(pedido|id\s*:?\s*\d{5,}|seguidores?|plays?|ouvintes?|likes?|visualizacoes?|compra|saldo|credito|reposicao|garantia|caiu|perdi|parado|processando|nao chegou|nao recebi|faltam?|bloquead[oa]|restric|reembolso)\b/.test(journey);
+
+  const severeLossOrBlock =
+    /\b(perdi (?:quase )?todos|ficou (?:com )?menos de|me bloquearam|estou bloquead[oa]|conta bloqueada|restricao na conta)\b/.test(journey);
+
+  // Não escalar uma dúvida simples de suporte. A combinação precisa demonstrar
+  // que o canal normal não está disponível ou que já falhou.
+  if (operationalProblem && supportUnavailable) {
+    return {
+      escalate: true,
+      reason: "problema de pedido/conta com suporte inacessível",
+    };
+  }
+
+  if (operationalProblem && unresolvedSupport && severeLossOrBlock) {
+    return {
+      escalate: true,
+      reason: "reclamação crítica não resolvida",
+    };
+  }
+
+  // O próprio turno já pode conter a combinação completa.
+  const currentHasBlockedSupport =
+    /\b(bloquead[oa]|sem acesso|nao consigo)\b/.test(current) &&
+    /\b(suporte|ticket|reclam)\b/.test(current) &&
+    operationalProblem;
+
+  if (currentHasBlockedSupport) {
+    return {
+      escalate: true,
+      reason: "cliente sem canal funcional para resolver suporte",
+    };
+  }
+
+  return { escalate: false };
+}
+
 function shouldReplyWithAudio(params: {
   inputKind: "texto" | "audio" | "image" | "sticker";
   replyText: string;
@@ -1398,6 +1492,115 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (empty content)");
       }
 
+
+      const criticalEscalation = await detectCriticalHumanEscalation({
+        supabaseAdmin,
+        conversationId,
+        currentText: finalMsgText,
+      });
+
+      if (criticalEscalation.escalate) {
+        const nowIso = new Date().toISOString();
+        const handoffReply =
+          "Entendi. Como seu caso precisa de uma análise mais detalhada, vou pausar por aqui e encaminhar para o setor responsável. Assim que possível, a equipe dará continuidade ao seu atendimento.";
+
+        try {
+          if (conversationId) {
+            const { error: criticalConvErr } = await supabaseAdmin
+              .from("conversations")
+              .update({
+                agent_enabled: false,
+                needs_review: true,
+                review_reason: criticalEscalation.reason || "suporte humano necessário",
+                auto_paused_at: nowIso,
+                status: "aguardando",
+                internal_note:
+                  `Escalação automática para humano. Motivo: ${criticalEscalation.reason || "caso crítico de suporte"}.`,
+              })
+              .eq("id", conversationId);
+
+            if (criticalConvErr) throw criticalConvErr;
+          }
+
+          // Mantém o Lead Intelligence coerente com o handoff crítico.
+          await supabaseAdmin.from("agent_logs").insert({
+            user_id: num.user_id,
+            workspace_id: workspaceId,
+            phone: phoneStr,
+            conversation_id: conversationId,
+            type: "agent_v3_turn",
+            level: "warning",
+            summary: "Agent V3 escalou caso crítico para revisão humana",
+            response: handoffReply,
+            metadata: {
+              human_escalation: true,
+              escalation_reason: criticalEscalation.reason,
+              intelligence: {
+                temperature: "frio",
+                confidence: "Muito alta",
+                intent: "Reclamação",
+                stage: "Pós-venda",
+                purchase_probability: 20,
+                sentiment: "Negativo",
+                urgency: "Alta",
+                recommended_action: "Atendimento humano obrigatório antes de novas tentativas automáticas.",
+                reasoning: criticalEscalation.reason || "Caso crítico de suporte.",
+              },
+            },
+          }).then(({ error }: any) => {
+            if (error) console.warn("[HUMAN-ESCALATION] Falha ao salvar inteligência:", error);
+          });
+
+          const sendResult = await sendAgentTextGuarded(
+            creds,
+            phoneStr,
+            handoffReply,
+            {
+              conversationId: conversationId || undefined,
+              source: "critical_human_escalation",
+            },
+          );
+
+          if (conversationId) {
+            const { error: persistErr } = await supabaseAdmin
+              .from("messages")
+              .insert({
+                conversation_id: conversationId,
+                user_id: num.user_id,
+                workspace_id: workspaceId,
+                sender: "agente",
+                kind: "texto",
+                body: sendResult.transformed,
+              });
+
+            if (persistErr) {
+              console.error("[HUMAN-ESCALATION] Handoff enviado, mas falhou ao persistir:", persistErr);
+            }
+          }
+
+          const { clearConversationStateV3 } = await import(
+            "@/lib/agent-v3/memory/conversation-state.server"
+          );
+          await clearConversationStateV3(
+            num.user_id,
+            phoneStr,
+            workspaceId,
+          ).catch((error) => {
+            console.warn("[HUMAN-ESCALATION] Falha ao limpar memória V3:", error);
+          });
+
+          console.warn("[HUMAN-ESCALATION] Atendimento automático pausado", {
+            conversationId,
+            phone: phoneStr,
+            reason: criticalEscalation.reason,
+          });
+
+          return new Response("ok (critical human escalation)");
+        } catch (criticalErr) {
+          console.error("[HUMAN-ESCALATION] Falha ao escalar conversa:", criticalErr);
+          return new Response("ok (critical escalation failed)");
+        }
+      }
 
       if (isHumanHandoffRequest(finalMsgText)) {
         const handoffReply =
