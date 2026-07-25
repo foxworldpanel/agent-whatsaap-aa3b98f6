@@ -11,7 +11,7 @@ import { getAgentConfig, setAgentGlobalEnabled, countConversationsToReview, coun
 import { toast } from "sonner";
 
 const nav = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/contatos", label: "Contatos", icon: Users },
   { to: "/agente", label: "Agente IA", icon: Bot },
   { to: "/auditoria", label: "Auditoria IA", icon: ShieldCheck },
@@ -20,7 +20,7 @@ const nav = [
   { to: "/conversas", label: "Conversas", icon: MessagesSquare },
   { to: "/numeros", label: "Números", icon: Phone },
   { to: "/teste-gratis", label: "Teste Grátis", icon: Gift },
-  { to: "/logs", label: "Logs", icon: FileText, ShieldCheck },
+  { to: "/logs", label: "Logs", icon: FileText },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 
@@ -108,7 +108,7 @@ export function AppShell() {
         </div>
         <nav className="flex-1 space-y-1 px-3">
           {nav.map((item) => {
-            const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+            const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
             const Icon = item.icon;
             return (
               <Link

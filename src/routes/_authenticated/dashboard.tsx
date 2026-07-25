@@ -27,9 +27,9 @@ function Index() {
   });
 
   const stats = [
-    { label: "Contatos cadastrados", value: data?.totalContacts ?? 0, delta: "total", icon: Users, color: "text-primary" },
-    { label: "Conversas ativas hoje", value: data?.activeConversations ?? 0, delta: `${data?.receivedToday ?? 0} respostas`, icon: MessagesSquare, color: "text-warning" },
-    { label: "Taxa de resposta", value: `${data?.responseRate ?? 0}%`, delta: `${data?.sentToday ?? 0} enviadas hoje`, icon: TrendingUp, color: "text-success" },
+    { label: "Contatos", value: data?.totalContacts ?? 0, delta: "no workspace atual", icon: Users, color: "text-primary" },
+    { label: "Conversas hoje", value: data?.activeConversations ?? 0, delta: `${data?.conversations24h ?? 0} nas últimas 24h`, icon: MessagesSquare, color: "text-warning" },
+    { label: "Taxa de resposta", value: `${data?.responseRate ?? 0}%`, delta: `${data?.receivedToday ?? 0} recebidas hoje`, icon: TrendingUp, color: "text-success" },
     { label: "Convertidos", value: data?.converted ?? 0, delta: "contatos fechados", icon: CheckCircle2, color: "text-success" },
   ];
 
@@ -87,6 +87,29 @@ function Index() {
         ))}
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Módulos V3 ativos</p>
+          <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : data?.activeModules ?? 0}</p>
+          <p className="mt-1 text-xs text-muted-foreground">CMS do workspace</p>
+        </div>
+        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Chamadas IA · 24h</p>
+          <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : data?.agentCalls24h ?? 0}</p>
+          <p className="mt-1 text-xs text-muted-foreground">produção enviada ao cliente</p>
+        </div>
+        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Latência média · 24h</p>
+          <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : `${((data?.avgLatencyMs ?? 0) / 1000).toFixed(1)}s`}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{data?.avgModules ?? 0} módulos/turno</p>
+        </div>
+        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Custo IA · 24h</p>
+          <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : `$${(data?.costs24h?.cost ?? 0).toFixed(4)}`}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{(data?.costs24h?.tokens ?? 0).toLocaleString("pt-BR")} tokens</p>
+        </div>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div
           className="lg:col-span-3 rounded-xl border border-border p-6"
@@ -135,7 +158,7 @@ function Index() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-primary" />
-              <h2 className="font-semibold">Últimos disparos</h2>
+              <h2 className="font-semibold">Atividade recente do agente</h2>
             </div>
             <span className="text-xs text-muted-foreground">atualiza a cada 15s</span>
           </div>
@@ -152,9 +175,9 @@ function Index() {
                   <span className="w-12 text-xs text-muted-foreground tabular-nums">{hora}</span>
                   <span
                     className={`h-2 w-2 rounded-full ${
-                      a.status === "respondido"
+                      a.status === "info"
                         ? "bg-primary"
-                        : a.status === "enviado"
+                        : a.status === "success"
                           ? "bg-success"
                           : "bg-destructive"
                     }`}
