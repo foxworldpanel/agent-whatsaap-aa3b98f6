@@ -217,6 +217,10 @@ export function shouldStaySilentForNaturalConversation(params: {
     return false;
   }
 
+  if (/^(?:ok|okay|beleza|blz|certo|entendi|ta bom|tranquilo|show)[.!]*$/i.test(text)) {
+    return true;
+  }
+
   return [
     /^vou (?:olhar|ver|assistir|conferir|testar)(?: aqui| agora)?(?: como funciona)?(?: no video| o video)?[.!]*$/i,
     /^vou dar uma olhada[.!]*$/i,

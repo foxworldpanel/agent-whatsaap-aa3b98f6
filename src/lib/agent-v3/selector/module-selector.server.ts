@@ -287,8 +287,9 @@ export function detectConversationContext(
   // Jornada acumulada serve para memória/inteligência. A intenção DO TURNO usa
   // os sinais atuais para não deixar uma pergunta antiga de preço/pagamento
   // contaminar todas as mensagens seguintes.
-  const hasQuantity = /\b\d+(?:[.,]\d+)?\s*(?:k|mil)?\b/.test(accumulatedCustomerText);
-  const currentHasQuantity = /\b\d+(?:[.,]\d+)?\s*(?:k|mil)?\b/.test(normalizedText);
+  const quantityPattern = /\b(?:\d+(?:[.,]\d+)?|um|uma|dois|duas|tres|trez|quatro|cinco|seis|sete|oito|nove|dez)\s*(?:k|mil)?\b/;
+  const hasQuantity = quantityPattern.test(accumulatedCustomerText);
+  const currentHasQuantity = quantityPattern.test(normalizedText);
   const currentHasPriceQuestion = containsAny(normalizedText, KEYWORD_MAP.tabela_precos);
   const hasPriceQuestion = currentHasPriceQuestion || containsAny(accumulatedCustomerText, KEYWORD_MAP.tabela_precos);
   const currentHasPaidSignal = containsAny(normalizedText, [
@@ -416,6 +417,15 @@ export function detectConversationContext(
   ) {
     // Confirmações curtas preservam o estágio comercial acumulado.
     intent = "compra";
+    stage = "fechamento";
+  } else if (
+    history.length > 0 &&
+    hasPaymentSignal &&
+    /(?:^|\s)(?:ok|beleza|blz|certo|ta bom|boa noite|bom dia|boa tarde|ate amanha|amanha)(?:\s|$)/.test(normalizedText)
+  ) {
+    // Um encerramento curto depois de combinar pagamento não devolve o lead
+    // para Qualificação/Outro. Preserva fechamento até o cliente concluir.
+    intent = "pagamento";
     stage = "fechamento";
   } else if (currentHasPriceQuestion) {
     intent = "consulta_preco";

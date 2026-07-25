@@ -1,6 +1,6 @@
 // src/lib/agent-v3/orchestrator.server.ts
 import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
-import { selectModulesV3 } from "./selector/module-selector.server";
+import { selectModulesV3, type ConversationContext } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
 import {
@@ -110,6 +110,203 @@ function collectInstagramFollowerOptions(
   }
 
   return lines;
+}
+
+
+type CommercePlatform = "spotify" | "youtube" | "instagram" | "tiktok" | "kwai" | "facebook";
+type CommerceProduct = NonNullable<ConversationContext["product"]>;
+
+type GenericPriceRule = {
+  platform: CommercePlatform;
+  product: CommerceProduct;
+  baseQuantity: number;
+  basePrice: number;
+  minQuantity: number | null;
+  maxQuantity: number | null;
+  label: string;
+  sourceKey: string;
+};
+
+const PRODUCT_PRICE_TERMS: Record<CommerceProduct, RegExp> = {
+  seguidores: /seguidores?|followers?/i,
+  curtidas: /curtidas?|likes?/i,
+  visualizacoes: /visualiza(?:cao|coes)|views?/i,
+  inscritos: /inscritos?|subscribers?/i,
+  plays: /plays?|streams?/i,
+  ouvintes: /ouvintes?|listeners?/i,
+  saves: /saves?|salvamentos?/i,
+  playlist: /playlists?/i,
+  live: /live|pessoas\s+(?:na|em)\s+live/i,
+  horas: /horas?|watch\s*time/i,
+  comentarios: /comentarios?|comments?/i,
+};
+
+function moduleBelongsToPlatform(key: string, module: LoadedModuleV3, platform: CommercePlatform): boolean {
+  return key === platform || key.startsWith(`${platform}_`) || module.routing.platforms.includes(platform);
+}
+
+function parseGenericPriceRuleFromLine(params: {
+  line: string;
+  platform: CommercePlatform;
+  product: CommerceProduct;
+  sourceKey: string;
+}): GenericPriceRule | null {
+  const { line, platform, product, sourceKey } = params;
+  if (!PRODUCT_PRICE_TERMS[product].test(line) || !/R\$\s*\d/i.test(line)) return null;
+
+  const priceMatch = line.match(/R\$\s*([\d.]+(?:,\d+)?)/i);
+  const price = priceMatch ? parsePtBrNumber(priceMatch[1]) : null;
+  if (price == null || price < 0) return null;
+
+  const beforePrice = priceMatch ? line.slice(0, priceMatch.index ?? line.length) : line;
+  const qtyMatches = [...beforePrice.matchAll(/\b([\d.]+)\b/g)];
+  let baseQuantity = qtyMatches.length
+    ? parsePtBrNumber(qtyMatches[qtyMatches.length - 1][1])
+    : null;
+
+  // Formato comum dos módulos Spotify: "Plays + Ouvintes: 1000 = R$ 15".
+  // Para serviço unitário (playlist), ausência de quantidade significa 1 pacote.
+  if (baseQuantity == null && product === "playlist") baseQuantity = 1;
+  if (baseQuantity == null || baseQuantity <= 0) return null;
+
+  const minMatch = line.match(/m[ií]n(?:imo)?\s*[:=]?\s*([\d.]+)/i);
+  const maxMatch = line.match(/m[aá]x(?:imo)?\s*[:=]?\s*([\d.]+)/i);
+  const label = line
+    .replace(/^\s*[-•*]\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return {
+    platform,
+    product,
+    baseQuantity,
+    basePrice: price,
+    minQuantity: minMatch ? parsePtBrNumber(minMatch[1]) : null,
+    maxQuantity: maxMatch ? parsePtBrNumber(maxMatch[1]) : null,
+    label,
+    sourceKey,
+  };
+}
+
+function collectGenericPriceRules(params: {
+  platform: CommercePlatform;
+  product: CommerceProduct;
+  moduleKeys: string[];
+  modules: Record<string, LoadedModuleV3>;
+}): GenericPriceRule[] {
+  const { platform, product, moduleKeys, modules } = params;
+  const rules: GenericPriceRule[] = [];
+  const seen = new Set<string>();
+
+  for (const key of moduleKeys) {
+    const module = modules[key];
+    if (!module || !moduleBelongsToPlatform(key, module, platform)) continue;
+    for (const line of String(module.content || "").split(/\r?\n/)) {
+      const rule = parseGenericPriceRuleFromLine({ line, platform, product, sourceKey: key });
+      if (!rule) continue;
+      const signature = `${rule.product}|${rule.baseQuantity}|${rule.basePrice}|${rule.label.toLowerCase()}`;
+      if (seen.has(signature)) continue;
+      seen.add(signature);
+      rules.push(rule);
+    }
+  }
+  return rules;
+}
+
+function wordNumberToValue(raw: string): number | null {
+  const normalized = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (/^\d+(?:[.,]\d+)?$/.test(normalized)) return parsePtBrNumber(normalized);
+  const map: Record<string, number> = {
+    um: 1, uma: 1, dois: 2, duas: 2, tres: 3, trez: 3, quatro: 4, cinco: 5,
+    seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, vinte: 20, cinquenta: 50, cem: 100,
+  };
+  return map[normalized] ?? null;
+}
+
+function extractRequestedQuantityForProduct(message: string, product: CommerceProduct): number | null {
+  const normalized = message
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const productPatterns: Record<CommerceProduct, string> = {
+    seguidores: "seguidores?", curtidas: "curtidas?|likes?", visualizacoes: "visualizacoes?|views?",
+    inscritos: "inscritos?", plays: "plays?|streams?", ouvintes: "ouvintes?", saves: "saves?|salvamentos?",
+    playlist: "playlists?", live: "(?:pessoas\\s+)?live", horas: "horas?", comentarios: "comentarios?",
+  };
+  const qtyWord = "(\\d+(?:[.,]\\d+)?|um|uma|dois|duas|tres|trez|quatro|cinco|seis|sete|oito|nove|dez|vinte|cinquenta|cem)";
+  const rx = new RegExp(`${qtyWord}\\s*(mil|k)?\\s+(?:de\\s+)?(?:${productPatterns[product]})`, "i");
+  const match = normalized.match(rx);
+  if (!match) return null;
+  const base = wordNumberToValue(match[1]);
+  if (base == null) return null;
+  return /^(mil|k)$/i.test(match[2] || "") ? base * 1000 : base;
+}
+
+function genericPriceForQuantity(rule: GenericPriceRule, quantity: number): number | null {
+  if (rule.minQuantity != null && quantity < rule.minQuantity) return null;
+  if (rule.maxQuantity != null && quantity > rule.maxQuantity) return null;
+  return (quantity / rule.baseQuantity) * rule.basePrice;
+}
+
+function productDisplayName(product: CommerceProduct): string {
+  const names: Record<CommerceProduct, string> = {
+    seguidores: "seguidores", curtidas: "curtidas", visualizacoes: "visualizações", inscritos: "inscritos",
+    plays: "plays", ouvintes: "ouvintes", saves: "saves", playlist: "playlist", live: "pessoas na live",
+    horas: "horas", comentarios: "comentários",
+  };
+  return names[product];
+}
+
+function buildDeterministicMultiProductPriceReply(params: {
+  message: string;
+  platform: CommercePlatform;
+  moduleKeys: string[];
+  modules: Record<string, LoadedModuleV3>;
+}): string | null {
+  const products = (Object.keys(PRODUCT_PRICE_TERMS) as CommerceProduct[])
+    .map((product) => ({ product, quantity: extractRequestedQuantityForProduct(params.message, product) }))
+    .filter((item): item is { product: CommerceProduct; quantity: number } => item.quantity != null);
+
+  if (products.length === 0) return null;
+
+  const lines: string[] = [];
+  let total = 0;
+  for (const item of products) {
+    const rules = collectGenericPriceRules({
+      platform: params.platform,
+      product: item.product,
+      moduleKeys: params.moduleKeys,
+      modules: params.modules,
+    });
+    // Se houver uma regra padrão e outra explicitamente Premium, a padrão vence
+    // quando o cliente não escolheu variante. Se continuarem várias opções
+    // (ex.: Instagram Global + Brasil Promo), não escolhemos por conta própria.
+    let usableRules = rules;
+    if (usableRules.length > 1) {
+      const nonPremium = usableRules.filter((rule) =>
+        !/\b(premium|promocional|promo)\b/i.test(rule.label),
+      );
+      if (nonPremium.length === 1) usableRules = nonPremium;
+    }
+    if (usableRules.length !== 1) return null;
+    const price = genericPriceForQuantity(usableRules[0], item.quantity);
+    if (price == null) return null;
+    total += price;
+    lines.push(`${item.quantity.toLocaleString("pt-BR")} ${productDisplayName(item.product)} fica R$ ${formatBrl(price)}.`);
+  }
+
+  if (lines.length > 1) lines.push(`Total: R$ ${formatBrl(total)}.`);
+  return lines.join(" ");
+}
+
+function enabledCommercialPlatforms(modules: Record<string, LoadedModuleV3>): CommercePlatform[] {
+  const platforms: CommercePlatform[] = ["spotify", "youtube", "instagram", "tiktok", "kwai", "facebook"];
+  return platforms.filter((platform) =>
+    Object.entries(modules).some(([key, module]) => moduleBelongsToPlatform(key, module, platform)),
+  );
 }
 
 function isGenericInstagramFollowerPriceQuestion(message: string): boolean {
@@ -414,6 +611,41 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     selectionReasons.spotify_precos = "Autoridade obrigatória de preços Spotify";
   }
 
+  // Para YouTube/Instagram/TikTok/Kwai/Facebook, preço também precisa vir de
+  // módulo comercial real. Carregamos módulos da plataforma que contêm R$ e
+  // mencionam o produto atual — ou qualquer produto quando a mensagem contém
+  // múltiplos SKUs, como "10 mil visualizações e 3 mil curtidas".
+  if (selectionContext.platform && selectionContext.platform !== "spotify") {
+    const platform = selectionContext.platform as CommercePlatform;
+    const requestedProducts = (Object.keys(PRODUCT_PRICE_TERMS) as CommerceProduct[])
+      .filter((product) => extractRequestedQuantityForProduct(message, product) != null);
+    const productsToAuthorize = requestedProducts.length > 0
+      ? requestedProducts
+      : selectionContext.product
+        ? [selectionContext.product as CommerceProduct]
+        : [];
+    const needsCommercialAuthority =
+      selectionContext.intent === "consulta_preco" ||
+      selectionContext.intent === "compra" ||
+      selectionContext.intent === "pagamento" ||
+      selectionContext.stage === "negociacao" ||
+      selectionContext.stage === "fechamento" ||
+      productsToAuthorize.length > 0;
+
+    if (needsCommercialAuthority) {
+      for (const [key, module] of Object.entries(selectableModules) as Array<[string, LoadedModuleV3]>) {
+        if (!moduleBelongsToPlatform(key, module, platform)) continue;
+        if (!/R\$\s*\d/i.test(module.content || "")) continue;
+        const relevantToProduct =
+          productsToAuthorize.length === 0 ||
+          productsToAuthorize.some((product) => PRODUCT_PRICE_TERMS[product].test(module.content || ""));
+        if (!relevantToProduct || selectedKeys.includes(key)) continue;
+        selectedKeys.push(key);
+        selectionReasons[key] = `Autoridade comercial obrigatória de ${platform}`;
+      }
+    }
+  }
+
   const normalizedTurnText = message
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -492,6 +724,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   const isAudioInput = inputKind === "audio";
   const isImageInput = inputKind === "image";
   const isStickerInput = inputKind === "sticker";
+  const availableCommercialPlatforms = enabledCommercialPlatforms(selectableModules);
 
   const systemPrompt = [
     {
@@ -502,6 +735,11 @@ RESPOSTA AO CLIENTE:
 - Não escreva metadados, análise interna, score, intenção, temperatura, justificativa ou marcadores entre colchetes.
 - Não repita informações já explicadas no histórico, salvo quando forem indispensáveis para responder ao último pedido.
 - Prefira 1 a 4 frases curtas. Use lista apenas quando ela realmente facilitar a resposta.
+
+PLATAFORMAS DISPONÍVEIS NO CMS:
+${availableCommercialPlatforms.length > 0 ? availableCommercialPlatforms.join(", ") : "nenhuma identificada"}
+- Esta lista serve SOMENTE para confirmar se a Mind trabalha ou não com uma plataforma.
+- Nunca diga que uma plataforma acima não é oferecida. Para serviços e preços, continue usando apenas os módulos carregados abaixo.
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
@@ -871,8 +1109,14 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     : /(?:obrigad|valeu|ótimo|otimo|perfeito|show|top)/i.test(normalizedCustomerMessage)
       ? "Positivo"
       : "Neutro";
+  const recentCustomerJourneyText = [...history.filter((m) => m.role === "customer").slice(-6).map((m) => m.content), message]
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const paymentExplicitlyDeferred = /\b(amanha|mais tarde|depois|outro dia|quando der)\b/.test(recentCustomerJourneyText);
   const urgency = selectionContext.hasPaymentSignal || selectionContext.hasPaidSignal
-    ? "Alta"
+    ? paymentExplicitlyDeferred ? "Média" : "Alta"
     : selectionContext.hasPurchaseSignal || selectionContext.hasGrowthGoal
       ? "Média"
       : "Baixa";
@@ -1004,6 +1248,65 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     }
   }
 
+  // Preço determinístico para plataformas não-Spotify. Quando a mensagem traz
+  // quantidade + produto e há uma única regra inequívoca no CMS, o código faz
+  // a proporcionalidade. O LLM não decide a matemática.
+  if (
+    selectionContext.platform &&
+    selectionContext.platform !== "spotify"
+  ) {
+    const deterministicPrice = buildDeterministicMultiProductPriceReply({
+      message,
+      platform: selectionContext.platform as CommercePlatform,
+      moduleKeys: effectiveSelectedKeys,
+      modules: mergedModulesMap,
+    });
+    if (deterministicPrice) {
+      const responsePrices = [...finalContent.matchAll(/R\$\s*([\d.]+(?:,\d+)?)/gi)]
+        .map((match) => parsePtBrNumber(match[1]))
+        .filter((value): value is number => value != null);
+      const deterministicPrices = [...deterministicPrice.matchAll(/R\$\s*([\d.]+(?:,\d+)?)/gi)]
+        .map((match) => parsePtBrNumber(match[1]))
+        .filter((value): value is number => value != null);
+      const samePrices =
+        responsePrices.length === deterministicPrices.length &&
+        deterministicPrices.every((expected) =>
+          responsePrices.some((actual) => Math.abs(actual - expected) <= 0.011),
+        );
+
+      if (!samePrices) {
+        console.error("[AGENT-V3-AUTHORITY] Preço divergente do CMS foi substituído", {
+          platform: selectionContext.platform,
+          response: finalContent,
+          corrected: deterministicPrice,
+        });
+        finalContent = deterministicPrice;
+      }
+    }
+  }
+
+  // Proteção de disponibilidade: o LLM não pode afirmar que uma plataforma
+  // habilitada no CMS não é oferecida pela Mind.
+  const normalizedResponseForAvailability = finalContent
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  for (const platform of availableCommercialPlatforms) {
+    const falseUnavailablePatterns = [
+      new RegExp(`${platform}[^.!?]{0,80}(?:nao (?:oferecemos|oferece|temos|trabalhamos)|infelizmente[^.!?]{0,30}nao)`, "i"),
+      new RegExp(`(?:nao (?:oferecemos|oferece|temos|trabalhamos)[^.!?]{0,80}|infelizmente[^.!?]{0,80})${platform}`, "i"),
+    ];
+    if (falseUnavailablePatterns.some((pattern) => pattern.test(normalizedResponseForAvailability))) {
+      console.error("[AGENT-V3-AUTHORITY] Falsa indisponibilidade de plataforma bloqueada", {
+        platform,
+        response: finalContent,
+      });
+      const label = platform === "tiktok" ? "TikTok" : platform === "youtube" ? "YouTube" : platform === "spotify" ? "Spotify" : platform === "instagram" ? "Instagram" : platform;
+      finalContent = `Também trabalhamos com ${label}. Me diz o que você quer fazer por lá que eu te passo as opções disponíveis.`;
+      break;
+    }
+  }
+
   const claimsDirectMonetization = /(?:quanto mais|mais)\s+(?:plays|streams|visualizacoes)[^.!?]{0,60}(?:mais|maior)\s+(?:voce )?(?:ganha|fatura|recebe)/i.test(
     finalContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
   );
@@ -1032,6 +1335,16 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
             : "Olá";
 
     finalContent = `${greeting}! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?`;
+  }
+
+  // Nunca se reapresente no meio de uma conversa já existente.
+  if (!isFirstTurn && /aqui\s+[ée]\s+a\s+j[uú]lia\s+da\s+mind/i.test(finalContent)) {
+    finalContent = finalContent
+      .replace(/aqui\s+[ée]\s+a\s+j[uú]lia\s+da\s+mind[.!]?\s*/gi, "")
+      .replace(/como\s+posso\s+te\s+ajudar\??/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    if (!finalContent) finalContent = "Tranquilo!";
   }
 
   // URLs do painel devem chegar como mensagem isolada no WhatsApp.
