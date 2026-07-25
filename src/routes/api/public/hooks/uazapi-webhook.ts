@@ -303,6 +303,11 @@ const HUMAN_HANDOFF_PATTERNS = [
   /\batendente\s+humano\b/i,
   /\bpessoa\s+de\s+verdade\b/i,
   /\bfalar\s+com\s+humano\b/i,
+  /\bsem\s+ser\s+(?:um\s+)?rob[oô]\b/i,
+  /\bsem\s+rob[oô]\b/i,
+  /\bn[aã]o\s+quero\s+(?:falar\s+)?com\s+(?:um\s+)?rob[oô]\b/i,
+  /\bquero\s+(?:falar\s+)?com\s+algu[eé]m\s+(?:de\s+verdade|da\s+equipe)\b/i,
+  /\bme\s+passa\s+(?:para|pra)\s+(?:um\s+|uma\s+)?atendente\b/i,
 ];
 
 function normalizeEscalationText(value: string): string {
@@ -393,6 +398,19 @@ async function detectCriticalHumanEscalation(params: {
     return {
       escalate: true,
       reason: "cliente sem canal funcional para resolver suporte",
+    };
+  }
+
+  // Venda já encaminhada, mas cadastro/recarga/pagamento está impedindo o fechamento.
+  // Uma dúvida técnica simples continua com a Júlia; repetição/persistência vai ao setor responsável.
+  const buyingJourney = /\b(compr|pagar|pagamento|pix|recarga|saldo|cadastro|cadastrar|pedido|1000|mil|r\$)\b/.test(journey);
+  const technicalBlock = /\b(n[aã]o funciona|n[aã]o abre|n[aã]o aparece|n[aã]o completa|n[aã]o consigo|n[aã]o avan[çc]a|erro|trav|volta (?:a|para) p[aá]gina|pagamento n[aã]o aparece|saldo n[aã]o aparece|cadastro n[aã]o)\b/.test(journey);
+  const troubleshootingLoop = (journey.match(/\b(cache|cookies?|outro navegador|ticket|tente novamente|atualiz|cadastro|pagamento)\b/g) || []).length >= 3;
+
+  if (buyingJourney && technicalBlock && troubleshootingLoop) {
+    return {
+      escalate: true,
+      reason: "venda bloqueada por problema técnico no cadastro/pagamento",
     };
   }
 
@@ -1604,7 +1622,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       if (isHumanHandoffRequest(finalMsgText)) {
         const handoffReply =
-          "Claro. Vou encaminhar seu atendimento para nossa equipe. Assim que um atendente estiver disponível, ele continua por aqui.";
+          "Claro. Vou pausar por aqui e encaminhar seu atendimento para o setor responsável. Assim que possível, a equipe dará continuidade por aqui.";
 
         try {
           if (conversationId) {
@@ -1897,14 +1915,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 .eq("workspace_id", workspaceId);
             }
 
-            // O turno que confirmou a compra também deve aparecer como convertido
-            // imediatamente no Lead Intelligence.
-            v3Response.intelligence.temperature = "quente";
-            v3Response.intelligence.intent = "Pós-venda";
-            v3Response.intelligence.stage = "Pós-venda";
-            v3Response.intelligence.purchase_probability = 100;
-            v3Response.intelligence.recommended_action =
-              `Cliente convertido. Potencial de recompra: ${customerMemory.repurchasePotential}.`;
+            // Memória de cliente NÃO força todo novo turno para Pós-venda.
+            // Um cliente antigo pode estar fazendo uma nova compra e deve permanecer
+            // em Compra/Pagamento até que o pedido atual seja confirmado.
+            const currentIntent = String((v3Response.modules.selection_context as any)?.intent || "");
+            const confirmedNow = /\b(j[aá]\s+(?:comprei|paguei|fiz\s+o\s+pedido)|pedido\s+(?:feito|realizado)|pagamento\s+(?:feito|realizado))\b/i.test(finalMsgText);
+            if (confirmedNow || currentIntent === "pos_compra" || currentIntent === "suporte") {
+              v3Response.intelligence.temperature = confirmedNow ? "quente" : v3Response.intelligence.temperature;
+              v3Response.intelligence.intent = currentIntent === "suporte" ? "Suporte" : "Pós-venda";
+              v3Response.intelligence.stage = "Pós-venda";
+              if (confirmedNow) v3Response.intelligence.purchase_probability = 100;
+              v3Response.intelligence.recommended_action =
+                `Cliente existente. Potencial de recompra: ${customerMemory.repurchasePotential}. Não reiniciar qualificação.`;
+            }
           }
         } catch (memoryPersistError) {
           console.warn("[CUSTOMER-MEMORY] Falha ao atualizar memória comercial:", memoryPersistError);

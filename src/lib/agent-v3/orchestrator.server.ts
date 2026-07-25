@@ -725,11 +725,18 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   const isImageInput = inputKind === "image";
   const isStickerInput = inputKind === "sticker";
   const availableCommercialPlatforms = enabledCommercialPlatforms(selectableModules);
+  const currentBrazilDateTime = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date());
 
   const systemPrompt = [
     {
       type: "text",
       text: `
+HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
+
 RESPOSTA AO CLIENTE:
 - Gere somente a mensagem que será enviada ao cliente.
 - Não escreva metadados, análise interna, score, intenção, temperatura, justificativa ou marcadores entre colchetes.
@@ -783,7 +790,9 @@ SAUDAÇÃO INICIAL:
 - Em uma saudação simples de primeiro contato, não use emoji.
 - Responda de forma natural e curta.
 - Exemplo de estilo: "Boa noite! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?"
-- Preserve o período do cliente: bom dia, boa tarde ou boa noite.
+- Preserve o período do cliente quando ele próprio usar "bom dia", "boa tarde" ou "boa noite".
+- Se precisar iniciar uma saudação sem o cliente ter indicado o período, use o horário atual informado pelo runtime; nunca invente "boa noite" pela manhã.
+- Em conversa já iniciada, NÃO se apresente novamente e NÃO volte a perguntar "como posso ajudar?" quando o histórico já mostra o assunto.
 - Evite "Bem-vindo à Mind" e frases publicitárias na saudação.
 
 PRIORIDADE DA ÚLTIMA MENSAGEM:
@@ -799,6 +808,8 @@ NATURALIDADE CONVERSACIONAL — PRIORIDADE ALTA:
 - Não encerre cada turno com "qualquer dúvida é só chamar", "fico por aqui", "sucesso" ou "boa sorte". Essas frases devem ser raras.
 - Não elogie automaticamente uma quantidade, música, link ou informação objetiva.
 - Acompanhe levemente a informalidade do cliente ("kkk", "beleza", "blz"), sem caricaturar.
+- Nunca use deboche, impaciência ou informalidade excessiva como "Ahahaha", "Ué, como assim?", "bombar" ou respostas que possam constranger um cliente leigo.
+- Nunca afirme "sou humana", "sou uma pessoa" ou tente provar que é humana. Se o cliente pedir outra pessoa/atendente ou disser "sem ser robô", o runtime fará o encaminhamento; não discuta identidade com o cliente.
 - Pergunta simples merece resposta simples. Explicação longa só quando a dúvida exigir.
 - Não repita plataforma, produto, quantidade ou preço em mensagens consecutivas se já estiver claro.
 - Não reabra etapa concluída. Se já disse "1000", não pergunte novamente quantos quer.
@@ -809,6 +820,10 @@ NATURALIDADE CONVERSACIONAL — PRIORIDADE ALTA:
 - Nunca force simpatia. Ser humano aqui significa ser contextual, breve e útil.
 
 ATENDIMENTO CONSULTIVO — ENTENDA O OBJETIVO:
+- Nem todo cliente conhece o nome do serviço certo.
+- Se o cliente disser "vou mandar minha música", "manda ela aí", "coloca no YouTube", "onde mando a música", "mandar por aí pra ver o que vira" ou equivalente, NÃO presuma que ele quer views/plays. Primeiro diferencie publicação/distribuição de divulgação: pergunte se a música já está publicada no YouTube/Spotify ou se ele ainda quer colocá-la nas plataformas.
+- Se ainda não estiver publicada, explique em uma frase que a Mind trabalha com divulgação de conteúdo já publicado e não faz upload/distribuição, salvo se existir módulo específico dizendo o contrário.
+- Quando uma palavra parecer erro de digitação e houver alternativa óbvia pelo contexto (ex.: "convites" em conversa de Spotify podendo significar "ouvintes"), confirme em uma pergunta curta em vez de rejeitar a palavra.
 - Nem todo cliente conhece o nome do serviço certo. Quando ele disser o objetivo (ex.: "quero engajar minha música", "quero mais alcance", "quero divulgar"), NÃO devolva um catálogo nem pergunte novamente "qual serviço?".
 - Recomende de forma curta os serviços mais coerentes ENTRE OS MÓDULOS CARREGADOS. Ex.: no YouTube, engajamento pode envolver visualizações, curtidas e comentários quando esses serviços estiverem disponíveis no contexto.
 - Explique a recomendação em linguagem simples, sem prometer resultado algorítmico garantido.
@@ -883,6 +898,18 @@ REGRA GERAL DE PAGAMENTO E LINK:
 - Quando houver dúvida sobre o link, diga objetivamente qual link corresponde ao serviço usando apenas o módulo da plataforma.
 - Depois que o cliente demonstrar intenção clara de pagamento, não volte para etapas anteriores de qualificação.
 
+COMPROVANTE DE PAGAMENTO — REGRA CRÍTICA:
+- Se o cliente enviar imagem/documento que aparenta ser comprovante após uma conversa de compra, NUNCA valide ou invalide o pagamento pelo nome do banco, instituição, recebedor, razão social, chave Pix ou aparência do comprovante. Esses dados podem mudar conforme banco/gateway.
+- Nunca diga "esse banco não é nosso", "esse recebedor não é a Mind", "você pagou para a empresa errada" ou equivalente apenas pela imagem.
+- Você pode reconhecer que a imagem aparenta ser um comprovante, agradecer a compra e orientar o próximo passo: conferir se o saldo apareceu no painel e, quando aparecer, realizar o pedido.
+- Não diga que o pagamento está confirmado sem confirmação real do sistema. Prefira: "Obrigada pela compra. Confira se o saldo já apareceu no painel."
+- Se o saldo/recarga não aparecer após uma tentativa simples de atualização e o problema persistir, não entre em loop de cache/navegador/ticket: o runtime pode encaminhar ao setor responsável.
+
+SUPORTE DURANTE FECHAMENTO — EVITE LOOP:
+- Cliente que já escolheu serviço/quantidade e está tentando cadastrar, recarregar ou pagar continua em FECHAMENTO, não em pós-venda.
+- Faça no máximo uma orientação técnica simples. Se cadastro/pagamento continuar bloqueado, não repita "limpe cache", "tente outro navegador" ou "abra ticket" indefinidamente.
+- Não reinicie qualificação enquanto o cliente está tentando pagar.
+
 ${isAudioInput ? `MODO ÁUDIO:
 - O cliente enviou áudio, mas isso NÃO significa que a resposta também será em áudio.
 - Responda normalmente e de forma curta.
@@ -895,6 +922,7 @@ ${isImageInput ? `MODO VISÃO:
 - Analise a imagem diretamente antes de responder.
 - Nunca diga que não consegue visualizar se a imagem foi fornecida.
 - Use textos, erros, telas, comprovantes, perfis, postagens ou outros detalhes visíveis para responder no contexto.
+- Em comprovantes, reconhecer texto visível NÃO autoriza decidir se o banco/recebedor pertence ou não à Mind; siga a REGRA CRÍTICA DE COMPROVANTE.
 - Não invente detalhes que não estejam visíveis.
 - Responda de forma curta e natural.` : ""}
 ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}`,
@@ -1052,105 +1080,108 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
             ? "Baixa"
             : "Muito baixa";
 
+  const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
+  const recentCustomerJourneyText = [...history.filter((m) => m.role === "customer").slice(-8).map((m) => m.content), message]
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  const criticalComplaintSignal =
+    /(?:denuncia|procon|advogad|process|justica|bloquead|nao resolvem|nao respondem|sem acesso ao suporte|nao consigo acessar o suporte|perdi quase todos|conta restrita|restricao)/i.test(recentCustomerJourneyText);
+  const paymentTechnicalBlock =
+    /\b(cadastro|cadastrar|pix|pagamento|recarga|saldo)\b/.test(recentCustomerJourneyText) &&
+    /\b(nao funciona|nao abre|nao aparece|nao completa|nao consigo|nao avanca|erro|trav|volta para|volta a)\b/.test(recentCustomerJourneyText);
+  const abandonmentSignal =
+    /\b(deixa pra la|deixa para la|desisti|nao quero mais|esquece|vou desistir)\b/.test(recentCustomerJourneyText);
+  const publicationAmbiguity =
+    /\b(mandar (?:a )?musica|manda (?:a )?musica|coloca (?:a )?musica|postar (?:a )?musica|onde mando|mandar por ai)\b/.test(recentCustomerJourneyText);
+
   let purchase_probability = 20;
   if (selectionContext.intent === "consulta_preco") purchase_probability = 50;
   if (selectionContext.hasGrowthGoal) purchase_probability = Math.max(purchase_probability, 45);
-  if (selectionContext.intent === "descoberta" && selectionContext.platform && selectionContext.product) {
-    purchase_probability = Math.max(purchase_probability, 45);
-  }
+  if (selectionContext.intent === "descoberta" && selectionContext.platform && selectionContext.product) purchase_probability = Math.max(purchase_probability, 45);
   if (selectionContext.intent === "compra") purchase_probability = selectionContext.hasQuantity ? 80 : 70;
   if (selectionContext.intent === "pagamento") purchase_probability = 90;
   if (selectionContext.hasPaidSignal) purchase_probability = 95;
   if (selectionContext.intent === "suporte" || selectionContext.intent === "pos_compra") purchase_probability = 25;
 
-  // A inteligência deve refletir a jornada acumulada, não apenas a última frase.
-  // Ex.: depois de Spotify + Plays + 1000 + instrução de painel, um "Ok" não
-  // transforma o lead novamente em frio.
-  if (
-    selectionContext.platform &&
-    selectionContext.product &&
-    selectionContext.hasQuantity &&
-    selectionContext.intent !== "suporte" &&
-    selectionContext.intent !== "pos_compra"
-  ) {
+  if (selectionContext.platform && selectionContext.product && selectionContext.hasQuantity && selectionContext.intent !== "suporte" && selectionContext.intent !== "pos_compra") {
     purchase_probability = Math.max(purchase_probability, 78);
   }
-  if (selectionContext.hasPaymentSignal && selectionContext.intent !== "suporte") {
-    purchase_probability = Math.max(purchase_probability, 90);
-  }
+  if (selectionContext.hasPaymentSignal && selectionContext.intent !== "suporte") purchase_probability = Math.max(purchase_probability, 90);
 
   const purchaseConfirmedThisTurn = isConfirmedPurchaseMessage(message);
-  const isExistingCustomer =
-    customerLifecycle === "cliente" ||
-    customerLifecycle === "cliente_recorrente" ||
-    purchaseConfirmedThisTurn;
+  const hasExistingCustomerMemory = customerLifecycle === "cliente" || customerLifecycle === "cliente_recorrente";
+  const currentIsPostSale = purchaseConfirmedThisTurn || selectionContext.intent === "suporte" || selectionContext.intent === "pos_compra";
 
-  if (isExistingCustomer) {
-    purchase_probability = 100;
-  }
+  // Cliente antigo pode estar fazendo uma NOVA compra. Memória de cliente não deve
+  // transformar automaticamente todo novo fechamento em Pós-venda/100%.
+  if (purchaseConfirmedThisTurn) purchase_probability = 100;
+  else if (hasExistingCustomerMemory && currentIsPostSale) purchase_probability = Math.max(purchase_probability, 25);
 
-  if (criticalComplaintSignal) {
-    purchase_probability = Math.min(purchase_probability, 20);
-  }
+  if (criticalComplaintSignal) purchase_probability = Math.min(purchase_probability, 20);
+  if (paymentTechnicalBlock && !currentIsPostSale) purchase_probability = Math.max(purchase_probability, 90);
+  if (abandonmentSignal) purchase_probability = Math.min(purchase_probability, 35);
 
   const temperature: "frio" | "morno" | "quente" =
-    criticalComplaintSignal
-      ? "frio"
-      : isExistingCustomer
-        ? "quente"
-        : purchase_probability >= 75
-          ? "quente"
-          : purchase_probability >= 40
-            ? "morno"
-            : "frio";
+    criticalComplaintSignal ? "frio" : purchase_probability >= 75 ? "quente" : purchase_probability >= 40 ? "morno" : "frio";
+
   const intent = criticalComplaintSignal
     ? "Reclamação"
-    : isExistingCustomer
-      ? "Pós-venda"
-      : intentMap[selectionContext.intent] || "Outro";
-  const stage = isExistingCustomer
-    ? "Pós-venda"
-    : stageMap[selectionContext.stage] || "Descoberta";
-  const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
-  const criticalComplaintSignal =
-    /(?:den[úu]ncia|procon|advogad|process|justi[çc]a|bloquead|n[aã]o resolvem|n[aã]o respondem|sem acesso ao suporte|n[aã]o consigo acessar o suporte|perdi quase todos|conta restrita|restri[çc][aã]o)/i.test(
-      normalizedCustomerMessage,
-    );
+    : abandonmentSignal
+      ? "Abandono da compra"
+      : paymentTechnicalBlock && !currentIsPostSale
+        ? "Compra"
+        : publicationAmbiguity && selectionContext.intent === "desconhecido"
+          ? "Divulgação musical"
+          : currentIsPostSale
+            ? (selectionContext.intent === "suporte" ? "Suporte" : "Pós-venda")
+            : intentMap[selectionContext.intent] || "Outro";
 
-  const sentiment = criticalComplaintSignal ||
-    /(?:problema|erro|golpe|atras|não chegou|nao chegou|reclama|ruim|péssim|pessim)/i.test(normalizedCustomerMessage)
+  const stage = criticalComplaintSignal
+    ? "Pós-venda"
+    : abandonmentSignal
+      ? "Pagamento interrompido"
+      : paymentTechnicalBlock && !currentIsPostSale
+        ? "Pagamento / Compra bloqueada"
+        : publicationAmbiguity && selectionContext.intent === "desconhecido"
+          ? "Descoberta"
+          : currentIsPostSale
+            ? "Pós-venda"
+            : stageMap[selectionContext.stage] || "Descoberta";
+
+  const sentiment = criticalComplaintSignal || paymentTechnicalBlock || abandonmentSignal ||
+    /(?:problema|erro|golpe|atras|não chegou|nao chegou|reclama|ruim|péssim|pessim|frustr)/i.test(normalizedCustomerMessage)
     ? "Negativo"
     : /(?:obrigad|valeu|ótimo|otimo|perfeito|show|top)/i.test(normalizedCustomerMessage)
       ? "Positivo"
       : "Neutro";
-  const recentCustomerJourneyText = [...history.filter((m) => m.role === "customer").slice(-6).map((m) => m.content), message]
-    .join(" ")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+
   const paymentExplicitlyDeferred = /\b(amanha|mais tarde|depois|outro dia|quando der)\b/.test(recentCustomerJourneyText);
-  const urgency = criticalComplaintSignal
+  const urgency = criticalComplaintSignal || paymentTechnicalBlock || abandonmentSignal
     ? "Alta"
     : selectionContext.hasPaymentSignal || selectionContext.hasPaidSignal
       ? paymentExplicitlyDeferred ? "Média" : "Alta"
       : selectionContext.hasPurchaseSignal || selectionContext.hasGrowthGoal
         ? "Média"
         : "Baixa";
-  const recommended_action =
-    isExistingCustomer
-      ? `Atender como cliente existente. Potencial de recompra: ${repurchasePotential || "não definido"}. Não reiniciar qualificação.`
-      : selectionContext.intent === "pagamento"
-      ? "Orientar o pagamento usando apenas as informações do módulo carregado."
-      : selectionContext.intent === "compra"
-        ? "Conduzir para o próximo passo da compra sem repetir informações."
-        : selectionContext.intent === "suporte"
-          ? "Resolver a dúvida de suporte com objetividade."
-          : "Responder diretamente ao último pedido do cliente.";
-  const reasoning = isExistingCustomer
-    ? purchaseConfirmedThisTurn
-      ? `Compra confirmada nesta mensagem; contexto atual ${selectionContext.intent}/${selectionContext.stage}.`
-      : `Memória comercial persistente: ${customerLifecycle}; contexto atual ${selectionContext.intent}/${selectionContext.stage}.`
-    : `Contexto derivado pelo selector: ${selectionContext.intent}/${selectionContext.stage}.`;
+
+  const recommended_action = criticalComplaintSignal
+    ? "Encaminhar ao setor responsável e manter o agente pausado."
+    : paymentTechnicalBlock && !currentIsPostSale
+      ? "Venda bloqueada por problema técnico: evitar loop de troubleshooting e encaminhar se persistir."
+      : abandonmentSignal
+        ? "Cliente interrompeu o fechamento; não pressionar e revisar o motivo do abandono."
+        : currentIsPostSale
+          ? `Atender o pós-venda sem reiniciar qualificação. Potencial de recompra: ${repurchasePotential || "não definido"}.`
+          : selectionContext.intent === "pagamento"
+            ? "Orientar o pagamento usando apenas as informações do módulo carregado."
+            : selectionContext.intent === "compra"
+              ? "Conduzir para o próximo passo da compra sem repetir informações."
+              : "Responder diretamente ao último pedido do cliente.";
+
+  const reasoning = `Contexto atual ${selectionContext.intent}/${selectionContext.stage}; memória=${customerLifecycle || "lead"}; bloqueioPagamento=${paymentTechnicalBlock}; reclamaçãoCrítica=${criticalComplaintSignal}.`;
   const conversation_score = Math.max(0, Math.min(100, Math.round(selectionContext.confidence * 100)));
 
   // Guards & Pipeline
@@ -1170,6 +1201,11 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // Post-processing
   finalContent = humanizePunctuationV3(finalContent);
   finalContent = stripMarkdownFormattingV3(finalContent).trim();
+
+  // Guard determinístico: a atendente nunca deve alegar ser humana para impedir handoff.
+  if (/\b(?:eu\s+)?sou\s+humana\b/i.test(finalContent) || /\bn[aã]o\s+sou\s+(?:um\s+)?rob[oô]\b/i.test(finalContent)) {
+    finalContent = "Claro. Vou encaminhar seu atendimento para o setor responsável.";
+  }
 
   if (!finalContent) {
     throw new Error(
