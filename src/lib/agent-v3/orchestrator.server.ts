@@ -13,6 +13,153 @@ import {
 import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
 import { isConfirmedPurchaseMessage } from "./memory/customer-memory.server";
 
+type ParsedSpotifyPriceRule = {
+  baseQuantity: number;
+  basePrice: number;
+  minQuantity: number | null;
+  maxQuantity: number | null;
+};
+
+function parsePtBrNumber(value: string): number | null {
+  const cleaned = String(value || "")
+    .replace(/\s/g, "")
+    .replace(/\./g, "")
+    .replace(",", ".");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseSpotifyPriceRule(
+  moduleContent: string,
+  product: ConversationProductForPricing,
+): ParsedSpotifyPriceRule | null {
+  const labels: Record<ConversationProductForPricing, RegExp> = {
+    plays: /Plays\s*\+\s*Ouvintes/i,
+    ouvintes: /Plays\s*\+\s*Ouvintes/i,
+    saves: /Saves?/i,
+    seguidores: /Seguidores/i,
+    playlist: /(?:10\s+Playlists|Playlists?)/i,
+  };
+  const line = moduleContent
+    .split(/\r?\n/)
+    .find((item) => labels[product].test(item));
+  if (!line) return null;
+
+  if (product === "playlist") {
+    const flat = line.match(/R\$\s*([\d.]+(?:,\d+)?)/i);
+    const price = flat ? parsePtBrNumber(flat[1]) : null;
+    return price == null
+      ? null
+      : { baseQuantity: 1, basePrice: price, minQuantity: 1, maxQuantity: 1 };
+  }
+
+  const base = line.match(/([\d.]+)\s*=\s*R\$\s*([\d.]+(?:,\d+)?)/i);
+  if (!base) return null;
+  const baseQuantity = parsePtBrNumber(base[1]);
+  const basePrice = parsePtBrNumber(base[2]);
+  if (baseQuantity == null || basePrice == null || baseQuantity <= 0) return null;
+
+  const minMatch = line.match(/m[ií]n\s*([\d.]+)/i);
+  const maxMatch = line.match(/m[aá]x\s*([\d.]+)/i);
+  return {
+    baseQuantity,
+    basePrice,
+    minQuantity: minMatch ? parsePtBrNumber(minMatch[1]) : null,
+    maxQuantity: maxMatch ? parsePtBrNumber(maxMatch[1]) : null,
+  };
+}
+
+type ConversationProductForPricing = "plays" | "ouvintes" | "saves" | "seguidores" | "playlist";
+
+function formatBrl(value: number): string {
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function spotifyPriceFallback(
+  product: ConversationProductForPricing,
+  rule: ParsedSpotifyPriceRule,
+  message: string,
+): string {
+  const names: Record<ConversationProductForPricing, string> = {
+    plays: "Plays + Ouvintes",
+    ouvintes: "Plays + Ouvintes",
+    saves: "Saves",
+    seguidores: "Seguidores",
+    playlist: "1 música em 10 playlists",
+  };
+  if (product === "playlist") {
+    return `${names[product]} fica R$ ${formatBrl(rule.basePrice)}.`;
+  }
+
+  const requested = [...message.matchAll(/\b([\d.]+)\b/g)]
+    .map((match) => parsePtBrNumber(match[1]))
+    .find((value): value is number => value != null && value > 0);
+
+  if (
+    requested != null &&
+    (rule.minQuantity == null || requested >= rule.minQuantity) &&
+    (rule.maxQuantity == null || requested <= rule.maxQuantity)
+  ) {
+    const price = (requested / rule.baseQuantity) * rule.basePrice;
+    return `${requested.toLocaleString("pt-BR")} ${names[product]} fica R$ ${formatBrl(price)}.`;
+  }
+
+  const baseText = `${rule.baseQuantity.toLocaleString("pt-BR")} ${names[product]} fica R$ ${formatBrl(rule.basePrice)}.`;
+  if (rule.minQuantity && rule.minQuantity !== rule.baseQuantity) {
+    const minPrice = (rule.minQuantity / rule.baseQuantity) * rule.basePrice;
+    return `${baseText} O mínimo é ${rule.minQuantity.toLocaleString("pt-BR")}, por R$ ${formatBrl(minPrice)}.`;
+  }
+  return baseText;
+}
+
+function hasUnsupportedSpotifyPriceClaim(params: {
+  response: string;
+  moduleContent: string;
+  product: ConversationProductForPricing;
+  message: string;
+}): { invalid: boolean; fallback: string } {
+  const rule = parseSpotifyPriceRule(params.moduleContent, params.product);
+  if (!rule) return { invalid: true, fallback: "Preciso confirmar o valor correto desse serviço antes de te passar." };
+
+  const responsePrices = [...params.response.matchAll(/R\$\s*([\d.]+(?:,\d+)?)/gi)]
+    .map((match) => parsePtBrNumber(match[1]))
+    .filter((value): value is number => value != null);
+  if (responsePrices.length === 0) {
+    return { invalid: false, fallback: spotifyPriceFallback(params.product, rule, params.message) };
+  }
+
+  if (params.product === "playlist") {
+    const invalid = responsePrices.some((price) => Math.abs(price - rule.basePrice) > 0.011);
+    return { invalid, fallback: spotifyPriceFallback(params.product, rule, params.message) };
+  }
+
+  const quantities = [
+    ...params.response.matchAll(/\b([\d.]{2,})\b/g),
+    ...params.message.matchAll(/\b([\d.]{2,})\b/g),
+  ]
+    .map((match) => parsePtBrNumber(match[1]))
+    .filter((value): value is number => value != null && value > 0);
+
+  const allowed = new Set<number>();
+  allowed.add(Number(rule.basePrice.toFixed(2)));
+  if (rule.minQuantity) {
+    allowed.add(Number(((rule.minQuantity / rule.baseQuantity) * rule.basePrice).toFixed(2)));
+  }
+  for (const quantity of quantities) {
+    if (rule.minQuantity != null && quantity < rule.minQuantity) continue;
+    if (rule.maxQuantity != null && quantity > rule.maxQuantity) continue;
+    allowed.add(Number(((quantity / rule.baseQuantity) * rule.basePrice).toFixed(2)));
+  }
+
+  const invalid = responsePrices.some(
+    (price) => !Array.from(allowed).some((candidate) => Math.abs(candidate - price) <= 0.011),
+  );
+  return { invalid, fallback: spotifyPriceFallback(params.product, rule, params.message) };
+}
+
 export interface OrchestratorInput {
   userId: string;
   message: string;
@@ -188,14 +335,42 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     enabledKeys.map((key) => [key, mergedModulesMap[key]]).filter(([, module]) => Boolean(module)),
   );
   const selection = selectModulesV3(message, history, selectableModules);
-  const selectedKeys = selection.selectedModules;
+  const selectedKeys = [...selection.selectedModules];
   if (selectedKeys.length === 0) {
     throw new Error(
       "[agent-v3] Nenhum módulo foi selecionado. Aplique a migration de roteamento e configure os metadados no CMS.",
     );
   }
   const selectionContext = selection.context;
-  const selectionReasons = selection.selectionReasons;
+  const selectionReasons = { ...selection.selectionReasons };
+
+  // Módulos autoritativos obrigatórios. Se o contexto já sabe que é Spotify +
+  // produto/preço, nunca deixamos o LLM responder sem a fonte correta.
+  const spotifyPriceProducts = new Set(["plays", "ouvintes", "saves", "seguidores", "playlist"]);
+  const needsSpotifyPriceAuthority =
+    selectionContext.platform === "spotify" &&
+    (selectionContext.intent === "consulta_preco" ||
+      selectionContext.intent === "compra" ||
+      selectionContext.stage === "negociacao" ||
+      selectionContext.stage === "fechamento" ||
+      (selectionContext.product != null && spotifyPriceProducts.has(selectionContext.product)));
+
+  if (needsSpotifyPriceAuthority && selectableModules.spotify_precos && !selectedKeys.includes("spotify_precos")) {
+    selectedKeys.push("spotify_precos");
+    selectionReasons.spotify_precos = "Autoridade obrigatória de preços Spotify";
+  }
+
+  const normalizedTurnText = message
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const asksSpotifyMoney =
+    selectionContext.platform === "spotify" &&
+    /(?:ganhar|ganho|dinheiro|receber|paga|pagamento|monetiz|royalt|fatur)/i.test(normalizedTurnText);
+  if (asksSpotifyMoney && selectableModules.spotify_royalties && !selectedKeys.includes("spotify_royalties")) {
+    selectedKeys.push("spotify_royalties");
+    selectionReasons.spotify_royalties = "Autoridade obrigatória de royalties/monetização Spotify";
+  }
 
   console.log(
     `[AGENT-V3-SELECTOR] Intent: ${selectionContext.intent}, Stage: ${selectionContext.stage}, Platform: ${selectionContext.platform}, Modules: ${selectedKeys.join(", ")}`,
@@ -286,6 +461,10 @@ ${extraContext}`
 }
 
 REGRA DE FONTE ÚNICA E ANTI-INVENÇÃO:
+- PREÇO É DADO ESTRUTURADO, NÃO É PARA ESTIMAR. Nunca transforme R$ 15 por 1.000 em “R$ 0,50 por play” nem invente preço unitário. Faça somente a proporcionalidade autorizada pelo módulo de preços carregado.
+- Se o módulo autoritativo de preço da plataforma não estiver no ESTADO DA CONVERSA, NÃO informe nenhum valor em reais; diga apenas que precisa confirmar o valor.
+- Nunca diga ou insinue que comprar plays/visualizações/seguidores da Mind gera ou aumenta diretamente royalties, faturamento ou renda. Monetização é separada do serviço de divulgação.
+- Se perguntarem “qual plataforma paga mais”, “quanto vou ganhar” ou “quanto recebo”, não faça ranking nem estimativa por conhecimento próprio. Só use um módulo específico de monetização/royalties; sem ele, diga que os pagamentos variam e são definidos pela própria plataforma/distribuidora.
 - Para preços, serviços, prazos, garantias e regras comerciais, use exclusivamente as informações presentes nos módulos carregados em ESTADO DA CONVERSA.
 - A MEMÓRIA COMERCIAL PERSISTENTE pode ser usada para lembrar quem é o cliente, se já comprou, plataforma/serviço anterior e próxima oportunidade; ela NÃO é fonte de preço ou característica do produto.
 - Nunca invente, complete por conhecimento próprio ou liste serviços que não estejam escritos nos módulos selecionados.
@@ -572,6 +751,9 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   let purchase_probability = 20;
   if (selectionContext.intent === "consulta_preco") purchase_probability = 50;
   if (selectionContext.hasGrowthGoal) purchase_probability = Math.max(purchase_probability, 45);
+  if (selectionContext.intent === "descoberta" && selectionContext.platform && selectionContext.product) {
+    purchase_probability = Math.max(purchase_probability, 45);
+  }
   if (selectionContext.intent === "compra") purchase_probability = selectionContext.hasQuantity ? 80 : 70;
   if (selectionContext.intent === "pagamento") purchase_probability = 90;
   if (selectionContext.hasPaidSignal) purchase_probability = 95;
@@ -667,6 +849,48 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     throw new Error(
       "[agent-v3] A resposta ficou vazia após os filtros de segurança e formatação",
     );
+  }
+
+  // Guard final de autoridade comercial. Uma falha futura no selector não pode
+  // voltar a produzir preço Spotify sem spotify_precos.
+  const mentionsBrlPrice = /R\$\s*\d/i.test(finalContent);
+  if (selectionContext.platform === "spotify" && mentionsBrlPrice && !effectiveSelectedKeys.includes("spotify_precos") && !effectiveSelectedKeys.includes("spotify_playlists")) {
+    console.error("[AGENT-V3-AUTHORITY] Bloqueado preço Spotify sem módulo autoritativo", {
+      message,
+      selected: effectiveSelectedKeys,
+      response: finalContent,
+    });
+    finalContent = "Preciso confirmar o valor correto desse serviço antes de te passar.";
+  }
+
+  if (
+    selectionContext.platform === "spotify" &&
+    selectionContext.product &&
+    ["plays", "ouvintes", "saves", "seguidores", "playlist"].includes(selectionContext.product) &&
+    effectiveSelectedKeys.includes("spotify_precos") &&
+    /R\$\s*\d/i.test(finalContent)
+  ) {
+    const priceValidation = hasUnsupportedSpotifyPriceClaim({
+      response: finalContent,
+      moduleContent: mergedModulesMap.spotify_precos?.content || "",
+      product: selectionContext.product as ConversationProductForPricing,
+      message,
+    });
+    if (priceValidation.invalid) {
+      console.error("[AGENT-V3-AUTHORITY] Preço Spotify divergente do módulo foi substituído", {
+        product: selectionContext.product,
+        response: finalContent,
+      });
+      finalContent = priceValidation.fallback;
+    }
+  }
+
+  const claimsDirectMonetization = /(?:quanto mais|mais)\s+(?:plays|streams|visualizacoes)[^.!?]{0,60}(?:mais|maior)\s+(?:voce )?(?:ganha|fatura|recebe)/i.test(
+    finalContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
+  );
+  if (claimsDirectMonetization) {
+    console.error("[AGENT-V3-AUTHORITY] Bloqueada promessa de monetização direta", { response: finalContent });
+    finalContent = "A Mind ajuda na divulgação, mas não dá para garantir ganho financeiro. A monetização e os pagamentos são definidos pela própria plataforma e pela distribuidora.";
   }
 
   // Primeiro contato: padroniza a saudação aprovada e elimina variações

@@ -35,6 +35,7 @@ export type ConversationContext = {
     | "inscritos"
     | "plays"
     | "ouvintes"
+    | "saves"
     | "playlist"
     | "live"
     | "horas"
@@ -60,9 +61,12 @@ const MAX_PRIMARY_MODULES = 11;
 const RECENT_CUSTOMER_MESSAGES = 12;
 
 export const KEYWORD_MAP: Record<string, string[]> = {
-  spotify: ["spotify", "playlist", "ouvintes", "streams", "save", "plays", "podcast"],
+  // Plataforma deve vir de nome/variante explícita. Produto não pode escolher rede sozinho.
+  // Antes, “plays” fazia o selector inferir Spotify e “likes/views” inferiam YouTube,
+  // o que misturava módulos quando o cliente falava de várias redes.
+  spotify: ["spotify", "spotfy", "sportify", "espotify", "espotfy"],
   instagram: ["instagram", "insta", "ig", "reels", "story", "stories"],
-  youtube: ["youtube", "yt", "inscritos", "views", "likes", "horas", "canal"],
+  youtube: ["youtube", "you tube", "yt", "inscritos", "horas", "canal"],
   tiktok: ["tiktok", "tik tok"],
   kwai: ["kwai"],
   facebook: ["facebook", "face"],
@@ -172,7 +176,8 @@ const PRODUCT_PATTERNS: Array<[NonNullable<ConversationContext["product"]>, stri
   ["visualizacoes", ["visualizacao", "visualizacoes", "view", "views"]],
   ["inscritos", ["inscrito", "inscritos"]],
   ["plays", ["play", "plays", "stream", "streams"]],
-  ["ouvintes", ["ouvinte", "ouvintes"]],
+  ["ouvintes", ["ouvinte", "ouvintes", "ouvinte mensal", "ouvintes mensais"]],
+  ["saves", ["save", "saves", "salvar", "salvamentos"]],
   ["playlist", ["playlist", "playlists"]],
   ["live", ["live", "pessoas na live"]],
   ["horas", ["hora", "horas", "watch time"]],
@@ -207,16 +212,39 @@ function containsAny(text: string, terms: string[]): boolean {
   });
 }
 
-function findContextValue<T>(
+function matchingContextValues<T>(text: string, patterns: Array<[T, string[]]>): T[] {
+  const matches = patterns
+    .filter(([, terms]) => containsAny(text, terms))
+    .map(([value]) => value);
+
+  // “Plays + Ouvintes” é um único SKU comercial no Spotify. Para roteamento
+  // de preço tratamos a dupla como `plays`, evitando marcar a mensagem como
+  // ambígua só porque o nome oficial contém as duas métricas.
+  const asStrings = new Set(matches.map((value) => String(value)));
+  if (asStrings.size === 2 && asStrings.has("plays") && asStrings.has("ouvintes")) {
+    return ["plays" as T];
+  }
+
+  return matches;
+}
+
+function findUniqueContextValue<T>(
   currentText: string,
-  recentCustomerText: string,
+  recentDialogueTexts: string[],
   patterns: Array<[T, string[]]>,
 ): T | null {
-  for (const [value, terms] of patterns) {
-    if (containsAny(currentText, terms)) return value;
-  }
-  for (const [value, terms] of patterns) {
-    if (containsAny(recentCustomerText, terms)) return value;
+  const current = matchingContextValues(currentText, patterns);
+  if (current.length === 1) return current[0];
+  if (current.length > 1) return null;
+
+  // Varre a conversa de trás para frente. Mensagens sem contexto são puladas;
+  // a primeira mensagem que aponta para UMA rede/produto vira o assunto ativo.
+  // Se a mensagem mais recente com contexto listar várias opções, paramos como
+  // ambíguo em vez de resgatar uma rede antiga.
+  for (const dialogueText of recentDialogueTexts) {
+    const matches = matchingContextValues(dialogueText, patterns);
+    if (matches.length === 1) return matches[0];
+    if (matches.length > 1) return null;
   }
   return null;
 }
@@ -231,17 +259,43 @@ export function detectConversationContext(
     .slice(-RECENT_CUSTOMER_MESSAGES)
     .map((item) => normalizeText(item.content))
     .join(" ");
+  const recentDialogueTexts = history
+    .slice(-RECENT_CUSTOMER_MESSAGES)
+    .reverse()
+    .map((item) => normalizeText(item.content));
+  const lastAgentText = normalizeText(
+    [...history].reverse().find((item) => item.role === "agent")?.content || "",
+  );
 
-  const platform = findContextValue(normalizedText, recentCustomerText, PLATFORM_PATTERNS);
-  const product = findContextValue(normalizedText, recentCustomerText, PRODUCT_PATTERNS);
+  let platform = findUniqueContextValue(
+    normalizedText,
+    recentDialogueTexts,
+    PLATFORM_PATTERNS,
+  );
+  const product = findUniqueContextValue(
+    normalizedText,
+    recentDialogueTexts,
+    PRODUCT_PATTERNS,
+  );
+  // Alguns produtos são exclusivos o bastante para recuperar a plataforma sem
+  // depender de palavras genéricas como “plays”, “likes” ou “views”.
+  if (!platform && (product === "ouvintes" || product === "saves")) platform = "spotify";
+  if (!platform && (product === "inscritos" || product === "horas")) platform = "youtube";
+
   const accumulatedCustomerText = [recentCustomerText, normalizedText].filter(Boolean).join(" ");
 
-  // Sinais comerciais são acumulativos. Uma última mensagem curta como "ok",
-  // "beleza" ou um novo gatilho de anúncio não pode apagar que o cliente já
-  // escolheu produto, quantidade ou chegou ao pagamento.
+  // Jornada acumulada serve para memória/inteligência. A intenção DO TURNO usa
+  // os sinais atuais para não deixar uma pergunta antiga de preço/pagamento
+  // contaminar todas as mensagens seguintes.
   const hasQuantity = /\b\d+(?:[.,]\d+)?\s*(?:k|mil)?\b/.test(accumulatedCustomerText);
-  const hasPriceQuestion = containsAny(accumulatedCustomerText, KEYWORD_MAP.tabela_precos);
-  const hasPaidSignal = containsAny(accumulatedCustomerText, [
+  const currentHasQuantity = /\b\d+(?:[.,]\d+)?\s*(?:k|mil)?\b/.test(normalizedText);
+  const currentHasPriceQuestion = containsAny(normalizedText, KEYWORD_MAP.tabela_precos);
+  const hasPriceQuestion = currentHasPriceQuestion || containsAny(accumulatedCustomerText, KEYWORD_MAP.tabela_precos);
+  const currentHasPaidSignal = containsAny(normalizedText, [
+    "ja paguei", "paguei", "fiz o pix", "enviei o pix", "mandei o comprovante",
+    "saldo nao caiu", "recarga nao caiu",
+  ]);
+  const hasPaidSignal = currentHasPaidSignal || containsAny(accumulatedCustomerText, [
     "ja paguei",
     "paguei",
     "fiz o pix",
@@ -250,7 +304,16 @@ export function detectConversationContext(
     "saldo nao caiu",
     "recarga nao caiu",
   ]);
+  const currentHasPaymentSignal =
+    currentHasPaidSignal ||
+    containsAny(normalizedText, [
+      "pix", "manda o pix", "manda pix", "me manda o pix", "me passa o pix",
+      "passa o pix", "qual o pix", "chave pix", "como pagar", "como faco o pix",
+      "como fazer o pix", "aceita pix", "quero pagar", "vou pagar", "onde pago",
+      "pagar agora", "pagamento", "comprovante", "recarga", "saldo",
+    ]);
   const hasPaymentSignal =
+    currentHasPaymentSignal ||
     hasPaidSignal ||
     containsAny(accumulatedCustomerText, [
       "pix",
@@ -275,7 +338,11 @@ export function detectConversationContext(
       "saldo",
     ]);
   const hasSupportSignal = containsAny(normalizedText, KEYWORD_MAP.suporte);
+  const currentHasPurchaseSignal =
+    containsAny(normalizedText, KEYWORD_MAP.fechamento) ||
+    containsAny(normalizedText, ["comprar", "quero", "preciso de"]);
   const hasPurchaseSignal =
+    currentHasPurchaseSignal ||
     containsAny(accumulatedCustomerText, KEYWORD_MAP.fechamento) ||
     containsAny(accumulatedCustomerText, ["comprar", "quero", "preciso de"]);
   const hasSecuritySignal =
@@ -285,6 +352,10 @@ export function detectConversationContext(
     "engajar", "engajamento", "divulgar minha musica", "divulgar a musica",
     "crescer minha musica", "mais alcance", "dar visibilidade", "promover minha musica"
   ]);
+  const hasRecommendationQuestion = containsAny(normalizedText, [
+    "qual voce me indica", "o que voce me indica", "qual me indica",
+    "o que recomenda", "qual recomenda", "qual voce recomenda",
+  ]);
 
   let intent: ConversationContext["intent"] = "desconhecido";
   let stage: ConversationContext["stage"] = history.length === 0 ? "inicio" : "qualificacao";
@@ -292,8 +363,20 @@ export function detectConversationContext(
   const isPureGreeting = /^(oi|ola|opa|e ai|eai|bom dia|boa tarde|boa noite)( tudo bem)?$/.test(
     normalizedText,
   );
+  const isAffirmativeReply = /^(sim|quero|pode ser|isso|isso mesmo|beleza|blz|ok|certo)$/.test(
+    normalizedText,
+  );
+  const agentAskedPrice = containsAny(lastAgentText, [
+    "quer saber os valores", "quer saber o valor", "quer ver os valores",
+    "quanto custa", "qual valor", "preco", "precos", "valor", "valores",
+  ]);
+  const agentAskedToBuy = containsAny(lastAgentText, [
+    "quer contratar", "quer comecar", "quer fazer", "quer comprar", "vamos com",
+  ]);
+  const continuationPrice = isAffirmativeReply && agentAskedPrice && Boolean(platform);
+  const continuationPurchase = isAffirmativeReply && agentAskedToBuy && Boolean(platform);
 
-  if (hasPaidSignal || (hasSupportSignal && hasPaymentSignal)) {
+  if (currentHasPaidSignal || (hasSupportSignal && currentHasPaymentSignal)) {
     intent = "pos_compra";
     stage = "pos_venda";
   } else if (hasSupportSignal) {
@@ -302,19 +385,28 @@ export function detectConversationContext(
   } else if (hasSecuritySignal) {
     intent = "duvida_seguranca";
     stage = "qualificacao";
-  } else if (hasPaymentSignal) {
+  } else if (currentHasPaymentSignal) {
     // Pagamento tem prioridade sobre sinais genéricos de compra como "quero".
     // Ex.: "quero pagar" / "manda o pix" já são fechamento, não nova qualificação.
     intent = "pagamento";
     stage = "fechamento";
+  } else if (continuationPrice) {
+    intent = "consulta_preco";
+    stage = "negociacao";
+  } else if (continuationPurchase) {
+    intent = "compra";
+    stage = product || currentHasQuantity ? "fechamento" : "negociacao";
+  } else if (hasRecommendationQuestion && (platform || product)) {
+    intent = "descoberta";
+    stage = "negociacao";
   } else if (hasGrowthGoal) {
     // O cliente informou o objetivo, não necessariamente sabe qual SKU comprar.
     // A Júlia deve assumir papel consultivo em vez de devolver outro menu.
     intent = "descoberta";
     stage = "apresentacao";
-  } else if (hasPurchaseSignal) {
+  } else if (currentHasPurchaseSignal) {
     intent = "compra";
-    stage = hasQuantity || product ? "fechamento" : "negociacao";
+    stage = currentHasQuantity || product ? "fechamento" : "negociacao";
   } else if (
     history.length > 0 &&
     platform &&
@@ -325,7 +417,7 @@ export function detectConversationContext(
     // Confirmações curtas preservam o estágio comercial acumulado.
     intent = "compra";
     stage = "fechamento";
-  } else if (hasPriceQuestion) {
+  } else if (currentHasPriceQuestion) {
     intent = "consulta_preco";
     stage = "negociacao";
   } else if (
@@ -440,6 +532,19 @@ export function selectModulesV3(
 
     const trigger = routing.triggers.find((term) => containsAny(normalizedText, [term]));
     if (trigger) add(key, `Gatilho “${trigger}” definido no CMS`);
+  }
+
+  // Autoridade comercial por plataforma: submódulo específico vence módulos
+  // genéricos/legados. Isso evita duas tabelas de preço competindo no prompt.
+  if (selected.has("spotify_precos")) {
+    selected.delete("tabela_precos");
+    delete reasons.tabela_precos;
+    selected.delete("spotify");
+    delete reasons.spotify;
+  }
+  if (selected.has("spotify_royalties")) {
+    selected.delete("spotify");
+    delete reasons.spotify;
   }
 
   // Dependências são resolvidas transitivamente depois da seleção inicial.

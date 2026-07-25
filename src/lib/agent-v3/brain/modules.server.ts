@@ -125,6 +125,18 @@ export async function loadEnabledModulesV3(
     modules[key] = nextModule;
   }
 
+  // Segurança contra CMS parcialmente migrado/reabilitação acidental do legado:
+  // se a família modular existe, o módulo monolítico da mesma plataforma não
+  // pode competir no mesmo prompt com conteúdo/preços antigos.
+  if (modules.spotify && Object.keys(modules).some((key) => key.startsWith("spotify_"))) {
+    console.warn("[v3-modules] Ignorando módulo legado spotify porque submódulos spotify_* estão ativos.");
+    delete modules.spotify;
+  }
+  if (modules.youtube && Object.keys(modules).some((key) => key.startsWith("youtube_"))) {
+    console.warn("[v3-modules] Ignorando módulo legado youtube porque submódulos youtube_* estão ativos.");
+    delete modules.youtube;
+  }
+
   if (Object.keys(modules).length === 0) {
     throw new Error(
       `[v3-modules] Nenhum módulo habilitado e preenchido no CMS para ${normalizedWorkspaceId}`,

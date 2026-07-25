@@ -71,7 +71,7 @@ Não despeje detalhes de preço, prazo, garantia ou royalties se o cliente não 
       selectorIntents: ["consulta_preco", "compra"],
       selectorStages: ["negociacao", "fechamento"],
       selectorPlatforms: ["spotify"],
-      selectorProducts: ["plays", "ouvintes", "seguidores", "playlist"],
+      selectorProducts: ["plays", "ouvintes", "saves", "seguidores", "playlist"],
       selectorTriggers: ["preço","preco","valor","quanto custa","quanto fica","mínimo","minimo","500","1000","mil"],
       content: `MÓDULO SPOTIFY — PREÇOS
 Fonte única de preços, mínimos, máximos e velocidades:
@@ -165,7 +165,7 @@ Para contratar, usa link direto da música.`,
       category: "Spotify",
       priority: 89,
       selectorPlatforms: ["spotify"],
-      selectorTriggers: ["royalty","royalties","monetização","monetizacao","distribuidora","receber dinheiro","pagamento spotify","spotify paga"],
+      selectorTriggers: ["royalty","royalties","monetização","monetizacao","distribuidora","receber dinheiro","ganhar dinheiro","quanto ganha","quanto vou ganhar","como vou receber","quanto paga","paga mais","pagamento spotify","spotify paga"],
       content: `MÓDULO SPOTIFY — ROYALTIES
 A Mind não controla monetização do Spotify nem pagamentos da distribuidora.
 Nunca prometa ganhos financeiros ou royalties como resultado do serviço.
