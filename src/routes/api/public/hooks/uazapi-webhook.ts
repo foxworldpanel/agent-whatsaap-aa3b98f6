@@ -1844,6 +1844,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
 
+      const {
+        deriveBusinessDecisionV3,
+        businessDecisionToPromptV3,
+      } = await import("@/lib/agent-v3/brain/business-state.server");
+
+      const businessDecision = deriveBusinessDecisionV3({
+        message: effectiveAgentMessage,
+        recentCustomerMessages: history
+          .filter((item) => item.role === "customer")
+          .slice(-3)
+          .map((item) => item.content),
+        customerLifecycle: customerMemory?.lifecycle ?? null,
+      });
+
+      console.log("[BUSINESS-STATE-V3] decisão antes do LLM", {
+        conversationId,
+        state: businessDecision.state,
+        risk: businessDecision.risk,
+        reason: businessDecision.reason,
+        nextAction: businessDecision.nextAction,
+      });
+
       const { shouldStaySilentForNaturalConversation } = await import(
         "@/lib/agent-v3/brain/guards.server"
       );
@@ -1869,7 +1891,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
-        extraContext: customerMemoryContext || undefined,
+        extraContext: [
+          customerMemoryContext,
+          businessDecisionToPromptV3(businessDecision),
+        ].filter(Boolean).join("\n\n") || undefined,
         customerLifecycle: customerMemory?.lifecycle,
         repurchasePotential: customerMemory?.repurchasePotential,
         inputKind: content.kind,
@@ -1931,6 +1956,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         } catch (memoryPersistError) {
           console.warn("[CUSTOMER-MEMORY] Falha ao atualizar memória comercial:", memoryPersistError);
+        }
+      }
+
+      if (conversationId) {
+        try {
+          const { persistBusinessStateV3 } = await import(
+            "@/lib/agent-v3/memory/business-state-memory.server"
+          );
+
+          // Usa a decisão pré-LLM como estado autoritativo. A inteligência serve
+          // como telemetria/visão comercial, mas não pode empurrar a conversa
+          // para trás no funil.
+          await persistBusinessStateV3({
+            supabaseAdmin,
+            userId: num.user_id,
+            workspaceId,
+            conversationId,
+            decision: businessDecision,
+            summary: `${businessDecision.state}: ${businessDecision.reason}`,
+          });
+        } catch (businessStateError) {
+          console.warn("[BUSINESS-STATE-V3] Falha ao persistir estado:", businessStateError);
         }
       }
 

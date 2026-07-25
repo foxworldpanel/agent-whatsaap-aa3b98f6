@@ -12,6 +12,7 @@ import {
 } from "./brain/guards.server";
 import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
 import { isConfirmedPurchaseMessage } from "./memory/customer-memory.server";
+import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 
 type ParsedSpotifyPriceRule = {
   baseQuantity: number;
@@ -736,6 +737,8 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
       type: "text",
       text: `
 HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
+
+${MIND_OPERATIONAL_TRUTH_V3}
 
 RESPOSTA AO CLIENTE:
 - Gere somente a mensagem que será enviada ao cliente.
