@@ -859,7 +859,8 @@ ADIAMENTO E PAUSA NATURAL DA CONVERSA:
 
 VENDA CONCLUÍDA E PÓS-VENDA:
 - Quando o cliente disser que vai fazer um teste primeiro e aumentar depois se gostar, reconheça isso de forma breve e positiva, sem pressionar a venda.
-- Quando o cliente disser "já achei", "já consegui", "ok farei aqui", "pronto fiz", "já comprei" ou equivalente, entenda o avanço da compra e não repita instruções já dadas.
+- Quando o cliente disser "já achei", "já consegui", "ok farei aqui" ou equivalente, entenda apenas que houve AVANÇO naquela etapa. Isso NÃO confirma compra, pagamento ou pedido por si só.
+- Só considere a venda concluída quando houver confirmação inequívoca de compra/pagamento/pedido, como "já comprei", "já paguei", "fiz o pedido", "pedido feito" ou equivalente explícito.
 - Se o cliente confirmar que realizou o pedido, considere a venda concluída e entre em modo pós-venda. Não volte a perguntar rede, serviço ou quantidade sem necessidade.
 - No pós-venda, responda somente à dúvida atual do cliente e seja ainda mais breve.
 - Evite encerramentos repetitivos em mensagens consecutivas como "boa sorte", "sucesso na compra", "fico no aguardo" e "qualquer coisa é só chamar".
@@ -897,6 +898,14 @@ REGRA GERAL DE PAGAMENTO E LINK:
 - O link só deve ser explicado quando o cliente perguntar qual link usar, disser que está com dúvida no campo de link, enviar um link para confirmar, ou quando um módulo específico exigir esse dado naquele momento.
 - Quando houver dúvida sobre o link, diga objetivamente qual link corresponde ao serviço usando apenas o módulo da plataforma.
 - Depois que o cliente demonstrar intenção clara de pagamento, não volte para etapas anteriores de qualificação.
+
+CADASTRO DO PAINEL — VERDADE OPERACIONAL CRÍTICA:
+- O cadastro da Mind é feito somente com e-mail e uma senha criada pelo próprio cliente.
+- O cliente pode usar qualquer e-mail e criar a própria senha.
+- O cadastro NÃO exige reconhecimento facial, biometria, selfie, documento, RG, CNH, CPF ou validação de identidade.
+- Nunca confirme que reconhecimento facial, envio de documento ou biometria "é segurança do painel".
+- Se o cliente disser que apareceu reconhecimento facial, biometria, documento ou outra etapa que não pertence ao cadastro conhecido, explique que isso NÃO faz parte do cadastro da Mind e peça uma captura de tela para entender onde ele está.
+- Não invente requisitos do painel. Se uma tela apresentar algo diferente do procedimento conhecido, peça print/imagem e analise antes de orientar.
 
 COMPROVANTE DE PAGAMENTO — REGRA CRÍTICA:
 - Se o cliente enviar imagem/documento que aparenta ser comprovante após uma conversa de compra, NUNCA valide ou invalide o pagamento pelo nome do banco, instituição, recebedor, razão social, chave Pix ou aparência do comprovante. Esses dados podem mudar conforme banco/gateway.
@@ -1081,21 +1090,67 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
             : "Muito baixa";
 
   const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
-  const recentCustomerJourneyText = [...history.filter((m) => m.role === "customer").slice(-8).map((m) => m.content), message]
-    .join(" ")
+  const normalizedCurrentTurn = message
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 
-  const criticalComplaintSignal =
-    /(?:denuncia|procon|advogad|process|justica|bloquead|nao resolvem|nao respondem|sem acesso ao suporte|nao consigo acessar o suporte|perdi quase todos|conta restrita|restricao)/i.test(recentCustomerJourneyText);
+  const recentCustomerMessages = history
+    .filter((m) => m.role === "customer")
+    .slice(-3)
+    .map((m) =>
+      String(m.content || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim(),
+    );
+
+  const recentCustomerJourneyText = [...recentCustomerMessages, normalizedCurrentTurn]
+    .filter(Boolean)
+    .join(" ");
+
+  // A mensagem ATUAL tem precedência sobre o histórico. Isso impede um problema
+  // antigo ("não consigo pagar", "desisti") de contaminar um novo turno como
+  // "agora consegui" ou "quero comprar novamente".
+  const currentResolutionSignal =
+    /\b(agora (?:deu certo|funcionou|consegui|apareceu)|ja (?:deu certo|funcionou|consegui|achei)|consegui agora|resolvid[oa]|deu certo|funcionou|apareceu o saldo)\b/.test(normalizedCurrentTurn);
+  const currentNewPurchaseSignal =
+    /\b(quero comprar|quero fazer|vou comprar|vou fazer|manda o pix|qual o pix|onde pago|quero pagar|mais \d+|outro pedido|nova compra)\b/.test(normalizedCurrentTurn);
+
+  const criticalComplaintCurrent =
+    /(?:denuncia|procon|advogad|process|justica|bloquead|nao resolvem|nao respondem|sem acesso ao suporte|nao consigo acessar o suporte|perdi quase todos|conta restrita|restricao)/i.test(normalizedCurrentTurn);
+  const criticalComplaintContext =
+    !currentResolutionSignal &&
+    !currentNewPurchaseSignal &&
+    normalizedCurrentTurn.length <= 40 &&
+    /(?:denuncia|procon|advogad|process|justica|bloquead|nao resolvem|nao respondem|sem acesso ao suporte|perdi quase todos|conta restrita|restricao)/i.test(recentCustomerJourneyText);
+  const criticalComplaintSignal = criticalComplaintCurrent || criticalComplaintContext;
+
+  const paymentTopicCurrent =
+    /\b(cadastro|cadastrar|pix|pagamento|recarga|saldo|finalizar|finalizo|finaliza|pedido)\b/.test(normalizedCurrentTurn);
+  const technicalProblemCurrent =
+    /\b(nao funciona|nao abre|nao aparece|nao completa|nao consigo|nao avanca|erro|trav|volta para|volta a|muito complicado|nao finaliza|nao finalizo)\b/.test(normalizedCurrentTurn);
   const paymentTechnicalBlock =
-    /\b(cadastro|cadastrar|pix|pagamento|recarga|saldo)\b/.test(recentCustomerJourneyText) &&
-    /\b(nao funciona|nao abre|nao aparece|nao completa|nao consigo|nao avanca|erro|trav|volta para|volta a)\b/.test(recentCustomerJourneyText);
+    !currentResolutionSignal &&
+    !currentNewPurchaseSignal &&
+    (
+      (paymentTopicCurrent && technicalProblemCurrent) ||
+      (
+        normalizedCurrentTurn.length <= 35 &&
+        technicalProblemCurrent &&
+        /\b(cadastro|cadastrar|pix|pagamento|recarga|saldo|finalizar|pedido)\b/.test(recentCustomerJourneyText)
+      )
+    );
+
   const abandonmentSignal =
-    /\b(deixa pra la|deixa para la|desisti|nao quero mais|esquece|vou desistir)\b/.test(recentCustomerJourneyText);
+    /\b(deixa pra la|deixa para la|desisti|nao quero mais|esquece|vou desistir|vou deixar pra outra hora|vou deixar para outra hora)\b/.test(normalizedCurrentTurn);
+
   const publicationAmbiguity =
-    /\b(mandar (?:a )?musica|manda (?:a )?musica|coloca (?:a )?musica|postar (?:a )?musica|onde mando|mandar por ai)\b/.test(recentCustomerJourneyText);
+    /\b(mandar (?:a )?musica|manda (?:a )?musica|coloca (?:a )?musica|postar (?:a )?musica|onde mando|mandar por ai)\b/.test(normalizedCurrentTurn);
 
   let purchase_probability = 20;
   if (selectionContext.intent === "consulta_preco") purchase_probability = 50;
@@ -1205,6 +1260,46 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // Guard determinístico: a atendente nunca deve alegar ser humana para impedir handoff.
   if (/\b(?:eu\s+)?sou\s+humana\b/i.test(finalContent) || /\bn[aã]o\s+sou\s+(?:um\s+)?rob[oô]\b/i.test(finalContent)) {
     finalContent = "Claro. Vou encaminhar seu atendimento para o setor responsável.";
+  }
+
+  // Guard operacional do cadastro: mesmo que o modelo ignore o prompt, nunca pode
+  // confirmar reconhecimento facial/biometria/documentos como requisito da Mind.
+  const customerMentionsUnknownIdentityStep =
+    /\b(reconhecimento facial|biometria|selfie|rg|cnh|documento|cpf|identidade)\b/i.test(message);
+  const responseConfirmsUnknownIdentityStep =
+    /\b(?:reconhecimento facial|biometria|selfie|documento|rg|cnh|cpf)\b/i.test(finalContent) &&
+    /\b(?:seguran[çc]a do painel|[ée] (?:do|da) (?:painel|mind)|obrigat[oó]ri[oa]|precisa|necess[aá]ri[oa]|posiciona|c[aâ]mera|ilumina[çc][aã]o|sem [oó]culos|fa[çc]a o reconhecimento)\b/i.test(finalContent);
+
+  if (customerMentionsUnknownIdentityStep && responseConfirmsUnknownIdentityStep) {
+    console.error("[AGENT-V3-OPERATIONAL-GUARD] Requisito de identidade inventado foi bloqueado", {
+      message,
+      response: finalContent,
+    });
+    finalContent =
+      "O cadastro da Mind é feito somente com e-mail e uma senha criada por você. Reconhecimento facial, biometria ou envio de documento não fazem parte do nosso cadastro. Se essa tela apareceu aí, me manda um print que eu te ajudo a identificar onde você está.";
+  }
+
+  // Guard determinístico de comprovante: nunca rejeitar Pix por nome de banco,
+  // recebedor ou razão social visível na imagem.
+  const paymentProofContext =
+    isImageInput ||
+    /\b(comprovante|pix|transfer[êe]ncia|paguei|pagamento|recarga)\b/i.test(message) ||
+    history
+      .filter((m) => m.role === "customer")
+      .slice(-3)
+      .some((m) => /\b(comprovante|pix|transfer[êe]ncia|paguei|pagamento|recarga)\b/i.test(m.content));
+
+  const responseRejectsProofByRecipient =
+    /\b(?:esse|este|o)\s+(?:pix|comprovante|pagamento|banco|recebedor)\b[^.!?]{0,120}\b(?:n[aã]o [ée] (?:da|do|nosso|nossa)|n[aã]o pertence|empresa errada|recebedor errado|banco errado)\b/i.test(finalContent) ||
+    /\b(?:tcr|raz[aã]o social|nome do recebedor|nome do banco|institui[çc][aã]o)\b[^.!?]{0,100}\b(?:n[aã]o [ée] (?:a|da|do) mind|n[aã]o [ée] nosso|errad[oa])\b/i.test(finalContent);
+
+  if (paymentProofContext && responseRejectsProofByRecipient) {
+    console.error("[AGENT-V3-PAYMENT-GUARD] Rejeição de comprovante por recebedor/banco foi bloqueada", {
+      message,
+      response: finalContent,
+    });
+    finalContent =
+      "Obrigada pela compra. Não vou validar o pagamento pelo nome do banco ou recebedor, porque esses dados podem variar. Confira se o saldo apareceu no painel e, quando aparecer, é só fazer o pedido. Se o saldo não aparecer, me avise.";
   }
 
   if (!finalContent) {

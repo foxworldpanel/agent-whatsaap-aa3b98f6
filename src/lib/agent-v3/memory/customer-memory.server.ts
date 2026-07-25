@@ -46,7 +46,8 @@ export function isConfirmedPurchaseMessage(value: string): boolean {
   if (!text) return false;
 
   return [
-    /\bja (?:fiz|comprei|paguei|consegui)\b/,
+    /\bja (?:comprei|paguei)\b/,
+    /\bja fiz (?:o|os|meu|meus) pedido[s]?\b/,
     /\bfiz (?:o|os|meu|meus) pedido/,
     /\bpedido[s]? (?:feito|feitos|realizado|realizados)\b/,
     /\bagora (?:e|eh) so aguardar\b/,
