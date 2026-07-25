@@ -71,6 +71,60 @@ function parseSpotifyPriceRule(
 
 type ConversationProductForPricing = "plays" | "ouvintes" | "saves" | "seguidores" | "playlist";
 
+function collectInstagramFollowerOptions(
+  moduleKeys: string[],
+  modules: Record<string, LoadedModuleV3>,
+): string[] {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+
+  for (const key of moduleKeys) {
+    const module = modules[key];
+    if (!module) continue;
+
+    const belongsToInstagram =
+      key === "instagram" ||
+      key.startsWith("instagram_") ||
+      module.routing.platforms.includes("instagram");
+    if (!belongsToInstagram) continue;
+
+    for (const rawLine of String(module.content || "").split(/\r?\n/)) {
+      const line = rawLine
+        .replace(/^\s*[-•*]\s*/, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (!/seguidores?/i.test(line) || !/R\$\s*\d/i.test(line)) continue;
+
+      const normalized = line
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      lines.push(line);
+    }
+  }
+
+  return lines;
+}
+
+function isGenericInstagramFollowerPriceQuestion(message: string): boolean {
+  const normalized = String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  const asksFollowers = /seguidor/.test(normalized);
+  const asksPrice = /(valor|preco|quanto|custa|fica)|\b\d{2,}\b/.test(normalized);
+  const choseVariant = /\b(global|brasil|premium|promocional|promo)\b/.test(normalized);
+
+  return asksFollowers && asksPrice && !choseVariant;
+}
+
 function formatBrl(value: number): string {
   return value.toLocaleString("pt-BR", {
     minimumFractionDigits: value % 1 === 0 ? 0 : 2,
@@ -571,6 +625,18 @@ VALIDAÇÃO DE LINKS ENVIADOS PELO CLIENTE:
 - Se o link estiver incompatível, explique em uma frase qual link o cliente deve copiar. Não invente requisitos fora do módulo.
 - Se não houver certeza suficiente para validar o formato, não confirme que o link está correto.
 
+OPÇÕES E VARIAÇÕES DO MESMO SERVIÇO:
+- Se o cliente perguntar o preço de um serviço e os módulos carregados tiverem mais de uma opção válida do MESMO serviço (ex.: Instagram Seguidores Global, Brasil Promocional e Brasil Premium), apresente TODAS as opções relevantes antes de perguntar qual ele prefere.
+- Não escolha uma opção silenciosamente e não omita uma opção promocional cadastrada.
+- Em perguntas como "qual é a diferença?", compare somente as características realmente escritas nos módulos carregados. Não invente "perfil mais qualificado", "engajamento maior", "mais seguro" ou qualquer vantagem que não esteja explicitamente cadastrada.
+- Se existir uma opção mais barata/promocional compatível com o pedido, ela deve aparecer junto das demais.
+
+LINK DO PAINEL:
+- Sempre que orientar acesso, cadastro, recarga ou pagamento no painel, coloque o endereço do painel SOZINHO em uma mensagem.
+- Escreva primeiro a instrução curta e depois use exatamente ===SPLIT=== seguido de https://mindsmmpanel.com
+- Não coloque ponto, vírgula, parênteses ou texto na mesma linha do link.
+- Depois do link, só envie outra mensagem se houver uma informação realmente necessária.
+
 REGRA GERAL DE PAGAMENTO E LINK:
 - Sinais como "manda o pix", "qual o pix", "me passa o pix", "quero pagar", "vou pagar", "onde pago" ou equivalentes significam que o cliente quer FECHAR. Pare de qualificar e conduza imediatamente para o procedimento de pagamento descrito nos módulos carregados.
 - Se o pagamento da empresa é feito pelo painel conforme os módulos carregados, explique diretamente: acessar o painel, fazer login/cadastro, recarregar saldo via Pix e escolher o serviço. Não peça mais dados antes disso.
@@ -885,6 +951,59 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     }
   }
 
+  // Instagram/Seguidores: em pergunta genérica de preço, nenhuma variante
+  // comercial cadastrada pode ser omitida. O fallback é montado diretamente
+  // das linhas dos módulos selecionados, sem preço hardcoded.
+  if (
+    selectionContext.platform === "instagram" &&
+    selectionContext.product === "seguidores" &&
+    isGenericInstagramFollowerPriceQuestion(message)
+  ) {
+    const followerOptions = collectInstagramFollowerOptions(
+      effectiveSelectedKeys,
+      mergedModulesMap,
+    );
+
+    if (followerOptions.length > 1) {
+      const normalizedResponse = finalContent
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+      const missingOption = followerOptions.some((option) => {
+        const price = option.match(/R\$\s*([\d.]+(?:,\d+)?)/i)?.[1];
+        const variantTokens = option
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase()
+          .match(/\b(global|brasil|premium|promocional|promo)\b/g) || [];
+
+        const pricePresent = price
+          ? normalizedResponse.includes(
+              `r$ ${price}`.toLowerCase(),
+            ) ||
+            normalizedResponse.includes(
+              `r$${price}`.toLowerCase(),
+            )
+          : true;
+        const variantPresent =
+          variantTokens.length === 0 ||
+          variantTokens.every((token) => normalizedResponse.includes(token));
+
+        return !(pricePresent && variantPresent);
+      });
+
+      if (missingOption) {
+        console.warn("[AGENT-V3-AUTHORITY] Instagram follower variant omitted; using module-derived list", {
+          selected: effectiveSelectedKeys,
+          options: followerOptions,
+          response: finalContent,
+        });
+        finalContent = `${followerOptions.join("\n")}\nQual você prefere?`;
+      }
+    }
+  }
+
   const claimsDirectMonetization = /(?:quanto mais|mais)\s+(?:plays|streams|visualizacoes)[^.!?]{0,60}(?:mais|maior)\s+(?:voce )?(?:ganha|fatura|recebe)/i.test(
     finalContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
   );
@@ -913,6 +1032,20 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
             : "Olá";
 
     finalContent = `${greeting}! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?`;
+  }
+
+  // URLs do painel devem chegar como mensagem isolada no WhatsApp.
+  // Isso melhora a clicabilidade e impede "mindsmmpanel.com," grudado no texto.
+  if (/https?:\/\/(?:www\.)?mindsmmpanel\.com|(?:www\.)?mindsmmpanel\.com/i.test(finalContent)) {
+    const panelUrl = "https://mindsmmpanel.com";
+    finalContent = finalContent
+      .replace(
+        /(?:https?:\/\/)?(?:www\.)?mindsmmpanel\.com\/?/gi,
+        `===SPLIT===${panelUrl}===SPLIT===`,
+      )
+      .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
+      .replace(/^===SPLIT===|===SPLIT===$/g, "")
+      .trim();
   }
 
   // Auto-split logic

@@ -534,6 +534,67 @@ export function selectModulesV3(
     if (trigger) add(key, `Gatilho “${trigger}” definido no CMS`);
   }
 
+  // Instagram pode possuir vários submódulos comerciais ao mesmo tempo
+  // (Global, Brasil promocional, Brasil Premium etc.). Em pergunta de preço,
+  // comparação ou fechamento de seguidores, carregamos TODAS as fontes
+  // relevantes da família em vez de deixar o LLM enxergar apenas uma variante.
+  if (
+    context.platform === "instagram" &&
+    context.product === "seguidores" &&
+    (
+      context.intent === "consulta_preco" ||
+      context.intent === "compra" ||
+      context.intent === "pagamento" ||
+      context.stage === "negociacao" ||
+      context.stage === "fechamento" ||
+      context.hasPriceQuestion
+    )
+  ) {
+    const instagramCommercialCandidates = orderedModules.filter(([key, module]) => {
+      if (key === "instagram") return false;
+
+      const content = normalizeText(module.content || "");
+      const belongsToInstagram =
+        key.startsWith("instagram_") ||
+        module.routing.platforms.includes("instagram");
+
+      if (!belongsToInstagram) return false;
+
+      const talksAboutFollowers =
+        containsAny(content, ["seguidor", "seguidores"]);
+
+      const looksCommercial =
+        /r\s*\$/.test((module.content || "").toLowerCase()) ||
+        containsAny(content, [
+          "preco",
+          "valor",
+          "promocional",
+          "premium",
+          "global",
+          "brasil",
+          "minimo",
+          "entrega",
+        ]);
+
+      return talksAboutFollowers && looksCommercial;
+    });
+
+    for (const [key] of instagramCommercialCandidates.slice(0, 8)) {
+      add(
+        key,
+        "Fonte comercial Instagram/Seguidores relevante para comparar todas as opções cadastradas",
+        { required: true },
+      );
+    }
+
+    if (instagramCommercialCandidates.length > 0) {
+      selected.delete("instagram");
+      delete reasons.instagram;
+      selected.delete("tabela_precos");
+      delete reasons.tabela_precos;
+    }
+  }
+
   // Autoridade comercial por plataforma: submódulo específico vence módulos
   // genéricos/legados. Isso evita duas tabelas de preço competindo no prompt.
   if (selected.has("spotify_precos")) {
