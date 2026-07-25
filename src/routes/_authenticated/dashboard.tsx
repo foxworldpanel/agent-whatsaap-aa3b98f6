@@ -87,26 +87,90 @@ function Index() {
         ))}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Módulos V3 ativos</p>
           <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : data?.activeModules ?? 0}</p>
           <p className="mt-1 text-xs text-muted-foreground">CMS do workspace</p>
         </div>
+
         <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Chamadas IA · 24h</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Respostas IA · 24h</p>
           <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : data?.agentCalls24h ?? 0}</p>
-          <p className="mt-1 text-xs text-muted-foreground">produção enviada ao cliente</p>
+          <p className="mt-1 text-xs text-muted-foreground">{data?.v3Conversations24h ?? 0} conversas com IA</p>
         </div>
+
         <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Latência média · 24h</p>
-          <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : `${((data?.avgLatencyMs ?? 0) / 1000).toFixed(1)}s`}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{data?.avgModules ?? 0} módulos/turno</p>
-        </div>
-        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Custo IA · 24h</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Custo Claude V3 · 24h</p>
           <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : `$${(data?.costs24h?.cost ?? 0).toFixed(4)}`}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{(data?.costs24h?.tokens ?? 0).toLocaleString("pt-BR")} tokens</p>
+          <p className="mt-1 text-xs text-muted-foreground">telemetria real dos turnos V3</p>
+        </div>
+
+        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Média por resposta</p>
+          <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : `$${(data?.costs24h?.avgPerResponse ?? 0).toFixed(5)}`}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Claude por turno</p>
+        </div>
+
+        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Média por conversa</p>
+          <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : `$${(data?.costs24h?.avgPerConversation ?? 0).toFixed(5)}`}</p>
+          <p className="mt-1 text-xs text-muted-foreground">somente conversas com turno V3</p>
+        </div>
+
+        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Cache · 24h</p>
+          <p className="mt-3 text-3xl font-bold">{isLoading ? "—" : `${(data?.costs24h?.cacheReadRate ?? 0).toFixed(1)}%`}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{(data?.costs24h?.cacheReadTokens ?? 0).toLocaleString("pt-BR")} tokens lidos</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold">Uso Claude V3 · últimas 24h</h2>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">agent_v3_turn</span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Input</p>
+              <p className="font-semibold">{(data?.costs24h?.inputTokens ?? 0).toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] text-muted-foreground">${(data?.costs24h?.inputCost ?? 0).toFixed(5)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Output</p>
+              <p className="font-semibold">{(data?.costs24h?.outputTokens ?? 0).toLocaleString("pt-BR")}</p>
+              <p className="text-[10px] text-muted-foreground">${(data?.costs24h?.outputCost ?? 0).toFixed(5)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Cache write</p>
+              <p className="font-semibold">{(data?.costs24h?.cacheWriteTokens ?? 0).toLocaleString("pt-BR")}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Cache</p>
+              <p className="font-semibold">${(data?.costs24h?.cacheCost ?? 0).toFixed(5)}</p>
+              <p className="text-[10px] text-muted-foreground">read + write</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+          <h2 className="font-semibold">Modelos usados · últimas 24h</h2>
+          {(data?.modelMix ?? []).length === 0 ? (
+            <p className="mt-4 text-sm text-muted-foreground">Nenhum turno V3 registrado nas últimas 24h.</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {(data?.modelMix ?? []).map((m) => (
+                <div key={m.model} className="flex items-center justify-between gap-3">
+                  <span className="truncate text-sm">{m.model}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{m.count} · {m.pct}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
+            Latência média: {((data?.avgLatencyMs ?? 0) / 1000).toFixed(1)}s · {data?.avgModules ?? 0} módulos/turno
+          </div>
         </div>
       </div>
 
