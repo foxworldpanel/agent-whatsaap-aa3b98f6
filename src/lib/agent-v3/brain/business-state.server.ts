@@ -38,7 +38,7 @@ export function deriveBusinessDecisionV3(params: {
   customerLifecycle?: string | null;
 }): BusinessDecisionV3 {
   const current = norm(params.message);
-  const recent = (params.recentCustomerMessages || []).slice(-3).map(norm);
+  const recent = (params.recentCustomerMessages || []).slice(-6).map(norm);
   const context = [...recent, current].filter(Boolean).join(" ");
 
   const explicitHuman =
@@ -142,6 +142,26 @@ export function deriveBusinessDecisionV3(params: {
       risk: currentProblem ? "atencao" : "normal",
       reason: "cliente existente tratando de pedido/entrega",
       nextAction: "atender pós-venda sem reiniciar qualificação",
+      allowQualification: false,
+      shouldHandoff: false,
+    };
+  }
+
+  const sentPlatformLink =
+    /https?:\/\/(?:open\.)?spotify\.com\/(?:track|album|artist|playlist)\//.test(current) ||
+    /https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//.test(current) ||
+    /https?:\/\/(?:www\.)?instagram\.com\//.test(current) ||
+    /https?:\/\/(?:www\.)?tiktok\.com\//.test(current);
+
+  const priorServiceChoice =
+    /\b(playlist|playlists|plays|ouvintes|seguidores|saves|visualizacoes|likes|curtidas|inscritos|spotify|youtube|instagram|tiktok)\b/.test(context);
+
+  if (sentPlatformLink && priorServiceChoice) {
+    return {
+      state: "fechamento",
+      risk: "normal",
+      reason: "cliente já escolheu o serviço e enviou o link necessário",
+      nextAction: "validar o tipo de link quando necessário e avançar para painel/pagamento sem voltar a qualificar",
       allowQualification: false,
       shouldHandoff: false,
     };

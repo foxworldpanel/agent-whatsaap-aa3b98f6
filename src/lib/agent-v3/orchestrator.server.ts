@@ -12,6 +12,7 @@ import {
 } from "./brain/guards.server";
 import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
 import { isConfirmedPurchaseMessage } from "./memory/customer-memory.server";
+import type { BusinessDecisionV3 } from "./brain/business-state.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 
 type ParsedSpotifyPriceRule = {
@@ -426,6 +427,7 @@ export interface OrchestratorInput {
   customModules?: Record<string, string | LoadedModuleV3>;
   anthropicApiKey: string;
   extraContext?: string;
+  businessDecision?: BusinessDecisionV3;
   customerLifecycle?: "novo_lead" | "interessado" | "negociacao" | "pronto_para_comprar" | "cliente" | "cliente_recorrente";
   repurchasePotential?: "baixo" | "medio" | "alto";
   isInbound?: boolean;
@@ -521,6 +523,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     customModules,
     anthropicApiKey,
     extraContext,
+    businessDecision,
     customerLifecycle,
     repurchasePotential,
     inputKind,
@@ -1182,10 +1185,10 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   if (paymentTechnicalBlock && !currentIsPostSale) purchase_probability = Math.max(purchase_probability, 90);
   if (abandonmentSignal) purchase_probability = Math.min(purchase_probability, 35);
 
-  const temperature: "frio" | "morno" | "quente" =
+  let temperature: "frio" | "morno" | "quente" =
     criticalComplaintSignal ? "frio" : purchase_probability >= 75 ? "quente" : purchase_probability >= 40 ? "morno" : "frio";
 
-  const intent = criticalComplaintSignal
+  let intent = criticalComplaintSignal
     ? "Reclamação"
     : abandonmentSignal
       ? "Abandono da compra"
@@ -1197,7 +1200,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
             ? (selectionContext.intent === "suporte" ? "Suporte" : "Pós-venda")
             : intentMap[selectionContext.intent] || "Outro";
 
-  const stage = criticalComplaintSignal
+  let stage = criticalComplaintSignal
     ? "Pós-venda"
     : abandonmentSignal
       ? "Pagamento interrompido"
@@ -1209,7 +1212,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
             ? "Pós-venda"
             : stageMap[selectionContext.stage] || "Descoberta";
 
-  const sentiment = criticalComplaintSignal || paymentTechnicalBlock || abandonmentSignal ||
+  let sentiment = criticalComplaintSignal || paymentTechnicalBlock || abandonmentSignal ||
     /(?:problema|erro|golpe|atras|não chegou|nao chegou|reclama|ruim|péssim|pessim|frustr)/i.test(normalizedCustomerMessage)
     ? "Negativo"
     : /(?:obrigad|valeu|ótimo|otimo|perfeito|show|top)/i.test(normalizedCustomerMessage)
@@ -1217,7 +1220,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       : "Neutro";
 
   const paymentExplicitlyDeferred = /\b(amanha|mais tarde|depois|outro dia|quando der)\b/.test(recentCustomerJourneyText);
-  const urgency = criticalComplaintSignal || paymentTechnicalBlock || abandonmentSignal
+  let urgency = criticalComplaintSignal || paymentTechnicalBlock || abandonmentSignal
     ? "Alta"
     : selectionContext.hasPaymentSignal || selectionContext.hasPaidSignal
       ? paymentExplicitlyDeferred ? "Média" : "Alta"
@@ -1225,7 +1228,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         ? "Média"
         : "Baixa";
 
-  const recommended_action = criticalComplaintSignal
+  let recommended_action = criticalComplaintSignal
     ? "Encaminhar ao setor responsável e manter o agente pausado."
     : paymentTechnicalBlock && !currentIsPostSale
       ? "Venda bloqueada por problema técnico: evitar loop de troubleshooting e encaminhar se persistir."
@@ -1239,7 +1242,108 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
               ? "Conduzir para o próximo passo da compra sem repetir informações."
               : "Responder diretamente ao último pedido do cliente.";
 
-  const reasoning = `Contexto atual ${selectionContext.intent}/${selectionContext.stage}; memória=${customerLifecycle || "lead"}; bloqueioPagamento=${paymentTechnicalBlock}; reclamaçãoCrítica=${criticalComplaintSignal}.`;
+  // LEAD INTELLIGENCE AUTORITATIVO
+  // Evidências comerciais objetivas prevalecem sobre uma classificação semântica
+  // fraca. Um cliente que já escolheu plataforma/produto e envia o link correto
+  // não pode voltar para "Frio / Outro / Qualificação / 20%".
+  const currentContainsPlatformLink =
+    /https?:\/\/(?:open\.)?spotify\.com\/(?:track|album|artist|playlist)\//i.test(message) ||
+    /https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//i.test(message) ||
+    /https?:\/\/(?:www\.)?instagram\.com\//i.test(message) ||
+    /https?:\/\/(?:www\.)?tiktok\.com\//i.test(message);
+
+  const objectiveClosingEvidence =
+    currentContainsPlatformLink &&
+    Boolean(selectionContext.platform) &&
+    Boolean(selectionContext.product) &&
+    selectionContext.intent !== "suporte" &&
+    selectionContext.intent !== "pos_compra";
+
+  if (objectiveClosingEvidence) {
+    purchase_probability = Math.max(purchase_probability, 85);
+    temperature = "quente";
+    intent = "Compra";
+    stage = selectionContext.hasPaymentSignal ? "Pagamento" : "Fechamento";
+    urgency = "Média";
+    if (sentiment === "Neutro") sentiment = "Positivo";
+    recommended_action =
+      "Cliente já escolheu plataforma/produto e enviou o link. Avançar para fechamento/pagamento sem voltar a qualificar.";
+  }
+
+  // O motor de estado roda ANTES do LLM. Seus estados comerciais são superiores
+  // ao fallback do selector para a telemetria salva no painel.
+  if (businessDecision) {
+    switch (businessDecision.state) {
+      case "orcamento":
+        purchase_probability = Math.max(purchase_probability, 50);
+        temperature = purchase_probability >= 75 ? "quente" : "morno";
+        intent = "Pesquisa";
+        stage = "Negociação";
+        break;
+      case "fechamento":
+        purchase_probability = Math.max(purchase_probability, 85);
+        temperature = "quente";
+        intent = "Compra";
+        stage = "Fechamento";
+        urgency = urgency === "Baixa" ? "Média" : urgency;
+        break;
+      case "pagamento":
+        purchase_probability = Math.max(purchase_probability, 90);
+        temperature = "quente";
+        intent = "Pagamento";
+        stage = "Pagamento";
+        urgency = "Alta";
+        break;
+      case "compra_bloqueada":
+        purchase_probability = Math.max(purchase_probability, 90);
+        temperature = "quente";
+        intent = "Compra";
+        stage = "Pagamento / Compra bloqueada";
+        sentiment = "Negativo";
+        urgency = "Alta";
+        break;
+      case "pedido_realizado":
+        purchase_probability = 100;
+        temperature = "quente";
+        intent = "Pós-venda";
+        stage = "Pós-venda";
+        break;
+      case "pos_venda":
+        intent = "Pós-venda";
+        stage = "Pós-venda";
+        break;
+      case "reclamacao":
+        purchase_probability = Math.min(purchase_probability, 20);
+        temperature = "frio";
+        intent = "Reclamação";
+        stage = "Pós-venda";
+        sentiment = "Negativo";
+        urgency = "Alta";
+        break;
+      case "abandono":
+        purchase_probability = Math.min(purchase_probability, 35);
+        intent = "Abandono da compra";
+        stage = "Pagamento interrompido";
+        sentiment = "Negativo";
+        urgency = "Alta";
+        break;
+      case "adiado":
+        intent = intent === "Outro" ? "Informação" : intent;
+        stage = "Aguardando cliente";
+        urgency = "Baixa";
+        break;
+      case "aguardando_setor":
+        sentiment = sentiment === "Positivo" ? "Neutro" : sentiment;
+        urgency = "Alta";
+        break;
+      default:
+        break;
+    }
+
+    recommended_action = businessDecision.nextAction || recommended_action;
+  }
+
+  const reasoning = `Contexto atual ${selectionContext.intent}/${selectionContext.stage}; estadoRuntime=${businessDecision?.state || "n/a"}; memória=${customerLifecycle || "lead"}; bloqueioPagamento=${paymentTechnicalBlock}; reclamaçãoCrítica=${criticalComplaintSignal}; evidenciaFechamento=${objectiveClosingEvidence}.`;
   const conversation_score = Math.max(0, Math.min(100, Math.round(selectionContext.confidence * 100)));
 
   // Guards & Pipeline
