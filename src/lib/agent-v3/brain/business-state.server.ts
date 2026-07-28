@@ -75,7 +75,7 @@ export function deriveBusinessDecisionV3(params: {
   const paymentTopic =
     /\b(cadastro|cadastrar|pix|pagamento|recarga|saldo|finalizar|pedido|comprar)\b/.test(context);
   const currentProblem =
-    /\b(nao funciona|nao abre|nao aparece|nao completa|nao consigo|nao avanca|nao finaliza|erro|trav|muito complicado|volta)\b/.test(current);
+    /\b(nao funciona|nao abre|nao aparece|nao completa|nao consigo|nao avanca|nao finaliza|erro|trav|muito complicado|volta|alto risco|transacao de alto risco)\b/.test(current);
 
   const priorTroubleshooting =
     (context.match(/\b(cache|cookie|navegador|ticket|atualiz|tente novamente|cadastro|pagamento)\b/g) || []).length >= 3;
@@ -124,7 +124,7 @@ export function deriveBusinessDecisionV3(params: {
     };
   }
 
-  if (/\b(ja comprei|ja paguei|fiz o pedido|pedido feito|pedido realizado|pagamento feito|pagamento realizado)\b/.test(current)) {
+  if (/\b(ja comprei|ja paguei|comprei ontem|comprei hoje|comprei|paguei|fiz o pedido|pedido feito|pedido realizado|pagamento feito|pagamento realizado)\b/.test(current)) {
     return {
       state: "pedido_realizado",
       risk: "normal",

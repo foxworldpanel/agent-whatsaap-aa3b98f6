@@ -46,7 +46,7 @@ export function isConfirmedPurchaseMessage(value: string): boolean {
   if (!text) return false;
 
   return [
-    /\bja (?:comprei|paguei)\b/,
+    /\b(?:ja )?(?:comprei|paguei)(?: hoje| ontem)?\b/,
     /\bja fiz (?:o|os|meu|meus) pedido[s]?\b/,
     /\bfiz (?:o|os|meu|meus) pedido/,
     /\bpedido[s]? (?:feito|feitos|realizado|realizados)\b/,
@@ -63,6 +63,9 @@ export function extractNextOpportunity(value: string): string | null {
   if (!text) return null;
 
   const patterns = [
+    /\b(?:vou|quero|pretendo)\s+comprar\s+(?:mais\s+)?\d{1,3}(?:[.\s]?\d{3})*\s*(?:ou|a|-)\s*\d{1,3}(?:[.\s]?\d{3})*\s*(?:mil|k)?[^.!?]{0,120}/i,
+    /\b(?:vou|quero|pretendo)\s+comprar\s+(?:mais\s+)?\d{1,3}(?:[.\s]?\d{3})*(?:\s*(?:mil|k))?[^.!?]{0,120}/i,
+    /\b(?:mais\s+)?\d{1,3}(?:[.\s]?\d{3})*\s*(?:mil|k)\b[^.!?]{0,120}\b(?:dia|em|no dia)\s*\d{1,2}(?:\/\d{1,2})?(?:\/\d{2,4})?/i,
     /\b(?:m[eê]s que vem|pr[oó]ximo m[eê]s)\b[^.!?]{0,100}/i,
     /\b(?:em|para|pra)\s+(janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b[^.!?]{0,100}/i,
     /\b(?:vou|pretendo)\s+lan[cç]ar\b[^.!?]{0,120}/i,

@@ -55,7 +55,7 @@ function parseSpotifyPriceRule(
       : { baseQuantity: 1, basePrice: price, minQuantity: 1, maxQuantity: 1 };
   }
 
-  const base = line.match(/([\d.]+)\s*=\s*R\$\s*([\d.]+(?:,\d+)?)/i);
+  const base = line.match(/([\d.]+)[^R\n]*R\$\s*([\d.]+(?:,\d+)?)/i);
   if (!base) return null;
   const baseQuantity = parsePtBrNumber(base[1]);
   const basePrice = parsePtBrNumber(base[2]);
@@ -428,6 +428,7 @@ export interface OrchestratorInput {
   anthropicApiKey: string;
   extraContext?: string;
   businessDecision?: BusinessDecisionV3;
+  funnelAlreadyCompleted?: boolean;
   customerLifecycle?: "novo_lead" | "interessado" | "negociacao" | "pronto_para_comprar" | "cliente" | "cliente_recorrente";
   repurchasePotential?: "baixo" | "medio" | "alto";
   isInbound?: boolean;
@@ -524,6 +525,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     anthropicApiKey,
     extraContext,
     businessDecision,
+    funnelAlreadyCompleted,
     customerLifecycle,
     repurchasePotential,
     inputKind,
@@ -747,7 +749,8 @@ RESPOSTA AO CLIENTE:
 - Gere somente a mensagem que será enviada ao cliente.
 - Não escreva metadados, análise interna, score, intenção, temperatura, justificativa ou marcadores entre colchetes.
 - Não repita informações já explicadas no histórico, salvo quando forem indispensáveis para responder ao último pedido.
-- Prefira 1 a 4 frases curtas. Use lista apenas quando ela realmente facilitar a resposta.
+- Prefira 1 ou 2 frases curtas. Respostas comuns devem parecer uma conversa real de WhatsApp, não um texto de atendimento automático.
+- Se a resposta puder ser dada em até 25 palavras, pare ali. Só faça explicação longa quando a dúvida realmente exigir.
 
 PLATAFORMAS DISPONÍVEIS NO CMS:
 ${availableCommercialPlatforms.length > 0 ? availableCommercialPlatforms.join(", ") : "nenhuma identificada"}
@@ -792,6 +795,11 @@ REGRA DE CONCISÃO — RITMO DE WHATSAPP:
 - Evite parágrafos de atendimento. No WhatsApp, prefira "A música fica 30 dias nas playlists." a uma explicação completa sobre o serviço.
 - Emoji não é obrigatório. Na maioria das mensagens, não use emoji. Quando fizer sentido, use no máximo 1.
 
+CONTINUIDADE APÓS FUNIL:
+- Se o runtime informar que o funil de boas-vindas já foi concluído, considere que a Júlia JÁ FOI APRESENTADA no áudio.
+- Depois do funil, nunca diga novamente "Aqui é a Júlia da Mind", "Bem-vindo" ou reinicie o atendimento.
+- Se o cliente disser apenas "bom dia", "boa tarde" ou "boa noite" após o funil, responda no máximo com a saudação correspondente e continue pelo contexto quando houver assunto.
+
 SAUDAÇÃO INICIAL:
 - Em uma saudação simples de primeiro contato, não use emoji.
 - Responda de forma natural e curta.
@@ -823,6 +831,8 @@ NATURALIDADE CONVERSACIONAL — PRIORIDADE ALTA:
 - "ok", "beleza", "entendi" e reações podem encerrar naturalmente um microtrecho.
 - Evite linguagem publicitária artificial como "potencializar" e "bombar" no atendimento individual.
 - Prefira "Beleza. 1.000 fica R$ 15." a "Ótimo! Nosso serviço de 1.000 plays sai por R$ 15,00."
+- INTERPRETE PELO CONTEXTO antes do sentido literal. Expressões como "o que está no seu comercial?" podem significar "o que vocês oferecem?". Se o contexto comercial deixar a intenção clara, responda aos serviços/oferta; não diga que "não tem comercial".
+- Em áudio com possível erro de transcrição, use plataforma/produto já discutidos para inferir a intenção. Se ainda houver ambiguidade, confirme em UMA pergunta curta em vez de mudar de assunto.
 - Nunca force simpatia. Ser humano aqui significa ser contextual, breve e útil.
 
 ATENDIMENTO CONSULTIVO — ENTENDA O OBJETIVO:
@@ -842,6 +852,22 @@ QUEBRA NATURAL DE EXPLICAÇÕES:
 - Se uma explicação realmente precisar ficar maior, divida em DUAS mensagens curtas usando exatamente ===SPLIT=== entre elas.
 - Cada parte deve parecer uma mensagem humana independente; não faça blocos longos nem quebre uma frase no meio.
 - Não use ===SPLIT=== em respostas simples.
+
+TABELA DE PREÇOS — MENSAGEM ISOLADA:
+- Quando o cliente pedir "tabela", "valores", "preços" ou equivalente para uma plataforma, a tabela deve ser uma mensagem separada, sem introdução, CTA ou pergunta dentro dela.
+- Use ===SPLIT=== antes e depois da tabela quando houver texto adicional.
+- Formato limpo: primeira linha é o nome da plataforma; uma linha por serviço disponível no módulo.
+- ESTA REGRA VALE PARA TODAS AS PLATAFORMAS/MÓDULOS, não apenas Spotify: Spotify, YouTube, Instagram, TikTok, Kwai, Facebook e demais redes cadastradas.
+- Quando o cliente pedir a tabela/valores gerais de uma plataforma, inclua TODOS os serviços daquela plataforma presentes nos módulos autoritativos. Não omita um serviço cadastrado só para resumir.
+- Não invente serviços nem preços. A tabela deve ser derivada exclusivamente dos módulos carregados.
+- Mantenha toda a tabela em UMA ÚNICA mensagem isolada. Se houver texto antes/depois, use ===SPLIT=== fora da tabela.
+- Exemplo de forma para Spotify (somente quando estes mesmos serviços/valores estiverem nos módulos atuais):
+Spotify
+
+1000 Seguidores - R$ 30,00
+1000 Plays + Ouvintes - R$ 15,00
+1000 Saves - R$ 10,00
+1 Música em 10 Playlists - R$ 49,90
 
 FLUXO COMERCIAL PROGRESSIVO:
 - Conduza a conversa um passo por vez: rede/plataforma → serviço → quantidade → valor → pagamento/painel.
@@ -869,6 +895,9 @@ VENDA CONCLUÍDA E PÓS-VENDA:
 - Só considere a venda concluída quando houver confirmação inequívoca de compra/pagamento/pedido, como "já comprei", "já paguei", "fiz o pedido", "pedido feito" ou equivalente explícito.
 - Se o cliente confirmar que realizou o pedido, considere a venda concluída e entre em modo pós-venda. Não volte a perguntar rede, serviço ou quantidade sem necessidade.
 - No pós-venda, responda somente à dúvida atual do cliente e seja ainda mais breve.
+- Nunca use "se tudo correr bem", "se der certo", "tomara", "deve dar certo" ou linguagem que introduza insegurança quando o pedido apenas está dentro do prazo normal. Informe o prazo/regra do módulo de forma objetiva.
+- Não invente causas técnicas como "conexão", "sincronização entre sistemas", "instabilidade do banco" ou similares se isso não estiver nos módulos.
+- Se o cliente disser que já comprou e também declarar uma compra futura (quantidade/data), trate como pós-venda com ALTO potencial de recompra; não volte para lead frio/qualificação.
 - Evite encerramentos repetitivos em mensagens consecutivas como "boa sorte", "sucesso na compra", "fico no aguardo" e "qualquer coisa é só chamar".
 - Se o cliente enviar links depois de dizer que comprou, não trate os links como prova de que os pedidos foram realmente criados. Sem confirmação real do sistema, use linguagem condicional, por exemplo: "Se os pedidos já foram feitos no painel, agora é só aguardar o processamento."
 - Nunca confirme que um link específico "vai receber" o serviço apenas porque o cliente o enviou.
@@ -912,6 +941,11 @@ CADASTRO DO PAINEL — VERDADE OPERACIONAL CRÍTICA:
 - Nunca confirme que reconhecimento facial, envio de documento ou biometria "é segurança do painel".
 - Se o cliente disser que apareceu reconhecimento facial, biometria, documento ou outra etapa que não pertence ao cadastro conhecido, explique que isso NÃO faz parte do cadastro da Mind e peça uma captura de tela para entender onde ele está.
 - Não invente requisitos do painel. Se uma tela apresentar algo diferente do procedimento conhecido, peça print/imagem e analise antes de orientar.
+
+ALERTA DO BANCO / TRANSAÇÃO DE RISCO:
+- Se o cliente disser que o próprio banco mostrou alerta de "alto risco", NÃO diga que isso é comum e NÃO invente a causa.
+- Não afirme que bancos são mais rigorosos com plataformas digitais sem fonte cadastrada.
+- Reconheça a preocupação em uma frase e dê somente a orientação operacional conhecida; se necessário, encaminhe ao setor responsável sem diagnosticar o banco.
 
 COMPROVANTE DE PAGAMENTO — REGRA CRÍTICA:
 - Se o cliente enviar imagem/documento que aparenta ser comprovante após uma conversa de compra, NUNCA valide ou invalide o pagamento pelo nome do banco, instituição, recebedor, razão social, chave Pix ou aparência do comprovante. Esses dados podem mudar conforme banco/gateway.
@@ -1179,7 +1213,12 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // Cliente antigo pode estar fazendo uma NOVA compra. Memória de cliente não deve
   // transformar automaticamente todo novo fechamento em Pós-venda/100%.
   if (purchaseConfirmedThisTurn) purchase_probability = 100;
-  else if (hasExistingCustomerMemory && currentIsPostSale) purchase_probability = Math.max(purchase_probability, 25);
+  else if (hasExistingCustomerMemory && currentIsPostSale) {
+    purchase_probability = Math.max(
+      purchase_probability,
+      repurchasePotential === "alto" ? 90 : repurchasePotential === "medio" ? 70 : 55,
+    );
+  }
 
   if (criticalComplaintSignal) purchase_probability = Math.min(purchase_probability, 20);
   if (paymentTechnicalBlock && !currentIsPostSale) purchase_probability = Math.max(purchase_probability, 90);
@@ -1311,6 +1350,11 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       case "pos_venda":
         intent = "Pós-venda";
         stage = "Pós-venda";
+        purchase_probability = Math.max(
+          purchase_probability,
+          repurchasePotential === "alto" ? 90 : repurchasePotential === "medio" ? 70 : 55,
+        );
+        temperature = purchase_probability >= 75 ? "quente" : "morno";
         break;
       case "reclamacao":
         purchase_probability = Math.min(purchase_probability, 20);
@@ -1577,7 +1621,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     );
   const isFirstTurn = history.length === 0;
 
-  if (greetingOnly && isFirstTurn) {
+  if (greetingOnly && isFirstTurn && !funnelAlreadyCompleted) {
     const normalizedGreeting = message.trim().toLocaleLowerCase("pt-BR");
     const greeting =
       normalizedGreeting.includes("bom dia")
@@ -1592,13 +1636,49 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   }
 
   // Nunca se reapresente no meio de uma conversa já existente.
-  if (!isFirstTurn && /aqui\s+[ée]\s+a\s+j[uú]lia\s+da\s+mind/i.test(finalContent)) {
+  if ((!isFirstTurn || funnelAlreadyCompleted) && /aqui\s+[ée]\s+a\s+j[uú]lia\s+da\s+mind/i.test(finalContent)) {
     finalContent = finalContent
       .replace(/aqui\s+[ée]\s+a\s+j[uú]lia\s+da\s+mind[.!]?\s*/gi, "")
       .replace(/como\s+posso\s+te\s+ajudar\??/gi, "")
       .replace(/\s{2,}/g, " ")
       .trim();
     if (!finalContent) finalContent = "Tranquilo!";
+  }
+
+  // Pós-venda: não crie insegurança nem causas técnicas não cadastradas.
+  if (currentIsPostSale || businessDecision?.state === "pedido_realizado" || businessDecision?.state === "pos_venda") {
+    finalContent = finalContent
+      .replace(/\bse tudo correr bem[,!]?\s*/gi, "")
+      .replace(/\bse tudo der certo[,!]?\s*/gi, "")
+      .replace(/\btomara que\s*/gi, "")
+      .replace(/\bdepende de (?:v[aá]rios )?fatores,?\s*(?:conex[aã]o,?\s*)?(?:sincroniza[çc][aã]o entre sistemas,?\s*)?(?:essas coisas normais)?[.!]?/gi, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  }
+
+  // Tabela resumida Spotify: quando o cliente pede tabela/valores gerais,
+  // não deixe o modelo misturar preço com explicação. Os números são montados
+  // diretamente do módulo autoritativo e saem como uma única mensagem limpa.
+  const asksGeneralSpotifyPriceTable =
+    selectionContext.platform === "spotify" &&
+    /\b(tabela|valores|precos|preco dos servicos|quanto custa os servicos)\b/.test(normalizedTurnText);
+
+  if (asksGeneralSpotifyPriceTable && mergedModulesMap.spotify_precos?.content) {
+    const spotifyPriceModule = mergedModulesMap.spotify_precos.content;
+    const followerRule = parseSpotifyPriceRule(spotifyPriceModule, "seguidores");
+    const playsRule = parseSpotifyPriceRule(spotifyPriceModule, "plays");
+    const savesRule = parseSpotifyPriceRule(spotifyPriceModule, "saves");
+    const playlistRule = parseSpotifyPriceRule(spotifyPriceModule, "playlist");
+    if (followerRule && playsRule && savesRule && playlistRule) {
+      finalContent = [
+        "Spotify",
+        "",
+        `${followerRule.baseQuantity} Seguidores - R$ ${followerRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `${playsRule.baseQuantity} Plays + Ouvintes - R$ ${playsRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `${savesRule.baseQuantity} Saves - R$ ${savesRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `1 Música em 10 Playlists - R$ ${playlistRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      ].join("\n");
+    }
   }
 
   // URLs do painel devem chegar como mensagem isolada no WhatsApp.

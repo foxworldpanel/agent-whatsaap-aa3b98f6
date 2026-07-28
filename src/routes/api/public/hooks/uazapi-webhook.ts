@@ -580,10 +580,12 @@ export function funnelMatchesMessage(triggerKeywords: string, message: string): 
   const normalizedMessage = normalizeFunnelText(message);
   if (!normalizedMessage) return false;
 
+  const genericGreetings = new Set(["oi", "ola", "bom dia", "boa tarde", "boa noite"]);
   const triggers = String(triggerKeywords || "")
     .split(",")
     .map((item) => normalizeFunnelText(item))
-    .filter(Boolean);
+    // Segurança: uma saudação genérica jamais pode disparar o funil sozinha.
+    .filter((item) => Boolean(item) && !genericGreetings.has(item));
 
   if (triggers.length === 0) return false;
   return triggers.some((trigger) => normalizedMessage.includes(trigger));
@@ -1942,6 +1944,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         workspaceId,
       );
 
+      // O histórico V3 não contém necessariamente as peças automáticas do funil.
+      // Consulte o runtime do funil para impedir uma segunda apresentação da Júlia.
+      let funnelAlreadyCompleted = false;
+      if (contactId) {
+        const { data: completedFunnelRun } = await (supabaseAdmin as any)
+          .from("welcome_funnel_runs")
+          .select("funnel_id")
+          .eq("contact_id", contactId)
+          .eq("workspace_id", workspaceId)
+          .eq("status", "completed")
+          .limit(1)
+          .maybeSingle();
+        funnelAlreadyCompleted = Boolean(completedFunnelRun);
+      }
+
       // Agrupa rajadas curtas do mesmo cliente (ex.: "Inscritos" + "E comentário").
       // Isso evita responder à primeira metade como se ela fosse a intenção completa.
       let effectiveAgentMessage = finalMsgText;
@@ -2016,6 +2033,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           businessDecisionToPromptV3(businessDecision),
         ].filter(Boolean).join("\n\n") || undefined,
         businessDecision,
+        funnelAlreadyCompleted,
         customerLifecycle: customerMemory?.lifecycle,
         repurchasePotential: customerMemory?.repurchasePotential,
         inputKind: content.kind,
@@ -2065,12 +2083,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             // Um cliente antigo pode estar fazendo uma nova compra e deve permanecer
             // em Compra/Pagamento até que o pedido atual seja confirmado.
             const currentIntent = String((v3Response.modules.selection_context as any)?.intent || "");
-            const confirmedNow = /\b(j[aá]\s+(?:comprei|paguei|fiz\s+o\s+pedido)|pedido\s+(?:feito|realizado)|pagamento\s+(?:feito|realizado))\b/i.test(finalMsgText);
+            const confirmedNow = /\b((?:j[aá]\s+)?(?:comprei|paguei)(?:\s+hoje|\s+ontem)?|j[aá]\s+fiz\s+o\s+pedido|pedido\s+(?:feito|realizado)|pagamento\s+(?:feito|realizado))\b/i.test(finalMsgText);
             if (confirmedNow || currentIntent === "pos_compra" || currentIntent === "suporte") {
               v3Response.intelligence.temperature = confirmedNow ? "quente" : v3Response.intelligence.temperature;
               v3Response.intelligence.intent = currentIntent === "suporte" ? "Suporte" : "Pós-venda";
               v3Response.intelligence.stage = "Pós-venda";
               if (confirmedNow) v3Response.intelligence.purchase_probability = 100;
+              else if (customerMemory.repurchasePotential === "alto") {
+                v3Response.intelligence.purchase_probability = Math.max(v3Response.intelligence.purchase_probability, 90);
+                v3Response.intelligence.temperature = "quente";
+              } else if (customerMemory.repurchasePotential === "medio") {
+                v3Response.intelligence.purchase_probability = Math.max(v3Response.intelligence.purchase_probability, 70);
+                if (v3Response.intelligence.temperature === "frio") v3Response.intelligence.temperature = "morno";
+              }
               v3Response.intelligence.recommended_action =
                 `Cliente existente. Potencial de recompra: ${customerMemory.repurchasePotential}. Não reiniciar qualificação.`;
             }
