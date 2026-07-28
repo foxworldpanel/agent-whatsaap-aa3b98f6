@@ -675,7 +675,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .from("contacts")
               .update({ photo_url: profilePic })
               .eq("id", contact.id)
-              .eq("workspace_id", num.workspace_id as string);
+              .eq("workspace_id", num.workspace_id);
           }
         } catch (profilePicErr) {
           console.warn("[UAZ-WEBHOOK] Não foi possível atualizar foto do contato:", profilePicErr);
@@ -692,7 +692,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           whatsapp_number_id: num.id,
           last_message_preview: content.text.slice(0, 100),
           last_message_at: new Date().toISOString(),
-          status: (msgLocal.fromMe ? "agente_respondendo" : "aguardando") as any,
+          status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
         };
 
         const { data: existingConv, error: existingConvErr } = await supabaseAdmin
@@ -964,11 +964,34 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } else {
             const repeatForTest = canRepeatWelcomeFunnelForTest(phoneStr);
 
-            // REGRA CRÍTICA: Agent V3 somente após status=completed.
-            // Running/paused/failed são resolvidos pela Central do Funil.
+            // REGRA: Agent V3 aguarda enquanto o funil está genuinamente em andamento
+            // (running/paused). Para "failed", tenta reenviar automaticamente até
+            // 3 vezes antes de liberar o Agent V3 — silêncio permanente nunca é aceitável.
+            let isRetryAttempt = false;
+            let nextRetryCount = 0;
+
             if (existingRun && !repeatForTest) {
               const existingStatus = String((existingRun as any).status || "completed");
-              if (["running", "paused", "failed"].includes(existingStatus)) {
+              const existingRetryCount = Number((existingRun as any).retry_count || 0);
+
+              if (existingStatus === "failed" && existingRetryCount < 3) {
+                console.log("[WELCOME-FUNNEL] Falha anterior detectada; tentando reenviar automaticamente", {
+                  phone: phoneStr,
+                  funnelId: matchingFunnel.id,
+                  retryCount: existingRetryCount,
+                });
+                const { error: retryDeleteErr } = await (supabaseAdmin as any)
+                  .from("welcome_funnel_runs")
+                  .delete()
+                  .eq("funnel_id", matchingFunnel.id)
+                  .eq("contact_id", contactId);
+                if (retryDeleteErr) {
+                  console.error("[WELCOME-FUNNEL] Falha ao limpar execução anterior pra retry; seguindo para Agent V3:", retryDeleteErr);
+                } else {
+                  isRetryAttempt = true;
+                  nextRetryCount = existingRetryCount + 1;
+                }
+              } else if (["running", "paused"].includes(existingStatus)) {
                 console.log("[WELCOME-FUNNEL] Funil incompleto; Agent V3 permanece bloqueado", {
                   phone: phoneStr,
                   funnelId: matchingFunnel.id,
@@ -976,6 +999,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   lastStep: (existingRun as any).last_step ?? null,
                 });
                 return new Response(`ok (welcome funnel ${existingStatus}; agent deferred)`);
+              } else if (existingStatus === "failed" && existingRetryCount >= 3) {
+                // Esgotou as tentativas automáticas: libera o Agent V3 em vez de
+                // deixar o cliente sem resposta nenhuma. A Central do Funil continua
+                // disponível pra reprocessar manualmente se quiser.
+                console.log("[WELCOME-FUNNEL] Falhou 3x; liberando Agent V3 em vez de silenciar o cliente", {
+                  phone: phoneStr,
+                  funnelId: matchingFunnel.id,
+                });
               }
             }
 
@@ -992,7 +1023,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }
             }
 
-            if (!existingRun || repeatForTest) {
+            if (!existingRun || repeatForTest || isRetryAttempt) {
               // Claim atômico baseado na PK original (funnel_id, contact_id).
               // Isso funciona mesmo sem nenhuma migration de estado adicional.
               const { error: claimErr } = await (supabaseAdmin as any)
@@ -1008,6 +1039,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   last_step: null,
                   last_step_index: 0,
                   error_message: null,
+                  retry_count: nextRetryCount,
                   updated_at: new Date().toISOString(),
                 });
 
@@ -1527,7 +1559,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             phoneStr,
             handoffReply,
             {
-              conversationId: conversationId!,
+              conversationId: conversationId || undefined,
               source: "critical_human_escalation",
             },
           );
@@ -1602,7 +1634,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             phoneStr,
             handoffReply,
             {
-              conversationId: conversationId!,
+              conversationId: conversationId || undefined,
               source: "human_handoff",
             },
           );
