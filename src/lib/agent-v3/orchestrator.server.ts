@@ -1139,12 +1139,52 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
 
   const model = isImageInput ? "claude-sonnet-5" : "claude-haiku-4-5";
 
+  // ===========================================================================
+  // REGRA DE OURO: PRIORIDADE FACTUAL VS COMERCIAL
+  // Se o cliente faz uma pergunta factual específica (ex: nomes de playlists,
+  // como funciona um serviço, prova social) e ao mesmo tempo demonstra interesse
+  // comercial (preço/compra), a resposta DEVE priorizar a informação factual.
+  // Empurrar a tabela de preço antes de tirar a dúvida gera desconfiança.
+  // ===========================================================================
+  const factualTriggers = [
+    "quais sao", "quais as", "quais os", "qual o nome", "nome de", "nome das",
+    "como funciona", "como e feito", "como voces fazem", "e seguro", "e confiavel",
+    "tem prova", "tem print", "tem depoimento", "me mostra", "mostra um",
+  ];
+  const isSpecificFactualQuery = factualTriggers.some(trigger =>
+    normalizedCustomerMessage.includes(trigger)
+  );
+
+  const shouldSuppressCommercialContext =
+    isSpecificFactualQuery &&
+    !selectionContext.hasQuantity &&
+    selectionContext.intent !== "pagamento";
+
+  const finalModulePrompt = shouldSuppressCommercialContext ? promptWithoutCommercial : promptWithCommercial;
+
   const startLlm = Date.now();
   const llmResult = await callAnthropicV3({
     apiKey:
       anthropicApiKey ||
       (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined),
-    system: systemPrompt,
+    system: buildFinalSystemPromptV3({
+      modules: finalModulePrompt,
+      customerName,
+      customerPhone,
+      isAudio: isAudioInput,
+      isImage: isImageInput,
+      isSticker: isStickerInput,
+      platforms: availableCommercialPlatforms,
+      purchaseProbability: purchase_probability,
+      temperature,
+      intent,
+      stage,
+      sentiment,
+      urgency,
+      recommendedAction: recommended_action,
+      currentBrazilDateTime,
+      conversationId,
+    }),
     messages: [
       ...history.map((m) => ({
         role: m.role === "agent" ? "assistant" : "user",
@@ -1153,6 +1193,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       { role: "user", content: currentUserContent },
     ],
     model,
+
     metadata: {
       message_id: messageId,
       call_number: 1,
