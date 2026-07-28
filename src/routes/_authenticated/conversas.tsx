@@ -950,7 +950,7 @@ function Conversas() {
                     className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium outline-none transition disabled:opacity-60 ${
                       tempTag[(active.contact.temperatura ?? "frio") as TempKey].cls
                     }`}
-                    title="Alterar temperatura do contato manualmente"
+                    title="Status comercial do contato. Frio/Morno/Quente evoluem automaticamente; Cliente e Bloqueado são preservados."
                   >
                     {(Object.keys(tempTag) as TempKey[]).map((k) => (
                       <option key={k} value={k}>

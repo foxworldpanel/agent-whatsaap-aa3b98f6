@@ -1936,6 +1936,45 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
 
+      // Sincroniza a caixa Frio/Morno/Quente/Cliente do CRM.
+      // Ela é persistente e usa evidências objetivas do funil comercial, em vez
+      // de depender somente da classificação de uma mensagem isolada.
+      if (contactId) {
+        try {
+          const { syncPersistentContactTemperatureV3 } = await import(
+            "@/lib/agent-v3/memory/contact-temperature.server"
+          );
+
+          const selectionContextForTemperature =
+            (v3Response.modules.selection_context as any) || {};
+
+          contactTemperature = await syncPersistentContactTemperatureV3({
+            supabaseAdmin,
+            workspaceId,
+            contactId,
+            current: contactTemperature,
+            lifecycle: customerMemory?.lifecycle ?? null,
+            purchaseCount: customerMemory?.purchaseCount ?? 0,
+            businessState: businessDecision.state,
+            intelligenceTemperature: v3Response.intelligence.temperature,
+            purchaseProbability: v3Response.intelligence.purchase_probability,
+            hasPlatform: Boolean(
+              selectionContextForTemperature.platform ||
+                customerMemory?.preferredPlatform,
+            ),
+            hasProduct: Boolean(
+              selectionContextForTemperature.product ||
+                customerMemory?.preferredProduct,
+            ),
+          });
+        } catch (temperatureSyncError) {
+          console.warn(
+            "[CONTACT-TEMPERATURE-V3] Falha não bloqueante:",
+            temperatureSyncError,
+          );
+        }
+      }
+
       if (conversationId) {
         try {
           const { persistBusinessStateV3 } = await import(
