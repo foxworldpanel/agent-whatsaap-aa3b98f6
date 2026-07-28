@@ -72,6 +72,23 @@ export const listConversations = createServerFn({ method: "GET" })
       }
     }
 
+    const businessState = new Map<string, any>();
+    try {
+      const { loadBusinessStateV3 } = await import(
+        "@/lib/agent-v3/memory/business-state-memory.server"
+      );
+      const loadedBusinessState = await loadBusinessStateV3({
+        supabaseAdmin,
+        workspaceId: context.workspaceId,
+        conversationIds,
+      });
+      for (const [conversationId, row] of loadedBusinessState.entries()) {
+        businessState.set(conversationId, row);
+      }
+    } catch (businessStateError) {
+      console.warn("[conversas] Estado comercial V3 indisponível:", businessStateError);
+    }
+
     const commercialMemory = new Map<string, any>();
     try {
       const contactIds = rows
@@ -112,6 +129,7 @@ export const listConversations = createServerFn({ method: "GET" })
       ...r,
       is_test: r.contact?.telefone ? testSet.has(r.contact.telefone) : false,
       lead_intelligence: latestIntelligence.get(r.id) ?? null,
+      business_state: businessState.get(r.id) ?? null,
       customer_memory: r.contact?.id
         ? commercialMemory.get(r.contact.id) ?? null
         : null,

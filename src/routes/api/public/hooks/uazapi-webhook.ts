@@ -303,7 +303,119 @@ const HUMAN_HANDOFF_PATTERNS = [
   /\batendente\s+humano\b/i,
   /\bpessoa\s+de\s+verdade\b/i,
   /\bfalar\s+com\s+humano\b/i,
+  /\bsem\s+ser\s+(?:um\s+)?rob[oô]\b/i,
+  /\bsem\s+rob[oô]\b/i,
+  /\bn[aã]o\s+quero\s+(?:falar\s+)?com\s+(?:um\s+)?rob[oô]\b/i,
+  /\bquero\s+(?:falar\s+)?com\s+algu[eé]m\s+(?:de\s+verdade|da\s+equipe)\b/i,
+  /\bme\s+passa\s+(?:para|pra)\s+(?:um\s+|uma\s+)?atendente\b/i,
 ];
+
+function normalizeEscalationText(value: string): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function detectCriticalHumanEscalation(params: {
+  supabaseAdmin: any;
+  conversationId?: string | null;
+  currentText: string;
+}): Promise<{ escalate: boolean; reason?: string }> {
+  const { supabaseAdmin, conversationId, currentText } = params;
+
+  let recentCustomerText = "";
+  if (conversationId) {
+    const { data, error } = await supabaseAdmin
+      .from("messages")
+      .select("body, created_at")
+      .eq("conversation_id", conversationId)
+      .eq("sender", "cliente")
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.warn("[HUMAN-ESCALATION] Falha ao ler histórico recente:", error);
+    } else {
+      recentCustomerText = (data || [])
+        .map((row: any) => String(row?.body || ""))
+        .reverse()
+        .join(" ");
+    }
+  }
+
+  const current = normalizeEscalationText(currentText);
+  const journey = normalizeEscalationText(`${recentCustomerText} ${currentText}`);
+
+  // Risco jurídico/reputacional: humano imediatamente.
+  const legalRisk =
+    /\b(denuncia|denunciar|procon|advogad[oa]|processo|processar|acao judicial|justica|boletim de ocorrencia|policia|reclamacao formal|chargeback|contestacao do pagamento)\b/.test(journey);
+
+  if (legalRisk) {
+    return {
+      escalate: true,
+      reason: "risco de denúncia, contestação ou escalada jurídica",
+    };
+  }
+
+  const supportUnavailable =
+    /\b(nao consigo (?:abrir|acessar|falar com) (?:o )?suporte|sem acesso (?:ao|a) suporte|suporte (?:esta )?bloqueado|bloquead[oa].{0,45}suporte|nao tenho acesso ao suporte|nao da.{0,30}(?:ticket|suporte)|ticket.{0,30}(?:bloqueado|nao abre|nao funciona)|volta (?:a|para) pagina inicial)\b/.test(journey);
+
+  const unresolvedSupport =
+    /\b(nao resolvem|nao respondem|ninguem responde|ja reclamei|reclamei e|sem solucao|nao solucionaram|continuo com o problema)\b/.test(journey);
+
+  const operationalProblem =
+    /\b(pedido|id\s*:?\s*\d{5,}|seguidores?|plays?|ouvintes?|likes?|visualizacoes?|compra|saldo|credito|reposicao|garantia|caiu|perdi|parado|processando|nao chegou|nao recebi|faltam?|bloquead[oa]|restric|reembolso)\b/.test(journey);
+
+  const severeLossOrBlock =
+    /\b(perdi (?:quase )?todos|ficou (?:com )?menos de|me bloquearam|estou bloquead[oa]|conta bloqueada|restricao na conta)\b/.test(journey);
+
+  // Não escalar uma dúvida simples de suporte. A combinação precisa demonstrar
+  // que o canal normal não está disponível ou que já falhou.
+  if (operationalProblem && supportUnavailable) {
+    return {
+      escalate: true,
+      reason: "problema de pedido/conta com suporte inacessível",
+    };
+  }
+
+  if (operationalProblem && unresolvedSupport && severeLossOrBlock) {
+    return {
+      escalate: true,
+      reason: "reclamação crítica não resolvida",
+    };
+  }
+
+  // O próprio turno já pode conter a combinação completa.
+  const currentHasBlockedSupport =
+    /\b(bloquead[oa]|sem acesso|nao consigo)\b/.test(current) &&
+    /\b(suporte|ticket|reclam)\b/.test(current) &&
+    operationalProblem;
+
+  if (currentHasBlockedSupport) {
+    return {
+      escalate: true,
+      reason: "cliente sem canal funcional para resolver suporte",
+    };
+  }
+
+  // Venda já encaminhada, mas cadastro/recarga/pagamento está impedindo o fechamento.
+  // Uma dúvida técnica simples continua com a Júlia; repetição/persistência vai ao setor responsável.
+  const buyingJourney = /\b(compr|pagar|pagamento|pix|recarga|saldo|cadastro|cadastrar|pedido|1000|mil|r\$)\b/.test(journey);
+  const technicalBlock = /\b(n[aã]o funciona|n[aã]o abre|n[aã]o aparece|n[aã]o completa|n[aã]o consigo|n[aã]o avan[çc]a|erro|trav|volta (?:a|para) p[aá]gina|pagamento n[aã]o aparece|saldo n[aã]o aparece|cadastro n[aã]o)\b/.test(journey);
+  const troubleshootingLoop = (journey.match(/\b(cache|cookies?|outro navegador|ticket|tente novamente|atualiz|cadastro|pagamento)\b/g) || []).length >= 3;
+
+  if (buyingJourney && technicalBlock && troubleshootingLoop) {
+    return {
+      escalate: true,
+      reason: "venda bloqueada por problema técnico no cadastro/pagamento",
+    };
+  }
+
+  return { escalate: false };
+}
 
 function shouldReplyWithAudio(params: {
   inputKind: "texto" | "audio" | "image" | "sticker";
@@ -354,11 +466,22 @@ function shouldReplyWithAudio(params: {
 function isReactionOnlyMessage(value: string): boolean {
   const text = String(value || "").trim();
   if (!text) return false;
-  // Somente emoji/reação curta, sem letras ou números. Evita responder a 👍 🤝 ❤️ etc.
+
+  // Emoji/reação curta: não gera resposta automática.
   const stripped = text
     .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D\s]+/gu, "")
     .trim();
-  return stripped.length === 0 && text.length <= 24;
+  if (stripped.length === 0 && text.length <= 24) return true;
+
+  // Confirmações que naturalmente podem encerrar um microtrecho.
+  // Saudações (oi/bom dia/etc.) NÃO entram aqui.
+  const normalized = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[.!?,]+$/g, "")
+    .trim();
+  return new Set(["ok", "okay", "blz", "beleza", "entendi", "certo", "ta certo", "tá certo"]).has(normalized);
 }
 
 export function isHumanHandoffRequest(text: string): boolean {
@@ -406,54 +529,8 @@ function canRepeatWelcomeFunnelForTest(phone: string): boolean {
   return WELCOME_FUNNEL_REPEAT_TEST_PHONES.has(normalizeFunnelPhone(phone));
 }
 
-function isConversationDeferralMessage(value: string): boolean {
-  const text = normalizeFunnelText(value);
-  if (!text) return false;
-  return [
-    /\bmais tarde\b/,
-    /\bfalamos depois\b/,
-    /\bdepois falamos\b/,
-    /\bdepois a gente fala\b/,
-    /\bte chamo depois\b/,
-    /\bchamo mais tarde\b/,
-    /\bagora nao posso\b/,
-    /\bestou trabalhando\b/,
-    /\bto trabalhando\b/,
-    /\bamanha (?:falamos|te chamo|eu chamo)\b/,
-    /\bdepois das \d{1,2}(?::\d{2})?\b/,
-  ].some((pattern) => pattern.test(text));
-}
-
-async function shouldCancelRunningFunnel(params: {
-  supabaseAdmin: any;
-  conversationId: string;
-  startedAtIso: string;
-}): Promise<boolean> {
-  const { data, error } = await params.supabaseAdmin
-    .from("messages")
-    .select("body, sender, created_at")
-    .eq("conversation_id", params.conversationId)
-    .eq("sender", "cliente")
-    .gt("created_at", params.startedAtIso)
-    .order("created_at", { ascending: false })
-    .limit(8);
-
-  if (error) {
-    console.warn("[WELCOME-FUNNEL] Não foi possível verificar pausa do cliente:", error);
-    return false;
-  }
-
-  return (data || []).some((row: any) => {
-    const body = String(row?.body || "").trim();
-    if (!body) return false;
-
-    // Qualquer nova fala substantiva do cliente durante o funil significa que
-    // ele começou uma conversa real. Interrompe as próximas peças automáticas
-    // para não mandar tabela/vídeo por cima da pergunta dele.
-    if (isConversationDeferralMessage(body)) return true;
-    return body.length >= 2;
-  });
-}
+// O funil não é cancelado por mensagens recebidas durante a sequência.
+// Essas mensagens ficam registradas e o Agent V3 só é liberado após a conclusão.
 
 function normalizeFunnelText(value: string): string {
   return String(value || "")
@@ -468,45 +545,15 @@ export function funnelMatchesMessage(triggerKeywords: string, message: string): 
   const normalizedMessage = normalizeFunnelText(message);
   if (!normalizedMessage) return false;
 
+  const genericGreetings = new Set(["oi", "ola", "bom dia", "boa tarde", "boa noite"]);
   const triggers = String(triggerKeywords || "")
     .split(",")
     .map((item) => normalizeFunnelText(item))
-    .filter(Boolean);
+    // Segurança: uma saudação genérica jamais pode disparar o funil sozinha.
+    .filter((item) => Boolean(item) && !genericGreetings.has(item));
 
   if (triggers.length === 0) return false;
   return triggers.some((trigger) => normalizedMessage.includes(trigger));
-}
-
-function funnelStepDelayMs(step: WelcomeFunnelStep | undefined, fallbackSeconds: number): number {
-  const raw = step?.delay_seconds ?? fallbackSeconds ?? 0;
-  const seconds = Math.max(0, Math.min(180, Number(raw) || 0));
-  return Math.round(seconds * 1000);
-}
-
-async function persistFunnelOutbound(params: {
-  supabaseAdmin: any;
-  conversationId: string;
-  userId: string;
-  workspaceId: string;
-  kind: "texto" | "audio";
-  body: string;
-  audioUrl?: string;
-}): Promise<void> {
-  const { error } = await params.supabaseAdmin
-    .from("messages")
-    .insert({
-      conversation_id: params.conversationId,
-      user_id: params.userId,
-      workspace_id: params.workspaceId,
-      sender: "agente",
-      kind: params.kind,
-      body: params.body,
-      ...(params.audioUrl ? { audio_url: params.audioUrl } : {}),
-    });
-
-  if (error) {
-    console.error("[WELCOME-FUNNEL] Enviado, mas falhou ao persistir outbound no CRM:", error);
-  }
 }
 
 async function executeWelcomeFunnel(params: {
@@ -518,126 +565,25 @@ async function executeWelcomeFunnel(params: {
   workspaceId: string;
   phone: string;
   creds: { uazapi_url: string; uazapi_token: string };
+  resumeAfterStep?: string | null;
+  initiatedBy?: "trigger" | "retry" | "resume";
 }): Promise<void> {
-  const {
-    supabaseAdmin,
-    funnel,
-    contactId,
-    conversationId,
-    userId,
-    workspaceId,
-    phone,
-    creds,
-  } = params;
+  const { runWelcomeFunnelSequence } = await import(
+    "@/lib/welcome-funnel-runner.server"
+  );
 
-  const { uazapiSendAudio, uazapiSendMedia, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } =
-    await import("@/lib/uazapi.server");
-  const { sleepMs } = await import("@/lib/agent-v3/humanization.server");
-
-  const steps = funnel.steps || {};
-  let stepIndex = 0;
-  const funnelStartedAtIso = new Date().toISOString();
-
-  const ensureCustomerDidNotPause = async () => {
-    const cancelled = await shouldCancelRunningFunnel({
-      supabaseAdmin,
-      conversationId,
-      startedAtIso: funnelStartedAtIso,
-    });
-    if (cancelled) {
-      throw new Error("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_MESSAGE");
-    }
-  };
-
-  const markStep = async (label: string) => {
-    stepIndex += 1;
-    console.log(`[WELCOME-FUNNEL] Etapa ${stepIndex} concluída: ${label}`);
-  };
-
-  const sendTextStep = async (
-    key: "welcome_text" | "panel_text" | "services_text",
-    source: string,
-  ) => {
-    const step = steps[key];
-    const text = step?.text?.trim();
-    if (!step?.enabled || !text) return;
-
-    await ensureCustomerDidNotPause();
-    const delayMs = funnelStepDelayMs(step, funnel.delay_seconds);
-    if (delayMs > 0) {
-      await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
-      await sleepMs(delayMs);
-      await ensureCustomerDidNotPause();
-    }
-
-    const result = await sendAgentTextGuarded(creds, phone, text, {
-      conversationId,
-      source,
-      isBlastOpening: key === "welcome_text",
-    });
-    await persistFunnelOutbound({
-      supabaseAdmin,
-      conversationId,
-      userId,
-      workspaceId,
-      kind: "texto",
-      body: result.transformed,
-    });
-    await markStep(key);
-  };
-
-  // Ordem configurada no menu Números:
-  // 1 texto opcional → 2 áudio → 3 painel → 4 vídeo → 5 tabela.
-  // Para o fluxo Meta Ads desejado, basta deixar "Texto de boas-vindas" desligado,
-  // fazendo o Áudio ser efetivamente a primeira saída.
-  await sendTextStep("welcome_text", "welcome_funnel_welcome_text");
-
-  if (steps.audio?.enabled && steps.audio.url?.trim()) {
-    await ensureCustomerDidNotPause();
-    const delayMs = funnelStepDelayMs(steps.audio, funnel.delay_seconds);
-    if (delayMs > 0) {
-      await uazapiSendRecording(creds, phone, delayMs).catch(() => undefined);
-      await sleepMs(delayMs);
-      await ensureCustomerDidNotPause();
-    }
-    await uazapiSendAudio(creds, phone, steps.audio.url.trim());
-    await uazapiClearPresence(creds, phone).catch(() => undefined);
-    await persistFunnelOutbound({
-      supabaseAdmin,
-      conversationId,
-      userId,
-      workspaceId,
-      kind: "audio",
-      body: "[Áudio do funil de boas-vindas]",
-      audioUrl: steps.audio.url.trim(),
-    });
-    await markStep("audio");
-  }
-
-  await sendTextStep("panel_text", "welcome_funnel_panel_text");
-
-  if (steps.video?.enabled && steps.video.url?.trim()) {
-    await ensureCustomerDidNotPause();
-    const delayMs = funnelStepDelayMs(steps.video, funnel.delay_seconds);
-    if (delayMs > 0) {
-      await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
-      await sleepMs(delayMs);
-      await ensureCustomerDidNotPause();
-    }
-    const caption = steps.video.caption?.trim() || undefined;
-    await uazapiSendMedia(creds, phone, "video", steps.video.url.trim(), caption);
-    await persistFunnelOutbound({
-      supabaseAdmin,
-      conversationId,
-      userId,
-      workspaceId,
-      kind: "texto",
-      body: caption || "[Vídeo explicativo do funil]",
-    });
-    await markStep("video");
-  }
-
-  await sendTextStep("services_text", "welcome_funnel_services_text");
+  await runWelcomeFunnelSequence({
+    supabase: params.supabaseAdmin,
+    funnel: params.funnel,
+    contactId: params.contactId,
+    conversationId: params.conversationId,
+    userId: params.userId,
+    workspaceId: params.workspaceId,
+    phone: params.phone,
+    creds: params.creds,
+    resumeAfterStep: params.resumeAfterStep,
+    initiatedBy: params.initiatedBy ?? "trigger",
+  });
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
@@ -904,27 +850,85 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       customerMemoryContext = customerMemoryPromptContext(customerMemory);
     }
 
+    // Mensagem textual recebida enquanto o funil estava em execução.
+    // O webhook que iniciou o funil poderá retomá-la somente após a última etapa.
+    let deferredFunnelMessage: string | null = null;
+
     // Reações simples não precisam consumir Claude nem gerar "qualquer coisa chama".
     // A mensagem continua salva no CRM, apenas não há resposta automática.
     if (content.kind === "texto" && isReactionOnlyMessage(content.text)) {
       return new Response("ok (reaction only)");
     }
 
+    // 3.4. FUNNEL GATE GLOBAL
+    // Não depende da mensagem atual bater no gatilho. Se o contato já está no meio
+    // de um funil, QUALQUER nova mensagem fica salva no CRM, mas o Agent V3 não
+    // responde até a sequência terminar.
+    if (contactId && conversationId) {
+      const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
+        .from("welcome_funnel_runs")
+        .select("funnel_id, contact_id, status, fired_at, last_step, last_step_index, updated_at")
+        .eq("contact_id", contactId)
+        .eq("workspace_id", workspaceId)
+        .in("status", ["running", "paused", "failed"])
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (runningFunnelErr) {
+        console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
+      } else if (runningFunnel) {
+        const runStatus = String((runningFunnel as any).status || "running");
+        const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
+        const stale =
+          runStatus === "running" &&
+          Number.isFinite(updatedAt) &&
+          Date.now() - updatedAt > 15 * 60_000;
+
+        if (stale) {
+          const now = new Date().toISOString();
+          await (supabaseAdmin as any)
+            .from("welcome_funnel_runs")
+            .update({
+              status: "failed",
+              error_message: "Execução travada: mais de 15 minutos sem progresso.",
+              last_error_at: now,
+              updated_at: now,
+            })
+            .eq("funnel_id", (runningFunnel as any).funnel_id)
+            .eq("contact_id", contactId);
+
+          console.warn("[WELCOME-FUNNEL] Run travado convertido em falha operacional", {
+            phone: phoneStr,
+            funnelId: (runningFunnel as any).funnel_id,
+          });
+          return new Response("ok (welcome funnel stale; agent deferred)");
+        }
+
+        // Running, paused e failed mantêm o Agent V3 bloqueado. O operador resolve
+        // pela Central do Funil; a IA só entra depois de status=completed.
+        console.log("[WELCOME-FUNNEL] Agent V3 aguardando resolução/conclusão do funil", {
+          phone: phoneStr,
+          funnelId: (runningFunnel as any).funnel_id,
+          status: runStatus,
+          lastStep: (runningFunnel as any).last_step ?? null,
+        });
+        return new Response(`ok (welcome funnel ${runStatus}; agent deferred)`);
+      }
+    }
+
     // 3.5. WELCOME FUNNEL — independente do liga/desliga do Agent V3.
     // IMPORTANTE: primeiro verificamos se a mensagem realmente bate em um gatilho.
     // Mensagens comuns NÃO consultam welcome_funnel_runs e nunca ficam dependentes
     // de migrations novas do funil.
-    const isKnownCustomer =
-      customerMemory?.lifecycle === "cliente" ||
-      customerMemory?.lifecycle === "cliente_recorrente" ||
-      contactTemperature === "cliente" ||
-      contactProfile === "ativo";
-
+    // O gatilho vale para qualquer contato. Cliente antigo ou contato já marcado
+    // como ativo também deve receber o funil se NUNCA recebeu aquele funil.
+    // A tabela welcome_funnel_runs garante "uma vez por contato"; o número de teste
+    // continua sendo a única exceção com repetição livre.
     if (
       contactId &&
       conversationId &&
-      content.kind === "texto" &&
-      (!isKnownCustomer || canRepeatWelcomeFunnelForTest(phoneStr))
+      content.kind === "texto"
     ) {
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
@@ -949,7 +953,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Não depende de status/updated_at/last_step para funcionar.
           const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
             .from("welcome_funnel_runs")
-            .select("funnel_id, contact_id, fired_at")
+            .select("funnel_id, contact_id, fired_at, status, completed_at, last_step, last_step_index, error_message, updated_at")
             .eq("funnel_id", matchingFunnel.id)
             .eq("contact_id", contactId)
             .maybeSingle();
@@ -959,6 +963,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             console.error("[WELCOME-FUNNEL] Falha ao verificar histórico; seguindo para Agent V3:", existingRunErr);
           } else {
             const repeatForTest = canRepeatWelcomeFunnelForTest(phoneStr);
+
+            // REGRA CRÍTICA: Agent V3 somente após status=completed.
+            // Running/paused/failed são resolvidos pela Central do Funil.
+            if (existingRun && !repeatForTest) {
+              const existingStatus = String((existingRun as any).status || "completed");
+              if (["running", "paused", "failed"].includes(existingStatus)) {
+                console.log("[WELCOME-FUNNEL] Funil incompleto; Agent V3 permanece bloqueado", {
+                  phone: phoneStr,
+                  funnelId: matchingFunnel.id,
+                  status: existingStatus,
+                  lastStep: (existingRun as any).last_step ?? null,
+                });
+                return new Response(`ok (welcome funnel ${existingStatus}; agent deferred)`);
+              }
+            }
 
             if (existingRun && repeatForTest) {
               // Número pessoal de teste pode repetir indefinidamente.
@@ -984,6 +1003,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   user_id: num.user_id,
                   workspace_id: workspaceId,
                   fired_at: new Date().toISOString(),
+                  status: "running",
+                  completed_at: null,
+                  last_step: null,
+                  last_step_index: 0,
+                  error_message: null,
+                  updated_at: new Date().toISOString(),
                 });
 
               if (claimErr) {
@@ -1030,28 +1055,68 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     creds,
                   });
 
-                  console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" concluído; Agent V3 assume nas próximas mensagens`);
-                  return new Response("ok (welcome funnel completed)");
-                } catch (funnelSendErr) {
-                  if (
-                    funnelSendErr instanceof Error &&
-                    funnelSendErr.message === "WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_MESSAGE"
-                  ) {
-                    // Mantém o claim: cliente normal continua com regra "funil uma vez".
-                    // Apenas interrompe as etapas restantes porque pediu para falar depois.
-                    console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" interrompido: cliente iniciou conversa durante o envio`);
-                    return new Response("ok (welcome funnel paused for live conversation)");
-                  }
+                  // O runner compartilhado é a única fonte de verdade para
+                  // status/progresso/completion do funil.
+                  console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" concluído; Agent V3 liberado`);
 
+                  // Se o cliente falou DURANTE o funil, a mensagem já foi salva por
+                  // outro webhook que ficou bloqueado pelo status=running. Agora,
+                  // somente após a última etapa, retomamos a mensagem mais recente.
+                  const { data: queuedInbound } = await supabaseAdmin
+                    .from("messages")
+                    .select("body, kind, created_at")
+                    .eq("conversation_id", conversationId)
+                    .eq("sender", "cliente")
+                    .gt("created_at", (existingRun as any)?.fired_at || new Date(Date.now() - 15 * 60_000).toISOString())
+                    .order("created_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                  const queuedBody = String((queuedInbound as any)?.body || "").trim();
+                  const originalTrigger = normalizeFunnelText(content.text);
+                  if (
+                    queuedBody &&
+                    normalizeFunnelText(queuedBody) !== originalTrigger &&
+                    (queuedInbound as any)?.kind === "texto"
+                  ) {
+                    console.log("[WELCOME-FUNNEL] Retomando mensagem que aguardou o funil:", {
+                      phone: phoneStr,
+                      chars: queuedBody.length,
+                    });
+                    deferredFunnelMessage = queuedBody;
+                    // NÃO retorna: segue pelo runtime e chama Agent V3 agora, depois do funil.
+                  } else {
+                    return new Response("ok (welcome funnel completed)");
+                  }
+                } catch (funnelSendErr) {
                   console.error("[WELCOME-FUNNEL] Falha durante envio:", funnelSendErr);
 
-                  // Se houve falha técnica real, remove o marcador para permitir retry.
-                  await (supabaseAdmin as any)
-                    .from("welcome_funnel_runs")
-                    .delete()
-                    .eq("funnel_id", matchingFunnel.id)
-                    .eq("contact_id", contactId);
+                  // Pausa solicitada pelo painel é estado operacional, não falha.
+                  if (
+                    funnelSendErr instanceof Error &&
+                    funnelSendErr.message === "WELCOME_FUNNEL_PAUSED"
+                  ) {
+                    console.log("[WELCOME-FUNNEL] Execução pausada pelo operador", {
+                      funnelId: matchingFunnel.id,
+                      contactId,
+                    });
+                    return new Response("ok (welcome funnel paused)");
+                  }
 
+                  const { markFunnelRunFailed } = await import(
+                    "@/lib/welcome-funnel-runner.server"
+                  );
+                  await markFunnelRunFailed({
+                    supabase: supabaseAdmin,
+                    funnelId: matchingFunnel.id,
+                    contactId,
+                    userId: num.user_id,
+                    workspaceId,
+                    error: funnelSendErr,
+                  });
+
+                  // Mantém o run com status=failed para a Central do Funil mostrar
+                  // o motivo e permitir reenvio exatamente do ponto que falhou.
                   if (conversationId) {
                     await supabaseAdmin
                       .from("conversations")
@@ -1063,7 +1128,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   }
 
                   // Não derruba o WhatsApp inteiro: encerra somente o turno do gatilho.
-                  return new Response("ok (welcome funnel failed; flagged for review)");
+                  return new Response("ok (welcome funnel failed; available for retry)");
                 } finally {
                   if (funnelLockAcquired) {
                     await releaseConversationDbLock(
@@ -1174,7 +1239,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const creds = { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken };
 
-      let finalMsgText = content.text || "";
+      let finalMsgText = deferredFunnelMessage || content.text || "";
       if (content.kind === "audio") {
         if (!openaiApiKey) {
           console.error("[AUDIO-V3] Whisper indisponível: OPENAI_API_KEY ausente");
@@ -1399,9 +1464,118 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
 
+      const criticalEscalation = await detectCriticalHumanEscalation({
+        supabaseAdmin,
+        conversationId,
+        currentText: finalMsgText,
+      });
+
+      if (criticalEscalation.escalate) {
+        const nowIso = new Date().toISOString();
+        const handoffReply =
+          "Entendi. Como seu caso precisa de uma análise mais detalhada, vou pausar por aqui e encaminhar para o setor responsável. Assim que possível, a equipe dará continuidade ao seu atendimento.";
+
+        try {
+          if (conversationId) {
+            const { error: criticalConvErr } = await supabaseAdmin
+              .from("conversations")
+              .update({
+                agent_enabled: false,
+                needs_review: true,
+                review_reason: criticalEscalation.reason || "suporte humano necessário",
+                auto_paused_at: nowIso,
+                status: "aguardando",
+                internal_note:
+                  `Escalação automática para humano. Motivo: ${criticalEscalation.reason || "caso crítico de suporte"}.`,
+              })
+              .eq("id", conversationId);
+
+            if (criticalConvErr) throw criticalConvErr;
+          }
+
+          // Mantém o Lead Intelligence coerente com o handoff crítico.
+          await supabaseAdmin.from("agent_logs").insert({
+            user_id: num.user_id,
+            workspace_id: workspaceId,
+            phone: phoneStr,
+            conversation_id: conversationId,
+            type: "agent_v3_turn",
+            level: "warning",
+            summary: "Agent V3 escalou caso crítico para revisão humana",
+            response: handoffReply,
+            metadata: {
+              human_escalation: true,
+              escalation_reason: criticalEscalation.reason,
+              intelligence: {
+                temperature: "frio",
+                confidence: "Muito alta",
+                intent: "Reclamação",
+                stage: "Pós-venda",
+                purchase_probability: 20,
+                sentiment: "Negativo",
+                urgency: "Alta",
+                recommended_action: "Atendimento humano obrigatório antes de novas tentativas automáticas.",
+                reasoning: criticalEscalation.reason || "Caso crítico de suporte.",
+              },
+            },
+          }).then(({ error }: any) => {
+            if (error) console.warn("[HUMAN-ESCALATION] Falha ao salvar inteligência:", error);
+          });
+
+          const sendResult = await sendAgentTextGuarded(
+            creds,
+            phoneStr,
+            handoffReply,
+            {
+              conversationId: conversationId || undefined,
+              source: "critical_human_escalation",
+            },
+          );
+
+          if (conversationId) {
+            const { error: persistErr } = await supabaseAdmin
+              .from("messages")
+              .insert({
+                conversation_id: conversationId,
+                user_id: num.user_id,
+                workspace_id: workspaceId,
+                sender: "agente",
+                kind: "texto",
+                body: sendResult.transformed,
+              });
+
+            if (persistErr) {
+              console.error("[HUMAN-ESCALATION] Handoff enviado, mas falhou ao persistir:", persistErr);
+            }
+          }
+
+          const { clearConversationStateV3 } = await import(
+            "@/lib/agent-v3/memory/conversation-state.server"
+          );
+          await clearConversationStateV3(
+            num.user_id,
+            phoneStr,
+            workspaceId,
+          ).catch((error) => {
+            console.warn("[HUMAN-ESCALATION] Falha ao limpar memória V3:", error);
+          });
+
+          console.warn("[HUMAN-ESCALATION] Atendimento automático pausado", {
+            conversationId,
+            phone: phoneStr,
+            reason: criticalEscalation.reason,
+          });
+
+          return new Response("ok (critical human escalation)");
+        } catch (criticalErr) {
+          console.error("[HUMAN-ESCALATION] Falha ao escalar conversa:", criticalErr);
+          return new Response("ok (critical escalation failed)");
+        }
+      }
+
       if (isHumanHandoffRequest(finalMsgText)) {
         const handoffReply =
-          "Claro. Vou encaminhar seu atendimento para nossa equipe. Assim que um atendente estiver disponível, ele continua por aqui.";
+          "Claro. Vou pausar por aqui e encaminhar seu atendimento para o setor responsável. Assim que possível, a equipe dará continuidade por aqui.";
 
         try {
           if (conversationId) {
@@ -1601,6 +1775,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         workspaceId,
       );
 
+      // O histórico V3 não contém necessariamente as peças automáticas do funil.
+      // Consulte o runtime do funil para impedir uma segunda apresentação da Júlia.
+      let funnelAlreadyCompleted = false;
+      if (contactId) {
+        const { data: completedFunnelRun } = await (supabaseAdmin as any)
+          .from("welcome_funnel_runs")
+          .select("funnel_id")
+          .eq("contact_id", contactId)
+          .eq("workspace_id", workspaceId)
+          .eq("status", "completed")
+          .limit(1)
+          .maybeSingle();
+        funnelAlreadyCompleted = Boolean(completedFunnelRun);
+      }
+
       // Agrupa rajadas curtas do mesmo cliente (ex.: "Inscritos" + "E comentário").
       // Isso evita responder à primeira metade como se ela fosse a intenção completa.
       let effectiveAgentMessage = finalMsgText;
@@ -1622,6 +1811,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           effectiveAgentMessage = burstBodies.join("\n");
         }
       }
+
+      const {
+        deriveBusinessDecisionV3,
+        businessDecisionToPromptV3,
+      } = await import("@/lib/agent-v3/brain/business-state.server");
+
+      const businessDecision = deriveBusinessDecisionV3({
+        message: effectiveAgentMessage,
+        recentCustomerMessages: history
+          .filter((item) => item.role === "customer")
+          .slice(-6)
+          .map((item) => item.content),
+        customerLifecycle: customerMemory?.lifecycle ?? null,
+      });
+
+      console.log("[BUSINESS-STATE-V3] decisão antes do LLM", {
+        conversationId,
+        state: businessDecision.state,
+        risk: businessDecision.risk,
+        reason: businessDecision.reason,
+        nextAction: businessDecision.nextAction,
+      });
 
       const { shouldStaySilentForNaturalConversation } = await import(
         "@/lib/agent-v3/brain/guards.server"
@@ -1648,7 +1859,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
-        extraContext: customerMemoryContext || undefined,
+        extraContext: [
+          customerMemoryContext,
+          businessDecisionToPromptV3(businessDecision),
+        ].filter(Boolean).join("\n\n") || undefined,
+        businessDecision,
+        funnelAlreadyCompleted,
         customerLifecycle: customerMemory?.lifecycle,
         repurchasePotential: customerMemory?.repurchasePotential,
         inputKind: content.kind,
@@ -1694,17 +1910,51 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 .eq("workspace_id", workspaceId);
             }
 
-            // O turno que confirmou a compra também deve aparecer como convertido
-            // imediatamente no Lead Intelligence.
-            v3Response.intelligence.temperature = "quente";
-            v3Response.intelligence.intent = "Pós-venda";
-            v3Response.intelligence.stage = "Pós-venda";
-            v3Response.intelligence.purchase_probability = 100;
-            v3Response.intelligence.recommended_action =
-              `Cliente convertido. Potencial de recompra: ${customerMemory.repurchasePotential}.`;
+            // Memória de cliente NÃO força todo novo turno para Pós-venda.
+            // Um cliente antigo pode estar fazendo uma nova compra e deve permanecer
+            // em Compra/Pagamento até que o pedido atual seja confirmado.
+            const currentIntent = String((v3Response.modules.selection_context as any)?.intent || "");
+            const confirmedNow = /\b((?:j[aá]\s+)?(?:comprei|paguei)(?:\s+hoje|\s+ontem)?|j[aá]\s+fiz\s+o\s+pedido|pedido\s+(?:feito|realizado)|pagamento\s+(?:feito|realizado))\b/i.test(finalMsgText);
+            if (confirmedNow || currentIntent === "pos_compra" || currentIntent === "suporte") {
+              v3Response.intelligence.temperature = confirmedNow ? "quente" : v3Response.intelligence.temperature;
+              v3Response.intelligence.intent = currentIntent === "suporte" ? "Suporte" : "Pós-venda";
+              v3Response.intelligence.stage = "Pós-venda";
+              if (confirmedNow) v3Response.intelligence.purchase_probability = 100;
+              else if (customerMemory.repurchasePotential === "alto") {
+                v3Response.intelligence.purchase_probability = Math.max(v3Response.intelligence.purchase_probability, 90);
+                v3Response.intelligence.temperature = "quente";
+              } else if (customerMemory.repurchasePotential === "medio") {
+                v3Response.intelligence.purchase_probability = Math.max(v3Response.intelligence.purchase_probability, 70);
+                if (v3Response.intelligence.temperature === "frio") v3Response.intelligence.temperature = "morno";
+              }
+              v3Response.intelligence.recommended_action =
+                `Cliente existente. Potencial de recompra: ${customerMemory.repurchasePotential}. Não reiniciar qualificação.`;
+            }
           }
         } catch (memoryPersistError) {
           console.warn("[CUSTOMER-MEMORY] Falha ao atualizar memória comercial:", memoryPersistError);
+        }
+      }
+
+      if (conversationId) {
+        try {
+          const { persistBusinessStateV3 } = await import(
+            "@/lib/agent-v3/memory/business-state-memory.server"
+          );
+
+          // Usa a decisão pré-LLM como estado autoritativo. A inteligência serve
+          // como telemetria/visão comercial, mas não pode empurrar a conversa
+          // para trás no funil.
+          await persistBusinessStateV3({
+            supabaseAdmin,
+            userId: num.user_id,
+            workspaceId,
+            conversationId,
+            decision: businessDecision,
+            summary: `${businessDecision.state}: ${businessDecision.reason}`,
+          });
+        } catch (businessStateError) {
+          console.warn("[BUSINESS-STATE-V3] Falha ao persistir estado:", businessStateError);
         }
       }
 

@@ -46,6 +46,14 @@ type Conv = {
     repurchase_potential?: "baixo" | "medio" | "alto" | string;
     updated_at?: string | null;
   } | null;
+  business_state?: {
+    state?: string;
+    risk_level?: string;
+    reason?: string | null;
+    next_action?: string | null;
+    summary?: string | null;
+    updated_at?: string | null;
+  } | null;
   lead_intelligence?: {
     temperature?: "frio" | "morno" | "quente" | string;
     confidence?: string;
@@ -255,7 +263,9 @@ function Conversas() {
 
   const [filterNumberId, setFilterNumberId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [quickFilter, setQuickFilter] = useState<"all" | "human" | "meta" | "hot">("all");
+  const [quickFilter, setQuickFilter] = useState<
+    "all" | "human" | "payment" | "complaint" | "blocked" | "meta" | "hot"
+  >("all");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [syncStatus, setSyncStatus] = useState<"live" | "syncing" | "error">("live");
@@ -301,6 +311,18 @@ function Conversas() {
           c.internal_note?.toLowerCase().includes("humano") === true
         );
       }
+      if (quickFilter === "payment") {
+        return ["pagamento", "fechamento"].includes(String(c.business_state?.state || ""));
+      }
+      if (quickFilter === "complaint") {
+        return (
+          c.business_state?.state === "reclamacao" ||
+          c.lead_intelligence?.intent === "Reclamação"
+        );
+      }
+      if (quickFilter === "blocked") {
+        return c.business_state?.state === "compra_bloqueada";
+      }
       if (quickFilter === "meta") return c.contact?.source === "meta_ads";
       if (quickFilter === "hot") {
         return (
@@ -323,6 +345,13 @@ function Conversas() {
           c.review_reason?.toLowerCase().includes("humano") === true ||
           c.internal_note?.toLowerCase().includes("humano") === true,
       ).length,
+      payment: conversations.filter((c) =>
+        ["pagamento", "fechamento"].includes(String(c.business_state?.state || "")),
+      ).length,
+      complaint: conversations.filter(
+        (c) => c.business_state?.state === "reclamacao" || c.lead_intelligence?.intent === "Reclamação",
+      ).length,
+      blocked: conversations.filter((c) => c.business_state?.state === "compra_bloqueada").length,
       meta: conversations.filter((c) => c.contact?.source === "meta_ads").length,
       hot: conversations.filter(
         (c) =>
@@ -393,6 +422,18 @@ function Conversas() {
       return `[${formatDateTime(m.created_at)}] ${who}${media}: ${m.body || ""}`;
     });
 
+    const businessState = active.business_state;
+    const businessStateLines = businessState
+      ? [
+          "",
+          "--- Estado da Conversa ---",
+          `Estado: ${businessState.state ?? "—"}`,
+          `Risco: ${businessState.risk_level ?? "—"}`,
+          `Motivo: ${businessState.reason ?? "—"}`,
+          `Próxima ação: ${businessState.next_action ?? "—"}`,
+        ]
+      : [];
+
     const intelligence = active.lead_intelligence;
     const intelligenceLines = intelligence
       ? [
@@ -408,7 +449,7 @@ function Conversas() {
         ]
       : [];
 
-    await navigator.clipboard.writeText([...header, ...lines, ...intelligenceLines].join("\n"));
+    await navigator.clipboard.writeText([...header, ...lines, ...businessStateLines, ...intelligenceLines].join("\n"));
     toast.success("Conversa completa copiada.");
   };
 
@@ -735,7 +776,10 @@ function Conversas() {
             <div className="flex gap-1 overflow-x-auto pb-0.5">
               {[
                 { key: "all", label: "Todos", count: quickCounts.all, icon: null },
-                { key: "human", label: "Humano", count: quickCounts.human, icon: UserCheck },
+                { key: "human", label: "Setor", count: quickCounts.human, icon: UserCheck },
+                { key: "payment", label: "Pagamento", count: quickCounts.payment, icon: null },
+                { key: "blocked", label: "Venda bloqueada", count: quickCounts.blocked, icon: null },
+                { key: "complaint", label: "Reclamações", count: quickCounts.complaint, icon: null },
                 { key: "meta", label: "Meta Ads", count: quickCounts.meta, icon: Megaphone },
                 { key: "hot", label: "Quentes", count: quickCounts.hot, icon: Flame },
               ].map((item) => {
@@ -1034,6 +1078,47 @@ function Conversas() {
                 >
                   Próxima oportunidade: {active.customer_memory.next_opportunity}
                 </span>
+              )}
+            </div>
+          )}
+
+          {active?.business_state && (
+            <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                    Estado da conversa
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold capitalize text-neutral-900">
+                    {String(active.business_state.state || "—").replace(/_/g, " ")}
+                  </p>
+                  {active.business_state.reason && (
+                    <p className="mt-1 text-xs text-neutral-600">
+                      {active.business_state.reason}
+                    </p>
+                  )}
+                </div>
+                <span className={`rounded-full border px-2 py-1 text-[10px] font-semibold uppercase ${
+                  active.business_state.risk_level === "humano_obrigatorio"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : active.business_state.risk_level === "alto"
+                      ? "border-orange-200 bg-orange-50 text-orange-700"
+                      : active.business_state.risk_level === "atencao"
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                }`}>
+                  Risco: {String(active.business_state.risk_level || "normal").replace(/_/g, " ")}
+                </span>
+              </div>
+              {active.business_state.next_action && (
+                <div className="mt-2 rounded-lg border border-neutral-200 bg-white px-2.5 py-2">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-neutral-400">
+                    Próxima ação recomendada
+                  </p>
+                  <p className="mt-0.5 text-xs font-medium text-neutral-800">
+                    {active.business_state.next_action}
+                  </p>
+                </div>
               )}
             </div>
           )}

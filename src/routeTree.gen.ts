@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTesteGratisRouteImport } from './routes/_authenticated/teste-gratis'
 import { Route as AuthenticatedNumerosRouteImport } from './routes/_authenticated/numeros'
+import { Route as AuthenticatedFunisRouteImport } from './routes/_authenticated/funis'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticated/disparos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -53,6 +54,11 @@ const AuthenticatedTesteGratisRoute =
 const AuthenticatedNumerosRoute = AuthenticatedNumerosRouteImport.update({
   id: '/numeros',
   path: '/numeros',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedFunisRoute = AuthenticatedFunisRouteImport.update({
+  id: '/funis',
+  path: '/funis',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/conversas': typeof AuthenticatedConversasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/disparos': typeof AuthenticatedDisparosRoute
+  '/funis': typeof AuthenticatedFunisRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/numeros': typeof AuthenticatedNumerosRoute
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByTo {
   '/conversas': typeof AuthenticatedConversasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/disparos': typeof AuthenticatedDisparosRoute
+  '/funis': typeof AuthenticatedFunisRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/numeros': typeof AuthenticatedNumerosRoute
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
@@ -192,6 +200,7 @@ export interface FileRoutesById {
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/disparos': typeof AuthenticatedDisparosRoute
+  '/_authenticated/funis': typeof AuthenticatedFunisRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/numeros': typeof AuthenticatedNumerosRoute
   '/_authenticated/teste-gratis': typeof AuthenticatedTesteGratisRoute
@@ -319,6 +328,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNumerosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/funis': {
+      id: '/_authenticated/funis'
+      path: '/funis'
+      fullPath: '/funis'
+      preLoaderRoute: typeof AuthenticatedFunisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/logs': {
       id: '/_authenticated/logs'
       path: '/logs'
@@ -437,6 +453,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDisparosRoute: typeof AuthenticatedDisparosRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedNumerosRoute: typeof AuthenticatedNumerosRoute
+  AuthenticatedFunisRoute: typeof AuthenticatedFunisRoute
   AuthenticatedTesteGratisRoute: typeof AuthenticatedTesteGratisRoute
   AuthenticatedAdminAgentPlaygroundRoute: typeof AuthenticatedAdminAgentPlaygroundRoute
 }
@@ -451,6 +468,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDisparosRoute: AuthenticatedDisparosRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedNumerosRoute: AuthenticatedNumerosRoute,
+  AuthenticatedFunisRoute: AuthenticatedFunisRoute,
   AuthenticatedTesteGratisRoute: AuthenticatedTesteGratisRoute,
   AuthenticatedAdminAgentPlaygroundRoute:
     AuthenticatedAdminAgentPlaygroundRoute,

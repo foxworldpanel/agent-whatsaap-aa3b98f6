@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap, LogOut, Phone, FileText, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap, LogOut, Phone, FileText, ShieldCheck, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getAgentConfig, setAgentGlobalEnabled, countConversationsToReview, countAgentErrors } from "@/lib/agent.functions";
 import { toast } from "sonner";
+import { countFunnelControlAlerts } from "@/lib/funnel-control.functions";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -18,6 +19,7 @@ const nav = [
   { to: "/admin/agent-playground", label: "Agent Playground", icon: Zap },
   { to: "/disparos", label: "Disparos", icon: Send },
   { to: "/conversas", label: "Conversas", icon: MessagesSquare },
+  { to: "/funis", label: "Central do Funil", icon: Workflow },
   { to: "/numeros", label: "Números", icon: Phone },
   { to: "/teste-gratis", label: "Teste Grátis", icon: Gift },
   { to: "/logs", label: "Logs", icon: FileText },
@@ -32,6 +34,7 @@ export function AppShell() {
   const toggleGlobal = useServerFn(setAgentGlobalEnabled);
   const fetchReviewCount = useServerFn(countConversationsToReview);
   const fetchErrorCount = useServerFn(countAgentErrors);
+  const fetchFunnelAlertCount = useServerFn(countFunnelControlAlerts);
   const [hasSession, setHasSession] = useState(false);
   useEffect(() => {
     let mounted = true;
@@ -67,6 +70,15 @@ export function AppShell() {
     retry: false,
   });
   const errorCount = (errorCountQ.data as { count?: number } | undefined)?.count ?? 0;
+  const funnelAlertQ = useQuery({
+    queryKey: ["funnel_control_alert_count"],
+    queryFn: () => fetchFunnelAlertCount(),
+    refetchInterval: 10000,
+    enabled: hasSession,
+    retry: false,
+  });
+  const funnelAlertCount =
+    (funnelAlertQ.data as { count?: number } | undefined)?.count ?? 0;
   const enabled = (agentQ.data as { agent_enabled?: boolean } | null | undefined)?.agent_enabled !== false;
   const toggleMut = useMutation({
     mutationFn: (next: boolean) => toggleGlobal({ data: { enabled: next } }),
@@ -128,15 +140,23 @@ export function AppShell() {
                     {reviewCount > 99 ? "99+" : reviewCount}
                   </span>
                 )}
+                {item.to === "/funis" && funnelAlertCount > 0 && (
+                  <span className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    {funnelAlertCount > 99 ? "99+" : funnelAlertCount}
+                  </span>
+                )}
                 {item.to === "/logs" && errorCount > 0 && (
                   <span className="ml-auto inline-flex min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                     {errorCount > 99 ? "99+" : errorCount}
                   </span>
                 )}
-                {active && item.to !== "/conversas" && (
+                {active && item.to !== "/conversas" && item.to !== "/funis" && (
                   <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
                 )}
                 {active && item.to === "/conversas" && reviewCount === 0 && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+                {active && item.to === "/funis" && funnelAlertCount === 0 && (
                   <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
                 )}
               </Link>

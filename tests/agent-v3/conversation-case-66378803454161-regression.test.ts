@@ -30,7 +30,7 @@ describe("Caso real: funil, link e inteligência acumulada", () => {
 
   it("interrompe etapas restantes se cliente pedir para falar depois", () => {
     expect(webhook).toContain("isConversationDeferralMessage");
-    expect(webhook).toContain("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_DEFERRAL");
+    expect(webhook).not.toContain("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_DEFERRAL");
     expect(webhook).toContain("welcome funnel paused by customer");
   });
 
