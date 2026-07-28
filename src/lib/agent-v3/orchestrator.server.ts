@@ -1,6 +1,6 @@
 // src/lib/agent-v3/orchestrator.server.ts
 import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
-import { selectModulesV3, type ConversationContext } from "./selector/module-selector.server";
+import { selectModulesV3, type ConversationContext, KEYWORD_MAP } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
 import {
