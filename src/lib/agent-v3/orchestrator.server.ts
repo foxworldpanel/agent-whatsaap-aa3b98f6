@@ -1857,6 +1857,20 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     finalContent = `Sem problemas! Geralmente o pessoal começa com ${suggestedProduct} para dar o primeiro impulso. Quer ver os valores para essa opção?`;
   }
 
+  // (7) Regra: Ordem de preço antes de pergunta em variações de serviço
+  if (/\b(qual|quais|escolhe|prefere|deseja|quer)\b/i.test(finalContent) && !/R\$\s*\d/i.test(finalContent) && selectionContext.platform && selectionContext.product) {
+    const rules = collectGenericPriceRules({
+      platform: selectionContext.platform as CommercePlatform,
+      product: selectionContext.product,
+      moduleKeys: effectiveSelectedKeys,
+      modules: mergedModulesMap,
+    });
+    if (rules.length > 0) {
+      const priceOptions = rules.map(r => r.label).join("\n");
+      finalContent = `Temos essas opções para ${productDisplayName(selectionContext.product)}:===SPLIT===${priceOptions}===SPLIT===${finalContent}`;
+    }
+  }
+
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
 
