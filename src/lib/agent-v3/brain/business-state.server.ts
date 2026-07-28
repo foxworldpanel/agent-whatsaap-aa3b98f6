@@ -292,6 +292,79 @@ export function enrichBusinessDecisionV3(
   };
 }
 
+
+export function reconcileBusinessDecisionV3(params: {
+  previous?: BusinessDecisionV3 | null;
+  current: BusinessDecisionV3;
+  message: string;
+}): BusinessDecisionV3 {
+  const previous = params.previous;
+  const current = params.current;
+  const message = norm(params.message);
+
+  if (!previous) return current;
+
+  // Segurança e atendimento humano sempre vencem qualquer continuidade comercial.
+  if (current.shouldHandoff || current.risk === "humano_obrigatorio") return current;
+
+  // Sinais explícitos permitem iniciar uma nova compra ou encerrar um bloqueio antigo.
+  const explicitNewPurchase =
+    /\b(quero comprar|quero fazer|vou comprar|vou fazer|novo pedido|outra compra|mais \d+|agora consegui|agora funcionou)\b/.test(message);
+  const explicitPostSale =
+    /\b(ja comprei|ja paguei|fiz o pedido|pedido feito|pedido realizado|pagamento feito|pagamento realizado)\b/.test(message);
+  const explicitDeferral =
+    /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|deixa pra la|desisti)\b/.test(message);
+
+  if (explicitNewPurchase || explicitPostSale || explicitDeferral) return current;
+
+  const salesRank: Partial<Record<BusinessStateV3, number>> = {
+    novo_lead: 0,
+    descoberta: 1,
+    orcamento: 2,
+    fechamento: 3,
+    pagamento: 4,
+    pedido_realizado: 5,
+    pos_venda: 6,
+  };
+
+  const previousRank = salesRank[previous.state];
+  const currentRank = salesRank[current.state];
+  const ambiguousCurrent = current.reason === "estado inicial/indefinido";
+
+  // Uma mensagem curta ou ambígua não pode empurrar a conversa para trás.
+  if (
+    previousRank !== undefined &&
+    currentRank !== undefined &&
+    currentRank < previousRank &&
+    (ambiguousCurrent || /^(ok|sim|certo|beleza|entendi|e agora|como assim|pode ser|isso)$/i.test(message))
+  ) {
+    return {
+      ...previous,
+      reason: `continuidade preservada: ${previous.reason}`,
+      waitingCustomer: false,
+    };
+  }
+
+  // Durante pagamento/fechamento, dúvidas operacionais continuam no mesmo objetivo.
+  if (
+    (previous.state === "pagamento" || previous.state === "fechamento") &&
+    ["novo_lead", "descoberta", "orcamento"].includes(current.state) &&
+    /\b(como|onde|qual|pix|painel|cadastro|saldo|recarga|demora|prazo|garantia|seguro|funciona)\b/.test(message)
+  ) {
+    return {
+      ...previous,
+      reason: `continuidade de ${previous.state}: dúvida operacional do cliente`,
+      nextAction:
+        previous.state === "pagamento"
+          ? "responder a dúvida e manter o cliente no pagamento/painel"
+          : "responder a dúvida e continuar o fechamento sem repetir qualificação",
+      waitingCustomer: false,
+    };
+  }
+
+  return current;
+}
+
 export function businessDecisionToPromptV3(decision: BusinessDecisionV3): string {
   return [
     "DECISÃO DE NEGÓCIO DO RUNTIME:",

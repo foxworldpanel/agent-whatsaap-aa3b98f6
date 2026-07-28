@@ -1816,9 +1816,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         deriveBusinessDecisionV3,
         businessDecisionToPromptV3,
         enrichBusinessDecisionV3,
+        reconcileBusinessDecisionV3,
       } = await import("@/lib/agent-v3/brain/business-state.server");
 
-      const businessDecision = enrichBusinessDecisionV3(deriveBusinessDecisionV3({
+      let previousBusinessDecision: any = null;
+      if (conversationId) {
+        const { loadSingleBusinessStateV3 } = await import(
+          "@/lib/agent-v3/memory/business-state-memory.server"
+        );
+        previousBusinessDecision = await loadSingleBusinessStateV3({
+          supabaseAdmin,
+          workspaceId,
+          conversationId,
+        });
+      }
+
+      const derivedBusinessDecision = enrichBusinessDecisionV3(deriveBusinessDecisionV3({
         message: effectiveAgentMessage,
         recentCustomerMessages: history
           .filter((item) => item.role === "customer")
@@ -1826,6 +1839,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .map((item) => item.content),
         customerLifecycle: customerMemory?.lifecycle ?? null,
       }), effectiveAgentMessage);
+
+      const businessDecision = reconcileBusinessDecisionV3({
+        previous: previousBusinessDecision,
+        current: derivedBusinessDecision,
+        message: effectiveAgentMessage,
+      });
 
       console.log("[BUSINESS-STATE-V3] decisão antes do LLM", {
         conversationId,

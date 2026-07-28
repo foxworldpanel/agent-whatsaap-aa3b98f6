@@ -63,3 +63,39 @@ export async function loadBusinessStateV3(params: {
 
   return result;
 }
+
+
+export async function loadSingleBusinessStateV3(params: {
+  supabaseAdmin: any;
+  workspaceId: string;
+  conversationId: string;
+}): Promise<(BusinessDecisionV3 & { updatedAt?: string }) | null> {
+  const { data, error } = await params.supabaseAdmin
+    .from("conversation_business_state_v3")
+    .select("state, risk_level, reason, next_action, objective, purchase_score, confidence_score, urgency_score, waiting_customer, updated_at")
+    .eq("workspace_id", params.workspaceId)
+    .eq("conversation_id", params.conversationId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[BUSINESS-STATE-V3] Estado anterior indisponível:", error.message || error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    state: data.state,
+    risk: data.risk_level,
+    reason: data.reason,
+    nextAction: data.next_action,
+    allowQualification: !["fechamento", "pagamento", "pedido_realizado", "pos_venda", "reclamacao", "adiado", "abandono", "aguardando_setor", "compra_bloqueada"].includes(data.state),
+    shouldHandoff: data.risk_level === "humano_obrigatorio",
+    objective: data.objective ?? undefined,
+    purchaseScore: data.purchase_score ?? undefined,
+    confidenceScore: data.confidence_score ?? undefined,
+    urgencyScore: data.urgency_score ?? undefined,
+    waitingCustomer: data.waiting_customer ?? false,
+    updatedAt: data.updated_at ?? undefined,
+  };
+}
