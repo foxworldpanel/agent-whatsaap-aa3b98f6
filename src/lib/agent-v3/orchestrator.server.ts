@@ -1754,9 +1754,10 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // TABELA DE PREÇOS DETERMINÍSTICA — TODAS AS PLATAFORMAS
   // Quando o cliente pede tabela/valores gerais, o código monta UMA bolha limpa
   // diretamente dos módulos da plataforma. O LLM não escolhe quais SKUs omitir.
+  // (3) Regra: responder tabela de preço completa numa única mensagem quando o cliente pedir a tabela/lista de uma rede.
   const asksGeneralPlatformPriceTable =
     Boolean(selectionContext.platform) &&
-    /\b(tabela|valores|precos|preco dos servicos|quanto custa os servicos|todos os precos|todos os valores)\b/.test(normalizedTurnText);
+    /\b(tabela|valores|precos|preco dos servicos|quanto custa os servicos|todos os precos|todos os valores|lista)\b/.test(normalizedTurnText);
 
   if (asksGeneralPlatformPriceTable && selectionContext.platform) {
     const platform = selectionContext.platform as CommercePlatform;
