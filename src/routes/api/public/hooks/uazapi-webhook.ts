@@ -556,38 +556,6 @@ export function funnelMatchesMessage(triggerKeywords: string, message: string): 
   return triggers.some((trigger) => normalizedMessage.includes(trigger));
 }
 
-function funnelStepDelayMs(step: WelcomeFunnelStep | undefined, fallbackSeconds: number): number {
-  const raw = step?.delay_seconds ?? fallbackSeconds ?? 0;
-  const seconds = Math.max(0, Math.min(180, Number(raw) || 0));
-  return Math.round(seconds * 1000);
-}
-
-async function persistFunnelOutbound(params: {
-  supabaseAdmin: any;
-  conversationId: string;
-  userId: string;
-  workspaceId: string;
-  kind: "texto" | "audio";
-  body: string;
-  audioUrl?: string;
-}): Promise<void> {
-  const { error } = await params.supabaseAdmin
-    .from("messages")
-    .insert({
-      conversation_id: params.conversationId,
-      user_id: params.userId,
-      workspace_id: params.workspaceId,
-      sender: "agente",
-      kind: params.kind,
-      body: params.body,
-      ...(params.audioUrl ? { audio_url: params.audioUrl } : {}),
-    });
-
-  if (error) {
-    console.error("[WELCOME-FUNNEL] Enviado, mas falhou ao persistir outbound no CRM:", error);
-  }
-}
-
 async function executeWelcomeFunnel(params: {
   supabaseAdmin: any;
   funnel: WelcomeFunnelRow;
@@ -597,123 +565,25 @@ async function executeWelcomeFunnel(params: {
   workspaceId: string;
   phone: string;
   creds: { uazapi_url: string; uazapi_token: string };
+  resumeAfterStep?: string | null;
+  initiatedBy?: "trigger" | "retry" | "resume";
 }): Promise<void> {
-  const {
-    supabaseAdmin,
-    funnel,
-    contactId,
-    conversationId,
-    userId,
-    workspaceId,
-    phone,
-    creds,
-  } = params;
+  const { runWelcomeFunnelSequence } = await import(
+    "@/lib/welcome-funnel-runner.server"
+  );
 
-  const { uazapiSendAudio, uazapiSendMedia, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } =
-    await import("@/lib/uazapi.server");
-  const { sleepMs } = await import("@/lib/agent-v3/humanization.server");
-
-  const steps = funnel.steps || {};
-  let stepIndex = 0;
-
-  const markStep = async (label: string) => {
-    stepIndex += 1;
-    console.log(`[WELCOME-FUNNEL] Etapa ${stepIndex} concluída: ${label}`);
-
-    // Telemetria/resume point. Falha aqui não interrompe o envio.
-    await (supabaseAdmin as any)
-      .from("welcome_funnel_runs")
-      .update({
-        status: "running",
-        last_step: label,
-        last_step_index: stepIndex,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("funnel_id", funnel.id)
-      .eq("contact_id", contactId)
-      .then(({ error }: any) => {
-        if (error) console.warn("[WELCOME-FUNNEL] Não foi possível salvar progresso:", error);
-      });
-  };
-
-  const sendTextStep = async (
-    key: "welcome_text" | "panel_text" | "services_text",
-    source: string,
-  ) => {
-    const step = steps[key];
-    const text = step?.text?.trim();
-    if (!step?.enabled || !text) return;
-
-    const delayMs = funnelStepDelayMs(step, funnel.delay_seconds);
-    if (delayMs > 0) {
-      await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
-      await sleepMs(delayMs);
-      }
-
-    const result = await sendAgentTextGuarded(creds, phone, text, {
-      conversationId,
-      source,
-      isBlastOpening: key === "welcome_text",
-    });
-    await persistFunnelOutbound({
-      supabaseAdmin,
-      conversationId,
-      userId,
-      workspaceId,
-      kind: "texto",
-      body: result.transformed,
-    });
-    await markStep(key);
-  };
-
-  // Ordem configurada no menu Números:
-  // 1 texto opcional → 2 áudio → 3 painel → 4 vídeo → 5 tabela.
-  // Para o fluxo Meta Ads desejado, basta deixar "Texto de boas-vindas" desligado,
-  // fazendo o Áudio ser efetivamente a primeira saída.
-  await sendTextStep("welcome_text", "welcome_funnel_welcome_text");
-
-  if (steps.audio?.enabled && steps.audio.url?.trim()) {
-    const delayMs = funnelStepDelayMs(steps.audio, funnel.delay_seconds);
-    if (delayMs > 0) {
-      await uazapiSendRecording(creds, phone, delayMs).catch(() => undefined);
-      await sleepMs(delayMs);
-      }
-    await uazapiSendAudio(creds, phone, steps.audio.url.trim());
-    await uazapiClearPresence(creds, phone).catch(() => undefined);
-    await persistFunnelOutbound({
-      supabaseAdmin,
-      conversationId,
-      userId,
-      workspaceId,
-      kind: "audio",
-      body: "[Áudio do funil de boas-vindas]",
-      audioUrl: steps.audio.url.trim(),
-    });
-    await markStep("audio");
-  }
-
-  await sendTextStep("panel_text", "welcome_funnel_panel_text");
-
-  if (steps.video?.enabled && steps.video.url?.trim()) {
-    const delayMs = funnelStepDelayMs(steps.video, funnel.delay_seconds);
-    if (delayMs > 0) {
-      await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
-      await sleepMs(delayMs);
-      }
-    const caption = steps.video.caption?.trim() || undefined;
-    await uazapiSendMedia(creds, phone, "video", steps.video.url.trim(), caption);
-    await persistFunnelOutbound({
-      supabaseAdmin,
-      conversationId,
-      userId,
-      workspaceId,
-      kind: "texto",
-      body: caption || "[Vídeo explicativo do funil]",
-    });
-    await markStep("video");
-  }
-
-  await sendTextStep("services_text", "welcome_funnel_services_text");
+  await runWelcomeFunnelSequence({
+    supabase: params.supabaseAdmin,
+    funnel: params.funnel,
+    contactId: params.contactId,
+    conversationId: params.conversationId,
+    userId: params.userId,
+    workspaceId: params.workspaceId,
+    phone: params.phone,
+    creds: params.creds,
+    resumeAfterStep: params.resumeAfterStep,
+    initiatedBy: params.initiatedBy ?? "trigger",
+  });
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
@@ -805,7 +675,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .from("contacts")
               .update({ photo_url: profilePic })
               .eq("id", contact.id)
-              .eq("workspace_id", num.workspace_id);
+              .eq("workspace_id", num.workspace_id as string);
           }
         } catch (profilePicErr) {
           console.warn("[UAZ-WEBHOOK] Não foi possível atualizar foto do contato:", profilePicErr);
@@ -822,7 +692,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           whatsapp_number_id: num.id,
           last_message_preview: content.text.slice(0, 100),
           last_message_at: new Date().toISOString(),
-          status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
+          status: (msgLocal.fromMe ? "agente_respondendo" : "aguardando") as any,
         };
 
         const { data: existingConv, error: existingConvErr } = await supabaseAdmin
@@ -1000,7 +870,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .select("funnel_id, contact_id, status, fired_at, last_step, last_step_index, updated_at")
         .eq("contact_id", contactId)
         .eq("workspace_id", workspaceId)
-        .eq("status", "running")
+        .in("status", ["running", "paused", "failed"])
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -1008,29 +878,42 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       if (runningFunnelErr) {
         console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
-        // Proteção contra run morto por crash: após 15 minutos liberamos retry em
-        // vez de bloquear o agente indefinidamente.
+        const runStatus = String((runningFunnel as any).status || "running");
         const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
-        const stale = Number.isFinite(updatedAt) && Date.now() - updatedAt > 15 * 60_000;
+        const stale =
+          runStatus === "running" &&
+          Number.isFinite(updatedAt) &&
+          Date.now() - updatedAt > 15 * 60_000;
 
-        if (!stale) {
-          console.log("[WELCOME-FUNNEL] Agent V3 aguardando conclusão do funil", {
+        if (stale) {
+          const now = new Date().toISOString();
+          await (supabaseAdmin as any)
+            .from("welcome_funnel_runs")
+            .update({
+              status: "failed",
+              error_message: "Execução travada: mais de 15 minutos sem progresso.",
+              last_error_at: now,
+              updated_at: now,
+            })
+            .eq("funnel_id", (runningFunnel as any).funnel_id)
+            .eq("contact_id", contactId);
+
+          console.warn("[WELCOME-FUNNEL] Run travado convertido em falha operacional", {
             phone: phoneStr,
             funnelId: (runningFunnel as any).funnel_id,
-            lastStep: (runningFunnel as any).last_step ?? null,
           });
-          return new Response("ok (welcome funnel running; agent deferred)");
+          return new Response("ok (welcome funnel stale; agent deferred)");
         }
 
-        console.warn("[WELCOME-FUNNEL] Run antigo/stale liberado para recuperação", {
+        // Running, paused e failed mantêm o Agent V3 bloqueado. O operador resolve
+        // pela Central do Funil; a IA só entra depois de status=completed.
+        console.log("[WELCOME-FUNNEL] Agent V3 aguardando resolução/conclusão do funil", {
           phone: phoneStr,
           funnelId: (runningFunnel as any).funnel_id,
+          status: runStatus,
+          lastStep: (runningFunnel as any).last_step ?? null,
         });
-        await (supabaseAdmin as any)
-          .from("welcome_funnel_runs")
-          .delete()
-          .eq("funnel_id", (runningFunnel as any).funnel_id)
-          .eq("contact_id", contactId);
+        return new Response(`ok (welcome funnel ${runStatus}; agent deferred)`);
       }
     }
 
@@ -1081,34 +964,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } else {
             const repeatForTest = canRepeatWelcomeFunnelForTest(phoneStr);
 
-            // REGRA CRÍTICA: o Agent V3 só pode entrar DEPOIS que o funil terminar.
-            // Se outra mensagem chegar enquanto áudio/vídeo/tabela ainda estão sendo
-            // enviados, ela fica salva no CRM e este webhook não chama o Claude.
-            if (
-              existingRun &&
-              !repeatForTest &&
-              String((existingRun as any).status || "completed") === "running"
-            ) {
-              console.log("[WELCOME-FUNNEL] Mensagem recebida durante funil; Agent V3 aguardará conclusão", {
-                phone: phoneStr,
-                funnelId: matchingFunnel.id,
-                lastStep: (existingRun as any).last_step ?? null,
-              });
-              return new Response("ok (welcome funnel running; agent deferred)");
-            }
-
-            // Run failed nunca conta como entregue. Remove para permitir retry no
-            // próximo gatilho/turno, em vez de considerar cliente atendido.
-            if (
-              existingRun &&
-              !repeatForTest &&
-              String((existingRun as any).status || "completed") === "failed"
-            ) {
-              await (supabaseAdmin as any)
-                .from("welcome_funnel_runs")
-                .delete()
-                .eq("funnel_id", matchingFunnel.id)
-                .eq("contact_id", contactId);
+            // REGRA CRÍTICA: Agent V3 somente após status=completed.
+            // Running/paused/failed são resolvidos pela Central do Funil.
+            if (existingRun && !repeatForTest) {
+              const existingStatus = String((existingRun as any).status || "completed");
+              if (["running", "paused", "failed"].includes(existingStatus)) {
+                console.log("[WELCOME-FUNNEL] Funil incompleto; Agent V3 permanece bloqueado", {
+                  phone: phoneStr,
+                  funnelId: matchingFunnel.id,
+                  status: existingStatus,
+                  lastStep: (existingRun as any).last_step ?? null,
+                });
+                return new Response(`ok (welcome funnel ${existingStatus}; agent deferred)`);
+              }
             }
 
             if (existingRun && repeatForTest) {
@@ -1124,8 +992,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }
             }
 
-            const existingRunStatus = String((existingRun as any)?.status || "completed");
-            if (!existingRun || existingRunStatus === "failed" || repeatForTest) {
+            if (!existingRun || repeatForTest) {
               // Claim atômico baseado na PK original (funnel_id, contact_id).
               // Isso funciona mesmo sem nenhuma migration de estado adicional.
               const { error: claimErr } = await (supabaseAdmin as any)
@@ -1188,18 +1055,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     creds,
                   });
 
-                  const completedAt = new Date().toISOString();
-                  await (supabaseAdmin as any)
-                    .from("welcome_funnel_runs")
-                    .update({
-                      status: "completed",
-                      completed_at: completedAt,
-                      error_message: null,
-                      updated_at: completedAt,
-                    })
-                    .eq("funnel_id", matchingFunnel.id)
-                    .eq("contact_id", contactId);
-
+                  // O runner compartilhado é a única fonte de verdade para
+                  // status/progresso/completion do funil.
                   console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" concluído; Agent V3 liberado`);
 
                   // Se o cliente falou DURANTE o funil, a mensagem já foi salva por
@@ -1234,23 +1091,32 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 } catch (funnelSendErr) {
                   console.error("[WELCOME-FUNNEL] Falha durante envio:", funnelSendErr);
 
-                  await (supabaseAdmin as any)
-                    .from("welcome_funnel_runs")
-                    .update({
-                      status: "failed",
-                      error_message: funnelSendErr instanceof Error ? funnelSendErr.message : String(funnelSendErr),
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq("funnel_id", matchingFunnel.id)
-                    .eq("contact_id", contactId);
+                  // Pausa solicitada pelo painel é estado operacional, não falha.
+                  if (
+                    funnelSendErr instanceof Error &&
+                    funnelSendErr.message === "WELCOME_FUNNEL_PAUSED"
+                  ) {
+                    console.log("[WELCOME-FUNNEL] Execução pausada pelo operador", {
+                      funnelId: matchingFunnel.id,
+                      contactId,
+                    });
+                    return new Response("ok (welcome funnel paused)");
+                  }
 
-                  // Se houve falha técnica real, remove o marcador para permitir retry.
-                  await (supabaseAdmin as any)
-                    .from("welcome_funnel_runs")
-                    .delete()
-                    .eq("funnel_id", matchingFunnel.id)
-                    .eq("contact_id", contactId);
+                  const { markFunnelRunFailed } = await import(
+                    "@/lib/welcome-funnel-runner.server"
+                  );
+                  await markFunnelRunFailed({
+                    supabase: supabaseAdmin,
+                    funnelId: matchingFunnel.id,
+                    contactId,
+                    userId: num.user_id,
+                    workspaceId,
+                    error: funnelSendErr,
+                  });
 
+                  // Mantém o run com status=failed para a Central do Funil mostrar
+                  // o motivo e permitir reenvio exatamente do ponto que falhou.
                   if (conversationId) {
                     await supabaseAdmin
                       .from("conversations")
@@ -1262,7 +1128,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   }
 
                   // Não derruba o WhatsApp inteiro: encerra somente o turno do gatilho.
-                  return new Response("ok (welcome funnel failed; flagged for review)");
+                  return new Response("ok (welcome funnel failed; available for retry)");
                 } finally {
                   if (funnelLockAcquired) {
                     await releaseConversationDbLock(
@@ -1661,7 +1527,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             phoneStr,
             handoffReply,
             {
-              conversationId: conversationId || undefined,
+              conversationId: conversationId!,
               source: "critical_human_escalation",
             },
           );
@@ -1736,7 +1602,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             phoneStr,
             handoffReply,
             {
-              conversationId: conversationId || undefined,
+              conversationId: conversationId!,
               source: "human_handoff",
             },
           );
@@ -1949,15 +1815,35 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const {
         deriveBusinessDecisionV3,
         businessDecisionToPromptV3,
+        enrichBusinessDecisionV3,
+        reconcileBusinessDecisionV3,
       } = await import("@/lib/agent-v3/brain/business-state.server");
 
-      const businessDecision = deriveBusinessDecisionV3({
+      let previousBusinessDecision: any = null;
+      if (conversationId) {
+        const { loadSingleBusinessStateV3 } = await import(
+          "@/lib/agent-v3/memory/business-state-memory.server"
+        );
+        previousBusinessDecision = await loadSingleBusinessStateV3({
+          supabaseAdmin,
+          workspaceId,
+          conversationId,
+        });
+      }
+
+      const derivedBusinessDecision = enrichBusinessDecisionV3(deriveBusinessDecisionV3({
         message: effectiveAgentMessage,
         recentCustomerMessages: history
           .filter((item) => item.role === "customer")
           .slice(-6)
           .map((item) => item.content),
         customerLifecycle: customerMemory?.lifecycle ?? null,
+      }), effectiveAgentMessage);
+
+      const businessDecision = reconcileBusinessDecisionV3({
+        previous: previousBusinessDecision,
+        current: derivedBusinessDecision,
+        message: effectiveAgentMessage,
       });
 
       console.log("[BUSINESS-STATE-V3] decisão antes do LLM", {
@@ -2067,6 +1953,45 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         } catch (memoryPersistError) {
           console.warn("[CUSTOMER-MEMORY] Falha ao atualizar memória comercial:", memoryPersistError);
+        }
+      }
+
+      // Sincroniza a caixa Frio/Morno/Quente/Cliente do CRM.
+      // Ela é persistente e usa evidências objetivas do funil comercial, em vez
+      // de depender somente da classificação de uma mensagem isolada.
+      if (contactId) {
+        try {
+          const { syncPersistentContactTemperatureV3 } = await import(
+            "@/lib/agent-v3/memory/contact-temperature.server"
+          );
+
+          const selectionContextForTemperature =
+            (v3Response.modules.selection_context as any) || {};
+
+          contactTemperature = await syncPersistentContactTemperatureV3({
+            supabaseAdmin,
+            workspaceId,
+            contactId,
+            current: contactTemperature,
+            lifecycle: customerMemory?.lifecycle ?? null,
+            purchaseCount: customerMemory?.purchaseCount ?? 0,
+            businessState: businessDecision.state,
+            intelligenceTemperature: v3Response.intelligence.temperature,
+            purchaseProbability: v3Response.intelligence.purchase_probability,
+            hasPlatform: Boolean(
+              selectionContextForTemperature.platform ||
+                customerMemory?.preferredPlatform,
+            ),
+            hasProduct: Boolean(
+              selectionContextForTemperature.product ||
+                customerMemory?.preferredProduct,
+            ),
+          });
+        } catch (temperatureSyncError) {
+          console.warn(
+            "[CONTACT-TEMPERATURE-V3] Falha não bloqueante:",
+            temperatureSyncError,
+          );
         }
       }
 

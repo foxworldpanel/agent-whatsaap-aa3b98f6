@@ -104,7 +104,7 @@ export const syncWhatsappMessages = createServerFn({ method: "POST" })
         if (Object.keys(patch).length > 0) {
           await supabaseAdmin
             .from("contacts")
-            .update(patch)
+            .update(patch as any)
             .eq("id", contactId)
             .eq("workspace_id", context.workspaceId);
         }

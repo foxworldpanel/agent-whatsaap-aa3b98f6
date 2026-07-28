@@ -21,6 +21,11 @@ export type BusinessDecisionV3 = {
   nextAction: string;
   allowQualification: boolean;
   shouldHandoff: boolean;
+  objective?: string;
+  purchaseScore?: number;
+  confidenceScore?: number;
+  urgencyScore?: number;
+  waitingCustomer?: boolean;
 };
 
 function norm(value: string): string {
@@ -224,6 +229,153 @@ export function deriveBusinessDecisionV3(params: {
   };
 }
 
+export function enrichBusinessDecisionV3(
+  decision: BusinessDecisionV3,
+  message: string,
+): BusinessDecisionV3 {
+  const current = norm(message);
+
+  const scoreByState: Record<BusinessStateV3, number> = {
+    novo_lead: 10,
+    descoberta: 35,
+    orcamento: 55,
+    fechamento: 85,
+    pagamento: 95,
+    compra_bloqueada: 90,
+    pedido_realizado: 100,
+    pos_venda: 65,
+    reclamacao: 15,
+    adiado: 40,
+    abandono: 20,
+    aguardando_setor: 10,
+  };
+
+  const urgencyByState: Record<BusinessStateV3, number> = {
+    novo_lead: 20,
+    descoberta: 35,
+    orcamento: 55,
+    fechamento: 75,
+    pagamento: 95,
+    compra_bloqueada: 100,
+    pedido_realizado: 55,
+    pos_venda: 60,
+    reclamacao: 100,
+    adiado: 15,
+    abandono: 25,
+    aguardando_setor: 100,
+  };
+
+  const objective =
+    decision.state === "pagamento" || decision.state === "fechamento"
+      ? "concluir a compra sem repetir qualificação"
+      : decision.state === "orcamento"
+        ? "informar preço e conduzir ao próximo passo"
+        : decision.state === "pos_venda" || decision.state === "pedido_realizado"
+          ? "resolver o pós-venda sem reiniciar a venda"
+          : decision.state === "reclamacao" || decision.state === "aguardando_setor"
+            ? "proteger a experiência e encaminhar para atendimento humano"
+            : decision.state === "adiado"
+              ? "aguardar o cliente sem pressionar"
+              : "entender a necessidade com no máximo uma pergunta";
+
+  const waitingCustomer =
+    decision.state === "adiado" ||
+    /\b(ok|certo|beleza|entendi|obrigad[oa]|valeu|depois eu volto|mais tarde)\b/.test(current);
+
+  return {
+    ...decision,
+    objective,
+    purchaseScore: scoreByState[decision.state],
+    confidenceScore: decision.reason === "estado inicial/indefinido" ? 45 : 85,
+    urgencyScore: urgencyByState[decision.state],
+    waitingCustomer,
+  };
+}
+
+
+export function reconcileBusinessDecisionV3(params: {
+  previous?: BusinessDecisionV3 | null;
+  current: BusinessDecisionV3;
+  message: string;
+}): BusinessDecisionV3 {
+  const previous = params.previous;
+  const current = params.current;
+  const message = norm(params.message);
+
+  if (!previous) return current;
+
+  // Um handoff humano já aberto só pode ser encerrado por uma ação explícita do operador.
+  // Mensagens comuns do cliente não podem reativar automaticamente o agente.
+  if (previous.shouldHandoff || previous.risk === "humano_obrigatorio" || previous.state === "aguardando_setor") {
+    return {
+      ...previous,
+      reason: `handoff humano preservado: ${previous.reason}`,
+      nextAction: "manter o agente pausado até liberação explícita do operador",
+      waitingCustomer: false,
+    };
+  }
+
+  // Segurança e atendimento humano detectados no turno atual vencem qualquer continuidade comercial.
+  if (current.shouldHandoff || current.risk === "humano_obrigatorio") return current;
+
+  // Sinais explícitos permitem iniciar uma nova compra ou encerrar um bloqueio antigo.
+  const explicitNewPurchase =
+    /\b(quero comprar|quero fazer|vou comprar|vou fazer|novo pedido|outra compra|mais \d+|agora consegui|agora funcionou)\b/.test(message);
+  const explicitPostSale =
+    /\b(ja comprei|ja paguei|fiz o pedido|pedido feito|pedido realizado|pagamento feito|pagamento realizado)\b/.test(message);
+  const explicitDeferral =
+    /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|deixa pra la|desisti)\b/.test(message);
+
+  if (explicitNewPurchase || explicitPostSale || explicitDeferral) return current;
+
+  const salesRank: Partial<Record<BusinessStateV3, number>> = {
+    novo_lead: 0,
+    descoberta: 1,
+    orcamento: 2,
+    fechamento: 3,
+    pagamento: 4,
+    pedido_realizado: 5,
+    pos_venda: 6,
+  };
+
+  const previousRank = salesRank[previous.state];
+  const currentRank = salesRank[current.state];
+  const ambiguousCurrent = current.reason === "estado inicial/indefinido";
+
+  // Uma mensagem curta ou ambígua não pode empurrar a conversa para trás.
+  if (
+    previousRank !== undefined &&
+    currentRank !== undefined &&
+    currentRank < previousRank &&
+    (ambiguousCurrent || /^(ok|sim|certo|beleza|entendi|e agora|como assim|pode ser|isso)$/i.test(message))
+  ) {
+    return {
+      ...previous,
+      reason: `continuidade preservada: ${previous.reason}`,
+      waitingCustomer: false,
+    };
+  }
+
+  // Durante pagamento/fechamento, dúvidas operacionais continuam no mesmo objetivo.
+  if (
+    (previous.state === "pagamento" || previous.state === "fechamento") &&
+    ["novo_lead", "descoberta", "orcamento"].includes(current.state) &&
+    /\b(como|onde|qual|pix|painel|cadastro|saldo|recarga|demora|prazo|garantia|seguro|funciona)\b/.test(message)
+  ) {
+    return {
+      ...previous,
+      reason: `continuidade de ${previous.state}: dúvida operacional do cliente`,
+      nextAction:
+        previous.state === "pagamento"
+          ? "responder a dúvida e manter o cliente no pagamento/painel"
+          : "responder a dúvida e continuar o fechamento sem repetir qualificação",
+      waitingCustomer: false,
+    };
+  }
+
+  return current;
+}
+
 export function businessDecisionToPromptV3(decision: BusinessDecisionV3): string {
   return [
     "DECISÃO DE NEGÓCIO DO RUNTIME:",
@@ -232,6 +384,14 @@ export function businessDecisionToPromptV3(decision: BusinessDecisionV3): string
     `- Motivo: ${decision.reason}`,
     `- Próxima ação permitida: ${decision.nextAction}`,
     `- Pode voltar a qualificar: ${decision.allowQualification ? "sim" : "não"}`,
+    `- Objetivo ativo: ${decision.objective || "responder ao último pedido"}`,
+    `- Score de compra: ${decision.purchaseScore ?? 0}%`,
+    `- Confiança do estado: ${decision.confidenceScore ?? 0}%`,
+    `- Urgência: ${decision.urgencyScore ?? 0}%`,
+    `- Aguardando cliente: ${decision.waitingCustomer ? "sim" : "não"}`,
+    decision.waitingCustomer
+      ? "- Não envie nova pergunta, nova oferta ou cobrança. Aguarde a próxima mensagem do cliente."
+      : "- Termine com apenas uma próxima ação coerente com o estágio atual.",
     "- Esta decisão é superior a improvisações do modelo. Não volte para etapas anteriores do funil quando allowQualification = não.",
   ].join("\n");
 }
