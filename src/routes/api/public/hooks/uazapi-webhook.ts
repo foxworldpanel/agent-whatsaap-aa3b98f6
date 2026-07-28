@@ -466,11 +466,22 @@ function shouldReplyWithAudio(params: {
 function isReactionOnlyMessage(value: string): boolean {
   const text = String(value || "").trim();
   if (!text) return false;
-  // Somente emoji/reação curta, sem letras ou números. Evita responder a 👍 🤝 ❤️ etc.
+
+  // Emoji/reação curta: não gera resposta automática.
   const stripped = text
     .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\uFE0F\u200D\s]+/gu, "")
     .trim();
-  return stripped.length === 0 && text.length <= 24;
+  if (stripped.length === 0 && text.length <= 24) return true;
+
+  // Confirmações que naturalmente podem encerrar um microtrecho.
+  // Saudações (oi/bom dia/etc.) NÃO entram aqui.
+  const normalized = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[.!?,]+$/g, "")
+    .trim();
+  return new Set(["ok", "okay", "blz", "beleza", "entendi", "certo", "ta certo", "tá certo"]).has(normalized);
 }
 
 export function isHumanHandoffRequest(text: string): boolean {
@@ -518,54 +529,8 @@ function canRepeatWelcomeFunnelForTest(phone: string): boolean {
   return WELCOME_FUNNEL_REPEAT_TEST_PHONES.has(normalizeFunnelPhone(phone));
 }
 
-function isConversationDeferralMessage(value: string): boolean {
-  const text = normalizeFunnelText(value);
-  if (!text) return false;
-  return [
-    /\bmais tarde\b/,
-    /\bfalamos depois\b/,
-    /\bdepois falamos\b/,
-    /\bdepois a gente fala\b/,
-    /\bte chamo depois\b/,
-    /\bchamo mais tarde\b/,
-    /\bagora nao posso\b/,
-    /\bestou trabalhando\b/,
-    /\bto trabalhando\b/,
-    /\bamanha (?:falamos|te chamo|eu chamo)\b/,
-    /\bdepois das \d{1,2}(?::\d{2})?\b/,
-  ].some((pattern) => pattern.test(text));
-}
-
-async function shouldCancelRunningFunnel(params: {
-  supabaseAdmin: any;
-  conversationId: string;
-  startedAtIso: string;
-}): Promise<boolean> {
-  const { data, error } = await params.supabaseAdmin
-    .from("messages")
-    .select("body, sender, created_at")
-    .eq("conversation_id", params.conversationId)
-    .eq("sender", "cliente")
-    .gt("created_at", params.startedAtIso)
-    .order("created_at", { ascending: false })
-    .limit(8);
-
-  if (error) {
-    console.warn("[WELCOME-FUNNEL] Não foi possível verificar pausa do cliente:", error);
-    return false;
-  }
-
-  return (data || []).some((row: any) => {
-    const body = String(row?.body || "").trim();
-    if (!body) return false;
-
-    // Qualquer nova fala substantiva do cliente durante o funil significa que
-    // ele começou uma conversa real. Interrompe as próximas peças automáticas
-    // para não mandar tabela/vídeo por cima da pergunta dele.
-    if (isConversationDeferralMessage(body)) return true;
-    return body.length >= 2;
-  });
-}
+// O funil não é cancelado por mensagens recebidas durante a sequência.
+// Essas mensagens ficam registradas e o Agent V3 só é liberado após a conclusão.
 
 function normalizeFunnelText(value: string): string {
   return String(value || "")

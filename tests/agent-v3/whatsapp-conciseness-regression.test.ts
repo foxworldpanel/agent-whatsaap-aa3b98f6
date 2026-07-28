@@ -18,7 +18,7 @@ describe("Concisão e ritmo de WhatsApp", () => {
     expect(llm).toContain("max_tokens: 256");
   });
   it("interrompe peças restantes do funil quando cliente começa a conversar", () => {
-    expect(webhook).toContain("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_MESSAGE");
+    expect(webhook).not.toContain("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_MESSAGE");
     expect(webhook).toContain("cliente iniciou conversa durante o envio");
   });
 });

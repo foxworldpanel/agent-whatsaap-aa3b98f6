@@ -215,6 +215,70 @@ function collectGenericPriceRules(params: {
   return rules;
 }
 
+function platformDisplayName(platform: CommercePlatform): string {
+  const names: Record<CommercePlatform, string> = {
+    spotify: "Spotify",
+    youtube: "YouTube",
+    instagram: "Instagram",
+    tiktok: "TikTok",
+    kwai: "Kwai",
+    facebook: "Facebook",
+  };
+  return names[platform];
+}
+
+function cleanPriceTableLine(rawLine: string): string | null {
+  let line = String(rawLine || "")
+    .replace(/^\s*[-•*]\s*/, "")
+    .replace(/\s*\[[^\]]*\]\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!line || !/R\$\s*\d/i.test(line)) return null;
+
+  // Só aceita linhas que parecem realmente um SKU/serviço comercial.
+  const isKnownService = (Object.values(PRODUCT_PRICE_TERMS) as RegExp[]).some((pattern) => pattern.test(line));
+  if (!isKnownService) return null;
+
+  line = line
+    .replace(/\s*[:=]\s*(?=R\$)/, " - ")
+    .replace(/\s+[–—]\s+/g, " - ")
+    .replace(/\s+-\s+/g, " - ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // "Plays: 1000 = R$ 15" -> "1000 Plays - R$ 15" quando for inequívoco.
+  const reversed = line.match(/^([^:]{2,60}):\s*([\d.]+)\s*(?:=|-)\s*(R\$\s*[\d.]+(?:,\d+)?)$/i);
+  if (reversed) line = `${reversed[2]} ${reversed[1].trim()} - ${reversed[3]}`;
+
+  return line;
+}
+
+function buildGeneralPlatformPriceTable(params: {
+  platform: CommercePlatform;
+  modules: Record<string, LoadedModuleV3>;
+}): string | null {
+  const { platform, modules } = params;
+  const seen = new Set<string>();
+  const lines: string[] = [];
+
+  for (const [key, module] of Object.entries(modules)) {
+    if (!moduleBelongsToPlatform(key, module, platform)) continue;
+    for (const rawLine of String(module.content || "").split(/\r?\n/)) {
+      const cleaned = cleanPriceTableLine(rawLine);
+      if (!cleaned) continue;
+      const signature = cleaned
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+      if (seen.has(signature)) continue;
+      seen.add(signature);
+      lines.push(cleaned);
+    }
+  }
+
+  return lines.length ? [platformDisplayName(platform), "", ...lines].join("\n") : null;
+}
+
 function wordNumberToValue(raw: string): number | null {
   const normalized = raw
     .normalize("NFD")
@@ -1430,6 +1494,22 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       "O cadastro da Mind é feito somente com e-mail e uma senha criada por você. Reconhecimento facial, biometria ou envio de documento não fazem parte do nosso cadastro. Se essa tela apareceu aí, me manda um print que eu te ajudo a identificar onde você está.";
   }
 
+  // Guard de alerta bancário: não diagnosticar nem normalizar um aviso de "alto risco".
+  // A Júlia acolhe a preocupação e orienta somente com fatos operacionais conhecidos.
+  const bankRiskWarningContext =
+    /\b(alto risco|transa(?:cao|ção) de risco|pagamento de risco|banco.*(?:alertou|avisou|informou)|(?:alerta|aviso).*banco)\b/i.test(message);
+  const inventsBankRiskExplanation =
+    /\b(?:isso (?:e|é) comum|normal acontecer|bancos? (?:sao|são) mais rigorosos|plataformas? de servi[cç]os digitais|autoriza(?:r|ção) manualmente|problema de conex[aã]o|sincroniza[cç][aã]o)\b/i.test(finalContent);
+
+  if (bankRiskWarningContext && inventsBankRiskExplanation) {
+    console.error("[AGENT-V3-PAYMENT-GUARD] Explicação bancária sem fonte foi bloqueada", {
+      message,
+      response: finalContent,
+    });
+    finalContent =
+      "Entendo sua preocupação. Eu não consigo afirmar o motivo desse alerta do seu banco. Se o pagamento não concluir ou você não se sentir seguro para continuar, vou encaminhar para o setor responsável verificar com você.";
+  }
+
   // Guard determinístico de comprovante: nunca rejeitar Pix por nome de banco,
   // recebedor ou razão social visível na imagem.
   const paymentProofContext =
@@ -1656,28 +1736,36 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       .trim();
   }
 
-  // Tabela resumida Spotify: quando o cliente pede tabela/valores gerais,
-  // não deixe o modelo misturar preço com explicação. Os números são montados
-  // diretamente do módulo autoritativo e saem como uma única mensagem limpa.
-  const asksGeneralSpotifyPriceTable =
-    selectionContext.platform === "spotify" &&
-    /\b(tabela|valores|precos|preco dos servicos|quanto custa os servicos)\b/.test(normalizedTurnText);
+  // TABELA DE PREÇOS DETERMINÍSTICA — TODAS AS PLATAFORMAS
+  // Quando o cliente pede tabela/valores gerais, o código monta UMA bolha limpa
+  // diretamente dos módulos da plataforma. O LLM não escolhe quais SKUs omitir.
+  const asksGeneralPlatformPriceTable =
+    Boolean(selectionContext.platform) &&
+    /\b(tabela|valores|precos|preco dos servicos|quanto custa os servicos|todos os precos|todos os valores)\b/.test(normalizedTurnText);
 
-  if (asksGeneralSpotifyPriceTable && mergedModulesMap.spotify_precos?.content) {
-    const spotifyPriceModule = mergedModulesMap.spotify_precos.content;
-    const followerRule = parseSpotifyPriceRule(spotifyPriceModule, "seguidores");
-    const playsRule = parseSpotifyPriceRule(spotifyPriceModule, "plays");
-    const savesRule = parseSpotifyPriceRule(spotifyPriceModule, "saves");
-    const playlistRule = parseSpotifyPriceRule(spotifyPriceModule, "playlist");
-    if (followerRule && playsRule && savesRule && playlistRule) {
-      finalContent = [
-        "Spotify",
-        "",
-        `${followerRule.baseQuantity} Seguidores - R$ ${followerRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        `${playsRule.baseQuantity} Plays + Ouvintes - R$ ${playsRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        `${savesRule.baseQuantity} Saves - R$ ${savesRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        `1 Música em 10 Playlists - R$ ${playlistRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      ].join("\n");
+  if (asksGeneralPlatformPriceTable && selectionContext.platform) {
+    const platform = selectionContext.platform as CommercePlatform;
+
+    // Spotify mantém a ordem comercial aprovada e inclui Playlist.
+    if (platform === "spotify" && mergedModulesMap.spotify_precos?.content) {
+      const spotifyPriceModule = mergedModulesMap.spotify_precos.content;
+      const followerRule = parseSpotifyPriceRule(spotifyPriceModule, "seguidores");
+      const playsRule = parseSpotifyPriceRule(spotifyPriceModule, "plays");
+      const savesRule = parseSpotifyPriceRule(spotifyPriceModule, "saves");
+      const playlistRule = parseSpotifyPriceRule(spotifyPriceModule, "playlist");
+      if (followerRule && playsRule && savesRule && playlistRule) {
+        finalContent = [
+          "Spotify",
+          "",
+          `${followerRule.baseQuantity} Seguidores - R$ ${followerRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `${playsRule.baseQuantity} Plays + Ouvintes - R$ ${playsRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `${savesRule.baseQuantity} Saves - R$ ${savesRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          `1 Música em 10 Playlists - R$ ${playlistRule.basePrice.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        ].join("\n");
+      }
+    } else {
+      const table = buildGeneralPlatformPriceTable({ platform, modules: mergedModulesMap });
+      if (table) finalContent = table;
     }
   }
 
