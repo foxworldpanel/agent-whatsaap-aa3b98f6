@@ -304,7 +304,18 @@ export function reconcileBusinessDecisionV3(params: {
 
   if (!previous) return current;
 
-  // Segurança e atendimento humano sempre vencem qualquer continuidade comercial.
+  // Um handoff humano já aberto só pode ser encerrado por uma ação explícita do operador.
+  // Mensagens comuns do cliente não podem reativar automaticamente o agente.
+  if (previous.shouldHandoff || previous.risk === "humano_obrigatorio" || previous.state === "aguardando_setor") {
+    return {
+      ...previous,
+      reason: `handoff humano preservado: ${previous.reason}`,
+      nextAction: "manter o agente pausado até liberação explícita do operador",
+      waitingCustomer: false,
+    };
+  }
+
+  // Segurança e atendimento humano detectados no turno atual vencem qualquer continuidade comercial.
   if (current.shouldHandoff || current.risk === "humano_obrigatorio") return current;
 
   // Sinais explícitos permitem iniciar uma nova compra ou encerrar um bloqueio antigo.

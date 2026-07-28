@@ -214,5 +214,10 @@ export function autoSplitLongPartsV3(text: string, threshold = LONG_MESSAGE_THRE
     }
   }
 
-  return output.length > 0 ? output.slice(0, 3) : [trimmed];
+  if (output.length === 0) return [trimmed];
+  if (output.length <= 3) return output;
+
+  // Nunca descarte conteúdo ao limitar o WhatsApp a três mensagens.
+  // Mantém os dois primeiros blocos e consolida todo o restante no terceiro.
+  return [output[0], output[1], output.slice(2).join(" ").trim()].filter(isMeaningfulPart);
 }
