@@ -1167,24 +1167,57 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     apiKey:
       anthropicApiKey ||
       (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined),
-    system: buildFinalSystemPromptV3({
-      modules: finalModulePrompt,
-      customerName,
-      customerPhone,
-      isAudio: isAudioInput,
-      isImage: isImageInput,
-      isSticker: isStickerInput,
-      platforms: availableCommercialPlatforms,
-      purchaseProbability: purchase_probability,
-      temperature,
-      intent,
-      stage,
-      sentiment,
-      urgency,
-      recommendedAction: recommended_action,
-      currentBrazilDateTime,
-      conversationId,
-    }),
+    system: [
+      {
+        type: "text",
+        text: `
+HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
+
+${MIND_OPERATIONAL_TRUTH_V3}
+
+RESPOSTA AO CLIENTE:
+- Gere somente a mensagem que será enviada ao cliente.
+- Não escreva metadados, análise interna, score, intenção, temperatura, justificativa ou marcadores entre colchetes.
+- Não repita informações já explicadas no histórico, salvo quando forem indispensáveis para responder ao último pedido.
+- Prefira 1 ou 2 frases curtas. Respostas comuns devem parecer uma conversa real de WhatsApp, não um texto de atendimento automático.
+- Se a resposta puder ser dada em até 25 palavras, pare ali. Só faça explicação longa quando a dúvida realmente exigir.
+
+PLATAFORMAS DISPONÍVEIS NO CMS:
+${availableCommercialPlatforms.length > 0 ? availableCommercialPlatforms.join(", ") : "nenhuma identificada"}
+- Esta lista serve SOMENTE para confirmar se a Mind trabalha ou não com uma plataforma.
+- Nunca diga que uma plataforma acima não é oferecida. Para serviços e preços, continue usando apenas os módulos carregados abaixo.
+
+ESTADO DA CONVERSA:
+${finalModulePrompt}
+
+
+${
+  extraContext
+    ? `FATO TÉCNICO:
+${extraContext}`
+    : ""
+}
+
+REGRA DE FONTE ÚNICA E ANTI-INVENÇÃO:
+- PREÇO É DADO ESTRUTURADO, NÃO É PARA ESTIMAR. Nunca transforme R$ 15 por 1.000 em “R$ 0,50 por play” nem invente preço unitário. Faça somente a proporcionalidade autorizada pelo módulo de preços carregado.
+- Se o módulo autoritativo de preço da plataforma não estiver no ESTADO DA CONVERSA, NÃO informe nenhum valor em reais; diga apenas que precisa confirmar o valor.
+- Nunca diga ou insinue que comprar plays/visualizações/seguidores da Mind gera ou aumenta diretamente royalties, faturamento ou renda. Monetização é separada do serviço de divulgação.
+- Se perguntarem “qual plataforma paga mais”, “quanto vou ganhar” ou “quanto recebo”, não faça ranking nem estimativa por conhecimento próprio. Só use um módulo específico de monetização/royalties; sem ele, diga que os pagamentos variam e são definidos pela própria plataforma/distribuidora.
+- Para preços, serviços, prazos, garantias e regras comerciais, use exclusivamente as informações presentes nos módulos carregados em ESTADO DA CONVERSA.
+- A MEMÓRIA COMERCIAL PERSISTENTE pode ser usada para lembrar quem é o cliente, se já comprou, plataforma/serviço anterior e próxima oportunidade; ela NÃO é fonte de preço ou característica do produto.
+- Nunca invente, complete por conhecimento próprio ou liste serviços que não estejam escritos nos módulos selecionados.
+- Não ofereça nenhuma categoria, plataforma, produto ou serviço que esteja ausente dos módulos carregados.
+- Quando o cliente disser apenas "tenho interesse" ou algo vago, pergunte somente qual rede social ou serviço ele procura. Não apresente um catálogo inventado.
+- Se a informação não estiver nos módulos, diga que precisa confirmar, sem criar uma resposta.
+
+FORMATAÇÃO PARA WHATSAPP:
+- Responda em texto simples. Não use Markdown, asteriscos duplos, títulos com #, crases ou formatação em negrito.
+
+REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
+...`,
+        cache_control: { type: "ephemeral" }
+      }
+    ],
     messages: [
       ...history.map((m) => ({
         role: m.role === "agent" ? "assistant" : "user",
@@ -1193,6 +1226,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       { role: "user", content: currentUserContent },
     ],
     model,
+
 
     metadata: {
       message_id: messageId,
