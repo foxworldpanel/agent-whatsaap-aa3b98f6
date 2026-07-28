@@ -850,6 +850,9 @@ FORMATAÇÃO PARA WHATSAPP:
 REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
 Nunca assuma "Boa noite" por padrão. Use o horário local real (Brasil, UTC-3) pra decidir: 5h-12h = "Bom dia", 12h-18h = "Boa tarde", 18h-5h = "Boa noite". Se não tiver certeza do horário exato, prefere "Olá" a chutar errado.
 
+PRIORIDADE — RESPONDER A PERGUNTA ESPECÍFICA VEM ANTES DE EMPURRAR PREÇO:
+Se o cliente fizer uma pergunta factual específica (ex: "quais são os nomes das playlists?", "quais vídeos vocês usam?", "qual o nome do perfil?"), a resposta a essa pergunta específica é SEMPRE prioridade sobre qualquer instrução de mostrar tabela de preço ou avançar pro fechamento. Usa o conteúdo do módulo correspondente (ex: módulo de playlists) pra responder a pergunta EXATA que foi feita, mesmo que isso signifique não mencionar preço nessa mensagem. Só depois de responder a pergunta específica, se fizer sentido, pode complementar com o preço em mensagem separada.
+
 COMPORTAMENTO DE VENDEDOR TOP — LIMITE DE QUALIFICAÇÃO:
 - Máximo de DUAS perguntas de qualificação antes de mostrar preço ou tabela. Depois disso, apresenta valor (preço/pacote) mesmo que ainda faltem detalhes — o cliente pode ajustar depois de ver o preço.
 - Se o cliente demonstrar interesse em MAIS DE UMA plataforma/rede na mesma conversa (ex: "Spotify e YouTube"), NÃO qualifica as duas em paralelo. Escolhe a PRIMEIRA que o cliente mencionou, leva ela até apresentar preço/decisão, e só depois pergunta sobre a segunda.
@@ -867,6 +870,8 @@ Quando o cliente pedir explicitamente o preço, valor, tabela ou lista de uma re
 (um serviço por linha, todos os serviços da rede que estiverem no módulo carregado)
 
 Use exatamente os nomes e valores do módulo da rede correspondente — nunca invente serviço ou preço fora do que está listado. Depois de mandar a tabela, pode perguntar em UMA mensagem separada qual serviço interessa (ex: "Qual desses te interessa?").
+
+MESMA REGRA PRA VARIAÇÕES DE UM SERVIÇO ESPECÍFICO: se o cliente perguntar o preço de UM serviço (ex: "quanto é 1000 seguidores no insta") e existirem múltiplas variações de preço pra esse serviço (ex: Global, Brasil, Premium), a ORDEM é sempre: primeiro lista as variações com valores (uma por linha, sem pergunta junto), DEPOIS, em mensagem separada com ===SPLIT===, pergunta qual delas o cliente prefere. NUNCA coloca a pergunta antes ou junto com a lista de valores na mesma bolha.
 
 REGRA DE CONCISÃO — RITMO DE WHATSAPP:
 - Respostas comuns devem ficar preferencialmente entre 80 e 180 caracteres.
@@ -1775,10 +1780,9 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // TABELA DE PREÇOS DETERMINÍSTICA — TODAS AS PLATAFORMAS
   // Quando o cliente pede tabela/valores gerais, o código monta UMA bolha limpa
   // diretamente dos módulos da plataforma. O LLM não escolhe quais SKUs omitir.
-  // (3) Regra: responder tabela de preço completa numa única mensagem quando o cliente pedir a tabela/lista de uma rede.
   const asksGeneralPlatformPriceTable =
     Boolean(selectionContext.platform) &&
-    /\b(tabela|valores|precos|preco dos servicos|quanto custa os servicos|todos os precos|todos os valores|lista)\b/.test(normalizedTurnText);
+    /\b(tabela|valores|precos|preco dos servicos|quanto custa os servicos|todos os precos|todos os valores)\b/.test(normalizedTurnText);
 
   if (asksGeneralPlatformPriceTable && selectionContext.platform) {
     const platform = selectionContext.platform as CommercePlatform;
@@ -1818,19 +1822,6 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
       .replace(/^===SPLIT===|===SPLIT===$/g, "")
       .trim();
-  }
-
-  // (1) Regra: separar afirmação de pergunta em bolhas diferentes
-  if (/[.!?]\s+[A-Z].*\?$/.test(finalContent)) {
-    finalContent = finalContent.replace(/([.!?])\s+([A-Z].*\?)$/, "$1===SPLIT===$2");
-  }
-
-  // (2) Regra: nunca pedir link antes do cliente confirmar o preço (determinado pela probabilidade de compra)
-  if (purchase_probability < 75 && /\b(link|perfil|arroba|usuario|url)\b/i.test(finalContent)) {
-     finalContent = finalContent
-       .replace(/\b(?:me|pode|por favor,?\s*)?\s*(?:passar|manda(?:r)?|envia(?:r)?|me\s+diz|qual|preciso\s+do)\s+(?:o\s+)?(?:link|perfil|arroba|usuario|url)(?:[^.!?]{0,50}[.!?])?/gi, "")
-       .trim();
-     if (!finalContent) finalContent = "Perfeito! Você gostaria de ver os valores para começar?";
   }
 
   // Auto-split logic
