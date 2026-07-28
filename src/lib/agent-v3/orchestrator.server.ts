@@ -1,6 +1,6 @@
 // src/lib/agent-v3/orchestrator.server.ts
 import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
-import { selectModulesV3, type ConversationContext, KEYWORD_MAP } from "./selector/module-selector.server";
+import { selectModulesV3, type ConversationContext } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
 import {
@@ -847,6 +847,16 @@ REGRA DE FONTE ÚNICA E ANTI-INVENÇÃO:
 FORMATAÇÃO PARA WHATSAPP:
 - Responda em texto simples. Não use Markdown, asteriscos duplos, títulos com #, crases ou formatação em negrito.
 
+REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
+Nunca assuma "Boa noite" por padrão. Use o horário local real (Brasil, UTC-3) pra decidir: 5h-12h = "Bom dia", 12h-18h = "Boa tarde", 18h-5h = "Boa noite". Se não tiver certeza do horário exato, prefere "Olá" a chutar errado.
+
+COMPORTAMENTO DE VENDEDOR TOP — LIMITE DE QUALIFICAÇÃO:
+- Máximo de DUAS perguntas de qualificação antes de mostrar preço ou tabela. Depois disso, apresenta valor (preço/pacote) mesmo que ainda faltem detalhes — o cliente pode ajustar depois de ver o preço.
+- Se o cliente demonstrar interesse em MAIS DE UMA plataforma/rede na mesma conversa (ex: "Spotify e YouTube"), NÃO qualifica as duas em paralelo. Escolhe a PRIMEIRA que o cliente mencionou, leva ela até apresentar preço/decisão, e só depois pergunta sobre a segunda.
+- Quando o cliente responder de forma vaga ou incerta ("não sei", "sim" pra pergunta que não é sim/não, "qualquer um"): NUNCA joga outra pergunta aberta de volta. Em vez disso, sugere o ponto de partida mais comum ("a maioria começa com [quantidade/pacote mínimo do módulo], já dá pra sentir resultado — posso te passar esse valor?") e deixa o cliente reagir a uma sugestão concreta.
+- Depois de identificar rede + objetivo geral (ex: "Spotify, quero mais gente ouvindo"), vai direto pro preço — não precisa saber a quantidade exata antes de mostrar valor. A quantidade se ajusta depois que o cliente já viu o preço-base.
+- Um vendedor bom nunca deixa o cliente "preencher formulário" com pergunta atrás de pergunta — cada troca deve mover a conversa pra frente, de preferência até o preço.
+
 REGRA DE SAÍDA — TABELA COMPLETA DE PREÇOS (EXCEÇÃO À REGRA DE CONCISÃO):
 Quando o cliente pedir explicitamente o preço, valor, tabela ou lista de uma rede (ex: "me manda a tabela", "quanto custa no Spotify", "quais os preços do Instagram"), responda com a tabela COMPLETA daquela rede em UMA ÚNICA mensagem (sem ===SPLIT===, sem dividir em várias bolhas), no formato:
 
@@ -857,6 +867,8 @@ Quando o cliente pedir explicitamente o preço, valor, tabela ou lista de uma re
 (um serviço por linha, todos os serviços da rede que estiverem no módulo carregado)
 
 Use exatamente os nomes e valores do módulo da rede correspondente — nunca invente serviço ou preço fora do que está listado. Depois de mandar a tabela, pode perguntar em UMA mensagem separada qual serviço interessa (ex: "Qual desses te interessa?").
+
+MESMA REGRA PRA VARIAÇÕES DE UM SERVIÇO ESPECÍFICO: se o cliente perguntar o preço de UM serviço (ex: "quanto é 1000 seguidores no insta") e existirem múltiplas variações de preço pra esse serviço (ex: Global, Brasil, Premium), a ORDEM é sempre: primeiro lista as variações com valores (uma por linha, sem pergunta junto), DEPOIS, em mensagem separada com ===SPLIT===, pergunta qual delas o cliente prefere. NUNCA coloca a pergunta antes ou junto com a lista de valores na mesma bolha.
 
 REGRA DE CONCISÃO — RITMO DE WHATSAPP:
 - Respostas comuns devem ficar preferencialmente entre 80 e 180 caracteres.
@@ -1719,7 +1731,8 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     finalContent = "A Mind ajuda na divulgação, mas não dá para garantir ganho financeiro. A monetização e os pagamentos são definidos pela própria plataforma e pela distribuidora.";
   }
 
-  // Primeiro contato: padroniza a saudação aprovada conforme o horário.
+  // Primeiro contato: padroniza a saudação aprovada e elimina variações
+  // excessivas do LLM como "Bem-vindo" ou emoji de mão.
   const greetingOnly =
     /^(?:oi|ol[áa]|bom\s+dia|boa\s+tarde|boa\s+noite|e\s*a[ií]|opa)[!.?\s]*$/i.test(
       message.trim(),
@@ -1727,11 +1740,15 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   const isFirstTurn = history.length === 0;
 
   if (greetingOnly && isFirstTurn && !funnelAlreadyCompleted) {
-    const currentHour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })).getHours();
-    let greeting = "Olá";
-    if (currentHour >= 5 && currentHour < 12) greeting = "Bom dia";
-    else if (currentHour >= 12 && currentHour < 18) greeting = "Boa tarde";
-    else if (currentHour >= 18 || currentHour < 5) greeting = "Boa noite";
+    const normalizedGreeting = message.trim().toLocaleLowerCase("pt-BR");
+    const greeting =
+      normalizedGreeting.includes("bom dia")
+        ? "Bom dia"
+        : normalizedGreeting.includes("boa tarde")
+          ? "Boa tarde"
+          : normalizedGreeting.includes("boa noite")
+            ? "Boa noite"
+            : "Olá";
 
     finalContent = `${greeting}! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?`;
   }
@@ -1760,10 +1777,9 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // TABELA DE PREÇOS DETERMINÍSTICA — TODAS AS PLATAFORMAS
   // Quando o cliente pede tabela/valores gerais, o código monta UMA bolha limpa
   // diretamente dos módulos da plataforma. O LLM não escolhe quais SKUs omitir.
-  // (3) Regra: responder tabela de preço completa numa única mensagem quando o cliente pedir a tabela/lista de uma rede.
   const asksGeneralPlatformPriceTable =
     Boolean(selectionContext.platform) &&
-    /\b(tabela|valores|precos|preco dos servicos|quanto custa os servicos|todos os precos|todos os valores|lista)\b/.test(normalizedTurnText);
+    /\b(tabela|valores|precos|preco dos servicos|quanto custa os servicos|todos os precos|todos os valores)\b/.test(normalizedTurnText);
 
   if (asksGeneralPlatformPriceTable && selectionContext.platform) {
     const platform = selectionContext.platform as CommercePlatform;
@@ -1803,58 +1819,6 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
       .replace(/^===SPLIT===|===SPLIT===$/g, "")
       .trim();
-  }
-
-  // (1) Regra: separar afirmação de pergunta em bolhas diferentes
-  if (/[.!?]\s+[A-Z].*\?$/.test(finalContent)) {
-    finalContent = finalContent.replace(/([.!?])\s+([A-Z].*\?)$/, "$1===SPLIT===$2");
-  }
-
-  // (2) Regra: nunca pedir link antes do cliente confirmar o preço (determinado pela probabilidade de compra)
-  if (purchase_probability < 75 && /\b(link|perfil|arroba|usuario|url)\b/i.test(finalContent)) {
-     finalContent = finalContent
-       .replace(/\b(?:me|pode|por favor,?\s*)?\s*(?:passar|manda(?:r)?|envia(?:r)?|me\s+diz|qual|preciso\s+do)\s+(?:o\s+)?(?:link|perfil|arroba|usuario|url)(?:[^.!?]{0,50}[.!?])?/gi, "")
-       .trim();
-     if (!finalContent) finalContent = "Perfeito! Você gostaria de ver os valores para começar?";
-  }
-
-  // (4) Regra: limite de perguntas de qualificação (máx 2 antes de mostrar preço)
-  const qualificationQuestionsInHistory = history
-    .filter(m => m.role === "agent")
-    .filter(m => /\?$/.test(m.content.trim()))
-    .length;
-
-  if (qualificationQuestionsInHistory >= 2 && !/R\$\s*\d/i.test(finalContent) && selectionContext.platform && selectionContext.product) {
-     const platform = selectionContext.platform as CommercePlatform;
-     const table = buildGeneralPlatformPriceTable({ platform, modules: mergedModulesMap });
-     if (table) {
-       finalContent = `Entendi! Para te ajudar logo, aqui estão os valores de ${platformDisplayName(platform)}:===SPLIT===${table}===SPLIT===Qual dessas opções você prefere para começar?`;
-     }
-  }
-
-  // (5) Regra: foco numa rede por vez quando o cliente menciona várias
-  const currentPlatforms = (Object.keys(KEYWORD_MAP).filter(k => ["instagram", "youtube", "spotify", "tiktok", "kwai", "facebook"].includes(k)) as CommercePlatform[])
-    .filter(p => new RegExp(`\\b${p}\\b`, "i").test(message));
-
-  if (currentPlatforms.length > 1 && !selectionContext.platform) {
-    const firstPlatform = platformDisplayName(currentPlatforms[0]);
-    finalContent = `Consigo te ajudar com todas essas! Para não confundir, vamos focar em uma por vez? Quer começar pelo ${firstPlatform}?`;
-  }
-
-  // (6) Regra: sugestão de ponto de partida quando o cliente está em dúvida
-  const isIndecisive = /\b(nao sei|nao tenho certeza|qual voce indica|qual e melhor|o que recomenda|estou em duvida)\b/i.test(message);
-  if (isIndecisive && selectionContext.platform && !selectionContext.product) {
-    const platform = selectionContext.platform as CommercePlatform;
-    const suggestions: Record<CommercePlatform, string> = {
-      instagram: "seguidores",
-      youtube: "visualizações",
-      spotify: "plays",
-      tiktok: "seguidores",
-      kwai: "seguidores",
-      facebook: "seguidores"
-    };
-    const suggestedProduct = suggestions[platform];
-    finalContent = `Sem problemas! Geralmente o pessoal começa com ${suggestedProduct} para dar o primeiro impulso. Quer ver os valores para essa opção?`;
   }
 
   // Auto-split logic
