@@ -572,7 +572,6 @@ async function executeWelcomeFunnel(params: {
     "@/lib/welcome-funnel-runner.server"
   );
 
-<<<<<<< HEAD
   await runWelcomeFunnelSequence({
     supabase: params.supabaseAdmin,
     funnel: params.funnel,
@@ -585,113 +584,6 @@ async function executeWelcomeFunnel(params: {
     resumeAfterStep: params.resumeAfterStep,
     initiatedBy: params.initiatedBy ?? "trigger",
   });
-=======
-  const { uazapiSendAudio, uazapiSendMedia, uazapiSendTyping, uazapiSendRecording, uazapiClearPresence } =
-    await import("@/lib/uazapi.server");
-  const { sleepMs } = await import("@/lib/agent-v3/humanization.server");
-
-  const steps = funnel.steps || {};
-  let stepIndex = 0;
-
-  const markStep = async (label: string) => {
-    stepIndex += 1;
-    console.log(`[WELCOME-FUNNEL] Etapa ${stepIndex} concluída: ${label}`);
-
-    // Telemetria/resume point. Falha aqui não interrompe o envio.
-    await (supabaseAdmin as any)
-      .from("welcome_funnel_runs")
-      .update({
-        status: "running",
-        last_step: label,
-        last_step_index: stepIndex,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("funnel_id", funnel.id)
-      .eq("contact_id", contactId)
-      .then(({ error }: any) => {
-        if (error) console.warn("[WELCOME-FUNNEL] Não foi possível salvar progresso:", error);
-      });
-  };
-
-  const sendTextStep = async (
-    key: "welcome_text" | "panel_text" | "services_text",
-    source: string,
-  ) => {
-    const step = steps[key];
-    const text = step?.text?.trim();
-    if (!step?.enabled || !text) return;
-
-    const delayMs = funnelStepDelayMs(step, funnel.delay_seconds);
-    if (delayMs > 0) {
-      await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
-      await sleepMs(delayMs);
-      }
-
-    const result = await sendAgentTextGuarded(creds, phone, text, {
-      conversationId,
-      source,
-      isBlastOpening: key === "welcome_text",
-    });
-    await persistFunnelOutbound({
-      supabaseAdmin,
-      conversationId,
-      userId,
-      workspaceId,
-      kind: "texto",
-      body: result.transformed,
-    });
-    await markStep(key);
-  };
-
-  // Ordem configurada no menu Números:
-  // 1 texto opcional → 2 áudio → 3 painel → 4 vídeo → 5 tabela.
-  // Para o fluxo Meta Ads desejado, basta deixar "Texto de boas-vindas" desligado,
-  // fazendo o Áudio ser efetivamente a primeira saída.
-  await sendTextStep("welcome_text", "welcome_funnel_welcome_text");
-
-  if (steps.audio?.enabled && steps.audio.url?.trim()) {
-    const delayMs = funnelStepDelayMs(steps.audio, funnel.delay_seconds);
-    if (delayMs > 0) {
-      await uazapiSendRecording(creds, phone, delayMs).catch(() => undefined);
-      await sleepMs(delayMs);
-      }
-    await uazapiSendAudio(creds, phone, steps.audio.url.trim());
-    await uazapiClearPresence(creds, phone).catch(() => undefined);
-    await persistFunnelOutbound({
-      supabaseAdmin,
-      conversationId,
-      userId,
-      workspaceId,
-      kind: "audio",
-      body: "[Áudio do funil de boas-vindas]",
-      audioUrl: steps.audio.url.trim(),
-    });
-    await markStep("audio");
-  }
-
-  await sendTextStep("panel_text", "welcome_funnel_panel_text");
-
-  if (steps.video?.enabled && steps.video.url?.trim()) {
-    const delayMs = funnelStepDelayMs(steps.video, funnel.delay_seconds);
-    if (delayMs > 0) {
-      await uazapiSendTyping(creds, phone, delayMs).catch(() => undefined);
-      await sleepMs(delayMs);
-      }
-    const caption = steps.video.caption?.trim() || undefined;
-    await uazapiSendMedia(creds, phone, "video", steps.video.url.trim(), caption);
-    await persistFunnelOutbound({
-      supabaseAdmin,
-      conversationId,
-      userId,
-      workspaceId,
-      kind: "texto",
-      body: caption || "[Vídeo explicativo do funil]",
-    });
-    await markStep("video");
-  }
-
-  await sendTextStep("services_text", "welcome_funnel_services_text");
->>>>>>> f6edd876405e2c6b056adb60ca9133d6c61b80b6
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
@@ -978,11 +870,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .select("funnel_id, contact_id, status, fired_at, last_step, last_step_index, updated_at")
         .eq("contact_id", contactId)
         .eq("workspace_id", workspaceId)
-<<<<<<< HEAD
         .in("status", ["running", "paused", "failed"])
-=======
-        .eq("status", "running")
->>>>>>> f6edd876405e2c6b056adb60ca9133d6c61b80b6
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -990,7 +878,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       if (runningFunnelErr) {
         console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
-<<<<<<< HEAD
         const runStatus = String((runningFunnel as any).status || "running");
         const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
         const stale =
@@ -1027,31 +914,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           lastStep: (runningFunnel as any).last_step ?? null,
         });
         return new Response(`ok (welcome funnel ${runStatus}; agent deferred)`);
-=======
-        // Proteção contra run morto por crash: após 15 minutos liberamos retry em
-        // vez de bloquear o agente indefinidamente.
-        const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
-        const stale = Number.isFinite(updatedAt) && Date.now() - updatedAt > 15 * 60_000;
-
-        if (!stale) {
-          console.log("[WELCOME-FUNNEL] Agent V3 aguardando conclusão do funil", {
-            phone: phoneStr,
-            funnelId: (runningFunnel as any).funnel_id,
-            lastStep: (runningFunnel as any).last_step ?? null,
-          });
-          return new Response("ok (welcome funnel running; agent deferred)");
-        }
-
-        console.warn("[WELCOME-FUNNEL] Run antigo/stale liberado para recuperação", {
-          phone: phoneStr,
-          funnelId: (runningFunnel as any).funnel_id,
-        });
-        await (supabaseAdmin as any)
-          .from("welcome_funnel_runs")
-          .delete()
-          .eq("funnel_id", (runningFunnel as any).funnel_id)
-          .eq("contact_id", contactId);
->>>>>>> f6edd876405e2c6b056adb60ca9133d6c61b80b6
       }
     }
 
@@ -1102,7 +964,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } else {
             const repeatForTest = canRepeatWelcomeFunnelForTest(phoneStr);
 
-<<<<<<< HEAD
             // REGRA CRÍTICA: Agent V3 somente após status=completed.
             // Running/paused/failed são resolvidos pela Central do Funil.
             if (existingRun && !repeatForTest) {
@@ -1116,36 +977,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 });
                 return new Response(`ok (welcome funnel ${existingStatus}; agent deferred)`);
               }
-=======
-            // REGRA CRÍTICA: o Agent V3 só pode entrar DEPOIS que o funil terminar.
-            // Se outra mensagem chegar enquanto áudio/vídeo/tabela ainda estão sendo
-            // enviados, ela fica salva no CRM e este webhook não chama o Claude.
-            if (
-              existingRun &&
-              !repeatForTest &&
-              String((existingRun as any).status || "completed") === "running"
-            ) {
-              console.log("[WELCOME-FUNNEL] Mensagem recebida durante funil; Agent V3 aguardará conclusão", {
-                phone: phoneStr,
-                funnelId: matchingFunnel.id,
-                lastStep: (existingRun as any).last_step ?? null,
-              });
-              return new Response("ok (welcome funnel running; agent deferred)");
-            }
-
-            // Run failed nunca conta como entregue. Remove para permitir retry no
-            // próximo gatilho/turno, em vez de considerar cliente atendido.
-            if (
-              existingRun &&
-              !repeatForTest &&
-              String((existingRun as any).status || "completed") === "failed"
-            ) {
-              await (supabaseAdmin as any)
-                .from("welcome_funnel_runs")
-                .delete()
-                .eq("funnel_id", matchingFunnel.id)
-                .eq("contact_id", contactId);
->>>>>>> f6edd876405e2c6b056adb60ca9133d6c61b80b6
             }
 
             if (existingRun && repeatForTest) {
@@ -1161,8 +992,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }
             }
 
-            const existingRunStatus = String((existingRun as any)?.status || "completed");
-            if (!existingRun || existingRunStatus === "failed" || repeatForTest) {
+            if (!existingRun || repeatForTest) {
               // Claim atômico baseado na PK original (funnel_id, contact_id).
               // Isso funciona mesmo sem nenhuma migration de estado adicional.
               const { error: claimErr } = await (supabaseAdmin as any)
@@ -1225,27 +1055,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     creds,
                   });
 
-<<<<<<< HEAD
                   // O runner compartilhado é a única fonte de verdade para
                   // status/progresso/completion do funil.
                   console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" concluído; Agent V3 liberado`);
 
-=======
-                  const completedAt = new Date().toISOString();
-                  await (supabaseAdmin as any)
-                    .from("welcome_funnel_runs")
-                    .update({
-                      status: "completed",
-                      completed_at: completedAt,
-                      error_message: null,
-                      updated_at: completedAt,
-                    })
-                    .eq("funnel_id", matchingFunnel.id)
-                    .eq("contact_id", contactId);
-
-                  console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" concluído; Agent V3 liberado`);
-
->>>>>>> f6edd876405e2c6b056adb60ca9133d6c61b80b6
                   // Se o cliente falou DURANTE o funil, a mensagem já foi salva por
                   // outro webhook que ficou bloqueado pelo status=running. Agora,
                   // somente após a última etapa, retomamos a mensagem mais recente.
@@ -1278,7 +1091,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 } catch (funnelSendErr) {
                   console.error("[WELCOME-FUNNEL] Falha durante envio:", funnelSendErr);
 
-<<<<<<< HEAD
                   // Pausa solicitada pelo painel é estado operacional, não falha.
                   if (
                     funnelSendErr instanceof Error &&
@@ -1290,24 +1102,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     });
                     return new Response("ok (welcome funnel paused)");
                   }
-=======
-                  await (supabaseAdmin as any)
-                    .from("welcome_funnel_runs")
-                    .update({
-                      status: "failed",
-                      error_message: funnelSendErr instanceof Error ? funnelSendErr.message : String(funnelSendErr),
-                      updated_at: new Date().toISOString(),
-                    })
-                    .eq("funnel_id", matchingFunnel.id)
-                    .eq("contact_id", contactId);
-
-                  // Se houve falha técnica real, remove o marcador para permitir retry.
-                  await (supabaseAdmin as any)
-                    .from("welcome_funnel_runs")
-                    .delete()
-                    .eq("funnel_id", matchingFunnel.id)
-                    .eq("contact_id", contactId);
->>>>>>> f6edd876405e2c6b056adb60ca9133d6c61b80b6
 
                   const { markFunnelRunFailed } = await import(
                     "@/lib/welcome-funnel-runner.server"
