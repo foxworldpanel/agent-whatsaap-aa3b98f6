@@ -692,7 +692,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           whatsapp_number_id: num.id,
           last_message_preview: content.text.slice(0, 100),
           last_message_at: new Date().toISOString(),
-          status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
+          status: (msgLocal.fromMe ? "agente_respondendo" : "aguardando") as any,
         };
 
         const { data: existingConv, error: existingConvErr } = await supabaseAdmin
