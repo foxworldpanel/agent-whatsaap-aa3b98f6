@@ -1455,7 +1455,13 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         break;
     }
 
-    recommended_action = businessDecision.nextAction || recommended_action;
+    if (businessDecision.waitingCustomer) {
+      stage = "Aguardando cliente";
+      urgency = "Baixa";
+      recommended_action = "Aguardar nova mensagem do cliente sem enviar nova oferta ou pergunta.";
+    } else {
+      recommended_action = businessDecision.nextAction || recommended_action;
+    }
   }
 
   const reasoning = `Contexto atual ${selectionContext.intent}/${selectionContext.stage}; estadoRuntime=${businessDecision?.state || "n/a"}; memória=${customerLifecycle || "lead"}; bloqueioPagamento=${paymentTechnicalBlock}; reclamaçãoCrítica=${criticalComplaintSignal}; evidenciaFechamento=${objectiveClosingEvidence}.`;

@@ -20,6 +20,11 @@ export async function persistBusinessStateV3(params: {
         reason: params.decision.reason,
         next_action: params.decision.nextAction,
         summary: params.summary ?? null,
+        objective: params.decision.objective ?? null,
+        purchase_score: params.decision.purchaseScore ?? null,
+        confidence_score: params.decision.confidenceScore ?? null,
+        urgency_score: params.decision.urgencyScore ?? null,
+        waiting_customer: params.decision.waitingCustomer ?? false,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "workspace_id,conversation_id" },
@@ -44,7 +49,7 @@ export async function loadBusinessStateV3(params: {
     const ids = params.conversationIds.slice(i, i + 200);
     const { data, error } = await params.supabaseAdmin
       .from("conversation_business_state_v3")
-      .select("conversation_id, state, risk_level, reason, next_action, summary, updated_at")
+      .select("conversation_id, state, risk_level, reason, next_action, summary, objective, purchase_score, confidence_score, urgency_score, waiting_customer, updated_at")
       .eq("workspace_id", params.workspaceId)
       .in("conversation_id", ids);
 

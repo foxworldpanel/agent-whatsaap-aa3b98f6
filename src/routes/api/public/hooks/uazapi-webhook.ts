@@ -1815,16 +1815,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const {
         deriveBusinessDecisionV3,
         businessDecisionToPromptV3,
+        enrichBusinessDecisionV3,
       } = await import("@/lib/agent-v3/brain/business-state.server");
 
-      const businessDecision = deriveBusinessDecisionV3({
+      const businessDecision = enrichBusinessDecisionV3(deriveBusinessDecisionV3({
         message: effectiveAgentMessage,
         recentCustomerMessages: history
           .filter((item) => item.role === "customer")
           .slice(-6)
           .map((item) => item.content),
         customerLifecycle: customerMemory?.lifecycle ?? null,
-      });
+      }), effectiveAgentMessage);
 
       console.log("[BUSINESS-STATE-V3] decisão antes do LLM", {
         conversationId,
