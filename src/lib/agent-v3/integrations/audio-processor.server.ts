@@ -1,6 +1,6 @@
 // src/lib/agent-v3/integrations/audio-processor.server.ts
 
-const LONG_MESSAGE_THRESHOLD = 350;
+export const LONG_MESSAGE_THRESHOLD = 250;
 
 function isMeaningfulPart(raw: string): boolean {
   const trimmed = raw?.trim();
@@ -138,10 +138,63 @@ export async function textToSpeechV3(params: {
 /**
  * Splitter local da V3. Evita dependência funcional do message-splitter legado.
  */
-export function autoSplitLongPartsV3(text: string, _threshold = LONG_MESSAGE_THRESHOLD): string[] {
+export function autoSplitLongPartsV3(text: string, threshold = LONG_MESSAGE_THRESHOLD): string[] {
   if (typeof text !== "string") return [];
   const trimmed = text.trim();
   if (!trimmed) return [];
+
+  const splitSentences = (value: string): string[] => {
+    const normalized = value.replace(/\s+/g, " ").trim();
+    if (!normalized) return [];
+    return (
+      normalized.match(/[^.!?]+(?:[.!?]+|$)/g)?.map((item) => item.trim()).filter(isMeaningfulPart) ||
+      [normalized]
+    );
+  };
+
+  const splitNaturally = (value: string): string[] => {
+    const clean = value.trim();
+    if (clean.length <= threshold) return [clean];
+
+    const sentences = splitSentences(clean);
+    if (sentences.length <= 1) {
+      const words = clean.split(/\s+/);
+      const targetParts = clean.length > threshold * 2 ? 3 : 2;
+      const targetSize = Math.ceil(clean.length / targetParts);
+      const parts: string[] = [];
+      let current = "";
+
+      for (const word of words) {
+        const candidate = current ? `${current} ${word}` : word;
+        if (current && candidate.length > targetSize && parts.length < targetParts - 1) {
+          parts.push(current.trim());
+          current = word;
+        } else {
+          current = candidate;
+        }
+      }
+      if (current.trim()) parts.push(current.trim());
+      return parts.filter(isMeaningfulPart).slice(0, 3);
+    }
+
+    const targetParts = clean.length > threshold * 2 ? 3 : 2;
+    const targetSize = Math.ceil(clean.length / targetParts);
+    const parts: string[] = [];
+    let current = "";
+
+    for (const sentence of sentences) {
+      const candidate = current ? `${current} ${sentence}` : sentence;
+      if (current && candidate.length > targetSize && parts.length < targetParts - 1) {
+        parts.push(current.trim());
+        current = sentence;
+      } else {
+        current = candidate;
+      }
+    }
+    if (current.trim()) parts.push(current.trim());
+
+    return parts.filter(isMeaningfulPart).slice(0, 3);
+  };
 
   const explicitParts = trimmed
     .split(/===SPLIT===/i)
@@ -149,20 +202,17 @@ export function autoSplitLongPartsV3(text: string, _threshold = LONG_MESSAGE_THR
     .filter(isMeaningfulPart);
 
   const output: string[] = [];
-  for (const part of explicitParts) {
-    if (!/\n\s*\n/.test(part)) {
-      output.push(part);
-      continue;
-    }
-
-    const paragraphs = part
+  for (const explicitPart of explicitParts) {
+    const paragraphs = explicitPart
       .split(/\n\s*\n+/)
       .map((paragraph) => paragraph.trim())
       .filter(isMeaningfulPart);
 
-    if (paragraphs.length <= 1) output.push(part);
-    else output.push(...paragraphs);
+    const sourceParts = paragraphs.length > 1 ? paragraphs : [explicitPart];
+    for (const sourcePart of sourceParts) {
+      output.push(...splitNaturally(sourcePart));
+    }
   }
 
-  return output.length > 0 ? output : [trimmed];
+  return output.length > 0 ? output.slice(0, 3) : [trimmed];
 }
