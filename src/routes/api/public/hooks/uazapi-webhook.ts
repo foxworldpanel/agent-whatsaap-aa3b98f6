@@ -675,7 +675,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .from("contacts")
               .update({ photo_url: profilePic })
               .eq("id", contact.id)
-              .eq("workspace_id", num.workspace_id);
+              .eq("workspace_id", num.workspace_id as string);
           }
         } catch (profilePicErr) {
           console.warn("[UAZ-WEBHOOK] Não foi possível atualizar foto do contato:", profilePicErr);
@@ -1527,7 +1527,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             phoneStr,
             handoffReply,
             {
-              conversationId: conversationId || undefined,
+              conversationId: conversationId!,
               source: "critical_human_escalation",
             },
           );
@@ -1602,7 +1602,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             phoneStr,
             handoffReply,
             {
-              conversationId: conversationId || undefined,
+              conversationId: conversationId!,
               source: "human_handoff",
             },
           );
