@@ -1798,6 +1798,19 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
       .trim();
   }
 
+  // (1) Regra: separar afirmação de pergunta em bolhas diferentes
+  if (/[.!?]\s+[A-Z].*\?$/.test(finalContent)) {
+    finalContent = finalContent.replace(/([.!?])\s+([A-Z].*\?)$/, "$1===SPLIT===$2");
+  }
+
+  // (2) Regra: nunca pedir link antes do cliente confirmar o preço (determinado pela probabilidade de compra)
+  if (purchase_probability < 75 && /\b(link|perfil|arroba|usuario|url)\b/i.test(finalContent)) {
+     finalContent = finalContent
+       .replace(/\b(?:me|pode|por favor,?\s*)?\s*(?:passar|manda(?:r)?|envia(?:r)?|me\s+diz|qual|preciso\s+do)\s+(?:o\s+)?(?:link|perfil|arroba|usuario|url)(?:[^.!?]{0,50}[.!?])?/gi, "")
+       .trim();
+     if (!finalContent) finalContent = "Perfeito! Você gostaria de ver os valores para começar?";
+  }
+
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
 
