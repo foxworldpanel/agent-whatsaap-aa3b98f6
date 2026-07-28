@@ -1,6 +1,6 @@
 // src/lib/agent-v3/orchestrator.server.ts
 import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
-import { selectModulesV3, type ConversationContext } from "./selector/module-selector.server";
+import { selectModulesV3, type ConversationContext, KEYWORD_MAP } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
 import {
@@ -1708,8 +1708,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     finalContent = "A Mind ajuda na divulgação, mas não dá para garantir ganho financeiro. A monetização e os pagamentos são definidos pela própria plataforma e pela distribuidora.";
   }
 
-  // Primeiro contato: padroniza a saudação aprovada e elimina variações
-  // excessivas do LLM como "Bem-vindo" ou emoji de mão.
+  // Primeiro contato: padroniza a saudação aprovada conforme o horário.
   const greetingOnly =
     /^(?:oi|ol[áa]|bom\s+dia|boa\s+tarde|boa\s+noite|e\s*a[ií]|opa)[!.?\s]*$/i.test(
       message.trim(),
@@ -1717,15 +1716,11 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   const isFirstTurn = history.length === 0;
 
   if (greetingOnly && isFirstTurn && !funnelAlreadyCompleted) {
-    const normalizedGreeting = message.trim().toLocaleLowerCase("pt-BR");
-    const greeting =
-      normalizedGreeting.includes("bom dia")
-        ? "Bom dia"
-        : normalizedGreeting.includes("boa tarde")
-          ? "Boa tarde"
-          : normalizedGreeting.includes("boa noite")
-            ? "Boa noite"
-            : "Olá";
+    const currentHour = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })).getHours();
+    let greeting = "Olá";
+    if (currentHour >= 5 && currentHour < 12) greeting = "Bom dia";
+    else if (currentHour >= 12 && currentHour < 18) greeting = "Boa tarde";
+    else if (currentHour >= 18 || currentHour < 5) greeting = "Boa noite";
 
     finalContent = `${greeting}! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?`;
   }
@@ -1810,6 +1805,45 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
        .replace(/\b(?:me|pode|por favor,?\s*)?\s*(?:passar|manda(?:r)?|envia(?:r)?|me\s+diz|qual|preciso\s+do)\s+(?:o\s+)?(?:link|perfil|arroba|usuario|url)(?:[^.!?]{0,50}[.!?])?/gi, "")
        .trim();
      if (!finalContent) finalContent = "Perfeito! Você gostaria de ver os valores para começar?";
+  }
+
+  // (4) Regra: limite de perguntas de qualificação (máx 2 antes de mostrar preço)
+  const qualificationQuestionsInHistory = history
+    .filter(m => m.role === "agent")
+    .filter(m => /\?$/.test(m.content.trim()))
+    .length;
+
+  if (qualificationQuestionsInHistory >= 2 && !/R\$\s*\d/i.test(finalContent) && selectionContext.platform && selectionContext.product) {
+     const platform = selectionContext.platform as CommercePlatform;
+     const table = buildGeneralPlatformPriceTable({ platform, modules: mergedModulesMap });
+     if (table) {
+       finalContent = `Entendi! Para te ajudar logo, aqui estão os valores de ${platformDisplayName(platform)}:===SPLIT===${table}===SPLIT===Qual dessas opções você prefere para começar?`;
+     }
+  }
+
+  // (5) Regra: foco numa rede por vez quando o cliente menciona várias
+  const currentPlatforms = (Object.keys(KEYWORD_MAP).filter(k => ["instagram", "youtube", "spotify", "tiktok", "kwai", "facebook"].includes(k)) as CommercePlatform[])
+    .filter(p => new RegExp(`\\b${p}\\b`, "i").test(message));
+
+  if (currentPlatforms.length > 1 && !selectionContext.platform) {
+    const firstPlatform = platformDisplayName(currentPlatforms[0]);
+    finalContent = `Consigo te ajudar com todas essas! Para não confundir, vamos focar em uma por vez? Quer começar pelo ${firstPlatform}?`;
+  }
+
+  // (6) Regra: sugestão de ponto de partida quando o cliente está em dúvida
+  const isIndecisive = /\b(nao sei|nao tenho certeza|qual voce indica|qual e melhor|o que recomenda|estou em duvida)\b/i.test(message);
+  if (isIndecisive && selectionContext.platform && !selectionContext.product) {
+    const platform = selectionContext.platform as CommercePlatform;
+    const suggestions: Record<CommercePlatform, string> = {
+      instagram: "seguidores",
+      youtube: "visualizações",
+      spotify: "plays",
+      tiktok: "seguidores",
+      kwai: "seguidores",
+      facebook: "seguidores"
+    };
+    const suggestedProduct = suggestions[platform];
+    finalContent = `Sem problemas! Geralmente o pessoal começa com ${suggestedProduct} para dar o primeiro impulso. Quer ver os valores para essa opção?`;
   }
 
   // Auto-split logic
