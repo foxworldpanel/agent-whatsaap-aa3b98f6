@@ -1506,6 +1506,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (empty content)");
       }
 
+      console.log("[UAZ-WEBHOOK] Iniciando processamento de IA para:", {
+        message: finalMsgText.slice(0, 50),
+        conversationId,
+        hasAnthropicKey: !!anthropicApiKey
+      });
+
+
 
       const criticalEscalation = await detectCriticalHumanEscalation({
         supabaseAdmin,
