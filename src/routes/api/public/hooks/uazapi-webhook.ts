@@ -2306,7 +2306,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({
   server: {
     handlers: {
-        console.log("[UAZ-DEBUG] Webhook recebido às " + new Date().toISOString() + " - Body length: " + rawBody.length);
+      POST: async ({ request }) => {
+        const rawBody = await request.text();
+        console.log(`[UAZ-DEBUG] Payload: ${rawBody.slice(0, 100)}`);
       POST: async ({ request }) => {
         const rawBody = await request.text();
         try {
