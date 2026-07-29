@@ -947,7 +947,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
         .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
-        .eq("user_id", num.user_id)
+        // .eq("user_id", num.user_id) // Removido para suportar funis criados por administradores diferentes no mesmo workspace
+
         .eq("workspace_id", workspaceId)
         .eq("whatsapp_number_id", num.id)
         .eq("enabled", true)
@@ -958,9 +959,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
         console.error("[WELCOME-FUNNEL] Falha ao carregar funis; seguindo para Agent V3:", funnelErr);
       } else {
-        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
+        const matchingFunnels = ((funnelRows || []) as WelcomeFunnelRow[]).filter((row) =>
           funnelMatchesMessage(row.trigger_keywords, content.text),
         );
+        const matchingFunnel = matchingFunnels[0];
+
 
         if (matchingFunnel) {
           // Usa somente colunas existentes desde a criação original da tabela.
@@ -984,7 +987,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             let isRetryAttempt = false;
             let nextRetryCount = 0;
 
-            if (existingRun && !repeatForTest) {
+            if (existingRun && !repeatForTest && matchingFunnels.length === 1) {
               const existingStatus = String((existingRun as any).status || "completed");
               const existingRetryCount = Number((existingRun as any).retry_count || 0);
 
