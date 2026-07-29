@@ -1903,6 +1903,21 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
   }
 
   // Auto-split logic
+  // Correção determinística de saudação por horário: nunca confia só na
+  // instrução de prompt (já vimos o modelo errar mesmo com a regra escrita).
+  // Se a resposta começar com uma saudação de período do dia, substitui pela
+  // correta calculada a partir do horário real (Brasil, UTC-3).
+  {
+    const hourBr = (new Date().getUTCHours() - 3 + 24) % 24;
+    const correctGreeting =
+      hourBr >= 5 && hourBr < 12 ? "Bom dia" : hourBr >= 12 && hourBr < 18 ? "Boa tarde" : "Boa noite";
+    const greetingStartRx = /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite)\b/i;
+    const match = finalContent.match(greetingStartRx);
+    if (match && match[1].toLowerCase().replace(/\s+/g, " ") !== correctGreeting.toLowerCase()) {
+      finalContent = finalContent.replace(greetingStartRx, correctGreeting);
+    }
+  }
+
   const replies = autoSplitLongPartsV3(finalContent);
 
   const result = {
