@@ -604,22 +604,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("unauthorized (no instance token)", { status: 401 });
     }
 
-    const { data: num, error: numErr } = await supabaseAdmin
+    const { data: num } = await supabaseAdmin
       .from("whatsapp_numbers")
-      .select("id, user_id, workspace_id, uazapi_url, uazapi_token")
+      .select("id, user_id, workspace_id, uazapi_url")
       .eq("uazapi_token", instanceToken)
       .maybeSingle();
-
-    if (numErr) {
-      console.error("[UAZ-WEBHOOK] Erro ao buscar whatsapp_number:", numErr);
-    }
 
     if (!num) {
       console.log("[UAZ-WEBHOOK] Rejected: instance token not provisioned");
       return new Response("unauthorized (unknown instance)", { status: 401 });
     }
-
-
 
     const content = extractContent(payload);
 
@@ -883,9 +877,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .limit(1)
         .maybeSingle();
 
-
       if (runningFunnelErr) {
-
         console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
         const runStatus = String((runningFunnel as any).status || "running");
@@ -895,7 +887,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           Number.isFinite(updatedAt) &&
           Date.now() - updatedAt > 15 * 60_000;
 
-        if (stale) {
+        // "failed" não bloqueia mais pra sempre aqui — a seção 3.5 (match do
+        // gatilho específico) já cuida do retry automático (até 3x) e do
+        // fail-open pro Agent V3. Esse gate global só segue bloqueando de
+        // verdade quando o funil está genuinamente em andamento (running não
+        // travado, ou paused).
+        if (runStatus === "failed") {
+          console.log("[WELCOME-FUNNEL] Gate global: run com falha anterior não bloqueia mais; segue para verificação específica do gatilho", {
+            phone: phoneStr,
+            funnelId: (runningFunnel as any).funnel_id,
+          });
+        } else if (stale) {
           const now = new Date().toISOString();
           await (supabaseAdmin as any)
             .from("welcome_funnel_runs")
@@ -915,15 +917,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return new Response("ok (welcome funnel stale; agent deferred)");
         }
 
-        // Running, paused e failed mantêm o Agent V3 bloqueado. O operador resolve
-        // pela Central do Funil; a IA só entra depois de status=completed.
-        console.log("[WELCOME-FUNNEL] Agent V3 aguardando resolução/conclusão do funil", {
-          phone: phoneStr,
-          funnelId: (runningFunnel as any).funnel_id,
-          status: runStatus,
-          lastStep: (runningFunnel as any).last_step ?? null,
-        });
-        return new Response(`ok (welcome funnel ${runStatus}; agent deferred)`);
+        // Running e paused mantêm o Agent V3 bloqueado. "failed" já foi tratado
+        // acima (não bloqueia mais aqui) e cai direto pra seção 3.5.
+        if (runStatus !== "failed") {
+          console.log("[WELCOME-FUNNEL] Agent V3 aguardando resolução/conclusão do funil", {
+            phone: phoneStr,
+            funnelId: (runningFunnel as any).funnel_id,
+            status: runStatus,
+            lastStep: (runningFunnel as any).last_step ?? null,
+          });
+          return new Response(`ok (welcome funnel ${runStatus}; agent deferred)`);
+        }
       }
     }
 
@@ -940,15 +944,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       conversationId &&
       content.kind === "texto"
     ) {
-
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
         .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
+        .eq("user_id", num.user_id)
         .eq("workspace_id", workspaceId)
+        .eq("whatsapp_number_id", num.id)
         .eq("enabled", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
-
 
       if (funnelErr) {
         // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
@@ -957,7 +961,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
           funnelMatchesMessage(row.trigger_keywords, content.text),
         );
-
 
         if (matchingFunnel) {
           // Usa somente colunas existentes desde a criação original da tabela.
@@ -1507,8 +1510,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
 
-
-
       const criticalEscalation = await detectCriticalHumanEscalation({
         supabaseAdmin,
         conversationId,
@@ -1750,8 +1751,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
-
-
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
       const {
         DEFAULT_AGENT_HUMANIZATION,
