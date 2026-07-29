@@ -1901,6 +1901,17 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
       .replace(/^===SPLIT===|===SPLIT===$/g, "")
       .trim();
   }
+  // Correção determinística de saudação por horário
+  const hourBr = (new Date().getUTCHours() - 3 + 24) % 24;
+  const greetingStartRx = /^(?:Bom dia|Boa tarde|Boa noite|Olá|Opa|E aí)[,!\s]*/i;
+  if (greetingStartRx.test(finalContent)) {
+    let newGreeting = "Olá";
+    if (hourBr >= 5 && hourBr < 12) newGreeting = "Bom dia";
+    else if (hourBr >= 12 && hourBr < 18) newGreeting = "Boa tarde";
+    else if (hourBr >= 18 || hourBr < 5) newGreeting = "Boa noite";
+    
+    finalContent = finalContent.replace(greetingStartRx, `${newGreeting}, `);
+  }
 
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
