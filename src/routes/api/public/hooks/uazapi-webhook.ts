@@ -932,10 +932,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       conversationId &&
       content.kind === "texto"
     ) {
+      console.log("[WELCOME-FUNNEL] Investigando gatilhos para:", {
+        workspaceId,
+        whatsappNumberId: num.id,
+        userId: num.user_id,
+        message: content.text.slice(0, 50)
+      });
+
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
         .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
-        .eq("user_id", num.user_id)
         .eq("workspace_id", workspaceId)
         .eq("whatsapp_number_id", num.id)
         .eq("enabled", true)
@@ -943,12 +949,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .order("created_at", { ascending: true });
 
       if (funnelErr) {
-        // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
-        console.error("[WELCOME-FUNNEL] Falha ao carregar funis; seguindo para Agent V3:", funnelErr);
+        console.error("[WELCOME-FUNNEL] Falha ao carregar funis:", funnelErr);
       } else {
-        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
-          funnelMatchesMessage(row.trigger_keywords, content.text),
-        );
+        console.log(`[WELCOME-FUNNEL] Encontrados ${funnelRows?.length || 0} funis candidatos.`);
+        
+        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) => {
+          const match = funnelMatchesMessage(row.trigger_keywords, content.text);
+          if (match) console.log(`[WELCOME-FUNNEL] MATCH detectado com funil: ${row.name} (${row.id})`);
+          return match;
+        });
 
         if (matchingFunnel) {
           // Usa somente colunas existentes desde a criação original da tabela.
