@@ -604,16 +604,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("unauthorized (no instance token)", { status: 401 });
     }
 
-    const { data: num } = await supabaseAdmin
+    const { data: num, error: numErr } = await supabaseAdmin
       .from("whatsapp_numbers")
-      .select("id, user_id, workspace_id, uazapi_url")
+      .select("id, user_id, workspace_id, uazapi_url, uazapi_token")
       .eq("uazapi_token", instanceToken)
       .maybeSingle();
+
+    if (numErr) {
+      console.error("[UAZ-WEBHOOK] Erro ao buscar whatsapp_number:", numErr);
+    }
 
     if (!num) {
       console.log("[UAZ-WEBHOOK] Rejected: instance token not provisioned");
       return new Response("unauthorized (unknown instance)", { status: 401 });
     }
+
+
 
     const content = extractContent(payload);
 
@@ -675,9 +681,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .from("contacts")
               .update({ photo_url: profilePic })
               .eq("id", contact.id)
-              .eq("workspace_id", num.workspace_id);
+              .eq("workspace_id", num.workspace_id as string);
           }
         } catch (profilePicErr) {
+
           console.warn("[UAZ-WEBHOOK] Não foi possível atualizar foto do contato:", profilePicErr);
         }
       }
@@ -688,12 +695,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // o schema real estiver um passo diferente do código.
       if (contactId) {
         const conversationPatch = {
-          workspace_id: num.workspace_id,
+          workspace_id: num.workspace_id as string,
           whatsapp_number_id: num.id,
           last_message_preview: content.text.slice(0, 100),
           last_message_at: new Date().toISOString(),
-          status: msgLocal.fromMe ? "agente_respondendo" : "aguardando",
+          status: (msgLocal.fromMe ? "agente_respondendo" : "aguardando") as any,
         };
+
 
         const { data: existingConv, error: existingConvErr } = await supabaseAdmin
           .from("conversations")
@@ -875,7 +883,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .limit(1)
         .maybeSingle();
 
+
       if (runningFunnelErr) {
+
         console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
         const runStatus = String((runningFunnel as any).status || "running");
@@ -930,15 +940,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       conversationId &&
       content.kind === "texto"
     ) {
+
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
         .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
-        .eq("user_id", num.user_id)
         .eq("workspace_id", workspaceId)
-        .eq("whatsapp_number_id", num.id)
         .eq("enabled", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
+
 
       if (funnelErr) {
         // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
@@ -947,6 +957,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
           funnelMatchesMessage(row.trigger_keywords, content.text),
         );
+
 
         if (matchingFunnel) {
           // Usa somente colunas existentes desde a criação original da tabela.
@@ -1496,6 +1507,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
 
+
+
       const criticalEscalation = await detectCriticalHumanEscalation({
         supabaseAdmin,
         conversationId,
@@ -1559,10 +1572,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             phoneStr,
             handoffReply,
             {
-              conversationId: conversationId || undefined,
+              conversationId: conversationId as string,
               source: "critical_human_escalation",
             },
           );
+
 
           if (conversationId) {
             const { error: persistErr } = await supabaseAdmin
@@ -1634,10 +1648,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             phoneStr,
             handoffReply,
             {
-              conversationId: conversationId || undefined,
+              conversationId: conversationId as string,
               source: "human_handoff",
             },
           );
+
 
           if (conversationId) {
             const { error: handoffMessageErr } = await supabaseAdmin
@@ -1735,6 +1750,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
+
+
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
       const {
         DEFAULT_AGENT_HUMANIZATION,
