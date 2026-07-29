@@ -867,17 +867,18 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // de um funil, QUALQUER nova mensagem fica salva no CRM, mas o Agent V3 não
     // responde até a sequência terminar.
     if (contactId && conversationId) {
+      console.log("[WELCOME-FUNNEL] Verificando se existe funil ativo para o contato:", contactId);
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
         .select("funnel_id, contact_id, status, fired_at, last_step, last_step_index, updated_at")
         .eq("contact_id", contactId)
-        .eq("workspace_id", workspaceId)
         .in("status", ["running", "paused", "failed"])
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (runningFunnelErr) {
+
         console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
         const runStatus = String((runningFunnel as any).status || "running");
