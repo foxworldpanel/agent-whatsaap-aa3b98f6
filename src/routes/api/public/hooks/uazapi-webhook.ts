@@ -604,16 +604,29 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("unauthorized (no instance token)", { status: 401 });
     }
 
-    const { data: num } = await supabaseAdmin
+    console.log("[UAZ-WEBHOOK] Resolvendo instância para token:", instanceToken.slice(0, 5) + "...");
+
+    const { data: num, error: numErr } = await supabaseAdmin
       .from("whatsapp_numbers")
-      .select("id, user_id, workspace_id, uazapi_url")
+      .select("id, user_id, workspace_id, uazapi_url, uazapi_token")
       .eq("uazapi_token", instanceToken)
       .maybeSingle();
 
+    if (numErr) {
+      console.error("[UAZ-WEBHOOK] Erro ao buscar whatsapp_number:", numErr);
+    }
+
     if (!num) {
-      console.log("[UAZ-WEBHOOK] Rejected: instance token not provisioned");
+      console.log("[UAZ-WEBHOOK] Rejected: instance token not provisioned. Token recebido:", instanceToken);
       return new Response("unauthorized (unknown instance)", { status: 401 });
     }
+
+    console.log("[UAZ-WEBHOOK] Instância resolvida:", {
+      id: num.id,
+      workspaceId: num.workspace_id,
+      userId: num.user_id
+    });
+
 
     const content = extractContent(payload);
 
