@@ -947,7 +947,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
         .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
-        .eq("user_id", num.user_id)
+        // .eq("user_id", num.user_id) // Removido para suportar funis criados por administradores diferentes no mesmo workspace
+
         .eq("workspace_id", workspaceId)
         .eq("whatsapp_number_id", num.id)
         .eq("enabled", true)
