@@ -959,9 +959,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
         console.error("[WELCOME-FUNNEL] Falha ao carregar funis; seguindo para Agent V3:", funnelErr);
       } else {
-        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
+        const matchingFunnels = ((funnelRows || []) as WelcomeFunnelRow[]).filter((row) =>
           funnelMatchesMessage(row.trigger_keywords, content.text),
         );
+        const matchingFunnel = matchingFunnels[0];
+
 
         if (matchingFunnel) {
           // Usa somente colunas existentes desde a criação original da tabela.
