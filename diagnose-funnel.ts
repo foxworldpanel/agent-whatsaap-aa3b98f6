@@ -1,4 +1,4 @@
-import { supabase } from "./src/integrations/supabase/client.server";
+import { supabaseAdmin as supabase } from "./src/integrations/supabase/client.server";
 
 async function diagnose() {
   console.log("--- DIAGNÓSTICO DE FUNIL ---");
