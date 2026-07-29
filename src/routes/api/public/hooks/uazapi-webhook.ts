@@ -1754,7 +1754,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (stop request persisted)");
       }
 
+      console.log("[UAZ-WEBHOOK] Disparando runAgentV3Turn");
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
+
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
       const {
         DEFAULT_AGENT_HUMANIZATION,
