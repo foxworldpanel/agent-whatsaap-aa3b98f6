@@ -1152,6 +1152,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // comercial (preço/compra), a resposta DEVE priorizar a informação factual.
   // Empurrar a tabela de preço antes de tirar a dúvida gera desconfiança.
   // ===========================================================================
+  const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
   const factualTriggers = [
     "quais sao", "quais as", "quais os", "qual o nome", "nome de", "nome das",
     "como funciona", "como e feito", "como voces fazem", "e seguro", "e confiavel",
