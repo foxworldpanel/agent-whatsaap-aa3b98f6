@@ -28,11 +28,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
   try {
     const isV3 = V3_AUTHORIZED_NUMBERS.includes(customerPhone);
     
-    // Buscar Workspace/Instância no banco usando rpc ou query direta simplificada
-    // Note: 'instance_token' pode não existir, vamos buscar pelo id se for UUID ou uazapi_token
+    // Buscar Workspace/Instância no banco
     const { data: num } = await supabaseAdmin
       .from("whatsapp_numbers")
-      .select("id, workspace_id")
+      .select("id, workspace_id, user_id")
       .or(`uazapi_token.eq.${instance.token},id.eq.${instance.token}`)
       .maybeSingle();
 
@@ -52,11 +51,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       await uazapiSendTyping(creds, chatId, 2000).catch(() => null);
 
       const result = await runAgentV3Turn({
+        userId: num.user_id || "system",
         workspaceId: num.workspace_id,
         message: text,
-        customerName: message.senderName || "Cliente",
         history: [],
-        phone: customerPhone
+        phone: customerPhone,
+        anthropicApiKey: process.env.ANTHROPIC_API_KEY || ""
       });
 
       if (result.replies?.length) {
