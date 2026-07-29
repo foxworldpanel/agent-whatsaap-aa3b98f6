@@ -987,7 +987,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             let isRetryAttempt = false;
             let nextRetryCount = 0;
 
-            if (existingRun && !repeatForTest) {
+            if (existingRun && !repeatForTest && matchingFunnels.length === 1) {
               const existingStatus = String((existingRun as any).status || "completed");
               const existingRetryCount = Number((existingRun as any).retry_count || 0);
 
