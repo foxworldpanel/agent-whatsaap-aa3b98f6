@@ -1,49 +1,68 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
-import { UazapiPayload, sendUazapiMessage, sendUazapiTypingState } from "@/lib/uazapi.server";
+import { uazapiSendText, uazapiSendTyping } from "@/lib/uazapi.server";
 
-// [V3-ROUTING-GATE]
+// Interfaces básicas para o webhook
+interface UazapiPayload {
+  instance: { token: string };
+  message: {
+    id: string;
+    chatid: string;
+    text?: string;
+    fromMe: boolean;
+    senderName?: string;
+  };
+}
+
 const V3_AUTHORIZED_NUMBERS = ["5511970116430"];
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
-  // Simplificação radical para garantir restauração do serviço
   const { instance, message } = payload;
   if (!message || message.fromMe || !instance?.token) return new Response("ignored");
 
   const chatId = message.chatid;
   const customerPhone = chatId.replace("@c.us", "");
   const text = message.text || "";
-  const msgId = message.id;
 
   try {
-    // 1. Verificar se é um número autorizado para V3
     const isV3 = V3_AUTHORIZED_NUMBERS.includes(customerPhone);
     
-    // 2. Buscar Workspace e Instância
+    // Buscar Workspace/Instância no banco
     const { data: num } = await supabaseAdmin
       .from("whatsapp_numbers")
-      .select("id, workspace_id, user_id")
+      .select("id, workspace_id, user_id, uazapi_admin_token")
       .eq("instance_token", instance.token)
-      .single();
+      .maybeSingle();
 
-    if (!num) return new Response("ok (no instance)");
+    if (!num || !num.workspace_id) {
+      console.log(`[UAZ-WEBHOOK] Instância não encontrada ou sem workspace: ${instance.token}`);
+      return new Response("ok (no instance)");
+    }
 
-    // 3. Executar Agente V3
+    const creds = {
+      uazapi_url: "https://api.uazapi.dev", // URL padrão se não houver no banco
+      uazapi_token: instance.token
+    };
+
     if (isV3) {
       console.log(`[UAZ-WEBHOOK] Processando V3 para ${customerPhone}`);
+      
+      // Sinalizar digitando
+      await uazapiSendTyping(creds, chatId, 2000).catch(() => null);
+
       const result = await runAgentV3Turn({
         workspaceId: num.workspace_id,
-        chatId,
         message: text,
         customerPhone,
         customerName: message.senderName || "Cliente",
-        history: [], // O orquestrador deve carregar internamente se necessário
+        history: [],
+        phone: customerPhone
       });
 
       if (result.replies?.length) {
         for (const reply of result.replies) {
-          await sendUazapiMessage(instance.token, chatId, reply);
+          await uazapiSendText(creds, chatId, reply);
         }
       }
     }
@@ -51,7 +70,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     return new Response("ok");
   } catch (e: any) {
     console.error("[UAZ-WEBHOOK] Erro Crítico:", e.message);
-    return new Response("error", { status: 500 });
+    return new Response("ok (AI error flagged)");
   }
 }
 
