@@ -1143,7 +1143,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         ]
       : message;
 
-  const model = isImageInput ? "claude-3-5-sonnet-20240620" : "claude-3-haiku-20240307";
+  const model = isImageInput ? "claude-3-5-sonnet-20240620" : "claude-3-5-sonnet-20240620";
 
   // ===========================================================================
   // REGRA DE OURO: PRIORIDADE FACTUAL VS COMERCIAL
