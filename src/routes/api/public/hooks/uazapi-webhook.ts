@@ -957,10 +957,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .from("welcome_funnels")
         .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
         .eq("workspace_id", workspaceId)
-        .eq("whatsapp_number_id", num.id)
         .eq("enabled", true)
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: true });
+
 
       if (funnelErr) {
         console.error("[WELCOME-FUNNEL] Falha ao carregar funis:", funnelErr);
