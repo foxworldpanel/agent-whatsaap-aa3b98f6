@@ -1307,7 +1307,7 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
             ? "Baixa"
             : "Muito baixa";
 
-  const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
+  // normalizedCustomerMessage já foi inicializado no topo do bloco de LLM call.
   const normalizedCurrentTurn = message
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
