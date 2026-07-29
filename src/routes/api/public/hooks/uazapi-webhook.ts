@@ -604,8 +604,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("unauthorized (no instance token)", { status: 401 });
     }
 
-    console.log("[UAZ-WEBHOOK] Resolvendo instância para token:", instanceToken.slice(0, 5) + "...");
-
     const { data: num, error: numErr } = await supabaseAdmin
       .from("whatsapp_numbers")
       .select("id, user_id, workspace_id, uazapi_url, uazapi_token")
@@ -617,15 +615,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     if (!num) {
-      console.log("[UAZ-WEBHOOK] Rejected: instance token not provisioned. Token recebido:", instanceToken);
+      console.log("[UAZ-WEBHOOK] Rejected: instance token not provisioned");
       return new Response("unauthorized (unknown instance)", { status: 401 });
     }
 
-    console.log("[UAZ-WEBHOOK] Instância resolvida:", {
-      id: num.id,
-      workspaceId: num.workspace_id,
-      userId: num.user_id
-    });
 
 
     const content = extractContent(payload);
@@ -880,15 +873,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // de um funil, QUALQUER nova mensagem fica salva no CRM, mas o Agent V3 não
     // responde até a sequência terminar.
     if (contactId && conversationId) {
-      console.log("[WELCOME-FUNNEL] Verificando se existe funil ativo para o contato:", contactId);
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
         .select("funnel_id, contact_id, status, fired_at, last_step, last_step_index, updated_at")
         .eq("contact_id", contactId)
+        .eq("workspace_id", workspaceId)
         .in("status", ["running", "paused", "failed"])
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+
 
       if (runningFunnelErr) {
 
@@ -946,12 +940,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       conversationId &&
       content.kind === "texto"
     ) {
-      console.log("[WELCOME-FUNNEL] Investigando gatilhos para:", {
-        workspaceId,
-        whatsappNumberId: num.id,
-        userId: num.user_id,
-        message: content.text.slice(0, 50)
-      });
 
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
@@ -963,15 +951,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
 
       if (funnelErr) {
-        console.error("[WELCOME-FUNNEL] Falha ao carregar funis:", funnelErr);
+        // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
+        console.error("[WELCOME-FUNNEL] Falha ao carregar funis; seguindo para Agent V3:", funnelErr);
       } else {
-        console.log(`[WELCOME-FUNNEL] Encontrados ${funnelRows?.length || 0} funis candidatos.`);
-        
-        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) => {
-          const match = funnelMatchesMessage(row.trigger_keywords, content.text);
-          if (match) console.log(`[WELCOME-FUNNEL] MATCH detectado com funil: ${row.name} (${row.id})`);
-          return match;
-        });
+        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
+          funnelMatchesMessage(row.trigger_keywords, content.text),
+        );
+
 
         if (matchingFunnel) {
           // Usa somente colunas existentes desde a criação original da tabela.
@@ -1520,11 +1506,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (empty content)");
       }
 
-      console.log("[UAZ-WEBHOOK] Iniciando processamento de IA para:", {
-        message: finalMsgText.slice(0, 50),
-        conversationId,
-        hasAnthropicKey: !!anthropicApiKey
-      });
 
 
 
@@ -1768,8 +1749,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (stop request persisted)");
       }
 
-      console.log("[UAZ-WEBHOOK] Disparando runAgentV3Turn");
       const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
+
 
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
       const {
