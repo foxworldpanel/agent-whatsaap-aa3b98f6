@@ -249,9 +249,11 @@ export async function runAgentV3Turn(input: OrchestratorInputV3) {
   return {
     response: finalContent,
     replies,
-    intelligence: { intent: selectionContext.intent, stage: selectionContext.stage, confidence: "Alta", purchase_probability: 50, sentiment: "Neutro", urgency: "Media", recommended_action: "Continuar", reasoning: "OK" },
+    intelligence: { intent: selectionContext.intent, stage: selectionContext.stage, confidence: "Alta", purchase_probability: 50, sentiment: "Neutro", urgency: "Media", recommended_action: "Continuar", reasoning: "OK", temperature: "morno" },
     usage: { model, request_id: llmResult.request_id || "unknown", input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens, latency_ms: 0 },
     cost: { input_usd, output_usd, cache_usd: 0, total_usd },
-    modules: { selected_keys: effectiveSelectedKeys, selection_context: selectionContext, selection_reasons: selectionReasons }
+    modules: { selected_keys: effectiveSelectedKeys, selection_context: selectionContext, selection_reasons: selectionReasons },
+    score: { total: 0 },
+    rawPrompt: systemPrompt
   };
 }

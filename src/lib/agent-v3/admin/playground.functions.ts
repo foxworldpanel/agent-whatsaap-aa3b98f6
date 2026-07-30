@@ -59,13 +59,20 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     if (!userMsg) throw new Error("Falha ao salvar mensagem do usuário");
 
+    const { deriveBusinessDecisionV3 } = await import("../brain/business-state.server");
+    const decision = deriveBusinessDecisionV3({
+      message,
+      recentCustomerMessages: history.filter(h => h.role === "customer").map(h => h.content)
+    });
+
     const result = await runAgentV3Turn({
       message,
       userId,
       history,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
       workspaceId,
-      inputKind: inputKind as any
+      inputKind: inputKind as any,
+      businessDecision: decision
     });
 
     // Playground permanece rápido por padrão. O atraso só é aplicado quando
