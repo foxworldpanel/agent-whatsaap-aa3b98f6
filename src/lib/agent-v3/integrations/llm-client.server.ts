@@ -108,6 +108,8 @@ export async function callAnthropicV3(params: {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+      console.log("[ANTHROPIC-DEBUG-URL]", ANTHROPIC_MESSAGES_URL);
+      console.log("[ANTHROPIC-DEBUG-BODY]", JSON.stringify(body));
       const response = await fetch(ANTHROPIC_MESSAGES_URL, {
         method: "POST",
         headers,
@@ -152,10 +154,9 @@ export async function callAnthropicV3(params: {
 
       // Mantém a telemetria existente. Os valores financeiros finais também são
       // calculados no orchestrator para compatibilidade com a UI atual.
-      const pricing =
-        anthropicModel === "claude-sonnet-5"
+        anthropicModel.includes("sonnet")
           ? { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 }
-          : { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 };
+          : { input: 0.25, output: 1.25, cacheWrite: 0.3, cacheRead: 0.03 };
 
       const inputCost = (input_tokens * pricing.input) / 1_000_000;
       const outputCost = (output_tokens * pricing.output) / 1_000_000;
