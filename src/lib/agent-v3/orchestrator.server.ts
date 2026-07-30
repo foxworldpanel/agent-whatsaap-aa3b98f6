@@ -1143,7 +1143,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         ]
       : message;
 
-  const model = isImageInput ? "claude-3-5-sonnet-20240620" : "claude-3-haiku-20240307";
+  const model = isImageInput ? "claude-sonnet-5" : "claude-haiku-4-5";
 
   // ===========================================================================
   // REGRA DE OURO: PRIORIDADE FACTUAL VS COMERCIAL
@@ -1285,11 +1285,7 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
   const cache_read_input_tokens = usageRaw.cache_read_input_tokens || 0;
 
   const pricing =
-<<<<<<< HEAD
     model === "claude-sonnet-5"
-=======
-    model === "claude-3-5-sonnet-20240620"
->>>>>>> 2a2d73640bbd66576cc277452075ad64837c03e2
       ? { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 }
       : { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 };
 
