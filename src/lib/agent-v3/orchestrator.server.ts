@@ -1143,7 +1143,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         ]
       : message;
 
-  const model = isImageInput ? "claude-3-haiku-20240307" : "claude-3-haiku-20240307";
+  const model = isImageInput ? "claude-sonnet-5" : "claude-haiku-4-5";
 
   // ===========================================================================
   // REGRA DE OURO: PRIORIDADE FACTUAL VS COMERCIAL
@@ -1261,8 +1261,8 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
   const cache_read_input_tokens = usageRaw.cache_read_input_tokens || 0;
 
   const pricing =
-    model === "claude-3-haiku-20240307"
-      ? { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.2 }
+    model === "claude-sonnet-5"
+      ? { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 }
       : { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 };
 
   const input_usd = (input_tokens * pricing.input) / 1_000_000;
@@ -1915,21 +1915,6 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
   }
 
   // Auto-split logic
-  // Correção determinística de saudação por horário: nunca confia só na
-  // instrução de prompt (já vimos o modelo errar mesmo com a regra escrita).
-  // Se a resposta começar com uma saudação de período do dia, substitui pela
-  // correta calculada a partir do horário real (Brasil, UTC-3).
-  {
-    const hourBr = (new Date().getUTCHours() - 3 + 24) % 24;
-    const correctGreeting =
-      hourBr >= 5 && hourBr < 12 ? "Bom dia" : hourBr >= 12 && hourBr < 18 ? "Boa tarde" : "Boa noite";
-    const greetingStartRx = /^\s*(bom\s*dia|boa\s*tarde|boa\s*noite)\b/i;
-    const match = finalContent.match(greetingStartRx);
-    if (match && match[1].toLowerCase().replace(/\s+/g, " ") !== correctGreeting.toLowerCase()) {
-      finalContent = finalContent.replace(greetingStartRx, correctGreeting);
-    }
-  }
-
   const replies = autoSplitLongPartsV3(finalContent);
 
   const result = {
