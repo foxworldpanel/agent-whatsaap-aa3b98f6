@@ -64,6 +64,9 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
         }
 
         // Chama V3
+        const { deriveBusinessDecisionV3 } = await import("@/lib/agent-v3/brain/business-state.server");
+        const decision = deriveBusinessDecisionV3({ message, recentCustomerMessages: [] });
+
         const result = await runAgentV3Turn({
           userId,
           workspaceId,
@@ -71,7 +74,9 @@ export const Route = createFileRoute("/api/public/hooks/v3-test-webhook")({
           message,
           history: [],
           enabledModules: [], // Carregamento dinâmico via agent_config
-          anthropicApiKey: process.env.ANTHROPIC_API_KEY || ""
+          anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
+          businessDecision: decision,
+          inputKind: "texto"
         });
 
         console.log("[V3-TEST] Reply:", result.replies[0]);

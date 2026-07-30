@@ -1985,8 +1985,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const confirmedNow = /\b((?:j[aá]\s+)?(?:comprei|paguei)(?:\s+hoje|\s+ontem)?|j[aá]\s+fiz\s+o\s+pedido|pedido\s+(?:feito|realizado)|pagamento\s+(?:feito|realizado))\b/i.test(finalMsgText);
             if (confirmedNow || currentIntent === "pos_compra" || currentIntent === "suporte") {
               v3Response.intelligence.temperature = confirmedNow ? "quente" : v3Response.intelligence.temperature;
-              v3Response.intelligence.intent = currentIntent === "suporte" ? "Suporte" : "Pós-venda";
-              v3Response.intelligence.stage = "Pós-venda";
+              v3Response.intelligence.intent = currentIntent === "suporte" ? "suporte" : "pos_compra";
+              v3Response.intelligence.stage = "pos_venda";
               if (confirmedNow) v3Response.intelligence.purchase_probability = 100;
               else if (customerMemory.repurchasePotential === "alto") {
                 v3Response.intelligence.purchase_probability = Math.max(v3Response.intelligence.purchase_probability, 90);
