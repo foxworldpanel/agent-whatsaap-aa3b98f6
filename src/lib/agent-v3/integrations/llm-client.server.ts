@@ -153,7 +153,11 @@ export async function callAnthropicV3(params: {
       // Mantém a telemetria existente. Os valores financeiros finais também são
       // calculados no orchestrator para compatibilidade com a UI atual.
       const pricing =
+<<<<<<< HEAD
         anthropicModel === "claude-sonnet-5"
+=======
+        anthropicModel === "claude-3-5-sonnet-20240620"
+>>>>>>> 2a2d73640bbd66576cc277452075ad64837c03e2
           ? { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 }
           : { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 };
 
