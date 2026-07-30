@@ -847,8 +847,8 @@ REGRA DE FONTE ÚNICA E ANTI-INVENÇÃO:
 FORMATAÇÃO PARA WHATSAPP:
 - Responda em texto simples. Não use Markdown, asteriscos duplos, títulos com #, crases ou formatação em negrito.
 
-REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
-Nunca assuma "Boa noite" por padrão. Use o horário local real (Brasil, UTC-3) pra decidir: 5h-12h = "Bom dia", 12h-18h = "Boa tarde", 18h-5h = "Boa noite". Se não tiver certeza do horário exato, prefere "Olá" a chutar errado.
+REFORÇO — Correção determinística de saudação por horário:
+Nunca assuma "Boa noite" por padrão. Use o horário local real (Brasil, UTC-3) para decidir: 5h-12h = "Bom dia", 12h-18h = "Boa tarde", 18h-5h = "Boa noite". Se não tiver certeza do horário exato, prefere "Olá" a chutar errado.
 
 CONTINUIDADE APÓS PAGAMENTO/SALDO CONFIRMADO (CRÍTICO):
 Se em algum momento da conversa o cliente confirmou que o pagamento ou saldo funcionou (ex: "deu certo", "funcionou", "consegui", "apareceu o saldo"), o serviço/pedido JÁ ESTABELECIDO antes disso (rede, quantidade, link, preço) continua valendo pro resto da conversa. NUNCA pergunta "qual serviço você procura" ou reinicia a descoberta depois disso — mesmo que o cliente mande uma mensagem vaga, fora de tópico, ou só um elogio/comentário. Se a mensagem do cliente não for clara, responde de forma breve e gentil, e retoma o pedido já estabelecido (ex: "Show! Bora fechar aquele pedido de playlist que a gente combinou?"), nunca trata como se fosse um cliente novo.
@@ -1143,7 +1143,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
         ]
       : message;
 
-  const model = isImageInput ? "claude-sonnet-5" : "claude-haiku-4-5";
+  const model = isImageInput ? "claude-3-haiku-20240307" : "claude-3-haiku-20240307";
 
   // ===========================================================================
   // REGRA DE OURO: PRIORIDADE FACTUAL VS COMERCIAL
@@ -1152,6 +1152,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // comercial (preço/compra), a resposta DEVE priorizar a informação factual.
   // Empurrar a tabela de preço antes de tirar a dúvida gera desconfiança.
   // ===========================================================================
+  const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
   const factualTriggers = [
     "quais sao", "quais as", "quais os", "qual o nome", "nome de", "nome das",
     "como funciona", "como e feito", "como voces fazem", "e seguro", "e confiavel",
@@ -1260,7 +1261,7 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
   const cache_read_input_tokens = usageRaw.cache_read_input_tokens || 0;
 
   const pricing =
-    model === "claude-sonnet-5"
+    model === "claude-3-haiku-20240307"
       ? { input: 2, output: 10, cacheWrite: 2.5, cacheRead: 0.2 }
       : { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 };
 
@@ -1306,7 +1307,7 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
             ? "Baixa"
             : "Muito baixa";
 
-  const normalizedCustomerMessage = message.toLocaleLowerCase("pt-BR");
+  // normalizedCustomerMessage já foi inicializado no topo do bloco de LLM call.
   const normalizedCurrentTurn = message
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -1900,6 +1901,17 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
       .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
       .replace(/^===SPLIT===|===SPLIT===$/g, "")
       .trim();
+  }
+  // Correção determinística de saudação por horário
+  const hourBr = (new Date().getUTCHours() - 3 + 24) % 24;
+  const greetingStartRx = /^(?:Bom dia|Boa tarde|Boa noite|Olá|Opa|E aí)[,!\s]*/i;
+  if (greetingStartRx.test(finalContent)) {
+    let newGreeting = "Olá";
+    if (hourBr >= 5 && hourBr < 12) newGreeting = "Bom dia";
+    else if (hourBr >= 12 && hourBr < 18) newGreeting = "Boa tarde";
+    else if (hourBr >= 18 || hourBr < 5) newGreeting = "Boa noite";
+    
+    finalContent = finalContent.replace(greetingStartRx, `${newGreeting}, `);
   }
 
   // Auto-split logic
