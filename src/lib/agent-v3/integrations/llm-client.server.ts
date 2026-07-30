@@ -16,7 +16,6 @@ export type AnthropicV3Result = {
   request_id?: string;
 };
 
-
 export function extractAnthropicTextV3(result: AnthropicV3Result): string {
   return (result.content || [])
     .filter(
@@ -38,14 +37,11 @@ function retryDelayMs(attempt: number, retryAfter: string | null): number {
     if (Number.isFinite(seconds) && seconds >= 0) {
       return Math.min(seconds * 1_000, 10_000);
     }
-
     const retryDateMs = Date.parse(retryAfter);
     if (Number.isFinite(retryDateMs)) {
       return Math.min(Math.max(0, retryDateMs - Date.now()), 10_000);
     }
   }
-
-  // Backoff curto com jitter para evitar rajadas simultâneas no webhook.
   const base = 300 * 2 ** Math.max(0, attempt - 1);
   return Math.min(base + Math.floor(Math.random() * 150), 2_500);
 }
@@ -55,9 +51,6 @@ function safeErrorBody(body: string): string {
   return compact.length > 1_500 ? `${compact.slice(0, 1_500)}…` : compact;
 }
 
-/**
- * Cliente Anthropic do Agent V3 com timeout, retry limitado e request id.
- */
 export async function callAnthropicV3(params: {
   apiKey?: string;
   system: unknown;
@@ -109,7 +102,7 @@ export async function callAnthropicV3(params: {
 
     try {
       console.log("[ANTHROPIC-DEBUG-URL]", ANTHROPIC_MESSAGES_URL);
-      console.log("[ANTHROPIC-DEBUG-BODY]", JSON.stringify(body));
+      console.log("[ANTHROPIC-DEBUG-MODEL]", anthropicModel);
       const response = await fetch(ANTHROPIC_MESSAGES_URL, {
         method: "POST",
         headers,
@@ -121,9 +114,9 @@ export async function callAnthropicV3(params: {
         response.headers.get("request-id") || response.headers.get("x-request-id") || "unknown";
 
       if (!response.ok) {
-        const errorBody = safeErrorBody(await response.text());
+        const errorBody = await response.text();
         const error = new Error(
-          `Anthropic API Error: ${response.status}${errorBody ? ` - ${errorBody}` : ""}`,
+          `Anthropic API Error: ${response.status} - ${safeErrorBody(errorBody)}`,
         );
         lastError = error;
 
@@ -152,11 +145,9 @@ export async function callAnthropicV3(params: {
       const cache_creation_input_tokens = usage.cache_creation_input_tokens || 0;
       const cache_read_input_tokens = usage.cache_read_input_tokens || 0;
 
-      // Mantém a telemetria existente. Os valores financeiros finais também são
-      // calculados no orchestrator para compatibilidade com a UI atual.
-        anthropicModel.includes("sonnet")
-          ? { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 }
-          : { input: 0.25, output: 1.25, cacheWrite: 0.3, cacheRead: 0.03 };
+      const pricing = anthropicModel.includes("sonnet")
+        ? { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 }
+        : { input: 0.25, output: 1.25, cacheWrite: 0.3, cacheRead: 0.03 };
 
       const inputCost = (input_tokens * pricing.input) / 1_000_000;
       const outputCost = (output_tokens * pricing.output) / 1_000_000;
@@ -178,19 +169,6 @@ export async function callAnthropicV3(params: {
             cache_creation_input_tokens,
             cache_read_input_tokens,
             request_id: requestId,
-            raw_usage: usage,
-          },
-          metadata: {
-            call_number_for_message: metadata?.call_number || 1,
-            message_id: metadata?.message_id || "unknown",
-            selectedKeys: metadata?.selectedKeys || [],
-            system_prompt_chars: metadata?.system_prompt_chars || 0,
-            history_chars: metadata?.history_chars || 0,
-            message_chars: metadata?.message_chars || 0,
-            history_summary: metadata?.history_summary || "none",
-            history_telemetry: metadata?.history_telemetry || {},
-            response_chars,
-            attempts: attempt,
           },
           financial: {
             inputCost,
@@ -198,6 +176,11 @@ export async function callAnthropicV3(params: {
             cacheWriteCost,
             cacheReadCost,
             totalCost,
+          },
+          metadata: {
+            call_number: metadata?.call_number || 1,
+            message_id: metadata?.message_id || "unknown",
+            response_chars,
           },
         }),
       );
