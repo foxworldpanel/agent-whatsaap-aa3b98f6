@@ -45,7 +45,7 @@ export async function routeAgentV3Request(input: RouterInput) {
     enabledModules: input.enabledModules,
     customModules: input.customModules,
     anthropicApiKey: input.anthropicApiKey || "",
-    workspaceId: input.workspaceId,
+    workspaceId: input.workspaceId ?? "",
     conversationId: input.conversationId,
     phone: input.phone,
   });
