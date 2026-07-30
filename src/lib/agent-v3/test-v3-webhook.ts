@@ -10,7 +10,16 @@ async function test() {
       message: 'Olá, qual o preço do spotify?',
       history: [],
       phone: '5511970116430',
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY || ''
+      anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+      inputKind: "texto",
+      businessDecision: {
+        state: "orcamento",
+        risk: "normal",
+        reason: "teste manual",
+        nextAction: "preço",
+        allowQualification: true,
+        shouldHandoff: false
+      }
     });
     console.log("SUCESSO V3:", JSON.stringify(result.replies, null, 2));
   } catch (err: any) {
