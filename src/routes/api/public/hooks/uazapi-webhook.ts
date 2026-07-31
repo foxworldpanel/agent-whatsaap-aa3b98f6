@@ -887,9 +887,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     // 3.4. FUNNEL GATE GLOBAL
-    // Não depende da mensagem atual bater no gatilho. Se o contato já está no meio
-    // de um funil, QUALQUER nova mensagem fica salva no CRM, mas o Agent V3 não
-    // responde até a sequência terminar.
     if (contactId && conversationId) {
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
@@ -903,12 +900,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       if (runningFunnelErr) {
         console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
-        // Fallback defensivo: se a migration de status falhou no psql,
-        // tratamos qualquer run nos últimos 15 min como bloqueio "best-effort".
         const firedAt = new Date((runningFunnel as any).fired_at || 0).getTime();
         const stale = Date.now() - firedAt > 15 * 60_000;
+        const status = String((runningFunnel as any).status || "running");
 
-        if (!stale) {
+        // Somente bloqueia se estiver rodando e não estiver obsoleto.
+        if (!stale && status === "running") {
           console.log("[WELCOME-FUNNEL] Gate global: Run recente detectada, bloqueando Agent V3 para evitar concorrência", {
             phone: phoneStr,
             funnelId: (runningFunnel as any).funnel_id,
@@ -917,6 +914,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
     }
+
 
     // 3.5. WELCOME FUNNEL — independente do liga/desliga do Agent V3.
     // IMPORTANTE: primeiro verificamos se a mensagem realmente bate em um gatilho.
@@ -1225,15 +1223,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // 5. AI PROCESSING (V3)
     const inboundStartedAt = Date.now();
     const lockKey = `${workspaceId}:${phoneStr}`;
+    console.log(`[UAZ-WEBHOOK] Iniciando processamento para ${phoneStr} (Lock: ${lockKey})`);
+
     return await withConversationLock(lockKey, async () => {
       const lockHolder = `v3:${msgId}:${Date.now()}`;
       if (conversationId) {
+        console.log(`[UAZ-WEBHOOK] Adquirindo lock persistente no DB para conversa: ${conversationId}`);
         const acquired = await acquireConversationDbLock(supabaseAdmin, conversationId, lockHolder);
         if (!acquired) {
-          console.log(`[UAZ-WEBHOOK] Conversa já está sendo processada em outra instância: ${conversationId}`);
+          console.log(`[UAZ-WEBHOOK] Conversa ocupada (lock DB): ${conversationId}`);
           return new Response("ok (conversation busy)");
         }
       }
+
 
       try {
       const { data: integ, error: integErr } = await supabaseAdmin
