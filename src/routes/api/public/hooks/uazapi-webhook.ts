@@ -587,6 +587,7 @@ async function executeWelcomeFunnel(params: {
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
+    console.log("[DEBUG-WEBHOOK] Webhook recebido - Phone:", phoneStr, "Instance:", instanceToken);
     const inboundStartedAt = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const msgLocal = payload.message ?? payload.data ?? {};
@@ -822,6 +823,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // 3. AI GATE
     if (msgLocal.fromMe) {
       return new Response("ok (sync only for fromMe)");
+    console.log("[DEBUG-WEBHOOK] Passou Sync CRM - ConvId:", conversationId);
     }
 
     const workspaceId = num.workspace_id?.trim();
@@ -928,6 +930,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           });
           return new Response(`ok (welcome funnel ${runStatus}; agent deferred)`);
         }
+    console.log("[DEBUG-WEBHOOK] Passou Funnel Gate Global");
       }
     }
 
@@ -1232,6 +1235,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // é `agent_enabled`. Opt-out e bloqueio manual já gravam agent_enabled=false.
       if (conversationGate?.agent_enabled === false) {
         return new Response("ok (agent disabled for conversation)");
+    console.log("[DEBUG-WEBHOOK] Passou Agent Gates - AgentEnabled:", agentConfig?.agent_enabled);
       }
     }
 
