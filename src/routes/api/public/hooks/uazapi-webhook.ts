@@ -106,12 +106,15 @@ type UazapiPayload = {
   message?: {
     chatid?: string;
     sender?: string;
+    sender_pn?: string;
+    senderPn?: string;
+    wa_chatid?: string;
     messageid?: string;
     messageId?: string;
     id?: string;
     key_id?: string;
     wa_messageid?: string;
-    key?: { id?: string };
+    key?: { id?: string; senderPn?: string; cleanedSenderPn?: string; remoteJid?: string };
     fromMe?: boolean;
     type?: string;
     messageType?: string;
@@ -147,6 +150,24 @@ function extractPhone(chatid?: string, sender?: string): string | null {
   const raw = (chatid ?? sender ?? "").split("@")[0];
   const digits = raw.replace(/\D+/g, "");
   return digits || null;
+}
+
+function extractUazapiSendTarget(message: UazapiPayload["message"]): string | null {
+  if (!message) return null;
+  const candidates = [
+    message.sender_pn,
+    message.senderPn,
+    message.key?.cleanedSenderPn,
+    message.key?.senderPn,
+    message.wa_chatid,
+    message.chatid,
+    message.key?.remoteJid,
+    message.sender,
+  ];
+  const target = candidates.find((value) =>
+    typeof value === "string" && value.trim() && !/@(?:g\.us|broadcast|newsletter)$/i.test(value.trim()),
+  );
+  return typeof target === "string" ? target.trim() : null;
 }
 
 function findMediaReference(value: unknown, depth = 0): string | undefined {
@@ -590,8 +611,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const inboundStartedAt = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const msgLocal = payload.message ?? payload.data ?? {};
-    const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
+    const phoneLocal = extractPhone(
+      msgLocal.sender_pn ?? msgLocal.senderPn ?? msgLocal.key?.cleanedSenderPn ?? msgLocal.key?.senderPn ?? msgLocal.wa_chatid ?? msgLocal.chatid,
+      msgLocal.sender,
+    );
     const phoneStr = String(phoneLocal || "");
+    const sendTarget = extractUazapiSendTarget(msgLocal) || phoneStr;
     const instanceToken = pickInstanceToken(payload);
 
     if (!phoneStr) {
@@ -1097,7 +1122,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     conversationId,
                     userId: num.user_id,
                     workspaceId,
-                    phone: phoneStr,
+                    phone: sendTarget,
                     creds,
                   });
 
@@ -1570,7 +1595,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
           const sendResult = await sendAgentTextGuarded(
             creds,
-            phoneStr,
+            sendTarget,
             handoffReply,
             {
               conversationId: conversationId as string,
@@ -1646,7 +1671,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // impede novas respostas automáticas até reativação manual no painel.
           const sendResult = await sendAgentTextGuarded(
             creds,
-            phoneStr,
+            sendTarget,
             handoffReply,
             {
               conversationId: conversationId as string,
@@ -1810,7 +1835,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const { uazapiSendTyping } = await import("@/lib/uazapi.server");
         await uazapiSendTyping(
           creds,
-          phoneStr,
+          sendTarget,
           humanization.max_response_delay_ms,
         ).catch((error) => {
           console.warn("[UAZ-WEBHOOK] Não foi possível sinalizar digitando:", error);
@@ -1927,6 +1952,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
+        rememberedContext: {
+          platform: customerMemory?.preferredPlatform ?? null,
+          product: customerMemory?.preferredProduct ?? null,
+        },
         extraContext: [
           customerMemoryContext,
           businessDecisionToPromptV3(businessDecision),
@@ -2104,7 +2133,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           if (humanization.enabled && humanization.audio_recording_enabled) {
             await uazapiSendRecording(
               creds,
-              phoneStr,
+              sendTarget,
               Math.max(3000, remainingFirstReplyDelayMs),
             ).catch((error) => {
               console.warn("[UAZ-WEBHOOK] Não foi possível sinalizar gravando áudio:", error);
@@ -2130,9 +2159,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           );
           await sleepMs(remainingAudioDelayMs);
 
-          await uazapiSendAudio(creds, phoneStr, audioBase64);
+          await uazapiSendAudio(creds, sendTarget, audioBase64);
           console.log("[AUDIO-V3] 5/5 nota de voz enviada pela Uazapi");
-          await uazapiClearPresence(creds, phoneStr).catch(() => undefined);
+          await uazapiClearPresence(creds, sendTarget).catch(() => undefined);
           sentAsAudio = true;
 
           // Registra explicitamente o outbound de áudio. O arquivo TTS é enviado
@@ -2177,25 +2206,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .slice(-3);
         const deliveredParts: string[] = [];
 
-        // Se outra mensagem do cliente chegou enquanto esta resposta estava sendo
-        // preparada/humanizada, não envia uma resposta obsoleta para a metade anterior.
-        if (conversationId && content.kind === "texto") {
-          const { data: latestInbound } = await supabaseAdmin
-            .from("messages")
-            .select("body, created_at")
-            .eq("conversation_id", conversationId)
-            .eq("sender", "cliente")
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          const latestBody = String((latestInbound as any)?.body || "").trim();
-          if (latestBody && latestBody !== finalMsgText.trim() && !effectiveAgentMessage.endsWith(latestBody)) {
-            console.log("[AGENT-V3] Resposta antiga suprimida: cliente enviou complemento");
-            return new Response("ok (superseded by newer customer message)");
-          }
-        }
-
+        // Mensagens recebidas em sequência são serializadas pelo lock da conversa.
         // O orchestrator já separa respostas longas/parágrafos em partes próprias.
         // Enviar o join() como uma única mensagem anulava completamente o splitter.
         for (let partIndex = 0; partIndex < replyParts.length; partIndex += 1) {
@@ -2208,7 +2219,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               const partDelayMs = calculatePartDelayMs(humanization);
               if (humanization.typing_enabled) {
                 const { uazapiSendTyping } = await import("@/lib/uazapi.server");
-                await uazapiSendTyping(creds, phoneStr, partDelayMs).catch(() => undefined);
+                await uazapiSendTyping(creds, sendTarget, partDelayMs).catch(() => undefined);
               }
               await sleepMs(partDelayMs);
             }
@@ -2216,7 +2227,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
           const sendResult = await sendAgentTextGuarded(
             creds,
-            phoneStr,
+            sendTarget,
             part,
             {
               conversationId: finalConvId,
@@ -2272,7 +2283,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (AI processed)");
 
       } catch (e: any) {
-        console.error("[UAZ-WEBHOOK] AI Critical Error:", e?.message ?? e);
+        const criticalErrorMessage = String(e?.message ?? e ?? "erro desconhecido");
+        console.error("[UAZ-WEBHOOK] AI Critical Error:", criticalErrorMessage);
 
         // A mensagem do cliente já foi persistida no CRM antes deste ponto.
         // Não pedimos retry ao provedor para evitar uma segunda resposta, mas
@@ -2283,7 +2295,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .from("conversations")
             .update({
               needs_review: true,
-              review_reason: "falha crítica no Agent V3",
+              review_reason: `falha crítica no Agent V3: ${criticalErrorMessage}`.slice(0, 500),
             })
             .eq("id", conversationId);
           if (reviewErr) {

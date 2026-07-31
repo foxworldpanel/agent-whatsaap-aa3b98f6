@@ -19,13 +19,14 @@ function digitsOnly(phone: string): string {
  * International numbers are preserved after punctuation is removed.
  */
 export function normalizePhoneV3(phone: string): string {
+  const explicitlyInternational = /^\s*(?:\+|00)/.test(String(phone || ""));
   let digits = digitsOnly(phone);
   if (!digits) throw new Error("[V3-STATE] Telefone inválido");
 
   // International dialing prefix, e.g. 005511970116430.
   if (digits.startsWith("00")) digits = digits.slice(2);
 
-  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith("55")) {
+  if (!explicitlyInternational && (digits.length === 10 || digits.length === 11) && !digits.startsWith("55")) {
     return `55${digits}`;
   }
 

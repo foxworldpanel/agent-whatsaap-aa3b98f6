@@ -252,6 +252,7 @@ function findUniqueContextValue<T>(
 export function detectConversationContext(
   text: string,
   history: ConversationMessageV3[] = [],
+  remembered?: Partial<Pick<ConversationContext, "platform" | "product">>,
 ): ConversationContext {
   const normalizedText = normalizeText(text);
   const recentCustomerText = history
@@ -272,7 +273,7 @@ export function detectConversationContext(
     recentDialogueTexts,
     PLATFORM_PATTERNS,
   );
-  const product = findUniqueContextValue(
+  let product = findUniqueContextValue(
     normalizedText,
     recentDialogueTexts,
     PRODUCT_PATTERNS,
@@ -281,6 +282,11 @@ export function detectConversationContext(
   // depender de palavras genéricas como “plays”, “likes” ou “views”.
   if (!platform && (product === "ouvintes" || product === "saves")) platform = "spotify";
   if (!platform && (product === "inscritos" || product === "horas")) platform = "youtube";
+
+  // A memória persistida é somente fallback: uma informação explícita no turno
+  // atual ou no histórico recente sempre tem prioridade.
+  if (!platform && remembered?.platform) platform = remembered.platform;
+  if (!product && remembered?.product) product = remembered.product;
 
   const accumulatedCustomerText = [recentCustomerText, normalizedText].filter(Boolean).join(" ");
 
@@ -478,8 +484,9 @@ export function selectModulesV3(
   text: string,
   history: ConversationMessageV3[],
   modules: Record<string, LoadedModuleV3>,
+  remembered?: Partial<Pick<ConversationContext, "platform" | "product">>,
 ): SelectionResultV3 {
-  const context = detectConversationContext(text, history);
+  const context = detectConversationContext(text, history, remembered);
   const normalizedText = normalizeText(text);
   const selected = new Set<string>();
   const reasons: Record<string, string> = {};

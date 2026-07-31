@@ -10,7 +10,15 @@ function normalizePhone(raw: string): string {
   return raw.replace(/\D+/g, "");
 }
 
+export function normalizeUazapiRecipient(raw: string): string {
+  const trimmed = String(raw || "").trim();
+  const jid = trimmed.match(/^(\d+)@(s\.whatsapp\.net|lid)$/i);
+  if (jid) return `${jid[1]}@${jid[2].toLowerCase()}`;
+  return normalizePhone(trimmed);
+}
+
 function assertIndividualPhone(phone: string, path: string): void {
+  if (/^\d+@(s\.whatsapp\.net|lid)$/i.test(phone)) return;
   // JID de grupo do WhatsApp costuma ter 18+ dígitos (ex: 120363...).
   // E.164 individual: 8–15 dígitos.
   if (!phone || phone.length < 8 || phone.length > 15) {
@@ -78,7 +86,7 @@ export async function uazapiSendText(
   to: string,
   text: string,
 ): Promise<{ messageId: string | null; status: string | null; raw: Record<string, unknown> | null }> {
-  const phone = normalizePhone(to);
+  const phone = normalizeUazapiRecipient(to);
   assertIndividualPhone(phone, "/send/text");
   const resp = await uazapiPost(creds, "/send/text", { number: phone, text });
   const nestedData = resp?.data as Record<string, unknown> | undefined;
