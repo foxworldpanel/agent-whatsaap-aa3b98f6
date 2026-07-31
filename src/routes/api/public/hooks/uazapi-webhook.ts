@@ -587,7 +587,6 @@ async function executeWelcomeFunnel(params: {
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
-    const inboundStartedAt = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const msgLocal = payload.message ?? payload.data ?? {};
     const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
@@ -869,64 +868,27 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     if (contactId && conversationId) {
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
-        .select("funnel_id, contact_id, status, fired_at, last_step, last_step_index, updated_at")
+        .select("funnel_id, contact_id, fired_at")
         .eq("contact_id", contactId)
         .eq("workspace_id", workspaceId)
-        .in("status", ["running", "paused", "failed"])
-        .order("updated_at", { ascending: false })
+        .order("fired_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (runningFunnelErr) {
         console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
-        const runStatus = String((runningFunnel as any).status || "running");
-        const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
-        const stale =
-          runStatus === "running" &&
-          Number.isFinite(updatedAt) &&
-          Date.now() - updatedAt > 15 * 60_000;
+        // Fallback defensivo: se a migration de status falhou no psql,
+        // tratamos qualquer run nos últimos 15 min como bloqueio "best-effort".
+        const firedAt = new Date((runningFunnel as any).fired_at || 0).getTime();
+        const stale = Date.now() - firedAt > 15 * 60_000;
 
-        // "failed" não bloqueia mais pra sempre aqui — a seção 3.5 (match do
-        // gatilho específico) já cuida do retry automático (até 3x) e do
-        // fail-open pro Agent V3. Esse gate global só segue bloqueando de
-        // verdade quando o funil está genuinamente em andamento (running não
-        // travado, ou paused).
-        if (runStatus === "failed") {
-          console.log("[WELCOME-FUNNEL] Gate global: run com falha anterior não bloqueia mais; segue para verificação específica do gatilho", {
+        if (!stale) {
+          console.log("[WELCOME-FUNNEL] Gate global: Run recente detectada, bloqueando Agent V3 para evitar concorrência", {
             phone: phoneStr,
             funnelId: (runningFunnel as any).funnel_id,
           });
-        } else if (stale) {
-          const now = new Date().toISOString();
-          await (supabaseAdmin as any)
-            .from("welcome_funnel_runs")
-            .update({
-              status: "failed",
-              error_message: "Execução travada: mais de 15 minutos sem progresso.",
-              last_error_at: now,
-              updated_at: now,
-            })
-            .eq("funnel_id", (runningFunnel as any).funnel_id)
-            .eq("contact_id", contactId);
-
-          console.warn("[WELCOME-FUNNEL] Run travado convertido em falha operacional", {
-            phone: phoneStr,
-            funnelId: (runningFunnel as any).funnel_id,
-          });
-          return new Response("ok (welcome funnel stale; agent deferred)");
-        }
-
-        // Running e paused mantêm o Agent V3 bloqueado. "failed" já foi tratado
-        // acima (não bloqueia mais aqui) e cai direto pra seção 3.5.
-        if (runStatus !== "failed") {
-          console.log("[WELCOME-FUNNEL] Agent V3 aguardando resolução/conclusão do funil", {
-            phone: phoneStr,
-            funnelId: (runningFunnel as any).funnel_id,
-            status: runStatus,
-            lastStep: (runningFunnel as any).last_step ?? null,
-          });
-          return new Response(`ok (welcome funnel ${runStatus}; agent deferred)`);
+          return new Response("ok (welcome funnel active; agent deferred)");
         }
       }
     }
@@ -967,7 +929,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Não depende de status/updated_at/last_step para funcionar.
           const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
             .from("welcome_funnel_runs")
-            .select("funnel_id, contact_id, fired_at, status, completed_at, last_step, last_step_index, error_message, updated_at, retry_count")
+            .select("funnel_id, contact_id, fired_at")
             .eq("funnel_id", matchingFunnel.id)
             .eq("contact_id", contactId)
             .maybeSingle();
