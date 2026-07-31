@@ -1223,17 +1223,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // 5. AI PROCESSING (V3)
     const inboundStartedAt = Date.now();
     const lockKey = `${workspaceId}:${phoneStr}`;
-    console.log(`[UAZ-WEBHOOK] Tentando processar mensagem para ${phoneStr} (Lock: ${lockKey})`);
-    return await withConversationLock(lockKey, async () => {
+    console.log(`[UAZ-WEBHOOK] Iniciando processamento para ${phoneStr} (Lock: ${lockKey})`);
 
+    return await withConversationLock(lockKey, async () => {
       const lockHolder = `v3:${msgId}:${Date.now()}`;
       if (conversationId) {
+        console.log(`[UAZ-WEBHOOK] Adquirindo lock persistente no DB para conversa: ${conversationId}`);
         const acquired = await acquireConversationDbLock(supabaseAdmin, conversationId, lockHolder);
         if (!acquired) {
-          console.log(`[UAZ-WEBHOOK] Conversa já está sendo processada em outra instância: ${conversationId}`);
+          console.log(`[UAZ-WEBHOOK] Conversa ocupada (lock DB): ${conversationId}`);
           return new Response("ok (conversation busy)");
         }
       }
+
 
       try {
       const { data: integ, error: integErr } = await supabaseAdmin
