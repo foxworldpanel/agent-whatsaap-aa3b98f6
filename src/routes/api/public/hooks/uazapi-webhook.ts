@@ -1223,8 +1223,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     // 5. AI PROCESSING (V3)
-    // O webhook já é protegido pelo token da instância provisionada.
-    // Não limitar o agente a um telefone fixo de teste em produção.
+    const inboundStartedAt = Date.now();
     const lockKey = `${workspaceId}:${phoneStr}`;
     return await withConversationLock(lockKey, async () => {
       const lockHolder = `v3:${msgId}:${Date.now()}`;
