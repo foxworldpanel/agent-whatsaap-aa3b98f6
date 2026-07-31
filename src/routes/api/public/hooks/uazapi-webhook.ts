@@ -587,13 +587,13 @@ async function executeWelcomeFunnel(params: {
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
-    console.log("[DEBUG-WEBHOOK] Webhook recebido - Phone:", phoneStr, "Instance:", instanceToken);
     const inboundStartedAt = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const msgLocal = payload.message ?? payload.data ?? {};
     const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
     const phoneStr = String(phoneLocal || "");
     const instanceToken = pickInstanceToken(payload);
+    console.log("[DEBUG-WEBHOOK] Webhook recebido - Phone:", phoneStr, "Instance:", instanceToken);
 
     if (!phoneStr) {
       return new Response("ok (no phone)");
