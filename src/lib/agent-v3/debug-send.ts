@@ -1,5 +1,5 @@
-import { supabase } from './src/integrations/supabase/client';
-import { uazapiSendText } from './src/lib/uazapi.server';
+import { supabase } from '@/integrations/supabase/client';
+import { uazapiSendText } from '@/lib/uazapi.server';
 
 async function testSend() {
   const workspaceId = 'bd59fa41-d68d-4ac8-b995-e09ae48f52aa';
