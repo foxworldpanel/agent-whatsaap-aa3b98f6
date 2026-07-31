@@ -2232,6 +2232,48 @@ export type Database = {
           },
         ]
       }
+      conversation_business_state_v3: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          next_action: string | null
+          reason: string | null
+          risk_level: string
+          state: string
+          summary: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          next_action?: string | null
+          reason?: string | null
+          risk_level?: string
+          state?: string
+          summary?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          next_action?: string | null
+          reason?: string | null
+          risk_level?: string
+          state?: string
+          summary?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           agent_enabled: boolean
@@ -2348,6 +2390,69 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "conversations_v3_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_commercial_memory: {
+        Row: {
+          contact_id: string
+          converted_at: string | null
+          created_at: string
+          last_purchase_summary: string | null
+          lifecycle: string
+          next_opportunity: string | null
+          preferred_platform: string | null
+          preferred_product: string | null
+          purchase_count: number
+          repurchase_potential: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          contact_id: string
+          converted_at?: string | null
+          created_at?: string
+          last_purchase_summary?: string | null
+          lifecycle?: string
+          next_opportunity?: string | null
+          preferred_platform?: string | null
+          preferred_product?: string | null
+          purchase_count?: number
+          repurchase_potential?: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          contact_id?: string
+          converted_at?: string | null
+          created_at?: string
+          last_purchase_summary?: string | null
+          lifecycle?: string
+          next_opportunity?: string | null
+          preferred_platform?: string | null
+          preferred_product?: string | null
+          purchase_count?: number
+          repurchase_potential?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_commercial_memory_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_commercial_memory_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
