@@ -1225,7 +1225,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // 5. AI PROCESSING (V3)
     const inboundStartedAt = Date.now();
     const lockKey = `${workspaceId}:${phoneStr}`;
+    console.log(`[UAZ-WEBHOOK] Tentando processar mensagem para ${phoneStr} (Lock: ${lockKey})`);
     return await withConversationLock(lockKey, async () => {
+
       const lockHolder = `v3:${msgId}:${Date.now()}`;
       if (conversationId) {
         const acquired = await acquireConversationDbLock(supabaseAdmin, conversationId, lockHolder);
