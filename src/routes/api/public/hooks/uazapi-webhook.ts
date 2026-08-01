@@ -840,6 +840,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // Retornamos 503 para permitir retry do provedor sem marcar o messageId como concluído.
     if (!messagePersistedInDb) {
       console.error(`[UAZ-WEBHOOK] CRM sync incompleto; adiando processamento do msgId ${msgId}`);
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: retry (crm sync incomplete) para msgId ${msgId}`);
       return new Response("retry (crm sync incomplete)", { status: 503 });
     }
 
