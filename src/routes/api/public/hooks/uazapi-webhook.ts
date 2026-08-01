@@ -2227,6 +2227,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               recentAgentBodiesOverride: [...recentAgentBodies, ...deliveredParts].slice(-3),
             },
           );
+          console.log("RETURN-PONTO: enviado com sucesso", { phone: phoneStr });
           deliveredParts.push(sendResult.transformed);
 
           // O envio via Uazapi não garante que o webhook de eco fromMe será
