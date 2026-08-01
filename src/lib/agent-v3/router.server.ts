@@ -37,6 +37,12 @@ export async function routeAgentV3Request(input: RouterInput) {
     content: m.body
   }));
 
+  const { deriveBusinessDecisionV3 } = await import("./brain/business-state.server");
+  const decision = deriveBusinessDecisionV3({
+    message: finalMessage,
+    recentCustomerMessages: formattedHistory.filter(h => h.role === "customer").map(h => h.content)
+  });
+
   // 3. Run Turn
   return await runAgentV3Turn({
     userId: input.userId,
@@ -45,8 +51,10 @@ export async function routeAgentV3Request(input: RouterInput) {
     enabledModules: input.enabledModules,
     customModules: input.customModules,
     anthropicApiKey: input.anthropicApiKey || "",
-    workspaceId: input.workspaceId,
+    workspaceId: input.workspaceId ?? "",
     conversationId: input.conversationId,
     phone: input.phone,
+    businessDecision: decision,
+    inputKind: input.kind === "image" ? "image" : input.kind === "audio" ? "audio" : "texto"
   });
 }

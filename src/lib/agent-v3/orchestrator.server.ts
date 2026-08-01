@@ -477,6 +477,27 @@ function hasUnsupportedSpotifyPriceClaim(params: {
   return { invalid, fallback: spotifyPriceFallback(params.product, rule, params.message) };
 }
 
+export function hasValidatedCommercialOfferV3(params: {
+  platform: ConversationContext["platform"];
+  product: ConversationContext["product"];
+  moduleKeys: string[];
+  modules: Record<string, LoadedModuleV3>;
+}): boolean {
+  if (!params.platform || !params.product) return false;
+  const platform = params.platform as CommercePlatform;
+  const product = params.product as CommerceProduct;
+
+  return params.moduleKeys.some((key) => {
+    const module = params.modules[key];
+    if (!module || !moduleBelongsToPlatform(key, module, platform)) return false;
+    const content = module.content || "";
+    const matchesProduct =
+      module.routing.products.includes(params.product as string) ||
+      PRODUCT_PRICE_TERMS[product]?.test(content);
+    return matchesProduct && /R\$\s*\d/i.test(content);
+  });
+}
+
 export interface OrchestratorInput {
   userId: string;
   message: string;
@@ -491,6 +512,7 @@ export interface OrchestratorInput {
   customModules?: Record<string, string | LoadedModuleV3>;
   anthropicApiKey: string;
   extraContext?: string;
+  rememberedContext?: Partial<Pick<ConversationContext, "platform" | "product">>;
   businessDecision?: BusinessDecisionV3;
   funnelAlreadyCompleted?: boolean;
   customerLifecycle?: "novo_lead" | "interessado" | "negociacao" | "pronto_para_comprar" | "cliente" | "cliente_recorrente";
@@ -588,6 +610,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     customModules,
     anthropicApiKey,
     extraContext,
+    rememberedContext,
     businessDecision,
     funnelAlreadyCompleted,
     customerLifecycle,
@@ -655,7 +678,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   const selectableModules = Object.fromEntries(
     enabledKeys.map((key) => [key, mergedModulesMap[key]]).filter(([, module]) => Boolean(module)),
   );
-  const selection = selectModulesV3(message, history, selectableModules);
+  const selection = selectModulesV3(message, history, selectableModules, rememberedContext);
   const selectedKeys = [...selection.selectedModules];
   if (selectedKeys.length === 0) {
     throw new Error(
@@ -833,7 +856,7 @@ ${extraContext}`
 }
 
 REGRA DE FONTE ÚNICA E ANTI-INVENÇÃO:
-- PREÇO É DADO ESTRUTURADO, NÃO É PARA ESTIMAR. Nunca transforme R$ 15 por 1.000 em “R$ 0,50 por play” nem invente preço unitário. Faça somente a proporcionalidade autorizada pelo módulo de preços carregado.
+- PREÇO É DADO ESTRUTURADO, NÃO É PARA ESTIMAR. Nunca transforme um preço-base do catálogo em preço unitário inventado. Faça somente a proporcionalidade autorizada pelo módulo de preços carregado.
 - Se o módulo autoritativo de preço da plataforma não estiver no ESTADO DA CONVERSA, NÃO informe nenhum valor em reais; diga apenas que precisa confirmar o valor.
 - Nunca diga ou insinue que comprar plays/visualizações/seguidores da Mind gera ou aumenta diretamente royalties, faturamento ou renda. Monetização é separada do serviço de divulgação.
 - Se perguntarem “qual plataforma paga mais”, “quanto vou ganhar” ou “quanto recebo”, não faça ranking nem estimativa por conhecimento próprio. Só use um módulo específico de monetização/royalties; sem ele, diga que os pagamentos variam e são definidos pela própria plataforma/distribuidora.
@@ -887,7 +910,7 @@ REGRA DE CONCISÃO — RITMO DE WHATSAPP:
 - Não recapitule preço, prazo, garantia, processo, plataforma ou perguntas anteriores sem necessidade.
 - Faça no máximo UMA pergunta por mensagem e somente quando ela realmente mover a conversa.
 - Se uma frase já resolveu a dúvida, pare nela.
-- REGRA DE SEPARAÇÃO POR ASSUNTO (independente do tamanho): se a resposta contém uma AFIRMAÇÃO (preço, explicação, confirmação) seguida de uma PERGUNTA NOVA, SEMPRE separe as duas com ===SPLIT===, mesmo que o texto total tenha menos de 250 caracteres. Uma afirmação e uma pergunta são sempre duas mensagens, nunca uma só. Exemplo correto: "1000 plays sai R$15.===SPLIT===Quer começar com essa quantidade?"
+- REGRA DE SEPARAÇÃO POR ASSUNTO (independente do tamanho): se a resposta contém uma AFIRMAÇÃO (preço, explicação, confirmação) seguida de uma PERGUNTA NOVA, SEMPRE separe as duas com ===SPLIT===, mesmo que o texto total tenha menos de 250 caracteres. Uma afirmação e uma pergunta são sempre duas mensagens, nunca uma só. Exemplo de formato: "A quantidade escolhida fica no valor do catálogo.===SPLIT===Quer começar com essa quantidade?"
 - Não mande mini-tutoriais de cadastro/Pix/painel antes do momento em que o cliente precisar deles.
 - Evite parágrafos de atendimento. No WhatsApp, prefira "A música fica 30 dias nas playlists." a uma explicação completa sobre o serviço.
 - Emoji não é obrigatório. Na maioria das mensagens, não use emoji. Quando fizer sentido, use no máximo 1.
@@ -927,7 +950,7 @@ NATURALIDADE CONVERSACIONAL — PRIORIDADE ALTA:
 - Se o cliente disser que vai assistir ao vídeo, conferir o painel ou olhar algo e NÃO fizer pergunta, normalmente não responda.
 - "ok", "beleza", "entendi" e reações podem encerrar naturalmente um microtrecho.
 - Evite linguagem publicitária artificial como "potencializar" e "bombar" no atendimento individual.
-- Prefira "Beleza. 1.000 fica R$ 15." a "Ótimo! Nosso serviço de 1.000 plays sai por R$ 15,00."
+- Prefira uma confirmação curta com a quantidade e o valor exatos do módulo a uma frase promocional genérica.
 - INTERPRETE PELO CONTEXTO antes do sentido literal. Expressões como "o que está no seu comercial?" podem significar "o que vocês oferecem?". Se o contexto comercial deixar a intenção clara, responda aos serviços/oferta; não diga que "não tem comercial".
 - Em áudio com possível erro de transcrição, use plataforma/produto já discutidos para inferir a intenção. Se ainda houver ambiguidade, confirme em UMA pergunta curta em vez de mudar de assunto.
 - Nunca force simpatia. Ser humano aqui significa ser contextual, breve e útil.
@@ -958,13 +981,10 @@ TABELA DE PREÇOS — MENSAGEM ISOLADA:
 - Quando o cliente pedir a tabela/valores gerais de uma plataforma, inclua TODOS os serviços daquela plataforma presentes nos módulos autoritativos. Não omita um serviço cadastrado só para resumir.
 - Não invente serviços nem preços. A tabela deve ser derivada exclusivamente dos módulos carregados.
 - Mantenha toda a tabela em UMA ÚNICA mensagem isolada. Se houver texto antes/depois, use ===SPLIT=== fora da tabela.
-- Exemplo de forma para Spotify (somente quando estes mesmos serviços/valores estiverem nos módulos atuais):
-Spotify
+- Exemplo de formato (preencha exclusivamente com serviços, quantidades e valores presentes nos módulos atuais):
+Plataforma
 
-1000 Seguidores - R$ 30,00
-1000 Plays + Ouvintes - R$ 15,00
-1000 Saves - R$ 10,00
-1 Música em 10 Playlists - R$ 49,90
+Quantidade Serviço - Valor do catálogo
 
 FLUXO COMERCIAL PROGRESSIVO:
 - Conduza a conversa um passo por vez: rede/plataforma → serviço → quantidade → valor → pagamento/painel.
@@ -1024,7 +1044,7 @@ OPÇÕES E VARIAÇÕES DO MESMO SERVIÇO:
 
 LINK DO PAINEL:
 - Sempre que orientar acesso, cadastro, recarga ou pagamento no painel, coloque o endereço do painel SOZINHO em uma mensagem.
-- Escreva primeiro a instrução curta e depois use exatamente ===SPLIT=== seguido de https://mindsmmpanel.com
+- Escreva primeiro a instrução curta e depois use exatamente ===SPLIT=== seguido do endereço que estiver no módulo carregado.
 - Não coloque ponto, vírgula, parênteses ou texto na mesma linha do link.
 - Depois do link, só envie outra mensagem se houver uma informação realmente necessária.
 
@@ -1206,7 +1226,7 @@ ${extraContext}`
 }
 
 REGRA DE FONTE ÚNICA E ANTI-INVENÇÃO:
-- PREÇO É DADO ESTRUTURADO, NÃO É PARA ESTIMAR. Nunca transforme R$ 15 por 1.000 em “R$ 0,50 por play” nem invente preço unitário. Faça somente a proporcionalidade autorizada pelo módulo de preços carregado.
+- PREÇO É DADO ESTRUTURADO, NÃO É PARA ESTIMAR. Nunca transforme um preço-base do catálogo em preço unitário inventado. Faça somente a proporcionalidade autorizada pelo módulo de preços carregado.
 - Se o módulo autoritativo de preço da plataforma não estiver no ESTADO DA CONVERSA, NÃO informe nenhum valor em reais; diga apenas que precisa confirmar o valor.
 - Nunca diga ou insinue que comprar plays/visualizações/seguidores da Mind gera ou aumenta diretamente royalties, faturamento ou renda. Monetização é separada do serviço de divulgação.
 - Se perguntarem “qual plataforma paga mais”, “quanto vou ganhar” ou “quanto recebo”, não faça ranking nem estimativa por conhecimento próprio. Só use um módulo específico de monetização/royalties; sem ele, diga que os pagamentos variam e são definidos pela própria plataforma/distribuidora.
@@ -1783,6 +1803,45 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
     }
   }
 
+  // Pagamento só pode avançar depois que plataforma, serviço e uma oferta com
+  // preço do catálogo foram validados. O agente não cria cobrança nem promoção.
+  if (
+    selectionContext.intent === "pagamento" &&
+    !selectionContext.hasPaidSignal &&
+    !hasValidatedCommercialOfferV3({
+      platform: selectionContext.platform,
+      product: selectionContext.product,
+      moduleKeys: effectiveSelectedKeys,
+      modules: mergedModulesMap,
+    })
+  ) {
+    console.error("[AGENT-V3-PAYMENT-GUARD] Pagamento bloqueado sem oferta validada", {
+      platform: selectionContext.platform,
+      product: selectionContext.product,
+      selected: effectiveSelectedKeys,
+    });
+    finalContent = !selectionContext.platform
+      ? "Antes de te orientar no pagamento, me diz qual plataforma você quer."
+      : !selectionContext.product
+        ? "Antes de te orientar no pagamento, me diz qual serviço você quer nessa plataforma."
+        : "Preciso confirmar esse serviço e o valor no catálogo antes de te orientar no pagamento.";
+  }
+
+  const responseClaimsPromotion =
+    /\b(?:promo[cç][aã]o ativa|oferta especial|desconto de \d|com desconto|valor promocional)\b/i.test(finalContent);
+  const hasPromotionAuthority = effectiveSelectedKeys.some((key) =>
+    /\b(?:promo[cç][aã]o|promocional|desconto|oferta)\b/i.test(
+      mergedModulesMap[key]?.content || "",
+    ),
+  );
+  if (responseClaimsPromotion && !hasPromotionAuthority) {
+    console.error("[AGENT-V3-PROMO-GUARD] Promoção sem fonte do catálogo foi bloqueada", {
+      selected: effectiveSelectedKeys,
+      response: finalContent,
+    });
+    finalContent = "Não tenho uma promoção confirmada no catálogo para esse serviço agora.";
+  }
+
   // Proteção de disponibilidade: o LLM não pode afirmar que uma plataforma
   // habilitada no CMS não é oferecida pela Mind.
   const normalizedResponseForAvailability = finalContent
@@ -1889,19 +1948,22 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
     }
   }
 
-  // URLs do painel devem chegar como mensagem isolada no WhatsApp.
-  // Isso melhora a clicabilidade e impede "mindsmmpanel.com," grudado no texto.
-  if (/https?:\/\/(?:www\.)?mindsmmpanel\.com|(?:www\.)?mindsmmpanel\.com/i.test(finalContent)) {
-    const panelUrl = "https://mindsmmpanel.com";
-    finalContent = finalContent
-      .replace(
-        /(?:https?:\/\/)?(?:www\.)?mindsmmpanel\.com\/?/gi,
-        `===SPLIT===${panelUrl}===SPLIT===`,
-      )
-      .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
-      .replace(/^===SPLIT===|===SPLIT===$/g, "")
-      .trim();
+  // URLs fornecidas pelos módulos chegam isoladas no WhatsApp. O runtime não
+  // conhece nem inventa domínio comercial; apenas formata o valor autorizado.
+  const responseUrls = Array.from(
+    new Set(finalContent.match(/https?:\/\/[^\s<>()]+/gi) || []),
+  );
+  for (const rawUrl of responseUrls) {
+    const url = rawUrl.replace(/[.,;:!?]+$/, "");
+    finalContent = finalContent.replace(
+      rawUrl,
+      `===SPLIT===${url}===SPLIT===`,
+    );
   }
+  finalContent = finalContent
+    .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
+    .replace(/^===SPLIT===|===SPLIT===$/g, "")
+    .trim();
   // Correção determinística de saudação por horário
   const hourBr = (new Date().getUTCHours() - 3 + 24) % 24;
   const greetingStartRx = /^(?:Bom dia|Boa tarde|Boa noite|Olá|Opa|E aí)[,!\s]*/i;

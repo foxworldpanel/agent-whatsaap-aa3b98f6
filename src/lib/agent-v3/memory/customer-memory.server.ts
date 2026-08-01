@@ -1,3 +1,5 @@
+import { conversationFactsPromptV3, extractConversationFactsV3, normalizeConversationFactsV3, type ConversationFactsV3, EMPTY_CONVERSATION_FACTS_V3 } from "./conversation-facts.server";
+
 export type CustomerLifecycle =
   | "novo_lead"
   | "interessado"
@@ -18,6 +20,7 @@ export type CustomerCommercialMemory = {
   nextOpportunity: string | null;
   repurchasePotential: RepurchasePotential;
   updatedAt: string | null;
+  facts: ConversationFactsV3;
 };
 
 export const DEFAULT_CUSTOMER_MEMORY: CustomerCommercialMemory = {
@@ -30,6 +33,7 @@ export const DEFAULT_CUSTOMER_MEMORY: CustomerCommercialMemory = {
   nextOpportunity: null,
   repurchasePotential: "baixo",
   updatedAt: null,
+  facts: EMPTY_CONVERSATION_FACTS_V3,
 };
 
 function normalized(value: string): string {
@@ -93,7 +97,7 @@ export async function loadCustomerCommercialMemory(params: {
     const { data, error } = await params.supabaseAdmin
       .from("customer_commercial_memory")
       .select(
-        "lifecycle, converted_at, purchase_count, preferred_platform, preferred_product, last_purchase_summary, next_opportunity, repurchase_potential, updated_at",
+        "lifecycle, converted_at, purchase_count, preferred_platform, preferred_product, last_purchase_summary, next_opportunity, repurchase_potential, conversation_facts, updated_at",
       )
       .eq("workspace_id", params.workspaceId)
       .eq("contact_id", params.contactId)
@@ -126,6 +130,7 @@ export async function loadCustomerCommercialMemory(params: {
       nextOpportunity: data.next_opportunity || null,
       repurchasePotential: (data.repurchase_potential || (fallbackConverted ? "alto" : "baixo")) as RepurchasePotential,
       updatedAt: data.updated_at || null,
+      facts: normalizeConversationFactsV3(data.conversation_facts),
     };
   } catch (error) {
     console.warn("[CUSTOMER-MEMORY] leitura falhou; usando fallback:", error);
@@ -151,6 +156,7 @@ export async function persistCustomerCommercialMemory(params: {
   purchaseProbability?: number;
 }): Promise<CustomerCommercialMemory> {
   const now = new Date().toISOString();
+  const facts = extractConversationFactsV3(params.customerMessage, params.current.facts);
   const confirmedPurchase = isConfirmedPurchaseMessage(params.customerMessage);
   const nextOpportunity =
     extractNextOpportunity(params.customerMessage) || params.current.nextOpportunity;
@@ -202,6 +208,7 @@ export async function persistCustomerCommercialMemory(params: {
           ? "medio"
           : params.current.repurchasePotential,
     updatedAt: now,
+    facts,
   };
 
   // Fallback persistente em colunas já existentes. Mesmo que a migration da
@@ -238,6 +245,7 @@ export async function persistCustomerCommercialMemory(params: {
           last_purchase_summary: next.lastPurchaseSummary,
           next_opportunity: next.nextOpportunity,
           repurchase_potential: next.repurchasePotential,
+          conversation_facts: next.facts,
           updated_at: now,
         },
         { onConflict: "workspace_id,contact_id" },
@@ -264,6 +272,7 @@ export function customerMemoryPromptContext(memory: CustomerCommercialMemory): s
     `- Serviço preferido: ${memory.preferredProduct || "não definido"}`,
     `- Potencial de recompra: ${memory.repurchasePotential}`,
     `- Próxima oportunidade: ${memory.nextOpportunity || "não registrada"}`,
+    conversationFactsPromptV3(memory.facts),
     memory.lastPurchaseSummary
       ? `- Última confirmação de compra: ${memory.lastPurchaseSummary}`
       : "- Última confirmação de compra: não registrada",
