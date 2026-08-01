@@ -845,6 +845,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // 3. AI GATE
     if (msgLocal.fromMe) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: sync only for fromMe para msgId ${msgId}`);
       return new Response("ok (sync only for fromMe)");
     }
 
