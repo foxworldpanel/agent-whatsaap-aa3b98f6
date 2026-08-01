@@ -1928,7 +1928,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       });
 
       if (content.kind === "texto" && naturalSilence) {
-        console.log("[NATURALIDADE-V3] Silêncio natural: mensagem não exige resposta");
+        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: natural conversational silence para conversa ${conversationId}`);
         return new Response("ok (natural conversational silence)");
       }
 
