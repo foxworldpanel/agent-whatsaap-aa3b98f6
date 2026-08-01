@@ -2269,6 +2269,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         workspaceId,
       );
 
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: AI processed para conversa ${conversationId}`);
       return new Response("ok (AI processed)");
 
       } catch (e: any) {
