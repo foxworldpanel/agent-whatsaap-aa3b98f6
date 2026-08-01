@@ -829,7 +829,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // do mapa em memória. O external_id único no banco impede que ela gere uma
     // segunda resposta automática.
     if (duplicateMessageInDb) {
-      console.log(`[UAZ-WEBHOOK] Ignorando duplicata persistida (msgId: ${msgId})`);
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: duplicate persisted msgId: ${msgId}`);
       return new Response("ok (duplicate persisted msgId)");
     }
 
@@ -840,11 +840,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // Retornamos 503 para permitir retry do provedor sem marcar o messageId como concluído.
     if (!messagePersistedInDb) {
       console.error(`[UAZ-WEBHOOK] CRM sync incompleto; adiando processamento do msgId ${msgId}`);
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: retry (crm sync incomplete) para msgId ${msgId}`);
       return new Response("retry (crm sync incomplete)", { status: 503 });
     }
 
     // 3. AI GATE
     if (msgLocal.fromMe) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: sync only for fromMe para msgId ${msgId}`);
       return new Response("ok (sync only for fromMe)");
     }
 
@@ -854,6 +856,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         userId: num.user_id,
         phone: phoneStr,
       });
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: workspace configuration missing para msgId ${msgId}`);
       return new Response("workspace configuration missing", { status: 503 });
     }
 
@@ -888,9 +891,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // 3.4. FUNNEL GATE GLOBAL
     if (contactId && conversationId) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Verificando gate global para ${phoneStr} (${contactId})`);
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
-        .select("funnel_id, contact_id, fired_at")
+        .select("funnel_id, contact_id, fired_at, status, updated_at")
         .eq("contact_id", contactId)
         .eq("workspace_id", workspaceId)
         .order("fired_at", { ascending: false })
@@ -898,20 +902,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .maybeSingle();
 
       if (runningFunnelErr) {
-        console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
+        console.warn("[WELCOME-FUNNEL] [AUDIT] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
         const firedAt = new Date((runningFunnel as any).fired_at || 0).getTime();
-        const stale = Date.now() - firedAt > 60_000;
+        const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
+        const stale = Date.now() - updatedAt > 60_000;
         const status = String((runningFunnel as any).status || "running");
 
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Estado funil para ${phoneStr}: status=${status}, stale=${stale}, firedAt=${new Date(firedAt).toISOString()}, updatedAt=${new Date(updatedAt).toISOString()}`);
+
         // Somente bloqueia se estiver rodando e não estiver obsoleto.
-        if (!stale && status === "running") {
-          console.log("[WELCOME-FUNNEL] Gate global: Run recente detectada, bloqueando Agent V3 para evitar concorrência", {
+        if (!stale && (status === "running" || status === "paused")) {
+          console.log("[WELCOME-FUNNEL] [AUDIT] Gate global: BLOQUEANDO Agent V3 (funil ativo/pausado)", {
             phone: phoneStr,
             funnelId: (runningFunnel as any).funnel_id,
+            status
           });
           return new Response("ok (welcome funnel active; agent deferred)");
+        } else {
+          console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (stale=${stale}, status=${status})`);
         }
+      } else {
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (nenhuma run encontrada)`);
       }
     }
 
@@ -1209,6 +1221,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // Sem registro ainda = comportamento padrão ON, igual ao painel.
     // Somente `agent_enabled = false` desliga explicitamente o master switch.
     if (agentConfig?.agent_enabled === false) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: agent disabled globally para workspace ${workspaceId}`);
       return new Response("ok (agent disabled globally)");
     }
 
@@ -1228,6 +1241,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // segundo botão invisível. Quem controla resposta automática nesta conversa
       // é `agent_enabled`. Opt-out e bloqueio manual já gravam agent_enabled=false.
       if (conversationGate?.agent_enabled === false) {
+        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: agent disabled for conversation ${conversationId}`);
         return new Response("ok (agent disabled for conversation)");
       }
     }
@@ -1240,12 +1254,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     return await withConversationLock(lockKey, async () => {
       const lockHolder = `v3:${msgId}:${Date.now()}`;
       if (conversationId) {
-        console.log(`[UAZ-WEBHOOK] Adquirindo lock persistente no DB para conversa: ${conversationId}`);
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Tentando adquirir lock persistente no DB para conversa: ${conversationId}`);
         const acquired = await acquireConversationDbLock(supabaseAdmin, conversationId, lockHolder);
         if (!acquired) {
-          console.log(`[UAZ-WEBHOOK] Conversa ocupada (lock DB): ${conversationId}`);
+          console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: conversation busy (lock DB) para conversa ${conversationId}`);
           return new Response("ok (conversation busy)");
         }
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Lock persistente adquirido para ${conversationId}`);
       }
 
 
@@ -1817,11 +1832,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         });
       }
 
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Recuperando estado da conversa para ${phoneStr}`);
       const { history, telemetry: historyTelemetry } = await getConversationStateV3(
         num.user_id,
         phoneStr,
         workspaceId,
       );
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Histórico recuperado: ${history?.length || 0} mensagens. Telemetria: ${JSON.stringify(historyTelemetry || {})}`);
 
       // O histórico V3 não contém necessariamente as peças automáticas do funil.
       // Consulte o runtime do funil para impedir uma segunda apresentação da Júlia.
@@ -1914,7 +1931,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       });
 
       if (content.kind === "texto" && naturalSilence) {
-        console.log("[NATURALIDADE-V3] Silêncio natural: mensagem não exige resposta");
+        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: natural conversational silence para conversa ${conversationId}`);
         return new Response("ok (natural conversational silence)");
       }
 
@@ -2255,6 +2272,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         workspaceId,
       );
 
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: AI processed para conversa ${conversationId}`);
       return new Response("ok (AI processed)");
 
       } catch (e: any) {
@@ -2278,6 +2296,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: AI error flagged para conversa ${conversationId}`);
         return new Response("ok (AI error flagged for review)");
       } finally {
         if (conversationId) {
