@@ -888,9 +888,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // 3.4. FUNNEL GATE GLOBAL
     if (contactId && conversationId) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Verificando gate global para ${phoneStr} (${contactId})`);
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
-        .select("funnel_id, contact_id, fired_at")
+        .select("funnel_id, contact_id, fired_at, status, updated_at")
         .eq("contact_id", contactId)
         .eq("workspace_id", workspaceId)
         .order("fired_at", { ascending: false })
@@ -898,20 +899,28 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .maybeSingle();
 
       if (runningFunnelErr) {
-        console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
+        console.warn("[WELCOME-FUNNEL] [AUDIT] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
         const firedAt = new Date((runningFunnel as any).fired_at || 0).getTime();
-        const stale = Date.now() - firedAt > 60_000;
+        const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
+        const stale = Date.now() - updatedAt > 60_000;
         const status = String((runningFunnel as any).status || "running");
 
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Estado funil para ${phoneStr}: status=${status}, stale=${stale}, firedAt=${new Date(firedAt).toISOString()}, updatedAt=${new Date(updatedAt).toISOString()}`);
+
         // Somente bloqueia se estiver rodando e não estiver obsoleto.
-        if (!stale && status === "running") {
-          console.log("[WELCOME-FUNNEL] Gate global: Run recente detectada, bloqueando Agent V3 para evitar concorrência", {
+        if (!stale && (status === "running" || status === "paused")) {
+          console.log("[WELCOME-FUNNEL] [AUDIT] Gate global: BLOQUEANDO Agent V3 (funil ativo/pausado)", {
             phone: phoneStr,
             funnelId: (runningFunnel as any).funnel_id,
+            status
           });
           return new Response("ok (welcome funnel active; agent deferred)");
+        } else {
+          console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (stale=${stale}, status=${status})`);
         }
+      } else {
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (nenhuma run encontrada)`);
       }
     }
 
