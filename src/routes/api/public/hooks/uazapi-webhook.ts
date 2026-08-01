@@ -1931,6 +1931,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (natural conversational silence)");
       }
 
+      console.log("RETURN-PONTO: chegou na V3", { phone: phoneStr });
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
         workspaceId,
