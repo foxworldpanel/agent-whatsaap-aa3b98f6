@@ -1,31 +1,25 @@
-
 import { supabaseAdmin } from "./src/integrations/supabase/client.server";
 
 async function checkLogs() {
   const phone = "5511970116430";
-  console.log(`Checking messages for ${phone}...`);
-  const { data: messages, error } = await supabaseAdmin
-    .from("messages")
+  console.log(`Checking logs for ${phone} in the last hour...`);
+  
+  const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+  
+  const { data: logs, error } = await supabaseAdmin
+    .from("agent_logs")
     .select("*")
-    .eq("sender_phone", phone)
-    .order("created_at", { ascending: false })
-    .limit(5);
+    .eq("phone", phone)
+    .gt("created_at", oneHourAgo)
+    .order("created_at", { ascending: true });
 
   if (error) {
-    console.error("Error fetching messages:", error);
+    console.error("Error fetching agent_logs:", error);
   } else {
-    console.log("Recent messages:", JSON.stringify(messages, null, 2));
-  }
-
-  // Also check a potential telemetry or logs table if it exists
-  const { data: tables } = await supabaseAdmin.rpc("get_tables"); // If this helper exists
-  // Instead, let's just try to read from a common table names
-  const potentialTables = ["agent_logs", "agent_telemetry", "webhook_logs"];
-  for (const table of potentialTables) {
-    const { data, error } = await supabaseAdmin.from(table).select("*").order("created_at", { ascending: false }).limit(5);
-    if (!error) {
-      console.log(`Logs from ${table}:`, JSON.stringify(data, null, 2));
-    }
+    logs.forEach(log => {
+       console.log(`[LOG] ${log.created_at} | ${log.type} | ${log.summary}`);
+       if (log.metadata) console.log("Metadata:", JSON.stringify(log.metadata));
+    });
   }
 }
 
