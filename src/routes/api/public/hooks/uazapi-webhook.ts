@@ -2215,6 +2215,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
           }
 
+          console.log("RETURN-PONTO: enviando pro whatsapp", { phone: phoneStr });
           const sendResult = await sendAgentTextGuarded(
             creds,
             sendTarget,
