@@ -913,11 +913,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // Somente bloqueia se estiver rodando e não estiver obsoleto.
         if (!stale && (status === "running" || status === "paused")) {
-          console.log("[WELCOME-FUNNEL] [AUDIT] Gate global: BLOQUEANDO Agent V3 (funil ativo/pausado)", {
-            phone: phoneStr,
-            funnelId: (runningFunnel as any).funnel_id,
-            status
-          });
+          console.log("RETURN-PONTO: welcome-funnel", { status, phone: phoneStr });
           return new Response("ok (welcome funnel active; agent deferred)");
         } else {
           console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (stale=${stale}, status=${status})`);
