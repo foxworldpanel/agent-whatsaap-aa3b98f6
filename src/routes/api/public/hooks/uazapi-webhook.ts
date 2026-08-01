@@ -1218,6 +1218,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // Sem registro ainda = comportamento padrão ON, igual ao painel.
     // Somente `agent_enabled = false` desliga explicitamente o master switch.
     if (agentConfig?.agent_enabled === false) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: agent disabled globally para workspace ${workspaceId}`);
       return new Response("ok (agent disabled globally)");
     }
 
