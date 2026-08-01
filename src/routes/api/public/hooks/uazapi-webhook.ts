@@ -2293,6 +2293,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: AI error flagged para conversa ${conversationId}`);
         return new Response("ok (AI error flagged for review)");
       } finally {
         if (conversationId) {
