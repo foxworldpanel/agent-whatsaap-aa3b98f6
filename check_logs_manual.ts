@@ -1,12 +1,13 @@
 import { supabaseAdmin } from "./src/integrations/supabase/client.server";
 
-async function checkLogs() {
-  const { data: integrations, error } = await supabaseAdmin.from("integrations").select("*");
-  console.log("Integrations:", JSON.stringify(integrations, null, 2));
+async function check() {
+  const workspaceId = "bd59fa41-d68d-4ac8-b995-e09ae48f52aa";
   
-  // Check if there are any webhook-related tables
-  const { data: tables } = await supabaseAdmin.from("pg_catalog.pg_tables").select("tablename").eq("schemaname", "public");
-  if (tables) console.log("All tables:", tables.map(t => t.tablename).join(", "));
+  const { data: config } = await supabaseAdmin.from("agent_config").select("*").eq("workspace_id", workspaceId).single();
+  console.log("Agent Config:", JSON.stringify(config, null, 2));
+  
+  const { data: funnels } = await supabaseAdmin.from("welcome_funnels").select("*").eq("workspace_id", workspaceId);
+  console.log("Welcome Funnels:", JSON.stringify(funnels, null, 2));
 }
 
-checkLogs().catch(console.error);
+check().catch(console.error);
