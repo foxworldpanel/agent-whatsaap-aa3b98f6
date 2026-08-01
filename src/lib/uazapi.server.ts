@@ -86,7 +86,11 @@ export async function uazapiSendText(
   to: string,
   text: string,
 ): Promise<{ messageId: string | null; status: string | null; raw: Record<string, unknown> | null }> {
-  const phone = normalizeUazapiRecipient(to);
+  // Unifica com uazapiSendPresence (que já funciona, confirmado pelo
+  // indicador "digitando..." chegando certo): usa normalizePhone puro,
+  // nunca preserva @lid/@s.whatsapp.net no envio de texto.
+  const phone = normalizePhone(to);
+  console.log("[AUDIT] [SEND-TEXT-NORMALIZE]", { rawTarget: to, normalizedTarget: phone });
   assertIndividualPhone(phone, "/send/text");
   const resp = await uazapiPost(creds, "/send/text", { number: phone, text });
   const nestedData = resp?.data as Record<string, unknown> | undefined;
