@@ -30,7 +30,7 @@ async function withConversationLock<T>(key: string, task: () => Promise<T>): Pro
 
 // Lock persistente por conversation_id para proteger também ambientes com
 // múltiplas instâncias/processos. A PK da tabela torna a aquisição atômica.
-const DB_CONVERSATION_LOCK_STALE_MS = 2 * 60 * 1000;
+const DB_CONVERSATION_LOCK_STALE_MS = 20 * 1000;
 
 async function acquireConversationDbLock(
   supabaseAdmin: any,
@@ -106,12 +106,15 @@ type UazapiPayload = {
   message?: {
     chatid?: string;
     sender?: string;
+    sender_pn?: string;
+    senderPn?: string;
+    wa_chatid?: string;
     messageid?: string;
     messageId?: string;
     id?: string;
     key_id?: string;
     wa_messageid?: string;
-    key?: { id?: string };
+    key?: { id?: string; senderPn?: string; cleanedSenderPn?: string; remoteJid?: string };
     fromMe?: boolean;
     type?: string;
     messageType?: string;
@@ -147,6 +150,24 @@ function extractPhone(chatid?: string, sender?: string): string | null {
   const raw = (chatid ?? sender ?? "").split("@")[0];
   const digits = raw.replace(/\D+/g, "");
   return digits || null;
+}
+
+function extractUazapiSendTarget(message: UazapiPayload["message"]): string | null {
+  if (!message) return null;
+  const candidates = [
+    message.sender_pn,
+    message.senderPn,
+    message.key?.cleanedSenderPn,
+    message.key?.senderPn,
+    message.wa_chatid,
+    message.chatid,
+    message.key?.remoteJid,
+    message.sender,
+  ];
+  const target = candidates.find((value) =>
+    typeof value === "string" && value.trim() && !/@(?:g\.us|broadcast|newsletter)$/i.test(value.trim()),
+  );
+  return typeof target === "string" ? target.trim() : null;
 }
 
 function findMediaReference(value: unknown, depth = 0): string | undefined {
@@ -587,11 +608,14 @@ async function executeWelcomeFunnel(params: {
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
-    const inboundStartedAt = Date.now();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const msgLocal = payload.message ?? payload.data ?? {};
-    const phoneLocal = extractPhone(msgLocal.chatid, msgLocal.sender);
+    const phoneLocal = extractPhone(
+      msgLocal.sender_pn ?? msgLocal.senderPn ?? msgLocal.key?.cleanedSenderPn ?? msgLocal.key?.senderPn ?? msgLocal.wa_chatid ?? msgLocal.chatid,
+      msgLocal.sender,
+    );
     const phoneStr = String(phoneLocal || "");
+    const sendTarget = extractUazapiSendTarget(msgLocal) || phoneStr;
     const instanceToken = pickInstanceToken(payload);
 
     if (!phoneStr) {
@@ -678,6 +702,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               .eq("workspace_id", num.workspace_id as string);
           }
         } catch (profilePicErr) {
+
           console.warn("[UAZ-WEBHOOK] Não foi possível atualizar foto do contato:", profilePicErr);
         }
       }
@@ -688,12 +713,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // o schema real estiver um passo diferente do código.
       if (contactId) {
         const conversationPatch = {
-          workspace_id: num.workspace_id,
+          workspace_id: num.workspace_id as string,
           whatsapp_number_id: num.id,
           last_message_preview: content.text.slice(0, 100),
           last_message_at: new Date().toISOString(),
           status: (msgLocal.fromMe ? "agente_respondendo" : "aguardando") as any,
         };
+
 
         const { data: existingConv, error: existingConvErr } = await supabaseAdmin
           .from("conversations")
@@ -861,61 +887,34 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     // 3.4. FUNNEL GATE GLOBAL
-    // Não depende da mensagem atual bater no gatilho. Se o contato já está no meio
-    // de um funil, QUALQUER nova mensagem fica salva no CRM, mas o Agent V3 não
-    // responde até a sequência terminar.
     if (contactId && conversationId) {
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
-        .select("funnel_id, contact_id, status, fired_at, last_step, last_step_index, updated_at")
+        .select("funnel_id, contact_id, fired_at")
         .eq("contact_id", contactId)
         .eq("workspace_id", workspaceId)
-        .in("status", ["running", "paused", "failed"])
-        .order("updated_at", { ascending: false })
+        .order("fired_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (runningFunnelErr) {
         console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
-        const runStatus = String((runningFunnel as any).status || "running");
-        const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
-        const stale =
-          runStatus === "running" &&
-          Number.isFinite(updatedAt) &&
-          Date.now() - updatedAt > 15 * 60_000;
+        const firedAt = new Date((runningFunnel as any).fired_at || 0).getTime();
+        const stale = Date.now() - firedAt > 60_000;
+        const status = String((runningFunnel as any).status || "running");
 
-        if (stale) {
-          const now = new Date().toISOString();
-          await (supabaseAdmin as any)
-            .from("welcome_funnel_runs")
-            .update({
-              status: "failed",
-              error_message: "Execução travada: mais de 15 minutos sem progresso.",
-              last_error_at: now,
-              updated_at: now,
-            })
-            .eq("funnel_id", (runningFunnel as any).funnel_id)
-            .eq("contact_id", contactId);
-
-          console.warn("[WELCOME-FUNNEL] Run travado convertido em falha operacional", {
+        // Somente bloqueia se estiver rodando e não estiver obsoleto.
+        if (!stale && status === "running") {
+          console.log("[WELCOME-FUNNEL] Gate global: Run recente detectada, bloqueando Agent V3 para evitar concorrência", {
             phone: phoneStr,
             funnelId: (runningFunnel as any).funnel_id,
           });
-          return new Response("ok (welcome funnel stale; agent deferred)");
+          return new Response("ok (welcome funnel active; agent deferred)");
         }
-
-        // Running, paused e failed mantêm o Agent V3 bloqueado. O operador resolve
-        // pela Central do Funil; a IA só entra depois de status=completed.
-        console.log("[WELCOME-FUNNEL] Agent V3 aguardando resolução/conclusão do funil", {
-          phone: phoneStr,
-          funnelId: (runningFunnel as any).funnel_id,
-          status: runStatus,
-          lastStep: (runningFunnel as any).last_step ?? null,
-        });
-        return new Response(`ok (welcome funnel ${runStatus}; agent deferred)`);
       }
     }
+
 
     // 3.5. WELCOME FUNNEL — independente do liga/desliga do Agent V3.
     // IMPORTANTE: primeiro verificamos se a mensagem realmente bate em um gatilho.
@@ -953,7 +952,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Não depende de status/updated_at/last_step para funcionar.
           const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
             .from("welcome_funnel_runs")
-            .select("funnel_id, contact_id, fired_at, status, completed_at, last_step, last_step_index, error_message, updated_at")
+            .select("funnel_id, contact_id, fired_at")
             .eq("funnel_id", matchingFunnel.id)
             .eq("contact_id", contactId)
             .maybeSingle();
@@ -964,11 +963,45 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } else {
             const repeatForTest = canRepeatWelcomeFunnelForTest(phoneStr);
 
-            // REGRA CRÍTICA: Agent V3 somente após status=completed.
-            // Running/paused/failed são resolvidos pela Central do Funil.
+            // REGRA: Agent V3 aguarda enquanto o funil está genuinamente em andamento
+            // (running/paused). Para "failed", tenta reenviar automaticamente até
+            // 3 vezes antes de liberar o Agent V3 — silêncio permanente nunca é aceitável.
+            let isRetryAttempt = false;
+            let nextRetryCount = 0;
+
             if (existingRun && !repeatForTest) {
               const existingStatus = String((existingRun as any).status || "completed");
-              if (["running", "paused", "failed"].includes(existingStatus)) {
+              const existingRetryCount = Number((existingRun as any).retry_count || 0);
+
+              if (existingStatus === "failed" && existingRetryCount < 3) {
+                console.log("[WELCOME-FUNNEL] Falha anterior detectada; tentando reenviar automaticamente", {
+                  phone: phoneStr,
+                  funnelId: matchingFunnel.id,
+                  retryCount: existingRetryCount,
+                });
+                const { error: retryDeleteErr } = await (supabaseAdmin as any)
+                  .from("welcome_funnel_runs")
+                  .delete()
+                  .eq("funnel_id", matchingFunnel.id)
+                  .eq("contact_id", contactId);
+                if (retryDeleteErr) {
+                  console.error("[WELCOME-FUNNEL] Falha ao limpar execução anterior pra retry; seguindo para Agent V3:", retryDeleteErr);
+                } else {
+                  isRetryAttempt = true;
+                  nextRetryCount = existingRetryCount + 1;
+                }
+              } else if (["running", "paused"].includes(existingStatus)) {
+                const runUpdatedAt = new Date(
+                  (existingRun as any).updated_at || (existingRun as any).fired_at || 0,
+                ).getTime();
+                const runIsStale = Date.now() - runUpdatedAt > 60_000;
+                if (runIsStale) {
+                  console.log("[WELCOME-FUNNEL] Run travada há mais de 60s sem atualizar; liberando Agent V3 em vez de bloquear pra sempre", {
+                    phone: phoneStr,
+                    funnelId: matchingFunnel.id,
+                    status: existingStatus,
+                  });
+                } else {
                 console.log("[WELCOME-FUNNEL] Funil incompleto; Agent V3 permanece bloqueado", {
                   phone: phoneStr,
                   funnelId: matchingFunnel.id,
@@ -976,6 +1009,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   lastStep: (existingRun as any).last_step ?? null,
                 });
                 return new Response(`ok (welcome funnel ${existingStatus}; agent deferred)`);
+                }
+              } else if (existingStatus === "failed" && existingRetryCount >= 3) {
+                // Esgotou as tentativas automáticas: libera o Agent V3 em vez de
+                // deixar o cliente sem resposta nenhuma. A Central do Funil continua
+                // disponível pra reprocessar manualmente se quiser.
+                console.log("[WELCOME-FUNNEL] Falhou 3x; liberando Agent V3 em vez de silenciar o cliente", {
+                  phone: phoneStr,
+                  funnelId: matchingFunnel.id,
+                });
               }
             }
 
@@ -992,7 +1034,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }
             }
 
-            if (!existingRun || repeatForTest) {
+            if (!existingRun || repeatForTest || isRetryAttempt) {
               // Claim atômico baseado na PK original (funnel_id, contact_id).
               // Isso funciona mesmo sem nenhuma migration de estado adicional.
               const { error: claimErr } = await (supabaseAdmin as any)
@@ -1008,6 +1050,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   last_step: null,
                   last_step_index: 0,
                   error_message: null,
+                  retry_count: nextRetryCount,
                   updated_at: new Date().toISOString(),
                 });
 
@@ -1051,7 +1094,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     conversationId,
                     userId: num.user_id,
                     workspaceId,
-                    phone: phoneStr,
+                    phone: sendTarget,
                     creds,
                   });
 
@@ -1190,18 +1233,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     // 5. AI PROCESSING (V3)
-    // O webhook já é protegido pelo token da instância provisionada.
-    // Não limitar o agente a um telefone fixo de teste em produção.
+    const inboundStartedAt = Date.now();
     const lockKey = `${workspaceId}:${phoneStr}`;
+    console.log(`[UAZ-WEBHOOK] Iniciando processamento para ${phoneStr} (Lock: ${lockKey})`);
+
     return await withConversationLock(lockKey, async () => {
       const lockHolder = `v3:${msgId}:${Date.now()}`;
       if (conversationId) {
+        console.log(`[UAZ-WEBHOOK] Adquirindo lock persistente no DB para conversa: ${conversationId}`);
         const acquired = await acquireConversationDbLock(supabaseAdmin, conversationId, lockHolder);
         if (!acquired) {
-          console.log(`[UAZ-WEBHOOK] Conversa já está sendo processada em outra instância: ${conversationId}`);
+          console.log(`[UAZ-WEBHOOK] Conversa ocupada (lock DB): ${conversationId}`);
           return new Response("ok (conversation busy)");
         }
       }
+
 
       try {
       const { data: integ, error: integErr } = await supabaseAdmin
@@ -1524,13 +1570,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
           const sendResult = await sendAgentTextGuarded(
             creds,
-            phoneStr,
+            sendTarget,
             handoffReply,
             {
-              conversationId: conversationId!,
+              conversationId: conversationId as string,
               source: "critical_human_escalation",
             },
           );
+
 
           if (conversationId) {
             const { error: persistErr } = await supabaseAdmin
@@ -1599,13 +1646,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // impede novas respostas automáticas até reativação manual no painel.
           const sendResult = await sendAgentTextGuarded(
             creds,
-            phoneStr,
+            sendTarget,
             handoffReply,
             {
-              conversationId: conversationId!,
+              conversationId: conversationId as string,
               source: "human_handoff",
             },
           );
+
 
           if (conversationId) {
             const { error: handoffMessageErr } = await supabaseAdmin
@@ -1762,7 +1810,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         const { uazapiSendTyping } = await import("@/lib/uazapi.server");
         await uazapiSendTyping(
           creds,
-          phoneStr,
+          sendTarget,
           humanization.max_response_delay_ms,
         ).catch((error) => {
           console.warn("[UAZ-WEBHOOK] Não foi possível sinalizar digitando:", error);
@@ -1879,6 +1927,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
+        rememberedContext: {
+          platform: customerMemory?.preferredPlatform ?? null,
+          product: customerMemory?.preferredProduct ?? null,
+        },
         extraContext: [
           customerMemoryContext,
           businessDecisionToPromptV3(businessDecision),
@@ -1937,8 +1989,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             const confirmedNow = /\b((?:j[aá]\s+)?(?:comprei|paguei)(?:\s+hoje|\s+ontem)?|j[aá]\s+fiz\s+o\s+pedido|pedido\s+(?:feito|realizado)|pagamento\s+(?:feito|realizado))\b/i.test(finalMsgText);
             if (confirmedNow || currentIntent === "pos_compra" || currentIntent === "suporte") {
               v3Response.intelligence.temperature = confirmedNow ? "quente" : v3Response.intelligence.temperature;
-              v3Response.intelligence.intent = currentIntent === "suporte" ? "Suporte" : "Pós-venda";
-              v3Response.intelligence.stage = "Pós-venda";
+              v3Response.intelligence.intent = currentIntent === "suporte" ? "suporte" : "pos_compra";
+              v3Response.intelligence.stage = "pos_venda";
               if (confirmedNow) v3Response.intelligence.purchase_probability = 100;
               else if (customerMemory.repurchasePotential === "alto") {
                 v3Response.intelligence.purchase_probability = Math.max(v3Response.intelligence.purchase_probability, 90);
@@ -2056,7 +2108,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           if (humanization.enabled && humanization.audio_recording_enabled) {
             await uazapiSendRecording(
               creds,
-              phoneStr,
+              sendTarget,
               Math.max(3000, remainingFirstReplyDelayMs),
             ).catch((error) => {
               console.warn("[UAZ-WEBHOOK] Não foi possível sinalizar gravando áudio:", error);
@@ -2082,9 +2134,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           );
           await sleepMs(remainingAudioDelayMs);
 
-          await uazapiSendAudio(creds, phoneStr, audioBase64);
+          await uazapiSendAudio(creds, sendTarget, audioBase64);
           console.log("[AUDIO-V3] 5/5 nota de voz enviada pela Uazapi");
-          await uazapiClearPresence(creds, phoneStr).catch(() => undefined);
+          await uazapiClearPresence(creds, sendTarget).catch(() => undefined);
           sentAsAudio = true;
 
           // Registra explicitamente o outbound de áudio. O arquivo TTS é enviado
@@ -2129,25 +2181,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .slice(-3);
         const deliveredParts: string[] = [];
 
-        // Se outra mensagem do cliente chegou enquanto esta resposta estava sendo
-        // preparada/humanizada, não envia uma resposta obsoleta para a metade anterior.
-        if (conversationId && content.kind === "texto") {
-          const { data: latestInbound } = await supabaseAdmin
-            .from("messages")
-            .select("body, created_at")
-            .eq("conversation_id", conversationId)
-            .eq("sender", "cliente")
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          const latestBody = String((latestInbound as any)?.body || "").trim();
-          if (latestBody && latestBody !== finalMsgText.trim() && !effectiveAgentMessage.endsWith(latestBody)) {
-            console.log("[AGENT-V3] Resposta antiga suprimida: cliente enviou complemento");
-            return new Response("ok (superseded by newer customer message)");
-          }
-        }
-
+        // Mensagens recebidas em sequência são serializadas pelo lock da conversa.
         // O orchestrator já separa respostas longas/parágrafos em partes próprias.
         // Enviar o join() como uma única mensagem anulava completamente o splitter.
         for (let partIndex = 0; partIndex < replyParts.length; partIndex += 1) {
@@ -2160,7 +2194,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               const partDelayMs = calculatePartDelayMs(humanization);
               if (humanization.typing_enabled) {
                 const { uazapiSendTyping } = await import("@/lib/uazapi.server");
-                await uazapiSendTyping(creds, phoneStr, partDelayMs).catch(() => undefined);
+                await uazapiSendTyping(creds, sendTarget, partDelayMs).catch(() => undefined);
               }
               await sleepMs(partDelayMs);
             }
@@ -2168,7 +2202,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
           const sendResult = await sendAgentTextGuarded(
             creds,
-            phoneStr,
+            sendTarget,
             part,
             {
               conversationId: finalConvId,
@@ -2224,7 +2258,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (AI processed)");
 
       } catch (e: any) {
-        console.error("[UAZ-WEBHOOK] AI Critical Error:", e?.message ?? e);
+        const criticalErrorMessage = String(e?.message ?? e ?? "erro desconhecido");
+        console.error("[UAZ-WEBHOOK] AI Critical Error:", criticalErrorMessage);
 
         // A mensagem do cliente já foi persistida no CRM antes deste ponto.
         // Não pedimos retry ao provedor para evitar uma segunda resposta, mas
@@ -2235,7 +2270,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             .from("conversations")
             .update({
               needs_review: true,
-              review_reason: "falha crítica no Agent V3",
+              review_reason: `falha crítica no Agent V3: ${criticalErrorMessage}`.slice(0, 500),
             })
             .eq("id", conversationId);
           if (reviewErr) {
