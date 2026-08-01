@@ -1237,7 +1237,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // segundo botão invisível. Quem controla resposta automática nesta conversa
       // é `agent_enabled`. Opt-out e bloqueio manual já gravam agent_enabled=false.
       if (conversationGate?.agent_enabled === false) {
-        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: agent disabled for conversation ${conversationId}`);
+        console.log("RETURN-PONTO: agent-disabled", { phone: phoneStr });
         return new Response("ok (agent disabled for conversation)");
       }
     }
