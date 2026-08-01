@@ -86,6 +86,12 @@ export async function sendAgentTextGuarded(
     });
   }
 
-  await uazapiSendText(creds, phone, out);
+  const uazapiRawResult = await uazapiSendText(creds, phone, out);
+  console.log("[AUDIT] [UAZAPI-SEND-RAW-RESULT]", {
+    phone,
+    conversationId: opts.conversationId,
+    textPreview: out.slice(0, 80),
+    rawResult: uazapiRawResult,
+  });
   return { transformed: out, original, strippedEmoji };
 }

@@ -616,6 +616,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     );
     const phoneStr = String(phoneLocal || "");
     const sendTarget = extractUazapiSendTarget(msgLocal) || phoneStr;
+    console.log("[AUDIT] [SEND-TARGET-CHECK]", {
+      phoneStr,
+      sendTarget,
+      match: sendTarget === phoneStr,
+      rawCandidates: {
+        sender_pn: msgLocal?.sender_pn,
+        senderPn: msgLocal?.senderPn,
+        cleanedSenderPn: msgLocal?.key?.cleanedSenderPn,
+        keySenderPn: msgLocal?.key?.senderPn,
+        wa_chatid: msgLocal?.wa_chatid,
+        chatid: msgLocal?.chatid,
+        remoteJid: msgLocal?.key?.remoteJid,
+        sender: msgLocal?.sender,
+      },
+    });
     const instanceToken = pickInstanceToken(payload);
 
     if (!phoneStr) {
