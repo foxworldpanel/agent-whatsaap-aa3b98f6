@@ -1253,7 +1253,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         console.log(`[UAZ-WEBHOOK] [AUDIT] Tentando adquirir lock persistente no DB para conversa: ${conversationId}`);
         const acquired = await acquireConversationDbLock(supabaseAdmin, conversationId, lockHolder);
         if (!acquired) {
-          console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: conversation busy (lock DB) para conversa ${conversationId}`);
+          console.log("RETURN-PONTO: conversation-busy", { phone: phoneStr });
           return new Response("ok (conversation busy)");
         }
         console.log(`[UAZ-WEBHOOK] [AUDIT] Lock persistente adquirido para ${conversationId}`);
