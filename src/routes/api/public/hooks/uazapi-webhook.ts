@@ -913,11 +913,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         // Somente bloqueia se estiver rodando e não estiver obsoleto.
         if (!stale && (status === "running" || status === "paused")) {
-          console.log("[WELCOME-FUNNEL] [AUDIT] Gate global: BLOQUEANDO Agent V3 (funil ativo/pausado)", {
-            phone: phoneStr,
-            funnelId: (runningFunnel as any).funnel_id,
-            status
-          });
+          console.log("RETURN-PONTO: welcome-funnel", { status, phone: phoneStr });
           return new Response("ok (welcome funnel active; agent deferred)");
         } else {
           console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (stale=${stale}, status=${status})`);
@@ -1241,7 +1237,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // segundo botão invisível. Quem controla resposta automática nesta conversa
       // é `agent_enabled`. Opt-out e bloqueio manual já gravam agent_enabled=false.
       if (conversationGate?.agent_enabled === false) {
-        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: agent disabled for conversation ${conversationId}`);
+        console.log("RETURN-PONTO: agent-disabled", { phone: phoneStr });
         return new Response("ok (agent disabled for conversation)");
       }
     }
@@ -1257,7 +1253,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         console.log(`[UAZ-WEBHOOK] [AUDIT] Tentando adquirir lock persistente no DB para conversa: ${conversationId}`);
         const acquired = await acquireConversationDbLock(supabaseAdmin, conversationId, lockHolder);
         if (!acquired) {
-          console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: conversation busy (lock DB) para conversa ${conversationId}`);
+          console.log("RETURN-PONTO: conversation-busy", { phone: phoneStr });
           return new Response("ok (conversation busy)");
         }
         console.log(`[UAZ-WEBHOOK] [AUDIT] Lock persistente adquirido para ${conversationId}`);
@@ -1935,6 +1931,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (natural conversational silence)");
       }
 
+      console.log("RETURN-PONTO: chegou na V3", { phone: phoneStr });
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
         workspaceId,
@@ -2086,6 +2083,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
 
+      console.log("RETURN-PONTO: V3 respondeu", { phone: phoneStr });
       const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
       const replyText = replyParts.join("\n\n");
 
@@ -2217,6 +2215,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
           }
 
+          console.log("RETURN-PONTO: enviando pro whatsapp", { phone: phoneStr });
           const sendResult = await sendAgentTextGuarded(
             creds,
             sendTarget,
@@ -2228,6 +2227,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               recentAgentBodiesOverride: [...recentAgentBodies, ...deliveredParts].slice(-3),
             },
           );
+          console.log("RETURN-PONTO: enviado com sucesso", { phone: phoneStr });
           deliveredParts.push(sendResult.transformed);
 
           // O envio via Uazapi não garante que o webhook de eco fromMe será
