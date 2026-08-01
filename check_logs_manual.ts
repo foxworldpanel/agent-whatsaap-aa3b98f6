@@ -1,23 +1,20 @@
 import { supabaseAdmin } from "./src/integrations/supabase/client.server";
 
 async function checkLogs() {
-  const { data: sample, error } = await supabaseAdmin.from("messages").select("*").limit(1);
-  if (sample) console.log("Schema of messages:", Object.keys(sample[0]).join(", "));
+  const convId = "5cf77afc-a613-4c1b-867d-2277b5aeba8a";
+  console.log(`Checking messages for conversation ${convId}...`);
   
-  // Now query by whatever column looks like phone
-  const phone = "5511970116430";
-  // Common names: phone, sender_id, customer_id, sender, remote_jid
-  const columns = ["phone", "sender", "sender_id", "remote_jid", "chat_id"];
-  for (const col of columns) {
-     try {
-       const { data } = await supabaseAdmin.from("messages").select("*").ilike(col, `%${phone}%`).limit(1);
-       if (data && data.length > 0) {
-         console.log(`Found messages using column ${col}`);
-         const { data: recent } = await supabaseAdmin.from("messages").select("*").ilike(col, `%${phone}%`).order("created_at", { ascending: false }).limit(10);
-         console.log(JSON.stringify(recent, null, 2));
-         break;
-       }
-     } catch(e) {}
+  const { data: messages, error } = await supabaseAdmin
+    .from("messages")
+    .select("*")
+    .eq("conversation_id", convId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error("Error fetching messages:", error);
+  } else {
+    console.log("Messages in conversation:", JSON.stringify(messages, null, 2));
   }
 }
 
