@@ -1976,6 +1976,48 @@ REFORÇO — SAUDAÇÃO CORRETA POR HORÁRIO:
     finalContent = finalContent.replace(greetingStartRx, `${newGreeting}, `);
   }
 
+  // ISOLAMENTO DO LINK DO PAINEL: garante que "mindsmmpanel.com" sempre
+  // fica numa bolha própria, nunca colado com o texto ao redor. Regex
+  // tolerante a espaço/quebra entre "mindsmmpanel" e "com" (o modelo às
+  // vezes escreve "mindsmmpanel. com" com espaço, o que quebrava a versão
+  // anterior do isolamento e causava o link sendo cortado ao meio).
+  if (/mindsmmpanel\s*\.?\s*com/i.test(finalContent)) {
+    const panelUrl = "https://mindsmmpanel.com";
+    finalContent = finalContent
+      .replace(
+        /(?:https?:\/\/)?(?:www\.)?mindsmmpanel\s*\.?\s*com\/?/gi,
+        `===SPLIT===${panelUrl}===SPLIT===`,
+      )
+      .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
+      .replace(/^===SPLIT===|===SPLIT===$/g, "")
+      .trim();
+  }
+
+  // COMMERCIAL GUARD (fase 1 — detecção, sem correção automática ainda):
+  // Extrai todo valor "R$ X" mencionado na resposta e confere se existe
+  // literalmente no texto dos módulos carregados. Isso não pega proporções
+  // calculadas corretamente (ex: "500 = R$7,50" a partir de "1000 = R$15"),
+  // só serve pra sinalizar quando a IA citou um valor que não vem de
+  // nenhuma fonte carregada — provável alucinação.
+  {
+    const priceRegex = /R\$\s?\d{1,3}(?:\.\d{3})*(?:,\d{2})?/g;
+    const pricesInResponse = [...finalContent.matchAll(priceRegex)].map((m) => m[0]);
+    if (pricesInResponse.length > 0) {
+      const normalizeSpacing = (s: string) => s.replace(/\s+/g, "");
+      const moduleTextNormalized = normalizeSpacing(String(modulePrompt || ""));
+      const suspiciousPrices = pricesInResponse.filter(
+        (p) => !moduleTextNormalized.includes(normalizeSpacing(p)),
+      );
+      if (suspiciousPrices.length > 0) {
+        console.warn("[COMMERCIAL-GUARD] Preço(s) mencionado(s) na resposta NÃO encontrado(s) literalmente nos módulos carregados — possível alucinação (pode ser proporção calculada corretamente, revisar manualmente):", {
+          suspiciousPrices,
+          allPricesInResponse: pricesInResponse,
+          responsePreview: finalContent.slice(0, 200),
+        });
+      }
+    }
+  }
+
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
 
