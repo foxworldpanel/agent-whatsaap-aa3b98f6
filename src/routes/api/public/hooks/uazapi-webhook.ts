@@ -855,6 +855,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         userId: num.user_id,
         phone: phoneStr,
       });
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: workspace configuration missing para msgId ${msgId}`);
       return new Response("workspace configuration missing", { status: 503 });
     }
 
