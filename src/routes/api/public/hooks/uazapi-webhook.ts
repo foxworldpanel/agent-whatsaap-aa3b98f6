@@ -829,7 +829,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // do mapa em memória. O external_id único no banco impede que ela gere uma
     // segunda resposta automática.
     if (duplicateMessageInDb) {
-      console.log(`[UAZ-WEBHOOK] Ignorando duplicata persistida (msgId: ${msgId})`);
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: duplicate persisted msgId: ${msgId}`);
       return new Response("ok (duplicate persisted msgId)");
     }
 
