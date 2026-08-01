@@ -1829,11 +1829,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         });
       }
 
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Recuperando estado da conversa para ${phoneStr}`);
       const { history, telemetry: historyTelemetry } = await getConversationStateV3(
         num.user_id,
         phoneStr,
         workspaceId,
       );
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Histórico recuperado: ${history?.length || 0} mensagens. Telemetria: ${JSON.stringify(historyTelemetry || {})}`);
 
       // O histórico V3 não contém necessariamente as peças automáticas do funil.
       // Consulte o runtime do funil para impedir uma segunda apresentação da Júlia.
