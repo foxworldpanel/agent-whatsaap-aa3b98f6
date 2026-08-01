@@ -2083,6 +2083,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
 
+      console.log("RETURN-PONTO: V3 respondeu", { phone: phoneStr });
       const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
       const replyText = replyParts.join("\n\n");
 
