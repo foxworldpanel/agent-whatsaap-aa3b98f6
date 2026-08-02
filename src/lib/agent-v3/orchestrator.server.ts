@@ -13,6 +13,7 @@ import {
 import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
 import { isConfirmedPurchaseMessage } from "./memory/customer-memory.server";
 import type { BusinessDecisionV3 } from "./brain/business-state.server";
+import { businessDecisionToPromptV3 } from "./brain/business-state.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 
 type ParsedSpotifyPriceRule = {
@@ -1111,6 +1112,95 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
     throw new Error("[agent-v3] A Anthropic retornou uma resposta sem conteúdo de texto");
   }
   const latency_ms = Date.now() - startLlm;
+
+  // ============================================================
+  // AUDITORIA DE TOKENS (fase de observação — não altera nenhuma
+  // lógica, nenhuma resposta, nenhum fluxo. Só registra.)
+  // ============================================================
+  try {
+    const CHARS_PER_TOKEN_ESTIMATE = 4; // aproximação — só pra quebra por categoria
+
+    const businessDecisionText = businessDecision ? businessDecisionToPromptV3(businessDecision) : "";
+    const businessDecisionChars = businessDecisionText.length;
+
+    // extraContext hoje mistura customerMemory + businessDecision já unidos
+    // antes de chegar aqui — isolamos businessDecision e tratamos o resto
+    // (customerMemory) como parte da mesma categoria "Business" por ora,
+    // já que não chegam separados nesta função.
+    const extraContextChars = (extraContext || "").length;
+
+    // conversationFacts e orderContext ainda NÃO são injetados no prompt
+    // hoje (confirmado: não aparecem em nenhum lugar do system prompt
+    // atual) — ficam com 0 tokens, de propósito, refletindo a realidade.
+    const conversationFactsChars = 0;
+    const orderContextChars = 0;
+
+    const modulePromptChars = (finalModulePrompt || "").length;
+    const systemPromptFullChars = JSON.stringify(systemPrompt).length;
+    // O texto fixo (regras P0/P1/P2 etc.) é o total menos o que é módulo
+    // e menos o extraContext — ambos já estão embutidos no mesmo texto.
+    const systemPromptFixedChars = Math.max(
+      0,
+      systemPromptFullChars - modulePromptChars - extraContextChars,
+    );
+
+    const historyCharsForAudit = JSON.stringify(history).length;
+    const userMessageChars = message.length;
+
+    // Histórico quebrado por profundidade — revela se o histórico está
+    // pesando mais do que o esperado em algum ponto específico.
+    const historyDepthBreakdown = [1, 5, 10, 20].map((depth) => {
+      const slice = history.slice(-depth);
+      const chars = JSON.stringify(slice).length;
+      return { depth, messages: slice.length, chars, tokensEstimate: Math.round(chars / 4) };
+    });
+
+    const toTokenEstimate = (chars: number) => Math.round(chars / CHARS_PER_TOKEN_ESTIMATE);
+
+    const realInputTokens = (llmResult as any)?.usage?.input_tokens ?? null;
+    const realOutputTokens = (llmResult as any)?.usage?.output_tokens ?? null;
+
+    console.log(`
+=========================
+TOKEN BREAKDOWN
+=========================
+System Prompt (regras fixas):
+${toTokenEstimate(systemPromptFixedChars)} tokens (estimado, ${systemPromptFixedChars} chars)
+History:
+${toTokenEstimate(historyCharsForAudit)} tokens (estimado, ${historyCharsForAudit} chars)
+Modules:
+${toTokenEstimate(modulePromptChars)} tokens (estimado, ${modulePromptChars} chars)
+Business (businessDecision + customerMemory):
+${toTokenEstimate(extraContextChars)} tokens (estimado, ${extraContextChars} chars) [businessDecision sozinho: ${toTokenEstimate(businessDecisionChars)} tokens]
+Order Context:
+${toTokenEstimate(orderContextChars)} tokens (ainda não injetado no prompt)
+Conversation Facts:
+${toTokenEstimate(conversationFactsChars)} tokens (ainda não injetado no prompt)
+User:
+${toTokenEstimate(userMessageChars)} tokens (estimado, ${userMessageChars} chars)
+-------------------------
+Output:
+${realOutputTokens ?? "n/d"} tokens (REAL, retornado pela API)
+-------------------------
+TOTAL REAL (input, retornado pela API):
+${realInputTokens ?? "n/d"} tokens
+TOTAL ESTIMADO (soma das categorias acima):
+${toTokenEstimate(systemPromptFixedChars + historyCharsForAudit + modulePromptChars + extraContextChars + userMessageChars)} tokens
+=========================
+NÚMEROS BRUTOS (caracteres, sem estimativa de token):
+systemPrompt.length (texto puro): ${(systemPrompt[0] as any)?.text?.length ?? "n/d"}
+JSON.stringify(systemPrompt).length: ${systemPromptFullChars}
+modulePrompt.length (finalModulePrompt): ${modulePromptChars}
+=========================
+MÓDULOS CARREGADOS NESTE TURNO (${effectiveSelectedKeys.length} total):
+${effectiveSelectedKeys.join(", ") || "(nenhum)"}
+=========================
+HISTÓRICO POR PROFUNDIDADE:
+${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): ${h.tokensEstimate} tokens (${h.chars} chars)`).join("\n")}
+=========================`);
+  } catch (tokenAuditError) {
+    console.warn("[TOKEN-AUDIT] Falha ao gerar breakdown (não bloqueia o fluxo):", tokenAuditError);
+  }
 
   // Calculate cost based on llm-client logic but normalized
   const usageRaw = llmResult.usage || {};
