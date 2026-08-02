@@ -1922,6 +1922,77 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         message: effectiveAgentMessage,
       });
 
+      // ============================================================
+      // MODO SOMBRA — buildAgentExecutionContext() rodando em paralelo,
+      // só pra comparação. NÃO influencia a resposta real, que continua
+      // vindo 100% do pipeline antigo acima. Qualquer erro aqui é só
+      // logado, nunca interrompe o atendimento.
+      // ============================================================
+      try {
+        const { buildAgentExecutionContext } = await import(
+          "@/lib/agent-v3/core/agent-execution-context.server"
+        );
+        const shadowContext = buildAgentExecutionContext({
+          mode: "whatsapp",
+          message: effectiveAgentMessage,
+          history: history.map((h) => ({ role: h.role, content: h.content })),
+          customerLifecycle: customerMemory?.lifecycle ?? null,
+          previousBusinessDecision,
+          rememberedContext: {
+            platform: customerMemory?.preferredPlatform ?? null,
+            product: customerMemory?.preferredProduct ?? null,
+          },
+        });
+
+        const oldExtraContext = [
+          customerMemoryContext,
+          businessDecisionToPromptV3(businessDecision),
+        ].filter(Boolean).join("\n\n") || undefined;
+
+        const diffs: string[] = [];
+
+        if (shadowContext.businessDecision.state !== businessDecision.state) {
+          diffs.push(
+            `BusinessDecision.state: antigo="${businessDecision.state}" novo="${shadowContext.businessDecision.state}"`,
+          );
+        }
+        if (shadowContext.businessDecision.nextAction !== businessDecision.nextAction) {
+          diffs.push(
+            `BusinessDecision.nextAction: antigo="${businessDecision.nextAction}" novo="${shadowContext.businessDecision.nextAction}"`,
+          );
+        }
+        if (shadowContext.businessDecision.risk !== businessDecision.risk) {
+          diffs.push(
+            `BusinessDecision.risk: antigo="${businessDecision.risk}" novo="${shadowContext.businessDecision.risk}"`,
+          );
+        }
+        // extraContext é comparado por tamanho (não por igualdade exata de
+        // texto — pequenas diferenças de formatação não importam, o que
+        // importa é se o CONTEÚDO relevante está presente).
+        const oldExtraContextChars = (oldExtraContext || "").length;
+        const newExtraContextChars = (shadowContext.extraContext || "").length;
+        const extraContextCharsDiff = newExtraContextChars - oldExtraContextChars;
+        if (Math.abs(extraContextCharsDiff) > 50) {
+          diffs.push(
+            `extraContext.length: antigo=${oldExtraContextChars} novo=${newExtraContextChars} (diferença: ${extraContextCharsDiff > 0 ? "+" : ""}${extraContextCharsDiff} chars)`,
+          );
+        }
+
+        console.log(`
+=============================
+PARIDADE (modo sombra — não afeta a resposta)
+=============================
+BusinessDecision.state: ${diffs.some(d => d.startsWith("BusinessDecision.state")) ? "✗ Diferente" : "✓ Igual"}
+BusinessDecision.nextAction: ${diffs.some(d => d.startsWith("BusinessDecision.nextAction")) ? "✗ Diferente" : "✓ Igual"}
+BusinessDecision.risk: ${diffs.some(d => d.startsWith("BusinessDecision.risk")) ? "✗ Diferente" : "✓ Igual"}
+extraContext (tamanho): ${diffs.some(d => d.startsWith("extraContext")) ? "✗ Diferente" : "✓ Igual"}
+=============================
+${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhuma divergência relevante encontrada."}
+=============================`);
+      } catch (shadowModeError) {
+        console.warn("[PARIDADE] Falha no modo sombra (não bloqueia o fluxo):", shadowModeError);
+      }
+
       console.log("[BUSINESS-STATE-V3] decisão antes do LLM", {
         conversationId,
         state: businessDecision.state,
