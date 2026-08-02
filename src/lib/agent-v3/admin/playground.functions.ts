@@ -59,10 +59,11 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     if (!userMsg) throw new Error("Falha ao salvar mensagem do usuário");
 
-    const { deriveBusinessDecisionV3 } = await import("../brain/business-state.server");
-    const decision = deriveBusinessDecisionV3({
+    const { buildAgentExecutionContext } = await import("../core/agent-execution-context.server");
+    const executionContext = buildAgentExecutionContext({
+      mode: "playground",
       message,
-      recentCustomerMessages: history.filter(h => h.role === "customer").map(h => h.content)
+      history,
     });
 
     const result = await runAgentV3Turn({
@@ -72,7 +73,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
       workspaceId,
       inputKind: inputKind as any,
-      businessDecision: decision
+      businessDecision: executionContext.businessDecision,
+      extraContext: executionContext.extraContext,
+      rememberedContext: executionContext.rememberedContext,
     });
 
     // Playground permanece rápido por padrão. O atraso só é aplicado quando
@@ -176,7 +179,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         modules: modules,
         intelligence: intelligence,
         score: score,
-        cost: cost
+        cost: cost,
+        businessDecision: executionContext.businessDecision,
+        extraContext: executionContext.extraContext,
       }
     };
 
@@ -211,6 +216,8 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       cost: result.cost,
       modules: result.modules as any,
       intelligence: result.intelligence,
-      score: result.score
+      score: result.score,
+      businessDecision: executionContext.businessDecision,
+      extraContext: executionContext.extraContext,
     };
   });
