@@ -688,3 +688,61 @@ export function selectModulesV3(
     selectionReasons: Object.fromEntries(Array.from(selected).map((key) => [key, reasons[key]])),
   };
 }
+
+/**
+ * Log de diagnóstico da execução real do Module Selector — mostra,
+ * módulo por módulo, se foi carregado e por quê (ou por que não).
+ * Não altera nenhum comportamento, só imprime evidência.
+ */
+export function logModuleSelectorExecution(
+  message: string,
+  context: ConversationContext,
+  modules: Record<string, LoadedModuleV3>,
+  selectedModules: string[],
+  selectionReasons: Record<string, string>,
+): void {
+  const selectedSet = new Set(selectedModules);
+  const lines: string[] = [];
+  let totalChars = 0;
+
+  lines.push("===============================");
+  lines.push("[MODULE SELECTOR]");
+  lines.push(`Mensagem: "${message.slice(0, 80)}"`);
+  lines.push("");
+  lines.push("Context detectado:");
+  lines.push(`stage=${context.stage} intent=${context.intent} platform=${context.platform ?? "null"} product=${context.product ?? "null"}`);
+  lines.push("");
+  lines.push("Módulos avaliados:");
+
+  const orderedForLog = Object.entries(modules).sort(
+    ([, a], [, b]) => b.routing.priority - a.routing.priority,
+  );
+
+  for (const [key, module] of orderedForLog) {
+    const routing = module.routing;
+    const chars = (module.content || "").length;
+    if (selectedSet.has(key)) {
+      totalChars += chars;
+      lines.push(`✓ ${key} (${chars} chars, ~${Math.round(chars / 4)} tokens)`);
+      lines.push(`  Motivo: ${selectionReasons[key] ?? "desconhecido"}`);
+    } else {
+      // Reconstrói por que NÃO carregou, checando as mesmas condições.
+      const motivosNegativos: string[] = [];
+      if (!routing.alwaysLoad) motivosNegativos.push("always_load=false");
+      if (!routing.intents.includes(context.intent)) motivosNegativos.push(`intent atual (${context.intent}) não está em selector_intents`);
+      if (!routing.stages.includes(context.stage)) motivosNegativos.push(`stage atual (${context.stage}) não está em selector_stages`);
+      if (!context.platform || !routing.platforms.includes(context.platform)) motivosNegativos.push(`platform (${context.platform ?? "null"}) não bate com selector_platforms`);
+      if (!context.product || !routing.products.includes(context.product)) motivosNegativos.push(`product (${context.product ?? "null"}) não bate com selector_products`);
+      lines.push(`✗ ${key} — Não carregado`);
+      lines.push(`  Motivo: ${motivosNegativos.join("; ")}`);
+    }
+  }
+
+  lines.push("");
+  lines.push(`Total módulos carregados: ${selectedModules.length}`);
+  lines.push(`Total chars: ${totalChars}`);
+  lines.push(`Total tokens estimados: ${Math.round(totalChars / 4)}`);
+  lines.push("===============================");
+
+  console.log(lines.join("\n"));
+}

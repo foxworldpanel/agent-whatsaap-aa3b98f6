@@ -1,6 +1,6 @@
 // src/lib/agent-v3/orchestrator.server.ts
 import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
-import { selectModulesV3, type ConversationContext } from "./selector/module-selector.server";
+import { selectModulesV3, logModuleSelectorExecution, type ConversationContext } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
 import {
@@ -686,6 +686,20 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     enabledKeys.map((key) => [key, mergedModulesMap[key]]).filter(([, module]) => Boolean(module)),
   );
   const selection = selectModulesV3(message, history, selectableModules, rememberedContext);
+
+  // Log de diagnóstico — módulo por módulo, com motivo exato de cada
+  // carregamento (ou rejeição). Não altera nenhum comportamento.
+  try {
+    logModuleSelectorExecution(
+      message,
+      selection.context,
+      selectableModules,
+      selection.selectedModules,
+      selection.selectionReasons,
+    );
+  } catch (selectorLogError) {
+    console.warn("[MODULE-SELECTOR-LOG] Falha ao gerar log (não bloqueia o fluxo):", selectorLogError);
+  }
   const selectedKeys = [...selection.selectedModules];
   if (selectedKeys.length === 0) {
     throw new Error(
