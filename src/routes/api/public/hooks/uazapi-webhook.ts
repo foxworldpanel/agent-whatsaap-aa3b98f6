@@ -1888,6 +1888,65 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
 
+      // ============================================================
+      // SMART ROUTER — o webhook só chama e executa a decisão. Toda a
+      // lógica de roteamento vive isolada em src/lib/agent-v3/router/,
+      // sem conhecer Uazapi/Supabase, pra ficar reutilizável (Playground,
+      // futuros canais) e não virar um emaranhado de if/else aqui dentro.
+      // ============================================================
+      if (content.kind === "texto" && !deferredFunnelMessage) {
+        try {
+          const { routeMessage } = await import("@/lib/agent-v3/router/smart-router.server");
+          const route = routeMessage(effectiveAgentMessage, {
+            isFirstTurn: history.length === 0,
+            funnelAlreadyCompleted,
+          });
+
+          console.log("[SMART-ROUTER]", {
+            route: route.route,
+            reason: route.reason,
+            phone: phoneStr,
+            mensagem: effectiveAgentMessage.slice(0, 80),
+            costSaved: route.handled ? "1 Claude call" : null,
+          });
+
+          if (route.handled && route.response) {
+            const sendResult = await sendAgentTextGuarded(creds, sendTarget, route.response, {
+              conversationId: conversationId as string,
+              source: "smart_router_v1",
+            });
+
+            if (conversationId) {
+              const { error: persistErr } = await supabaseAdmin.from("messages").insert({
+                conversation_id: conversationId,
+                user_id: num.user_id,
+                workspace_id: workspaceId,
+                sender: "agente",
+                kind: "texto",
+                body: sendResult.transformed,
+              });
+              if (persistErr) {
+                console.error("[SMART-ROUTER] Resposta enviada, mas falhou ao persistir:", persistErr);
+              }
+              await supabaseAdmin
+                .from("conversations")
+                .update({
+                  last_message_preview: sendResult.transformed.slice(0, 120),
+                  last_message_at: new Date().toISOString(),
+                  status: "aguardando",
+                })
+                .eq("id", conversationId);
+            }
+
+            return new Response(`ok (smart router — ${route.reason})`);
+          }
+        } catch (routerError) {
+          // Qualquer erro no router: NÃO bloqueia, cai no fluxo normal
+          // com o Claude, como se o router não existisse.
+          console.warn("[SMART-ROUTER] Falha (caindo pro fluxo normal com Claude):", routerError);
+        }
+      }
+
       const {
         deriveBusinessDecisionV3,
         businessDecisionToPromptV3,
@@ -1966,9 +2025,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             `BusinessDecision.risk: antigo="${businessDecision.risk}" novo="${shadowContext.businessDecision.risk}"`,
           );
         }
-        // extraContext é comparado por tamanho (não por igualdade exata de
-        // texto — pequenas diferenças de formatação não importam, o que
-        // importa é se o CONTEÚDO relevante está presente).
+        // extraContext é comparado por tamanho E por hash — hash detecta
+        // qualquer diferença de conteúdo, mesmo que o tamanho bata por
+        // coincidência.
         const oldExtraContextChars = (oldExtraContext || "").length;
         const newExtraContextChars = (shadowContext.extraContext || "").length;
         const extraContextCharsDiff = newExtraContextChars - oldExtraContextChars;
@@ -1978,17 +2037,62 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           );
         }
 
+        const { createHash } = await import("node:crypto");
+        const hashOf = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 16);
+        const oldExtraContextHash = hashOf(oldExtraContext || "");
+        const newExtraContextHash = hashOf(shadowContext.extraContext || "");
+        const extraContextHashMatches = oldExtraContextHash === newExtraContextHash;
+        if (!extraContextHashMatches && !diffs.some(d => d.startsWith("extraContext"))) {
+          // Tamanho bateu mas conteúdo é diferente — hash pegou o que o
+          // tamanho sozinho não pegaria.
+          diffs.push(`extraContext.hash: antigo=${oldExtraContextHash} novo=${newExtraContextHash} (conteúdo diferente apesar do tamanho parecido)`);
+        }
+
+        // Nota percentual: cada checagem vale igual, simples e transparente.
+        const checks = [
+          { name: "BusinessDecision.state", ok: !diffs.some(d => d.startsWith("BusinessDecision.state")) },
+          { name: "BusinessDecision.nextAction", ok: !diffs.some(d => d.startsWith("BusinessDecision.nextAction")) },
+          { name: "BusinessDecision.risk", ok: !diffs.some(d => d.startsWith("BusinessDecision.risk")) },
+          { name: "extraContext", ok: extraContextHashMatches },
+        ];
+        const score = Math.round((checks.filter(c => c.ok).length / checks.length) * 1000) / 10;
+        const allEqual = checks.every(c => c.ok);
+
         console.log(`
 =============================
 PARIDADE (modo sombra — não afeta a resposta)
 =============================
-BusinessDecision.state: ${diffs.some(d => d.startsWith("BusinessDecision.state")) ? "✗ Diferente" : "✓ Igual"}
-BusinessDecision.nextAction: ${diffs.some(d => d.startsWith("BusinessDecision.nextAction")) ? "✗ Diferente" : "✓ Igual"}
-BusinessDecision.risk: ${diffs.some(d => d.startsWith("BusinessDecision.risk")) ? "✗ Diferente" : "✓ Igual"}
-extraContext (tamanho): ${diffs.some(d => d.startsWith("extraContext")) ? "✗ Diferente" : "✓ Igual"}
+${checks.map(c => `${c.name}: ${c.ok ? "✓ Igual" : "✗ Diferente"}`).join("\n")}
+-----------------------------
+PARIDADE: ${score}%
 =============================
-${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhuma divergência relevante encontrada."}
+${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhuma divergência encontrada."}
 =============================`);
+
+        // Persiste pra consulta posterior (SELECT * WHERE equal = false).
+        // Best-effort — falha aqui não afeta nada.
+        await supabaseAdmin.from("agent_parity_runs").insert({
+          workspace_id: workspaceId,
+          phone: phoneStr,
+          conversation_id: conversationId ?? null,
+          equal: allEqual,
+          score,
+          differences: diffs,
+          old_snapshot: {
+            state: businessDecision.state,
+            nextAction: businessDecision.nextAction,
+            risk: businessDecision.risk,
+            extraContextHash: oldExtraContextHash,
+            extraContextChars: oldExtraContextChars,
+          },
+          new_snapshot: {
+            state: shadowContext.businessDecision.state,
+            nextAction: shadowContext.businessDecision.nextAction,
+            risk: shadowContext.businessDecision.risk,
+            extraContextHash: newExtraContextHash,
+            extraContextChars: newExtraContextChars,
+          },
+        } as any);
       } catch (shadowModeError) {
         console.warn("[PARIDADE] Falha no modo sombra (não bloqueia o fluxo):", shadowModeError);
       }
