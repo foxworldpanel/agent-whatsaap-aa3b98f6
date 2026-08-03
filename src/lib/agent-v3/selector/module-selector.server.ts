@@ -378,6 +378,26 @@ export function detectConversationContext(
       0,
     ) + (containsAny(normalizedText, ["vai cair", "pode cair", "tem risco"]) ? 6 : 0);
   const hasSecuritySignal = securityScore >= SECURITY_SIGNAL_THRESHOLD;
+
+  // Log de auditoria do score — mostra exatamente quais palavras
+  // contribuíram e quanto, pra facilitar revisão futura sem precisar
+  // reconstruir a conta manualmente.
+  if (securityScore > 0) {
+    const contribuicoes = Object.entries(SECURITY_KEYWORD_WEIGHTS)
+      .filter(([word]) => containsAny(normalizedText, [word]))
+      .map(([word, weight]) => `${word}=${weight}`);
+    if (containsAny(normalizedText, ["vai cair", "pode cair", "tem risco"])) {
+      contribuicoes.push("vai/pode cair ou tem risco=6");
+    }
+    console.log("[SECURITY-SCORE]", {
+      mensagem: text.slice(0, 80),
+      contribuicoes,
+      total: securityScore,
+      limiar: SECURITY_SIGNAL_THRESHOLD,
+      authorized: hasSecuritySignal ? "YES" : "NO",
+    });
+  }
+
   const hasGrowthGoal = containsAny(normalizedText, [
     "engajar", "engajamento", "divulgar minha musica", "divulgar a musica",
     "crescer minha musica", "mais alcance", "dar visibilidade", "promover minha musica"
