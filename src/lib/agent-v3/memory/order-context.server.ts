@@ -307,7 +307,7 @@ export async function loadOrderContextV3(
 ): Promise<OrderContext> {
   try {
     const normalizedPhone = normalizePhoneV3(phone);
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (supabaseAdmin as any)
       .from("conversations_v3")
       .select("order_context")
       .eq("workspace_id", workspaceId)
