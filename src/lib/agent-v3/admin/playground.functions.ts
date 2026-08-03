@@ -1,18 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
-import { runAgentV3Turn } from "../orchestrator.server";
 import { normalizeHumanizationSettings, calculateHumanResponseTargetMs, sleepMs } from "../humanization.server";
-
-
-// Cost calculation moved to orchestrator, but we keep this as helper if needed
-const calculateHaiku45Cost = (usage: any) => {
-  const input = usage.input_tokens || 0;
-  const output = usage.output_tokens || 0;
-  const cacheWrite = usage.cache_creation_input_tokens || 0;
-  const cacheRead = usage.cache_read_input_tokens || 0;
-  return (input * 0.000001) + (output * 0.000005) + (cacheWrite * 0.00000125) + (cacheRead * 0.0000001);
-};
 
 export const runPlaygroundTurn = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
@@ -59,21 +48,34 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     if (!userMsg) throw new Error("Falha ao salvar mensagem do usuário");
 
-    const { deriveBusinessDecisionV3 } = await import("../brain/business-state.server");
-    const decision = deriveBusinessDecisionV3({
+    const { buildAgentExecutionContext } = await import("../core/agent-execution-context.server");
+    const executionContext = buildAgentExecutionContext({
+      mode: "playground",
       message,
-      recentCustomerMessages: history.filter(h => h.role === "customer").map(h => h.content)
+      history,
     });
 
-    const result = await runAgentV3Turn({
+    // PONTO ÚNICO DE EXECUÇÃO — mesmo fluxo do WhatsApp (Router primeiro,
+    // Claude só se necessário). Isso é o que faz o Playground refletir o
+    // custo real da arquitetura, não só o custo de uma chamada direta.
+    const { executeAgent } = await import("../core/execute-agent.server");
+    const execResult = await executeAgent({
       message,
       userId,
       history,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
       workspaceId,
       inputKind: inputKind as any,
-      businessDecision: decision
+      businessDecision: executionContext.businessDecision,
+      extraContext: executionContext.extraContext,
+      rememberedContext: executionContext.rememberedContext as any,
+      routerContext: {
+        isFirstTurn: history.length === 0,
+        funnelAlreadyCompleted: false, // Playground não tem conceito de funil de boas-vindas
+      },
     });
+
+    const reply = execResult.reply;
 
     // Playground permanece rápido por padrão. O atraso só é aplicado quando
     // explicitamente habilitado na aba Tempo e Humanização.
@@ -112,10 +114,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
           },
     );
     if (humanization.enabled && humanization.playground_delay_enabled) {
-      const targetMs = calculateHumanResponseTargetMs(
-        result.replies.join("\n"),
-        humanization,
-      );
+      const targetMs = calculateHumanResponseTargetMs(reply, humanization);
       const elapsedMs = Date.now() - start;
       await sleepMs(Math.max(0, targetMs - elapsedMs));
     }
@@ -125,12 +124,14 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       .insert({
         session_id: sessionId,
         role: "agent",
-        content: result.replies.join("\n"),
+        content: reply,
         sequence: nextSequence + 1,
         metadata: {
-          ...result.intelligence,
-          conversation_score: result.score?.total,
-          conversation_feedback: [] // Derived from reasoning or future audit
+          ...(execResult.agentResult?.intelligence || {}),
+          route: execResult.route,
+          router_reason: execResult.routerReason,
+          conversation_score: execResult.agentResult?.score?.total,
+          conversation_feedback: []
         } as any
       })
       .select()
@@ -139,44 +140,62 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     if (!agentMsg) throw new Error("Falha ao salvar resposta do agente");
 
     const latencyMs = Date.now() - start;
-    const usage = result.usage;
-    const modules = result.modules;
-    const intelligence = result.intelligence;
-    const score = result.score;
-    const cost = result.cost;
-    
+
+    // Quando a rota foi "code" (Router respondeu, Claude não foi chamado),
+    // vários campos que só existem numa chamada real ao Claude (módulos,
+    // intelligence, prompt) ficam com valores neutros — refletindo
+    // fielmente que a IA não participou dessa resposta.
+    const usage = execResult.usage;
+    const modules = execResult.agentResult?.modules ?? {
+      selected_keys: [],
+      versions: {},
+      estimated_tokens_by_module: {},
+      estimated_chars_by_module: {},
+      prompt_tokens_without_commercial: 0,
+      prompt_tokens_with_commercial: 0,
+      commercial_tokens_added: 0,
+    };
+    const intelligence = execResult.agentResult?.intelligence ?? null;
+    const score = execResult.agentResult?.score ?? null;
+    const cost = execResult.cost;
+
     const insertData: any = {
       session_id: sessionId,
       message_id: agentMsg.id,
-      model: usage.model,
+      model: execResult.claudeCalled ? (usage as any).model : "nenhum (respondido pelo Smart Router)",
       selected_modules: modules.selected_keys,
-      system_prompt_chars: JSON.stringify(result.rawPrompt).length,
+      system_prompt_chars: execResult.agentResult ? JSON.stringify(execResult.agentResult.rawPrompt).length : 0,
       history_chars: JSON.stringify(history).length,
       message_chars: message.length,
       response_chars: agentMsg.content.length,
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
-      cache_creation_input_tokens: usage.cache_creation_input_tokens,
-      cache_read_input_tokens: usage.cache_read_input_tokens,
+      cache_creation_input_tokens: (usage as any).cache_creation_input_tokens || 0,
+      cache_read_input_tokens: (usage as any).cache_read_input_tokens || 0,
       cost_usd: cost.total_usd,
-      latency_ms: usage.latency_ms,
-      anthropic_request_id: usage.request_id,
-      system_prompt_snapshot: JSON.stringify(result.rawPrompt),
-      temperature: intelligence.temperature,
-      confidence: intelligence.confidence,
-      intent: intelligence.intent,
-      stage: intelligence.stage,
-      purchase_probability: intelligence.purchase_probability,
-      sentiment: intelligence.sentiment,
-      urgency: intelligence.urgency,
-      recommended_action: intelligence.recommended_action,
-      reasoning: intelligence.reasoning,
+      latency_ms: latencyMs,
+      anthropic_request_id: (usage as any).request_id ?? null,
+      system_prompt_snapshot: execResult.agentResult ? JSON.stringify(execResult.agentResult.rawPrompt) : null,
+      temperature: intelligence?.temperature ?? null,
+      confidence: intelligence?.confidence ?? null,
+      intent: intelligence?.intent ?? null,
+      stage: intelligence?.stage ?? null,
+      purchase_probability: intelligence?.purchase_probability ?? null,
+      sentiment: intelligence?.sentiment ?? null,
+      urgency: intelligence?.urgency ?? null,
+      recommended_action: intelligence?.recommended_action ?? null,
+      reasoning: intelligence?.reasoning ?? null,
       conversation_score: score?.total || 0,
       conversation_feedback: {
         modules: modules,
         intelligence: intelligence,
         score: score,
-        cost: cost
+        cost: cost,
+        businessDecision: executionContext.businessDecision,
+        extraContext: executionContext.extraContext,
+        route: execResult.route,
+        router_reason: execResult.routerReason,
+        claude_called: execResult.claudeCalled,
       }
     };
 
@@ -200,17 +219,25 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       sessionId,
       messageId: agentMsg.id,
       runId: savedRun?.id,
-      usage: result.usage,
-      cost: result.cost
+      route: execResult.route,
+      routerReason: execResult.routerReason,
+      claudeCalled: execResult.claudeCalled,
+      usage: execResult.usage,
+      cost: execResult.cost
     });
 
     return {
-      reply: result.replies.join("\n"),
+      reply,
       run: (savedRun || insertData) as any,
-      usage: result.usage,
-      cost: result.cost,
-      modules: result.modules as any,
-      intelligence: result.intelligence,
-      score: result.score
+      usage: execResult.usage,
+      cost: execResult.cost,
+      modules: modules as any,
+      intelligence,
+      score,
+      businessDecision: executionContext.businessDecision,
+      extraContext: executionContext.extraContext,
+      route: execResult.route,
+      routerReason: execResult.routerReason,
+      claudeCalled: execResult.claudeCalled,
     };
   });

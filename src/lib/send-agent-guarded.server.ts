@@ -86,6 +86,20 @@ export async function sendAgentTextGuarded(
     });
   }
 
-  await uazapiSendText(creds, phone, out);
+  const uazapiRawResult = await uazapiSendText(creds, phone, out);
+  console.log("[AUDIT] [UAZAPI-SEND-RAW-RESULT]", {
+    phone,
+    conversationId: opts.conversationId,
+    textPreview: out.slice(0, 80),
+    rawResult: uazapiRawResult,
+  });
+  const failedStatuses = new Set(["failed", "rejected", "error", "invalid", "invalid_recipient"]);
+  const statusLower = String(uazapiRawResult?.status || "").toLowerCase();
+  if (failedStatuses.has(statusLower)) {
+    throw new Error(
+      `Uazapi reportou falha no envio (status: ${uazapiRawResult?.status}) pra ${phone}. ` +
+      `messageId: ${uazapiRawResult?.messageId ?? "nenhum"}.`,
+    );
+  }
   return { transformed: out, original, strippedEmoji };
 }

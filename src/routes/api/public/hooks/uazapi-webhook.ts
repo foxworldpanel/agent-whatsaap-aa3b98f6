@@ -616,6 +616,21 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     );
     const phoneStr = String(phoneLocal || "");
     const sendTarget = extractUazapiSendTarget(msgLocal) || phoneStr;
+    console.log("[AUDIT] [SEND-TARGET-CHECK]", {
+      phoneStr,
+      sendTarget,
+      match: sendTarget === phoneStr,
+      rawCandidates: {
+        sender_pn: msgLocal?.sender_pn,
+        senderPn: msgLocal?.senderPn,
+        cleanedSenderPn: msgLocal?.key?.cleanedSenderPn,
+        keySenderPn: msgLocal?.key?.senderPn,
+        wa_chatid: msgLocal?.wa_chatid,
+        chatid: msgLocal?.chatid,
+        remoteJid: msgLocal?.key?.remoteJid,
+        sender: msgLocal?.sender,
+      },
+    });
     const instanceToken = pickInstanceToken(payload);
 
     if (!phoneStr) {
@@ -829,7 +844,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // do mapa em memória. O external_id único no banco impede que ela gere uma
     // segunda resposta automática.
     if (duplicateMessageInDb) {
-      console.log(`[UAZ-WEBHOOK] Ignorando duplicata persistida (msgId: ${msgId})`);
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: duplicate persisted msgId: ${msgId}`);
       return new Response("ok (duplicate persisted msgId)");
     }
 
@@ -840,11 +855,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // Retornamos 503 para permitir retry do provedor sem marcar o messageId como concluído.
     if (!messagePersistedInDb) {
       console.error(`[UAZ-WEBHOOK] CRM sync incompleto; adiando processamento do msgId ${msgId}`);
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: retry (crm sync incomplete) para msgId ${msgId}`);
       return new Response("retry (crm sync incomplete)", { status: 503 });
     }
 
     // 3. AI GATE
     if (msgLocal.fromMe) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: sync only for fromMe para msgId ${msgId}`);
       return new Response("ok (sync only for fromMe)");
     }
 
@@ -854,6 +871,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         userId: num.user_id,
         phone: phoneStr,
       });
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: workspace configuration missing para msgId ${msgId}`);
       return new Response("workspace configuration missing", { status: 503 });
     }
 
@@ -888,9 +906,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // 3.4. FUNNEL GATE GLOBAL
     if (contactId && conversationId) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Verificando gate global para ${phoneStr} (${contactId})`);
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
-        .select("funnel_id, contact_id, fired_at")
+        .select("funnel_id, contact_id, fired_at, status, updated_at")
         .eq("contact_id", contactId)
         .eq("workspace_id", workspaceId)
         .order("fired_at", { ascending: false })
@@ -898,20 +917,24 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         .maybeSingle();
 
       if (runningFunnelErr) {
-        console.warn("[WELCOME-FUNNEL] Não foi possível verificar run em andamento:", runningFunnelErr);
+        console.warn("[WELCOME-FUNNEL] [AUDIT] Não foi possível verificar run em andamento:", runningFunnelErr);
       } else if (runningFunnel) {
         const firedAt = new Date((runningFunnel as any).fired_at || 0).getTime();
-        const stale = Date.now() - firedAt > 60_000;
+        const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
+        const stale = Date.now() - updatedAt > 60_000;
         const status = String((runningFunnel as any).status || "running");
 
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Estado funil para ${phoneStr}: status=${status}, stale=${stale}, firedAt=${new Date(firedAt).toISOString()}, updatedAt=${new Date(updatedAt).toISOString()}`);
+
         // Somente bloqueia se estiver rodando e não estiver obsoleto.
-        if (!stale && status === "running") {
-          console.log("[WELCOME-FUNNEL] Gate global: Run recente detectada, bloqueando Agent V3 para evitar concorrência", {
-            phone: phoneStr,
-            funnelId: (runningFunnel as any).funnel_id,
-          });
+        if (!stale && (status === "running" || status === "paused")) {
+          console.log("RETURN-PONTO: welcome-funnel", { status, phone: phoneStr });
           return new Response("ok (welcome funnel active; agent deferred)");
+        } else {
+          console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (stale=${stale}, status=${status})`);
         }
+      } else {
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (nenhuma run encontrada)`);
       }
     }
 
@@ -1209,6 +1232,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // Sem registro ainda = comportamento padrão ON, igual ao painel.
     // Somente `agent_enabled = false` desliga explicitamente o master switch.
     if (agentConfig?.agent_enabled === false) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: agent disabled globally para workspace ${workspaceId}`);
       return new Response("ok (agent disabled globally)");
     }
 
@@ -1228,6 +1252,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // segundo botão invisível. Quem controla resposta automática nesta conversa
       // é `agent_enabled`. Opt-out e bloqueio manual já gravam agent_enabled=false.
       if (conversationGate?.agent_enabled === false) {
+        console.log("RETURN-PONTO: agent-disabled", { phone: phoneStr });
         return new Response("ok (agent disabled for conversation)");
       }
     }
@@ -1240,12 +1265,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     return await withConversationLock(lockKey, async () => {
       const lockHolder = `v3:${msgId}:${Date.now()}`;
       if (conversationId) {
-        console.log(`[UAZ-WEBHOOK] Adquirindo lock persistente no DB para conversa: ${conversationId}`);
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Tentando adquirir lock persistente no DB para conversa: ${conversationId}`);
         const acquired = await acquireConversationDbLock(supabaseAdmin, conversationId, lockHolder);
         if (!acquired) {
-          console.log(`[UAZ-WEBHOOK] Conversa ocupada (lock DB): ${conversationId}`);
+          console.log("RETURN-PONTO: conversation-busy", { phone: phoneStr });
           return new Response("ok (conversation busy)");
         }
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Lock persistente adquirido para ${conversationId}`);
       }
 
 
@@ -1750,7 +1776,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (stop request persisted)");
       }
 
-      const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
       const {
         DEFAULT_AGENT_HUMANIZATION,
@@ -1817,11 +1842,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         });
       }
 
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Recuperando estado da conversa para ${phoneStr}`);
       const { history, telemetry: historyTelemetry } = await getConversationStateV3(
         num.user_id,
         phoneStr,
         workspaceId,
       );
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Histórico recuperado: ${history?.length || 0} mensagens. Telemetria: ${JSON.stringify(historyTelemetry || {})}`);
 
       // O histórico V3 não contém necessariamente as peças automáticas do funil.
       // Consulte o runtime do funil para impedir uma segunda apresentação da Júlia.
@@ -1860,6 +1887,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
 
+      // ============================================================
+      // SMART ROUTER — agora encapsulado dentro de executeAgent(), junto
+      // com a chamada condicional ao Claude. Ver o bloco logo abaixo,
+      // próximo de "RETURN-PONTO: chegou na V3". Mantido aqui como
+      // comentário histórico: antes disso, o webhook tinha sua própria
+      // cópia dessa checagem — unificado agora pra Playground e WhatsApp
+      // usarem exatamente o mesmo ponto de decisão.
+      // ============================================================
+
       const {
         deriveBusinessDecisionV3,
         businessDecisionToPromptV3,
@@ -1894,6 +1930,122 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         message: effectiveAgentMessage,
       });
 
+      // ============================================================
+      // MODO SOMBRA — buildAgentExecutionContext() rodando em paralelo,
+      // só pra comparação. NÃO influencia a resposta real, que continua
+      // vindo 100% do pipeline antigo acima. Qualquer erro aqui é só
+      // logado, nunca interrompe o atendimento.
+      // ============================================================
+      try {
+        const { buildAgentExecutionContext } = await import(
+          "@/lib/agent-v3/core/agent-execution-context.server"
+        );
+        const shadowContext = buildAgentExecutionContext({
+          mode: "whatsapp",
+          message: effectiveAgentMessage,
+          history: history.map((h) => ({ role: h.role, content: h.content })),
+          customerLifecycle: customerMemory?.lifecycle ?? null,
+          previousBusinessDecision,
+          rememberedContext: {
+            platform: customerMemory?.preferredPlatform ?? null,
+            product: customerMemory?.preferredProduct ?? null,
+          },
+        });
+
+        const oldExtraContext = [
+          customerMemoryContext,
+          businessDecisionToPromptV3(businessDecision),
+        ].filter(Boolean).join("\n\n") || undefined;
+
+        const diffs: string[] = [];
+
+        if (shadowContext.businessDecision.state !== businessDecision.state) {
+          diffs.push(
+            `BusinessDecision.state: antigo="${businessDecision.state}" novo="${shadowContext.businessDecision.state}"`,
+          );
+        }
+        if (shadowContext.businessDecision.nextAction !== businessDecision.nextAction) {
+          diffs.push(
+            `BusinessDecision.nextAction: antigo="${businessDecision.nextAction}" novo="${shadowContext.businessDecision.nextAction}"`,
+          );
+        }
+        if (shadowContext.businessDecision.risk !== businessDecision.risk) {
+          diffs.push(
+            `BusinessDecision.risk: antigo="${businessDecision.risk}" novo="${shadowContext.businessDecision.risk}"`,
+          );
+        }
+        // extraContext é comparado por tamanho E por hash — hash detecta
+        // qualquer diferença de conteúdo, mesmo que o tamanho bata por
+        // coincidência.
+        const oldExtraContextChars = (oldExtraContext || "").length;
+        const newExtraContextChars = (shadowContext.extraContext || "").length;
+        const extraContextCharsDiff = newExtraContextChars - oldExtraContextChars;
+        if (Math.abs(extraContextCharsDiff) > 50) {
+          diffs.push(
+            `extraContext.length: antigo=${oldExtraContextChars} novo=${newExtraContextChars} (diferença: ${extraContextCharsDiff > 0 ? "+" : ""}${extraContextCharsDiff} chars)`,
+          );
+        }
+
+        const { createHash } = await import("node:crypto");
+        const hashOf = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 16);
+        const oldExtraContextHash = hashOf(oldExtraContext || "");
+        const newExtraContextHash = hashOf(shadowContext.extraContext || "");
+        const extraContextHashMatches = oldExtraContextHash === newExtraContextHash;
+        if (!extraContextHashMatches && !diffs.some(d => d.startsWith("extraContext"))) {
+          // Tamanho bateu mas conteúdo é diferente — hash pegou o que o
+          // tamanho sozinho não pegaria.
+          diffs.push(`extraContext.hash: antigo=${oldExtraContextHash} novo=${newExtraContextHash} (conteúdo diferente apesar do tamanho parecido)`);
+        }
+
+        // Nota percentual: cada checagem vale igual, simples e transparente.
+        const checks = [
+          { name: "BusinessDecision.state", ok: !diffs.some(d => d.startsWith("BusinessDecision.state")) },
+          { name: "BusinessDecision.nextAction", ok: !diffs.some(d => d.startsWith("BusinessDecision.nextAction")) },
+          { name: "BusinessDecision.risk", ok: !diffs.some(d => d.startsWith("BusinessDecision.risk")) },
+          { name: "extraContext", ok: extraContextHashMatches },
+        ];
+        const score = Math.round((checks.filter(c => c.ok).length / checks.length) * 1000) / 10;
+        const allEqual = checks.every(c => c.ok);
+
+        console.log(`
+=============================
+PARIDADE (modo sombra — não afeta a resposta)
+=============================
+${checks.map(c => `${c.name}: ${c.ok ? "✓ Igual" : "✗ Diferente"}`).join("\n")}
+-----------------------------
+PARIDADE: ${score}%
+=============================
+${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhuma divergência encontrada."}
+=============================`);
+
+        // Persiste pra consulta posterior (SELECT * WHERE equal = false).
+        // Best-effort — falha aqui não afeta nada.
+        await (supabaseAdmin as any).from("agent_parity_runs").insert({
+          workspace_id: workspaceId,
+          phone: phoneStr,
+          conversation_id: conversationId ?? null,
+          equal: allEqual,
+          score,
+          differences: diffs,
+          old_snapshot: {
+            state: businessDecision.state,
+            nextAction: businessDecision.nextAction,
+            risk: businessDecision.risk,
+            extraContextHash: oldExtraContextHash,
+            extraContextChars: oldExtraContextChars,
+          },
+          new_snapshot: {
+            state: shadowContext.businessDecision.state,
+            nextAction: shadowContext.businessDecision.nextAction,
+            risk: shadowContext.businessDecision.risk,
+            extraContextHash: newExtraContextHash,
+            extraContextChars: newExtraContextChars,
+          },
+        } as any);
+      } catch (shadowModeError) {
+        console.warn("[PARIDADE] Falha no modo sombra (não bloqueia o fluxo):", shadowModeError);
+      }
+
       console.log("[BUSINESS-STATE-V3] decisão antes do LLM", {
         conversationId,
         state: businessDecision.state,
@@ -1914,12 +2066,62 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       });
 
       if (content.kind === "texto" && naturalSilence) {
-        console.log("[NATURALIDADE-V3] Silêncio natural: mensagem não exige resposta");
+        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: natural conversational silence para conversa ${conversationId}`);
         return new Response("ok (natural conversational silence)");
       }
 
-      const v3Response = await runAgentV3Turn({
+      // ============================================================
+      // FLOW ENGINE — checagem ANTECIPADA (antes da IA), só pra
+      // permitir que uma FlowAction ligada por feature flag influencie
+      // a resposta. Enquanto NENHUMA flag estiver ligada (estado atual),
+      // "anyFlowActionEnabled()" é false e nada além dessa checagem
+      // síncrona acontece — zero custo extra, zero leitura de banco.
+      // ============================================================
+      let flowActionHint: { version: number; action: string; reasonCode: string; reason: string; payload: unknown } | null = null;
+      try {
+        const { anyFlowActionEnabled, isFlowActionEnabled } = await import(
+          "@/lib/agent-v3/flow/flow-action-flags.server"
+        );
+        if (anyFlowActionEnabled()) {
+          const { deriveOrderContextV3, loadOrderContextV3 } = await import(
+            "@/lib/agent-v3/memory/order-context.server"
+          );
+          const { evaluateFlow } = await import("@/lib/agent-v3/flow/flow-engine.server");
+
+          const earlyPreviousOrderContext = await loadOrderContextV3(phoneStr, workspaceId);
+          const earlyHistory = history.map((m) => ({
+            role: m.role === "agent" ? ("agent" as const) : ("customer" as const),
+            content: m.content,
+          }));
+          const earlyOrderContext = deriveOrderContextV3(
+            effectiveAgentMessage,
+            earlyHistory,
+            earlyPreviousOrderContext,
+          );
+          const earlyFlowDecision = evaluateFlow(earlyOrderContext, businessDecision);
+
+          if (isFlowActionEnabled(earlyFlowDecision.action)) {
+            flowActionHint = {
+              version: earlyFlowDecision.version,
+              action: earlyFlowDecision.action,
+              reasonCode: earlyFlowDecision.reasonCode,
+              reason: earlyFlowDecision.reason,
+              payload: earlyFlowDecision.payload,
+            };
+            console.log("[FLOW-ENGINE] FlowAction LIGADA influenciando a resposta:", flowActionHint);
+          }
+        }
+      } catch (earlyFlowError) {
+        console.warn("[FLOW-ENGINE] Falha na checagem antecipada (seguindo sem hint, Claude decide normalmente):", earlyFlowError);
+        flowActionHint = null;
+      }
+
+      console.log("RETURN-PONTO: chegou na V3", { phone: phoneStr });
+
+      const { executeAgent } = await import("@/lib/agent-v3/core/execute-agent.server");
+      const execResult = await executeAgent({
         userId: num.user_id,
+        flowActionHint,
         workspaceId,
         conversationId: conversationId ?? undefined,
         phone: phoneStr,
@@ -1927,6 +2129,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
+        routerContext: {
+          isFirstTurn: history.length === 0,
+          funnelAlreadyCompleted,
+        },
+        skipRouter: !(content.kind === "texto" && !deferredFunnelMessage),
         rememberedContext: {
           platform: customerMemory?.preferredPlatform ?? null,
           product: customerMemory?.preferredProduct ?? null,
@@ -1943,6 +2150,56 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         imageSource: resolvedImageSource,
         messageId: msgId
       });
+
+      console.log("[SMART-ROUTER]", {
+        route: execResult.route,
+        reason: execResult.routerReason,
+        phone: phoneStr,
+        mensagem: effectiveAgentMessage.slice(0, 80),
+        costSaved: !execResult.claudeCalled ? "1 Claude call" : null,
+      });
+
+      if (execResult.route === "code") {
+        try {
+          const sendResult = await sendAgentTextGuarded(creds, sendTarget, execResult.reply, {
+            conversationId: conversationId as string,
+            source: "smart_router_v1",
+          });
+
+          if (conversationId) {
+            const { error: persistErr } = await supabaseAdmin.from("messages").insert({
+              conversation_id: conversationId,
+              user_id: num.user_id,
+              workspace_id: workspaceId,
+              sender: "agente",
+              kind: "texto",
+              body: sendResult.transformed,
+            });
+            if (persistErr) {
+              console.error("[SMART-ROUTER] Resposta enviada, mas falhou ao persistir:", persistErr);
+            }
+            await supabaseAdmin
+              .from("conversations")
+              .update({
+                last_message_preview: sendResult.transformed.slice(0, 120),
+                last_message_at: new Date().toISOString(),
+                status: "aguardando",
+              })
+              .eq("id", conversationId);
+          }
+
+          return new Response(`ok (smart router — ${execResult.routerReason})`);
+        } catch (routerSendError) {
+          // Falha ao enviar a resposta do router: loga e segue o fluxo,
+          // não deixa a mensagem cair no limbo sem resposta nenhuma.
+          console.error("[SMART-ROUTER] Falha ao enviar resposta:", routerSendError);
+          return new Response("erro (smart router — falha no envio)", { status: 500 });
+        }
+      }
+
+      // route === "claude": segue o fluxo normal, extenso, já existente,
+      // que processa v3Response (memória, CRM, humanização, envio, etc.)
+      const v3Response = execResult.agentResult!;
 
       if (contactId) {
         try {
@@ -2008,6 +2265,81 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
 
+      // ============================================================
+      // ORDER CONTEXT + FLOW ENGINE (fase de observação) — NÃO
+      // influenciam a resposta. Só derivam, avaliam e logam, pra
+      // validar antes de qualquer decisão real depender disso.
+      // ============================================================
+      try {
+        const { deriveOrderContextV3, loadOrderContextV3, saveOrderContextV3 } = await import(
+          "@/lib/agent-v3/memory/order-context.server"
+        );
+        const { evaluateFlow } = await import("@/lib/agent-v3/flow/flow-engine.server");
+
+        const previousOrderContext = await loadOrderContextV3(phoneStr, workspaceId);
+        const agentHistoryForOrderContext = history.map((m) => ({
+          role: m.role === "agent" ? ("agent" as const) : ("customer" as const),
+          content: m.content,
+        }));
+        const newOrderContext = deriveOrderContextV3(
+          effectiveAgentMessage,
+          agentHistoryForOrderContext,
+          previousOrderContext,
+        );
+
+        const flowResult = evaluateFlow(newOrderContext, businessDecision);
+
+        console.log("[ORDER-CONTEXT] Evolução do pedido:", {
+          phone: phoneStr,
+          mensagem: effectiveAgentMessage.slice(0, 80),
+          antes: {
+            platform: previousOrderContext.platform,
+            service: previousOrderContext.service,
+            quantity: previousOrderContext.quantity,
+            missingFields: previousOrderContext.missingFields,
+          },
+          depois: {
+            platform: newOrderContext.platform,
+            service: newOrderContext.service,
+            quantity: newOrderContext.quantity,
+            missingFields: newOrderContext.missingFields,
+            readyForQuote: newOrderContext.readyForQuote,
+            readyForPayment: newOrderContext.readyForPayment,
+            confidence: newOrderContext.confidence,
+          },
+        });
+
+        console.log("[FLOW-ENGINE] Decisão determinística (modo sombra — não influencia a resposta):", {
+          phone: phoneStr,
+          nextAction: flowResult.action,
+          reason: flowResult.reason,
+          canQuote: flowResult.canQuote,
+          canCheckout: flowResult.canCheckout,
+          canFinish: flowResult.canFinish,
+          missingFields: flowResult.requiredFields,
+        });
+
+        // Registra a decisão pra medir precisão por ação depois (revisão
+        // manual), critério de promoção individual via feature flag.
+        await (supabaseAdmin as any).from("flow_action_decisions").insert({
+          workspace_id: workspaceId,
+          phone: phoneStr,
+          conversation_id: conversationId ?? null,
+          action: flowResult.action,
+          reason: flowResult.reason,
+          order_context_snapshot: {
+            platform: newOrderContext.platform,
+            service: newOrderContext.service,
+            quantity: newOrderContext.quantity,
+            missingFields: newOrderContext.missingFields,
+          },
+        } as any);
+
+        await saveOrderContextV3(phoneStr, workspaceId, num.user_id, newOrderContext);
+      } catch (orderContextError) {
+        console.warn("[ORDER-CONTEXT/FLOW-ENGINE] Falha ao processar (não bloqueia o fluxo):", orderContextError);
+      }
+
       // Sincroniza a caixa Frio/Morno/Quente/Cliente do CRM.
       // Ela é persistente e usa evidências objetivas do funil comercial, em vez
       // de depender somente da classificação de uma mensagem isolada.
@@ -2069,6 +2401,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
       }
 
+      console.log("RETURN-PONTO: V3 respondeu", { phone: phoneStr });
       const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
       const replyText = replyParts.join("\n\n");
 
@@ -2200,6 +2533,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             }
           }
 
+          console.log("RETURN-PONTO: enviando pro whatsapp", { phone: phoneStr });
           const sendResult = await sendAgentTextGuarded(
             creds,
             sendTarget,
@@ -2211,6 +2545,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               recentAgentBodiesOverride: [...recentAgentBodies, ...deliveredParts].slice(-3),
             },
           );
+          console.log("RETURN-PONTO: enviado com sucesso", { phone: phoneStr });
           deliveredParts.push(sendResult.transformed);
 
           // O envio via Uazapi não garante que o webhook de eco fromMe será
@@ -2255,6 +2590,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         workspaceId,
       );
 
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: AI processed para conversa ${conversationId}`);
       return new Response("ok (AI processed)");
 
       } catch (e: any) {
@@ -2278,6 +2614,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           }
         }
 
+        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: AI error flagged para conversa ${conversationId}`);
         return new Response("ok (AI error flagged for review)");
       } finally {
         if (conversationId) {
