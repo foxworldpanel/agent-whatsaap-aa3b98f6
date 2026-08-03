@@ -2212,6 +2212,65 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
         }
       }
 
+      // ============================================================
+      // ORDER CONTEXT + FLOW ENGINE (fase de observação) — NÃO
+      // influenciam a resposta. Só derivam, avaliam e logam, pra
+      // validar antes de qualquer decisão real depender disso.
+      // ============================================================
+      try {
+        const { deriveOrderContextV3, loadOrderContextV3, saveOrderContextV3 } = await import(
+          "@/lib/agent-v3/memory/order-context.server"
+        );
+        const { evaluateFlow } = await import("@/lib/agent-v3/flow/flow-engine.server");
+
+        const previousOrderContext = await loadOrderContextV3(phoneStr, workspaceId);
+        const agentHistoryForOrderContext = history.map((m) => ({
+          role: m.role === "agent" ? ("agent" as const) : ("customer" as const),
+          content: m.content,
+        }));
+        const newOrderContext = deriveOrderContextV3(
+          effectiveAgentMessage,
+          agentHistoryForOrderContext,
+          previousOrderContext,
+        );
+
+        const flowResult = evaluateFlow(newOrderContext, businessDecision);
+
+        console.log("[ORDER-CONTEXT] Evolução do pedido:", {
+          phone: phoneStr,
+          mensagem: effectiveAgentMessage.slice(0, 80),
+          antes: {
+            platform: previousOrderContext.platform,
+            service: previousOrderContext.service,
+            quantity: previousOrderContext.quantity,
+            missingFields: previousOrderContext.missingFields,
+          },
+          depois: {
+            platform: newOrderContext.platform,
+            service: newOrderContext.service,
+            quantity: newOrderContext.quantity,
+            missingFields: newOrderContext.missingFields,
+            readyForQuote: newOrderContext.readyForQuote,
+            readyForPayment: newOrderContext.readyForPayment,
+            confidence: newOrderContext.confidence,
+          },
+        });
+
+        console.log("[FLOW-ENGINE] Decisão determinística (modo sombra — não influencia a resposta):", {
+          phone: phoneStr,
+          nextAction: flowResult.nextAction,
+          reason: flowResult.reason,
+          canQuote: flowResult.canQuote,
+          canCheckout: flowResult.canCheckout,
+          canFinish: flowResult.canFinish,
+          missingFields: flowResult.missingFields,
+        });
+
+        await saveOrderContextV3(phoneStr, workspaceId, num.user_id, newOrderContext);
+      } catch (orderContextError) {
+        console.warn("[ORDER-CONTEXT/FLOW-ENGINE] Falha ao processar (não bloqueia o fluxo):", orderContextError);
+      }
+
       // Sincroniza a caixa Frio/Morno/Quente/Cliente do CRM.
       // Ela é persistente e usa evidências objetivas do funil comercial, em vez
       // de depender somente da classificação de uma mensagem isolada.
