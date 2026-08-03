@@ -2258,12 +2258,12 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
         console.log("[FLOW-ENGINE] Decisão determinística (modo sombra — não influencia a resposta):", {
           phone: phoneStr,
-          nextAction: flowResult.nextAction,
+          nextAction: flowResult.action,
           reason: flowResult.reason,
           canQuote: flowResult.canQuote,
           canCheckout: flowResult.canCheckout,
           canFinish: flowResult.canFinish,
-          missingFields: flowResult.missingFields,
+          missingFields: flowResult.requiredFields,
         });
 
         // Registra a decisão pra medir precisão por ação depois (revisão
@@ -2272,7 +2272,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           workspace_id: workspaceId,
           phone: phoneStr,
           conversation_id: conversationId ?? null,
-          action: flowResult.nextAction,
+          action: flowResult.action,
           reason: flowResult.reason,
           order_context_snapshot: {
             platform: newOrderContext.platform,
