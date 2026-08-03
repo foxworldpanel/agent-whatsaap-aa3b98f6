@@ -132,6 +132,7 @@ function computeConfidence(fieldConfidence: OrderContextFieldConfidence): number
   const relevant = [fieldConfidence.platform, fieldConfidence.service, fieldConfidence.quantity];
   const avg = relevant.reduce((sum, v) => sum + v, 0) / relevant.length;
   return Math.round(avg * 100) / 100;
+}
 const PLATFORM_LINK_PATTERNS = [
   /https?:\/\/(?:open\.)?spotify\.com\/[^\s]+/i,
   /https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s]+/i,
