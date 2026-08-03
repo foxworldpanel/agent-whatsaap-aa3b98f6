@@ -1776,7 +1776,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         return new Response("ok (stop request persisted)");
       }
 
-      const { runAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server");
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
       const {
         DEFAULT_AGENT_HUMANIZATION,
@@ -1889,63 +1888,13 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
 
       // ============================================================
-      // SMART ROUTER — o webhook só chama e executa a decisão. Toda a
-      // lógica de roteamento vive isolada em src/lib/agent-v3/router/,
-      // sem conhecer Uazapi/Supabase, pra ficar reutilizável (Playground,
-      // futuros canais) e não virar um emaranhado de if/else aqui dentro.
+      // SMART ROUTER — agora encapsulado dentro de executeAgent(), junto
+      // com a chamada condicional ao Claude. Ver o bloco logo abaixo,
+      // próximo de "RETURN-PONTO: chegou na V3". Mantido aqui como
+      // comentário histórico: antes disso, o webhook tinha sua própria
+      // cópia dessa checagem — unificado agora pra Playground e WhatsApp
+      // usarem exatamente o mesmo ponto de decisão.
       // ============================================================
-      if (content.kind === "texto" && !deferredFunnelMessage) {
-        try {
-          const { routeMessage } = await import("@/lib/agent-v3/router/smart-router.server");
-          const route = routeMessage(effectiveAgentMessage, {
-            isFirstTurn: history.length === 0,
-            funnelAlreadyCompleted,
-          });
-
-          console.log("[SMART-ROUTER]", {
-            route: route.route,
-            reason: route.reason,
-            phone: phoneStr,
-            mensagem: effectiveAgentMessage.slice(0, 80),
-            costSaved: route.handled ? "1 Claude call" : null,
-          });
-
-          if (route.handled && route.response) {
-            const sendResult = await sendAgentTextGuarded(creds, sendTarget, route.response, {
-              conversationId: conversationId as string,
-              source: "smart_router_v1",
-            });
-
-            if (conversationId) {
-              const { error: persistErr } = await supabaseAdmin.from("messages").insert({
-                conversation_id: conversationId,
-                user_id: num.user_id,
-                workspace_id: workspaceId,
-                sender: "agente",
-                kind: "texto",
-                body: sendResult.transformed,
-              });
-              if (persistErr) {
-                console.error("[SMART-ROUTER] Resposta enviada, mas falhou ao persistir:", persistErr);
-              }
-              await supabaseAdmin
-                .from("conversations")
-                .update({
-                  last_message_preview: sendResult.transformed.slice(0, 120),
-                  last_message_at: new Date().toISOString(),
-                  status: "aguardando",
-                })
-                .eq("id", conversationId);
-            }
-
-            return new Response(`ok (smart router — ${route.reason})`);
-          }
-        } catch (routerError) {
-          // Qualquer erro no router: NÃO bloqueia, cai no fluxo normal
-          // com o Claude, como se o router não existisse.
-          console.warn("[SMART-ROUTER] Falha (caindo pro fluxo normal com Claude):", routerError);
-        }
-      }
 
       const {
         deriveBusinessDecisionV3,
@@ -2071,7 +2020,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
         // Persiste pra consulta posterior (SELECT * WHERE equal = false).
         // Best-effort — falha aqui não afeta nada.
-        await supabaseAdmin.from("agent_parity_runs").insert({
+        await (supabaseAdmin as any).from("agent_parity_runs").insert({
           workspace_id: workspaceId,
           phone: phoneStr,
           conversation_id: conversationId ?? null,
@@ -2168,7 +2117,9 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       }
 
       console.log("RETURN-PONTO: chegou na V3", { phone: phoneStr });
-      const v3Response = await runAgentV3Turn({
+
+      const { executeAgent } = await import("@/lib/agent-v3/core/execute-agent.server");
+      const execResult = await executeAgent({
         userId: num.user_id,
         flowActionHint,
         workspaceId,
@@ -2178,6 +2129,11 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
         history: history,
         historyTelemetry: historyTelemetry,
         anthropicApiKey,
+        routerContext: {
+          isFirstTurn: history.length === 0,
+          funnelAlreadyCompleted,
+        },
+        skipRouter: !(content.kind === "texto" && !deferredFunnelMessage),
         rememberedContext: {
           platform: customerMemory?.preferredPlatform ?? null,
           product: customerMemory?.preferredProduct ?? null,
@@ -2194,6 +2150,56 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
         imageSource: resolvedImageSource,
         messageId: msgId
       });
+
+      console.log("[SMART-ROUTER]", {
+        route: execResult.route,
+        reason: execResult.routerReason,
+        phone: phoneStr,
+        mensagem: effectiveAgentMessage.slice(0, 80),
+        costSaved: !execResult.claudeCalled ? "1 Claude call" : null,
+      });
+
+      if (execResult.route === "code") {
+        try {
+          const sendResult = await sendAgentTextGuarded(creds, sendTarget, execResult.reply, {
+            conversationId: conversationId as string,
+            source: "smart_router_v1",
+          });
+
+          if (conversationId) {
+            const { error: persistErr } = await supabaseAdmin.from("messages").insert({
+              conversation_id: conversationId,
+              user_id: num.user_id,
+              workspace_id: workspaceId,
+              sender: "agente",
+              kind: "texto",
+              body: sendResult.transformed,
+            });
+            if (persistErr) {
+              console.error("[SMART-ROUTER] Resposta enviada, mas falhou ao persistir:", persistErr);
+            }
+            await supabaseAdmin
+              .from("conversations")
+              .update({
+                last_message_preview: sendResult.transformed.slice(0, 120),
+                last_message_at: new Date().toISOString(),
+                status: "aguardando",
+              })
+              .eq("id", conversationId);
+          }
+
+          return new Response(`ok (smart router — ${execResult.routerReason})`);
+        } catch (routerSendError) {
+          // Falha ao enviar a resposta do router: loga e segue o fluxo,
+          // não deixa a mensagem cair no limbo sem resposta nenhuma.
+          console.error("[SMART-ROUTER] Falha ao enviar resposta:", routerSendError);
+          return new Response("erro (smart router — falha no envio)", { status: 500 });
+        }
+      }
+
+      // route === "claude": segue o fluxo normal, extenso, já existente,
+      // que processa v3Response (memória, CRM, humanização, envio, etc.)
+      const v3Response = execResult.agentResult!;
 
       if (contactId) {
         try {
@@ -2315,7 +2321,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
         // Registra a decisão pra medir precisão por ação depois (revisão
         // manual), critério de promoção individual via feature flag.
-        await supabaseAdmin.from("flow_action_decisions").insert({
+        await (supabaseAdmin as any).from("flow_action_decisions").insert({
           workspace_id: workspaceId,
           phone: phoneStr,
           conversation_id: conversationId ?? null,
