@@ -856,21 +856,12 @@ ${modulePrompt}
 
 
 ${
-  extraContext
-    ? `FATO TÉCNICO:
-${extraContext}`
-    : ""
-}
-
-${
   flowActionHint
-    ? `AÇÃO JÁ DECIDIDA PELO SISTEMA (CRÍTICO — LEIA COM ATENÇÃO):
-O Flow Engine já decidiu, de forma determinística, que a próxima ação desta conversa é: ${flowActionHint.action}
-Motivo da decisão: ${flowActionHint.reason}
-Dados já conhecidos do pedido: ${JSON.stringify(flowActionHint.payload)}
-
-Você NÃO deve decidir o próximo passo, NÃO deve escolher outra ação, e NÃO deve ignorar essa decisão. Sua única tarefa aqui é transformar a ação "${flowActionHint.action}" numa mensagem natural, curta, no tom da Júlia — seguindo todas as regras de estilo e concisão já descritas acima. Use os dados já conhecidos do pedido pra não perguntar de novo o que já está preenchido.`
-    : ""
+    ? "" // Quando existe FlowAction ativa, BusinessDecision não entra no prompt — vira só telemetria, evita competir com a instrução da FlowAction.
+    : extraContext
+      ? `FATO TÉCNICO:
+${extraContext}`
+      : ""
 }
 
 ## P0 — SEGURANÇA E ANTI-INVENÇÃO (nunca flexibilizar)
@@ -898,6 +889,14 @@ ALERTA DE BANCO / TRANSAÇÃO DE RISCO:
 
 FORMATAÇÃO: texto simples, sem Markdown/asteriscos/títulos com #/negrito. Gere somente a mensagem que será enviada ao cliente — nunca escreva metadados, análise interna, score, intenção, temperatura, justificativa ou marcadores entre colchetes.
 
+${
+  flowActionHint
+    ? `## AÇÃO OBRIGATÓRIA — DECIDIDA PELO SISTEMA (prioridade máxima, sobrepõe qualquer regra de fluxo abaixo)
+${JSON.stringify({ flowAction: flowActionHint.action, reason: flowActionHint.reason, payload: flowActionHint.payload }, null, 2)}
+
+Isso substitui QUALQUER instrução de "descobrir próximo passo", "fluxo progressivo" ou "qualificação" que apareça mais abaixo neste prompt (seção P1) — ignore essas regras de decisão nesta mensagem específica. O Flow Engine já decidiu determinísticamente. Sua única tarefa é transformar "flowAction" em uma mensagem natural e curta, no tom da Júlia, seguindo as regras de ESTILO (P2). Use "payload" pra não perguntar de novo o que já está preenchido. Nunca escolha uma ação diferente de "flowAction", mesmo que pareça fazer mais sentido — o sistema já decidiu com base em dados que você não vê diretamente.`
+    : ""
+}
 
 ## P1 — FLUXO COMERCIAL E CONTINUIDADE (a espinha dorsal da venda)
 
