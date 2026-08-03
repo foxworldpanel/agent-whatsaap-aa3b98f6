@@ -2071,7 +2071,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
         // Persiste pra consulta posterior (SELECT * WHERE equal = false).
         // Best-effort — falha aqui não afeta nada.
-        await (supabaseAdmin.from("agent_parity_runs") as any).insert({
+        await (supabaseAdmin as any).from("agent_parity_runs").insert({
           workspace_id: workspaceId,
           phone: phoneStr,
           conversation_id: conversationId ?? null,
@@ -2315,7 +2315,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
         // Registra a decisão pra medir precisão por ação depois (revisão
         // manual), critério de promoção individual via feature flag.
-        await (supabaseAdmin.from("flow_action_decisions") as any).insert({
+        await (supabaseAdmin as any).from("flow_action_decisions").insert({
           workspace_id: workspaceId,
           phone: phoneStr,
           conversation_id: conversationId ?? null,
