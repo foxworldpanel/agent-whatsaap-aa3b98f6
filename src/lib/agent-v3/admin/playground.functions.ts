@@ -75,7 +75,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       inputKind: inputKind as any,
       businessDecision: executionContext.businessDecision,
       extraContext: executionContext.extraContext,
-      rememberedContext: executionContext.rememberedContext,
+      rememberedContext: executionContext.rememberedContext as any,
     });
 
     // Playground permanece rápido por padrão. O atraso só é aplicado quando
