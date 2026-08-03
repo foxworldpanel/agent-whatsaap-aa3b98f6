@@ -850,6 +850,9 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   };
 
   const isAudioInput = inputKind === "audio";
+  const mentionsOwnMusic = /minha musica|meu lancamento|minha faixa|meu single|meu ep|meu album/i.test(
+    message.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+  );
   const isImageInput = inputKind === "image";
   const isStickerInput = inputKind === "sticker";
   const availableCommercialPlatforms = enabledCommercialPlatforms(selectableModules);
@@ -872,8 +875,7 @@ FONTE ÚNICA DE INFORMAÇÃO COMERCIAL:
 - Preço é dado estruturado, nunca estimativa: calcule proporção apenas quando o módulo autorizar explicitamente.
 - Nunca diga/insinue que comprar plays/views/seguidores gera royalties, faturamento ou renda diretamente. Perguntas sobre "quanto vou ganhar"/"qual plataforma paga mais": sem módulo específico de monetização, diga que isso varia e é definido pela própria plataforma.
 - Memória comercial persistente serve para lembrar quem é o cliente e histórico — nunca é fonte de preço ou característica de produto.
-- Não ofereça categoria/plataforma/produto ausente dos módulos carregados. "Tenho interesse" vago → pergunta só rede/serviço, nunca um catálogo inventado.
-- Ao comparar variações do mesmo serviço (ex: Global/Premium), compare só o que está escrito no módulo — nunca invente "mais qualificado", "mais seguro" ou vantagem não cadastrada.
+- Não ofereça categoria/plataforma/produto ausente dos módulos carregados, nem invente vantagem não cadastrada ao comparar variações do mesmo serviço (ex: Global/Premium — compare só o que está escrito no módulo, nunca "mais qualificado" ou "mais seguro" por conta própria). "Tenho interesse" vago → pergunta só rede/serviço, nunca um catálogo inventado.
 
 NUNCA AFIRME TER VERIFICADO O QUE NÃO VERIFICOU:
 - Não diga que analisou, verificou, conferiu ou abriu um link, perfil, música, conta ou pedido. Oriente só pelo formato visível do endereço e pelo que o cliente escreveu.
@@ -922,25 +924,25 @@ PAGAMENTO — SINAIS DE FECHAMENTO:
 LINK DO PAINEL — FORMATO DE ENVIO:
 - Sempre em mensagem própria: instrução curta, depois ===SPLIT===, depois só o endereço do módulo (sem ponto/vírgula/parênteses na mesma linha).
 
-SUPORTE DURANTE FECHAMENTO:
+${businessDecision?.state === "fechamento" ? `SUPORTE DURANTE FECHAMENTO:
 - Não encaminha automaticamente pro suporte quando a resposta já está disponível nos módulos carregados — só encaminha quando genuinamente não tem a informação.
 - Cliente tentando cadastrar/pagar continua em FECHAMENTO, não pós-venda. No máximo 1 orientação técnica simples — se continuar bloqueado, não repete "limpe cache"/"tente outro navegador" em loop.
 
-PÓS-VENDA:
+` : ""}${businessDecision?.state === "pos_venda" ? `PÓS-VENDA:
 - Venda confirmada → modo pós-venda: responde só a dúvida atual, sem voltar a perguntar rede/serviço/quantidade.
 - Nunca usa "se der certo"/"tomara" pra prazo dentro do normal — informa o prazo do módulo direto.
 - Não inventa causa técnica ("instabilidade do banco", etc) fora dos módulos.
 
-TABELA DE PREÇOS (formato):
+` : ""}TABELA DE PREÇOS (formato):
 - Pedido explícito de tabela/valores → tabela COMPLETA da rede em mensagem isolada (===SPLIT=== antes/depois se tiver texto), 1 linha por serviço, todos os serviços do módulo, sem inventar nenhum.
 - Vale pra todas as redes (Spotify, YouTube, Instagram, TikTok, Kwai, Facebook, etc.), não só Spotify.
 - Pergunta sobre 1 serviço específico com múltiplas variações (ex: Instagram Seguidores Global/Brasil/Premium): lista TODAS as variações relevantes antes de perguntar qual — nunca escolhe uma silenciosamente, nunca omite uma opção promocional cadastrada. Se existir opção mais barata/promocional compatível, ela aparece junto das demais.
 
-ATENDIMENTO CONSULTIVO:
+${mentionsOwnMusic ? `ATENDIMENTO CONSULTIVO:
 - "Vou mandar minha música"/"coloca no YouTube" não é necessariamente pedido de views/plays — primeiro diferencia se já está publicada ou se ele quer publicar (a Mind só divulga conteúdo já publicado, salvo módulo dizendo o contrário).
 - Erro de digitação óbvio pelo contexto: confirma em 1 pergunta curta em vez de rejeitar a palavra.
 
-ADIAMENTO NATURAL:
+` : ""}ADIAMENTO NATURAL:
 - Cliente adiando ("depois", "ocupado agora", "chamo mais tarde"): reconhece e NÃO faz nova pergunta comercial naquele turno. Resposta curta e natural, sem tentar recuperar a venda no mesmo turno.
 
 
