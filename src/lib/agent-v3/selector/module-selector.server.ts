@@ -717,20 +717,40 @@ export function selectModulesV3(
     scoped: (routing: LoadedModuleV3["routing"]) => boolean;
     matches: (routing: LoadedModuleV3["routing"]) => boolean;
     causeValue: string;
+    authorizedByValue: (routing: LoadedModuleV3["routing"]) => unknown;
   }> = [
     {
       label: "selector_platforms",
       scoped: (routing) => routing.platforms.length > 0,
       matches: (routing) => Boolean(context.platform) && routing.platforms.includes(context.platform as string),
       causeValue: `platform=${context.platform ?? "null"}`,
+      authorizedByValue: (routing) => routing.platforms,
     },
     {
       label: "selector_products",
       scoped: (routing) => routing.products.length > 0,
       matches: (routing) => Boolean(context.product) && routing.products.includes(context.product as string),
       causeValue: `product=${context.product ?? "null"}`,
+      authorizedByValue: (routing) => routing.products,
+    },
+    {
+      // Rede de segurança: um módulo explicitamente restrito a um stage
+      // específico (ex: só "fechamento") não deveria sobreviver se a
+      // conversa está noutro stage, mesmo que tenha entrado por outro
+      // caminho (trigger/intent). Só afeta módulos que DECLARAM stage —
+      // "qualificacao" sozinho não conta como restrição forte o
+      // suficiente pra remover nada (é o estágio mais genérico).
+      label: "selector_stages",
+      scoped: (routing) => routing.stages.length > 0 && !routing.stages.includes("qualificacao"),
+      matches: (routing) => routing.stages.includes(context.stage),
+      causeValue: `stage=${context.stage}`,
+      authorizedByValue: (routing) => routing.stages,
     },
   ];
+
+  const filterSummary: Record<string, number> = {};
+  let tokensEconomizados = 0;
+  const candidatosAntes = selected.size;
 
   for (const key of Array.from(selected)) {
     const routing = modules[key]?.routing;
@@ -740,15 +760,28 @@ export function selectModulesV3(
       if (filter.matches(routing)) continue;
       selected.delete(key);
       delete reasons[key];
-      const authorizedByValue = filter.label === "selector_platforms" ? routing.platforms : routing.products;
+      filterSummary[filter.label] = (filterSummary[filter.label] ?? 0) + 1;
+      tokensEconomizados += Math.round((modules[key]?.content?.length ?? 0) / 4);
       console.log("[MODULE FILTER]", {
         modulo: key,
-        AUTHORIZED_BY: `${filter.label}=${JSON.stringify(authorizedByValue)}`,
+        AUTHORIZED_BY: `${filter.label}=${JSON.stringify(filter.authorizedByValue(routing))}`,
         STATUS: "REMOVED",
         CAUSE: filter.causeValue,
       });
       break; // já removido, não precisa checar os outros filtros pra esse módulo
     }
+  }
+
+  if (candidatosAntes > 0) {
+    console.log("===================================");
+    console.log("MODULE FILTER SUMMARY");
+    console.log(`Candidates: ${candidatosAntes}`);
+    for (const [label, count] of Object.entries(filterSummary)) {
+      console.log(`Removed by ${label}: ${count}`);
+    }
+    console.log(`Remaining: ${selected.size}`);
+    console.log(`Estimated Tokens Saved: ${tokensEconomizados}`);
+    console.log("===================================");
   }
 
 
