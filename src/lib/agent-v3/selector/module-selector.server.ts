@@ -352,9 +352,32 @@ export function detectConversationContext(
     currentHasPurchaseSignal ||
     containsAny(accumulatedCustomerText, KEYWORD_MAP.fechamento) ||
     containsAny(accumulatedCustomerText, ["comprar", "quero", "preciso de"]);
-  const hasSecuritySignal =
-    containsAny(normalizedText, KEYWORD_MAP.seguranca) ||
-    containsAny(normalizedText, ["vai cair", "pode cair", "tem risco"]);
+  // Sistema de pontuação pra sinal de segurança — substitui o "OR" binário
+  // anterior, onde uma única palavra genérica (ex: "funciona") disparava
+  // o mesmo peso que uma palavra realmente específica (ex: "golpe").
+  // Palavras de peso alto disparam sozinhas; palavras de peso baixo
+  // precisam se combinar (ou aparecer mais de uma vez) pra cruzar o limiar.
+  const SECURITY_KEYWORD_WEIGHTS: Record<string, number> = {
+    golpe: 10,
+    fraude: 10,
+    banimento: 10,
+    senha: 6,
+    risco: 3,
+    confiavel: 2,
+    seguro: 2,
+    funciona: 1,
+    testar: 1,
+    teste: 1,
+    gratis: 1,
+    amostra: 1,
+  };
+  const SECURITY_SIGNAL_THRESHOLD = 5;
+  const securityScore =
+    Object.entries(SECURITY_KEYWORD_WEIGHTS).reduce(
+      (sum, [word, weight]) => sum + (containsAny(normalizedText, [word]) ? weight : 0),
+      0,
+    ) + (containsAny(normalizedText, ["vai cair", "pode cair", "tem risco"]) ? 6 : 0);
+  const hasSecuritySignal = securityScore >= SECURITY_SIGNAL_THRESHOLD;
   const hasGrowthGoal = containsAny(normalizedText, [
     "engajar", "engajamento", "divulgar minha musica", "divulgar a musica",
     "crescer minha musica", "mais alcance", "dar visibilidade", "promover minha musica"
