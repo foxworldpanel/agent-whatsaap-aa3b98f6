@@ -703,6 +703,28 @@ export function selectModulesV3(
     }
   }
 
+  // FILTRO NEGATIVO POR PLATAFORMA (determinístico, não depende do Flow
+  // Engine "decidir" nada — só aplica uma regra lógica: um módulo
+  // explicitamente ligado a uma plataforma (routing.platforms não vazio)
+  // nunca é relevante se a conversa ainda não identificou ESSA
+  // plataforma, não importa por qual outro motivo (intent/stage/trigger)
+  // ele tenha entrado. Módulos CORE (sem platforms definido) não são
+  // afetados. Isso teria pego o caso real Spotify Garantia entrando via
+  // intent=duvida_seguranca sem o cliente ter mencionado Spotify.
+  for (const key of Array.from(selected)) {
+    const routing = modules[key]?.routing;
+    if (!routing) continue;
+    const isPlatformScoped = routing.platforms.length > 0;
+    if (!isPlatformScoped) continue;
+    const platformMatches = context.platform && routing.platforms.includes(context.platform);
+    if (!platformMatches) {
+      selected.delete(key);
+      delete reasons[key];
+      console.log(`[MODULE-SELECTOR-FILTER] Módulo "${key}" removido: é específico de plataforma (${JSON.stringify(routing.platforms)}) mas context.platform=${context.platform ?? "null"} não bate.`);
+    }
+  }
+
+
   // Um conflito pode remover uma dependência obrigatória. Nesse caso, manter o
   // módulo dependente produziria um prompt incompleto e potencialmente contraditório.
   // Remove dependentes inválidos de forma transitiva até a seleção estabilizar.
