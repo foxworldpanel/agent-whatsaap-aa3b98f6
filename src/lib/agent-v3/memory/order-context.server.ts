@@ -133,6 +133,7 @@ function computeConfidence(fieldConfidence: OrderContextFieldConfidence): number
   const avg = relevant.reduce((sum, v) => sum + v, 0) / relevant.length;
   return Math.round(avg * 100) / 100;
 }
+const PLATFORM_LINK_PATTERNS = [
   /https?:\/\/(?:open\.)?spotify\.com\/[^\s]+/i,
   /https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s]+/i,
   /https?:\/\/(?:www\.)?instagram\.com\/[^\s]+/i,
@@ -306,7 +307,7 @@ export async function loadOrderContextV3(
 ): Promise<OrderContext> {
   try {
     const normalizedPhone = normalizePhoneV3(phone);
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await (supabaseAdmin as any)
       .from("conversations_v3")
       .select("order_context")
       .eq("workspace_id", workspaceId)
@@ -340,7 +341,7 @@ export async function saveOrderContextV3(
 ): Promise<void> {
   try {
     const normalizedPhone = normalizePhoneV3(phone);
-    const { error } = await supabaseAdmin.from("conversations_v3").upsert(
+    const { error } = await (supabaseAdmin as any).from("conversations_v3").upsert(
       {
         workspace_id: workspaceId,
         user_id: userId,
