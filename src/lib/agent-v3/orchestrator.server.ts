@@ -533,7 +533,7 @@ export interface OrchestratorInput {
   // flag), instrui o Claude a apenas ESCREVER a ação já decidida pelo
   // Flow Engine, em vez de decidir o próximo passo sozinho. Ausente na
   // grande maioria das mensagens hoje (todas as flags começam desligadas).
-  flowActionHint?: { action: string; reason: string; payload: unknown } | null;
+  flowActionHint?: { version: number; action: string; reasonCode: string; reason: string; payload: unknown } | null;
 }
 
 export interface ModuleTelemetry {
@@ -892,7 +892,7 @@ FORMATAÇÃO: texto simples, sem Markdown/asteriscos/títulos com #/negrito. Ger
 ${
   flowActionHint
     ? `## AÇÃO OBRIGATÓRIA — DECIDIDA PELO SISTEMA (prioridade máxima, sobrepõe qualquer regra de fluxo abaixo)
-${JSON.stringify({ flowAction: flowActionHint.action, reason: flowActionHint.reason, payload: flowActionHint.payload }, null, 2)}
+${JSON.stringify({ version: flowActionHint.version, flowAction: flowActionHint.action, reasonCode: flowActionHint.reasonCode, payload: flowActionHint.payload }, null, 2)}
 
 Isso substitui QUALQUER instrução de "descobrir próximo passo", "fluxo progressivo" ou "qualificação" que apareça mais abaixo neste prompt (seção P1) — ignore essas regras de decisão nesta mensagem específica. O Flow Engine já decidiu determinísticamente. Sua única tarefa é transformar "flowAction" em uma mensagem natural e curta, no tom da Júlia, seguindo as regras de ESTILO (P2). Use "payload" pra não perguntar de novo o que já está preenchido. Nunca escolha uma ação diferente de "flowAction", mesmo que pareça fazer mais sentido — o sistema já decidiu com base em dados que você não vê diretamente.`
     : ""

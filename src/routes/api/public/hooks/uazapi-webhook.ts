@@ -2128,7 +2128,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       // "anyFlowActionEnabled()" é false e nada além dessa checagem
       // síncrona acontece — zero custo extra, zero leitura de banco.
       // ============================================================
-      let flowActionHint: { action: string; reason: string; payload: unknown } | null = null;
+      let flowActionHint: { version: number; action: string; reasonCode: string; reason: string; payload: unknown } | null = null;
       try {
         const { anyFlowActionEnabled, isFlowActionEnabled } = await import(
           "@/lib/agent-v3/flow/flow-action-flags.server"
@@ -2153,7 +2153,9 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
           if (isFlowActionEnabled(earlyFlowDecision.action)) {
             flowActionHint = {
+              version: earlyFlowDecision.version,
               action: earlyFlowDecision.action,
+              reasonCode: earlyFlowDecision.reasonCode,
               reason: earlyFlowDecision.reason,
               payload: earlyFlowDecision.payload,
             };
