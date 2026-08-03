@@ -2121,9 +2121,54 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
         return new Response("ok (natural conversational silence)");
       }
 
+      // ============================================================
+      // FLOW ENGINE — checagem ANTECIPADA (antes da IA), só pra
+      // permitir que uma FlowAction ligada por feature flag influencie
+      // a resposta. Enquanto NENHUMA flag estiver ligada (estado atual),
+      // "anyFlowActionEnabled()" é false e nada além dessa checagem
+      // síncrona acontece — zero custo extra, zero leitura de banco.
+      // ============================================================
+      let flowActionHint: { action: string; reason: string; payload: unknown } | null = null;
+      try {
+        const { anyFlowActionEnabled, isFlowActionEnabled } = await import(
+          "@/lib/agent-v3/flow/flow-action-flags.server"
+        );
+        if (anyFlowActionEnabled()) {
+          const { deriveOrderContextV3, loadOrderContextV3 } = await import(
+            "@/lib/agent-v3/memory/order-context.server"
+          );
+          const { evaluateFlow } = await import("@/lib/agent-v3/flow/flow-engine.server");
+
+          const earlyPreviousOrderContext = await loadOrderContextV3(phoneStr, workspaceId);
+          const earlyHistory = history.map((m) => ({
+            role: m.role === "agent" ? ("agent" as const) : ("customer" as const),
+            content: m.content,
+          }));
+          const earlyOrderContext = deriveOrderContextV3(
+            effectiveAgentMessage,
+            earlyHistory,
+            earlyPreviousOrderContext,
+          );
+          const earlyFlowDecision = evaluateFlow(earlyOrderContext, businessDecision);
+
+          if (isFlowActionEnabled(earlyFlowDecision.action)) {
+            flowActionHint = {
+              action: earlyFlowDecision.action,
+              reason: earlyFlowDecision.reason,
+              payload: earlyFlowDecision.payload,
+            };
+            console.log("[FLOW-ENGINE] FlowAction LIGADA influenciando a resposta:", flowActionHint);
+          }
+        }
+      } catch (earlyFlowError) {
+        console.warn("[FLOW-ENGINE] Falha na checagem antecipada (seguindo sem hint, Claude decide normalmente):", earlyFlowError);
+        flowActionHint = null;
+      }
+
       console.log("RETURN-PONTO: chegou na V3", { phone: phoneStr });
       const v3Response = await runAgentV3Turn({
         userId: num.user_id,
+        flowActionHint,
         workspaceId,
         conversationId: conversationId ?? undefined,
         phone: phoneStr,

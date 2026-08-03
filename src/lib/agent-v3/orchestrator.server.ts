@@ -529,6 +529,11 @@ export interface OrchestratorInput {
   workspaceId?: string;
   conversationId?: string;
   phone?: string;
+  // Quando presente (só quando uma FlowAction está ligada por feature
+  // flag), instrui o Claude a apenas ESCREVER a ação já decidida pelo
+  // Flow Engine, em vez de decidir o próximo passo sozinho. Ausente na
+  // grande maioria das mensagens hoje (todas as flags começam desligadas).
+  flowActionHint?: { action: string; reason: string; payload: unknown } | null;
 }
 
 export interface ModuleTelemetry {
@@ -622,6 +627,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     workspaceId: inputWorkspaceId,
     conversationId,
     phone,
+    flowActionHint,
   } = input;
 
   const workspaceId = inputWorkspaceId?.trim();
@@ -853,6 +859,17 @@ ${
   extraContext
     ? `FATO TÉCNICO:
 ${extraContext}`
+    : ""
+}
+
+${
+  flowActionHint
+    ? `AÇÃO JÁ DECIDIDA PELO SISTEMA (CRÍTICO — LEIA COM ATENÇÃO):
+O Flow Engine já decidiu, de forma determinística, que a próxima ação desta conversa é: ${flowActionHint.action}
+Motivo da decisão: ${flowActionHint.reason}
+Dados já conhecidos do pedido: ${JSON.stringify(flowActionHint.payload)}
+
+Você NÃO deve decidir o próximo passo, NÃO deve escolher outra ação, e NÃO deve ignorar essa decisão. Sua única tarefa aqui é transformar a ação "${flowActionHint.action}" numa mensagem natural, curta, no tom da Júlia — seguindo todas as regras de estilo e concisão já descritas acima. Use os dados já conhecidos do pedido pra não perguntar de novo o que já está preenchido.`
     : ""
 }
 
