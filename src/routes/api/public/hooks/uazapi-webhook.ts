@@ -2266,6 +2266,22 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           missingFields: flowResult.missingFields,
         });
 
+        // Registra a decisão pra medir precisão por ação depois (revisão
+        // manual), critério de promoção individual via feature flag.
+        await supabaseAdmin.from("flow_action_decisions").insert({
+          workspace_id: workspaceId,
+          phone: phoneStr,
+          conversation_id: conversationId ?? null,
+          action: flowResult.nextAction,
+          reason: flowResult.reason,
+          order_context_snapshot: {
+            platform: newOrderContext.platform,
+            service: newOrderContext.service,
+            quantity: newOrderContext.quantity,
+            missingFields: newOrderContext.missingFields,
+          },
+        } as any);
+
         await saveOrderContextV3(phoneStr, workspaceId, num.user_id, newOrderContext);
       } catch (orderContextError) {
         console.warn("[ORDER-CONTEXT/FLOW-ENGINE] Falha ao processar (não bloqueia o fluxo):", orderContextError);
