@@ -1,6 +1,7 @@
 // src/lib/agent-v3/integrations/llm-client.server.ts
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_COUNT_TOKENS_URL = "https://api.anthropic.com/v1/messages/count_tokens";
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_ATTEMPTS = 3;
 const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 504]);
@@ -210,4 +211,42 @@ export async function callAnthropicV3(params: {
   }
 
   throw lastError instanceof Error ? lastError : new Error("Anthropic request failed");
+}
+
+/**
+ * Conta tokens reais via endpoint gratuito da Anthropic (/v1/messages/
+ * count_tokens) — não gera resposta, não custa nada, só retorna a
+ * contagem real sob o tokenizador do modelo. Usado só pra diagnóstico
+ * (comparar estimativa por caractere com o valor real).
+ */
+export async function countAnthropicTokensV3(params: {
+  apiKey?: string;
+  system: unknown;
+  messages: unknown[];
+  model: string;
+}): Promise<number | null> {
+  const { apiKey, system, messages, model } = params;
+  const normalizedApiKey = apiKey?.trim();
+  if (!normalizedApiKey) return null;
+
+  try {
+    const response = await fetch(ANTHROPIC_COUNT_TOKENS_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "anthropic-version": "2023-06-01",
+        "x-api-key": normalizedApiKey,
+      },
+      body: JSON.stringify({ model: model.trim(), system, messages }),
+    });
+    if (!response.ok) {
+      console.warn("[COUNT-TOKENS] Resposta não-OK, ignorando (diagnóstico não é crítico):", response.status);
+      return null;
+    }
+    const data = (await response.json()) as { input_tokens?: number };
+    return typeof data.input_tokens === "number" ? data.input_tokens : null;
+  } catch (e) {
+    console.warn("[COUNT-TOKENS] Falha ao contar tokens reais (diagnóstico não é crítico):", e);
+    return null;
+  }
 }

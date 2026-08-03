@@ -700,6 +700,7 @@ export function logModuleSelectorExecution(
   modules: Record<string, LoadedModuleV3>,
   selectedModules: string[],
   selectionReasons: Record<string, string>,
+  runId?: string,
 ): void {
   const selectedSet = new Set(selectedModules);
   const lines: string[] = [];
@@ -728,6 +729,7 @@ export function logModuleSelectorExecution(
 
   lines.push("===============================");
   lines.push("[MODULE SELECTOR]");
+  if (runId) lines.push(`RUN ID: ${runId}`);
   lines.push(`Mensagem: "${message.slice(0, 80)}"`);
   lines.push("");
   lines.push("Context detectado:");

@@ -630,6 +630,12 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     flowActionHint,
   } = input;
 
+  // RUN ID — gerado no início do turno, pra correlacionar esse turno
+  // específico entre TODOS os logs de diagnóstico (Module Selector,
+  // Flow Engine, OrderContext, contagem real de tokens).
+  const runId = Math.random().toString(16).slice(2, 8);
+  console.log("[RUN-ID]", runId, "— mensagem:", message.slice(0, 80));
+
   const workspaceId = inputWorkspaceId?.trim();
   if (!workspaceId) {
     throw new Error("[agent-v3] workspaceId é obrigatório; o V3 não usa fallback entre workspaces");
@@ -696,6 +702,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
       selectableModules,
       selection.selectedModules,
       selection.selectionReasons,
+      runId,
     );
   } catch (selectorLogError) {
     console.warn("[MODULE-SELECTOR-LOG] Falha ao gerar log (não bloqueia o fluxo):", selectorLogError);
@@ -829,12 +836,6 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   };
 
   const modulePrompt = promptWithCommercial;
-
-  console.log("[MODULE-SELECTOR] Prompt de módulos:", {
-    tokensSemComercial: tokensWithout,
-    tokensComComercial: tokensWith,
-    modulosAdicionaram: tokensWith,
-  });
 
   const numericModuleVersion = (key: string): number => {
     const parsed = Number(mergedModulesMap[key]?.version);
@@ -1101,6 +1102,40 @@ ${extraContext}`
   // a possibilidade de systemPrompt e o que realmente vai pro Claude divergirem.
   if (finalModulePrompt !== modulePrompt) {
     systemPrompt[1].text = (systemPrompt[1].text as string).split(modulePrompt).join(finalModulePrompt);
+  }
+
+  // RUN ID já foi gerado no início da função — reutilizado aqui pra
+  // correlacionar com o log de tokens reais.
+
+  // Contagem REAL de tokens (não estimativa por caractere) — usa o
+  // endpoint gratuito de contagem da Anthropic. Diagnóstico apenas, não
+  // bloqueia o fluxo se falhar.
+  try {
+    const { countAnthropicTokensV3 } = await import("./integrations/llm-client.server");
+    const realKey = anthropicApiKey || (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined);
+    const [tokensAntesModulos, tokensDepoisModulos] = await Promise.all([
+      countAnthropicTokensV3({
+        apiKey: realKey,
+        system: [systemPrompt[0]],
+        messages: [{ role: "user", content: message }],
+        model,
+      }),
+      countAnthropicTokensV3({
+        apiKey: realKey,
+        system: systemPrompt,
+        messages: [{ role: "user", content: message }],
+        model,
+      }),
+    ]);
+    console.log("[TOKENS-REAIS]", runId, {
+      antesModulos: tokensAntesModulos,
+      depoisModulos: tokensDepoisModulos,
+      modulosAdicionaramReal: tokensAntesModulos != null && tokensDepoisModulos != null
+        ? tokensDepoisModulos - tokensAntesModulos
+        : "n/d",
+    });
+  } catch (tokenCountError) {
+    console.warn("[TOKENS-REAIS] Falha na contagem real (não bloqueia o fluxo):", tokenCountError);
   }
 
   const startLlm = Date.now();
