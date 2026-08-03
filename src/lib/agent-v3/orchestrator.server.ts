@@ -16,6 +16,12 @@ import type { BusinessDecisionV3 } from "./brain/business-state.server";
 import { businessDecisionToPromptV3 } from "./brain/business-state.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 
+// Flag de diagnóstico — liga/desliga a contagem real de tokens via
+// endpoint gratuito da Anthropic (2 chamadas extras de rede por turno,
+// sem custo em USD, mas com latência). Desligada por padrão. Ligar
+// temporariamente durante uma auditoria de custo, desligar depois.
+const TOKEN_AUDIT_ENABLED = false;
+
 type ParsedSpotifyPriceRule = {
   baseQuantity: number;
   basePrice: number;
@@ -593,6 +599,7 @@ export interface AgentV3TurnResult {
   };
   rawResponse?: string;
   rawPrompt?: unknown;
+  runId?: string;
 }
 
 export type AgentResponseV3 = AgentV3TurnResult;
@@ -1109,8 +1116,10 @@ ${extraContext}`
 
   // Contagem REAL de tokens (não estimativa por caractere) — usa o
   // endpoint gratuito de contagem da Anthropic. Diagnóstico apenas, não
-  // bloqueia o fluxo se falhar.
-  try {
+  // bloqueia o fluxo se falhar. Protegido por flag — desligada por
+  // padrão, pra não manter 2 chamadas extras de rede rodando pra sempre
+  // depois que a auditoria de custo for concluída.
+  if (TOKEN_AUDIT_ENABLED) try {
     const { countAnthropicTokensV3 } = await import("./integrations/llm-client.server");
     const realKey = anthropicApiKey || (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined);
     const [tokensAntesModulos, tokensDepoisModulos] = await Promise.all([
@@ -2062,6 +2071,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
     },
     rawResponse: rawText,
     rawPrompt: systemPrompt,
+    runId,
   };
 
   try {
