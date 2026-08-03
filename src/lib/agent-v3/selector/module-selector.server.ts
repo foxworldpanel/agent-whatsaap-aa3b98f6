@@ -753,8 +753,22 @@ export function logModuleSelectorExecution(
       categoryTotals[category].count += 1;
       categoryTotals[category].tokens += tokens;
 
+      // AUTHORIZED BY — formato campo=valor explícito, elimina qualquer
+      // ambiguidade sobre o que exatamente autorizou o carregamento.
+      let authorizedBy = "desconhecido";
+      if (category === "always_load") authorizedBy = "always_load=true";
+      else if (category === "selector_stage") authorizedBy = `selector_stage=${context.stage}`;
+      else if (category === "selector_platform") authorizedBy = `selector_platform=${context.platform}`;
+      else if (category === "selector_product") authorizedBy = `selector_product=${context.product}`;
+      else if (category === "selector_intent") authorizedBy = `selector_intent=${context.intent}`;
+      else if (category === "selector_trigger") {
+        const triggerMatch = reason.match(/Gatilho\s*[""]([^""]+)[""]/);
+        authorizedBy = `selector_trigger=${triggerMatch?.[1] ?? "?"}`;
+      }
+
       lines.push(`✓ ${key}`);
-      lines.push(`  Motivo: ${reason}`);
+      lines.push(`  AUTHORIZED BY: ${authorizedBy}`);
+      lines.push(`  Motivo completo: ${reason}`);
       lines.push(`  Chars: ${chars} | Tokens: ~${tokens} | Running total: ~${runningTotal}`);
 
       // Detalhe campo-por-campo pra motivos de stage/platform/product/intent —
