@@ -830,6 +830,12 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
 
   const modulePrompt = promptWithCommercial;
 
+  console.log("[MODULE-SELECTOR] Prompt de módulos:", {
+    tokensSemComercial: tokensWithout,
+    tokensComComercial: tokensWith,
+    modulosAdicionaram: tokensWith,
+  });
+
   const numericModuleVersion = (key: string): number => {
     const parsed = Number(mergedModulesMap[key]?.version);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;

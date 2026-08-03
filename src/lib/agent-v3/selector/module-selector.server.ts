@@ -703,7 +703,28 @@ export function logModuleSelectorExecution(
 ): void {
   const selectedSet = new Set(selectedModules);
   const lines: string[] = [];
-  let totalChars = 0;
+  let runningTotal = 0;
+
+  // Categorias pra resumo final — classifica cada motivo de seleção.
+  const categoryTotals: Record<string, { count: number; tokens: number }> = {
+    always_load: { count: 0, tokens: 0 },
+    selector_stage: { count: 0, tokens: 0 },
+    selector_platform: { count: 0, tokens: 0 },
+    selector_product: { count: 0, tokens: 0 },
+    selector_intent: { count: 0, tokens: 0 },
+    selector_trigger: { count: 0, tokens: 0 },
+    outro: { count: 0, tokens: 0 },
+  };
+
+  function classifyReason(reason: string): keyof typeof categoryTotals {
+    if (reason.includes("always_load") || reason.includes("estrutural")) return "always_load";
+    if (reason.includes("Estágio")) return "selector_stage";
+    if (reason.includes("Plataforma") || reason.includes("legado correspondente")) return "selector_platform";
+    if (reason.includes("Produto")) return "selector_product";
+    if (reason.includes("Intenção")) return "selector_intent";
+    if (reason.includes("Gatilho")) return "selector_trigger";
+    return "outro";
+  }
 
   lines.push("===============================");
   lines.push("[MODULE SELECTOR]");
@@ -721,27 +742,53 @@ export function logModuleSelectorExecution(
   for (const [key, module] of orderedForLog) {
     const routing = module.routing;
     const chars = (module.content || "").length;
+    const tokens = Math.round(chars / 4);
+
     if (selectedSet.has(key)) {
-      totalChars += chars;
-      lines.push(`✓ ${key} (${chars} chars, ~${Math.round(chars / 4)} tokens)`);
-      lines.push(`  Motivo: ${selectionReasons[key] ?? "desconhecido"}`);
+      runningTotal += tokens;
+      const reason = selectionReasons[key] ?? "desconhecido";
+      const category = classifyReason(reason);
+      categoryTotals[category].count += 1;
+      categoryTotals[category].tokens += tokens;
+
+      lines.push(`✓ ${key}`);
+      lines.push(`  Motivo: ${reason}`);
+      lines.push(`  Chars: ${chars} | Tokens: ~${tokens} | Running total: ~${runningTotal}`);
+
+      // Detalhe campo-por-campo pra motivos de stage/platform/product/intent —
+      // ajuda a confirmar visualmente o match exato.
+      if (category === "selector_stage") {
+        lines.push(`  Campo responsável: selector_stages | Valor esperado: contém "${context.stage}" | Valor encontrado: ${JSON.stringify(routing.stages)} | MATCH`);
+      } else if (category === "selector_platform" && context.platform) {
+        lines.push(`  Campo responsável: selector_platforms | Valor esperado: contém "${context.platform}" | Valor encontrado: ${JSON.stringify(routing.platforms)} | MATCH`);
+      } else if (category === "selector_product" && context.product) {
+        lines.push(`  Campo responsável: selector_products | Valor esperado: contém "${context.product}" | Valor encontrado: ${JSON.stringify(routing.products)} | MATCH`);
+      } else if (category === "selector_intent") {
+        lines.push(`  Campo responsável: selector_intents | Valor esperado: contém "${context.intent}" | Valor encontrado: ${JSON.stringify(routing.intents)} | MATCH`);
+      }
     } else {
-      // Reconstrói por que NÃO carregou, checando as mesmas condições.
       const motivosNegativos: string[] = [];
       if (!routing.alwaysLoad) motivosNegativos.push("always_load=false");
       if (!routing.intents.includes(context.intent)) motivosNegativos.push(`intent atual (${context.intent}) não está em selector_intents`);
       if (!routing.stages.includes(context.stage)) motivosNegativos.push(`stage atual (${context.stage}) não está em selector_stages`);
       if (!context.platform || !routing.platforms.includes(context.platform)) motivosNegativos.push(`platform (${context.platform ?? "null"}) não bate com selector_platforms`);
       if (!context.product || !routing.products.includes(context.product)) motivosNegativos.push(`product (${context.product ?? "null"}) não bate com selector_products`);
-      lines.push(`✗ ${key} — Não carregado`);
+      lines.push(`✗ ${key} — Não carregado (${chars} chars, ~${tokens} tokens que foram evitados)`);
       lines.push(`  Motivo: ${motivosNegativos.join("; ")}`);
     }
   }
 
   lines.push("");
+  lines.push("=== RESUMO POR CATEGORIA ===");
+  for (const [cat, data] of Object.entries(categoryTotals)) {
+    if (data.count > 0) {
+      lines.push(`${cat}: ${data.count} módulo(s), ~${data.tokens} tokens`);
+    }
+  }
+
+  lines.push("");
   lines.push(`Total módulos carregados: ${selectedModules.length}`);
-  lines.push(`Total chars: ${totalChars}`);
-  lines.push(`Total tokens estimados: ${Math.round(totalChars / 4)}`);
+  lines.push(`Total tokens estimados (só módulos): ~${runningTotal}`);
   lines.push("===============================");
 
   console.log(lines.join("\n"));
