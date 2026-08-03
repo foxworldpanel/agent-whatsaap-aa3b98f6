@@ -703,24 +703,51 @@ export function selectModulesV3(
     }
   }
 
-  // FILTRO NEGATIVO POR PLATAFORMA (determinístico, não depende do Flow
-  // Engine "decidir" nada — só aplica uma regra lógica: um módulo
-  // explicitamente ligado a uma plataforma (routing.platforms não vazio)
-  // nunca é relevante se a conversa ainda não identificou ESSA
-  // plataforma, não importa por qual outro motivo (intent/stage/trigger)
-  // ele tenha entrado. Módulos CORE (sem platforms definido) não são
-  // afetados. Isso teria pego o caso real Spotify Garantia entrando via
-  // intent=duvida_seguranca sem o cliente ter mencionado Spotify.
+  // FILTROS NEGATIVOS DETERMINÍSTICOS — nunca adicionam módulo, só
+  // removem quando falta uma dependência lógica óbvia (plataforma ou
+  // produto que o próprio módulo declara exigir no CMS). Não depende do
+  // Flow Engine "decidir" nada, não é IA, não é inferência — é regra
+  // matemática: se o módulo é específico de plataforma/produto e a
+  // conversa ainda não identificou isso, ele não pode ser relevante,
+  // não importa por qual outro caminho (intent/stage/trigger) tenha
+  // entrado. Módulos CORE (sem platforms/products definidos) não são
+  // afetados por nenhum dos dois filtros.
+  const negativeFilters: Array<{
+    label: string;
+    scoped: (routing: LoadedModuleV3["routing"]) => boolean;
+    matches: (routing: LoadedModuleV3["routing"]) => boolean;
+    causeValue: string;
+  }> = [
+    {
+      label: "selector_platforms",
+      scoped: (routing) => routing.platforms.length > 0,
+      matches: (routing) => Boolean(context.platform) && routing.platforms.includes(context.platform as string),
+      causeValue: `platform=${context.platform ?? "null"}`,
+    },
+    {
+      label: "selector_products",
+      scoped: (routing) => routing.products.length > 0,
+      matches: (routing) => Boolean(context.product) && routing.products.includes(context.product as string),
+      causeValue: `product=${context.product ?? "null"}`,
+    },
+  ];
+
   for (const key of Array.from(selected)) {
     const routing = modules[key]?.routing;
     if (!routing) continue;
-    const isPlatformScoped = routing.platforms.length > 0;
-    if (!isPlatformScoped) continue;
-    const platformMatches = context.platform && routing.platforms.includes(context.platform);
-    if (!platformMatches) {
+    for (const filter of negativeFilters) {
+      if (!filter.scoped(routing)) continue;
+      if (filter.matches(routing)) continue;
       selected.delete(key);
       delete reasons[key];
-      console.log(`[MODULE-SELECTOR-FILTER] Módulo "${key}" removido: é específico de plataforma (${JSON.stringify(routing.platforms)}) mas context.platform=${context.platform ?? "null"} não bate.`);
+      const authorizedByValue = filter.label === "selector_platforms" ? routing.platforms : routing.products;
+      console.log("[MODULE FILTER]", {
+        modulo: key,
+        AUTHORIZED_BY: `${filter.label}=${JSON.stringify(authorizedByValue)}`,
+        STATUS: "REMOVED",
+        CAUSE: filter.causeValue,
+      });
+      break; // já removido, não precisa checar os outros filtros pra esse módulo
     }
   }
 
