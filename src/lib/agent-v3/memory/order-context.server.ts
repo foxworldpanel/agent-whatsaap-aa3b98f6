@@ -341,7 +341,7 @@ export async function saveOrderContextV3(
 ): Promise<void> {
   try {
     const normalizedPhone = normalizePhoneV3(phone);
-    const { error } = await supabaseAdmin.from("conversations_v3").upsert(
+    const { error } = await (supabaseAdmin.from("conversations_v3") as any).upsert(
       {
         workspace_id: workspaceId,
         user_id: userId,
