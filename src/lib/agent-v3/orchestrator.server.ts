@@ -835,34 +835,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     {
       type: "text",
       text: `
-HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
-
 ${MIND_OPERATIONAL_TRUTH_V3}
-
-RESPOSTA AO CLIENTE:
-- Gere somente a mensagem que será enviada ao cliente.
-- Não escreva metadados, análise interna, score, intenção, temperatura, justificativa ou marcadores entre colchetes.
-- Não repita informações já explicadas no histórico, salvo quando forem indispensáveis para responder ao último pedido.
-- Prefira 1 ou 2 frases curtas. Respostas comuns devem parecer uma conversa real de WhatsApp, não um texto de atendimento automático.
-- Se a resposta puder ser dada em até 25 palavras, pare ali. Só faça explicação longa quando a dúvida realmente exigir.
-
-PLATAFORMAS DISPONÍVEIS NO CMS:
-${availableCommercialPlatforms.length > 0 ? availableCommercialPlatforms.join(", ") : "nenhuma identificada"}
-- Esta lista serve SOMENTE para confirmar se a Mind trabalha ou não com uma plataforma.
-- Nunca diga que uma plataforma acima não é oferecida. Para serviços e preços, continue usando apenas os módulos carregados abaixo.
-
-ESTADO DA CONVERSA:
-${modulePrompt}
-
-
-${
-  flowActionHint
-    ? "" // Quando existe FlowAction ativa, BusinessDecision não entra no prompt — vira só telemetria, evita competir com a instrução da FlowAction.
-    : extraContext
-      ? `FATO TÉCNICO:
-${extraContext}`
-      : ""
-}
 
 ## P0 — SEGURANÇA E ANTI-INVENÇÃO (nunca flexibilizar)
 
@@ -888,15 +861,6 @@ ALERTA DE BANCO / TRANSAÇÃO DE RISCO:
 - Se o banco do cliente mostrar alerta de risco: não diga que é comum, não invente a causa, não diagnostique o banco. Reconheça a preocupação em 1 frase e dê só a orientação operacional conhecida.
 
 FORMATAÇÃO: texto simples, sem Markdown/asteriscos/títulos com #/negrito. Gere somente a mensagem que será enviada ao cliente — nunca escreva metadados, análise interna, score, intenção, temperatura, justificativa ou marcadores entre colchetes.
-
-${
-  flowActionHint
-    ? `## AÇÃO OBRIGATÓRIA — DECIDIDA PELO SISTEMA (prioridade máxima, sobrepõe qualquer regra de fluxo abaixo)
-${JSON.stringify({ version: flowActionHint.version, flowAction: flowActionHint.action, reasonCode: flowActionHint.reasonCode, payload: flowActionHint.payload }, null, 2)}
-
-Isso substitui QUALQUER instrução de "descobrir próximo passo", "fluxo progressivo" ou "qualificação" que apareça mais abaixo neste prompt (seção P1) — ignore essas regras de decisão nesta mensagem específica. O Flow Engine já decidiu determinísticamente. Sua única tarefa é transformar "flowAction" em uma mensagem natural e curta, no tom da Júlia, seguindo as regras de ESTILO (P2). Use "payload" pra não perguntar de novo o que já está preenchido. Nunca escolha uma ação diferente de "flowAction", mesmo que pareça fazer mais sentido — o sistema já decidiu com base em dados que você não vê diretamente.`
-    : ""
-}
 
 ## P1 — FLUXO COMERCIAL E CONTINUIDADE (a espinha dorsal da venda)
 
@@ -997,6 +961,31 @@ ${isImageInput ? `MODO VISÃO:
 ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.` : ""}`,
       cache_control: { type: "ephemeral" }
     },
+    {
+      type: "text",
+      text: `
+HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
+
+PLATAFORMAS DISPONÍVEIS NO CMS:
+${availableCommercialPlatforms.length > 0 ? availableCommercialPlatforms.join(", ") : "nenhuma identificada"}
+- Esta lista serve SOMENTE para confirmar se a Mind trabalha ou não com uma plataforma.
+- Nunca diga que uma plataforma acima não é oferecida. Para serviços e preços, continue usando apenas os módulos carregados abaixo.
+
+ESTADO DA CONVERSA:
+${modulePrompt}
+
+${
+  flowActionHint
+    ? `## AÇÃO OBRIGATÓRIA — DECIDIDA PELO SISTEMA (prioridade máxima, sobrepõe qualquer regra de fluxo do bloco anterior)
+${JSON.stringify({ version: flowActionHint.version, flowAction: flowActionHint.action, reasonCode: flowActionHint.reasonCode, payload: flowActionHint.payload }, null, 2)}
+
+Isso substitui QUALQUER instrução de "descobrir próximo passo", "fluxo progressivo" ou "qualificação" do bloco de regras — ignore essas regras de decisão nesta mensagem específica. O Flow Engine já decidiu determinísticamente. Sua única tarefa é transformar "flowAction" em uma mensagem natural e curta, no tom da Júlia, seguindo as regras de ESTILO. Use "payload" pra não perguntar de novo o que já está preenchido. Nunca escolha uma ação diferente de "flowAction", mesmo que pareça fazer mais sentido — o sistema já decidiu com base em dados que você não vê diretamente.`
+    : extraContext
+      ? `FATO TÉCNICO:
+${extraContext}`
+      : ""
+}`,
+    },
   ];
 
   // Não substitua a resposta do LLM por uma mensagem comercial fixa quando houver repetição.
@@ -1091,7 +1080,7 @@ ${isStickerInput ? `FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignor
   // systemPrompt (nunca reconstrói um segundo array em paralelo). Isso elimina
   // a possibilidade de systemPrompt e o que realmente vai pro Claude divergirem.
   if (finalModulePrompt !== modulePrompt) {
-    systemPrompt[0].text = (systemPrompt[0].text as string).split(modulePrompt).join(finalModulePrompt);
+    systemPrompt[1].text = (systemPrompt[1].text as string).split(modulePrompt).join(finalModulePrompt);
   }
 
   const startLlm = Date.now();
