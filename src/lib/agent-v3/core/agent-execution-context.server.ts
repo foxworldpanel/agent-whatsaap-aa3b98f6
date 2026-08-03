@@ -21,7 +21,7 @@ import {
   reconcileBusinessDecisionV3,
   businessDecisionToPromptV3,
   type BusinessDecisionV3,
-} from "./brain/business-state.server";
+} from "../brain/business-state.server";
 
 export type ChatMessageLike = { role: "agent" | "customer"; content: string };
 
