@@ -27,6 +27,7 @@ import { Route as AuthenticatedAdminAgentPlaygroundRouteImport } from './routes/
 import { Route as ApiPublicHooksV3TestWebhookRouteImport } from './routes/api/public/hooks/v3-test-webhook'
 import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
 import { Route as ApiPublicHooksSmmPollRouteImport } from './routes/api/public/hooks/smm-poll'
+import { Route as ApiPublicHooksDebugSendTextRouteImport } from './routes/api/public/hooks/debug-send-text'
 import { Route as ApiPublicHooksCampaignDispatcherRouteImport } from './routes/api/public/hooks/campaign-dispatcher'
 import { Route as ApiPublicHooksBlastDispatcherRouteImport } from './routes/api/public/hooks/blast-dispatcher'
 import { Route as ApiPublicHooksAutoCampaignDispatcherRouteImport } from './routes/api/public/hooks/auto-campaign-dispatcher'
@@ -125,6 +126,12 @@ const ApiPublicHooksSmmPollRoute = ApiPublicHooksSmmPollRouteImport.update({
   path: '/api/public/hooks/smm-poll',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksDebugSendTextRoute =
+  ApiPublicHooksDebugSendTextRouteImport.update({
+    id: '/api/public/hooks/debug-send-text',
+    path: '/api/public/hooks/debug-send-text',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksCampaignDispatcherRoute =
   ApiPublicHooksCampaignDispatcherRouteImport.update({
     id: '/api/public/hooks/campaign-dispatcher',
@@ -162,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
+  '/api/public/hooks/debug-send-text': typeof ApiPublicHooksDebugSendTextRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
   '/api/public/hooks/v3-test-webhook': typeof ApiPublicHooksV3TestWebhookRoute
@@ -184,6 +192,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
+  '/api/public/hooks/debug-send-text': typeof ApiPublicHooksDebugSendTextRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
   '/api/public/hooks/v3-test-webhook': typeof ApiPublicHooksV3TestWebhookRoute
@@ -208,6 +217,7 @@ export interface FileRoutesById {
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
+  '/api/public/hooks/debug-send-text': typeof ApiPublicHooksDebugSendTextRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
   '/api/public/hooks/v3-test-webhook': typeof ApiPublicHooksV3TestWebhookRoute
@@ -232,6 +242,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
+    | '/api/public/hooks/debug-send-text'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
     | '/api/public/hooks/v3-test-webhook'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
+    | '/api/public/hooks/debug-send-text'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
     | '/api/public/hooks/v3-test-webhook'
@@ -277,6 +289,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
+    | '/api/public/hooks/debug-send-text'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
     | '/api/public/hooks/v3-test-webhook'
@@ -289,6 +302,7 @@ export interface RootRouteChildren {
   ApiPublicHooksAutoCampaignDispatcherRoute: typeof ApiPublicHooksAutoCampaignDispatcherRoute
   ApiPublicHooksBlastDispatcherRoute: typeof ApiPublicHooksBlastDispatcherRoute
   ApiPublicHooksCampaignDispatcherRoute: typeof ApiPublicHooksCampaignDispatcherRoute
+  ApiPublicHooksDebugSendTextRoute: typeof ApiPublicHooksDebugSendTextRoute
   ApiPublicHooksSmmPollRoute: typeof ApiPublicHooksSmmPollRoute
   ApiPublicHooksUazapiWebhookRoute: typeof ApiPublicHooksUazapiWebhookRoute
   ApiPublicHooksV3TestWebhookRoute: typeof ApiPublicHooksV3TestWebhookRoute
@@ -422,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSmmPollRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/debug-send-text': {
+      id: '/api/public/hooks/debug-send-text'
+      path: '/api/public/hooks/debug-send-text'
+      fullPath: '/api/public/hooks/debug-send-text'
+      preLoaderRoute: typeof ApiPublicHooksDebugSendTextRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/campaign-dispatcher': {
       id: '/api/public/hooks/campaign-dispatcher'
       path: '/api/public/hooks/campaign-dispatcher'
@@ -488,6 +509,7 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicHooksAutoCampaignDispatcherRoute,
   ApiPublicHooksBlastDispatcherRoute: ApiPublicHooksBlastDispatcherRoute,
   ApiPublicHooksCampaignDispatcherRoute: ApiPublicHooksCampaignDispatcherRoute,
+  ApiPublicHooksDebugSendTextRoute: ApiPublicHooksDebugSendTextRoute,
   ApiPublicHooksSmmPollRoute: ApiPublicHooksSmmPollRoute,
   ApiPublicHooksUazapiWebhookRoute: ApiPublicHooksUazapiWebhookRoute,
   ApiPublicHooksV3TestWebhookRoute: ApiPublicHooksV3TestWebhookRoute,
@@ -495,3 +517,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
