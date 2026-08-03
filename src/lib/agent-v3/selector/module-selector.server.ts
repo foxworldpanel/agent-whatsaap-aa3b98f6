@@ -66,7 +66,7 @@ export const KEYWORD_MAP: Record<string, string[]> = {
   // o que misturava módulos quando o cliente falava de várias redes.
   spotify: ["spotify", "spotfy", "sportify", "espotify", "espotfy"],
   instagram: ["instagram", "insta", "ig", "reels", "story", "stories"],
-  youtube: ["youtube", "you tube", "yt", "inscritos", "horas", "canal"],
+  youtube: ["youtube", "you tube", "yt", "inscritos", "canal"],
   tiktok: ["tiktok", "tik tok"],
   kwai: ["kwai"],
   facebook: ["facebook", "face"],
@@ -83,7 +83,6 @@ export const KEYWORD_MAP: Record<string, string[]> = {
   tabela_precos: [
     "tabela",
     "precos",
-    "lista",
     "valores",
     "qual o valor",
     "quanto custa",
@@ -95,13 +94,11 @@ export const KEYWORD_MAP: Record<string, string[]> = {
   suporte: [
     "suporte",
     "ticket",
-    "problema",
     "erro",
     "meu pedido",
     "status do pedido",
     "pedido em andamento",
     "pedido pendente",
-    "status",
     "nao chegou",
     "atraso",
     "recarga nao caiu",
@@ -111,13 +108,8 @@ export const KEYWORD_MAP: Record<string, string[]> = {
   ],
 
   seguranca: [
-    "teste",
-    "gratis",
-    "amostra",
     "confiavel",
     "golpe",
-    "funciona",
-    "testar",
     "seguro",
     "senha",
     "banimento",
@@ -134,10 +126,8 @@ export const KEYWORD_MAP: Record<string, string[]> = {
   ],
   prova_social: [
     "confianca",
-    "seguro",
     "alguem ja comprou",
     "funciona mesmo",
-    "prova",
     "print",
     "depoimento",
   ],
