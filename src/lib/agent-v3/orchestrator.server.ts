@@ -698,7 +698,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   const selectableModules = Object.fromEntries(
     enabledKeys.map((key) => [key, mergedModulesMap[key]]).filter(([, module]) => Boolean(module)),
   );
-  const selection = selectModulesV3(message, history, selectableModules, rememberedContext);
+  const selection = selectModulesV3(message, history, selectableModules, rememberedContext, runId);
 
   // Log de diagnóstico — módulo por módulo, com motivo exato de cada
   // carregamento (ou rejeição). Não altera nenhum comportamento.

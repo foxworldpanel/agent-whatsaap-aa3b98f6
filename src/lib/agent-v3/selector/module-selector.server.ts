@@ -528,6 +528,7 @@ export function selectModulesV3(
   history: ConversationMessageV3[],
   modules: Record<string, LoadedModuleV3>,
   remembered?: Partial<Pick<ConversationContext, "platform" | "product">>,
+  runId?: string,
 ): SelectionResultV3 {
   const context = detectConversationContext(text, history, remembered);
   const normalizedText = normalizeText(text);
@@ -775,6 +776,7 @@ export function selectModulesV3(
   if (candidatosAntes > 0) {
     console.log("===================================");
     console.log("MODULE FILTER SUMMARY");
+    if (runId) console.log(`RUN ID: ${runId}`);
     console.log(`Candidates: ${candidatosAntes}`);
     for (const [label, count] of Object.entries(filterSummary)) {
       console.log(`Removed by ${label}: ${count}`);
