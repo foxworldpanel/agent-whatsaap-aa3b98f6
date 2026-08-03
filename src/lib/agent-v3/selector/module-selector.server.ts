@@ -85,7 +85,6 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "precos",
     "lista",
     "valores",
-    "quanto e",
     "qual o valor",
     "quanto custa",
     "valor",
@@ -96,7 +95,6 @@ export const KEYWORD_MAP: Record<string, string[]> = {
   suporte: [
     "suporte",
     "ticket",
-    "ajuda",
     "problema",
     "erro",
     "meu pedido",
@@ -129,11 +127,9 @@ export const KEYWORD_MAP: Record<string, string[]> = {
   como_usar_painel: [
     "como usar",
     "cadastro",
-    "entrar",
     "site",
     "link",
     "painel",
-    "conta",
     "cadastrar",
   ],
   prova_social: [
@@ -352,9 +348,52 @@ export function detectConversationContext(
     currentHasPurchaseSignal ||
     containsAny(accumulatedCustomerText, KEYWORD_MAP.fechamento) ||
     containsAny(accumulatedCustomerText, ["comprar", "quero", "preciso de"]);
-  const hasSecuritySignal =
-    containsAny(normalizedText, KEYWORD_MAP.seguranca) ||
-    containsAny(normalizedText, ["vai cair", "pode cair", "tem risco"]);
+  // Sistema de pontuação pra sinal de segurança — substitui o "OR" binário
+  // anterior, onde uma única palavra genérica (ex: "funciona") disparava
+  // o mesmo peso que uma palavra realmente específica (ex: "golpe").
+  // Palavras de peso alto disparam sozinhas; palavras de peso baixo
+  // precisam se combinar (ou aparecer mais de uma vez) pra cruzar o limiar.
+  const SECURITY_KEYWORD_WEIGHTS: Record<string, number> = {
+    golpe: 10,
+    fraude: 10,
+    banimento: 10,
+    senha: 6,
+    risco: 3,
+    confiavel: 2,
+    seguro: 2,
+    funciona: 1,
+    testar: 1,
+    teste: 1,
+    gratis: 1,
+    amostra: 1,
+  };
+  const SECURITY_SIGNAL_THRESHOLD = 5;
+  const securityScore =
+    Object.entries(SECURITY_KEYWORD_WEIGHTS).reduce(
+      (sum, [word, weight]) => sum + (containsAny(normalizedText, [word]) ? weight : 0),
+      0,
+    ) + (containsAny(normalizedText, ["vai cair", "pode cair", "tem risco"]) ? 6 : 0);
+  const hasSecuritySignal = securityScore >= SECURITY_SIGNAL_THRESHOLD;
+
+  // Log de auditoria do score — mostra exatamente quais palavras
+  // contribuíram e quanto, pra facilitar revisão futura sem precisar
+  // reconstruir a conta manualmente.
+  if (securityScore > 0) {
+    const contribuicoes = Object.entries(SECURITY_KEYWORD_WEIGHTS)
+      .filter(([word]) => containsAny(normalizedText, [word]))
+      .map(([word, weight]) => `${word}=${weight}`);
+    if (containsAny(normalizedText, ["vai cair", "pode cair", "tem risco"])) {
+      contribuicoes.push("vai/pode cair ou tem risco=6");
+    }
+    console.log("[SECURITY-SCORE]", {
+      mensagem: text.slice(0, 80),
+      contribuicoes,
+      total: securityScore,
+      limiar: SECURITY_SIGNAL_THRESHOLD,
+      authorized: hasSecuritySignal ? "YES" : "NO",
+    });
+  }
+
   const hasGrowthGoal = containsAny(normalizedText, [
     "engajar", "engajamento", "divulgar minha musica", "divulgar a musica",
     "crescer minha musica", "mais alcance", "dar visibilidade", "promover minha musica"
@@ -485,6 +524,7 @@ export function selectModulesV3(
   history: ConversationMessageV3[],
   modules: Record<string, LoadedModuleV3>,
   remembered?: Partial<Pick<ConversationContext, "platform" | "product">>,
+  runId?: string,
 ): SelectionResultV3 {
   const context = detectConversationContext(text, history, remembered);
   const normalizedText = normalizeText(text);
@@ -660,6 +700,89 @@ export function selectModulesV3(
     }
   }
 
+  // FILTROS NEGATIVOS DETERMINÍSTICOS — nunca adicionam módulo, só
+  // removem quando falta uma dependência lógica óbvia (plataforma ou
+  // produto que o próprio módulo declara exigir no CMS). Não depende do
+  // Flow Engine "decidir" nada, não é IA, não é inferência — é regra
+  // matemática: se o módulo é específico de plataforma/produto e a
+  // conversa ainda não identificou isso, ele não pode ser relevante,
+  // não importa por qual outro caminho (intent/stage/trigger) tenha
+  // entrado. Módulos CORE (sem platforms/products definidos) não são
+  // afetados por nenhum dos dois filtros.
+  const negativeFilters: Array<{
+    label: string;
+    scoped: (routing: LoadedModuleV3["routing"]) => boolean;
+    matches: (routing: LoadedModuleV3["routing"]) => boolean;
+    causeValue: string;
+    authorizedByValue: (routing: LoadedModuleV3["routing"]) => unknown;
+  }> = [
+    {
+      label: "selector_platforms",
+      scoped: (routing) => routing.platforms.length > 0,
+      matches: (routing) => Boolean(context.platform) && routing.platforms.includes(context.platform as string),
+      causeValue: `platform=${context.platform ?? "null"}`,
+      authorizedByValue: (routing) => routing.platforms,
+    },
+    {
+      label: "selector_products",
+      scoped: (routing) => routing.products.length > 0,
+      matches: (routing) => Boolean(context.product) && routing.products.includes(context.product as string),
+      causeValue: `product=${context.product ?? "null"}`,
+      authorizedByValue: (routing) => routing.products,
+    },
+    {
+      // Rede de segurança: um módulo explicitamente restrito a um stage
+      // específico (ex: só "fechamento") não deveria sobreviver se a
+      // conversa está noutro stage, mesmo que tenha entrado por outro
+      // caminho (trigger/intent). Só afeta módulos que DECLARAM stage —
+      // "qualificacao" sozinho não conta como restrição forte o
+      // suficiente pra remover nada (é o estágio mais genérico).
+      label: "selector_stages",
+      scoped: (routing) => routing.stages.length > 0 && !routing.stages.includes("qualificacao"),
+      matches: (routing) => routing.stages.includes(context.stage),
+      causeValue: `stage=${context.stage}`,
+      authorizedByValue: (routing) => routing.stages,
+    },
+  ];
+
+  const filterSummary: Record<string, number> = {};
+  let tokensEconomizados = 0;
+  const candidatosAntes = selected.size;
+
+  for (const key of Array.from(selected)) {
+    const routing = modules[key]?.routing;
+    if (!routing) continue;
+    for (const filter of negativeFilters) {
+      if (!filter.scoped(routing)) continue;
+      if (filter.matches(routing)) continue;
+      selected.delete(key);
+      delete reasons[key];
+      filterSummary[filter.label] = (filterSummary[filter.label] ?? 0) + 1;
+      tokensEconomizados += Math.round((modules[key]?.content?.length ?? 0) / 4);
+      console.log("[MODULE FILTER]", {
+        modulo: key,
+        AUTHORIZED_BY: `${filter.label}=${JSON.stringify(filter.authorizedByValue(routing))}`,
+        STATUS: "REMOVED",
+        CAUSE: filter.causeValue,
+      });
+      break; // já removido, não precisa checar os outros filtros pra esse módulo
+    }
+  }
+
+  if (candidatosAntes > 0) {
+    console.log("===================================");
+    console.log("MODULE FILTER SUMMARY");
+    if (runId) console.log(`RUN ID: ${runId}`);
+    console.log(`Candidates: ${candidatosAntes}`);
+    for (const [label, count] of Object.entries(filterSummary)) {
+      console.log(`Removed by ${label}: ${count}`);
+    }
+    console.log(`Remaining: ${selected.size}`);
+    console.log(`Estimated Tokens Saved: ${tokensEconomizados}`);
+    console.log("===================================");
+  }
+
+
   // Um conflito pode remover uma dependência obrigatória. Nesse caso, manter o
   // módulo dependente produziria um prompt incompleto e potencialmente contraditório.
   // Remove dependentes inválidos de forma transitiva até a seleção estabilizar.
@@ -687,4 +810,125 @@ export function selectModulesV3(
     selectedModules: Array.from(selected),
     selectionReasons: Object.fromEntries(Array.from(selected).map((key) => [key, reasons[key]])),
   };
+}
+
+/**
+ * Log de diagnóstico da execução real do Module Selector — mostra,
+ * módulo por módulo, se foi carregado e por quê (ou por que não).
+ * Não altera nenhum comportamento, só imprime evidência.
+ */
+export function logModuleSelectorExecution(
+  message: string,
+  context: ConversationContext,
+  modules: Record<string, LoadedModuleV3>,
+  selectedModules: string[],
+  selectionReasons: Record<string, string>,
+  runId?: string,
+): void {
+  const selectedSet = new Set(selectedModules);
+  const lines: string[] = [];
+  let runningTotal = 0;
+
+  // Categorias pra resumo final — classifica cada motivo de seleção.
+  const categoryTotals: Record<string, { count: number; tokens: number }> = {
+    always_load: { count: 0, tokens: 0 },
+    selector_stage: { count: 0, tokens: 0 },
+    selector_platform: { count: 0, tokens: 0 },
+    selector_product: { count: 0, tokens: 0 },
+    selector_intent: { count: 0, tokens: 0 },
+    selector_trigger: { count: 0, tokens: 0 },
+    outro: { count: 0, tokens: 0 },
+  };
+
+  function classifyReason(reason: string): keyof typeof categoryTotals {
+    if (reason.includes("always_load") || reason.includes("estrutural")) return "always_load";
+    if (reason.includes("Estágio")) return "selector_stage";
+    if (reason.includes("Plataforma") || reason.includes("legado correspondente")) return "selector_platform";
+    if (reason.includes("Produto")) return "selector_product";
+    if (reason.includes("Intenção")) return "selector_intent";
+    if (reason.includes("Gatilho")) return "selector_trigger";
+    return "outro";
+  }
+
+  lines.push("===============================");
+  lines.push("[MODULE SELECTOR]");
+  if (runId) lines.push(`RUN ID: ${runId}`);
+  lines.push(`Mensagem: "${message.slice(0, 80)}"`);
+  lines.push("");
+  lines.push("Context detectado:");
+  lines.push(`stage=${context.stage} intent=${context.intent} platform=${context.platform ?? "null"} product=${context.product ?? "null"}`);
+  lines.push("");
+  lines.push("Módulos avaliados:");
+
+  const orderedForLog = Object.entries(modules).sort(
+    ([, a], [, b]) => b.routing.priority - a.routing.priority,
+  );
+
+  for (const [key, module] of orderedForLog) {
+    const routing = module.routing;
+    const chars = (module.content || "").length;
+    const tokens = Math.round(chars / 4);
+
+    if (selectedSet.has(key)) {
+      runningTotal += tokens;
+      const reason = selectionReasons[key] ?? "desconhecido";
+      const category = classifyReason(reason);
+      categoryTotals[category].count += 1;
+      categoryTotals[category].tokens += tokens;
+
+      // AUTHORIZED BY — formato campo=valor explícito, elimina qualquer
+      // ambiguidade sobre o que exatamente autorizou o carregamento.
+      let authorizedBy = "desconhecido";
+      if (category === "always_load") authorizedBy = "always_load=true";
+      else if (category === "selector_stage") authorizedBy = `selector_stage=${context.stage}`;
+      else if (category === "selector_platform") authorizedBy = `selector_platform=${context.platform}`;
+      else if (category === "selector_product") authorizedBy = `selector_product=${context.product}`;
+      else if (category === "selector_intent") authorizedBy = `selector_intent=${context.intent}`;
+      else if (category === "selector_trigger") {
+        const triggerMatch = reason.match(/Gatilho\s*[""]([^""]+)[""]/);
+        authorizedBy = `selector_trigger=${triggerMatch?.[1] ?? "?"}`;
+      }
+
+      lines.push(`✓ ${key}`);
+      lines.push(`  AUTHORIZED BY: ${authorizedBy}`);
+      lines.push(`  Motivo completo: ${reason}`);
+      lines.push(`  Chars: ${chars} | Tokens: ~${tokens} | Running total: ~${runningTotal}`);
+
+      // Detalhe campo-por-campo pra motivos de stage/platform/product/intent —
+      // ajuda a confirmar visualmente o match exato.
+      if (category === "selector_stage") {
+        lines.push(`  Campo responsável: selector_stages | Valor esperado: contém "${context.stage}" | Valor encontrado: ${JSON.stringify(routing.stages)} | MATCH`);
+      } else if (category === "selector_platform" && context.platform) {
+        lines.push(`  Campo responsável: selector_platforms | Valor esperado: contém "${context.platform}" | Valor encontrado: ${JSON.stringify(routing.platforms)} | MATCH`);
+      } else if (category === "selector_product" && context.product) {
+        lines.push(`  Campo responsável: selector_products | Valor esperado: contém "${context.product}" | Valor encontrado: ${JSON.stringify(routing.products)} | MATCH`);
+      } else if (category === "selector_intent") {
+        lines.push(`  Campo responsável: selector_intents | Valor esperado: contém "${context.intent}" | Valor encontrado: ${JSON.stringify(routing.intents)} | MATCH`);
+      }
+    } else {
+      const motivosNegativos: string[] = [];
+      if (!routing.alwaysLoad) motivosNegativos.push("always_load=false");
+      if (!routing.intents.includes(context.intent)) motivosNegativos.push(`intent atual (${context.intent}) não está em selector_intents`);
+      if (!routing.stages.includes(context.stage)) motivosNegativos.push(`stage atual (${context.stage}) não está em selector_stages`);
+      if (!context.platform || !routing.platforms.includes(context.platform)) motivosNegativos.push(`platform (${context.platform ?? "null"}) não bate com selector_platforms`);
+      if (!context.product || !routing.products.includes(context.product)) motivosNegativos.push(`product (${context.product ?? "null"}) não bate com selector_products`);
+      lines.push(`✗ ${key} — Não carregado (${chars} chars, ~${tokens} tokens que foram evitados)`);
+      lines.push(`  Motivo: ${motivosNegativos.join("; ")}`);
+    }
+  }
+
+  lines.push("");
+  lines.push("=== RESUMO POR CATEGORIA ===");
+  for (const [cat, data] of Object.entries(categoryTotals)) {
+    if (data.count > 0) {
+      lines.push(`${cat}: ${data.count} módulo(s), ~${data.tokens} tokens`);
+    }
+  }
+
+  lines.push("");
+  lines.push(`Total módulos carregados: ${selectedModules.length}`);
+  lines.push(`Total tokens estimados (só módulos): ~${runningTotal}`);
+  lines.push("===============================");
+
+  console.log(lines.join("\n"));
 }
