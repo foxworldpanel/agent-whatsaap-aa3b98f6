@@ -14,41 +14,106 @@ Todo o conteúdo deste documento vem de leitura direta do código real (`module-
 
 ## 2. Ordem real de execução (extraída do código, não assumida)
 
-```
 Mensagem + Histórico
-      ↓
+↓
 detectConversationContext()
-  → produz: intent, stage, platform, product
-      ↓
+→ produz: intent, stage, platform, product
+↓
 selectModulesV3()
-      ↓
+↓
 Para cada módulo, ordenado por priority (maior primeiro):
-  1. CORE / always_load (sempre entra, "required")
-  2. selector_intents (bate com intent detectado)
-  3. selector_stages (bate com stage detectado)
-  4. selector_platforms (só se o módulo NÃO tiver
-     intent/stage/product/trigger definidos — ver nota "roteamento fino")
-  5. Módulo legado (key === platform) → entra como "required"
-  6. selector_products (bate com product detectado)
-  7. selector_triggers (bate com palavra-chave na mensagem atual)
-      ↓
+
+CORE / always_load (sempre entra, "required")
+
+selector_intents (bate com intent detectado)
+
+selector_stages (bate com stage detectado)
+
+selector_platforms (só se o módulo NÃO tiver
+intent/stage/product/trigger definidos — ver nota "roteamento fino")
+
+Módulo legado (key === platform) → entra como "required"
+
+selector_products (bate com product detectado)
+
+selector_triggers (bate com palavra-chave na mensagem atual)
+↓
 Bloco especial: Instagram + seguidores (ver seção 8)
-      ↓
+↓
 Resolução de autoridade comercial (Spotify: submódulo específico
 remove módulos genéricos concorrentes)
-      ↓
+↓
 Resolução de dependências (routing.dependencies, transitiva)
-      ↓
+↓
 Resolução de conflitos (routing.conflicts, prioridade decide)
-      ↓
+↓
 FILTROS NEGATIVOS (platform, product, stage — ver seção 11)
-      ↓
+↓
 Lista final de módulos selecionados
-      ↓
+↓
 Prompt Builder monta o texto final
-```
 
-**Nota "roteamento fino" (linha ~555-568 do código):** um módulo só é carregado *apenas* por `selector_platforms` quando ele **não tem** nenhum `intent`, `stage`, `product` ou `trigger` configurado (`hasFineGrainedRouting = false`). Se o módulo tiver qualquer um desses campos preenchidos, o match de plataforma sozinho **não é suficiente** — precisa também bater intent/stage/product/trigger. Isso existe pra evitar carregar toda a família `spotify_*` só porque a mensagem menciona "Spotify".
+
+**Nota "roteamento fino" (linha ~555-568 do código):** um módulo só é carregado *apenas* por `selector_platforms` quando ele **não tem** nenhum `intent`, `stage`, `product` or `trigger` configurado (`hasFineGrainedRouting = false`). Se o módulo tiver qualquer um desses campos preenchidos, o match de plataforma sozinho **não é suficiente** — precisa também bater intent/stage/product/trigger. Isso existe pra evitar carregar toda a família `spotify_*` só porque a mensagem menciona "Spotify".
+
+## Fluxograma completo
+
+Mensagem + Histórico
+│
+▼
+Context Detection
+(detectConversationContext)
+│
+┌────┼────┬────────┐
+▼ ▼ ▼ ▼
+Platform Product Intent Stage
+│ │ │ │
+└────┴────┴────┬───┘
+▼
+Loop por módulo (ordenado por priority)
+│
+┌──────────┼──────────────┬──────────────┬──────────────┐
+▼ ▼ ▼ ▼ ▼
+CORE/always Intent match Stage match Platform match Legacy key
+(required) (só se sem match
+roteamento fino) (required)
+│ │ │ │
+└──────────────┴──────┬───────┴──────────────┘
+▼
+Product match
+│
+▼
+Trigger match
+│
+▼
+Bloco especial Instagram+seguidores
+(varre content, não usa selector)
+│
+▼
+Autoridade comercial (Spotify:
+submódulo remove módulo genérico)
+│
+▼
+Dependencies (routing.dependencies,
+resolução transitiva)
+│
+▼
+Conflict Resolution (routing.conflicts,
+prioridade decide)
+│
+▼
+Module Filters (negativos:
+platform/product/stage mismatch → remove)
+│
+▼
+Lista final de módulos selecionados
+│
+▼
+Prompt Builder
+│
+▼
+LLM (Claude)
+
 
 ## 3-7. Como cada campo funciona (evidência linha a linha)
 
