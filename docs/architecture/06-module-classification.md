@@ -1,42 +1,80 @@
-# Classificação Oficial dos Módulos — CMS V3
+# Classificação Oficial dos Módulos — CMS V3 (Definitiva — v3)
 
-## Status desta classificação
-**Parcial.** Cobre apenas os módulos com dados confirmados pela auditoria SQL (Query 1, rodada nesta mesma investigação). Módulos mencionados em outras partes do sistema mas nunca confirmados por query real (`payment`, `youtube_links`, `Comportamento Humano`, `Psicologia de Vendas`, `Objeções de Vendas`, `Fechamento`, `Qualificação`, entre outros vistos no painel do Playground) **não foram classificados** — ver seção "Módulos pendentes" no final.
+## Status desta versão
+Baseada na extração única e consolidada de 29 módulos (a instabilidade das extrações anteriores foi explicada pelo Lovable: edições reais no banco durante a própria auditoria — `soundcloud`/`threads`/`twitter` foram renomeados/consolidados em `x`, e 3 módulos novos de funil foram criados). **Esta é a versão que substitui todas as anteriores.**
 
-## Inventário classificado
+Mesmo nesta extração fresca, **14 dos 29 módulos continuam com `platforms`/`intents`/`triggers` vazios** — a classificação desses continua sendo por nome, não por dado confirmado. Isso não é mais instabilidade, é uma característica real desses módulos hoje.
 
-| Module (key) | Domain | Platform | Knowledge Type | Confiança |
-|---|---|---|---|---|
-| `identidade` | CORE | null | base | ✅ Alta |
-| `regras_gerais` | CORE | null | base | ✅ Alta |
-| `fluxo_vendas` | SALES | null | flow | ✅ Alta (resolvido — `flow` adicionado à taxonomia) |
-| `seguranca_pix` | GLOBAL | null | policy | ✅ Alta |
-| `spotify_precos` | PLATFORMS | spotify | pricing | ✅ Alta |
-| `spotify_garantia` | PLATFORMS | spotify | exception | ✅ Alta |
-| `spotify_links` | PLATFORMS | spotify | links | ✅ Alta |
-| `spotify_servicos` | PLATFORMS | spotify | catalog | ✅ Alta |
-| `suporte` | ADMIN | null | support | ✅ Alta |
+## Classificação completa (29 módulos)
 
-## Casos ambíguos — registrados, não decididos automaticamente
+| Module | Domain | Platform | Knowledge Type | Confiança | Observações |
+|---|---|---|---|---|---|
+| spotify_precos | PLATFORMS | spotify | pricing | Alta | Intents confirmam (consulta_preco, compra) |
+| spotify_playlists | PLATFORMS | spotify | catalog | Alta | Trigger confirma |
+| spotify_garantia | PLATFORMS | spotify | exception | Alta | Intents confirmam (seguranca, suporte) |
+| spotify_ouvintes | PLATFORMS | spotify | catalog | Média | Trigger sugere descrição de serviço |
+| spotify_links | PLATFORMS | spotify | links | Alta | Trigger confirma |
+| seguranca_pix | GLOBAL | null | policy | Alta | Intents confirmam (seguranca, pagamento) |
+| spotify_prazos | PLATFORMS | spotify | delivery | Alta | Intents confirmam (suporte, pos_compra) |
+| youtube_servicos | PLATFORMS | youtube | pricing | Média | Intents confirmam (descoberta, compra); nome mistura catalog+pricing |
+| spotify_royalties | PLATFORMS | spotify | education | Alta | Trigger confirma |
+| spotify_servicos | PLATFORMS | spotify | catalog | Média | Platform confirmado, sem trigger/intent |
+| youtube_geral | PLATFORMS | youtube | base | Média | Platform confirmado, genérico |
+| youtube_links | PLATFORMS | youtube | links | Alta | Trigger confirma |
+| como_comprar_no_painel | GLOBAL | null | education | Média-Alta | Sem dado de selector, nome inequívoco |
+| comportamento_humano | CORE | null | base | Média | Sem dado de selector |
+| facebook | PLATFORMS | facebook | base | **Baixa** | Zero selector preenchido — não tem nem `platforms: [facebook]` |
+| fluxo_vendas | SALES | null | flow | Alta | Resolvido na revisão da taxonomia |
+| identidade | CORE | null | base | Alta | Confirmado por leitura direta |
+| instagram | PLATFORMS | instagram | base | **Baixa** | Zero selector preenchido |
+| kwai | PLATFORMS | kwai | base | **Baixa** | Zero selector preenchido |
+| objecoes_vendas | SALES | null | flow | Média-Alta | Nome indica lida com objeção |
+| pagamento | GLOBAL | null | policy | Média-Alta | Nome sugere política geral |
+| qualificacao_lead | SALES | null | flow | Média-Alta | Módulo novo, nome indica etapa de funil |
+| recuperacao_leads | SALES | null | flow | Média-Alta | Módulo novo, nome indica etapa de funil |
+| regras_gerais | CORE | null | base | Alta | Confirmado por leitura direta |
+| suporte | ADMIN | null | support | Média-Alta | Existe confirmado, sem selector preenchido |
+| tiktok | PLATFORMS | tiktok | base | **Baixa** | Zero selector preenchido |
+| x | PLATFORMS | twitter | base | **Baixa** | Substituiu `twitter`; zero selector preenchido |
+| youtube | PLATFORMS | youtube | base | **Baixa** | Módulo novo, redundante com `youtube_geral`? Precisa esclarecimento |
+| fechamento_3 | SALES | null | flow | Média-Alta | Módulo novo, nome indica etapa de fechamento |
 
-### `fluxo_vendas` — RESOLVIDO
-- Era ambíguo entre `education` e nenhum tipo adequado. **Resolvido**: `flow` foi adicionado oficialmente à taxonomia (ver `04-governance.md` atualizado), cobrindo discovery/qualification/objection/closing/onboarding. `fluxo_vendas` agora é `flow` com confiança alta.
+## Achado crítico — ação recomendada antes da Sprint 2B
 
-### `seguranca_pix` — domain
-- Classifiquei como `GLOBAL` (não é específico de plataforma), mas poderia ser interpretado como `PLATFORMS` com `platform: null` sendo tratado como "qualquer" em vez de "nenhuma". A taxonomia da Sprint 1 não deixa esse caso 100% claro.
+**7 módulos de plataforma (`facebook`, `instagram`, `kwai`, `tiktok`, `x`, `youtube`, e parcialmente `youtube_geral`) têm `selector_platforms` VAZIO**, mesmo sendo módulos nomeados exatamente como a plataforma. Isso significa:
 
-## Validação de consistência
+1. O **filtro negativo de plataforma** que implementamos (`FILTROS-COM-STAGE-E-RESUMO.zip`) **não tem efeito nenhum sobre esses módulos**, porque o filtro só remove módulos que TÊM `selector_platforms` preenchido e não bate — módulos sem nada preenchido nunca são scoped, então nunca são removidos por esse filtro.
+2. Isso sugere que esses 7 módulos **carregam por outro mecanismo** (provavelmente `stage`/`intent` genérico não capturado nessas queries, ou nunca carregam de fato — não sei qual sem mais uma auditoria específica).
 
-- **Total de módulos confirmados por query real:** 9
-- **Módulos classificados:** 9 de 9 confirmados
-- **Módulos ambíguos:** 1 (questão de domain em `seguranca_pix` — `fluxo_vendas` foi resolvido)
-- **Módulos pendentes (mencionados, nunca confirmados por query):**
-  - `payment` (citado no prompt da Sprint 2A, nunca visto em dado real)
-  - `youtube_links` (idem)
-  - `Comportamento Humano`, `Psicologia de Vendas`, `Objeções de Vendas`, `Fechamento`, `Qualificação` (vistos no painel "Controle de Módulos" do Playground, nunca confirmados por query)
+**Recomendação:** antes de qualquer migração real (Sprint 2B em diante), vale rodar o log real `[MODULE SELECTOR]` numa conversa que mencione "Instagram" ou "TikTok", pra confirmar se esses módulos carregam OU NÃO — hoje isso não está provado, só suposto pelo nome.
 
-## Observação arquitetural — RESOLVIDA
-O `knowledge_type` `flow` foi adicionado à taxonomia oficial (Sprint 1, revisão pós-auditoria), cobrindo módulos do domínio `SALES` como `fluxo_vendas`. Não é mais uma lacuna em aberto.
+## Resumo Executivo
 
-## Próximo passo necessário
-Antes de completar esta classificação, é preciso rodar a Query 1 completa de novo (o CMS pode ter crescido desde a última vez) e trazer o resultado real — incluindo os módulos `payment`, `youtube_links`, `Comportamento Humano`, `Psicologia de Vendas`, `Objeções de Vendas`, `Fechamento`, `Qualificação` que já sabemos existir mas nunca vimos com dado real.
+### Totais por Domain
+| Domain | Total |
+|---|---|
+| CORE | 3 |
+| GLOBAL | 3 |
+| SALES | 6 (fluxo_vendas, objecoes_vendas, qualificacao_lead, recuperacao_leads, fechamento_3) |
+| PLATFORMS | 16 |
+| ADMIN | 1 (suporte) |
+
+### Totais por confiança
+| Confiança | Total |
+|---|---|
+| Alta | 11 |
+| Média / Média-Alta | 11 |
+| Baixa | 7 (todos os módulos de plataforma sem nenhum selector preenchido) |
+
+## Módulo `youtube` vs `youtube_geral` — pendência não resolvida
+Existem 2 módulos com nomes muito parecidos (`youtube_geral`, prioridade 82, versão 1 vs `youtube`, prioridade 50, versão 1). Não sei se são redundantes, se um está sendo descontinuado, ou se têm propósitos diferentes. **Não vou presumir.** Recomendo perguntar diretamente antes da Sprint 2B.
+
+## Candidatos à migração (Sprint 4)
+- `youtube_servicos` (mistura catalog+pricing)
+- Os 7 módulos de plataforma sem selector preenchido — precisam de auditoria de comportamento real antes de qualquer decisão
+
+## Candidatos à extração GLOBAL
+- `pagamento`, `como_comprar_no_painel`, `seguranca_pix` (já classificados como GLOBAL)
+
+## Conclusão
+Diferente da versão anterior, esta classificação está baseada numa extração **única e consistente** — a instabilidade foi resolvida. Mas ainda há 2 pendências reais que impedem 100% de certeza: (1) os 7 módulos de plataforma sem selector, cujo comportamento real não foi comprovado por log; (2) a duplicidade aparente `youtube` vs `youtube_geral`.
