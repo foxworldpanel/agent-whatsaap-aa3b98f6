@@ -17,12 +17,20 @@ Mesmo nesta extração fresca, **14 dos 29 módulos continuam com `platforms`/`i
 | seguranca_pix | GLOBAL | null | policy | Alta | Intents confirmam (seguranca, pagamento) |
 | spotify_prazos | PLATFORMS | spotify | delivery | Alta | Intents confirmam (suporte, pos_compra) |
 | youtube_servicos | PLATFORMS | youtube | pricing | Média | Intents confirmam (descoberta, compra); nome mistura catalog+pricing |
+<<<<<<< HEAD
 | spotify_royalties | PLATFORMS | spotify | exception | Alta | Trata de dúvidas específicas sobre royalties e monetização no Spotify, sendo um conhecimento especializado da plataforma e não um conceito educacional básico. |
+=======
+| spotify_royalties | PLATFORMS | spotify | education | Alta | Trigger confirma |
+>>>>>>> b7b75793fe75023c1c7c6f6a6a0d108b6a5ee916
 | spotify_servicos | PLATFORMS | spotify | catalog | Média | Platform confirmado, sem trigger/intent |
 | youtube_geral | PLATFORMS | youtube | base | Média | Platform confirmado, genérico |
 | youtube_links | PLATFORMS | youtube | links | Alta | Trigger confirma |
 | como_comprar_no_painel | GLOBAL | null | education | Média-Alta | Sem dado de selector, nome inequívoco |
+<<<<<<< HEAD
 | comportamento_humano | SALES | null | education | Média | Sem dado de selector. Conhecimento usado na condução comercial/persuasão, não identidade base do agente. |
+=======
+| comportamento_humano | CORE | null | base | Média | Sem dado de selector |
+>>>>>>> b7b75793fe75023c1c7c6f6a6a0d108b6a5ee916
 | facebook | PLATFORMS | facebook | base | **Baixa** | Zero selector preenchido — não tem nem `platforms: [facebook]` |
 | fluxo_vendas | SALES | null | flow | Alta | Resolvido na revisão da taxonomia |
 | identidade | CORE | null | base | Alta | Confirmado por leitura direta |
@@ -53,9 +61,15 @@ Mesmo nesta extração fresca, **14 dos 29 módulos continuam com `platforms`/`i
 ### Totais por Domain
 | Domain | Total |
 |---|---|
+<<<<<<< HEAD
 | CORE | 2 |
 | GLOBAL | 3 |
 | SALES | 7 (fluxo_vendas, objecoes_vendas, qualificacao_lead, recuperacao_leads, fechamento_3, comportamento_humano) |
+=======
+| CORE | 3 |
+| GLOBAL | 3 |
+| SALES | 6 (fluxo_vendas, objecoes_vendas, qualificacao_lead, recuperacao_leads, fechamento_3) |
+>>>>>>> b7b75793fe75023c1c7c6f6a6a0d108b6a5ee916
 | PLATFORMS | 16 |
 | ADMIN | 1 (suporte) |
 

@@ -17,6 +17,10 @@ Regras pra manter a arquitetura de módulos consistente conforme o projeto cresc
 | `policy` | Regras/políticas que não são suporte nem preço (ex: segurança, comprovante) |
 | `exception` | Garantias, exceções à regra geral |
 | `flow` | Condução de conversa — discovery, qualification, objection, closing, onboarding. Exclusivo do domínio `SALES`, nunca usado em `PLATFORMS`/`GLOBAL`. |
+<<<<<<< HEAD
+=======
+| `exception` | Garantias, casos especiais, exceções à regra geral |
+>>>>>>> b7b75793fe75023c1c7c6f6a6a0d108b6a5ee916
 
 ## Regras de governança
 
