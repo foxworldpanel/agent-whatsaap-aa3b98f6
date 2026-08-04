@@ -9,7 +9,7 @@ Define os campos que todo módulo do CMS deve ter, pra deixar explícito de que 
 id: string                    # chave única, igual ao "key" de hoje (ex: spotify_garantia)
 domain: CORE | GLOBAL | SALES | PLATFORMS | ADMIN
 platform: string | null       # ex: "spotify" — null se domain != PLATFORMS
-knowledge_type: education | catalog | pricing | promotion | delivery | support | exception
+knowledge_type: base | education | catalog | pricing | promotion | delivery | support | policy | exception | flow
 priority: number              # igual ao campo "priority" que já existe hoje
 selector_intents: string[]    # igual ao campo já existente
 selector_triggers: string[]   # igual ao campo já existente

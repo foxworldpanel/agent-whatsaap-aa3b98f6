@@ -7,13 +7,16 @@ Regras pra manter a arquitetura de módulos consistente conforme o projeto cresc
 
 | Tipo | O que é |
 |---|---|
+| `base` | Contexto geral de uma plataforma/domínio |
 | `education` | Explica um conceito ou como algo funciona |
 | `catalog` | Lista serviços/produtos disponíveis |
 | `pricing` | Valores e tabela de preços |
 | `promotion` | Descontos, promoções ativas |
 | `delivery` | Prazo e forma de entrega |
 | `support` | Orientação de suporte/resolução de problema |
-| `exception` | Garantias, casos especiais, exceções à regra geral |
+| `policy` | Regras/políticas que não são suporte nem preço (ex: segurança, comprovante) |
+| `exception` | Garantias, exceções à regra geral |
+| `flow` | Condução de conversa — discovery, qualification, objection, closing, onboarding. Exclusivo do domínio `SALES`, nunca usado em `PLATFORMS`/`GLOBAL`. |
 
 ## Regras de governança
 
