@@ -714,6 +714,18 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   } catch (selectorLogError) {
     console.warn("[MODULE-SELECTOR-LOG] Falha ao gerar log (não bloqueia o fluxo):", selectorLogError);
   }
+
+  // Sprint 3.2.1 — relatório de contrato via componente independente
+  // (contracts/module-contract-reporter.ts). O Module Selector nunca
+  // importa nem conhece esse arquivo — o orchestrator é quem conecta
+  // "resultado da seleção" com "reporter", mantendo o Selector
+  // responsável só por selecionar.
+  try {
+    const { logContractReport } = await import("./contracts/module-contract-reporter");
+    logContractReport(selectableModules, runId);
+  } catch (contractReportError) {
+    console.warn("[CONTRACT-REPORT] Falha ao gerar relatório (não bloqueia o fluxo):", contractReportError);
+  }
   const selectedKeys = [...selection.selectedModules];
   if (selectedKeys.length === 0) {
     throw new Error(
