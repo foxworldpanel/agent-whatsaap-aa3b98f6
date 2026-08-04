@@ -320,7 +320,7 @@ function AgenteV3AdminPage() {
             onClick={() => activeTab === "audit" ? setActiveTab("modules") : setActiveTab("audit")}
           >
             <Search className="h-4 w-4" />
-            {activeTab === "audit" ? "Ver Módulos" : "Auditar Cérebro"}
+            {activeTab === "audit" ? "Ver Módulos" : "Abrir SQL Editor"}
           </Button>
 
           {activeTab === "modules" && (
@@ -415,7 +415,7 @@ function AgenteV3AdminPage() {
             <Clock className="h-4 w-4" /> Tempo e Humanização
           </TabsTrigger>
           <TabsTrigger value="audit" className="gap-2">
-            <Search className="h-4 w-4" /> Auditoria
+            <Search className="h-4 w-4" /> SQL Editor
           </TabsTrigger>
         </TabsList>
 
