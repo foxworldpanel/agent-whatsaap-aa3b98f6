@@ -320,7 +320,7 @@ function AgenteV3AdminPage() {
             onClick={() => activeTab === "audit" ? setActiveTab("modules") : setActiveTab("audit")}
           >
             <Search className="h-4 w-4" />
-            {activeTab === "audit" ? "Ver Módulos" : "Auditar Cérebro"}
+            {activeTab === "audit" ? "Ver Módulos" : "Abrir SQL Editor"}
           </Button>
 
           {activeTab === "modules" && (
@@ -415,7 +415,7 @@ function AgenteV3AdminPage() {
             <Clock className="h-4 w-4" /> Tempo e Humanização
           </TabsTrigger>
           <TabsTrigger value="audit" className="gap-2">
-            <Search className="h-4 w-4" /> Auditoria
+            <Search className="h-4 w-4" /> SQL Editor
           </TabsTrigger>
         </TabsList>
 
@@ -804,86 +804,59 @@ function AgenteV3AdminPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="audit" className="pt-4">
-           <Card className="bg-card border-border">
-             <CardHeader>
-               <CardTitle className="text-lg flex items-center gap-2">
-                 <Search className="h-5 w-5 text-primary" />
-                 Auditoria Completa do Cérebro
-               </CardTitle>
-               <CardDescription>
-                 Comparação em tempo real entre o CMS e o conteúdo carregado no Runtime V3.
-               </CardDescription>
-             </CardHeader>
-             <CardContent>
-               <div className="space-y-4">
-                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                   <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                     <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Total de Módulos</div>
-                     <div className="text-2xl font-bold">{Object.keys(modules).length}</div>
-                   </div>
-                   <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                     <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Módulos no Banco</div>
-                     <div className="text-2xl font-bold text-primary">{Object.values(modules).filter((m: any) => m.isOverride).length}</div>
-                   </div>
-                    <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                      <div className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Status de Fontes</div>
-                      <div className="text-2xl font-bold text-primary">100% CMS V3</div>
-                    </div>
-
-                 </div>
-
-                 <div className="mt-6">
-                   <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
-                     <Database className="h-4 w-4 text-primary" />
-                     Inventário de Fontes
-                   </h4>
-                   <div className="border border-border rounded-lg overflow-hidden">
-                     <table className="w-full text-sm">
-                       <thead className="bg-muted text-muted-foreground text-xs uppercase font-bold">
-                         <tr>
-                           <th className="px-4 py-3 text-left">Chave</th>
-                           <th className="px-4 py-3 text-left">Origem</th>
-                           <th className="px-4 py-3 text-left">Versão</th>
-                           <th className="px-4 py-3 text-left">Conteúdo</th>
-                           <th className="px-4 py-3 text-center">Status</th>
-                         </tr>
-                       </thead>
-                       <tbody className="divide-y divide-border">
-                         {Object.entries(modules).map(([key, data]: [string, any]) => (
-                           <tr key={key} className="hover:bg-muted/30">
-                             <td className="px-4 py-3 font-mono text-xs">{key}</td>
-                              <td className="px-4 py-3">
-                                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">DATABASE (V3)</Badge>
-                              </td>
-
-                             <td className="px-4 py-3 font-mono text-xs">v{data.version || 1}</td>
-                             <td className="px-4 py-3 text-muted-foreground italic truncate max-w-[200px]">
-                               {data.content?.slice(0, 40)}...
-                             </td>
-                             <td className="px-4 py-3 text-center">
-                               {data.content?.trim() ? (
-                                 <div className="h-2 w-2 rounded-full bg-green-500 mx-auto" />
-                               ) : (
-                                 <AlertTriangle className="h-4 w-4 text-destructive mx-auto" />
-                               )}
-                             </td>
-                           </tr>
-                         ))}
-                       </tbody>
-                     </table>
-                   </div>
-                   <div className="mt-8">
-                     <h4 className="text-sm font-bold mb-4 flex items-center gap-2">
-                       <Zap className="h-4 w-4 text-primary" />
-                       Visualização do Prompt Final (Simulação: "Olá")
-                     </h4>
-                     <PromptPreview getPrompt={getPrompt} />
-                   </div>
-                 </div>
-               </div>
-             </CardContent>
-           </Card>
+        <TabsContent value="audit" className="pt-4 space-y-4">
+          <Card className="border-primary/20 bg-card/50 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="border-b border-border/50 bg-primary/5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Database className="h-5 w-5 text-primary" />
+                    SQL Editor — Mind CMS
+                  </CardTitle>
+                  <CardDescription>
+                    Execute consultas SQL diretamente na tabela agent_modules_v3
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="p-4 bg-black/40 font-mono text-sm border-b border-border/50">
+                <p className="text-primary mb-2 flex items-center gap-2">
+                  <Zap className="h-3 w-3" /> Query sugerida:
+                </p>
+                <div className="bg-black/60 p-4 rounded-lg text-primary/90 border border-primary/20 relative group">
+                  <pre className="whitespace-pre-wrap">
+{`SELECT
+  key AS "ID",
+  name AS "Nome",
+  enabled AS "Ativo",
+  source AS "Origem",
+  priority AS "Prioridade",
+  selector_triggers AS "Triggers",
+  always_load AS "Always Load",
+  version AS "Versao",
+  created_at AS "Criado em",
+  updated_at AS "Atualizado em"
+FROM agent_modules_v3
+WHERE workspace_id = 'bd59fa41-d68d-4ac8-b995-e09ae48f52aa'
+ORDER BY priority DESC, key;`}
+                  </pre>
+                </div>
+              </div>
+              <div className="p-8 text-center">
+                <Button 
+                  variant="outline" 
+                  className="gap-2"
+                  onClick={() => window.open('https://supabase.com/dashboard/project/xayfgycnqajwrgrrjwfb/editor', '_blank')}
+                >
+                  <ExternalLink className="h-4 w-4" /> Abrir SQL Editor no Console
+                </Button>
+                <p className="text-xs text-muted-foreground mt-4 italic">
+                  * Note: O editor de auditoria visual será implementado na Fase 6. Use o SQL Editor acima para extrações brutas.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
