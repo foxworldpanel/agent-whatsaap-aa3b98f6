@@ -1,4 +1,5 @@
 import type { LoadedModuleV3 } from "../brain/modules.server";
+import { CORE_MODULES, PLATFORM_FALLBACK_ENABLED } from "../config/runtime-constants";
 
 
 export type ConversationMessageV3 = {
@@ -535,7 +536,7 @@ export function selectModulesV3(
   // Toda decisão de carregamento vem dos metadados do CMS.
   for (const [key, module] of orderedModules) {
     const routing = module.routing;
-    if (routing.alwaysLoad || key === "identidade" || key === "regras_gerais") {
+    if (routing.alwaysLoad || (CORE_MODULES as readonly string[]).includes(key)) {
       // Módulos always_load e estruturais são obrigatórios e não podem ser
       // descartados pelo limite de módulos primários.
       add(
@@ -570,7 +571,7 @@ export function selectModulesV3(
     // Compatibilidade com módulos legados de chave exata da plataforma.
     // Depois da migração modular eles ficam desativados, mas workspaces antigos
     // continuam funcionando até serem migrados.
-    if (context.platform && key === context.platform) {
+    if (PLATFORM_FALLBACK_ENABLED && context.platform && key === context.platform) {
       add(key, `Módulo legado correspondente à plataforma ${context.platform}`, { required: true });
     }
     if (context.product && routing.products.includes(context.product)) {
