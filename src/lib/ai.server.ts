@@ -2,6 +2,7 @@
 import { buildSharedRules, DEFAULT_IDENTITY, loadAgentIdentity, loadBrandBlocks, mergeIdentity, buildRegraPlaylistsInfoDiretaBlock, type AgentBrandBlocks } from "@/lib/agent-identity.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
 import { selectRelevantKnowledge } from "@/lib/kb-relevance";
+import { removeAccents } from "@/lib/text-normalize";
 
 // ETAPA 4 — FAQ sob demanda. Reaproveita o scoring keyword-based do KB
 // (mesma taxonomia de tópicos + overlap de tokens). Trata a pergunta da
@@ -730,9 +731,7 @@ export function pickClaudeModel(opts: {
 
 
 function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+  return removeAccents(value)
     .toLowerCase()
     .trim();
 }

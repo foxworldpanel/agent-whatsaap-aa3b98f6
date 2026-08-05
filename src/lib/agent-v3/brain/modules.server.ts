@@ -187,3 +187,12 @@ export function invalidateModulesCache(workspaceId: string): void {
 export function clearModulesCache(): void {
   modulesCache.clear();
 }
+
+// Movido de orchestrator.server.ts (Sprint CORE PATCH v1.0) — fica aqui
+// porque tanto orchestrator quanto o Module Selector precisam, e os
+// dois já importam deste arquivo sem risco de dependência circular.
+export type CommercePlatform = "spotify" | "youtube" | "instagram" | "tiktok" | "kwai" | "facebook";
+
+export function moduleBelongsToPlatform(key: string, module: LoadedModuleV3, platform: CommercePlatform): boolean {
+  return key === platform || key.startsWith(`${platform}_`) || module.routing.platforms.includes(platform);
+}

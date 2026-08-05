@@ -1,5 +1,7 @@
 import type { LoadedModuleV3 } from "../brain/modules.server";
+import { moduleBelongsToPlatform } from "../brain/modules.server";
 import { CORE_MODULES, PLATFORM_FALLBACK_ENABLED } from "../config/runtime-constants";
+import { removeAccents } from "../../text-normalize";
 
 
 export type ConversationMessageV3 = {
@@ -172,9 +174,7 @@ const PRODUCT_PATTERNS: Array<[NonNullable<ConversationContext["product"]>, stri
 ];
 
 function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+  return removeAccents(value)
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
@@ -602,11 +602,7 @@ export function selectModulesV3(
       if (key === "instagram") return false;
 
       const content = normalizeText(module.content || "");
-      const belongsToInstagram =
-        key.startsWith("instagram_") ||
-        module.routing.platforms.includes("instagram");
-
-      if (!belongsToInstagram) return false;
+      if (!moduleBelongsToPlatform(key, module, "instagram")) return false;
 
       const talksAboutFollowers =
         containsAny(content, ["seguidor", "seguidores"]);

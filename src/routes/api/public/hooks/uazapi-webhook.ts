@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
+import { removeAccents } from "@/lib/text-normalize";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
@@ -332,12 +333,9 @@ const HUMAN_HANDOFF_PATTERNS = [
 ];
 
 function normalizeEscalationText(value: string): string {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+  // Mesma lógica de normalizeFunnelText (eram implementações idênticas
+  // duplicadas) — delega em vez de repetir, sem mudar nenhum call site.
+  return normalizeFunnelText(value);
 }
 
 async function detectCriticalHumanEscalation(params: {
@@ -554,9 +552,7 @@ function canRepeatWelcomeFunnelForTest(phone: string): boolean {
 // Essas mensagens ficam registradas e o Agent V3 só é liberado após a conclusão.
 
 function normalizeFunnelText(value: string): string {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+  return removeAccents(String(value || ""))
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();

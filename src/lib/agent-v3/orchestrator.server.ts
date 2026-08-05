@@ -1,5 +1,5 @@
 // src/lib/agent-v3/orchestrator.server.ts
-import { loadEnabledModulesV3, type LoadedModuleV3 } from "./brain/modules.server";
+import { loadEnabledModulesV3, moduleBelongsToPlatform, type LoadedModuleV3, type CommercePlatform } from "./brain/modules.server";
 import { selectModulesV3, logModuleSelectorExecution, type ConversationContext } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
@@ -91,11 +91,7 @@ function collectInstagramFollowerOptions(
     const module = modules[key];
     if (!module) continue;
 
-    const belongsToInstagram =
-      key === "instagram" ||
-      key.startsWith("instagram_") ||
-      module.routing.platforms.includes("instagram");
-    if (!belongsToInstagram) continue;
+    if (!moduleBelongsToPlatform(key, module, "instagram")) continue;
 
     for (const rawLine of String(module.content || "").split(/\r?\n/)) {
       const line = rawLine
@@ -122,7 +118,6 @@ function collectInstagramFollowerOptions(
 }
 
 
-type CommercePlatform = "spotify" | "youtube" | "instagram" | "tiktok" | "kwai" | "facebook";
 type CommerceProduct = NonNullable<ConversationContext["product"]>;
 
 type GenericPriceRule = {
@@ -149,10 +144,6 @@ const PRODUCT_PRICE_TERMS: Record<CommerceProduct, RegExp> = {
   horas: /horas?|watch\s*time/i,
   comentarios: /comentarios?|comments?/i,
 };
-
-function moduleBelongsToPlatform(key: string, module: LoadedModuleV3, platform: CommercePlatform): boolean {
-  return key === platform || key.startsWith(`${platform}_`) || module.routing.platforms.includes(platform);
-}
 
 function parseGenericPriceRuleFromLine(params: {
   line: string;
