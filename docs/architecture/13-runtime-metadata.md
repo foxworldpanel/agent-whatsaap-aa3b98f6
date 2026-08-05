@@ -28,12 +28,12 @@ Os metadados **existem no runtime agora**, mas são **ignorados por completo** p
 
 ## Validação esperada
 Com os 4 módulos já classificados como `GLOBAL` no banco (Sprint 3.3A), o log deve mostrar algo como:
-```
+
 [v3-modules] [METADATA] { key: 'pagamento', domain: 'GLOBAL', platform: undefined, knowledgeType: undefined, status: undefined }
 [v3-modules] [METADATA] { key: 'como_comprar_no_painel', domain: 'GLOBAL', ... }
 [v3-modules] [METADATA] { key: 'suporte', domain: 'GLOBAL', ... }
 [v3-modules] [METADATA] { key: 'seguranca_pix', domain: 'GLOBAL', ... }
-```
+
 Os outros 25 módulos (sem `domain` preenchido no banco ainda) não geram log — reduz ruído, já que hoje é a maioria.
 
 ## Próximos passos (não implementados nesta sprint)
