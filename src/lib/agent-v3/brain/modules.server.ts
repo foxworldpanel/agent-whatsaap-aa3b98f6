@@ -18,6 +18,12 @@ export type LoadedModuleV3 = {
   version: number | string;
   name?: string;
   category?: string;
+  // Metadados arquiteturais (Sprint 3.4) — ainda não influenciam
+  // nenhuma decisão de runtime, só existem no objeto carregado.
+  domain?: string;
+  platform?: string;
+  knowledgeType?: string;
+  status?: string;
   routing: ModuleRoutingV3;
 };
 
@@ -102,6 +108,12 @@ export async function loadEnabledModulesV3(
       version: typeof row.version === "number" ? row.version : 1,
       name: typeof row.name === "string" ? row.name.trim() || key : key,
       category: typeof row.category === "string" ? row.category.trim() || "Outros" : "Outros",
+      // Metadados arquiteturais (Sprint 3.4) — lidos direto do banco,
+      // sem nenhuma decisão baseada neles ainda.
+      domain: typeof row.domain === "string" && row.domain.trim() ? row.domain.trim() : undefined,
+      platform: typeof row.platform === "string" && row.platform.trim() ? row.platform.trim() : undefined,
+      knowledgeType: typeof row.knowledge_type === "string" && row.knowledge_type.trim() ? row.knowledge_type.trim() : undefined,
+      status: typeof row.status === "string" && row.status.trim() ? row.status.trim() : undefined,
       routing: {
         alwaysLoad: row.always_load === true,
         intents: asStringArray(row.selector_intents),
@@ -135,6 +147,23 @@ export async function loadEnabledModulesV3(
   if (modules.youtube && Object.keys(modules).some((key) => key.startsWith("youtube_"))) {
     console.warn("[v3-modules] Ignorando módulo legado youtube porque submódulos youtube_* estão ativos.");
     delete modules.youtube;
+  }
+
+  // Log de validação (Sprint 3.4) — só fora de produção. Confirma que
+  // os 4 metadados novos chegam corretamente ao objeto carregado.
+  // Não influencia nenhuma decisão — é só diagnóstico.
+  if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
+    for (const [key, mod] of Object.entries(modules)) {
+      if (mod.domain) {
+        console.log("[v3-modules] [METADATA]", {
+          key,
+          domain: mod.domain,
+          platform: mod.platform,
+          knowledgeType: mod.knowledgeType,
+          status: mod.status,
+        });
+      }
+    }
   }
 
   if (Object.keys(modules).length === 0) {
