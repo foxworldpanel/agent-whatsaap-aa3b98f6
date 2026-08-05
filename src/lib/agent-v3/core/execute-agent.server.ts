@@ -32,19 +32,43 @@ export type ExecuteAgentResult = {
 
 const ZERO_COST = { input_usd: 0, output_usd: 0, cache_usd: 0, total_usd: 0 };
 
+// Telemetria de comportamento (Pacote Final) — flag-protegida, mesmo
+// padrão já usado em CONTEXT_AUDIT_ENABLED/CONTRACT_REPORTING_ENABLED.
+const BEHAVIOR_TELEMETRY_ENABLED =
+  (typeof process !== "undefined" && process.env.NODE_ENV !== "production") ||
+  (typeof process !== "undefined" && process.env.BEHAVIOR_TELEMETRY_ENABLED === "true");
+
 export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAgentResult> {
   const routerResult = input.skipRouter
-    ? { handled: false, reason: "ROUTER_PULADO_TIPO_NAO_TEXTO_OU_FUNIL", route: "claude" as const }
+    ? {
+        handled: false,
+        reason: "ROUTER_PULADO_TIPO_NAO_TEXTO_OU_FUNIL",
+        route: "claude" as const,
+        context: { routeReason: "ROUTER_PULADO_TIPO_NAO_TEXTO_OU_FUNIL" },
+      }
     : routeMessage(input.message, input.routerContext);
 
-  // Log de diagnóstico — Pacote 5A (Behavior Engineering).
-  console.log("[SMART ROUTER]", {
-    route: routerResult.route,
-    reason: routerResult.reason,
-    claude: routerResult.route === "claude",
-  });
+  // Log de diagnóstico — Pacote 5A (Behavior Engineering). Reaproveita
+  // BEHAVIOR_TELEMETRY_ENABLED em vez de criar uma flag nova — evita
+  // proliferação de flags (mesmo backlog já registrado no Pacote 5A).
+  if (BEHAVIOR_TELEMETRY_ENABLED) {
+    console.log("[SMART ROUTER]", {
+      route: routerResult.route,
+      reason: routerResult.reason,
+      claude: routerResult.route === "claude",
+    });
+  }
 
   if (routerResult.handled && routerResult.response) {
+    if (BEHAVIOR_TELEMETRY_ENABLED) {
+      console.log("[BEHAVIOR-TELEMETRY]", {
+        route: "code",
+        context: routerResult.context,
+        modulosCarregados: [],
+        quantidadeModulos: 0,
+        charsEnviadosPromptBuilder: 0,
+      });
+    }
     return {
       route: "code",
       routerReason: routerResult.reason,
@@ -56,6 +80,25 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
   }
 
   const agentResult = await runAgentV3Turn(input);
+
+  if (BEHAVIOR_TELEMETRY_ENABLED) {
+    const modulosCarregados = agentResult.modules?.selected_keys ?? [];
+    const charsEnviadosPromptBuilder = Object.values(agentResult.modules?.estimated_chars_by_module ?? {}).reduce(
+      (sum, chars) => sum + chars,
+      0,
+    );
+    console.log("[BEHAVIOR-TELEMETRY]", {
+      route: "claude",
+      context: {
+        ...routerResult.context,
+        intentDetectado: agentResult.intelligence?.intent,
+        estagioDetectado: agentResult.intelligence?.stage,
+      },
+      modulosCarregados,
+      quantidadeModulos: modulosCarregados.length,
+      charsEnviadosPromptBuilder,
+    });
+  }
 
   return {
     route: "claude",

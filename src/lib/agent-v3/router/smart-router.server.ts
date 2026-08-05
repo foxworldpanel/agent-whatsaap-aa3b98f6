@@ -17,14 +17,28 @@
 
 import { isPureGreeting, pickReengagementGreeting } from "../brain/guards.server";
 import { PURE_INTEREST_PHRASES, PLATFORM_ISOLATED_MAP } from "./router-constants";
+import { removeAccents } from "../../text-normalize";
 
 export type SmartRouterRoute = "code" | "claude" | "silent";
+
+/**
+ * Contexto estruturado que o Router consegue montar com o que ele
+ * mesmo detecta. Campos de intent/stage completos continuam sendo
+ * responsabilidade do Module Selector (detectConversationContext) —
+ * o Router não duplica essa lógica, só contribui o que sabe (motivo
+ * da decisão, e plataforma quando reconhecida isoladamente).
+ */
+export type SmartRouterDecisionContext = {
+  routeReason: string;
+  platformDetected?: string;
+};
 
 export type SmartRouterResult = {
   handled: boolean;
   response?: string;
   reason: string;
   route: SmartRouterRoute;
+  context: SmartRouterDecisionContext;
 };
 
 export type SmartRouterContext = {
@@ -49,17 +63,13 @@ function normalizeForRouter(text: string): string {
 }
 
 function isPureInitialInterest(text: string): boolean {
-  const normalized = normalizeForRouter(text)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  const normalized = removeAccents(normalizeForRouter(text));
   if (normalized.length > 40) return false; // mensagem longa não é "pura"
   return PURE_INTEREST_PHRASES.has(normalized);
 }
 
 function detectIsolatedPlatform(text: string): string | null {
-  const normalized = normalizeForRouter(text)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  const normalized = removeAccents(normalizeForRouter(text));
   if (normalized.length > 20) return null; // "isolada" = só o nome, não frase
   return PLATFORM_ISOLATED_MAP[normalized] ?? null;
 }
@@ -68,7 +78,12 @@ export function routeMessage(message: string, context: SmartRouterContext): Smar
   const trimmed = String(message || "").trim();
 
   if (!trimmed) {
-    return { handled: false, reason: "MENSAGEM_VAZIA", route: "claude" };
+    return {
+      handled: false,
+      reason: "MENSAGEM_VAZIA",
+      route: "claude",
+      context: { routeReason: "MENSAGEM_VAZIA" },
+    };
   }
 
   if (isPureGreeting(trimmed)) {
@@ -77,11 +92,23 @@ export function routeMessage(message: string, context: SmartRouterContext): Smar
       context.isFirstTurn && !context.funnelAlreadyCompleted
         ? `${greetingWord}! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?`
         : `${greetingWord}! Tudo bem?`;
-    return { handled: true, response, reason: "GREETING", route: "code" };
+    return {
+      handled: true,
+      response,
+      reason: "GREETING",
+      route: "code",
+      context: { routeReason: "GREETING" },
+    };
   }
 
   if (THANKS_ONLY_PATTERN.test(trimmed)) {
-    return { handled: true, response: "Por nada! 😊", reason: "THANKS", route: "code" };
+    return {
+      handled: true,
+      response: "Por nada! 😊",
+      reason: "THANKS",
+      route: "code",
+      context: { routeReason: "THANKS" },
+    };
   }
 
   if (isPureInitialInterest(trimmed)) {
@@ -90,6 +117,7 @@ export function routeMessage(message: string, context: SmartRouterContext): Smar
       response: "Em qual plataforma você deseja divulgar? Trabalhamos com Spotify, YouTube, Instagram, TikTok, Facebook e Kwai.",
       reason: "INITIAL_INTEREST",
       route: "code",
+      context: { routeReason: "INITIAL_INTEREST" },
     };
   }
 
@@ -97,8 +125,18 @@ export function routeMessage(message: string, context: SmartRouterContext): Smar
   if (isolatedPlatform) {
     // Não intercepta — só reconhece e loga. O Agent V3 continua sendo
     // chamado normalmente, exatamente como pedido no Pacote 5A.
-    return { handled: false, reason: `PLATFORM:${isolatedPlatform}`, route: "claude" };
+    return {
+      handled: false,
+      reason: `PLATFORM:${isolatedPlatform}`,
+      route: "claude",
+      context: { routeReason: `PLATFORM:${isolatedPlatform}`, platformDetected: isolatedPlatform },
+    };
   }
 
-  return { handled: false, reason: "SEM_ROTA_DETERMINISTICA", route: "claude" };
+  return {
+    handled: false,
+    reason: "SEM_ROTA_DETERMINISTICA",
+    route: "claude",
+    context: { routeReason: "SEM_ROTA_DETERMINISTICA" },
+  };
 }
