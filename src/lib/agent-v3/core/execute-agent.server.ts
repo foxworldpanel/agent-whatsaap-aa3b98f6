@@ -3,13 +3,9 @@
 // Playground e qualquer canal futuro devem chamar esta função, nunca
 // montar o fluxo por conta própria.
 //
-// IMPORTANTE (estado desta entrega): o WEBHOOK do WhatsApp ainda NÃO foi
-// migrado pra chamar esta função — ele continua com sua lógica inline
-// própria (que já faz a mesma coisa, só que não-compartilhada). Migrar
-// o webhook pra usar executeAgent() é o próximo passo natural, feito
-// separadamente e com cautela, depois de validar esta função no
-// Playground primeiro. Isso evita repetir o mesmo risco de sempre:
-// tocar no fluxo crítico sem validação prévia.
+// Estado atual: o webhook do WhatsApp já chama esta função (confirmado
+// na auditoria do Pacote 5A) — o comentário anterior, que dizia o
+// contrário, estava desatualizado.
 
 import { routeMessage, type SmartRouterContext } from "../router/smart-router.server";
 import { runAgentV3Turn, type OrchestratorInput, type AgentV3TurnResult } from "../orchestrator.server";
@@ -40,6 +36,13 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
   const routerResult = input.skipRouter
     ? { handled: false, reason: "ROUTER_PULADO_TIPO_NAO_TEXTO_OU_FUNIL", route: "claude" as const }
     : routeMessage(input.message, input.routerContext);
+
+  // Log de diagnóstico — Pacote 5A (Behavior Engineering).
+  console.log("[SMART ROUTER]", {
+    route: routerResult.route,
+    reason: routerResult.reason,
+    claude: routerResult.route === "claude",
+  });
 
   if (routerResult.handled && routerResult.response) {
     return {
