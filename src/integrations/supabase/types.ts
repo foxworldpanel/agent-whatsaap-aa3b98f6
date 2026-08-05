@@ -567,10 +567,13 @@ export type Database = {
           content: string
           created_at: string | null
           description: string | null
+          domain: string | null
           enabled: boolean | null
           id: string
           key: string
+          knowledge_type: string | null
           name: string
+          platform: string | null
           priority: number | null
           selector_conflicts: string[]
           selector_dependencies: string[]
@@ -579,6 +582,7 @@ export type Database = {
           selector_products: string[]
           selector_stages: string[]
           selector_triggers: string[]
+          status: string | null
           updated_at: string | null
           user_id: string
           version: number | null
@@ -590,10 +594,13 @@ export type Database = {
           content: string
           created_at?: string | null
           description?: string | null
+          domain?: string | null
           enabled?: boolean | null
           id?: string
           key: string
+          knowledge_type?: string | null
           name: string
+          platform?: string | null
           priority?: number | null
           selector_conflicts?: string[]
           selector_dependencies?: string[]
@@ -602,6 +609,7 @@ export type Database = {
           selector_products?: string[]
           selector_stages?: string[]
           selector_triggers?: string[]
+          status?: string | null
           updated_at?: string | null
           user_id: string
           version?: number | null
@@ -613,10 +621,13 @@ export type Database = {
           content?: string
           created_at?: string | null
           description?: string | null
+          domain?: string | null
           enabled?: boolean | null
           id?: string
           key?: string
+          knowledge_type?: string | null
           name?: string
+          platform?: string | null
           priority?: number | null
           selector_conflicts?: string[]
           selector_dependencies?: string[]
@@ -625,6 +636,7 @@ export type Database = {
           selector_products?: string[]
           selector_stages?: string[]
           selector_triggers?: string[]
+          status?: string | null
           updated_at?: string | null
           user_id?: string
           version?: number | null
