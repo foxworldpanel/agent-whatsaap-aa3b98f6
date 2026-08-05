@@ -1,31 +1,30 @@
-// Sales Intelligence Engine V1 — Fase A
+// Sales Intelligence Engine — Fase A + Fase B
 //
-// Componente totalmente desacoplado do resto do sistema. Responsabilidade
-// única nesta fase: analisar a mensagem atual e produzir sinais comerciais
-// estruturados (evidência, não interpretação).
+// Ponto de entrada único da camada de inteligência comercial. Fase A
+// produz os SalesSignal[] (evidência bruta, extraída da mensagem).
+// Fase B consome exclusivamente esses sinais — nenhum dos 4 engines
+// abaixo reprocessa a mensagem, usa IA, ou acessa banco/histórico.
 //
-// AJUSTE PÓS-REVISÃO: a classificação de ConversationStage foi removida
-// desta fase por decisão de arquitetura — heurísticas de estágio
-// ("Spotify sozinho = QUALIFICATION", por exemplo) tendem a precisar de
-// reescrita depois de analisar conversas reais. Em vez de fixar essa
-// lógica agora, esta sprint entrega só a coleta bruta de sinais; a
-// classificação de estágio (e temperatura do lead) fica pra Fase B,
-// construída em cima dos sinais já coletados com mais evidência real.
-// O tipo ConversationStage continua declarado (não removido) porque a
-// Fase B vai precisar dele — só não é mais computado aqui.
+// AJUSTE PÓS-REVISÃO (Fase A): a classificação de ConversationStage foi
+// removida por decisão de arquitetura — heurísticas de estágio tendem
+// a precisar de reescrita depois de analisar conversas reais. O tipo
+// continua declarado pra uso futuro, não computado ainda.
 //
-// NESTA FASE: só classifica sinais. Nada aqui decide comportamento do
-// Agent, nenhuma resposta muda, nenhum outro componente (Module
-// Selector, Prompt Builder, Orchestrator, Runtime, Smart Router) é
-// consultado ou alterado.
+// NESTA FASE (A+B): só classifica e produz decisões estruturadas. Nada
+// aqui altera comportamento do Agent, nenhuma resposta muda, nenhum
+// outro componente (Module Selector, Prompt Builder, Orchestrator,
+// Runtime, Smart Router) é consultado ou alterado.
 //
 // REGRA DE ARQUITETURA (mesma do Smart Router): este módulo nunca
 // importa Uazapi, Supabase, ou qualquer coisa de envio/persistência.
-// Só recebe texto + histórico e devolve um objeto.
 
 import { removeAccents } from "../../text-normalize";
+import { classifyLeadTemperature, type LeadTemperatureResult } from "./lead-temperature-engine.server";
+import { detectObjections, type Objection } from "./objection-engine.server";
+import { evaluateOfferEligibility, type OfferEligibility } from "./offer-engine.server";
+import { evaluateRecoveryStatus, type RecoveryStatus } from "./recovery-engine.server";
 
-// Declarado pra uso futuro na Fase B — não computado nesta sprint.
+// Declarado pra uso futuro — não computado ainda.
 export type ConversationStage =
   | "GREETING"
   | "DISCOVERY"
@@ -54,8 +53,18 @@ export type SalesSignal = {
   evidence: string;
 };
 
+// BACKLOG (registrado, não implementado): este objeto tende a crescer
+// (memory, lead score, recommendation, follow-up, confidence...). Quando
+// isso acontecer, vale considerar nomear a composição como um tipo
+// próprio (ex: SalesIntelligencePipeline ou SalesDecisionBundle) em vez
+// de deixar tudo achatado num objeto só. Não bloqueia nada hoje — só
+// facilita quando o objeto crescer de verdade.
 export type SalesIntelligenceResult = {
   salesSignals: SalesSignal[];
+  leadTemperature: LeadTemperatureResult;
+  objections: Objection[];
+  offerEligibility: OfferEligibility;
+  recoveryStatus: RecoveryStatus;
 };
 
 function normalize(text: string): string {
@@ -98,9 +107,17 @@ function detectSalesSignals(message: string): SalesSignal[] {
 
 /**
  * Ponto de entrada único do engine. Puro — mesma entrada sempre produz
- * a mesma saída, sem I/O, sem efeito colateral. Nesta fase, só coleta
- * sinais — não classifica estágio (ver nota no topo do arquivo).
+ * a mesma saída, sem I/O, sem efeito colateral. Orquestra Fase A
+ * (sinais) + Fase B (temperatura, objeções, ofertas, recuperação),
+ * todos consumindo só os sinais já extraídos.
  */
 export function classifySalesIntelligence(message: string): SalesIntelligenceResult {
-  return { salesSignals: detectSalesSignals(message) };
+  const salesSignals = detectSalesSignals(message);
+  return {
+    salesSignals,
+    leadTemperature: classifyLeadTemperature(salesSignals),
+    objections: detectObjections(salesSignals),
+    offerEligibility: evaluateOfferEligibility(salesSignals),
+    recoveryStatus: evaluateRecoveryStatus(salesSignals),
+  };
 }
