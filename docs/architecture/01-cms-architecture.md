@@ -14,7 +14,7 @@ Este documento define os domínios oficiais dos módulos do CMS (`agent_modules_
 | **ADMIN** | Módulos de suporte operacional/interno, não voltados à venda | Suporte |
 
 ## Regra de ouro
-Um módulo pertence a exatamente **um** domínio. Se parecer pertencer a dois, o domínio correto é o mais específico (ex: um módulo sobre pagamento do Spotify é `PLATFORMS`, não `GLOBAL`).
+Um módulo pertence a exatamente **um** domínio. Todo conhecimento compartilhado entre plataformas pertence ao domínio `GLOBAL`. Apenas regras ou comportamentos exclusivos de uma plataforma permanecem em `PLATFORMS`.
 
 ## Status desta versão
-Esta é a taxonomia **oficial**, mas os módulos existentes ainda **não foram migrados** pra ela — o campo `domain` ainda não existe na tabela `agent_modules_v3`. A migração de dados é uma sprint futura, separada desta.
+Esta é a taxonomia **oficial**, mas os módulos existentes ainda **não foram migrados** pra ela — o campo `domain` ainda não existe na tabela `agent_modules_v3`. A classificação existe apenas na documentação nesta fase da auditoria (ver `06-module-classification.md`). A migração de dados é uma sprint futura, separada desta.
