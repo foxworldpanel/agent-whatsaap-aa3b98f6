@@ -1199,8 +1199,14 @@ ${extraContext}`
   // ============================================================
   // AUDITORIA DE TOKENS (fase de observação — não altera nenhuma
   // lógica, nenhuma resposta, nenhum fluxo. Só registra.)
+  // Sprint 3.5.1: protegido por flag — só roda fora de produção, ou em
+  // produção se CONTEXT_AUDIT_ENABLED=true for setado explicitamente.
   // ============================================================
-  try {
+  const CONTEXT_AUDIT_ENABLED =
+    (typeof process !== "undefined" && process.env.NODE_ENV !== "production") ||
+    (typeof process !== "undefined" && process.env.CONTEXT_AUDIT_ENABLED === "true");
+
+  if (CONTEXT_AUDIT_ENABLED) try {
     const CHARS_PER_TOKEN_ESTIMATE = 4; // aproximação — só pra quebra por categoria
 
     const businessDecisionText = businessDecision ? businessDecisionToPromptV3(businessDecision) : "";
