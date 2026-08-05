@@ -9,6 +9,10 @@
 
 import { routeMessage, type SmartRouterContext } from "../router/smart-router.server";
 import { runAgentV3Turn, type OrchestratorInput, type AgentV3TurnResult } from "../orchestrator.server";
+import {
+  classifySalesIntelligence,
+  type SalesIntelligenceResult,
+} from "../sales-intelligence/sales-intelligence-engine.server";
 
 export type ExecuteAgentInput = OrchestratorInput & {
   routerContext: SmartRouterContext;
@@ -28,6 +32,10 @@ export type ExecuteAgentResult = {
   claudeCalled: boolean;
   // Presente só quando route === "claude" — resultado completo do orchestrator.
   agentResult?: AgentV3TurnResult;
+  // Sales Intelligence V1 — Fase A. Só classifica, acompanha a execução.
+  // NINGUÉM usa este campo pra decidir nada ainda — ver
+  // sales-intelligence-engine.server.ts.
+  salesIntelligence: SalesIntelligenceResult;
 };
 
 const ZERO_COST = { input_usd: 0, output_usd: 0, cache_usd: 0, total_usd: 0 };
@@ -39,6 +47,11 @@ const BEHAVIOR_TELEMETRY_ENABLED =
   (typeof process !== "undefined" && process.env.BEHAVIOR_TELEMETRY_ENABLED === "true");
 
 export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAgentResult> {
+  // Sales Intelligence V1 — Fase A: classificação pura, calculada uma
+  // vez, independente da rota escolhida pelo Router. Não influencia
+  // NADA do que acontece depois — só acompanha o resultado final.
+  const salesIntelligence = classifySalesIntelligence(input.message);
+
   const routerResult = input.skipRouter
     ? {
         handled: false,
@@ -56,6 +69,9 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
       route: routerResult.route,
       reason: routerResult.reason,
       claude: routerResult.route === "claude",
+    });
+    console.log("[SALES-INTELLIGENCE]", {
+      salesSignals: salesIntelligence.salesSignals,
     });
   }
 
@@ -76,6 +92,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
       usage: { input_tokens: 0, output_tokens: 0 },
       cost: ZERO_COST,
       claudeCalled: false,
+      salesIntelligence,
     };
   }
 
@@ -108,5 +125,6 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     cost: agentResult.cost,
     claudeCalled: true,
     agentResult,
+    salesIntelligence,
   };
 }
