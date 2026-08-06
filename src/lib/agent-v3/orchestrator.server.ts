@@ -653,6 +653,22 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   const runId = Math.random().toString(16).slice(2, 8);
   console.log("[RUN-ID]", runId, "— mensagem:", message.slice(0, 80));
 
+  // 0. Carregar Estado da Conversa (Conversation Engine V1.1)
+  const conversationState = detectConversationState({
+    message,
+    history,
+    sessionTimeoutHours: 24,
+  });
+
+  console.log(`[V3-ORCHESTRATOR] Conversation Engine V1.1 [${runId}]:`, {
+    greetingAlreadyDone: conversationState.greetingAlreadyDone,
+    topic: conversationState.currentTopic,
+    topicSource: conversationState.currentTopicSource,
+    sessionRestart: conversationState.sessionRestart,
+    age: conversationState.conversationAgeHours.toFixed(2) + "h",
+    pending: conversationState.pendingQuestion
+  });
+
   const workspaceId = inputWorkspaceId?.trim();
   if (!workspaceId) {
     throw new Error("[agent-v3] workspaceId é obrigatório; o V3 não usa fallback entre workspaces");
@@ -865,6 +881,9 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   };
 
   const modulePrompt = promptWithCommercial;
+
+  // Integrar Estado da Conversa no Prompt (Conversation Engine V1.1)
+  const conversationContextPrompt = conversationStateToPrompt(conversationState);
 
   const numericModuleVersion = (key: string): number => {
     const parsed = Number(mergedModulesMap[key]?.version);
@@ -1092,7 +1111,14 @@ ${extraContext}`
     apiKey:
       anthropicApiKey ||
       (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined),
-    system: systemPrompt,
+    system: [
+      ...systemPrompt,
+      {
+        type: "text",
+        text: conversationContextPrompt,
+        cache_control: { type: "ephemeral" }
+      }
+    ],
 
     messages: [
       ...history.map((m) => ({
@@ -1966,7 +1992,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       recommended_action,
       reasoning,
     },
-    conversationState: convState,
+    conversationState,
     score: {
       total: conversation_score,
       // humanity, clarity etc are derived from feedback or expanded in extractor later
