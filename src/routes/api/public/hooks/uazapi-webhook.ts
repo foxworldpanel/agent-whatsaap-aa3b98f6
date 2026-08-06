@@ -2683,7 +2683,17 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       // Só persiste a resposta do agente depois que o envio foi confirmado.
       // Antes, uma falha no WhatsApp deixava o histórico afirmando que o cliente
       // recebeu uma resposta que nunca foi entregue.
+      console.log("----------------------------------------------------");
+      console.log("Fluxo");
+      console.log("O código retornou após o funil? NÃO (seguindo para Agent V3)");
+      console.log("----------------------------------------------------");
+      console.log("Resultado Final");
+      console.log("FUNIL IGNORADO");
+      console.log("Motivo: Gatilho não identificado ou execução já completada.");
+      console.log("==============================");
+
       await saveConversationStateV3(
+
         num.user_id,
         phoneStr,
         nextHistory,
