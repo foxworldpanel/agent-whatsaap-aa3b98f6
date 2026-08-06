@@ -49,12 +49,11 @@ Responda EXATAMENTE no formato JSON:
   `.trim();
 
   try {
-    const raw = await callAnthropicV3([
-      { role: "user", content: prompt }
-    ], {
+    const raw = await callAnthropicV3({
+      apiKey: process.env.ANTHROPIC_API_KEY,
       system: "Você é um motor de análise de conversas. Extraia fatos e objetivos com precisão. Responda apenas JSON.",
-      max_tokens: 1000,
-      temperature: 0
+      messages: [{ role: "user", content: prompt }],
+      model: "claude-3-5-sonnet-20240620", // Sonnet para análise profunda como solicitado
     });
     
     const text = extractAnthropicTextV3(raw);
