@@ -1112,6 +1112,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             if (!existingRun || repeatForTest || isRetryAttempt) {
               // Claim atômico baseado na PK original (funnel_id, contact_id).
               // Isso funciona mesmo sem nenhuma migration de estado adicional.
+              console.log("Claim");
+              console.log("claimWelcomeFunnel executou? SIM");
               const { error: claimErr } = await (supabaseAdmin as any)
                 .from("welcome_funnel_runs")
                 .insert({
@@ -1128,6 +1130,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   retry_count: nextRetryCount,
                   updated_at: new Date().toISOString(),
                 });
+
+              console.log("Resultado:", claimErr ? "erro" : "true");
+
 
               if (claimErr) {
                 if (claimErr.code === "23505") {
