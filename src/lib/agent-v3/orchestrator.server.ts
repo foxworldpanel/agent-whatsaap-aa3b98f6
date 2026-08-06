@@ -30,13 +30,6 @@ import {
   RECLAMACAO_TEXT,
   SUPORTE_EXPANDIDO_TEXT 
 } from "./prompt/prompt-conditional.server";
-import { 
-  CADASTRO_TEXT, 
-  BANCO_ALERTA_TEXT, 
-  PLATAFORMAS_DISPONIVEIS_TEXT,
-  RECLAMACAO_TEXT,
-  SUPORTE_EXPANDIDO_TEXT 
-} from "./prompt/prompt-conditional.server";
 
 
 
