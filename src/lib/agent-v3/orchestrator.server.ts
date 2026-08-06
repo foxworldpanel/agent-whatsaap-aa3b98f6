@@ -884,8 +884,12 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
 
   const modulePrompt = promptWithCommercial;
 
-  // Integrar Estado da Conversa no Prompt (Conversation Engine V1.1)
-  const conversationContextPrompt = conversationStateToPrompt(conversationState);
+  // NOTA: conversationContextPrompt (texto duplicado de conversationState)
+  // foi removido — era gerado pela mesma função (conversationStateToPrompt)
+  // com os mesmos parâmetros (message, history) que já alimentam
+  // conversationPrompt (via convState, mais abaixo), sendo enviado 2x ao
+  // Claude como conteúdo idêntico. conversationState em si é mantido —
+  // ainda é usado pro log e pro retorno da função.
 
   const numericModuleVersion = (key: string): number => {
     const parsed = Number(mergedModulesMap[key]?.version);
@@ -934,6 +938,12 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
 
   // 10. Conversation Engine V1.1 (Legado)
   const convState = detectConversationState({ message, history });
+  // NOTA: conversationContextPrompt (texto duplicado de conversationState)
+  // foi removido — era gerado pela mesma função (conversationStateToPrompt)
+  // com os mesmos parâmetros (message, history) que já alimentam
+  // conversationPrompt (via convState, mais abaixo), sendo enviado 2x ao
+  // Claude como conteúdo idêntico. conversationState em si é mantido —
+  // ainda é usado pro log e pro retorno da função.
   const conversationPrompt = conversationStateToPrompt(convState);
 
   // 11. Perfil do cliente — antes fazia uma chamada extra ao Sonnet
@@ -965,16 +975,16 @@ ${P0_TEXT}
 
 ${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic })}
 
-${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}
-
-${conditionalPrompts}
-
-${conversationPrompt}${customerProfilePrompt}`,
+${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}`,
       cache_control: { type: "ephemeral" }
     },
     {
       type: "text",
       text: `
+${conditionalPrompts}
+
+${conversationPrompt}${customerProfilePrompt}
+
 HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
 
 ESTADO DA CONVERSA:
@@ -1130,14 +1140,7 @@ ${extraContext}`
     apiKey:
       anthropicApiKey ||
       (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined),
-    system: [
-      ...systemPrompt,
-      {
-        type: "text",
-        text: conversationContextPrompt,
-        cache_control: { type: "ephemeral" }
-      }
-    ],
+    system: systemPrompt,
 
     messages: [
       ...history.map((m) => ({
