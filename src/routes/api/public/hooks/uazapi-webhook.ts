@@ -2346,7 +2346,17 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           );
 
           const selectionContextForTemperature =
-            (v3Response.modules.selection_context as any) || {};
+            (v3Response?.modules?.selection_context as any) || {};
+
+          const intelligenceTemperature = 
+            v3Response?.intelligence?.temperature || 
+            (execResult.salesIntelligence?.leadTemperature?.temperature === "HOT" ? "quente" : 
+             execResult.salesIntelligence?.leadTemperature?.temperature === "WARM" ? "morno" : "frio");
+
+          const purchaseProbability = 
+            v3Response?.intelligence?.purchase_probability ?? 
+            (execResult.salesIntelligence?.leadTemperature?.temperature === "HOT" ? 90 : 
+             execResult.salesIntelligence?.leadTemperature?.temperature === "WARM" ? 50 : 20);
 
           contactTemperature = await syncPersistentContactTemperatureV3({
             supabaseAdmin,
@@ -2356,8 +2366,8 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
             lifecycle: customerMemory?.lifecycle ?? null,
             purchaseCount: customerMemory?.purchaseCount ?? 0,
             businessState: businessDecision.state,
-            intelligenceTemperature: v3Response.intelligence.temperature,
-            purchaseProbability: v3Response.intelligence.purchase_probability,
+            intelligenceTemperature: intelligenceTemperature as any,
+            purchaseProbability,
             hasPlatform: Boolean(
               selectionContextForTemperature.platform ||
                 customerMemory?.preferredPlatform,
