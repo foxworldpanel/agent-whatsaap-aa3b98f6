@@ -105,6 +105,7 @@ function markMessageIdSeen(id: string): void {
 // diagnosticar exatamente onde uma mensagem específica parou, sem
 // depender de acesso a log de servidor.
 async function traceFunnel(
+  supabaseAdmin: any,
   msgId: string,
   phone: string | undefined,
   step: string,
