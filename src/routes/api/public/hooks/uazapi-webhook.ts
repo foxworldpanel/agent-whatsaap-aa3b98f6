@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
-import { removeAccents } from "@/lib/text-normalize";
+import { normalizeTriggerText, removeAccents } from "@/lib/text-normalize";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
@@ -552,10 +552,7 @@ function canRepeatWelcomeFunnelForTest(phone: string): boolean {
 // Essas mensagens ficam registradas e o Agent V3 só é liberado após a conclusão.
 
 function normalizeFunnelText(value: string): string {
-  return removeAccents(String(value || ""))
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
+  return normalizeTriggerText(value);
 }
 
 export function funnelMatchesMessage(triggerKeywords: string, message: string): boolean {
@@ -565,12 +562,34 @@ export function funnelMatchesMessage(triggerKeywords: string, message: string): 
   const genericGreetings = new Set(["oi", "ola", "bom dia", "boa tarde", "boa noite"]);
   const triggers = String(triggerKeywords || "")
     .split(",")
-    .map((item) => normalizeFunnelText(item))
-    // Segurança: uma saudação genérica jamais pode disparar o funil sozinha.
-    .filter((item) => Boolean(item) && !genericGreetings.has(item));
+    .map((item) => item.trim())
+    .filter(Boolean);
 
-  if (triggers.length === 0) return false;
-  return triggers.some((trigger) => normalizedMessage.includes(trigger));
+  for (const rawTrigger of triggers) {
+    const normalizedTrigger = normalizeFunnelText(rawTrigger);
+    
+    // Segurança: uma saudação genérica jamais pode disparar o funil sozinha.
+    if (!normalizedTrigger || genericGreetings.has(normalizedTrigger)) continue;
+
+    const isMatch = normalizedMessage.includes(normalizedTrigger);
+
+    // Telemetria para auditoria de disparo (logamos matches ou tentativas em mensagens que parecem gatilhos)
+    const isPromising = message.toLowerCase().includes("interesse") || message.toLowerCase().includes("divulgar") || message.length > 20;
+    
+    if (isMatch || isPromising) {
+      console.log(`[WELCOME-FUNNEL-AUDIT] ${isMatch ? "MATCH" : "NO MATCH"}`, {
+        triggerOriginal: rawTrigger,
+        triggerNormalizado: normalizedTrigger,
+        mensagemOriginal: message,
+        mensagemNormalizada: normalizedMessage,
+        resultado: isMatch ? "MATCH" : "NO MATCH"
+      });
+    }
+
+    if (isMatch) return true;
+  }
+
+  return false;
 }
 
 async function executeWelcomeFunnel(params: {
