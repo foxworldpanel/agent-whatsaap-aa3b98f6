@@ -884,12 +884,6 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
 
   const modulePrompt = promptWithCommercial;
 
-  // NOTA: conversationContextPrompt (texto duplicado de conversationState)
-  // foi removido — era gerado pela mesma função (conversationStateToPrompt)
-  // com os mesmos parâmetros (message, history) que já alimentam
-  // conversationPrompt (via convState, mais abaixo), sendo enviado 2x ao
-  // Claude como conteúdo idêntico. conversationState em si é mantido —
-  // ainda é usado pro log e pro retorno da função.
 
   const numericModuleVersion = (key: string): number => {
     const parsed = Number(mergedModulesMap[key]?.version);
@@ -938,12 +932,6 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
 
   // 10. Conversation Engine V1.1 (Legado)
   const convState = detectConversationState({ message, history });
-  // NOTA: conversationContextPrompt (texto duplicado de conversationState)
-  // foi removido — era gerado pela mesma função (conversationStateToPrompt)
-  // com os mesmos parâmetros (message, history) que já alimentam
-  // conversationPrompt (via convState, mais abaixo), sendo enviado 2x ao
-  // Claude como conteúdo idêntico. conversationState em si é mantido —
-  // ainda é usado pro log e pro retorno da função.
   const conversationPrompt = conversationStateToPrompt(convState);
 
   // 11. Perfil do cliente — antes fazia uma chamada extra ao Sonnet
