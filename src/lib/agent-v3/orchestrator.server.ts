@@ -9,6 +9,7 @@ import { loadEnabledModulesV3, moduleBelongsToPlatform, type LoadedModuleV3, typ
 import { selectModulesV3, logModuleSelectorExecution, type ConversationContext } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
+import { understandConversation, summaryToPrompt } from "./core/deep-conversation-engine.server";
 import {
   sanitizeSystemLeaks,
   limitEmojiFrequency,
@@ -930,11 +931,16 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     conditionalPrompts += "\n\n" + SUPORTE_EXPANDIDO_TEXT;
   }
 
-  // 10. Conversation Engine V1
+  // 10. Conversation Engine V1.1 (Legado)
   const convState = detectConversationState({ message, history });
   const conversationPrompt = conversationStateToPrompt(convState);
 
-  console.log(`[CONVERSATION] Greeting: ${convState.greetingAlreadyDone} | Topic: ${convState.currentTopic} | Pending: ${convState.pendingQuestion ? "Yes" : "No"} | Last: ${convState.lastAgentAction?.slice(0, 30)}...`);
+  // 11. Deep Conversation Engine V1 (Conversation Understanding)
+  const deepSummary = await understandConversation({ message, history });
+  const deepPrompt = summaryToPrompt(deepSummary);
+
+  console.log(`[CONVERSATION] Greeting: ${convState.greetingAlreadyDone} | Topic: ${convState.currentTopic} | Pending: ${convState.pendingQuestion ? "Yes" : "No"} | Profile: ${deepSummary.customerProfile}`);
+
 
   const systemPrompt = [
     {
