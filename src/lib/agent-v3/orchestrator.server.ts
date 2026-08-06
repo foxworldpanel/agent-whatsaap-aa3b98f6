@@ -884,8 +884,12 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
 
   const modulePrompt = promptWithCommercial;
 
-  // Integrar Estado da Conversa no Prompt (Conversation Engine V1.1)
-  const conversationContextPrompt = conversationStateToPrompt(conversationState);
+  // NOTA: conversationContextPrompt (texto duplicado de conversationState)
+  // foi removido — era gerado pela mesma função (conversationStateToPrompt)
+  // com os mesmos parâmetros (message, history) que já alimentam
+  // conversationPrompt (via convState, mais abaixo), sendo enviado 2x ao
+  // Claude como conteúdo idêntico. conversationState em si é mantido —
+  // ainda é usado pro log e pro retorno da função.
 
   const numericModuleVersion = (key: string): number => {
     const parsed = Number(mergedModulesMap[key]?.version);
