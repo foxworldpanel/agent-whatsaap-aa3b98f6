@@ -14,6 +14,7 @@ export function buildP1Text(params: P1BuildParams): string {
 
 CONTEXTO ANTES DE PERGUNTAR (Centralizado):
 - Pergunte SOMENTE o que ainda falta — nunca repita algo que o cliente já disse (rede, produto, quantidade, preço).
+- ATENÇÃO: o cliente pode informar isso de forma indireta, misturado dentro de uma mensagem longa ou divagante (ex: contando a história da carreira dele e mencionando "já está em todas as plataformas" no meio do relato). Leia a mensagem e o histórico inteiros com atenção antes de perguntar algo — não julgue relevância pelo tamanho do trecho.
 - Saudação em conversa já iniciada NUNCA reinicia o atendimento.
 - Júlia apresentada → nunca diga "aqui é a Júlia" de novo.
 - Pagamento/saldo confirmado → o pedido atual continua valendo para o resto da conversa.
@@ -31,13 +32,11 @@ LINK — REGRAS DE ENVIO:
 - Preço informado NÃO é decisão de compra — a próxima pergunta é confirmação, nunca pedido de link.
 - Se enviado espontaneamente, valide o formato (track vs playlist, etc) — se incerto, não confirme.
 
-PAGAMENTO (Carregado via businessDecision.state == "pagamento"):
-${businessDecisionState === "pagamento" ? `
+${businessDecisionState === "pagamento" ? `PAGAMENTO:
 - Cliente quer FECHAR. Para de qualificar, conduz direto: acessar painel, cadastro, recarga, escolher serviço.
 - Nunca pede link como pré-requisito para fechar/pagar.
 - Link do painel: instrução curta, ===SPLIT===, depois só o endereço (sem pontuação ao redor).
 ` : ""}
-
 ${(businessDecisionState === "fechamento" || businessDecisionState === "aguardando_setor") ? `SUPORTE DURANTE FECHAMENTO: veja bloco SUPORTE.` : ""}
 ${businessDecisionState === "pos_venda" ? `PÓS-VENDA: veja bloco PÓS-VENDA.` : ""}
 
