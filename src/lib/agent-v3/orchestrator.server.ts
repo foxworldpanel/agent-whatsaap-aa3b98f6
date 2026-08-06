@@ -30,6 +30,14 @@ import {
   RECLAMACAO_TEXT,
   SUPORTE_EXPANDIDO_TEXT 
 } from "./prompt/prompt-conditional.server";
+import { 
+  CADASTRO_TEXT, 
+  BANCO_ALERTA_TEXT, 
+  PLATAFORMAS_DISPONIVEIS_TEXT,
+  RECLAMACAO_TEXT,
+  SUPORTE_EXPANDIDO_TEXT 
+} from "./prompt/prompt-conditional.server";
+
 
 
 // Flag de diagnóstico — liga/desliga a contagem real de tokens via
@@ -881,6 +889,33 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     timeStyle: "short",
   }).format(new Date());
 
+  // --- CARREGAMENTO CONDICIONAL DE RESPONSABILIDADES (V2) ---
+  let conditionalPrompts = "";
+  const lastCustomerMessage = message.toLocaleLowerCase("pt-BR");
+  
+  // 4. Plataformas disponíveis (Só quando necessário)
+  const needsPlatforms = /trabalha com|quais redes|outras redes|quais plataformas|voces fazem/i.test(lastCustomerMessage) || 
+                         (selectionContext.intent === "descoberta" && !selectionContext.platform);
+  if (needsPlatforms) conditionalPrompts += "\n\n" + PLATAFORMAS_DISPONIVEIS_TEXT;
+
+  // 5. Cadastro (Sinais de cadastro/login)
+  const needsRegistration = /cadastro|cadastrar|criar conta|registrar|login|documento|biometria/i.test(lastCustomerMessage);
+  if (needsRegistration) conditionalPrompts += "\n\n" + CADASTRO_TEXT;
+
+  // 6. Alerta de Banco (Sinais de risco/bloqueio)
+  const needsBankAlert = /alerta|bloqueio|risco|seguranca|transacao recusada/i.test(lastCustomerMessage);
+  if (needsBankAlert) conditionalPrompts += "\n\n" + BANCO_ALERTA_TEXT;
+
+  // 8. Reclamação
+  if (businessDecision?.state === "reclamacao") {
+    conditionalPrompts += "\n\n" + RECLAMACAO_TEXT;
+  }
+
+  // 9. Suporte / Aguardando Setor
+  if (businessDecision?.state === "aguardando_setor" || businessDecision?.state === "compra_bloqueada") {
+    conditionalPrompts += "\n\n" + SUPORTE_EXPANDIDO_TEXT;
+  }
+
   const systemPrompt = [
     {
       type: "text",
@@ -891,19 +926,15 @@ ${P0_TEXT}
 
 ${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic })}
 
+${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}
 
-${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}`,
+${conditionalPrompts}`,
       cache_control: { type: "ephemeral" }
     },
     {
       type: "text",
       text: `
 HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
-
-PLATAFORMAS DISPONÍVEIS NO CMS:
-${availableCommercialPlatforms.length > 0 ? availableCommercialPlatforms.join(", ") : "nenhuma identificada"}
-- Esta lista serve SOMENTE para confirmar se a Mind trabalha ou não com uma plataforma.
-- Nunca diga que uma plataforma acima não é oferecida. Para serviços e preços, continue usando apenas os módulos carregados abaixo.
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
