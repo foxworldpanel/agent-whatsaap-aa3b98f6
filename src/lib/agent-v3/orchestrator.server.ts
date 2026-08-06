@@ -4,6 +4,7 @@ import {
   deriveTemperatureFromProbability, 
   applyBusinessDecisionToIntelligence 
 } from "./core/intelligence-utils.server";
+import { detectConversationState, conversationStateToPrompt, type ConversationStateV1 } from "./core/conversation-engine.server";
 import { loadEnabledModulesV3, moduleBelongsToPlatform, type LoadedModuleV3, type CommercePlatform } from "./brain/modules.server";
 import { selectModulesV3, logModuleSelectorExecution, type ConversationContext } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
@@ -608,6 +609,7 @@ export interface AgentV3TurnResult {
   rawResponse?: string;
   rawPrompt?: unknown;
   runId?: string;
+  conversationState?: ConversationStateV1;
 }
 
 export type AgentResponseV3 = AgentV3TurnResult;
@@ -909,6 +911,12 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     conditionalPrompts += "\n\n" + SUPORTE_EXPANDIDO_TEXT;
   }
 
+  // 10. Conversation Engine V1
+  const convState = detectConversationState({ message, history });
+  const conversationPrompt = conversationStateToPrompt(convState);
+
+  console.log(`[CONVERSATION] Greeting: ${convState.greetingAlreadyDone} | Topic: ${convState.currentTopic} | Pending: ${convState.pendingQuestion ? "Yes" : "No"} | Last: ${convState.lastAgentAction?.slice(0, 30)}...`);
+
   const systemPrompt = [
     {
       type: "text",
@@ -921,7 +929,9 @@ ${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic
 
 ${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}
 
-${conditionalPrompts}`,
+${conditionalPrompts}
+
+${conversationPrompt}`,
       cache_control: { type: "ephemeral" }
     },
     {
@@ -1956,6 +1966,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       recommended_action,
       reasoning,
     },
+    conversationState: convState,
     score: {
       total: conversation_score,
       // humanity, clarity etc are derived from feedback or expanded in extractor later
