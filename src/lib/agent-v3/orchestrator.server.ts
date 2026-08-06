@@ -1111,7 +1111,14 @@ ${extraContext}`
     apiKey:
       anthropicApiKey ||
       (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined),
-    system: systemPrompt,
+    system: [
+      ...systemPrompt,
+      {
+        type: "text",
+        text: conversationContextPrompt,
+        cache_control: { type: "ephemeral" }
+      }
+    ],
 
     messages: [
       ...history.map((m) => ({
@@ -1985,7 +1992,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       recommended_action,
       reasoning,
     },
-    conversationState: convState,
+    conversationState,
     score: {
       total: conversation_score,
       // humanity, clarity etc are derived from feedback or expanded in extractor later
