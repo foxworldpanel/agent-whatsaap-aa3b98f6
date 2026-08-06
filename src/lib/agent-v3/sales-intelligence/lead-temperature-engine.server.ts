@@ -3,14 +3,10 @@
 // Consome exclusivamente SalesSignal[] já produzido na Fase A. Nunca
 // reprocessa a mensagem, nunca usa IA, nunca acessa banco/histórico.
 //
-// LACUNA HONESTA: CUSTOMER e RETURNING_CUSTOMER foram pedidos no
-// escopo, mas nenhum SalesSignalType da Fase A carrega evidência de
-// "já comprou antes" ou "é cliente recorrente" — isso exigiria dado de
-// histórico de compra (CRM/banco), que este engine não recebe por
-// design. Os dois valores continuam declarados no tipo (pra não
-// quebrar o contrato pedido), mas esta implementação NUNCA os produz —
-// sempre retornam como não aplicável. Documentado aqui pra não virar
-// "bug silencioso" quando alguém notar que nunca aparecem.
+// REFINAMENTO: Este engine agora atua apenas como fornecedor de evidências
+// baseadas em sinais semânticos. A decisão final de temperatura e
+// probabilidade de compra é centralizada em intelligence-utils.server.ts
+// para garantir fonte única de verdade entre Smart Router e Claude.
 
 import type { SalesSignal } from "./sales-intelligence-engine.server";
 
@@ -27,8 +23,7 @@ function hasSignal(signals: SalesSignal[], type: SalesSignal["type"]): boolean {
 
 /**
  * Classifica a temperatura do lead usando só os sinais já coletados.
- * CUSTOMER/RETURNING_CUSTOMER nunca são retornados nesta versão — ver
- * nota no topo do arquivo.
+ * Retorna evidência qualitativa para o orquestrador/router.
  */
 export function classifyLeadTemperature(signals: SalesSignal[]): LeadTemperatureResult {
   if (hasSignal(signals, "READY_TO_BUY")) {
@@ -50,3 +45,4 @@ export function classifyLeadTemperature(signals: SalesSignal[]): LeadTemperature
 
   return { temperature: "COLD", reason: "NO_QUALIFYING_SIGNAL" };
 }
+
