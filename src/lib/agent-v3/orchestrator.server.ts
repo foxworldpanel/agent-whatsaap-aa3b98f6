@@ -1399,19 +1399,15 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   const publicationAmbiguity =
     /\b(mandar (?:a )?musica|manda (?:a )?musica|coloca (?:a )?musica|postar (?:a )?musica|onde mando|mandar por ai)\b/.test(normalizedCurrentTurn);
 
-  let purchase_probability = 20;
-  if (selectionContext.intent === "consulta_preco") purchase_probability = 50;
-  if (selectionContext.hasGrowthGoal) purchase_probability = Math.max(purchase_probability, 45);
-  if (selectionContext.intent === "descoberta" && selectionContext.platform && selectionContext.product) purchase_probability = Math.max(purchase_probability, 45);
-  if (selectionContext.intent === "compra") purchase_probability = selectionContext.hasQuantity ? 80 : 70;
-  if (selectionContext.intent === "pagamento") purchase_probability = 90;
-  if (selectionContext.hasPaidSignal) purchase_probability = 95;
-  if (selectionContext.intent === "suporte" || selectionContext.intent === "pos_compra") purchase_probability = 25;
-
-  if (selectionContext.platform && selectionContext.product && selectionContext.hasQuantity && selectionContext.intent !== "suporte" && selectionContext.intent !== "pos_compra") {
-    purchase_probability = Math.max(purchase_probability, 78);
-  }
-  if (selectionContext.hasPaymentSignal && selectionContext.intent !== "suporte") purchase_probability = Math.max(purchase_probability, 90);
+  let purchase_probability = calculateBasePurchaseProbability({
+    intent: selectionContext.intent,
+    hasGrowthGoal: selectionContext.hasGrowthGoal,
+    platform: selectionContext.platform,
+    product: selectionContext.product,
+    hasQuantity: selectionContext.hasQuantity,
+    hasPaidSignal: selectionContext.hasPaidSignal,
+    hasPaymentSignal: selectionContext.hasPaymentSignal,
+  });
 
   const purchaseConfirmedThisTurn = isConfirmedPurchaseMessage(message);
   const hasExistingCustomerMemory = customerLifecycle === "cliente" || customerLifecycle === "cliente_recorrente";
@@ -1431,8 +1427,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   if (paymentTechnicalBlock && !currentIsPostSale) purchase_probability = Math.max(purchase_probability, 90);
   if (abandonmentSignal) purchase_probability = Math.min(purchase_probability, 35);
 
-  let temperature: "frio" | "morno" | "quente" =
-    criticalComplaintSignal ? "frio" : purchase_probability >= 75 ? "quente" : purchase_probability >= 40 ? "morno" : "frio";
+  let temperature = deriveTemperatureFromProbability(purchase_probability, criticalComplaintSignal);
 
   let intent = criticalComplaintSignal
     ? "Reclamação"
@@ -1519,60 +1514,51 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   // O motor de estado roda ANTES do LLM. Seus estados comerciais são superiores
   // ao fallback do selector para a telemetria salva no painel.
   if (businessDecision) {
+    const decisionIntelligence = applyBusinessDecisionToIntelligence({
+      state: businessDecision.state,
+      currentProb: purchase_probability,
+      repurchasePotential,
+    });
+    
+    purchase_probability = decisionIntelligence.purchase_probability;
+    temperature = decisionIntelligence.temperature;
+
     switch (businessDecision.state) {
       case "orcamento":
-        purchase_probability = Math.max(purchase_probability, 50);
-        temperature = purchase_probability >= 75 ? "quente" : "morno";
         intent = "Pesquisa";
         stage = "Negociação";
         break;
       case "fechamento":
-        purchase_probability = Math.max(purchase_probability, 85);
-        temperature = "quente";
         intent = "Compra";
         stage = "Fechamento";
         urgency = urgency === "Baixa" ? "Média" : urgency;
         break;
       case "pagamento":
-        purchase_probability = Math.max(purchase_probability, 90);
-        temperature = "quente";
         intent = "Pagamento";
         stage = "Pagamento";
         urgency = "Alta";
         break;
       case "compra_bloqueada":
-        purchase_probability = Math.max(purchase_probability, 90);
-        temperature = "quente";
         intent = "Compra";
         stage = "Pagamento / Compra bloqueada";
         sentiment = "Negativo";
         urgency = "Alta";
         break;
       case "pedido_realizado":
-        purchase_probability = 100;
-        temperature = "quente";
         intent = "Pós-venda";
         stage = "Pós-venda";
         break;
       case "pos_venda":
         intent = "Pós-venda";
         stage = "Pós-venda";
-        purchase_probability = Math.max(
-          purchase_probability,
-          repurchasePotential === "alto" ? 90 : repurchasePotential === "medio" ? 70 : 55,
-        );
-        temperature = purchase_probability >= 75 ? "quente" : "morno";
         break;
       case "reclamacao":
-        purchase_probability = Math.min(purchase_probability, 20);
-        temperature = "frio";
         intent = "Reclamação";
         stage = "Pós-venda";
         sentiment = "Negativo";
         urgency = "Alta";
         break;
       case "abandono":
-        purchase_probability = Math.min(purchase_probability, 35);
         intent = "Abandono da compra";
         stage = "Pagamento interrompido";
         sentiment = "Negativo";
@@ -1582,10 +1568,6 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
         intent = intent === "Outro" ? "Informação" : intent;
         stage = "Aguardando cliente";
         urgency = "Baixa";
-        break;
-      case "aguardando_setor":
-        sentiment = sentiment === "Positivo" ? "Neutro" : sentiment;
-        urgency = "Alta";
         break;
       default:
         break;

@@ -2345,18 +2345,38 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
             "@/lib/agent-v3/memory/contact-temperature.server"
           );
 
+          const {
+            calculateBasePurchaseProbability,
+            deriveTemperatureFromProbability,
+            applyBusinessDecisionToIntelligence,
+          } = await import("@/lib/agent-v3/core/intelligence-utils.server");
+
           const selectionContextForTemperature =
             (v3Response?.modules?.selection_context as any) || {};
 
-          const intelligenceTemperature = 
-            v3Response?.intelligence?.temperature || 
-            (execResult.salesIntelligence?.leadTemperature?.temperature === "HOT" ? "quente" : 
-             execResult.salesIntelligence?.leadTemperature?.temperature === "WARM" ? "morno" : "frio");
+          let purchaseProbability = v3Response?.intelligence?.purchase_probability;
+          let intelligenceTemperature = v3Response?.intelligence?.temperature;
 
-          const purchaseProbability = 
-            v3Response?.intelligence?.purchase_probability ?? 
-            (execResult.salesIntelligence?.leadTemperature?.temperature === "HOT" ? 90 : 
-             execResult.salesIntelligence?.leadTemperature?.temperature === "WARM" ? 50 : 20);
+          // Se não houver resposta do Claude (Smart Router), derivamos da inteligência de vendas
+          if (purchaseProbability === undefined || intelligenceTemperature === undefined) {
+            const baseProb = calculateBasePurchaseProbability({
+              intent: selectionContextForTemperature.intent || "desconhecido",
+              platform: selectionContextForTemperature.platform || customerMemory?.preferredPlatform,
+              product: selectionContextForTemperature.product || customerMemory?.preferredProduct,
+              hasQuantity: selectionContextForTemperature.hasQuantity,
+              hasPaidSignal: selectionContextForTemperature.hasPaidSignal,
+              hasPaymentSignal: selectionContextForTemperature.hasPaymentSignal,
+            });
+
+            const decision = applyBusinessDecisionToIntelligence({
+              state: businessDecision.state,
+              currentProb: baseProb,
+              repurchasePotential: customerMemory?.repurchasePotential,
+            });
+
+            purchaseProbability = decision.purchase_probability;
+            intelligenceTemperature = decision.temperature;
+          }
 
           contactTemperature = await syncPersistentContactTemperatureV3({
             supabaseAdmin,
@@ -2367,7 +2387,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
             purchaseCount: customerMemory?.purchaseCount ?? 0,
             businessState: businessDecision.state,
             intelligenceTemperature: intelligenceTemperature as any,
-            purchaseProbability,
+            purchaseProbability: purchaseProbability!,
             hasPlatform: Boolean(
               selectionContextForTemperature.platform ||
                 customerMemory?.preferredPlatform,
