@@ -1168,6 +1168,11 @@ modulePrompt.length (finalModulePrompt): ${modulePromptChars}
 MÓDULOS CARREGADOS NESTE TURNO (${effectiveSelectedKeys.length} total):
 ${effectiveSelectedKeys.join(", ") || "(nenhum)"}
 =========================
+PROMPT BASE (Prompt Optimization V2):
+P0 carregado: sempre (${P0_TEXT.length} chars, ~${Math.round(P0_TEXT.length / 4)} tokens)
+P1 carregado: sempre, com trechos condicionais — pagamento=${businessDecision?.state === "pagamento"}, fechamento=${businessDecision?.state === "fechamento"}, aguardando_setor=${businessDecision?.state === "aguardando_setor"}, pos_venda=${businessDecision?.state === "pos_venda"}, mentionsOwnMusic=${mentionsOwnMusic}
+P2 carregado: sempre, com trechos condicionais — audio=${isAudioInput}, imagem=${isImageInput}, sticker=${isStickerInput}
+=========================
 HISTÓRICO POR PROFUNDIDADE:
 ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): ${h.tokensEstimate} tokens (${h.chars} chars)`).join("\n")}
 =========================`);
