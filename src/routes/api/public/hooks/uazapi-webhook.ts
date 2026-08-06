@@ -573,13 +573,16 @@ export function funnelMatchesMessage(triggerKeywords: string, message: string): 
 
     const isMatch = normalizedMessage.includes(normalizedTrigger);
 
-    // Telemetria detalhada para auditoria de disparo
-    if (isMatch || message.length < 100) { // Loga matches ou mensagens curtas suspeitas
+    // Telemetria para auditoria de disparo (logamos matches ou tentativas em mensagens que parecem gatilhos)
+    const isPromising = message.toLowerCase().includes("interesse") || message.toLowerCase().includes("divulgar") || message.length > 20;
+    
+    if (isMatch || isPromising) {
       console.log(`[WELCOME-FUNNEL-AUDIT] ${isMatch ? "MATCH" : "NO MATCH"}`, {
         triggerOriginal: rawTrigger,
-        triggerNormalized: normalizedTrigger,
-        messageOriginal: message,
-        messageNormalized: normalizedMessage,
+        triggerNormalizado: normalizedTrigger,
+        mensagemOriginal: message,
+        mensagemNormalizada: normalizedMessage,
+        resultado: isMatch ? "MATCH" : "NO MATCH"
       });
     }
 
