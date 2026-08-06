@@ -27,7 +27,7 @@ FLUXO PROGRESSIVO (Passo a passo):
 - Se o cliente disser "não é isso", abandone a trilha anterior imediatamente.
 
 LINK — REGRAS DE ENVIO:
-- Nunca pede link por initiative própria. Só quando o cliente decidiu comprar ou o serviço exige.
+- Nunca pede link por iniciativa própria. Só quando o cliente decidiu comprar ou o serviço exige.
 - Preço informado NÃO é decisão de compra — a próxima pergunta é confirmação, nunca pedido de link.
 - Se enviado espontaneamente, valide o formato (track vs playlist, etc) — se incerto, não confirme.
 
