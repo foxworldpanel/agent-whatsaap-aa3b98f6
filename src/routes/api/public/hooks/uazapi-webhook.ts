@@ -967,9 +967,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       conversationId &&
       content.kind === "texto"
     ) {
+      const normalizedMessage = normalizeTriggerText(content.text);
+      console.log("====================================================");
+      console.log("[WELCOME-FUNNEL-TRACE]");
+      console.log("Mensagem original:", content.text);
+      console.log("Mensagem normalizada:", normalizedMessage);
+      console.log("Workspace:", workspaceId);
+      console.log("WhatsApp Number:", num.id);
+      console.log("User:", num.user_id);
+      console.log("----------------------------------------------------");
+
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
-        .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
+        .select("id, name, delay_seconds, trigger_keywords, steps, sort_order, enabled")
         .eq("user_id", num.user_id)
         .eq("workspace_id", workspaceId)
         .eq("whatsapp_number_id", num.id)
@@ -982,20 +992,37 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         console.error("[WELCOME-FUNNEL] Falha ao carregar funis; seguindo para Agent V3:", funnelErr);
       } else {
         const rowCount = funnelRows?.length || 0;
-        if (rowCount === 0) {
-          console.log(`[WELCOME-FUNNEL] Nenhum funil encontrado para este workspace/número (user_id: ${num.user_id}, workspace_id: ${workspaceId}, whatsapp_number_id: ${num.id})`);
-        } else {
-          console.log(`[WELCOME-FUNNEL] ${rowCount} funis carregados para workspace ${workspaceId}:`, 
-            (funnelRows as any[]).map(f => `[${f.id}] ${f.name}`).join(", ")
-          );
+        console.log("Funis carregados:");
+        console.log("Quantidade:", rowCount);
+        if (rowCount > 0) {
+          (funnelRows as any[]).forEach(f => {
+            console.log(`- id: ${f.id}`);
+            console.log(`  nome: ${f.name}`);
+            console.log(`  enabled: ${f.enabled}`);
+            console.log(`  trigger original: ${f.trigger_keywords}`);
+            console.log(`  trigger normalizado: ${normalizeTriggerText(f.trigger_keywords)}`);
+          });
         }
+        console.log("----------------------------------------------------");
 
+        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) => {
+          const isMatch = funnelMatchesMessage(row.trigger_keywords, content.text);
+          const rowTriggerNorm = normalizeTriggerText(row.trigger_keywords);
+          if (!isMatch) {
+             // Silencioso no loop, reportamos o final
+          }
+          return isMatch;
+        });
 
-        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
-          funnelMatchesMessage(row.trigger_keywords, content.text),
-        );
+        console.log("Resultado do matching:");
+        console.log("matchingFunnel:", matchingFunnel ? "SIM" : "NÃO");
+        if (!matchingFunnel && rowCount > 0) {
+          console.log("Motivo da falha: Nenhuma correspondência exata entre mensagem normalizada e gatilhos normalizados.");
+        }
+        console.log("----------------------------------------------------");
 
         if (matchingFunnel) {
+
           // Usa somente colunas existentes desde a criação original da tabela.
           // Não depende de status/updated_at/last_step para funcionar.
           const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
@@ -1085,6 +1112,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             if (!existingRun || repeatForTest || isRetryAttempt) {
               // Claim atômico baseado na PK original (funnel_id, contact_id).
               // Isso funciona mesmo sem nenhuma migration de estado adicional.
+              console.log("Claim");
+              console.log("claimWelcomeFunnel executou? SIM");
               const { error: claimErr } = await (supabaseAdmin as any)
                 .from("welcome_funnel_runs")
                 .insert({
@@ -1101,6 +1130,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   retry_count: nextRetryCount,
                   updated_at: new Date().toISOString(),
                 });
+
+              console.log("Resultado:", claimErr ? "erro" : "true");
+
 
               if (claimErr) {
                 if (claimErr.code === "23505") {
@@ -1134,7 +1166,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     uazapi_token: instanceToken,
                   };
 
-                  console.log(`[WELCOME-FUNNEL] Disparando "${matchingFunnel.name}" para ${phoneStr}`);
+                  console.log("Execução");
+                  console.log("executeWelcomeFunnel executou? SIM");
                   await executeWelcomeFunnel({
                     supabaseAdmin,
                     funnel: matchingFunnel,
@@ -1145,6 +1178,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     phone: sendTarget,
                     creds,
                   });
+
+                  console.log("----------------------------------------------------");
+                  console.log("Fluxo");
+                  console.log("O código retornou após o funil? SIM");
+                  console.log("executeAgent foi chamado? NÃO");
+                  console.log("----------------------------------------------------");
+                  console.log("Resultado Final");
+                  console.log("FUNIL DISPARADO");
+                  console.log("==============================");
+
 
                   // O runner compartilhado é a única fonte de verdade para
                   // status/progresso/completion do funil.
@@ -2144,7 +2187,9 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       console.log("RETURN-PONTO: chegou na V3", { phone: phoneStr });
 
       const { executeAgent } = await import("@/lib/agent-v3/core/execute-agent.server");
+      console.log("executeAgent foi chamado? SIM");
       const execResult = await executeAgent({
+
         userId: num.user_id,
         flowActionHint,
         workspaceId,
@@ -2638,7 +2683,17 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       // Só persiste a resposta do agente depois que o envio foi confirmado.
       // Antes, uma falha no WhatsApp deixava o histórico afirmando que o cliente
       // recebeu uma resposta que nunca foi entregue.
+      console.log("----------------------------------------------------");
+      console.log("Fluxo");
+      console.log("O código retornou após o funil? NÃO (seguindo para Agent V3)");
+      console.log("----------------------------------------------------");
+      console.log("Resultado Final");
+      console.log("FUNIL IGNORADO");
+      console.log("Motivo: Gatilho não identificado ou execução já completada.");
+      console.log("==============================");
+
       await saveConversationStateV3(
+
         num.user_id,
         phoneStr,
         nextHistory,
