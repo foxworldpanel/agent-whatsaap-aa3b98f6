@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { normalizeTriggerText, removeAccents } from "@/lib/text-normalize";
+import { isConversationAgentEnabledV3 } from "@/lib/agent-v3/brain/config.server";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook

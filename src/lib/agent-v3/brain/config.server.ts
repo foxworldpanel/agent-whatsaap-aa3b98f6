@@ -104,3 +104,30 @@ export function invalidateAgentConfigCache(userId: string, workspaceId?: string)
 export function clearAgentConfigCache(): void {
   configCache.clear();
 }
+
+/**
+ * Checks if the agent is enabled for a specific conversation.
+ * Bypasses local cache to ensure immediate response to toggle.
+ */
+export async function isConversationAgentEnabledV3(
+  supabaseAdmin: any,
+  conversationId: string,
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("conversations")
+      .select("agent_enabled")
+      .eq("id", conversationId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[v3-config] Error checking agent_enabled status:", error);
+      return true; // Fail-open
+    }
+
+    return data?.agent_enabled !== false;
+  } catch (err) {
+    console.error("[v3-config] Exception checking agent_enabled:", err);
+    return true; // Fail-open
+  }
+}

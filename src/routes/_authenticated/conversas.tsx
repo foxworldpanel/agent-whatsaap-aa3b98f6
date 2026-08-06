@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, RefreshCw, Ban, ShieldCheck, Search, X, Copy, BrainCircuit, Flame, Megaphone, UserCheck } from "lucide-react";
+import { Send, Trash2, RefreshCw, Ban, ShieldCheck, Search, X, Copy, BrainCircuit, Flame, Megaphone, UserCheck, Power, PowerOff } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
