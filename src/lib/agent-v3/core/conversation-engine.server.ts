@@ -85,6 +85,17 @@ export function detectConversationState(params: {
 }
 
 export function conversationStateToPrompt(state: ConversationStateV1): string {
+  const instructions = [
+    state.greetingAlreadyDone 
+      ? "- DO NOT greet the customer again (no 'Olá', 'Bom dia', etc)." 
+      : "- Use a polite greeting (appropriate for the current time if possible).",
+    state.pendingQuestion 
+      ? `- The customer is likely answering your specific question: "${state.pendingQuestion}". Respond directly to the answer.` 
+      : "",
+    `- Maintain focus on the current topic: ${state.currentTopic || "general assistance"}.`,
+    `- Ensure the response flows naturally from the last action: "${state.lastAgentAction || "First message"}".`
+  ].filter(Boolean).join("\n");
+
   return `
 [CONVERSATION CONTEXT]
 Greeting Already Done: ${state.greetingAlreadyDone}
@@ -95,9 +106,6 @@ Current Topic: ${state.currentTopic || "Unknown"} (Source: ${state.currentTopicS
 Pending Question from Agent: ${state.pendingQuestion || "None"}
 
 INSTRUCTIONS:
-${state.greetingAlreadyDone ? "- DO NOT greet the customer again (no 'Olá', 'Bom dia', etc)." : "- Use a polite greeting (appropriate for the current time if possible)."}
-${state.pendingQuestion ? \`- The customer is likely answering your specific question: "\${state.pendingQuestion}". Respond directly to the answer.\` : ""}
-- Maintain focus on the current topic: ${state.currentTopic || "general assistance"}.
-- Ensure the response flows naturally from the last action: "${state.lastAgentAction || "First message"}".
+${instructions}
 `.trim();
 }
