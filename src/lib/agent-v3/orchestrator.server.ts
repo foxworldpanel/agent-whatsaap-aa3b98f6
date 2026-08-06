@@ -956,7 +956,9 @@ ${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}
 
 ${conditionalPrompts}
 
-${conversationPrompt}`,
+${conversationPrompt}
+
+${deepPrompt}`,
       cache_control: { type: "ephemeral" }
     },
     {
