@@ -910,7 +910,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     if (isDuplicateDelivery) {
       console.log(`[UAZ-WEBHOOK] [AUDIT] Mensagem duplicada (msgId ${msgId}) — pulando resposta da IA, mas ainda verificando Welcome Funnel (idempotente).`);
     }
-    traceFunnel(msgId, phoneStr, "dedup_check", {
+    traceFunnel(supabaseAdmin, msgId, phoneStr, "dedup_check", {
       isDuplicateInMemory,
       isDuplicateDelivery,
       messagePersistedInDb,
@@ -974,7 +974,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     // 3.4. FUNNEL GATE GLOBAL
-    traceFunnel(msgId, phoneStr, "funnel_gate_entry", {
+    traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_entry", {
       contactId: contactId ?? null,
       conversationId: conversationId ?? null,
       workspaceId,
@@ -992,7 +992,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       if (runningFunnelErr) {
         console.warn("[WELCOME-FUNNEL] [AUDIT] Não foi possível verificar run em andamento:", runningFunnelErr);
-        traceFunnel(msgId, phoneStr, "funnel_gate_error", { error: String(runningFunnelErr) });
+        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_error", { error: String(runningFunnelErr) });
       } else if (runningFunnel) {
         const firedAt = new Date((runningFunnel as any).fired_at || 0).getTime();
         const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
@@ -1004,18 +1004,18 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // Somente bloqueia se estiver rodando e não estiver obsoleto.
         if (!stale && (status === "running" || status === "paused")) {
           console.log("RETURN-PONTO: welcome-funnel", { status, phone: phoneStr });
-          traceFunnel(msgId, phoneStr, "funnel_gate_blocked", { status, stale });
+          traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_blocked", { status, stale });
           return new Response("ok (welcome funnel active; agent deferred)");
         } else {
           console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (stale=${stale}, status=${status})`);
-          traceFunnel(msgId, phoneStr, "funnel_gate_liberado", { reason: "existing_run_stale_or_done", status, stale });
+          traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "existing_run_stale_or_done", status, stale });
         }
       } else {
         console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (nenhuma run encontrada)`);
-        traceFunnel(msgId, phoneStr, "funnel_gate_liberado", { reason: "no_existing_run" });
+        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "no_existing_run" });
       }
     } else {
-      traceFunnel(msgId, phoneStr, "funnel_gate_skipped", { reason: "contactId_ou_conversationId_ausente" });
+      traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_skipped", { reason: "contactId_ou_conversationId_ausente" });
     }
 
 
@@ -1041,7 +1041,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       console.log("WhatsApp Number:", num.id);
       console.log("User:", num.user_id);
       console.log("----------------------------------------------------");
-      traceFunnel(msgId, phoneStr, "welcome_funnel_entry", {
+      traceFunnel(supabaseAdmin, msgId, phoneStr, "welcome_funnel_entry", {
         mensagemOriginal: content.text,
         mensagemNormalizada: normalizedMessage,
         workspaceId,
@@ -1062,7 +1062,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       if (funnelErr) {
         // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
         console.error("[WELCOME-FUNNEL] Falha ao carregar funis; seguindo para Agent V3:", funnelErr);
-        traceFunnel(msgId, phoneStr, "funnels_query_error", { error: String(funnelErr) });
+        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnels_query_error", { error: String(funnelErr) });
       } else {
         const rowCount = funnelRows?.length || 0;
         console.log("Funis carregados:");
@@ -1077,7 +1077,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           });
         }
         console.log("----------------------------------------------------");
-        traceFunnel(msgId, phoneStr, "funnels_loaded", {
+        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnels_loaded", {
           quantidade: rowCount,
           funis: (funnelRows as any[] || []).map(f => ({ id: f.id, nome: f.name, trigger: f.trigger_keywords })),
         });
@@ -1096,7 +1096,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           console.log("Motivo da falha: Nenhuma correspondência exata entre mensagem normalizada e gatilhos normalizados.");
         }
         console.log("----------------------------------------------------");
-        traceFunnel(msgId, phoneStr, "matching_result", {
+        traceFunnel(supabaseAdmin, msgId, phoneStr, "matching_result", {
           matched: Boolean(matchingFunnel),
           matchingFunnelId: matchingFunnel?.id ?? null,
           matchingFunnelName: matchingFunnel?.name ?? null,
@@ -1213,7 +1213,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 });
 
               console.log("Resultado:", claimErr ? "erro" : "true");
-              traceFunnel(msgId, phoneStr, "claim_run_result", {
+              traceFunnel(supabaseAdmin, msgId, phoneStr, "claim_run_result", {
                 sucesso: !claimErr,
                 errorCode: claimErr?.code ?? null,
                 errorMessage: claimErr?.message ?? null,
@@ -1224,7 +1224,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               if (claimErr) {
                 if (claimErr.code === "23505") {
                   // Outra instância ganhou o claim. Não mande IA junto com o funil.
-                  traceFunnel(msgId, phoneStr, "claim_conflict", { funnelId: matchingFunnel.id });
+                  traceFunnel(supabaseAdmin, msgId, phoneStr, "claim_conflict", { funnelId: matchingFunnel.id });
                   return new Response("ok (welcome funnel claimed elsewhere)");
                 }
                 console.error("[WELCOME-FUNNEL] Falha ao reservar execução; seguindo para Agent V3:", claimErr);
@@ -1241,7 +1241,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   );
 
                   if (!funnelLockAcquired) {
-                    traceFunnel(msgId, phoneStr, "lock_nao_adquirido", { funnelId: matchingFunnel.id });
+                    traceFunnel(supabaseAdmin, msgId, phoneStr, "lock_nao_adquirido", { funnelId: matchingFunnel.id });
                     await (supabaseAdmin as any)
                       .from("welcome_funnel_runs")
                       .delete()
@@ -1249,7 +1249,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                       .eq("contact_id", contactId);
                     return new Response("ok (conversation busy)");
                   }
-                  traceFunnel(msgId, phoneStr, "lock_adquirido_enviando", { funnelId: matchingFunnel.id });
+                  traceFunnel(supabaseAdmin, msgId, phoneStr, "lock_adquirido_enviando", { funnelId: matchingFunnel.id });
 
                   const creds = {
                     uazapi_url: num.uazapi_url ?? "",
