@@ -571,7 +571,7 @@ export function funnelMatchesMessage(triggerKeywords: string, message: string): 
     // Segurança: uma saudação genérica jamais pode disparar o funil sozinha.
     if (!normalizedTrigger || genericGreetings.has(normalizedTrigger)) continue;
 
-    const isMatch = normalizedMessage.includes(normalizedTrigger);
+    const isMatch = normalizedMessage === normalizedTrigger || normalizedMessage.includes(normalizedTrigger);
 
     // Telemetria para auditoria de disparo (logamos matches ou tentativas em mensagens que parecem gatilhos)
     const isPromising = message.toLowerCase().includes("interesse") || message.toLowerCase().includes("divulgar") || message.length > 20;
