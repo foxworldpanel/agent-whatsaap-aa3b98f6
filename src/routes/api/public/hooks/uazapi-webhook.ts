@@ -2751,6 +2751,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       } finally {
         if (conversationId) {
           await releaseConversationDbLock(supabaseAdmin, conversationId, lockHolder);
+        }
       }
     });
 }
