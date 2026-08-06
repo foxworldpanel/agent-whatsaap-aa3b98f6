@@ -986,12 +986,6 @@ ${conditionalPrompts}
 ${conversationPrompt}${customerProfilePrompt}
 
 HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
-      cache_control: { type: "ephemeral" }
-    },
-    {
-      type: "text",
-      text: `
-HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
