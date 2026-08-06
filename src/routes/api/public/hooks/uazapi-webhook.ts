@@ -678,9 +678,20 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const fallbackIdentity = [content.kind, content.text, content.mediaUrl ?? ""].join(":");
     const msgId: string = extractedId ?? buildFallbackMessageId(phoneStr, fallbackIdentity);
 
-    if (wasMessageIdRecentlySeen(msgId)) {
-      console.log(`[UAZ-WEBHOOK] Ignorando duplicata em memória (msgId: ${msgId})`);
-      return new Response("ok (duplicate msgId)");
+    // IMPORTANTE (correção de regressão do Welcome Funnel, parte 2): esta
+    // checagem em memória acontece ANTES até da criação do contato — mais
+    // cedo que a correção anterior (duplicateMessageInDb). Se a 1ª tentativa
+    // persistiu a mensagem/contato/conversa com sucesso e chamou
+    // markMessageIdSeen, mas travou ou retornou em algum ponto ANTES de
+    // chegar no Funnel Gate (seção 3.4/3.5), uma retransmissão do provedor
+    // batia aqui e retornava imediatamente — nunca chegando nem perto da
+    // correção anterior, porque essa é uma função só e o retorno aqui
+    // interrompe tudo antes. Mesmo tratamento: vira flag, não retorno.
+    // Contato/conversa são idempotentes (upsert), então é seguro deixar o
+    // fluxo re-executar essa parte numa retransmissão.
+    const isDuplicateInMemory = wasMessageIdRecentlySeen(msgId);
+    if (isDuplicateInMemory) {
+      console.log(`[UAZ-WEBHOOK] Duplicata em memória (msgId: ${msgId}) — seguindo mesmo assim pra dar chance ao Welcome Funnel.`);
     }
 
     // 2. SYNC TO CRM (Always do this for all incoming messages)
@@ -1298,9 +1309,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // Bloqueio da resposta da IA pra mensagens duplicadas — o Welcome Funnel
     // já teve a chance de rodar acima (idempotente), agora sim replicamos o
     // comportamento original: nunca gerar uma 2ª resposta de IA pro cliente.
-    if (isDuplicateDelivery) {
-      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: duplicate persisted msgId (após checagem do funil): ${msgId}`);
-      return new Response("ok (duplicate persisted msgId)");
+    if (isDuplicateInMemory || isDuplicateDelivery) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: duplicate msgId (após checagem do funil): ${msgId}`);
+      return new Response("ok (duplicate msgId, after funnel check)");
     }
 
     // 4. AGENT GATES — aplicados DEPOIS do funil.
