@@ -967,9 +967,19 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       conversationId &&
       content.kind === "texto"
     ) {
+      const normalizedMessage = normalizeTriggerText(content.text);
+      console.log("====================================================");
+      console.log("[WELCOME-FUNNEL-TRACE]");
+      console.log("Mensagem original:", content.text);
+      console.log("Mensagem normalizada:", normalizedMessage);
+      console.log("Workspace:", workspaceId);
+      console.log("WhatsApp Number:", num.id);
+      console.log("User:", num.user_id);
+      console.log("----------------------------------------------------");
+
       const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnels")
-        .select("id, name, delay_seconds, trigger_keywords, steps, sort_order")
+        .select("id, name, delay_seconds, trigger_keywords, steps, sort_order, enabled")
         .eq("user_id", num.user_id)
         .eq("workspace_id", workspaceId)
         .eq("whatsapp_number_id", num.id)
@@ -981,6 +991,20 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
         console.error("[WELCOME-FUNNEL] Falha ao carregar funis; seguindo para Agent V3:", funnelErr);
       } else {
+        const rowCount = funnelRows?.length || 0;
+        console.log("Funis carregados:");
+        console.log("Quantidade:", rowCount);
+        if (rowCount > 0) {
+          (funnelRows as any[]).forEach(f => {
+            console.log(`- id: ${f.id}`);
+            console.log(`  nome: ${f.name}`);
+            console.log(`  enabled: ${f.enabled}`);
+            console.log(`  trigger original: ${f.trigger_keywords}`);
+            console.log(`  trigger normalizado: ${normalizeTriggerText(f.trigger_keywords)}`);
+          });
+        }
+        console.log("----------------------------------------------------");
+
         const rowCount = funnelRows?.length || 0;
         if (rowCount === 0) {
           console.log(`[WELCOME-FUNNEL] Nenhum funil encontrado para este workspace/número (user_id: ${num.user_id}, workspace_id: ${workspaceId}, whatsapp_number_id: ${num.id})`);
