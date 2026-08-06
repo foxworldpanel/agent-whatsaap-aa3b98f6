@@ -4,6 +4,7 @@ import {
   deriveTemperatureFromProbability, 
   applyBusinessDecisionToIntelligence 
 } from "./core/intelligence-utils.server";
+import { detectConversationState, conversationStateToPrompt, type ConversationStateV1 } from "./core/conversation-engine.server";
 import { loadEnabledModulesV3, moduleBelongsToPlatform, type LoadedModuleV3, type CommercePlatform } from "./brain/modules.server";
 import { selectModulesV3, logModuleSelectorExecution, type ConversationContext } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
@@ -608,6 +609,7 @@ export interface AgentV3TurnResult {
   rawResponse?: string;
   rawPrompt?: unknown;
   runId?: string;
+  conversationState?: ConversationStateV1;
 }
 
 export type AgentResponseV3 = AgentV3TurnResult;
