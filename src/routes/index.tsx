@@ -9,5 +9,26 @@ export const Route = createFileRoute("/")({
     }
     throw redirect({ to: "/auth" });
   },
-  component: () => null,
+  component: () => (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-mono text-sm text-foreground">
+      <div className="max-w-2xl space-y-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
+        <p className="text-muted-foreground">
+          Se preferir, manda isso pro Lovable rodar (só leitura, não muda nada):
+        </p>
+        <div className="relative group">
+          <pre className="overflow-x-auto rounded-lg bg-black/50 p-4 text-primary group-hover:bg-black/70 transition-colors">
+            {`SELECT
+  n.id AS whatsapp_number_id,
+  n.numero AS numero_conectado,
+  wf.id AS funil_id,
+  wf.name AS funil_nome,
+  wf.enabled
+FROM whatsapp_numbers n
+LEFT JOIN welcome_funnels wf ON wf.whatsapp_number_id = n.id
+WHERE n.user_id = (SELECT user_id FROM whatsapp_numbers LIMIT 1);`}
+          </pre>
+        </div>
+      </div>
+    </div>
+  ),
 });
