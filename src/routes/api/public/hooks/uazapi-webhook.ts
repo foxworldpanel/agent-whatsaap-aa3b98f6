@@ -1028,7 +1028,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return isMatch;
         });
 
-        console.log("Resultado do matching:");
         console.log("Resultado do matching:", matchingFunnel ? "SIM" : "NÃO");
         if (!matchingFunnel && rowCount > 0) {
           console.log("Motivo da falha: Nenhuma correspondência exata entre mensagem normalizada e gatilhos normalizados.");
