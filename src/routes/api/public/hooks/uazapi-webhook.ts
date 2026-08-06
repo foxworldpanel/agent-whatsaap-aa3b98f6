@@ -1005,21 +1005,24 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         }
         console.log("----------------------------------------------------");
 
-        const rowCount = funnelRows?.length || 0;
-        if (rowCount === 0) {
-          console.log(`[WELCOME-FUNNEL] Nenhum funil encontrado para este workspace/número (user_id: ${num.user_id}, workspace_id: ${workspaceId}, whatsapp_number_id: ${num.id})`);
-        } else {
-          console.log(`[WELCOME-FUNNEL] ${rowCount} funis carregados para workspace ${workspaceId}:`, 
-            (funnelRows as any[]).map(f => `[${f.id}] ${f.name}`).join(", ")
-          );
+        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) => {
+          const isMatch = funnelMatchesMessage(row.trigger_keywords, content.text);
+          const rowTriggerNorm = normalizeTriggerText(row.trigger_keywords);
+          if (!isMatch) {
+             // Silencioso no loop, reportamos o final
+          }
+          return isMatch;
+        });
+
+        console.log("Resultado do matching:");
+        console.log("matchingFunnel:", matchingFunnel ? "SIM" : "NÃO");
+        if (!matchingFunnel && rowCount > 0) {
+          console.log("Motivo da falha: Nenhuma correspondência exata entre mensagem normalizada e gatilhos normalizados.");
         }
-
-
-        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
-          funnelMatchesMessage(row.trigger_keywords, content.text),
-        );
+        console.log("----------------------------------------------------");
 
         if (matchingFunnel) {
+
           // Usa somente colunas existentes desde a criação original da tabela.
           // Não depende de status/updated_at/last_step para funcionar.
           const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
