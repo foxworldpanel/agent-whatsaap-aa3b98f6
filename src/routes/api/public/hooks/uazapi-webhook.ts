@@ -1166,7 +1166,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     uazapi_token: instanceToken,
                   };
 
-                  console.log(`[WELCOME-FUNNEL] Disparando "${matchingFunnel.name}" para ${phoneStr}`);
+                  console.log("Execução");
+                  console.log("executeWelcomeFunnel executou? SIM");
                   await executeWelcomeFunnel({
                     supabaseAdmin,
                     funnel: matchingFunnel,
@@ -1177,6 +1178,16 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                     phone: sendTarget,
                     creds,
                   });
+
+                  console.log("----------------------------------------------------");
+                  console.log("Fluxo");
+                  console.log("O código retornou após o funil? SIM");
+                  console.log("executeAgent foi chamado? NÃO");
+                  console.log("----------------------------------------------------");
+                  console.log("Resultado Final");
+                  console.log("FUNIL DISPARADO");
+                  console.log("==============================");
+
 
                   // O runner compartilhado é a única fonte de verdade para
                   // status/progresso/completion do funil.
