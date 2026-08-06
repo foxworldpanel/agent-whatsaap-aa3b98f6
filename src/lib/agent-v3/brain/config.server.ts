@@ -125,7 +125,10 @@ export async function isConversationAgentEnabledV3(
       return true; // Fail-open
     }
 
-    return data?.agent_enabled !== false;
+    // O agente só é considerado habilitado se agent_enabled for EXPLICITAMENTE true.
+    // Se for null ou false, ele não deve responder (isso garante que o desligamento
+    // manual ou falhas críticas que setam null/false sejam respeitadas).
+    return data?.agent_enabled === true;
   } catch (err) {
     console.error("[v3-config] Exception checking agent_enabled:", err);
     return true; // Fail-open
