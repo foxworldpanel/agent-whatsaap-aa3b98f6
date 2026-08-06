@@ -1966,6 +1966,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       recommended_action,
       reasoning,
     },
+    conversationState: convState,
     score: {
       total: conversation_score,
       // humanity, clarity etc are derived from feedback or expanded in extractor later
