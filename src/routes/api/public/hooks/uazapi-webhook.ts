@@ -2187,7 +2187,9 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       console.log("RETURN-PONTO: chegou na V3", { phone: phoneStr });
 
       const { executeAgent } = await import("@/lib/agent-v3/core/execute-agent.server");
+      console.log("executeAgent foi chamado? SIM");
       const execResult = await executeAgent({
+
         userId: num.user_id,
         flowActionHint,
         workspaceId,
