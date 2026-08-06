@@ -2714,6 +2714,33 @@ export type Database = {
           },
         ]
       }
+      funnel_debug_trace: {
+        Row: {
+          created_at: string
+          details: Json | null
+          id: string
+          msg_id: string
+          phone: string | null
+          step: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          msg_id: string
+          phone?: string | null
+          step: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          id?: string
+          msg_id?: string
+          phone?: string | null
+          step?: string
+        }
+        Relationships: []
+      }
       integrations: {
         Row: {
           anthropic_api_key: string | null
