@@ -971,11 +971,17 @@ ${P0_TEXT}
 
 ${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic })}
 
-${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}
-
+${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}`,
+      cache_control: { type: "ephemeral" }
+    },
+    {
+      type: "text",
+      text: `
 ${conditionalPrompts}
 
-${conversationPrompt}${customerProfilePrompt}`,
+${conversationPrompt}${customerProfilePrompt}
+
+HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
       cache_control: { type: "ephemeral" }
     },
     {
