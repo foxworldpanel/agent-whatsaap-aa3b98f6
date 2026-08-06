@@ -928,7 +928,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     // Reações simples não precisam consumir Claude nem gerar "qualquer coisa chama".
     // A mensagem continua salva no CRM, apenas não há resposta automática.
-    if (content.kind === "texto" && isReactionOnlyMessage(content.text)) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: reaction only para msgId ${msgId}`);
       return new Response("ok (reaction only)");
     }
 
