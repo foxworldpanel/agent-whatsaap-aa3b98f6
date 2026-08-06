@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-mono text-sm text-foreground">
       <div className="max-w-2xl space-y-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
         <p className="text-muted-foreground whitespace-pre-wrap">
-          {"fica  aparecendo esse aviso\n\nWe couldn't start the live preview.\n\nTry againDismiss\n\no  que eu faço"}
+          {"porque o funil não foi enviado para o contato +55 35 9813-3086\n\n\ncontinua com o mesmo erro"}
         </p>
       </div>
     </div>

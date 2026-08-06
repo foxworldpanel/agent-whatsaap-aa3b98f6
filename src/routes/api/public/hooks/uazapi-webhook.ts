@@ -571,7 +571,7 @@ export function funnelMatchesMessage(triggerKeywords: string, message: string): 
     // Segurança: uma saudação genérica jamais pode disparar o funil sozinha.
     if (!normalizedTrigger || genericGreetings.has(normalizedTrigger)) continue;
 
-    const isMatch = normalizedMessage.includes(normalizedTrigger);
+    const isMatch = normalizedMessage === normalizedTrigger || normalizedMessage.includes(normalizedTrigger);
 
     // Telemetria para auditoria de disparo (logamos matches ou tentativas em mensagens que parecem gatilhos)
     const isPromising = message.toLowerCase().includes("interesse") || message.toLowerCase().includes("divulgar") || message.length > 20;
@@ -929,6 +929,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // Reações simples não precisam consumir Claude nem gerar "qualquer coisa chama".
     // A mensagem continua salva no CRM, apenas não há resposta automática.
     if (content.kind === "texto" && isReactionOnlyMessage(content.text)) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: reaction only para msgId ${msgId}`);
       return new Response("ok (reaction only)");
     }
 
@@ -1012,8 +1013,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             console.log(`- id: ${f.id}`);
             console.log(`  nome: ${f.name}`);
             console.log(`  enabled: ${f.enabled}`);
-            console.log(`  trigger original: ${f.trigger_keywords}`);
-            console.log(`  trigger normalizado: ${normalizeTriggerText(f.trigger_keywords)}`);
+            console.log(`  trigger original: "${f.trigger_keywords}"`);
+            console.log(`  trigger normalizado: "${normalizeTriggerText(f.trigger_keywords)}"`);
           });
         }
         console.log("----------------------------------------------------");
@@ -1027,8 +1028,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           return isMatch;
         });
 
-        console.log("Resultado do matching:");
-        console.log("matchingFunnel:", matchingFunnel ? "SIM" : "NÃO");
+        console.log("Resultado do matching:", matchingFunnel ? "SIM" : "NÃO");
         if (!matchingFunnel && rowCount > 0) {
           console.log("Motivo da falha: Nenhuma correspondência exata entre mensagem normalizada e gatilhos normalizados.");
         }
