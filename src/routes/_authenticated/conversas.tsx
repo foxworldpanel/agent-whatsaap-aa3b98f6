@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, Trash2, RefreshCw, Ban, ShieldCheck, Search, X, Copy, BrainCircuit, Flame, Megaphone, UserCheck } from "lucide-react";
+import { Send, Trash2, RefreshCw, Ban, ShieldCheck, Search, X, Copy, BrainCircuit, Flame, Megaphone, UserCheck, Power, PowerOff } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -983,31 +983,24 @@ function Conversas() {
                     }
                   }}
                   disabled={toggleMut.isPending || reactivateMut.isPending}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  className={`flex h-8 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-all ${
                     active.agent_enabled && !activeBlocked
                       ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      : activeBlocked
-                      ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-                      : "border-neutral-200 bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
-                  }`}
-                  title={activeBlocked ? "Desbloquear conversa e reativar o agente" : "Liga ou desliga o agente IA apenas para este contato"}
+                      : "border-neutral-200 bg-neutral-50 text-neutral-600 hover:bg-neutral-100"
+                  } ${activeBlocked ? "cursor-not-allowed opacity-50" : ""}`}
+                  title={activeBlocked ? "Desbloqueie a conversa para gerenciar o agente" : ""}
                 >
-                  <span
-                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition ${
-                      active.agent_enabled && !activeBlocked ? "bg-emerald-500" : activeBlocked ? "bg-red-500" : "bg-neutral-400"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-3 w-3 transform rounded-full bg-white shadow transition ${
-                        active.agent_enabled && !activeBlocked ? "translate-x-3.5" : "translate-x-0.5"
-                      }`}
-                    />
-                  </span>
-                  {activeBlocked
-                    ? reactivateMut.isPending
-                      ? "Desbloqueando…"
-                      : "Desbloquear agente"
-                    : `Agente ${active.agent_enabled ? "ativo" : "desligado"}`}
+                  {active.agent_enabled && !activeBlocked ? (
+                    <>
+                      <Power className="h-3.5 w-3.5" />
+                      {toggleMut.isPending ? "Desligando..." : "Agente Ativo"}
+                    </>
+                  ) : (
+                    <>
+                      <PowerOff className="h-3.5 w-3.5" />
+                      {toggleMut.isPending ? "Ligando..." : "Agente Desligado"}
+                    </>
+                  )}
                 </button>
               )}
               {active && (

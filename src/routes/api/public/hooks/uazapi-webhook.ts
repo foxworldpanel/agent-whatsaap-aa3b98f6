@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { normalizeTriggerText, removeAccents } from "@/lib/text-normalize";
+import { isConversationAgentEnabledV3 } from "@/lib/agent-v3/brain/config.server";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
@@ -1403,21 +1404,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     if (conversationId) {
-      const { data: conversationGate, error: conversationGateErr } = await supabaseAdmin
-        .from("conversations")
-        .select("agent_enabled, needs_review")
-        .eq("id", conversationId)
-        .maybeSingle();
-
-      if (conversationGateErr) {
-        console.error("[UAZ-WEBHOOK] Failed to read conversation gate:", conversationGateErr);
-        return new Response("ok (conversation gate unavailable)");
-      }
-
-      // `needs_review` é sinalização para auditoria/atendimento humano, não um
-      // segundo botão invisível. Quem controla resposta automática nesta conversa
-      // é `agent_enabled`. Opt-out e bloqueio manual já gravam agent_enabled=false.
-      if (conversationGate?.agent_enabled === false) {
+      const isAgentEnabled = await isConversationAgentEnabledV3(supabaseAdmin, conversationId);
+      if (!isAgentEnabled) {
         console.log("RETURN-PONTO: agent-disabled", { phone: phoneStr });
         return new Response("ok (agent disabled for conversation)");
       }
