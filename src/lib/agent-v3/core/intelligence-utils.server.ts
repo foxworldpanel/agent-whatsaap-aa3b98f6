@@ -1,5 +1,5 @@
 import { isPureGreeting, pickReengagementGreeting } from "../brain/guards.server";
-import { PURE_INTEREST_PHRASES, PLATFORM_ISOLATED_MAP } from "./router-constants";
+import { PURE_INTEREST_PHRASES, PLATFORM_ISOLATED_MAP } from "../router/router-constants";
 import { removeAccents } from "../../text-normalize";
 
 /**
