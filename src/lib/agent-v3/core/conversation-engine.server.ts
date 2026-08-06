@@ -21,11 +21,11 @@ export function detectConversationState(params: {
   const agentMessages = history.filter(m => m.role === "agent");
   
   const lastMsgTimestamp = history.length > 0 && history[history.length - 1].timestamp 
-    ? new Date(history[history.length - 1].timestamp).getTime() 
+    ? new Date(history[history.length - 1].timestamp as string).getTime() 
     : Date.now();
   
   const conversationAgeHours = history.length > 0 && history[0].timestamp
-    ? (Date.now() - new Date(history[0].timestamp).getTime()) / (1000 * 60 * 60)
+    ? (Date.now() - new Date(history[0].timestamp as string).getTime()) / (1000 * 60 * 60)
     : 0;
 
   const idleTimeHours = (Date.now() - lastMsgTimestamp) / (1000 * 60 * 60);
