@@ -1140,14 +1140,7 @@ ${extraContext}`
     apiKey:
       anthropicApiKey ||
       (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined),
-    system: [
-      ...systemPrompt,
-      {
-        type: "text",
-        text: conversationContextPrompt,
-        cache_control: { type: "ephemeral" }
-      }
-    ],
+    system: systemPrompt,
 
     messages: [
       ...history.map((m) => ({
