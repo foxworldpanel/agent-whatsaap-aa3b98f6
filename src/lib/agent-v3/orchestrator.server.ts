@@ -23,6 +23,14 @@ import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 import { P0_TEXT } from "./prompt/prompt-p0.server";
 import { buildP1Text } from "./prompt/prompt-p1.server";
 import { buildP2Text } from "./prompt/prompt-p2.server";
+import { 
+  CADASTRO_TEXT, 
+  BANCO_ALERTA_TEXT, 
+  PLATAFORMAS_DISPONIVEIS_TEXT,
+  RECLAMACAO_TEXT,
+  SUPORTE_EXPANDIDO_TEXT 
+} from "./prompt/prompt-conditional.server";
+
 
 // Flag de diagnóstico — liga/desliga a contagem real de tokens via
 // endpoint gratuito da Anthropic (2 chamadas extras de rede por turno,
