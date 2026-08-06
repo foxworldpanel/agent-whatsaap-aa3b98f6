@@ -19,6 +19,7 @@ export function detectConversationState(params: {
   const { message, history, previousState, sessionTimeoutHours = 24 } = params;
   
   const agentMessages = history.filter(m => m.role === "agent");
+  
   const lastMsgTimestamp = history.length > 0 && history[history.length - 1].timestamp 
     ? new Date(history[history.length - 1].timestamp).getTime() 
     : Date.now();
@@ -35,7 +36,7 @@ export function detectConversationState(params: {
 
   // 2. Extrair última ação do agente
   const lastAgentAction = agentMessages.length > 0 
-    ? agentMessages[agentMessages.length - 1].content.slice(0, 200)
+    ? (agentMessages[agentMessages.length - 1].content || "").slice(0, 200)
     : null;
 
   // 3. Topic Persistente
@@ -64,7 +65,7 @@ export function detectConversationState(params: {
   // 4. Pending Question: Captura a pergunta inteira
   let pendingQuestion = null;
   if (agentMessages.length > 0) {
-    const lastMsg = agentMessages[agentMessages.length - 1].content.trim();
+    const lastMsg = (agentMessages[agentMessages.length - 1].content || "").trim();
     // Busca a última sentença que termina com ?
     const questions = lastMsg.match(/[^.!?]+\?/g);
     if (questions && questions.length > 0) {
@@ -95,7 +96,7 @@ Pending Question from Agent: ${state.pendingQuestion || "None"}
 
 INSTRUCTIONS:
 ${state.greetingAlreadyDone ? "- DO NOT greet the customer again (no 'Olá', 'Bom dia', etc)." : "- Use a polite greeting (appropriate for the current time if possible)."}
-${state.pendingQuestion ? `- The customer is likely answering your specific question: "${state.pendingQuestion}". Respond directly to the answer.` : ""}
+${state.pendingQuestion ? \`- The customer is likely answering your specific question: "\${state.pendingQuestion}". Respond directly to the answer.\` : ""}
 - Maintain focus on the current topic: ${state.currentTopic || "general assistance"}.
 - Ensure the response flows naturally from the last action: "${state.lastAgentAction || "First message"}".
 `.trim();
