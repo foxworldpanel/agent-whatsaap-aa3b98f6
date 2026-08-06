@@ -1,4 +1,9 @@
 // src/lib/agent-v3/orchestrator.server.ts
+import { 
+  calculateBasePurchaseProbability, 
+  deriveTemperatureFromProbability, 
+  applyBusinessDecisionToIntelligence 
+} from "./core/intelligence-utils.server";
 import { loadEnabledModulesV3, moduleBelongsToPlatform, type LoadedModuleV3, type CommercePlatform } from "./brain/modules.server";
 import { selectModulesV3, logModuleSelectorExecution, type ConversationContext } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
