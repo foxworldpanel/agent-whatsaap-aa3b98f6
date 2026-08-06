@@ -4,6 +4,7 @@ export interface ConversationStateV1 {
   greetingAlreadyDone: boolean;
   lastAgentAction: string | null;
   currentTopic: string | null;
+  currentIntent: "compra" | "pagamento" | "suporte" | "dúvida" | "reclamação" | "orçamento" | "desconhecido";
   pendingQuestion: string | null;
   sessionRestart: boolean;
   conversationAgeHours: number;
@@ -39,11 +40,13 @@ export function detectConversationState(params: {
     ? (agentMessages[agentMessages.length - 1].content || "").slice(0, 200)
     : null;
 
-  // 3. Topic Persistente
+  // 3. Topic & Intent: Nunca substituir tópico válido por estados genéricos
   let currentTopic = null;
+  let currentIntent: ConversationStateV1["currentIntent"] = "desconhecido";
   let currentTopicSource: "detected" | "persisted" | "none" = "none";
   const normalizedMsg = message.toLowerCase();
   
+  // Detecção de Tópico (Assunto)
   if (/spotify/i.test(normalizedMsg)) currentTopic = "spotify";
   else if (/youtube|video/i.test(normalizedMsg)) currentTopic = "youtube";
   else if (/instagram|seguidores/i.test(normalizedMsg)) currentTopic = "instagram";
@@ -51,25 +54,31 @@ export function detectConversationState(params: {
   else if (/kwai/i.test(normalizedMsg)) currentTopic = "kwai";
   else if (/facebook/i.test(normalizedMsg)) currentTopic = "facebook";
   
+  // Detecção de Intenção
+  if (/pagamento|pix|cartao|boleto/i.test(normalizedMsg)) currentIntent = "pagamento";
+  else if (/comprar|comprando|queria/i.test(normalizedMsg) && !/quanto|valor/i.test(normalizedMsg)) currentIntent = "compra";
+  else if (/quanto|valor|preco|tabela|orcamento/i.test(normalizedMsg)) currentIntent = "orçamento";
+  else if (/ajuda|suporte|problema|nao consigo/i.test(normalizedMsg)) currentIntent = "suporte";
+  else if (/reclamacao|reclamar|errado|falta/i.test(normalizedMsg)) currentIntent = "reclamação";
+  else if (/\?/.test(message) || /duvida|saber|como funciona/i.test(normalizedMsg)) currentIntent = "dúvida";
+
   if (currentTopic) {
     currentTopicSource = "detected";
-  } else if (previousState?.currentTopic && !/comercial|pagamento|pix|cartao|comprar/i.test(normalizedMsg)) {
-    // Mantém o tópico anterior se não for uma mudança clara para comercial genérico
+  } else if (previousState?.currentTopic) {
+    // Regra de Ouro V1.2: Nunca substituir tópico válido (redes) por estados genéricos.
+    // Se o cliente fala de um serviço específico mas com intenção de compra/pagamento, o tópico deve persistir.
     currentTopic = previousState.currentTopic;
     currentTopicSource = "persisted";
-  } else if (/pagamento|pix|cartao|comprar/i.test(normalizedMsg)) {
-    currentTopic = "comercial";
-    currentTopicSource = "detected";
   }
 
-  // 4. Pending Question: Captura a pergunta inteira
+  // 4. Pending Question: Preservar o bloco completo de perguntas
   let pendingQuestion = null;
   if (agentMessages.length > 0) {
     const lastMsg = (agentMessages[agentMessages.length - 1].content || "").trim();
-    // Busca a última sentença que termina com ?
+    // Busca todas as sentenças que terminam com ?
     const questions = lastMsg.match(/[^.!?]+\?/g);
     if (questions && questions.length > 0) {
-      pendingQuestion = questions[questions.length - 1].trim();
+      pendingQuestion = questions.join(" ").trim();
     }
   }
 
@@ -77,6 +86,7 @@ export function detectConversationState(params: {
     greetingAlreadyDone,
     lastAgentAction,
     currentTopic,
+    currentIntent,
     pendingQuestion,
     sessionRestart,
     conversationAgeHours,
@@ -93,6 +103,7 @@ export function conversationStateToPrompt(state: ConversationStateV1): string {
       ? `- The customer is likely answering your specific question: "${state.pendingQuestion}". Respond directly to the answer.` 
       : "",
     `- Maintain focus on the current topic: ${state.currentTopic || "general assistance"}.`,
+    `- Current Intent: ${state.currentIntent}.`,
     `- Ensure the response flows naturally from the last action: "${state.lastAgentAction || "First message"}".`
   ].filter(Boolean).join("\n");
 
@@ -103,6 +114,7 @@ Session Restart: ${state.sessionRestart}
 Conversation Age: ${state.conversationAgeHours.toFixed(1)}h
 Last Agent Action: ${state.lastAgentAction || "None"}
 Current Topic: ${state.currentTopic || "Unknown"} (Source: ${state.currentTopicSource})
+Current Intent: ${state.currentIntent}
 Pending Question from Agent: ${state.pendingQuestion || "None"}
 
 INSTRUCTIONS:
