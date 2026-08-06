@@ -31,6 +31,8 @@ export async function understandConversation(params: {
   const prompt = `
 Analise a conversa abaixo e gere um resumo estruturado para o agente de IA.
 
+ATENÇÃO — o cliente pode informar dados importantes (plataforma, produto, quantidade, objetivo) de forma indireta, misturados dentro de uma mensagem longa ou divagante (ex: contando a história da carreira dele por várias frases e mencionando "já está em todas as plataformas" no meio do relato). Não julgue relevância pelo tamanho do trecho — uma informação crítica pode estar em 3 palavras dentro de um parágrafo grande sobre outro assunto. Leia a mensagem inteira com atenção antes de decidir o que já foi respondido.
+
 [MENSAGEM ATUAL]
 ${message}
 
@@ -53,7 +55,7 @@ Responda EXATAMENTE no formato JSON:
       apiKey: process.env.ANTHROPIC_API_KEY,
       system: "Você é um motor de análise de conversas. Extraia fatos e objetivos com precisão. Responda apenas JSON.",
       messages: [{ role: "user", content: prompt }],
-      model: "claude-3-5-sonnet-20240620", // Sonnet para análise profunda como solicitado
+      model: "claude-sonnet-5", // Corrigido: claude-3-5-sonnet-20240620 foi aposentado em 28/10/2025 — toda chamada estava falhando silenciosamente (capturada pelo catch abaixo), fazendo esse engine inteiro retornar sempre vazio desde então.
     });
     
     const text = extractAnthropicTextV3(raw);
