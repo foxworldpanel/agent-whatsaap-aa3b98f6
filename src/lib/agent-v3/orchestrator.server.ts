@@ -9,7 +9,8 @@ import { loadEnabledModulesV3, moduleBelongsToPlatform, type LoadedModuleV3, typ
 import { selectModulesV3, logModuleSelectorExecution, type ConversationContext } from "./selector/module-selector.server";
 import { buildPromptFromModulesDetailed } from "./prompt/prompt-builder.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "./integrations/llm-client.server";
-import { understandConversation, summaryToPrompt } from "./core/deep-conversation-engine.server";
+// Deep Conversation Engine (chamada extra ao Sonnet) removida — unificada
+// na chamada principal. Ver comentário no ponto de uso (seção 11).
 import {
   sanitizeSystemLeaks,
   limitEmojiFrequency,
@@ -935,11 +936,23 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   const convState = detectConversationState({ message, history });
   const conversationPrompt = conversationStateToPrompt(convState);
 
-  // 11. Deep Conversation Engine V1 (Conversation Understanding)
-  const deepSummary = await understandConversation({ message, history });
-  const deepPrompt = summaryToPrompt(deepSummary);
+  // 11. Perfil do cliente — antes fazia uma chamada extra ao Sonnet
+  // (Deep Conversation Engine) só pra isso + extrair fatos/pendências.
+  // A extração de fatos virou instrução direta no P1 (ver
+  // "CONTEXTO ANTES DE PERGUNTAR"); a detecção de perfil já era
+  // determinística (checagem de palavra-chave, sem IA) — só faltava
+  // não depender mais da chamada inteira pra usar essa parte.
+  const professionalKeywords = [
+    "onerpm", "cd baby", "distrokid", "album", "lançamento",
+    "distribuidora", "músicas próprias", "spotify for artists",
+  ];
+  const normalizedMessageForProfile = message.toLowerCase();
+  const isProfessionalArtist = professionalKeywords.some((kw) => normalizedMessageForProfile.includes(kw));
+  const customerProfilePrompt = isProfessionalArtist
+    ? "\n\n[PERFIL DO CLIENTE]\nARTISTA PROFISSIONAL — adapte o tom: mais sério, focado em carreira e distribuição real."
+    : "";
 
-  console.log(`[CONVERSATION] Greeting: ${convState.greetingAlreadyDone} | Topic: ${convState.currentTopic} | Pending: ${convState.pendingQuestion ? "Yes" : "No"} | Profile: ${deepSummary.customerProfile}`);
+  console.log(`[CONVERSATION] Greeting: ${convState.greetingAlreadyDone} | Topic: ${convState.currentTopic} | Pending: ${convState.pendingQuestion ? "Yes" : "No"} | Profile: ${isProfessionalArtist ? "ARTISTA PROFISSIONAL" : "OUTRO"}`);
 
 
   const systemPrompt = [
@@ -956,9 +969,7 @@ ${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}
 
 ${conditionalPrompts}
 
-${conversationPrompt}
-
-${deepPrompt}`,
+${conversationPrompt}${customerProfilePrompt}`,
       cache_control: { type: "ephemeral" }
     },
     {

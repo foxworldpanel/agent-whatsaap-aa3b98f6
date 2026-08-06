@@ -1,4 +1,11 @@
 // src/lib/agent-v3/core/deep-conversation-engine.server.ts
+//
+// ÓRFÃO desde a unificação de chamadas (pedido do usuário): a extração de
+// fatos/perguntas pendentes virou instrução direta no P1
+// ("CONTEXTO ANTES DE PERGUNTAR"), e a detecção de perfil (que já era
+// determinística, sem IA) foi movida pra dentro de orchestrator.server.ts.
+// Nenhum arquivo importa mais understandConversation/summaryToPrompt.
+// Não removido — só documentado aqui. Remover exige confirmação explícita.
 import { ChatMessageV3 } from "../memory/conversation-state.server";
 import { callAnthropicV3, extractAnthropicTextV3 } from "../integrations/llm-client.server";
 
