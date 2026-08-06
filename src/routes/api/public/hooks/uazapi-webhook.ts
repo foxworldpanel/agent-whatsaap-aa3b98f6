@@ -981,6 +981,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
         console.error("[WELCOME-FUNNEL] Falha ao carregar funis; seguindo para Agent V3:", funnelErr);
       } else {
+        const rowCount = funnelRows?.length || 0;
+        if (rowCount === 0) {
+          console.log(`[WELCOME-FUNNEL] Nenhum funil encontrado para este workspace/número (user_id: ${num.user_id}, workspace_id: ${workspaceId}, whatsapp_number_id: ${num.id})`);
+        } else {
+          console.log(`[WELCOME-FUNNEL] ${rowCount} funis carregados para workspace ${workspaceId}:`, 
+            funnelRows.map(f => `[${f.id}] ${f.name}`).join(", ")
+          );
+        }
+
         const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) =>
           funnelMatchesMessage(row.trigger_keywords, content.text),
         );
