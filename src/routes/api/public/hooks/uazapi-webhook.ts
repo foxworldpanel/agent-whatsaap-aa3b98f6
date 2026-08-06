@@ -1012,8 +1012,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             console.log(`- id: ${f.id}`);
             console.log(`  nome: ${f.name}`);
             console.log(`  enabled: ${f.enabled}`);
-            console.log(`  trigger original: ${f.trigger_keywords}`);
-            console.log(`  trigger normalizado: ${normalizeTriggerText(f.trigger_keywords)}`);
+            console.log(`  trigger original: "${f.trigger_keywords}"`);
+            console.log(`  trigger normalizado: "${normalizeTriggerText(f.trigger_keywords)}"`);
           });
         }
         console.log("----------------------------------------------------");
@@ -1028,7 +1028,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         });
 
         console.log("Resultado do matching:");
-        console.log("matchingFunnel:", matchingFunnel ? "SIM" : "NÃO");
+        console.log("Resultado do matching:", matchingFunnel ? "SIM" : "NÃO");
         if (!matchingFunnel && rowCount > 0) {
           console.log("Motivo da falha: Nenhuma correspondência exata entre mensagem normalizada e gatilhos normalizados.");
         }
