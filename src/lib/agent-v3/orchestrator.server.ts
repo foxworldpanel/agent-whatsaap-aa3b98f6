@@ -911,6 +911,12 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     conditionalPrompts += "\n\n" + SUPORTE_EXPANDIDO_TEXT;
   }
 
+  // 10. Conversation Engine V1
+  const convState = detectConversationState({ message, history });
+  const conversationPrompt = conversationStateToPrompt(convState);
+
+  console.log(`[CONVERSATION] Greeting: ${convState.greetingAlreadyDone} | Topic: ${convState.currentTopic} | Pending: ${convState.pendingQuestion ? "Yes" : "No"} | Last: ${convState.lastAgentAction?.slice(0, 30)}...`);
+
   const systemPrompt = [
     {
       type: "text",
@@ -923,7 +929,9 @@ ${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic
 
 ${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}
 
-${conditionalPrompts}`,
+${conditionalPrompts}
+
+${conversationPrompt}`,
       cache_control: { type: "ephemeral" }
     },
     {
