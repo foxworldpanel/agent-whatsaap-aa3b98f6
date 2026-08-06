@@ -169,7 +169,7 @@ function AgentPlaygroundPage() {
         .insert({
           user_id: user.id,
           name,
-          enabled_modules: ["identidade", "regras_gerais", "comportamento_humano"],
+          enabled_modules: ["identidade", "regras_gerais"],
         })
         .select()
         .single();
@@ -645,6 +645,8 @@ function AgentPlaygroundPage() {
 
                         return (
                           <>
+                            <p className="text-[10px] font-semibold text-foreground mb-1">Módulos utilizados nesta mensagem</p>
+                            <p className="text-[9px] text-muted-foreground mb-2">Telemetria real do backend — reflete exatamente o que foi enviado ao Prompt Builder nesta mensagem, não a configuração da sessão.</p>
                             <div className="grid grid-cols-1 gap-1">
                               {telemetry.map((t: any) => (
                                 <div key={t.key} className="flex items-center justify-between text-[10px] bg-muted/30 p-2 rounded border border-border/50">
@@ -686,12 +688,13 @@ function AgentPlaygroundPage() {
                   </div>
                   <Separator />
                   <div>
-                    <h4 className="text-xs font-semibold mb-2">Controle de Módulos (Sessão)</h4>
+                    <h4 className="text-xs font-semibold mb-2">Módulos habilitados para a sessão</h4>
+                    <p className="text-[9px] text-muted-foreground mb-2">Configuração da sessão de teste — não reflete quais módulos foram enviados numa mensagem específica. Veja "Módulos utilizados nesta mensagem" acima para a telemetria real.</p>
                     <div className="space-y-2">
                       {[
                         { id: "identidade", label: "Identidade", core: true },
                         { id: "regras_gerais", label: "Regras Gerais", core: true },
-                        { id: "comportamento_humano", label: "Comportamento Humano", core: true },
+                        { id: "comportamento_humano", label: "Comportamento Humano", core: false },
                         { id: "fluxo_vendas", label: "Fluxo de Vendas", core: false },
                         { id: "psicologia_vendas", label: "Psicologia de Vendas", core: false },
                         { id: "objecoes_vendas", label: "Objeções de Vendas", core: false },
