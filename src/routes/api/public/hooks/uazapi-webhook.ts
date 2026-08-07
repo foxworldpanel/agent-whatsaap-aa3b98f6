@@ -1110,7 +1110,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Não depende de status/updated_at/last_step para funcionar.
           const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
             .from("welcome_funnel_runs")
-            .select("funnel_id, contact_id, fired_at, status, updated_at")
+            .select("funnel_id, contact_id, fired_at, status")
             .eq("funnel_id", matchingFunnel.id)
             .eq("contact_id", contactId)
             .maybeSingle();
