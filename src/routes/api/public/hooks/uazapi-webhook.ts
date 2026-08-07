@@ -1110,7 +1110,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           // Não depende de status/updated_at/last_step para funcionar.
           const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
             .from("welcome_funnel_runs")
-            .select("funnel_id, contact_id, fired_at")
+            .select("funnel_id, contact_id, fired_at, status")
             .eq("funnel_id", matchingFunnel.id)
             .eq("contact_id", contactId)
             .maybeSingle();
@@ -1129,7 +1129,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
             if (existingRun && !repeatForTest) {
               const existingStatus = String((existingRun as any).status || "completed");
-              const existingRetryCount = Number((existingRun as any).retry_count || 0);
+              const existingRetryCount = 0; // Temporariamente ignorando retry_count se não existir
 
               if (existingStatus === "failed" && existingRetryCount < 3) {
                 console.log("[WELCOME-FUNNEL] Falha anterior detectada; tentando reenviar automaticamente", {
@@ -1150,9 +1150,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 }
               } else if (["running", "paused"].includes(existingStatus)) {
                 const runUpdatedAt = new Date(
-                  (existingRun as any).updated_at || (existingRun as any).fired_at || 0,
+                  (existingRun as any).fired_at || 0,
                 ).getTime();
-                const runIsStale = Date.now() - runUpdatedAt > 60_000;
+                const runIsStale = Date.now() - runUpdatedAt > 120_000;
                 if (runIsStale) {
                   console.log("[WELCOME-FUNNEL] Run travada há mais de 60s sem atualizar; liberando Agent V3 em vez de bloquear pra sempre", {
                     phone: phoneStr,
@@ -1206,11 +1206,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   workspace_id: workspaceId,
                   fired_at: new Date().toISOString(),
                   status: "running",
-                  completed_at: null,
-                  last_step: null,
-                  last_step_index: 0,
-                  error_message: null,
-                  retry_count: nextRetryCount,
                   updated_at: new Date().toISOString(),
                 });
 
