@@ -1949,6 +1949,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       // O histórico V3 não contém necessariamente as peças automáticas do funil.
       // Consulte o runtime do funil para impedir uma segunda apresentação da Júlia.
+      // SIMPLIFICADO: sem coluna status na tabela real, existência da linha
+      // já significa "esse funil já rodou pra esse contato" (síncrono).
       let funnelAlreadyCompleted = false;
       if (contactId) {
         const { data: completedFunnelRun } = await (supabaseAdmin as any)
@@ -1956,7 +1958,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .select("funnel_id")
           .eq("contact_id", contactId)
           .eq("workspace_id", workspaceId)
-          .eq("status", "completed")
           .limit(1)
           .maybeSingle();
         funnelAlreadyCompleted = Boolean(completedFunnelRun);
