@@ -976,6 +976,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
 
     // 3.4. FUNNEL GATE GLOBAL
+    // SIMPLIFICADO pra bater com o schema real da tabela (confirmado via
+    // information_schema): welcome_funnel_runs só tem funnel_id, contact_id,
+    // user_id, fired_at, workspace_id. Não existe status/updated_at/
+    // completed_at — por isso o INSERT vinha falhando com PGRST204 desde
+    // sempre, e o funil nunca completava. Como o funil roda síncrono
+    // (start a finish numa chamada só, confirmado no código de
+    // executeWelcomeFunnel), a mera EXISTÊNCIA de uma linha já significa
+    // "esse contato já recebeu esse funil" — não precisa de estado.
     traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_entry", {
       contactId: contactId ?? null,
       conversationId: conversationId ?? null,
@@ -985,7 +993,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       console.log(`[UAZ-WEBHOOK] [AUDIT] Verificando gate global para ${phoneStr} (${contactId})`);
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
-        .select("funnel_id, contact_id, fired_at, status, updated_at")
+        .select("funnel_id, contact_id, fired_at")
         .eq("contact_id", contactId)
         .eq("workspace_id", workspaceId)
         .order("fired_at", { ascending: false })
@@ -996,22 +1004,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         console.warn("[WELCOME-FUNNEL] [AUDIT] Não foi possível verificar run em andamento:", runningFunnelErr);
         traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_error", { error: String(runningFunnelErr) });
       } else if (runningFunnel) {
-        const firedAt = new Date((runningFunnel as any).fired_at || 0).getTime();
-        const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
-        const stale = Date.now() - updatedAt > 60_000;
-        const status = String((runningFunnel as any).status || "running");
-
-        console.log(`[UAZ-WEBHOOK] [AUDIT] Estado funil para ${phoneStr}: status=${status}, stale=${stale}, firedAt=${new Date(firedAt).toISOString()}, updatedAt=${new Date(updatedAt).toISOString()}`);
-
-        // Somente bloqueia se estiver rodando e não estiver obsoleto.
-        if (!stale && (status === "running" || status === "paused")) {
-          console.log("RETURN-PONTO: welcome-funnel", { status, phone: phoneStr });
-          traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_blocked", { status, stale });
-          return new Response("ok (welcome funnel active; agent deferred)");
-        } else {
-          console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (stale=${stale}, status=${status})`);
-          traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "existing_run_stale_or_done", status, stale });
-        }
+        // Já existe run pra esse contato — funil roda síncrono, então já
+        // terminou. Não bloqueia, deixa o Agent V3 seguir normalmente.
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (run já existe, funil síncrono já concluiu)`);
+        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "existing_run_ja_concluido" });
       } else {
         console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (nenhuma run encontrada)`);
         traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "no_existing_run" });
@@ -1106,11 +1102,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
         if (matchingFunnel) {
 
-          // Usa somente colunas existentes desde a criação original da tabela.
-          // Não depende de status/updated_at/last_step para funcionar.
+          // SIMPLIFICADO — mesmo motivo do Funnel Gate acima: a tabela real
+          // só tem 5 colunas (funnel_id, contact_id, user_id, fired_at,
+          // workspace_id). Sem status, não dá pra distinguir "falhou" de
+          // "completou" — e como o funil roda síncrono, a existência da
+          // linha JÁ significa que rodou (com sucesso ou não, mas rodou).
+          // Retry automático de "failed" não é possível com esse schema.
           const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
             .from("welcome_funnel_runs")
-            .select("funnel_id, contact_id, fired_at, status")
+            .select("funnel_id, contact_id, fired_at")
             .eq("funnel_id", matchingFunnel.id)
             .eq("contact_id", contactId)
             .maybeSingle();
@@ -1121,62 +1121,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           } else {
             const repeatForTest = canRepeatWelcomeFunnelForTest(phoneStr);
 
-            // REGRA: Agent V3 aguarda enquanto o funil está genuinamente em andamento
-            // (running/paused). Para "failed", tenta reenviar automaticamente até
-            // 3 vezes antes de liberar o Agent V3 — silêncio permanente nunca é aceitável.
-            let isRetryAttempt = false;
-            let nextRetryCount = 0;
-
             if (existingRun && !repeatForTest) {
-              const existingStatus = String((existingRun as any).status || "completed");
-              const existingRetryCount = 0; // Temporariamente ignorando retry_count se não existir
-
-              if (existingStatus === "failed" && existingRetryCount < 3) {
-                console.log("[WELCOME-FUNNEL] Falha anterior detectada; tentando reenviar automaticamente", {
-                  phone: phoneStr,
-                  funnelId: matchingFunnel.id,
-                  retryCount: existingRetryCount,
-                });
-                const { error: retryDeleteErr } = await (supabaseAdmin as any)
-                  .from("welcome_funnel_runs")
-                  .delete()
-                  .eq("funnel_id", matchingFunnel.id)
-                  .eq("contact_id", contactId);
-                if (retryDeleteErr) {
-                  console.error("[WELCOME-FUNNEL] Falha ao limpar execução anterior pra retry; seguindo para Agent V3:", retryDeleteErr);
-                } else {
-                  isRetryAttempt = true;
-                  nextRetryCount = existingRetryCount + 1;
-                }
-              } else if (["running", "paused"].includes(existingStatus)) {
-                const runUpdatedAt = new Date(
-                  (existingRun as any).fired_at || 0,
-                ).getTime();
-                const runIsStale = Date.now() - runUpdatedAt > 120_000;
-                if (runIsStale) {
-                  console.log("[WELCOME-FUNNEL] Run travada há mais de 60s sem atualizar; liberando Agent V3 em vez de bloquear pra sempre", {
-                    phone: phoneStr,
-                    funnelId: matchingFunnel.id,
-                    status: existingStatus,
-                  });
-                } else {
-                console.log("[WELCOME-FUNNEL] Funil incompleto; Agent V3 permanece bloqueado", {
-                  phone: phoneStr,
-                  funnelId: matchingFunnel.id,
-                  status: existingStatus,
-                  lastStep: (existingRun as any).last_step ?? null,
-                });
-                return new Response(`ok (welcome funnel ${existingStatus}; agent deferred)`);
-                }
-              } else if (existingStatus === "failed" && existingRetryCount >= 3) {
-                // Esgotou as tentativas automáticas: libera o Agent V3 em vez de
-                // deixar o cliente sem resposta nenhuma. A Central do Funil continua
-                // disponível pra reprocessar manualmente se quiser.
-                console.log("[WELCOME-FUNNEL] Falhou 3x; liberando Agent V3 em vez de silenciar o cliente", {
-                  phone: phoneStr,
-                  funnelId: matchingFunnel.id,
-                });
-              }
+              console.log("[WELCOME-FUNNEL] Run já existe pra esse contato; funil síncrono já concluiu, Agent V3 assume", {
+                phone: phoneStr,
+                funnelId: matchingFunnel.id,
+              });
             }
 
             if (existingRun && repeatForTest) {
@@ -1192,9 +1141,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               }
             }
 
-            if (!existingRun || repeatForTest || isRetryAttempt) {
+            if (!existingRun || repeatForTest) {
               // Claim atômico baseado na PK original (funnel_id, contact_id).
-              // Isso funciona mesmo sem nenhuma migration de estado adicional.
+              // Só as 5 colunas que realmente existem na tabela.
               console.log("Claim");
               console.log("claimWelcomeFunnel executou? SIM");
               const { error: claimErr } = await (supabaseAdmin as any)
@@ -1205,8 +1154,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   user_id: num.user_id,
                   workspace_id: workspaceId,
                   fired_at: new Date().toISOString(),
-                  status: "running",
-                  updated_at: new Date().toISOString(),
                 });
 
               console.log("Resultado:", claimErr ? "erro" : "true");
@@ -2002,6 +1949,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       // O histórico V3 não contém necessariamente as peças automáticas do funil.
       // Consulte o runtime do funil para impedir uma segunda apresentação da Júlia.
+      // SIMPLIFICADO: sem coluna status na tabela real, existência da linha
+      // já significa "esse funil já rodou pra esse contato" (síncrono).
       let funnelAlreadyCompleted = false;
       if (contactId) {
         const { data: completedFunnelRun } = await (supabaseAdmin as any)
@@ -2009,7 +1958,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .select("funnel_id")
           .eq("contact_id", contactId)
           .eq("workspace_id", workspaceId)
-          .eq("status", "completed")
           .limit(1)
           .maybeSingle();
         funnelAlreadyCompleted = Boolean(completedFunnelRun);
