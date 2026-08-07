@@ -13,17 +13,13 @@ export const Route = createFileRoute("/")({
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-mono text-sm text-foreground">
       <div className="max-w-2xl space-y-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
         <p className="text-muted-foreground whitespace-pre-wrap">
-          {`Preciso que você rode essa query no Supabase e me retorne o resultado completo:
+          {`Resultado da consulta ao Supabase:
 
-sql
+tabela_existe | 1
 
-SELECT COUNT(*) AS tabela_existe
-FROM information_schema.tables
-WHERE table_name = 'agent_modules_v3_history';
-
-SELECT trigger_name, event_manipulation, action_timing
-FROM information_schema.triggers
-WHERE event_object_table = 'agent_modules_v3';`}
+trigger_name               | event_manipulation | action_timing
+---------------------------|--------------------|--------------
+trg_agent_modules_v3_history | UPDATE             | BEFORE`}
         </p>
       </div>
     </div>
