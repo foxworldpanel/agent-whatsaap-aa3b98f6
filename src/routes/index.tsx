@@ -13,64 +13,153 @@ export const Route = createFileRoute("/")({
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-mono text-sm text-foreground">
       <div className="max-w-2xl space-y-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
         <p className="text-muted-foreground whitespace-pre-wrap">
-          {`Preciso que você substitua completamente o conteúdo do arquivo src/lib/agent-v3/prompt/prompt-p1.server.ts no GitHub e faça o commit direto (não faz merge, substitui tudo):
+          {`BUG-001 — Evitar saudação duplicada após o Funil de Boas-vindas
 
-typescript
+Contexto
 
-// P1 — Fluxo Comercial e Continuidade. Extraído de orchestrator.server.ts
-// (Prompt Optimization V2). Texto idêntico ao original, só movido —
-// nenhuma regra foi alterada nesta extração.
+O Agent V3 possui um Funil de Boas-vindas que envia automaticamente:
 
-export type P1BuildParams = {
-  businessDecisionState?: string;
-  mentionsOwnMusic: boolean;
-  funnelAlreadyCompleted?: boolean;
-};
+ Áudio de apresentação
 
-export function buildP1Text(params: P1BuildParams): string {
-  const { businessDecisionState, mentionsOwnMusic, funnelAlreadyCompleted } = params;
+ Link do painel
 
-  return \`## P1 — FLUXO COMERCIAL E CONTINUIDADE (a espinha dorsal da venda)
+ Vídeo explicativo
 
-CONTEXTO ANTES DE PERGUNTAR (Centralizado):
-- Pergunte SOMENTE o que ainda falta — nunca repita algo que o cliente já disse (rede, produto, quantidade, preço).
-- ATENÇÃO: o cliente pode informar isso de forma indireta, misturado dentro de uma mensagem longa ou divagante (ex: contando a história da carreira dele e mencionando "já está em todas as plataformas" no meio do relato). Leia a mensagem e o histórico inteiros com atenção antes de perguntar algo — não julgue relevância pelo tamanho do trecho.
-- Se o cliente mencionar MAIS DE UM item (ex: "essas duas músicas", "minhas 35 músicas", 2 plataformas ao mesmo tempo), confirme explicitamente quantos/quais itens antes de seguir com quantidade/preço — nunca processe silenciosamente como se fosse 1 só. Se não ficou claro, pergunta ("é pra essas duas ou só uma?") antes de calcular valor.
-- Pergunta direta do cliente (sim/não, "vocês fazem X?", "funciona em Y?") tem prioridade sobre qualquer outro assunto em andamento — sempre responde a pergunta direta antes de continuar a explicação ou qualificação, mesmo que pareça fora do fluxo atual. Nunca deixa uma pergunta direta sem resposta.
-- Saudação em conversa já iniciada NUNCA reinicia o atendimento.
-- Júlia apresentada → nunca diga "aqui é a Júlia" de novo.
-- Pagamento/saldo confirmado → o pedido atual continua valendo para o resto da conversa.
-- Intenção de pagamento → nunca volta para qualificação.
-\${funnelAlreadyCompleted ? \`
-PÓS-FUNIL (o Welcome Funnel já rodou completo pra esse contato):
-- NUNCA inicia com saudação/small talk própria ("Oi!", "Boa tarde!", "Tudo bem?") — o funil já cumpriu essa etapa. Responde direto o que o cliente perguntou ou disse, sem abertura de conversa.
-- EXCEÇÃO: se o cliente mandar só uma saudação (bom dia/boa tarde/boa noite), responde com a MESMA saudação de volta, curto — só isso, sem "tudo bem?", sem "oi", sem retomar apresentação.
-- Nunca combina "oi"/"tudo bem" com saudação de horário (nunca "boa tarde, tudo bem?") — ou responde só a saudação equivalente, ou responde só o que foi perguntado.
-\` : ""}
+ Tabela de serviços
 
-FLUXO PROGRESSIVO (Passo a passo):
-- Rede → serviço → quantidade → valor → pagamento.
-- Máximo DUAS perguntas de qualificação antes de mostrar preço (mostra o valor mesmo faltando detalhe se passar disso).
-- Multi-plataforma: foca na primeira mencionada até a decisão, depois passa para a segunda.
-- Pergunta factual (ex: "quais os nomes das playlists") tem prioridade sobre empurrar preço.
-- Se o cliente disser "não é isso", abandone a trilha anterior imediatamente.
+Após o término desse funil, o cliente responde normalmente.
 
-LINK — REGRAS DE ENVIO:
-- NUNCA pede o link da música/vídeo pra "processar" ou "seguir com o pedido" — a Júlia não cria pedido pelo WhatsApp. Depois que o cliente confirma o que quer (serviço + quantidade), o próximo passo é direcionar pro painel (mindsmmpanel.com): lá ele mesmo escolhe o serviço, cola o link e paga.
-- Só pede/aceita o link quando o cliente JÁ ESTÁ no painel tentando comprar e ficou com dúvida ou travou nesse passo específico — aí sim a Júlia pode ajudar a confirmar o formato do link antes dele colar lá.
-- Se o cliente mandar o link espontaneamente sem estar em dúvida, valide o formato (track vs playlist, etc) só como referência, mas ainda assim direciona pro painel — nunca diga que "vai seguir com o pedido" a partir do link recebido no chat.
-- Preço informado NÃO é decisão de compra — a próxima pergunta é confirmação, nunca pedido de link.
-\${businessDecisionState === "pagamento" ? \`PAGAMENTO:
-- Cliente quer FECHAR. Para de qualificar, conduz direto: acessar painel, cadastro, recarga, escolher serviço.
-- Nunca pede link como pré-requisito para fechar/pagar.
-- Link do painel: instrução curta, ===SPLIT===, depois só o endereço (sem pontuação ao redor).
-\` : ""}
-\${(businessDecisionState === "fechamento" || businessDecisionState === "aguardando_setor") ? \`SUPORTE DURANTE FECHAMENTO: veja bloco SUPORTE.\` : ""}
-\${businessDecisionState === "pos_venda" ? \`PÓS-VENDA: veja bloco PÓS-VENDA.\` : ""}
+Hoje, quando a resposta é gerada pelo Claude, o agente inicia novamente a conversa com uma saudação como:
 
-ADIAMENTO:
-- Cliente adiando ("depois", "ocupado"): reconhece e NÃO faz nova pergunta comercial no mesmo turno.\`;
-}`}
+ Bom dia
+
+ Boa tarde
+
+ Boa noite
+
+ Olá
+
+ Oi
+
+ Tudo bem?
+
+Isso gera uma experiência artificial porque o cliente já foi recepcionado pelo próprio funil.
+
+Objetivo
+
+Garantir que, após a execução do Funil de Boas-vindas, o modelo continue a conversa sem iniciar uma nova saudação.
+
+Implementação
+
+A solução deve ser baseada em estado da conversa, nunca em substituição simples de texto.
+
+Adicionar ao contexto da conversa um indicador equivalente a:
+
+conversationContext.greetingAlreadyPerformed = true;
+
+Esse estado deve ser ativado quando:
+
+ o Funil de Boas-vindas terminar;
+
+ ou a conversa já possuir uma saudação enviada anteriormente pelo agente.
+
+Regra
+
+Se greetingAlreadyPerformed == true:
+
+A resposta do Claude não pode iniciar com expressões como:
+
+ Olá
+
+ Oi
+
+ Bom dia
+
+ Boa tarde
+
+ Boa noite
+
+ Tudo bem?
+
+ Como vai?
+
+O modelo deve assumir que a conversa já está em andamento.
+
+Exemplo:
+
+❌ Errado
+
+Boa tarde, Andy! Entendo sua preocupação...
+
+✅ Correto
+
+Entendo sua preocupação. Muitas pessoas chegam até nós com essa mesma dúvida...
+
+Importante
+
+Não alterar:
+
+ Prompt Builder
+
+ Module Selector
+
+ Business State
+
+ Funil de Boas-vindas
+
+ Fluxo do WhatsApp
+
+A correção deve ocorrer apenas na preparação do contexto enviada ao modelo ou na camada responsável por controlar o estado da conversa.
+
+Não utilizar
+
+Não utilizar regex simples removendo "Boa tarde" da resposta.
+
+Essa abordagem é frágil.
+
+A decisão deve ser baseada no estado da conversa.
+
+Critérios de aceite
+
+Cenário 1
+
+Funil enviado.
+
+Cliente responde.
+
+O Claude responde sem saudação.
+
+✅ Correto.
+
+Cenário 2
+
+Cliente já está conversando há várias mensagens.
+
+O Claude nunca reinicia a conversa com uma nova saudação.
+
+✅ Correto.
+
+Cenário 3
+
+Nova conversa.
+
+Sem funil anterior.
+
+Sem saudação anterior.
+
+O Claude pode cumprimentar normalmente.
+
+✅ Correto.
+
+Regressões
+
+Validar que:
+
+ novas conversas continuam iniciando normalmente;
+
+ apenas conversas já iniciadas deixam de receber uma nova saudação;
+
+ nenhum outro comportamento do Agent V3 seja alterado.`}
         </p>
       </div>
     </div>

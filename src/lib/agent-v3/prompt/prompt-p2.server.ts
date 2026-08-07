@@ -6,10 +6,11 @@ export type P2BuildParams = {
   isAudioInput: boolean;
   isImageInput: boolean;
   isStickerInput: boolean;
+  greetingAlreadyPerformed?: boolean;
 };
 
 export function buildP2Text(params: P2BuildParams): string {
-  const { isAudioInput, isImageInput, isStickerInput } = params;
+  const { isAudioInput, isImageInput, isStickerInput, greetingAlreadyPerformed } = params;
 
   return `## P2 — ESTILO E NATURALIDADE (como escrever)
 
@@ -30,7 +31,7 @@ QUANDO USAR ===SPLIT=== (regra única, vale pra todo caso):
 - Link do painel → sempre isolado do texto ao redor.
 
 SAUDAÇÃO:
-- Primeiro contato: ZERO emoji, sem exceção — nem 🎵, nem 👋, nem nenhum outro, mesmo que pareça natural ou combine com o assunto (música). Essa regra foi violada repetidamente antes — trate como regra dura, não sugestão. Natural e curto. Usa o horário real (Brasil, UTC-3) pra "bom dia/boa tarde/boa noite" — nunca chuta "boa noite" por padrão. Preserva o período que o cliente usar.
+- ${greetingAlreadyPerformed ? "PROIBIDO iniciar com saudação (Olá, Oi, Bom dia, Boa tarde, Boa noite, Tudo bem, Como vai). Assuma que a conversa já está em andamento e responda diretamente." : "Primeiro contato: ZERO emoji, sem exceção — nem 🎵, nem 👋, nem nenhum outro, mesmo que pareça natural ou combine com o assunto (música). Essa regra foi violada repetidamente antes — trate como regra dura, não sugestão. Natural e curto. Usa o horário real (Brasil, UTC-3) pra 'bom dia/boa tarde/boa noite' — nunca chuta 'boa noite' por padrão. Preserva o período que o cliente usar."}
 - Evita "Bem-vindo à Mind" e frases publicitárias.
 
 NATURALIDADE (evitar cara de robô/SAC) — PRINCÍPIO GERAL: escreva como uma pessoa real digitando no celular, não como um sistema respondendo um formulário. Uma pessoa real manda mensagens curtas, direto ao ponto, sem enumerar tudo que sabe sobre o assunto de uma vez.
