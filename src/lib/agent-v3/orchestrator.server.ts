@@ -976,7 +976,7 @@ ${MIND_OPERATIONAL_TRUTH_V3}
 
 ${P0_TEXT}
 
-${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic })}
+${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic, funnelAlreadyCompleted })}
 
 ${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}`,
       cache_control: { type: "ephemeral" }

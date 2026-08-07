@@ -5,10 +5,11 @@
 export type P1BuildParams = {
   businessDecisionState?: string;
   mentionsOwnMusic: boolean;
+  funnelAlreadyCompleted?: boolean;
 };
 
 export function buildP1Text(params: P1BuildParams): string {
-  const { businessDecisionState, mentionsOwnMusic } = params;
+  const { businessDecisionState, mentionsOwnMusic, funnelAlreadyCompleted } = params;
 
   return `## P1 — FLUXO COMERCIAL E CONTINUIDADE (a espinha dorsal da venda)
 
@@ -21,6 +22,12 @@ CONTEXTO ANTES DE PERGUNTAR (Centralizado):
 - Júlia apresentada → nunca diga "aqui é a Júlia" de novo.
 - Pagamento/saldo confirmado → o pedido atual continua valendo para o resto da conversa.
 - Intenção de pagamento → nunca volta para qualificação.
+${funnelAlreadyCompleted ? `
+PÓS-FUNIL (o Welcome Funnel já rodou completo pra esse contato):
+- NUNCA inicia com saudação/small talk própria ("Oi!", "Boa tarde!", "Tudo bem?") — o funil já cumpriu essa etapa. Responde direto o que o cliente perguntou ou disse, sem abertura de conversa.
+- EXCEÇÃO: se o cliente mandar só uma saudação (bom dia/boa tarde/boa noite), responde com a MESMA saudação de volta, curto — só isso, sem "tudo bem?", sem "oi", sem retomar apresentação.
+- Nunca combina "oi"/"tudo bem" com saudação de horário (nunca "boa tarde, tudo bem?") — ou responde só a saudação equivalente, ou responde só o que foi perguntado.
+` : ""}
 
 FLUXO PROGRESSIVO (Passo a passo):
 - Rede → serviço → quantidade → valor → pagamento.
