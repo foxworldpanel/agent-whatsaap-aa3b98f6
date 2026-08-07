@@ -13,35 +13,12 @@ export const Route = createFileRoute("/")({
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-mono text-sm text-foreground">
       <div className="max-w-2xl space-y-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
         <p className="text-muted-foreground whitespace-pre-wrap">
-          {`Aqui está o resultado da query para a tabela agent_modules_v3:
+          {`Histórico do CMS (agent_modules_v3_history) configurado com política de user_id.
 
-column_name           | data_type                | is_nullable
-----------------------|--------------------------|------------
-id                    | uuid                     | NO
-user_id               | uuid                     | NO
-workspace_id          | uuid                     | NO
-key                   | text                     | NO
-name                  | text                     | NO
-description           | text                     | YES
-category              | text                     | YES
-content               | text                     | NO
-enabled               | boolean                  | YES
-priority              | integer                  | YES
-version               | integer                  | YES
-created_at            | timestamp with time zone | YES
-updated_at            | timestamp with time zone | YES
-always_load           | boolean                  | NO
-selector_intents      | ARRAY                    | NO
-selector_stages       | ARRAY                    | NO
-selector_platforms    | ARRAY                    | NO
-selector_products     | ARRAY                    | NO
-selector_triggers     | ARRAY                    | NO
-selector_dependencies | ARRAY                    | NO
-selector_conflicts    | ARRAY                    | NO
-domain                | text                     | YES
-platform              | text                     | YES
-knowledge_type        | text                     | YES
-status                | text                     | YES`}
+Ações realizadas:
+1. Política de isolamento baseada em user_id (para evitar erros de schema ausente).
+2. Função 'log_agent_modules_v3_history' vinculada como SECURITY DEFINER.
+3. Trigger automático ativado para todos os UPDATEs na tabela agent_modules_v3.`}
         </p>
       </div>
     </div>
