@@ -976,6 +976,14 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
 
     // 3.4. FUNNEL GATE GLOBAL
+    // SIMPLIFICADO pra bater com o schema real da tabela (confirmado via
+    // information_schema): welcome_funnel_runs só tem funnel_id, contact_id,
+    // user_id, fired_at, workspace_id. Não existe status/updated_at/
+    // completed_at — por isso o INSERT vinha falhando com PGRST204 desde
+    // sempre, e o funil nunca completava. Como o funil roda síncrono
+    // (start a finish numa chamada só, confirmado no código de
+    // executeWelcomeFunnel), a mera EXISTÊNCIA de uma linha já significa
+    // "esse contato já recebeu esse funil" — não precisa de estado.
     traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_entry", {
       contactId: contactId ?? null,
       conversationId: conversationId ?? null,
@@ -985,7 +993,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       console.log(`[UAZ-WEBHOOK] [AUDIT] Verificando gate global para ${phoneStr} (${contactId})`);
       const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
         .from("welcome_funnel_runs")
-        .select("funnel_id, contact_id, fired_at, status, updated_at")
+        .select("funnel_id, contact_id, fired_at")
         .eq("contact_id", contactId)
         .eq("workspace_id", workspaceId)
         .order("fired_at", { ascending: false })
@@ -996,22 +1004,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
         console.warn("[WELCOME-FUNNEL] [AUDIT] Não foi possível verificar run em andamento:", runningFunnelErr);
         traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_error", { error: String(runningFunnelErr) });
       } else if (runningFunnel) {
-        const firedAt = new Date((runningFunnel as any).fired_at || 0).getTime();
-        const updatedAt = new Date((runningFunnel as any).updated_at || (runningFunnel as any).fired_at || 0).getTime();
-        const stale = Date.now() - updatedAt > 60_000;
-        const status = String((runningFunnel as any).status || "running");
-
-        console.log(`[UAZ-WEBHOOK] [AUDIT] Estado funil para ${phoneStr}: status=${status}, stale=${stale}, firedAt=${new Date(firedAt).toISOString()}, updatedAt=${new Date(updatedAt).toISOString()}`);
-
-        // Somente bloqueia se estiver rodando e não estiver obsoleto.
-        if (!stale && (status === "running" || status === "paused")) {
-          console.log("RETURN-PONTO: welcome-funnel", { status, phone: phoneStr });
-          traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_blocked", { status, stale });
-          return new Response("ok (welcome funnel active; agent deferred)");
-        } else {
-          console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (stale=${stale}, status=${status})`);
-          traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "existing_run_stale_or_done", status, stale });
-        }
+        // Já existe run pra esse contato — funil roda síncrono, então já
+        // terminou. Não bloqueia, deixa o Agent V3 seguir normalmente.
+        console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (run já existe, funil síncrono já concluiu)`);
+        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "existing_run_ja_concluido" });
       } else {
         console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (nenhuma run encontrada)`);
         traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "no_existing_run" });
