@@ -123,9 +123,30 @@ export const updateV3Module = createServerFn({ method: "POST" })
     if (updated) {
       const { error: historyError } = await supabase.from("agent_modules_v3_history").insert({
         module_id: updated.id,
-        content: data.content,
-        version: newVersion,
-        created_by: userId,
+        user_id: userId,
+        workspace_id: workspaceId,
+        key: updated.key,
+        name: updated.name,
+        description: updated.description,
+        category: updated.category,
+        content: updated.content,
+        enabled: updated.enabled,
+        priority: updated.priority,
+        version: updated.version,
+        always_load: updated.always_load,
+        selector_intents: updated.selector_intents,
+        selector_stages: updated.selector_stages,
+        selector_platforms: updated.selector_platforms,
+        selector_products: updated.selector_products,
+        selector_triggers: updated.selector_triggers,
+        selector_dependencies: updated.selector_dependencies,
+        selector_conflicts: updated.selector_conflicts,
+        domain: updated.domain,
+        platform: updated.platform,
+        knowledge_type: updated.knowledge_type,
+        status: updated.status,
+        original_created_at: updated.created_at,
+        original_updated_at: updated.updated_at,
       });
       if (historyError) {
         console.warn("[v3-admin] Módulo salvo, mas o histórico não pôde ser registrado:", historyError);
