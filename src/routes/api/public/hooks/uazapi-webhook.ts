@@ -1230,12 +1230,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   // Se o cliente falou DURANTE o funil, a mensagem já foi salva por
                   // outro webhook que ficou bloqueado pelo status=running. Agora,
                   // somente após a última etapa, retomamos a mensagem mais recente.
-                  const { data: queuedInbound } = await supabaseAdmin
+                  const { data: queuedInbound } = await (supabaseAdmin as any)
                     .from("messages")
                     .select("body, kind, created_at")
                     .eq("conversation_id", conversationId)
                     .eq("sender", "cliente")
-                    .gt("created_at", (existingRun as any)?.fired_at || new Date(Date.now() - 15 * 60_000).toISOString())
+                    .gt("created_at", new Date(Date.now() - 15 * 60_000).toISOString())
                     .order("created_at", { ascending: false })
                     .limit(1)
                     .maybeSingle();
