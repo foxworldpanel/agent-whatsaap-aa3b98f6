@@ -1150,9 +1150,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                 }
               } else if (["running", "paused"].includes(existingStatus)) {
                 const runUpdatedAt = new Date(
-                  (existingRun as any).updated_at || (existingRun as any).fired_at || 0,
+                  (existingRun as any).fired_at || 0,
                 ).getTime();
-                const runIsStale = Date.now() - runUpdatedAt > 60_000;
+                const runIsStale = Date.now() - runUpdatedAt > 120_000;
                 if (runIsStale) {
                   console.log("[WELCOME-FUNNEL] Run travada há mais de 60s sem atualizar; liberando Agent V3 em vez de bloquear pra sempre", {
                     phone: phoneStr,
