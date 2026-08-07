@@ -161,7 +161,6 @@ Validar que:
 
  nenhum outro comportamento do Agent V3 seja alterado.`}
         </p>
-        </p>
       </div>
     </div>
   ),
