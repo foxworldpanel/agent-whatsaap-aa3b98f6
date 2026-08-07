@@ -654,6 +654,96 @@ export type Database = {
       }
       agent_modules_v3_history: {
         Row: {
+          always_load: boolean | null
+          archived_at: string
+          category: string | null
+          content: string
+          description: string | null
+          domain: string | null
+          enabled: boolean | null
+          id: string
+          key: string
+          knowledge_type: string | null
+          module_id: string
+          name: string
+          original_created_at: string | null
+          original_updated_at: string | null
+          platform: string | null
+          priority: number | null
+          selector_conflicts: string[] | null
+          selector_dependencies: string[] | null
+          selector_intents: string[] | null
+          selector_platforms: string[] | null
+          selector_products: string[] | null
+          selector_stages: string[] | null
+          selector_triggers: string[] | null
+          status: string | null
+          user_id: string
+          version: number | null
+          workspace_id: string
+        }
+        Insert: {
+          always_load?: boolean | null
+          archived_at?: string
+          category?: string | null
+          content: string
+          description?: string | null
+          domain?: string | null
+          enabled?: boolean | null
+          id?: string
+          key: string
+          knowledge_type?: string | null
+          module_id: string
+          name: string
+          original_created_at?: string | null
+          original_updated_at?: string | null
+          platform?: string | null
+          priority?: number | null
+          selector_conflicts?: string[] | null
+          selector_dependencies?: string[] | null
+          selector_intents?: string[] | null
+          selector_platforms?: string[] | null
+          selector_products?: string[] | null
+          selector_stages?: string[] | null
+          selector_triggers?: string[] | null
+          status?: string | null
+          user_id: string
+          version?: number | null
+          workspace_id: string
+        }
+        Update: {
+          always_load?: boolean | null
+          archived_at?: string
+          category?: string | null
+          content?: string
+          description?: string | null
+          domain?: string | null
+          enabled?: boolean | null
+          id?: string
+          key?: string
+          knowledge_type?: string | null
+          module_id?: string
+          name?: string
+          original_created_at?: string | null
+          original_updated_at?: string | null
+          platform?: string | null
+          priority?: number | null
+          selector_conflicts?: string[] | null
+          selector_dependencies?: string[] | null
+          selector_intents?: string[] | null
+          selector_platforms?: string[] | null
+          selector_products?: string[] | null
+          selector_stages?: string[] | null
+          selector_triggers?: string[] | null
+          status?: string | null
+          user_id?: string
+          version?: number | null
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      agent_modules_v3_history_old: {
+        Row: {
           content: string
           created_at: string | null
           created_by: string | null
