@@ -1129,7 +1129,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
             if (existingRun && !repeatForTest) {
               const existingStatus = String((existingRun as any).status || "completed");
-              const existingRetryCount = Number((existingRun as any).retry_count || 0);
+              const existingRetryCount = 0; // Temporariamente ignorando retry_count se não existir
 
               if (existingStatus === "failed" && existingRetryCount < 3) {
                 console.log("[WELCOME-FUNNEL] Falha anterior detectada; tentando reenviar automaticamente", {
