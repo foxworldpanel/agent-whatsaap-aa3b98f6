@@ -24,6 +24,7 @@ import type { BusinessDecisionV3 } from "./brain/business-state.server";
 import { businessDecisionToPromptV3 } from "./brain/business-state.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 import { P0_TEXT } from "./prompt/prompt-p0.server";
+import { checkPromptIntegrity } from "./brain/prompt-integrity-check.server";
 import { buildP1Text } from "./prompt/prompt-p1.server";
 import { buildP2Text } from "./prompt/prompt-p2.server";
 import { 
@@ -31,7 +32,8 @@ import {
   BANCO_ALERTA_TEXT, 
   PLATAFORMAS_DISPONIVEIS_TEXT,
   RECLAMACAO_TEXT,
-  SUPORTE_EXPANDIDO_TEXT 
+  SUPORTE_EXPANDIDO_TEXT,
+  HESITACAO_TOM_TEXT
 } from "./prompt/prompt-conditional.server";
 
 
@@ -520,6 +522,11 @@ export interface OrchestratorInput {
   userId: string;
   message: string;
   history: Array<{ role: "agent" | "customer"; content: string }>;
+  // Sales Intelligence — Fase A/B produzem isso, mas até agora nada
+  // consumia. Primeira conexão real: só o sinal de hesitação influencia
+  // o TOM da resposta (nunca preço — desconto real precisa de decisão
+  // de negócio própria, não é algo que o prompt decide sozinho).
+  offerEligibility?: { eligibleForDiscount: boolean };
   historyTelemetry?: {
     total_messages_stored: number;
     history_truncated: boolean;
@@ -647,12 +654,14 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     conversationId,
     phone,
     flowActionHint,
+    offerEligibility,
   } = input;
 
   // RUN ID — gerado no início do turno, pra correlacionar esse turno
   // específico entre TODOS os logs de diagnóstico (Module Selector,
   // Flow Engine, OrderContext, contagem real de tokens).
   const runId = Math.random().toString(16).slice(2, 8);
+  checkPromptIntegrity();
   console.log("[RUN-ID]", runId, "— mensagem:", message.slice(0, 80));
 
   // 0. Carregar Estado da Conversa (Conversation Engine V1.1)
@@ -928,6 +937,12 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   // 9. Suporte / Aguardando Setor
   if (businessDecision?.state === "aguardando_setor" || businessDecision?.state === "compra_bloqueada") {
     conditionalPrompts += "\n\n" + SUPORTE_EXPANDIDO_TEXT;
+  }
+
+  // 9.5. Sales Intelligence — primeira conexão real (Fase A/B só observavam
+  // até agora). Só ajusta tom, nunca preço/desconto de verdade.
+  if (offerEligibility?.eligibleForDiscount) {
+    conditionalPrompts += "\n\n" + HESITACAO_TOM_TEXT;
   }
 
   // 10. Conversation Engine V1.1 (Legado)
