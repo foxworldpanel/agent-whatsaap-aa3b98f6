@@ -185,3 +185,115 @@ REGRA DE CONCISÃO:
       selectionReasons: selection.selectionReasons,
     };
   });
+
+// Lista o histórico de versões de um módulo do CMS. Usa a tabela
+// agent_modules_v3_history, alimentada automaticamente pelo gatilho
+// trg_agent_modules_v3_history a cada edição — nenhuma lógica extra
+// de captura necessária aqui, só leitura.
+export const listV3ModuleHistory = createServerFn({ method: "GET" })
+  .middleware([withWorkspaceScope])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        moduleKey: z.string().trim().min(1).max(120),
+        limit: z.number().min(1).max(50).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, workspaceId } = context;
+
+    const { data: history, error } = await supabase
+      .from("agent_modules_v3_history")
+      .select("id, version, content, enabled, archived_at, name")
+      .eq("workspace_id", workspaceId)
+      .eq("key", data.moduleKey.trim().toLowerCase())
+      .order("archived_at", { ascending: false })
+      .limit(data.limit ?? 20);
+
+    if (error) throw error;
+
+    return { history: history || [] };
+  });
+
+// Restaura um módulo pro estado de uma versão anterior do histórico.
+// Não apaga nada: aplica o conteúdo antigo por cima do módulo atual via
+// UPDATE normal — o que significa que o próprio gatilho
+// trg_agent_modules_v3_history vai automaticamente arquivar o estado
+// ATUAL (antes da restauração) como uma nova entrada de histórico. Ou
+// seja, o rollback em si também é reversível, de graça.
+export const rollbackV3Module = createServerFn({ method: "POST" })
+  .middleware([withWorkspaceScope])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        historyId: z.string().trim().min(1),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, workspaceId } = context;
+
+    // 1. Busca a versão antiga que queremos restaurar — escopada ao
+    // workspace, pra ninguém restaurar histórico de outro workspace.
+    const { data: historyRow, error: historyErr } = await supabase
+      .from("agent_modules_v3_history")
+      .select("*")
+      .eq("id", data.historyId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (historyErr) throw historyErr;
+    if (!historyRow) throw new Error("Versão do histórico não encontrada.");
+
+    // 2. Busca o módulo atual pra saber o próximo número de versão.
+    const { data: current, error: currentErr } = await supabase
+      .from("agent_modules_v3")
+      .select("id, version")
+      .eq("id", historyRow.module_id)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (currentErr) throw currentErr;
+    if (!current) throw new Error("Módulo atual não encontrado — pode ter sido excluído.");
+
+    const newVersion = (current.version || 0) + 1;
+
+    // 3. Aplica o conteúdo antigo de volta. O gatilho no banco cuida
+    // de arquivar o estado atual automaticamente antes desse UPDATE
+    // acontecer — não precisa de nenhuma chamada extra aqui.
+    const { data: restored, error: restoreErr } = await supabase
+      .from("agent_modules_v3")
+      .update({
+        name: historyRow.name,
+        description: historyRow.description,
+        category: historyRow.category,
+        content: historyRow.content,
+        enabled: historyRow.enabled,
+        priority: historyRow.priority,
+        always_load: historyRow.always_load,
+        selector_intents: historyRow.selector_intents,
+        selector_stages: historyRow.selector_stages,
+        selector_platforms: historyRow.selector_platforms,
+        selector_products: historyRow.selector_products,
+        selector_triggers: historyRow.selector_triggers,
+        selector_dependencies: historyRow.selector_dependencies,
+        selector_conflicts: historyRow.selector_conflicts,
+        domain: historyRow.domain,
+        platform: historyRow.platform,
+        knowledge_type: historyRow.knowledge_type,
+        status: historyRow.status,
+        version: newVersion,
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq("id", historyRow.module_id)
+      .eq("workspace_id", workspaceId)
+      .select()
+      .single();
+
+    if (restoreErr) throw restoreErr;
+
+    invalidateModulesCache(workspaceId);
+
+    return { restored };
+  });
