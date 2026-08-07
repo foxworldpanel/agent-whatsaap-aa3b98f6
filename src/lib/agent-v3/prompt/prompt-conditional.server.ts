@@ -29,3 +29,11 @@ export const SUPORTE_EXPANDIDO_TEXT = `## SUPORTE E AGUARDANDO SETOR
 - Estado: AGUARDANDO SETOR / SUPORTE.
 - Não encaminha automaticamente se a resposta estiver nos módulos.
 - Se a informação não existe ou o cliente continua bloqueado após 1 tentativa, confirme que o caso será analisado pelo setor responsável.`;
+
+// Sales Intelligence — primeira conexão real (antes só observava, nunca
+// influenciava resposta). Só TOM, nunca preço — desconto de verdade
+// exigiria decisão de negócio própria, não é algo que o prompt decide.
+export const HESITACAO_TOM_TEXT = `## SINAL: CLIENTE HESITANDO
+- O cliente demonstrou hesitação recentemente (ex: "vou pensar", "depois eu vejo").
+- Ajuste só o TOM: seja mais acolhedor e paciente, sem pressionar pra decisão.
+- NUNCA ofereça desconto, condição especial ou valor diferente do módulo — isso não está autorizado, é só ajuste de tom.`;

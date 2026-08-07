@@ -100,7 +100,10 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     };
   }
 
-  const agentResult = await runAgentV3Turn(input);
+  const agentResult = await runAgentV3Turn({
+    ...input,
+    offerEligibility: salesIntelligence.offerEligibility,
+  });
 
   if (BEHAVIOR_TELEMETRY_ENABLED) {
     const modulosCarregados = agentResult.modules?.selected_keys ?? [];
