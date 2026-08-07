@@ -1206,11 +1206,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   workspace_id: workspaceId,
                   fired_at: new Date().toISOString(),
                   status: "running",
-                  completed_at: null,
-                  last_step: null,
-                  last_step_index: 0,
-                  error_message: null,
-                  retry_count: nextRetryCount,
                   updated_at: new Date().toISOString(),
                 });
 
