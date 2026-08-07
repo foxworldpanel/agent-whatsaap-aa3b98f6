@@ -53,6 +53,29 @@ function stepDelayMs(step: Step | undefined, fallbackSec: number | null | undefi
   return Math.max(0, Math.min(180, sec)) * 1000;
 }
 
+// Rastreamento de depuração — mesma tabela usada pelo webhook
+// (funnel_debug_trace), mas gravado direto daqui, já que esse arquivo
+// não tem acesso ao msgId original. Usa funnel_id+phone como
+// identificador. Fire-and-forget: nunca bloqueia o envio das etapas.
+async function traceRunnerStep(params: {
+  supabase: any;
+  phone: string;
+  funnelId: string;
+  step: string;
+  details: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    await params.supabase.from("funnel_debug_trace").insert({
+      msg_id: `runner:${params.funnelId}`,
+      phone: params.phone,
+      step: params.step,
+      details: params.details,
+    });
+  } catch (traceErr) {
+    console.warn("[FUNNEL-RUNNER-TRACE] Falha ao gravar checkpoint (não bloqueia o envio):", traceErr);
+  }
+}
+
 async function addEvent(params: {
   supabase: any;
   userId: string;
@@ -169,57 +192,90 @@ export async function runWelcomeFunnelSequence(params: {
       await assertNotPaused({ supabase, funnelId: funnel.id, contactId });
     }
 
-    if (key === "welcome_text" || key === "panel_text" || key === "services_text") {
-      const text = step.text?.trim();
-      if (!text) continue;
-      await uazapiSendText(creds, phone, text);
-      await persistOutbound({
+    // IMPORTANTE (correção de bug real, achado em produção): cada etapa
+    // agora é protegida individualmente. Antes, se o envio de UMA etapa
+    // falhasse (ex: uazapiSendAudio sem try/catch), a exceção parava a
+    // função inteira — nenhuma etapa seguinte rodava, e nem o evento
+    // final de "completed" era registrado. Agora, se uma etapa falhar,
+    // registra o erro, pula pra próxima etapa, e continua a sequência.
+    try {
+      if (key === "welcome_text" || key === "panel_text" || key === "services_text") {
+        const text = step.text?.trim();
+        if (!text) continue;
+        await uazapiSendText(creds, phone, text);
+        await persistOutbound({
+          supabase,
+          conversationId,
+          userId,
+          workspaceId,
+          kind: "texto",
+          body: text,
+        });
+      } else if (key === "audio") {
+        const url = step.url?.trim();
+        if (!url) continue;
+        await uazapiSendAudio(creds, phone, url);
+        await uazapiClearPresence(creds, phone).catch(() => undefined);
+        await persistOutbound({
+          supabase,
+          conversationId,
+          userId,
+          workspaceId,
+          kind: "audio",
+          body: "[Áudio do funil de boas-vindas]",
+          audioUrl: url,
+        });
+      } else if (key === "video") {
+        const url = step.url?.trim();
+        if (!url) continue;
+        const caption = step.caption?.trim() || undefined;
+        await uazapiSendMedia(creds, phone, "video", url, caption);
+        await persistOutbound({
+          supabase,
+          conversationId,
+          userId,
+          workspaceId,
+          kind: "texto",
+          body: caption || "[Vídeo explicativo do funil]",
+        });
+      }
+    } catch (stepError) {
+      const errorMessage = stepError instanceof Error ? stepError.message : String(stepError);
+      console.error(`[FUNNEL-RUNNER] Falha ao enviar etapa "${key}"; seguindo para a próxima etapa:`, errorMessage);
+      await traceRunnerStep({
         supabase,
-        conversationId,
+        phone,
+        funnelId: funnel.id,
+        step: "step_send_error",
+        details: { stepKey: key, error: errorMessage },
+      });
+      await addEvent({
+        supabase,
         userId,
         workspaceId,
-        kind: "texto",
-        body: text,
+        funnelId: funnel.id,
+        contactId,
+        eventType: "step_failed",
+        stepKey: key,
+        message: errorMessage.slice(0, 1000),
+        metadata: { index: fixedIndex + 1 },
       });
-    } else if (key === "audio") {
-      const url = step.url?.trim();
-      if (!url) continue;
-      await uazapiSendAudio(creds, phone, url);
-      await uazapiClearPresence(creds, phone).catch(() => undefined);
-      await persistOutbound({
-        supabase,
-        conversationId,
-        userId,
-        workspaceId,
-        kind: "audio",
-        body: "[Áudio do funil de boas-vindas]",
-        audioUrl: url,
-      });
-    } else if (key === "video") {
-      const url = step.url?.trim();
-      if (!url) continue;
-      const caption = step.caption?.trim() || undefined;
-      await uazapiSendMedia(creds, phone, "video", url, caption);
-      await persistOutbound({
-        supabase,
-        conversationId,
-        userId,
-        workspaceId,
-        kind: "texto",
-        body: caption || "[Vídeo explicativo do funil]",
-      });
+      // Não interrompe o loop — segue pra próxima etapa mesmo com essa falhando.
+      continue;
     }
 
-    const now = new Date().toISOString();
-    // Persistência simplificada compatível com o schema básico
-    await supabase
-      .from("welcome_funnel_runs")
-      .update({
-        updated_at: now,
-      })
-      .eq("funnel_id", funnel.id)
-      .eq("contact_id", contactId)
-      .catch(() => {});
+    // Removido: UPDATE em welcome_funnel_runs.updated_at — essa coluna
+    // não existe na tabela real (confirmado via information_schema).
+    // A tabela só tem funnel_id, contact_id, user_id, fired_at,
+    // workspace_id — nada pra atualizar por etapa.
+
+    await traceRunnerStep({
+      supabase,
+      phone,
+      funnelId: funnel.id,
+      step: "step_sent_ok",
+      details: { stepKey: key, index: fixedIndex + 1 },
+    });
 
     await addEvent({
       supabase,
@@ -233,6 +289,14 @@ export async function runWelcomeFunnelSequence(params: {
       metadata: { index: fixedIndex + 1 },
     });
   }
+
+  await traceRunnerStep({
+    supabase,
+    phone,
+    funnelId: funnel.id,
+    step: "sequence_completed",
+    details: {},
+  });
 
   await addEvent({
     supabase,
