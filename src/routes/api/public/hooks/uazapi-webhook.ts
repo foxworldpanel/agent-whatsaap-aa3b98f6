@@ -974,60 +974,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (reaction only)");
     }
 
-    // DEBOUNCE DE MENSAGENS RÁPIDAS — corrige o cliente mandando várias
-    // mensagens curtas em sequência (comum no WhatsApp real) e cada uma
-    // disparando uma chamada de IA independente, gerando respostas
-    // fragmentadas e se contradizendo (achado em auditoria de conversa
-    // real). Só aplica pra texto — áudio/imagem seguem o fluxo normal,
-    // cada um já é uma unidade completa.
-    //
-    // Como funciona: espera um intervalo curto depois de receber a
-    // mensagem. Se chegou mensagem MAIS NOVA do mesmo cliente durante a
-    // espera, esta chamada aborta (a chamada da mensagem mais nova vai
-    // cuidar de tudo, incluindo esta). Se ainda for a mais nova depois
-    // da espera, junta todas as mensagens de texto recebidas nesse
-    // intervalo numa só, e segue o fluxo normal com o texto combinado.
-    if (content.kind === "texto" && conversationId) {
-      const DEBOUNCE_MS = 6000;
-      const debounceStartedAt = new Date().toISOString();
-
-      await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS));
-
-      const { data: newerMsgs, error: newerMsgsErr } = await (supabaseAdmin as any)
-        .from("messages")
-        .select("id, body, created_at")
-        .eq("conversation_id", conversationId)
-        .eq("sender", "cliente")
-        .gt("created_at", debounceStartedAt)
-        .order("created_at", { ascending: true });
-
-      if (newerMsgsErr) {
-        console.warn("[DEBOUNCE] Falha ao checar mensagens mais novas (seguindo sem agrupar):", newerMsgsErr);
-      } else if (newerMsgs && newerMsgs.length > 0) {
-        // Chegou mensagem mais nova durante a espera — essa chamada aborta.
-        // A chamada da mensagem mais nova (que também vai debouncar) cuida do resto.
-        console.log(`[DEBOUNCE] msgId ${msgId} abortando — ${newerMsgs.length} mensagem(ns) mais nova(s) chegou(ram) durante a espera.`);
-        return new Response("ok (debounced, newer message will handle)");
-      } else {
-        // Ainda é a mais nova — junta tudo que chegou desse cliente
-        // durante a janela de debounce (incluindo a própria) numa só mensagem.
-        const { data: burstMsgs } = await (supabaseAdmin as any)
-          .from("messages")
-          .select("body, created_at")
-          .eq("conversation_id", conversationId)
-          .eq("sender", "cliente")
-          .gte("created_at", new Date(Date.now() - DEBOUNCE_MS - 2000).toISOString())
-          .order("created_at", { ascending: true });
-
-        if (burstMsgs && burstMsgs.length > 1) {
-          const textoCombinado = (burstMsgs as any[]).map((m) => String(m.body || "").trim()).filter(Boolean).join("\n");
-          if (textoCombinado) {
-            console.log(`[DEBOUNCE] msgId ${msgId} combinando ${burstMsgs.length} mensagens em uma só.`);
-            content.text = textoCombinado;
-          }
-        }
-      }
-    }
 
     // 3.4. FUNNEL GATE GLOBAL
     traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_entry", {
