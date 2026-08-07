@@ -976,9 +976,9 @@ ${MIND_OPERATIONAL_TRUTH_V3}
 
 ${P0_TEXT}
 
-${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic, funnelAlreadyCompleted })}
+${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic, funnelAlreadyCompleted: funnelAlreadyCompleted || convState.greetingAlreadyDone })}
 
-${buildP2Text({ isAudioInput, isImageInput, isStickerInput })}`,
+${buildP2Text({ isAudioInput, isImageInput, isStickerInput, greetingAlreadyPerformed: convState.greetingAlreadyDone })}`,
       cache_control: { type: "ephemeral" }
     },
     {
