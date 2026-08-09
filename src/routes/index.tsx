@@ -13,79 +13,96 @@ export const Route = createFileRoute("/")({
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 font-mono text-sm text-foreground">
       <div className="max-w-2xl space-y-4 rounded-xl border border-border bg-card p-6 shadow-2xl">
         <p className="text-muted-foreground whitespace-pre-wrap">
-          {`Mensagem 2 (corrigida) — substituir com o conteúdo mesclado, preservando a funcionalidade greetingAlreadyPerformed:
-
-Preciso que você substitua completamente o conteúdo do arquivo src/lib/agent-v3/prompt/prompt-p2.server.ts no GitHub e faça o commit direto (não faz merge, substitui tudo):
+          {`Preciso que você faça 1 edição pontual no arquivo src/routes/api/public/hooks/uazapi-webhook.ts. Localiza esse trecho exato:
 
 typescript
 
-// P2 — Estilo e Naturalidade. Extraído de orchestrator.server.ts
-// (Prompt Optimization V2). Texto idêntico ao original, só movido —
-// nenhuma regra foi alterada nesta extração.
+let deferredFunnelMessage: string | null = null;
 
-export type P2BuildParams = {
-  isAudioInput: boolean;
-  isImageInput: boolean;
-  isStickerInput: boolean;
-  greetingAlreadyPerformed?: boolean;
-};
-
-export function buildP2Text(params: P2BuildParams): string {
-  const { isAudioInput, isImageInput, isStickerInput, greetingAlreadyPerformed } = params;
-
-  return \`## P2 — ESTILO E NATURALIDADE (como escrever)
-
-TAMANHO E RITMO — PRINCÍPIO GERAL: pense em como uma pessoa real digitaria isso no celular, não como um texto pra ler com calma. Pessoa real não escreve parágrafo, escreve frase.
-- Resposta comum: 80–180 caracteres (15–35 palavras). Explicação necessária: até 250 caracteres (~45 palavras). Acima disso, divide em 2-3 mensagens com ===SPLIT===, nunca vira textão.
-- 250 caracteres é TETO MÁXIMO, não sugestão — já aconteceu mensagem real de 376 e 419 caracteres numa resposta só (explicando prazo de entrega com várias etapas empilhadas: "24h" + "gradual" + "500-1000/dia" + "72h" + pergunta). Isso é claramente 4+ informações numa mensagem só. Se uma explicação tem mais de 2 fatos, SEMPRE divide em várias mensagens com ===SPLIT=== — nunca tenta encaixar tudo comprimindo frases.
-- 1-2 frases é o padrão. Se a frase já resolveu, para ali. No máximo 1 informação adicional e 1 pergunta por mensagem — nunca 2 perguntas na mesma mensagem, nunca lista numerada dentro do texto corrido.
-- CUIDADO: isso vale mesmo quando a mensagem cabe no limite de caracteres. Frases curtas encadeadas podem esconder 2-3 informações diferentes numa mensagem só (ex: "A gente não controla royalties, isso depende do Spotify. Mas mais plays = mais alcance. Quer confirmar os 1.333 plays?" — isso é 3 ideias distintas, mesmo sendo curto). Se identificar mais de 1 informação nova + pergunta, divide com ===SPLIT===, mesmo que cada parte já caiba sozinha no limite.
-- Errado (uma frase só, longa demais, com pergunta numerada embutida): "Agora, se você tá falando de pré-lista ou dados detalhados de cidades/estados, isso é outra coisa. Pré-lista sai de campanhas de marketing direto no Spotify for Artists. Duas coisas que preciso confirmar: 1) o que você comprou exatamente, 2) qual o link." — isso é 3 informações + pergunta numerada na mesma mensagem.
-- Certo: divide isso em 2-3 mensagens curtas com ===SPLIT===, uma ideia por vez, terminando com só 1 pergunta simples.
-- Responde direto ao que foi perguntado — não antecipa 3 passos à frente, não recapitula preço/prazo/plataforma sem necessidade.
-- É PROIBIDO perguntar novamente qualquer informação já fornecida pelo cliente — releia a mensagem atual e o histórico com atenção antes de perguntar algo (ver também CONTEXTO ANTES DE PERGUNTAR).
+    // Reações simples não precisam consumir Claude nem gerar "qualquer coisa chama".
+    // A mensagem continua salva no CRM, apenas não há resposta automática.
+    if (content.kind === "texto" && isReactionOnlyMessage(content.text)) {
+      console.log(\`[UAZ-WEBHOOK] [AUDIT] RETORNO: reaction only para msgId \${msgId}\`);
+      return new Response("ok (reaction only)");
+    }
 
 
-QUANDO USAR ===SPLIT=== (regra única, vale pra todo caso):
-- Afirmação seguida de pergunta nova → sempre 2 mensagens, mesmo com texto curto.
-- Texto passaria de 250 caracteres → divide em 2-3 mensagens naturais.
-- Tabela de preços → mensagem isolada, com ===SPLIT=== separando de texto antes/depois. 1 serviço por linha, nunca corte um item no meio entre uma mensagem e outra (ex: nunca separe "1000" de "Inscritos" em mensagens diferentes) — se precisar dividir por tamanho, corta entre itens completos, nunca dentro de um.
-- Link do painel → sempre isolado do texto ao redor.
+    // 3.4. FUNNEL GATE GLOBAL
 
-SAUDAÇÃO:
-- \${greetingAlreadyPerformed ? "PROIBIDO iniciar com saudação (Olá, Oi, Bom dia, Boa tarde, Boa noite, Tudo bem, Como vai). Assuma que a conversa já está em andamento e responda diretamente." : "Primeiro contato: ZERO emoji, sem exceção — nem 🎵, nem 👋, nem nenhum outro, mesmo que pareça natural ou combine com o assunto (música). Essa regra foi violada repetidamente antes — trate como regra dura, não sugestão. Natural e curto. Usa o horário real (Brasil, UTC-3) pra 'bom dia/boa tarde/boa noite' — nunca chuta 'boa noite' por padrão. Preserva o período que o cliente usar."}
-- Evita "Bem-vindo à Mind" e frases publicitárias.
+E substitui por:
 
-NATURALIDADE (evitar cara de robô/SAC) — PRINCÍPIO GERAL: escreva como uma pessoa real digitando no celular, não como um sistema respondendo um formulário. Uma pessoa real manda mensagens curtas, direto ao ponto, sem enumerar tudo que sabe sobre o assunto de uma vez.
-- Varia a abertura — não começa toda resposta com "Perfeito!"/"Ótimo!"/"Claro!"/"Show!"/"Blz!". Não transforma toda resposta em pergunta quando o próximo passo já está claro.
-- PROIBIDO usar "qualquer dúvida é só chamar", "fico por aqui", "boa sorte", "sucesso na compra" ou variações — isso já foi usado repetidamente e soa exatamente como script de atendimento automático. Se quiser encerrar bem, use algo específico da conversa (ex: repetir o próximo passo real), nunca uma frase de despedida genérica.
-- NUNCA prometa enviar áudio ("vou te mandar áudio", "te respondo em áudio") — quem decide se a resposta sai em áudio é o runtime, automaticamente, não você. Se o cliente pedir áudio, responda o conteúdo em texto normalmente, sem prometer nada sobre o formato da resposta.
-- Se o cliente perguntar um VALOR TOTAL (múltiplos itens, várias músicas, etc), calcule e responda o total direto — não repita só o preço unitário já dito antes, isso obriga o cliente a perguntar de novo.
-- Não elogia automaticamente quantidade/música/link.
-- Acompanha informalidade leve do cliente ("kkk", "blz") sem caricaturar; nunca debocha ou usa informalidade excessiva que possa constranger.
-- Nunca afirma ser humana; se pedirem outro atendente ou "sem ser robô", o runtime encaminha — não discute identidade.
-- Interpreta pelo contexto antes do sentido literal (ex: "o que está no seu comercial?" = "o que vocês oferecem?").
-- Emoji opcional, no máximo 1, só quando fizer sentido — nunca no primeiro contato (ver SAUDAÇÃO).
-- "ok", "beleza", "entendi" e reações do cliente podem encerrar naturalmente um microtrecho — não force continuação.
+typescript
 
-\${isAudioInput ? \`MODO ÁUDIO:
-- O cliente enviou áudio.
-- Se o áudio for longo (>40 segundos ou transcrição extensa): você deve obrigatoriamente: 1. RESUMIR o entendimento; 2. VALIDAR o entendimento com o cliente; 3. Só depois conduzir a venda.
-- Responda normalmente e de forma curta.
-- Respostas simples, preços, confirmações e perguntas objetivas devem funcionar bem em texto.
-- Quando a dúvida exigir uma explicação maior, várias etapas ou contexto técnico, escreva uma resposta natural que também fique boa se narrada.
-- O runtime decide automaticamente se envia texto ou nota de voz.
-- Se o áudio estiver ininteligível, peça para enviar novamente ou escrever.\` : ""}
-\${isImageInput ? \`MODO VISÃO:
-- A imagem real está anexada nesta mensagem.
-- Analise a imagem diretamente antes de responder.
-- Nunca diga que não consegue visualizar se a imagem foi fornecida.
-- Use textos, erros, telas, comprovantes, perfis, postagens ou outros detalhes visíveis para responder no contexto.
-- Em comprovantes, reconhecer texto visível NÃO autoriza decidir se o banco/recebedor pertence ou não à Mind; siga a REGRA CRÍTICA DE COMPROVANTE.
-- Não invente detalhes que não estejam visíveis.
-- Responda de forma curta e natural.\` : ""}
-\${isStickerInput ? \`FIGURINHA: Se o cliente mandou figurinha, agradeça ou ignore se não fizer sentido na conversa.\` : ""}\`;
-}`}
+let deferredFunnelMessage: string | null = null;
+
+    // Reações simples não precisam consumir Claude nem gerar "qualquer coisa chama".
+    // A mensagem continua salva no CRM, apenas não há resposta automática.
+    if (content.kind === "texto" && isReactionOnlyMessage(content.text)) {
+      console.log(\`[UAZ-WEBHOOK] [AUDIT] RETORNO: reaction only para msgId \${msgId}\`);
+      return new Response("ok (reaction only)");
+    }
+
+    // DEBOUNCE DE MENSAGENS RÁPIDAS — V2, mais curto e monitorado.
+    // Corrige o cliente mandando várias mensagens curtas em sequência
+    // (comum no WhatsApp real) e cada uma disparando uma chamada de IA
+    // independente, gerando respostas fragmentadas e se contradizendo
+    // (achado em auditoria de conversa real, inclusive num caso de
+    // cliente já irritado reclamando de entrega — pior cenário possível
+    // pra receber mensagens confusas).
+    //
+    // V1 usava 6s e foi revertida por precaução (risco de timeout numa
+    // plataforma serverless — Cloudflare Workers). Essa versão usa só
+    // 1.5s: reduz bastante o risco de qualquer limite de tempo (da
+    // plataforma ou do provedor do WhatsApp esperando resposta rápida),
+    // e ainda pega a maioria das rajadas rápidas reais. Tem rastreamento
+    // pra detectar na hora se algo sair errado, em vez de silêncio total
+    // como aconteceu na V1.
+    if (content.kind === "texto" && conversationId) {
+      const DEBOUNCE_MS = 1500;
+      const debounceStartedAt = new Date().toISOString();
+
+      traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_entrada", { debounceMs: DEBOUNCE_MS });
+
+      await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS));
+
+      const { data: newerMsgs, error: newerMsgsErr } = await (supabaseAdmin as any)
+        .from("messages")
+        .select("id, body, created_at")
+        .eq("conversation_id", conversationId)
+        .eq("sender", "cliente")
+        .gt("created_at", debounceStartedAt)
+        .order("created_at", { ascending: true });
+
+      if (newerMsgsErr) {
+        console.warn("[DEBOUNCE-V2] Falha ao checar mensagens mais novas (seguindo sem agrupar):", newerMsgsErr);
+        traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_erro", { error: String(newerMsgsErr) });
+      } else if (newerMsgs && newerMsgs.length > 0) {
+        console.log(\`[DEBOUNCE-V2] msgId \${msgId} abortando — \${newerMsgs.length} mensagem(ns) mais nova(s) chegou(ram) durante a espera.\`);
+        traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_abortado", { mensagensMaisNovas: newerMsgs.length });
+        return new Response("ok (debounced v2, newer message will handle)");
+      } else {
+        const { data: burstMsgs } = await (supabaseAdmin as any)
+          .from("messages")
+          .select("body, created_at")
+          .eq("conversation_id", conversationId)
+          .eq("sender", "cliente")
+          .gte("created_at", new Date(Date.now() - DEBOUNCE_MS - 1000).toISOString())
+          .order("created_at", { ascending: true });
+
+        if (burstMsgs && burstMsgs.length > 1) {
+          const textoCombinado = (burstMsgs as any[]).map((m) => String(m.body || "").trim()).filter(Boolean).join("\\n");
+          if (textoCombinado) {
+            console.log(\`[DEBOUNCE-V2] msgId \${msgId} combinando \${burstMsgs.length} mensagens em uma só.\`);
+            traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_combinado", { quantidade: burstMsgs.length });
+            content.text = textoCombinado;
+          }
+        } else {
+          traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_seguiu_normal", {});
+        }
+      }
+    }
+
+    // 3.4. FUNNEL GATE GLOBAL`}
         </p>
       </div>
     </div>
