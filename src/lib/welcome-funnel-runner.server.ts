@@ -160,6 +160,18 @@ export async function runWelcomeFunnelSequence(params: {
     ? ORDER.indexOf(params.resumeAfterStep as (typeof ORDER)[number])
     : -1;
 
+  // Conecta a coluna conversations.funnel_status, que já existia no banco
+  // (enum not_started/running/completed) mas nunca era escrita por
+  // nenhum código — achado em auditoria de schema em 09/08/2026.
+  const { error: statusRunningErr } = await supabase
+    .from("conversations")
+    .update({ funnel_status: "running" })
+    .eq("id", conversationId)
+    .eq("workspace_id", workspaceId);
+  if (statusRunningErr) {
+    console.warn("[FUNNEL-RUNNER] Não foi possível marcar funnel_status=running (não bloqueia o fluxo):", statusRunningErr);
+  }
+
   await addEvent({
     supabase,
     userId,
@@ -297,6 +309,15 @@ export async function runWelcomeFunnelSequence(params: {
     step: "sequence_completed",
     details: {},
   });
+
+  const { error: statusCompletedErr } = await supabase
+    .from("conversations")
+    .update({ funnel_status: "completed" })
+    .eq("id", conversationId)
+    .eq("workspace_id", workspaceId);
+  if (statusCompletedErr) {
+    console.warn("[FUNNEL-RUNNER] Não foi possível marcar funnel_status=completed (não bloqueia o fluxo):", statusCompletedErr);
+  }
 
   await addEvent({
     supabase,
