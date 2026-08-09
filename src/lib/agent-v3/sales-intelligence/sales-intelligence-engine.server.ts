@@ -112,8 +112,8 @@ function detectSalesSignals(message: string): SalesSignal[] {
 /**
  * Ponto de entrada único do engine. Puro — mesma entrada sempre produz
  * a mesma saída, sem I/O, sem efeito colateral. Orquestra Fase A
- * (sinais) + Fase B (objeções, ofertas, recuperação), todos consumindo
- * só os sinais já extraídos.
+ * (sinais) + Fase B (temperatura, objeções, ofertas, recuperação),
+ * todos consumindo só os sinais já extraídos.
  */
 export function classifySalesIntelligence(message: string): SalesIntelligenceResult {
   const salesSignals = detectSalesSignals(message);
