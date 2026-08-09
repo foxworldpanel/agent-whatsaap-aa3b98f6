@@ -53,15 +53,12 @@ async function loadRunExecutionContext(params: {
 
   const { data: contact, error: contactErr } = await params.supabase
     .from("contacts")
-    .select("id, telefone, name:nome") // aliasing nome to name if necessary, though original uses telefone/nome
+    .select("id, telefone, nome")
     .eq("workspace_id", params.workspaceId)
     .eq("user_id", params.userId)
     .eq("id", params.contactId)
     .single();
   if (contactErr || !contact) throw new Error(contactErr?.message || "Contato não encontrado.");
-
-  // Fixing the aliasing for consistency with the provided snippet which used contact.nome later but contact.id/telefone/nome in select
-  // Actually, the provided code snippet used: .select("id, telefone, nome") and then ctx.contact.telefone.
 
   const { data: conversation, error: conversationErr } = await params.supabase
     .from("conversations")
@@ -197,16 +194,35 @@ export const getFunnelControlOverview = createServerFn({ method: "GET" })
       }
     }
 
+    // Status real, via conversations.funnel_status — coluna que já existia
+    // no banco (enum not_started/running/completed) mas nunca era lida
+    // por nenhum código antes (achado em auditoria de schema em
+    // 09/08/2026). Agora o runner do funil escreve nela; aqui a gente lê.
+    const statusMap = new Map<string, string>();
+    if (contactIds.length) {
+      for (let i = 0; i < contactIds.length; i += 200) {
+        const { data, error } = await (context.supabase as any)
+          .from("conversations")
+          .select("contact_id, funnel_status")
+          .eq("workspace_id", context.workspaceId)
+          .eq("user_id", context.userId)
+          .in("contact_id", contactIds.slice(i, i + 200));
+        if (error) throw new Error(error.message);
+        for (const row of data || []) statusMap.set(row.contact_id, row.funnel_status);
+      }
+    }
+
     const enriched = rows.map((run) => {
       const funnel = funnelMap.get(run.funnel_id) || null;
       const contact = contactMap.get(run.contact_id) || null;
-      return { ...run, status: "completed", funnel, contact, stale: false, error_category: null };
+      const status = statusMap.get(run.contact_id) || "completed";
+      return { ...run, status, funnel, contact, stale: false, error_category: null };
     });
 
     const counts = {
       total: enriched.length,
-      running: 0,
-      completed: enriched.length,
+      running: enriched.filter((r) => r.status === "running").length,
+      completed: enriched.filter((r) => r.status === "completed").length,
       failed: 0,
       paused: 0,
       stale: 0,
@@ -223,7 +239,7 @@ export const getFunnelControlOverview = createServerFn({ method: "GET" })
       failed_24h: 0,
       runs: enriched,
       generated_at: new Date().toISOString(),
-      note: "Painel simplificado — o schema atual só registra quais funis dispararam, não o progresso/status de cada etapa.",
+      note: "Status vem de conversations.funnel_status (running/completed) — real, não estimado. Progresso por etapa individual ainda não é rastreado (precisaria da tabela welcome_funnel_run_events, que não existe hoje).",
     };
   });
 
