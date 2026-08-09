@@ -723,12 +723,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     let contactId: string | undefined = undefined;
     let contactProfile: string | null = null;
     let contactTemperature: string | null = null;
+    let contactSource: string | null = null;
     let conversationId: string | undefined = undefined;
     let duplicateMessageInDb = false;
     let messagePersistedInDb = false;
 
     try {
-      // Upsert Contact
+      // Upsert Contact — NÃO inclui "source" no payload de propósito: se o
+      // contato já existia (ex: criado por uma campanha de disparo com
+      // source="disparo"), o upsert não sobrescreve esse valor, porque só
+      // atualiza as colunas que estão explicitamente no objeto abaixo.
+      // Isso preserva a origem do contato durante toda a vida dele.
       const { data: contact, error: contactErr } = await supabaseAdmin
         .from("contacts")
         .upsert({
@@ -738,11 +743,12 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           whatsapp_number_id: num.id,
           nome: msgLocal.sender?.split("@")[0] || phoneStr,
         }, { onConflict: "user_id,telefone" })
-        .select("id, photo_url, perfil, temperatura")
+        .select("id, photo_url, perfil, temperatura, source")
         .single();
 
       if (contactErr) throw contactErr;
       if (contact?.id) contactId = contact.id;
+      contactSource = contact?.source ?? null;
       contactProfile = contact?.perfil ?? null;
       contactTemperature = contact?.temperatura ?? null;
 
@@ -2303,6 +2309,11 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
         ].filter(Boolean).join("\n\n") || undefined,
         businessDecision,
         funnelAlreadyCompleted,
+        // Cliente originado de disparo (abordagem fria) vs orgânico
+        // (Meta Ads/interesse espontâneo). contacts.source="disparo" já
+        // era gravado há tempos, só nunca era lido de volta pra mudar o
+        // comportamento da Júlia — achado em 09/08/2026.
+        isOutboundReply: contactSource === "disparo",
         customerLifecycle: customerMemory?.lifecycle,
         repurchasePotential: customerMemory?.repurchasePotential,
         inputKind: content.kind,

@@ -24,6 +24,7 @@ import type { BusinessDecisionV3 } from "./brain/business-state.server";
 import { businessDecisionToPromptV3 } from "./brain/business-state.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 import { P0_TEXT } from "./prompt/prompt-p0.server";
+import { OUTBOUND_TEXT } from "./prompt/prompt-outbound.server";
 import { checkPromptIntegrity } from "./brain/prompt-integrity-check.server";
 import { buildP1Text } from "./prompt/prompt-p1.server";
 import { buildP2Text } from "./prompt/prompt-p2.server";
@@ -540,6 +541,11 @@ export interface OrchestratorInput {
   rememberedContext?: Partial<Pick<ConversationContext, "platform" | "product">>;
   businessDecision?: BusinessDecisionV3;
   funnelAlreadyCompleted?: boolean;
+  // Verdadeiro quando esse contato foi originado por uma campanha de
+  // disparo (contacts.source === "disparo") — abordagem fria, cliente
+  // não pediu contato. Diferente de Meta Ads/orgânico, onde o cliente
+  // já demonstrou interesse espontâneo.
+  isOutboundReply?: boolean;
   customerLifecycle?: "novo_lead" | "interessado" | "negociacao" | "pronto_para_comprar" | "cliente" | "cliente_recorrente";
   repurchasePotential?: "baixo" | "medio" | "alto";
   isInbound?: boolean;
@@ -645,6 +651,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     rememberedContext,
     businessDecision,
     funnelAlreadyCompleted,
+    isOutboundReply,
     customerLifecycle,
     repurchasePotential,
     inputKind,
@@ -941,8 +948,15 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
 
   // 9.5. Sales Intelligence — primeira conexão real (Fase A/B só observavam
   // até agora). Só ajusta tom, nunca preço/desconto de verdade.
-  if (offerEligibility?.eligibleForDiscount) {
+if (offerEligibility?.eligibleForDiscount) {
     conditionalPrompts += "\n\n" + HESITACAO_TOM_TEXT;
+  }
+
+  // 9.6. Abordagem fria (disparo) — cliente originado de campanha de
+  // outbound, não de interesse espontâneo. Muda a progressão dos
+  // primeiros turnos: gerar curiosidade/confiança antes de qualificar.
+  if (isOutboundReply) {
+    conditionalPrompts += "\n\n" + OUTBOUND_TEXT;
   }
 
   // 10. Conversation Engine V1.1 (Legado)
