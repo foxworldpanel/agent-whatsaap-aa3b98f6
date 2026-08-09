@@ -4,14 +4,15 @@ import { createServerFn } from "@tanstack/react-start";
 
 const checkFunctions = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
+    if (!context) throw new Error("Context is missing");
     const supabase = context.supabase as any;
-    // Note: using a direct SQL execution if available, otherwise just returning what we found earlier.
-    // Since I already ran the read_query in the previous turn and it was empty, 
-    // and then I ran the migration, I want to show the current state.
-    const { data, error } = await supabase.from('information_schema.routines')
+    
+    const { data, error } = await supabase
+      .from('routines')
       .select('routine_name, routine_type')
       .eq('routine_schema', 'public')
-      .in('routine_name', ['get_schema_audit', 'get_missing_tables']);
+      .in('routine_name', ['get_schema_audit', 'get_missing_tables'])
+      .schema('information_schema');
       
     if (error) throw error;
     return data;
