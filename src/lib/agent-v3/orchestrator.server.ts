@@ -1069,7 +1069,12 @@ ${extraContext}`
         ]
       : message;
 
-  const model = isImageInput ? "claude-sonnet-5" : "claude-haiku-4-5";
+  // Sonnet 5 nos momentos de maior risco (reclamação, pagamento) — onde
+  // um erro custa mais caro (cliente já insatisfeito, ou dinheiro
+  // trocando de mão). Haiku continua no resto (descoberta, qualificação),
+  // que é a maioria das mensagens.
+  const isHighRiskState = businessDecision?.state === "reclamacao" || businessDecision?.state === "pagamento";
+  const model = (isImageInput || isHighRiskState) ? "claude-sonnet-5" : "claude-haiku-4-5";
 
   // ===========================================================================
   // REGRA DE OURO: PRIORIDADE FACTUAL VS COMERCIAL
