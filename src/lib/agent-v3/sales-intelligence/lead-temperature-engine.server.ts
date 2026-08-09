@@ -1,12 +1,18 @@
 // Lead Temperature Engine — Sales Intelligence V1, Fase B
 //
+// ÓRFÃO desde 09/08/2026: nada importa mais classifyLeadTemperature
+// daqui. Descoberto em auditoria que existe um sistema paralelo já em
+// produção de verdade — contacts.temperatura (frio/morno/quente),
+// visível e editável na tela de Contatos, calculado por
+// deriveTemperatureFromProbability em intelligence-utils.server.ts.
+// Os dois nunca tiveram conexão de código real um com o outro, apesar
+// do comentário abaixo sugerir o contrário — eram 2 cálculos
+// independentes coexistindo. contacts.temperatura é a fonte única
+// agora. Não removido — só documentado aqui. Remover exige confirmação
+// explícita.
+//
 // Consome exclusivamente SalesSignal[] já produzido na Fase A. Nunca
 // reprocessa a mensagem, nunca usa IA, nunca acessa banco/histórico.
-//
-// REFINAMENTO: Este engine agora atua apenas como fornecedor de evidências
-// baseadas em sinais semânticos. A decisão final de temperatura e
-// probabilidade de compra é centralizada em intelligence-utils.server.ts
-// para garantir fonte única de verdade entre Smart Router e Claude.
 
 import type { SalesSignal } from "./sales-intelligence-engine.server";
 
