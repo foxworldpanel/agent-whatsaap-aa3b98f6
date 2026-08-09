@@ -39,7 +39,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { runPlaygroundTurn } from "@/lib/agent-v3/admin/playground.functions";
+import { runPlaygroundTurn, generateSimulatedCustomerReply, CUSTOMER_PERSONAS } from "@/lib/agent-v3/admin/playground.functions";
 import { ScenarioGenerator } from "@/components/agent-playground/ScenarioGenerator";
 import { HistoryEditor } from "@/components/agent-playground/HistoryEditor";
 
@@ -53,6 +53,8 @@ function AgentPlaygroundPage() {
   const [message, setMessage] = useState("");
   const [isScenarioOpen, setIsScenarioOpen] = useState(false);
   const [isHistoryEditorOpen, setIsHistoryEditorOpen] = useState(false);
+  const [isOutboundMode, setIsOutboundMode] = useState(false);
+  const [customerPersona, setCustomerPersona] = useState("curioso");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Queries
@@ -184,6 +186,7 @@ function AgentPlaygroundPage() {
   });
 
   const sendMessage = useServerFn(runPlaygroundTurn);
+  const generateCustomerReply = useServerFn(generateSimulatedCustomerReply);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (text: string) => {
@@ -193,6 +196,7 @@ function AgentPlaygroundPage() {
           sessionId: activeSessionId,
           message: text,
           inputKind: "texto",
+          isOutbound: isOutboundMode,
         }
       });
     },
@@ -211,6 +215,24 @@ function AgentPlaygroundPage() {
     onError: (err) => {
       toast.error(err.message);
     }
+  });
+
+  const generateCustomerMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeSessionId) return;
+      return await generateCustomerReply({
+        data: { sessionId: activeSessionId, persona: customerPersona },
+      });
+    },
+    onSuccess: (response) => {
+      if (response?.message) {
+        setMessage(response.message);
+        toast.success("Cliente IA gerou uma resposta — revise e envie");
+      }
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    },
   });
 
   const clearSession = useMutation({
@@ -400,6 +422,50 @@ function AgentPlaygroundPage() {
 
           <footer className="p-4 border-t bg-muted/30">
             <div className="max-w-3xl mx-auto flex flex-col gap-2">
+              <div className="flex items-center gap-3 text-xs bg-background/60 border rounded-lg px-3 py-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <Checkbox
+                    checked={isOutboundMode}
+                    onCheckedChange={(v) => setIsOutboundMode(Boolean(v))}
+                  />
+                  <span className={cn("font-medium", isOutboundMode && "text-primary")}>
+                    Modo Disparo (Outbound)
+                  </span>
+                </label>
+                <span className="text-muted-foreground">
+                  {isOutboundMode
+                    ? "simulando cliente que veio de campanha de disparo — abordagem fria"
+                    : "simulando cliente orgânico/Meta Ads (padrão)"}
+                </span>
+                <div className="flex-1" />
+                <select
+                  className="bg-background border rounded px-2 py-1 text-xs"
+                  value={customerPersona}
+                  onChange={(e) => setCustomerPersona(e.target.value)}
+                >
+                  {Object.entries(CUSTOMER_PERSONAS).map(([key, desc]) => (
+                    <option key={key} value={key}>
+                      {key === "curioso" && "Curioso"}
+                      {key === "cetico" && "Cético"}
+                      {key === "seco" && "Resposta seca"}
+                      {key === "ocupado" && "Ocupado"}
+                      {key === "ja_conhece" && "Já conhece a Mind"}
+                      {key === "gravadora" && "Gravadora/equipe"}
+                      {key === "bravo" && "Já teve experiência ruim"}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 gap-1"
+                  disabled={!activeSessionId || generateCustomerMutation.isPending}
+                  onClick={() => generateCustomerMutation.mutate()}
+                >
+                  <Bot className="h-3.5 w-3.5" />
+                  {generateCustomerMutation.isPending ? "Gerando..." : "Cliente IA"}
+                </Button>
+              </div>
               <div className="flex gap-2">
                 <textarea
                   placeholder="Digite uma mensagem para testar o agente..."
