@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { createServerFn } from "@tanstack/react-start";
+import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 
 const checkFunctions = createServerFn({ method: "GET" })
+  .middleware([withWorkspaceScope])
   .handler(async ({ context }) => {
-    if (!context) throw new Error("Context is missing");
-    const supabase = context.supabase as any;
+    // Note: using explicit schema selection with any to bypass strict type check for routines table
+    const supabase = (context as any).supabase;
     
     const { data, error } = await supabase
       .from('routines')
@@ -38,8 +40,9 @@ function Index() {
       {routines && routines.length > 0 ? (
         routines.map((r: any) => `- ${r.routine_name} (${r.routine_type})`).join("\n")
       ) : (
-        !isLoading && "Nenhuma função encontrada."
+        !isLoading && routines && "Nenhuma função encontrada."
       )}
+      {!isLoading && !routines && !error && "Aguardando resultado..."}
 
       {`
 
