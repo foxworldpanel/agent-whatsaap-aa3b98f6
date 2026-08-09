@@ -19,7 +19,6 @@
 // importa Uazapi, Supabase, ou qualquer coisa de envio/persistência.
 
 import { removeAccents } from "../../text-normalize";
-import { classifyLeadTemperature, type LeadTemperatureResult } from "./lead-temperature-engine.server";
 import { detectObjections, type Objection } from "./objection-engine.server";
 import { evaluateOfferEligibility, type OfferEligibility } from "./offer-engine.server";
 import { evaluateRecoveryStatus, type RecoveryStatus } from "./recovery-engine.server";
@@ -59,9 +58,14 @@ export type SalesSignal = {
 // próprio (ex: SalesIntelligencePipeline ou SalesDecisionBundle) em vez
 // de deixar tudo achatado num objeto só. Não bloqueia nada hoje — só
 // facilita quando o objeto crescer de verdade.
+// leadTemperature (HOT/WARM/COLD) foi removido daqui — descoberto em
+// auditoria em 09/08/2026 que existe um sistema paralelo já em produção
+// (contacts.temperatura, frio/morno/quente), visível e editável na tela
+// de Contatos, usado de verdade pelo time. Manter os dois calculando a
+// mesma coisa sem nunca se falar era confusão arquitetural esperando
+// virar bug. contacts.temperatura é a fonte única agora.
 export type SalesIntelligenceResult = {
   salesSignals: SalesSignal[];
-  leadTemperature: LeadTemperatureResult;
   objections: Objection[];
   offerEligibility: OfferEligibility;
   recoveryStatus: RecoveryStatus;
@@ -108,14 +112,13 @@ function detectSalesSignals(message: string): SalesSignal[] {
 /**
  * Ponto de entrada único do engine. Puro — mesma entrada sempre produz
  * a mesma saída, sem I/O, sem efeito colateral. Orquestra Fase A
- * (sinais) + Fase B (temperatura, objeções, ofertas, recuperação),
- * todos consumindo só os sinais já extraídos.
+ * (sinais) + Fase B (objeções, ofertas, recuperação), todos consumindo
+ * só os sinais já extraídos.
  */
 export function classifySalesIntelligence(message: string): SalesIntelligenceResult {
   const salesSignals = detectSalesSignals(message);
   return {
     salesSignals,
-    leadTemperature: classifyLeadTemperature(salesSignals),
     objections: detectObjections(salesSignals),
     offerEligibility: evaluateOfferEligibility(salesSignals),
     recoveryStatus: evaluateRecoveryStatus(salesSignals),
