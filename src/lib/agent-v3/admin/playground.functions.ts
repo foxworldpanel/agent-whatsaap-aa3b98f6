@@ -9,11 +9,15 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     z.object({
       sessionId: z.string(),
       message: z.string(),
-      inputKind: z.string().optional()
+      inputKind: z.string().optional(),
+      // Simula um contato originado de disparo (contacts.source="disparo")
+      // — ativa o bloco de prompt OUTBOUND_TEXT, sem precisar de WhatsApp
+      // real nem de contato real no banco.
+      isOutbound: z.boolean().optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
-    const { sessionId, message, inputKind = "texto" } = data;
+    const { sessionId, message, inputKind = "texto", isOutbound = false } = data;
     const { userId, workspaceId } = context;
 
     const start = Date.now();
@@ -73,6 +77,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         isFirstTurn: history.length === 0,
         funnelAlreadyCompleted: false, // Playground não tem conceito de funil de boas-vindas
       },
+      isOutboundReply: isOutbound,
     });
 
     const reply = execResult.reply;
@@ -240,4 +245,74 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       routerReason: execResult.routerReason,
       claudeCalled: execResult.claudeCalled,
     };
+  });
+
+// Personalidades pré-definidas do cliente IA — cobrem os cenários mais
+// comuns de abordagem fria (disparo) e também servem pra inbound.
+// Texto livre também é aceito (ver CustomerPersona.custom).
+export const CUSTOMER_PERSONAS: Record<string, string> = {
+  curioso: "Curioso e receptivo — está interessado em ouvir, faz perguntas genuínas, não é difícil de convencer.",
+  cetico: "Desconfiado — desconfia que pode ser golpe, questiona a legitimidade antes de continuar, pede prova/explicação.",
+  seco: "Responde curto e seco — 'sim', 'ok', 'quem é', frases de 2-3 palavras, não elabora, dá trabalho pra extrair informação.",
+  ocupado: "Ocupado, mensagens curtas e espaçadas — demora pra responder, às vezes ignora, mas eventualmente volta.",
+  ja_conhece: "Já ouviu falar da Mind antes (por outro artista ou já pesquisou) — menciona isso, quer saber se é confiável mesmo.",
+  gravadora: "Não é o artista, é alguém da equipe/produtora respondendo pelo perfil — fala de forma mais profissional, pergunta sobre contrato/processo.",
+  bravo: "Já teve experiência ruim com outro serviço parecido, entra na conversa desconfiado e um pouco na defensiva.",
+};
+
+// Gera a próxima mensagem do "cliente" via IA, simulando uma pessoa real
+// respondendo a essa conversa, com uma personalidade escolhida. Usado só
+// no Playground — nunca roda no fluxo real de produção. Chamada separada,
+// simples, sem acesso a módulos/CMS/banco além da própria conversa.
+export const generateSimulatedCustomerReply = createServerFn({ method: "POST" })
+  .middleware([withWorkspaceScope])
+  .inputValidator((d: unknown) =>
+    z.object({
+      sessionId: z.string(),
+      persona: z.string(), // chave de CUSTOMER_PERSONAS, ou texto livre
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { sessionId, persona } = data;
+
+    const { data: recentMessages } = await context.supabase
+      .from("agent_playground_messages")
+      .select("role, content, sequence")
+      .eq("session_id", sessionId)
+      .order("sequence", { ascending: false })
+      .limit(10);
+
+    const history = [...(recentMessages || [])].reverse();
+    const personaDescription = CUSTOMER_PERSONAS[persona] || persona;
+
+    const historyText = history.length
+      ? history
+          .map((m: any) => `${m.role === "agent" ? "Atendente" : "Cliente"}: ${m.content}`)
+          .join("\n")
+      : "(nenhuma mensagem ainda — essa é a primeira resposta do cliente)";
+
+    const { callAnthropicV3, extractAnthropicTextV3 } = await import("../integrations/llm-client.server");
+
+    const raw = await callAnthropicV3({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      system: `Você está simulando um CLIENTE de WhatsApp real, só pra teste interno — nunca revele que é uma simulação.
+
+Personalidade desse cliente: \${personaDescription}
+
+Regras:
+- Responda como uma pessoa real digitaria no WhatsApp: curto, informal, sem pontuação perfeita às vezes.
+- Nunca saia do personagem, nunca mencione que é IA ou simulação.
+- Baseie sua resposta no histórico da conversa até agora.
+- Gere SÓ a próxima mensagem do cliente, nada mais — sem aspas, sem "Cliente:", só o texto da mensagem.`,
+      messages: [
+        {
+          role: "user",
+          content: `Histórico da conversa até agora:\n\n\${historyText}\n\nGere a próxima mensagem do cliente.`,
+        },
+      ],
+      model: "claude-sonnet-5",
+    });
+
+    const text = extractAnthropicTextV3(raw).trim();
+    return { message: text };
   });
