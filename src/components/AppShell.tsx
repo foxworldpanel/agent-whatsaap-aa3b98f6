@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap, LogOut, Phone, FileText, ShieldCheck, Workflow } from "lucide-react";
+import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap, LogOut, Phone, FileText, ShieldCheck, Workflow, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -23,6 +23,7 @@ const nav = [
   { to: "/numeros", label: "Números", icon: Phone },
   { to: "/teste-gratis", label: "Teste Grátis", icon: Gift },
   { to: "/logs", label: "Logs", icon: FileText },
+  { to: "/diagnosticos", label: "Diagnósticos", icon: Database },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 

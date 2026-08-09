@@ -17,6 +17,7 @@ import { Route as AuthenticatedNumerosRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedFunisRouteImport } from './routes/_authenticated/funis'
 import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticated/disparos'
+import { Route as AuthenticatedDiagnosticosRouteImport } from './routes/_authenticated/diagnosticos'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
 import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
@@ -72,6 +73,12 @@ const AuthenticatedDisparosRoute = AuthenticatedDisparosRouteImport.update({
   path: '/disparos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDiagnosticosRoute =
+  AuthenticatedDiagnosticosRouteImport.update({
+    id: '/diagnosticos',
+    path: '/diagnosticos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -160,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/diagnosticos': typeof AuthenticatedDiagnosticosRoute
   '/disparos': typeof AuthenticatedDisparosRoute
   '/funis': typeof AuthenticatedFunisRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -183,6 +191,7 @@ export interface FileRoutesByTo {
   '/contatos': typeof AuthenticatedContatosRoute
   '/conversas': typeof AuthenticatedConversasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/diagnosticos': typeof AuthenticatedDiagnosticosRoute
   '/disparos': typeof AuthenticatedDisparosRoute
   '/funis': typeof AuthenticatedFunisRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -208,6 +217,7 @@ export interface FileRoutesById {
   '/_authenticated/contatos': typeof AuthenticatedContatosRoute
   '/_authenticated/conversas': typeof AuthenticatedConversasRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/diagnosticos': typeof AuthenticatedDiagnosticosRoute
   '/_authenticated/disparos': typeof AuthenticatedDisparosRoute
   '/_authenticated/funis': typeof AuthenticatedFunisRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/contatos'
     | '/conversas'
     | '/dashboard'
+    | '/diagnosticos'
     | '/disparos'
     | '/funis'
     | '/logs'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/contatos'
     | '/conversas'
     | '/dashboard'
+    | '/diagnosticos'
     | '/disparos'
     | '/funis'
     | '/logs'
@@ -280,6 +292,7 @@ export interface FileRouteTypes {
     | '/_authenticated/contatos'
     | '/_authenticated/conversas'
     | '/_authenticated/dashboard'
+    | '/_authenticated/diagnosticos'
     | '/_authenticated/disparos'
     | '/_authenticated/funis'
     | '/_authenticated/logs'
@@ -364,6 +377,13 @@ declare module '@tanstack/react-router' {
       path: '/disparos'
       fullPath: '/disparos'
       preLoaderRoute: typeof AuthenticatedDisparosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/diagnosticos': {
+      id: '/_authenticated/diagnosticos'
+      path: '/diagnosticos'
+      fullPath: '/diagnosticos'
+      preLoaderRoute: typeof AuthenticatedDiagnosticosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -474,6 +494,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedContatosRoute: typeof AuthenticatedContatosRoute
   AuthenticatedConversasRoute: typeof AuthenticatedConversasRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDiagnosticosRoute: typeof AuthenticatedDiagnosticosRoute
   AuthenticatedDisparosRoute: typeof AuthenticatedDisparosRoute
   AuthenticatedFunisRoute: typeof AuthenticatedFunisRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
@@ -489,6 +510,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedContatosRoute: AuthenticatedContatosRoute,
   AuthenticatedConversasRoute: AuthenticatedConversasRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDiagnosticosRoute: AuthenticatedDiagnosticosRoute,
   AuthenticatedDisparosRoute: AuthenticatedDisparosRoute,
   AuthenticatedFunisRoute: AuthenticatedFunisRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,

@@ -3614,6 +3614,13 @@ export type Database = {
       cleanup_old_agent_prompt_metrics: { Args: never; Returns: undefined }
       current_workspace_id: { Args: never; Returns: string }
       effective_workspace_id: { Args: { _user_id: string }; Returns: string }
+      get_missing_tables: {
+        Args: { tabelas: string[] }
+        Returns: {
+          existe: boolean
+          table_name: string
+        }[]
+      }
       get_or_create_active_conversation:
         | {
             Args: {
@@ -3653,6 +3660,15 @@ export type Database = {
               workspace_id: string
             }[]
           }
+      get_schema_audit: {
+        Args: { tabelas: string[] }
+        Returns: {
+          column_name: string
+          data_type: string
+          is_nullable: string
+          table_name: string
+        }[]
+      }
       upsert_agent_v2_turn_analytics: {
         Args: {
           p_conversation_id: string
