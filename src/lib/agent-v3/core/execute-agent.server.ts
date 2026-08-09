@@ -72,7 +72,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     });
     console.log("[SALES-INTELLIGENCE]", {
       salesSignals: salesIntelligence.salesSignals,
-      leadTemperature: salesIntelligence.leadTemperature,
+
       objections: salesIntelligence.objections,
       offerEligibility: salesIntelligence.offerEligibility,
       recoveryStatus: salesIntelligence.recoveryStatus,
