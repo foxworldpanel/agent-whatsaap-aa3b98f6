@@ -56,6 +56,7 @@ function AgentPlaygroundPage() {
   const [isOutboundMode, setIsOutboundMode] = useState(false);
   const [customerPersona, setCustomerPersona] = useState("curioso");
   const [testInstagramHandle, setTestInstagramHandle] = useState("perfilteste");
+  const [funnelAlreadyCompleted, setFunnelAlreadyCompleted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Queries
@@ -199,6 +200,7 @@ function AgentPlaygroundPage() {
           message: text,
           inputKind: "texto",
           isOutbound: isOutboundMode,
+          funnelAlreadyCompleted,
         }
       });
     },
@@ -449,6 +451,16 @@ function AgentPlaygroundPage() {
                   />
                   <span className={cn("font-medium", isOutboundMode && "text-primary")}>
                     Modo Disparo
+                  </span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <Checkbox
+                    checked={funnelAlreadyCompleted}
+                    onCheckedChange={(v) => setFunnelAlreadyCompleted(Boolean(v))}
+                  />
+                  <span className={cn("font-medium", funnelAlreadyCompleted && "text-primary")}>
+                    Funil já concluído
                   </span>
                 </label>
                 

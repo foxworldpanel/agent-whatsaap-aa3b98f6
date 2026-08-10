@@ -11,10 +11,16 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       message: z.string(),
       inputKind: z.string().optional(),
       isOutbound: z.boolean().optional(),
+      // Simula conversations.funnel_status já "completed" — sem isso,
+      // era IMPOSSÍVEL testar no Playground o comportamento pós-funil
+      // (não cumprimentar de novo), porque o campo de nível principal
+      // que essa regra lê nunca era passado — achado em auditoria de
+      // paridade Playground x WhatsApp em 09/08/2026.
+      funnelAlreadyCompleted: z.boolean().optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
-    const { sessionId, message, inputKind = "texto", isOutbound = false } = data;
+    const { sessionId, message, inputKind = "texto", isOutbound = false, funnelAlreadyCompleted = false } = data;
     const { userId, workspaceId } = context;
 
     const start = Date.now();
@@ -67,9 +73,14 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       rememberedContext: executionContext.rememberedContext as any,
       routerContext: {
         isFirstTurn: history.length === 0,
-        funnelAlreadyCompleted: false,
+        funnelAlreadyCompleted: false, // campo do router, propósito diferente do de nível principal abaixo
       },
+      // Mesma lógica exata do webhook: só pula o router quando NÃO é
+      // texto puro (áudio/imagem) — mantém o Playground se comportando
+      // igual ao WhatsApp real pra mensagem de texto comum.
+      skipRouter: inputKind !== "texto",
       isOutboundReply: isOutbound,
+      funnelAlreadyCompleted,
     });
 
     const reply = execResult.reply;
