@@ -2027,6 +2027,17 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           .maybeSingle();
         funnelAlreadyCompleted = Boolean(completedFunnelRun);
       }
+      // Diagnóstico real — achado em conversa de produção em 10/08/2026
+      // onde a Júlia cumprimentou de novo mesmo com o funil já concluído
+      // (violando a regra PÓS-FUNIL). O código de cálculo parece correto
+      // lendo, então isso registra o valor real computado toda vez, pra
+      // confirmar com dado se é timing/corrida ou outra causa, em vez de
+      // suposição.
+      traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_already_completed_check", {
+        contactId: contactId ?? null,
+        workspaceId,
+        funnelAlreadyCompleted,
+      });
 
       // Agrupa rajadas curtas do mesmo cliente (ex.: "Inscritos" + "E comentário").
       // Isso evita responder à primeira metade como se ela fosse a intenção completa.
