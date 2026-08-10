@@ -18,8 +18,7 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
         if (unauth) return unauth;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
-        // generation via ai.server removida
-        const generateAgentReply = async () => "Resposta automática (IA desativada)";
+        const { generateAgentReply } = await import("@/lib/ai.server");
 
         const { data: campaigns, error: cErr } = await supabaseAdmin
           .from("campaigns")
@@ -105,7 +104,18 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
             let opener = "";
             if (integ.anthropic_api_key) {
               try {
-                opener = await generateAgentReply();
+                opener = await generateAgentReply({
+                  anthropicApiKey: integ.anthropic_api_key,
+                  agent,
+                  contact: { nome: contact.nome, perfil: contact.perfil },
+                  userId: camp.user_id,
+                  history: [
+                    {
+                      sender: "cliente",
+                      body: "[sistema] inicie a abordagem com uma saudação curta e amigável.",
+                    },
+                  ],
+                });
               } catch (e) {
                 console.error("opener generation failed", e);
               }

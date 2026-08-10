@@ -3,7 +3,7 @@
 // Júlia pra listar diretamente ao cliente as playlists cadastradas —
 // evita a regressão de 08/07 em que a Júlia inventava "abre um ticket
 // no Suporte pra saber as playlists". Cache curto em memória (mesma
-// strategy).
+// estratégia do agent-daily-promo.server.ts).
 
 type CacheEntry = {
   value: { ecletica: string[]; eletronica: string[] };
