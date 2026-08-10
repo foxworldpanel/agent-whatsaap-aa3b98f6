@@ -1983,6 +1983,16 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
 
   // URLs fornecidas pelos módulos chegam isoladas no WhatsApp. O runtime não
   // conhece nem inventa domínio comercial; apenas formata o valor autorizado.
+  //
+  // Antes de isolar: remove parênteses que só existem porque o link estava
+  // embutido no meio da frase (ex: "...painel da Mind (https://...)"). Sem
+  // isso, o "(" ficava órfão colado no texto anterior e o ")" órfão colado
+  // no texto seguinte, quebrando os dois lados de forma visível — achado em
+  // teste real em 10/08/2026.
+  finalContent = finalContent.replace(
+    /\(\s*(https?:\/\/[^\s<>()]+)\s*\)/gi,
+    "$1",
+  );
   const responseUrls = Array.from(
     new Set(finalContent.match(/https?:\/\/[^\s<>()]+/gi) || []),
   );
@@ -2016,6 +2026,12 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   // anterior do isolamento e causava o link sendo cortado ao meio).
   if (/mindsmmpanel\s*\.?\s*com/i.test(finalContent)) {
     const panelUrl = "https://mindsmmpanel.com";
+    // Mesma correção do bloco genérico acima: remove parênteses órfãos
+    // antes de isolar, senão sobra "(" de um lado e ")" do outro.
+    finalContent = finalContent.replace(
+      /\(\s*((?:https?:\/\/)?(?:www\.)?mindsmmpanel\s*\.?\s*com\/?)\s*\)/gi,
+      "$1",
+    );
     finalContent = finalContent
       .replace(
         /(?:https?:\/\/)?(?:www\.)?mindsmmpanel\s*\.?\s*com\/?/gi,
