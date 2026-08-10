@@ -2147,7 +2147,6 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
         selection_reasons: selectionReasons,
         usage: result.usage,
         cost: result.cost,
-        });
         history_telemetry: historyTelemetry ?? null,
       },
     });
