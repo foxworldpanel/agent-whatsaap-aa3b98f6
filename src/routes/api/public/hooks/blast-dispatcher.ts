@@ -158,6 +158,10 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               const rrIndex = (sentToday ?? 0) % pool.length;
               numberRow = pool[rrIndex];
             }
+            if (!numberRow) {
+              results.push({ campaign: camp.name, sent: 0, skipped: "nenhum número disponível para o disparo" });
+              continue;
+            }
 
             // Escolher próximo contato e estágio ANTES das travas para que o
             // painel/log informe a causa real (sem contato vs limite/agente) e
