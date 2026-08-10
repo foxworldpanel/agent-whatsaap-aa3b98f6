@@ -34,12 +34,8 @@ export const addPanelScreen = createServerFn({ method: "POST" })
     if ((count ?? 0) >= MAX_SCREENS) {
       throw new Error(`Limite de ${MAX_SCREENS} telas atingido.`);
     }
-    const { describePanelScreen } = await import("@/lib/ai.server");
-    const extracted_content = await describePanelScreen({
-      imageUrl: data.image_url,
-      name: data.name,
-      description: data.description ?? null,
-    });
+    // Descrição automática via ai.server removida
+    const extracted_content = "Descrição de tela (processamento desativado)";
     const { data: row, error } = await context.supabase
       .from("panel_guide")
       .insert({

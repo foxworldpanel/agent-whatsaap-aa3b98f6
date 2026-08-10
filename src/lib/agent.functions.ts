@@ -682,11 +682,6 @@ export const previewVoice = createServerFn({ method: "POST" })
     if (!apiKey || !voiceId) {
       throw new Error("Configure a API Key e o Voice ID do ElevenLabs antes.");
     }
-    const { ttsElevenLabsBase64 } = await import("@/lib/ai.server");
-    const audio = await ttsElevenLabsBase64({
-      apiKey,
-      voiceId,
-      text: data.text ?? "Oi! Aqui é a sua agente vendedora. Tudo certo com a voz?",
-    });
-    return { audio };
+    // Preview de voz desativado (módulo ai.server removido)
+    throw new Error("Preview de voz não disponível no momento.");
   });

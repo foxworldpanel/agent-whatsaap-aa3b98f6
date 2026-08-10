@@ -18,7 +18,8 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
         if (unauth) return unauth;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { uazapiSendText } = await import("@/lib/uazapi.server");
-        const { generateAgentReply } = await import("@/lib/ai.server");
+        // generation via ai.server removida
+        const generateAgentReply = async () => "Resposta automática (IA desativada)";
 
         const { data: campaigns, error: cErr } = await supabaseAdmin
           .from("campaigns")

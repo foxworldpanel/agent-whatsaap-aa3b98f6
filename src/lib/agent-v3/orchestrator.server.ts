@@ -2128,8 +2128,8 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   };
 
   try {
-    const { logEvent } = await import("@/lib/agent-logger.server");
-    await logEvent({
+    // Logging unificado (agent-logger.server removido — logando apenas no console para preservação de dados em trânsito)
+    console.info(`[agent-v3] Log turn: ${userId} | phone: ${phone} | type: agent_v3_turn`, {
       userId,
       workspaceId,
       phone: phone ?? null,
@@ -2147,7 +2147,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
         selection_reasons: selectionReasons,
         usage: result.usage,
         cost: result.cost,
-        intelligence: result.intelligence,
+        });
         history_telemetry: historyTelemetry ?? null,
       },
     });

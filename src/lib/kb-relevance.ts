@@ -16,7 +16,7 @@ export interface KnowledgeRow {
   content: string;
 }
 
-// Tópicos alinhados aos MODULE_TRIGGERS de ai.server.ts (mesma taxonomia).
+// Tópicos alinhados à taxonomia do sistema.
 const TOPIC_RX: Array<{ rx: RegExp; tag: string }> = [
   { rx: /spotify|playlist|ouvintes?|saves?|m[uú]sica|artista|soundon|streaming|plays/i, tag: "spotify" },
   { rx: /youtube|yt\b|inscritos?|views?|monetiza|shorts?|canal/i, tag: "youtube" },
