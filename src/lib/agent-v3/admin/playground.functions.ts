@@ -125,23 +125,43 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       await sleepMs(Math.max(0, targetMs - elapsedMs));
     }
 
-    const { data: agentMsg } = await context.supabase
-      .from("agent_playground_messages")
-      .insert({
-        session_id: sessionId,
-        role: "agent",
-        content: reply,
-        sequence: nextSequence + 1,
-        metadata: {
-          ...(execResult.agentResult?.intelligence || {}),
-          route: execResult.route,
-          router_reason: execResult.routerReason,
-          conversation_score: execResult.agentResult?.score?.total,
-          conversation_feedback: []
-        } as any
-      })
-      .select()
-      .single();
+
+    // Mesma lógica exata do WhatsApp real (uazapi-webhook.ts): usa o array
+    // já dividido (replies), não o texto colado com .join("\n"). Achado em
+    // auditoria em 10/08/2026 — o Playground salvava tudo como 1 mensagem
+    // só, escondendo se o link/tabela realmente sairiam isolados ou se o
+    // texto realmente seria cortado acima de 250 chars (que o orchestrator
+    // já faz sozinho, via autoSplitLongPartsV3). O Playground "mentia"
+    // sobre isso sem ninguém perceber.
+    const replyParts =
+      execResult.agentResult?.replies && execResult.agentResult.replies.length > 0
+        ? execResult.agentResult.replies
+        : [reply];
+
+    let agentMsg: any = null;
+    for (let i = 0; i < replyParts.length; i += 1) {
+      const { data: savedPart } = await context.supabase
+        .from("agent_playground_messages")
+        .insert({
+          session_id: sessionId,
+          role: "agent",
+          content: replyParts[i],
+          sequence: nextSequence + 1 + i,
+          metadata:
+            i === replyParts.length - 1
+              ? ({
+                  ...(execResult.agentResult?.intelligence || {}),
+                  route: execResult.route,
+                  router_reason: execResult.routerReason,
+                  conversation_score: execResult.agentResult?.score?.total,
+                  conversation_feedback: [],
+                } as any)
+              : ({} as any),
+        })
+        .select()
+        .single();
+      agentMsg = savedPart;
+    }
 
     if (!agentMsg) throw new Error("Falha ao salvar resposta do agente");
 
