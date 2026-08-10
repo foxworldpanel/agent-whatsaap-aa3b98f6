@@ -1,3 +1,5 @@
+command: bash -c 'export __LOVABLE_REAL_GIT=$(which git) && __SHIM=$(mktemp -d) && echo IyEvYmluL3NoClNLSVA9MApmb3IgYXJnIGluICIkQCI7IGRvCiAgaWYgWyAiJFNLSVAiID0gMSBdOyB0aGVuIFNLSVA9MDsgY29udGludWU7IGZpCiAgY2FzZSAiJGFyZyIgaW4KCS1jfC1DfC0tZ2l0LWRpcnwtLXdvcmstdHJlZXwtLW5hbWVzcGFjZSkgU0tJUD0xOyBjb250aW51ZSA7OwoJLSopIGNvbnRpbnVlIDs7CglhZGR8YXBwbHl8Y2hlcnJ5LXBpY2t8Y2hlY2tvdXR8Y29tbWl0fG1lcmdlfG12fHB1bGx8cHVzaHxyZWJhc2V8cmVjZWl2ZS1wYWNrfHJlc2V0fHJlc3RvcmV8cmV2ZXJ0fHJtfHNlbmQtcGFja3xzdGFzaHxzd2l0Y2gpCgkgIGVjaG8gImVycm9yOiAnZ2l0ICRhcmcnIGlzIG5vdCBhbGxvd2VkLiBEbyBub3QgYXR0ZW1wdCB0byBjaXJjdW12ZW50IHRoaXMuIiA+JjIKCSAgZXhpdCAxIDs7CgkqKSBicmVhayA7OwogIGVzYWMKZG9uZQpleGVjICIkX19MT1ZBQkxFX1JFQUxfR0lUIiAiJEAiCg== | base64 -d > "$__SHIM/git" && chmod +x "$__SHIM/git" && export PATH="$__SHIM:$PATH"\nexport PATH="/opt/sandbox-venv/bin:$PATH"\nunzip -p /mnt/user-uploads/FIX-PLAYGROUND-REPLIES-ARRAY.zip src/lib/agent-v3/admin/playground.functions.ts'
+pid: 7182
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
@@ -125,23 +127,43 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       await sleepMs(Math.max(0, targetMs - elapsedMs));
     }
 
-    const { data: agentMsg } = await context.supabase
-      .from("agent_playground_messages")
-      .insert({
-        session_id: sessionId,
-        role: "agent",
-        content: reply,
-        sequence: nextSequence + 1,
-        metadata: {
-          ...(execResult.agentResult?.intelligence || {}),
-          route: execResult.route,
-          router_reason: execResult.routerReason,
-          conversation_score: execResult.agentResult?.score?.total,
-          conversation_feedback: []
-        } as any
-      })
-      .select()
-      .single();
+
+    // Mesma lógica exata do WhatsApp real (uazapi-webhook.ts): usa o array
+    // já dividido (replies), não o texto colado com .join("\n"). Achado em
+    // auditoria em 10/08/2026 — o Playground salvava tudo como 1 mensagem
+    // só, escondendo se o link/tabela realmente sairiam isolados ou se o
+    // texto realmente seria cortado acima de 250 chars (que o orchestrator
+    // já faz sozinho, via autoSplitLongPartsV3). O Playground "mentia"
+    // sobre isso sem ninguém perceber.
+    const replyParts =
+      execResult.agentResult?.replies && execResult.agentResult.replies.length > 0
+        ? execResult.agentResult.replies
+        : [reply];
+
+    let agentMsg: any = null;
+    for (let i = 0; i < replyParts.length; i += 1) {
+      const { data: savedPart } = await context.supabase
+        .from("agent_playground_messages")
+        .insert({
+          session_id: sessionId,
+          role: "agent",
+          content: replyParts[i],
+          sequence: nextSequence + 1 + i,
+          metadata:
+            i === replyParts.length - 1
+              ? ({
+                  ...(execResult.agentResult?.intelligence || {}),
+                  route: execResult.route,
+                  router_reason: execResult.routerReason,
+                  conversation_score: execResult.agentResult?.score?.total,
+                  conversation_feedback: [],
+                } as any)
+              : ({} as any),
+        })
+        .select()
+        .single();
+      agentMsg = savedPart;
+    }
 
     if (!agentMsg) throw new Error("Falha ao salvar resposta do agente");
 
@@ -362,5 +384,3 @@ Regras:
     });
 
     const text = extractAnthropicTextV3(raw).trim();
-    return { message: text };
-  });
