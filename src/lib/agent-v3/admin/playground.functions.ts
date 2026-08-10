@@ -1,5 +1,3 @@
-command: bash -c 'export __LOVABLE_REAL_GIT=$(which git) && __SHIM=$(mktemp -d) && echo IyEvYmluL3NoClNLSVA9MApmb3IgYXJnIGluICIkQCI7IGRvCiAgaWYgWyAiJFNLSVAiID0gMSBdOyB0aGVuIFNLSVA9MDsgY29udGludWU7IGZpCiAgY2FzZSAiJGFyZyIgaW4KCS1jfC1DfC0tZ2l0LWRpcnwtLXdvcmstdHJlZXwtLW5hbWVzcGFjZSkgU0tJUD0xOyBjb250aW51ZSA7OwoJLSopIGNvbnRpbnVlIDs7CglhZGR8YXBwbHl8Y2hlcnJ5LXBpY2t8Y2hlY2tvdXR8Y29tbWl0fG1lcmdlfG12fHB1bGx8cHVzaHxyZWJhc2V8cmVjZWl2ZS1wYWNrfHJlc2V0fHJlc3RvcmV8cmV2ZXJ0fHJtfHNlbmQtcGFja3xzdGFzaHxzd2l0Y2gpCgkgIGVjaG8gImVycm9yOiAnZ2l0ICRhcmcnIGlzIG5vdCBhbGxvd2VkLiBEbyBub3QgYXR0ZW1wdCB0byBjaXJjdW12ZW50IHRoaXMuIiA+JjIKCSAgZXhpdCAxIDs7CgkqKSBicmVhayA7OwogIGVzYWMKZG9uZQpleGVjICIkX19MT1ZBQkxFX1JFQUxfR0lUIiAiJEAiCg== | base64 -d > "$__SHIM/git" && chmod +x "$__SHIM/git" && export PATH="$__SHIM:$PATH"\nexport PATH="/opt/sandbox-venv/bin:$PATH"\nunzip -p /mnt/user-uploads/FIX-PLAYGROUND-REPLIES-ARRAY.zip src/lib/agent-v3/admin/playground.functions.ts'
-pid: 7182
 import { createServerFn } from "@tanstack/react-start";
 import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
@@ -384,3 +382,5 @@ Regras:
     });
 
     const text = extractAnthropicTextV3(raw).trim();
+    return { message: text };
+  });
