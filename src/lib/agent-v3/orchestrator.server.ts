@@ -1204,10 +1204,20 @@ ${extraContext}`
   // erro de rede — por isso não caía no retry por HTTP que já existe).
   // Antes, isso quebrava a conversa na hora, sem nenhuma nova tentativa.
   // Achado em teste real em 10/08/2026 (Sonnet + modo outbound). Uma
-  // segunda tentativa, idêntica, resolve a maioria dos casos — só falha
-  // de verdade se a 2ª também vier vazia.
+  // segunda tentativa, idêntica, resolve a maioria dos casos.
   if (!rawText) {
-    console.warn("[agent-v3] Resposta sem texto na 1ª tentativa, tentando de novo:", { runId, model });
+    console.warn("[agent-v3] Resposta sem texto na 1ª tentativa, tentando de novo:", {
+      runId,
+      model,
+      // Diagnóstico bruto real — o tipo declarado só expõe content/usage,
+      // mas a resposta crua da Anthropic (incluindo stop_reason) sobrevive
+      // em runtime, já que o client só faz um "as" de tipo, não reconstrói
+      // o objeto. Isso dá dado de verdade na próxima ocorrência, em vez de
+      // suposição.
+      stopReason: (llmResult as any)?.stop_reason,
+      rawContent: JSON.stringify((llmResult as any)?.content ?? null),
+      usage: llmResult.usage,
+    });
     llmResult = await callAnthropicV3({
       ...anthropicCallParams,
       metadata: { ...anthropicCallParams.metadata, call_number: 2 },
@@ -1215,8 +1225,19 @@ ${extraContext}`
     rawText = extractAnthropicTextV3(llmResult);
   }
 
+  // Se as 2 tentativas vierem vazias, não quebra a conversa pro cliente
+  // real — degrada com uma mensagem genérica e segura (não inventa nada
+  // sobre o pedido/preço) em vez de travar de vez. Loga o diagnóstico
+  // completo das 2 tentativas pra investigação.
   if (!rawText) {
-    throw new Error("[agent-v3] A Anthropic retornou uma resposta sem conteúdo de texto (mesmo após 1 nova tentativa)");
+    console.error("[agent-v3] Resposta vazia mesmo após 2ª tentativa — degradando com fallback:", {
+      runId,
+      model,
+      stopReason: (llmResult as any)?.stop_reason,
+      rawContent: JSON.stringify((llmResult as any)?.content ?? null),
+      usage: llmResult.usage,
+    });
+    rawText = "Deixa eu confirmar isso certinho pra te responder direito, só um instante.";
   }
   const latency_ms = Date.now() - startLlm;
 
