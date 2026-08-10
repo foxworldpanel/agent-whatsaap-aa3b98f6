@@ -105,18 +105,7 @@ export const Route = createFileRoute("/api/public/hooks/campaign-dispatcher")({
             let opener = "";
             if (integ.anthropic_api_key) {
               try {
-                opener = await generateAgentReply({
-                  anthropicApiKey: integ.anthropic_api_key,
-                  agent,
-                  contact: { nome: contact.nome, perfil: contact.perfil },
-                  userId: camp.user_id,
-                  history: [
-                    {
-                      sender: "cliente",
-                      body: "[sistema] inicie a abordagem com uma saudação curta e amigável.",
-                    },
-                  ],
-                });
+                opener = await generateAgentReply();
               } catch (e) {
                 console.error("opener generation failed", e);
               }
