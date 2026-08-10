@@ -18,7 +18,6 @@ import {
   AlertTriangle,
   FileJson,
   Edit2,
-  GitBranch,
   CheckCircle2,
   XCircle,
   Clock,
@@ -53,6 +52,7 @@ function AgentPlaygroundPage() {
   const [message, setMessage] = useState("");
   const [isScenarioOpen, setIsScenarioOpen] = useState(false);
   const [isHistoryEditorOpen, setIsHistoryEditorOpen] = useState(false);
+  const [isTestScenarioBarOpen, setIsTestScenarioBarOpen] = useState(false);
   const [isOutboundMode, setIsOutboundMode] = useState(false);
   const [customerPersona, setCustomerPersona] = useState("curioso");
   const [testInstagramHandle, setTestInstagramHandle] = useState("perfilteste");
@@ -306,6 +306,20 @@ function AgentPlaygroundPage() {
 
   const activeSession = sessions?.find(s => s.id === activeSessionId);
 
+  const handleCopyConversation = () => {
+    if (!messages || messages.length === 0) {
+      toast.error("Nenhuma mensagem para copiar");
+      return;
+    }
+    const text = messages
+      .map((m: any) => `${m.role === "user" ? "Cliente" : "Júlia"}: ${m.content}`)
+      .join("\n\n");
+    navigator.clipboard
+      .writeText(text)
+      .then(() => toast.success("Conversa copiada"))
+      .catch(() => toast.error("Não foi possível copiar a conversa"));
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] gap-4 overflow-hidden">
       {/* Faixa de Ambiente de Teste */}
@@ -382,14 +396,8 @@ function AgentPlaygroundPage() {
             </div>
             {activeSessionId && (
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setIsHistoryEditorOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" /> Msg manual
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => clearSession.mutate(activeSessionId)}>
-                  Limpar conversa
-                </Button>
-                <Button variant="outline" size="sm">
-                  <GitBranch className="h-4 w-4 mr-2" /> Ramificar
+                <Button variant="outline" size="sm" onClick={handleCopyConversation}>
+                  <Copy className="h-4 w-4 mr-2" /> Copiar conversa
                 </Button>
               </div>
             )}
@@ -410,7 +418,7 @@ function AgentPlaygroundPage() {
               ) : messages?.map((msg) => (
                 <div key={msg.id} className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}>
                   <div className={cn(
-                    "max-w-[85%] p-4 rounded-2xl text-sm shadow-sm",
+                    "max-w-[85%] p-4 rounded-2xl text-base leading-relaxed shadow-sm",
                     msg.role === "user" 
                       ? "bg-primary text-primary-foreground rounded-tr-none" 
                       : "bg-muted text-foreground rounded-tl-none border"
@@ -443,77 +451,89 @@ function AgentPlaygroundPage() {
 
           <footer className="p-4 border-t bg-muted/30">
             <div className="max-w-3xl mx-auto flex flex-col gap-2">
-              <div className="flex items-center gap-3 text-xs bg-background/60 border rounded-lg px-3 py-2 flex-wrap">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <Checkbox
-                    checked={isOutboundMode}
-                    onCheckedChange={(v) => setIsOutboundMode(Boolean(v))}
+              {isTestScenarioBarOpen && (
+                <div className="flex items-center gap-3 text-xs bg-background/60 border rounded-lg px-3 py-2 flex-wrap">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <Checkbox
+                      checked={isOutboundMode}
+                      onCheckedChange={(v) => setIsOutboundMode(Boolean(v))}
+                    />
+                    <span className={cn("font-medium", isOutboundMode && "text-primary")}>
+                      Modo Disparo
+                    </span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <Checkbox
+                      checked={funnelAlreadyCompleted}
+                      onCheckedChange={(v) => setFunnelAlreadyCompleted(Boolean(v))}
+                    />
+                    <span className={cn("font-medium", funnelAlreadyCompleted && "text-primary")}>
+                      Funil já concluído
+                    </span>
+                  </label>
+                  
+                  <Input 
+                    className="h-7 w-40 text-[10px]" 
+                    placeholder="@instagram teste"
+                    value={testInstagramHandle}
+                    onChange={(e) => setTestInstagramHandle(e.target.value)}
                   />
-                  <span className={cn("font-medium", isOutboundMode && "text-primary")}>
-                    Modo Disparo
-                  </span>
-                </label>
 
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <Checkbox
-                    checked={funnelAlreadyCompleted}
-                    onCheckedChange={(v) => setFunnelAlreadyCompleted(Boolean(v))}
-                  />
-                  <span className={cn("font-medium", funnelAlreadyCompleted && "text-primary")}>
-                    Funil já concluído
-                  </span>
-                </label>
-                
-                <Input 
-                  className="h-7 w-40 text-[10px]" 
-                  placeholder="@instagram teste"
-                  value={testInstagramHandle}
-                  onChange={(e) => setTestInstagramHandle(e.target.value)}
-                />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1"
+                    disabled={!activeSessionId || startOutboundMutation.isPending}
+                    onClick={() => startOutboundMutation.mutate()}
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    {startOutboundMutation.isPending ? "Enviando..." : "Iniciar Abordagem"}
+                  </Button>
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 gap-1"
-                  disabled={!activeSessionId || startOutboundMutation.isPending}
-                  onClick={() => startOutboundMutation.mutate()}
-                >
-                  <Zap className="h-3.5 w-3.5" />
-                  {startOutboundMutation.isPending ? "Enviando..." : "Iniciar Abordagem"}
-                </Button>
+                  <div className="flex-1 min-w-[20px]" />
 
-                <div className="flex-1 min-w-[20px]" />
+                  <select
+                    className="bg-background border rounded px-2 py-1 text-xs"
+                    value={customerPersona}
+                    onChange={(e) => setCustomerPersona(e.target.value)}
+                  >
+                    {Object.entries(CUSTOMER_PERSONAS).map(([key, desc]) => (
+                      <option key={key} value={key}>
+                        {key === "curioso" && "Curioso"}
+                        {key === "cetico" && "Cético"}
+                        {key === "seco" && "Resposta seca"}
+                        {key === "ocupado" && "Ocupado"}
+                        {key === "ja_conhece" && "Já conhece a Mind"}
+                        {key === "gravadora" && "Gravadora/equipe"}
+                        {key === "bravo" && "Já teve experiência ruim"}
+                      </option>
+                    ))}
+                  </select>
 
-                <select
-                  className="bg-background border rounded px-2 py-1 text-xs"
-                  value={customerPersona}
-                  onChange={(e) => setCustomerPersona(e.target.value)}
-                >
-                  {Object.entries(CUSTOMER_PERSONAS).map(([key, desc]) => (
-                    <option key={key} value={key}>
-                      {key === "curioso" && "Curioso"}
-                      {key === "cetico" && "Cético"}
-                      {key === "seco" && "Resposta seca"}
-                      {key === "ocupado" && "Ocupado"}
-                      {key === "ja_conhece" && "Já conhece a Mind"}
-                      {key === "gravadora" && "Gravadora/equipe"}
-                      {key === "bravo" && "Já teve experiência ruim"}
-                    </option>
-                  ))}
-                </select>
-
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="h-7 gap-1"
-                  disabled={!activeSessionId || generateCustomerMutation.isPending}
-                  onClick={() => generateCustomerMutation.mutate()}
-                >
-                  <Bot className="h-3.5 w-3.5" />
-                  {generateCustomerMutation.isPending ? "Gerando..." : "Cliente IA"}
-                </Button>
-              </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-7 gap-1"
+                    disabled={!activeSessionId || generateCustomerMutation.isPending}
+                    onClick={() => generateCustomerMutation.mutate()}
+                  >
+                    <Bot className="h-3.5 w-3.5" />
+                    {generateCustomerMutation.isPending ? "Gerando..." : "Cliente IA"}
+                  </Button>
+                </div>
+              )}
               <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className={cn("h-auto px-3 shrink-0", isTestScenarioBarOpen && "bg-accent")}
+                  onClick={() => setIsTestScenarioBarOpen((v) => !v)}
+                  title="Cenário de teste (Modo Disparo, Funil concluído, Cliente IA)"
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
                 <textarea
                   placeholder="Digite uma mensagem para testar o agente..."
                   className="flex-1 bg-background border rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px] resize-none shadow-inner"
