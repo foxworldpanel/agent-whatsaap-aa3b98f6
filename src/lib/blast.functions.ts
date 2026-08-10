@@ -385,15 +385,6 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
               conversationId: convId,
               part,
             });
-              metadata: {
-                origem: "debug_teste_disparo",
-                campaign_id: camp.id,
-                conversation_id: convId,
-                part_index: idx,
-                part_total: messageParts.length,
-                body: part,
-              },
-            });
             const insertResult = await supabaseAdmin.from("messages").insert({
               user_id: context.userId,
               conversation_id: convId,
