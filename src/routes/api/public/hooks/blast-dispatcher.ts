@@ -322,6 +322,9 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 .update({ status: "erro", error_message: msg, updated_at: new Date().toISOString() } as never)
                 .eq("id", claimedBlastContactId);
             }
+          }
+        }
+        return Response.json({ ran: camps?.length ?? 0, results });
       },
     },
   },
