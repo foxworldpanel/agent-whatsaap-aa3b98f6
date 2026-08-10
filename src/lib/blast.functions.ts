@@ -376,17 +376,15 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
         if (!convId) throw new Error("test mirror conversation missing after rpc");
         {
           const nowIso = new Date().toISOString();
-          const { logEvent } = await import("@/lib/agent-logger.server");
+          // logging desativado (agent-logger removido)
           for (let idx = 0; idx < messageParts.length; idx++) {
             const part = messageParts[idx];
-            await logEvent({
+            console.log(`[blast-debug] opening message ${idx + 1}/${messageParts.length}`, {
               userId: context.userId,
               phone,
               conversationId: convId,
-              type: "blast_debug_opening_message_insert_before",
-              level: "error",
-              summary: `🔥 DEBUG TESTE ANTES insert abertura ${idx + 1}/${messageParts.length}`,
-              response: part,
+              part,
+            });
               metadata: {
                 origem: "debug_teste_disparo",
                 campaign_id: camp.id,
@@ -405,46 +403,10 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
               created_at: new Date(Date.now() + idx).toISOString(),
             } as never);
             if (insertResult.error) {
-              await logEvent({
-                userId: context.userId,
-                phone,
-                conversationId: convId,
-                type: "blast_debug_opening_message_insert_after",
-                level: "error",
-                summary: `🔥 DEBUG TESTE DEPOIS insert abertura ${idx + 1}/${messageParts.length}: ERRO`,
-                response: part,
-                error: JSON.stringify(insertResult.error),
-                metadata: {
-                  origem: "debug_teste_disparo",
-                  campaign_id: camp.id,
-                  conversation_id: convId,
-                  part_index: idx,
-                  part_total: messageParts.length,
-                  body: part,
-                  insert_ok: false,
-                  insert_error: insertResult.error,
-                },
-              });
+              console.error(`[blast-debug] insert error at ${idx + 1}/${messageParts.length}`, insertResult.error);
               throw new Error(`test mirror message insert failed: ${insertResult.error.message}`);
             }
-            await logEvent({
-              userId: context.userId,
-              phone,
-              conversationId: convId,
-              type: "blast_debug_opening_message_insert_after",
-              level: "error",
-              summary: `🔥 DEBUG TESTE DEPOIS insert abertura ${idx + 1}/${messageParts.length}: SUCESSO`,
-              response: part,
-              metadata: {
-                origem: "debug_teste_disparo",
-                campaign_id: camp.id,
-                conversation_id: convId,
-                part_index: idx,
-                part_total: messageParts.length,
-                body: part,
-                insert_ok: true,
-              },
-            });
+            console.log(`[blast-debug] success at ${idx + 1}/${messageParts.length}`);
           }
           await supabaseAdmin
             .from("conversations")
@@ -459,20 +421,7 @@ export const testBlastCampaign = createServerFn({ method: "POST" })
     } catch (e) {
       console.error("[testBlastCampaign] failed to mirror opener into messages", e);
       try {
-        const { logEvent } = await import("@/lib/agent-logger.server");
-        await logEvent({
-          userId: context.userId,
-          phone,
-          type: "blast_debug_opening_message_insert_after",
-          level: "error",
-          summary: "🔥 DEBUG TESTE falhou ao espelhar abertura no histórico",
-          error: (e as Error)?.stack ?? (e as Error)?.message ?? String(e),
-          metadata: {
-            origem: "debug_teste_disparo",
-            campaign_id: camp.id,
-            insert_ok: false,
-          },
-        });
+        console.error("[testBlastCampaign] insert failed", e);
       } catch {}
       throw e;
     }

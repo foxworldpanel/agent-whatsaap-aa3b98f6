@@ -48,7 +48,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
         if (error) return new Response(error.message, { status: 500 });
 
         const results: Array<{ campaign: string; sent: number; skipped?: string; error?: string }> = [];
-        const { logEvent } = await import("@/lib/agent-logger.server");
+        // logging desativado (agent-logger removido)
 
         if ((camps ?? []).length === 0 && opts.campaignId) {
           const { data: campRow } = await supabaseAdmin
@@ -57,12 +57,10 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             .eq("id", opts.campaignId)
             .maybeSingle();
           if (campRow) {
-            await logEvent({
+            console.warn(`🚀 Dispatcher chamado, mas campanha não está rodando (estado atual: ${campRow.state})`, {
               userId: campRow.user_id,
-              type: "blast_skipped",
-              level: "warn",
-              summary: `🚀 Dispatcher chamado, mas campanha não está rodando (estado atual: ${campRow.state})`,
-              metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: campRow.id, reason: "campanha não está rodando", state: campRow.state },
+              campaign_id: campRow.id,
+              state: campRow.state
             });
             return Response.json({ ran: 1, results: [{ campaign: campRow.name, sent: 0, skipped: `campanha não está rodando (${campRow.state})` }] });
           }

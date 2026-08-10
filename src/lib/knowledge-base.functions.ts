@@ -64,8 +64,8 @@ export const addImageExample = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertUnderLimit(context.supabase, context.userId, context.workspaceId);
-    const { extractConversationFromImage } = await import("@/lib/ai.server");
-    const content = await extractConversationFromImage(data.image_url);
+    // Extração automática via ai.server removida
+    const content = "Conteúdo de imagem (processamento desativado)";
     const { data: row, error } = await context.supabase
       .from("knowledge_base")
       .insert({

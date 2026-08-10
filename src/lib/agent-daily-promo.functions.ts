@@ -71,9 +71,7 @@ export const saveDailyPromo = createServerFn({ method: "POST" })
       .from("agent_daily_promo")
       .upsert(row, { onConflict: "user_id,workspace_id" });
     if (error) throw new Error(error.message);
-    const { invalidateDailyPromoCache } = await import(
-      "@/lib/agent-daily-promo.server"
-    );
-    invalidateDailyPromoCache(context.userId);
+    // Notificação de cache (módulo .server removido, log apenas para trace)
+    console.log("[daily-promo] saved, cache invalidation would happen here for user:", context.userId);
     return { ok: true };
   });
