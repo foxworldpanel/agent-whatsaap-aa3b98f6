@@ -174,8 +174,13 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
 
             // Gera variações e partes da mensagem
             const lang = detectLanguageFromPhone(next.contact.telefone) || DEFAULT_DDI_LANGUAGE_MAP["55"];
-            const templates = await _toTemplates(supabaseAdmin, camp.user_id);
-            const variations = montarMensagemDisparo(
+            const { data: tplRow } = await supabaseAdmin
+              .from("opening_templates")
+              .select("saudacoes_manha, saudacoes_tarde, saudacoes_noite, linha2, perguntas, templates_en, templates_es, ddi_language_map")
+              .eq("user_id", camp.user_id)
+              .maybeSingle();
+            const templates = _toTemplates(tplRow as any);
+            const pick = montarMensagemDisparo(
               next.contact.nome,
               next.contact.instagram,
               {
@@ -184,7 +189,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 avoidKey: next.contact.last_variation_key
               }
             );
-            const pick = variations;
             const messageParts = pick.parts;
 
             // Prepara a conversa ANTES de enviar.
