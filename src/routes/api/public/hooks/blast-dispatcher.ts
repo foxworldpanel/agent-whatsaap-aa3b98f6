@@ -176,14 +176,16 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             const lang = detectLanguageFromPhone(next.contact.telefone) || DEFAULT_DDI_LANGUAGE_MAP["55"];
             const templates = await _toTemplates(supabaseAdmin, camp.user_id);
             const variations = montarMensagemDisparo(
-              next.template,
               next.contact.nome,
               next.contact.instagram,
-              templates,
-              lang
+              {
+                templates,
+                language: lang,
+                avoidKey: next.contact.last_variation_key
+              }
             );
-            const pick = variations.find(v => v.key === next.contact.last_variation_key) || variations[0];
-            const messageParts = normalizeOpeningParts(pick.text);
+            const pick = variations;
+            const messageParts = pick.parts;
 
             // Prepara a conversa ANTES de enviar.
             const phoneDigits = String(next.contact.telefone).replace(/\D+/g, "");
