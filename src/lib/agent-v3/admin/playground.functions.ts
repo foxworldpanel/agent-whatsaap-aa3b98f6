@@ -10,9 +10,6 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       sessionId: z.string(),
       message: z.string(),
       inputKind: z.string().optional(),
-      // Simula um contato originado de disparo (contacts.source="disparo")
-      // — ativa o bloco de prompt OUTBOUND_TEXT, sem precisar de WhatsApp
-      // real nem de contato real no banco.
       isOutbound: z.boolean().optional(),
     }).parse(d)
   )
@@ -22,8 +19,6 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     const start = Date.now();
 
-    // O playground envia apenas a janela recente. Reenviar a sessão inteira a cada turno
-    // aumenta o custo de input indefinidamente e não representa o runtime de produção.
     const { data: recentMessages } = await context.supabase
       .from("agent_playground_messages")
       .select("*")
@@ -59,9 +54,6 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       history,
     });
 
-    // PONTO ÚNICO DE EXECUÇÃO — mesmo fluxo do WhatsApp (Router primeiro,
-    // Claude só se necessário). Isso é o que faz o Playground refletir o
-    // custo real da arquitetura, não só o custo de uma chamada direta.
     const { executeAgent } = await import("../core/execute-agent.server");
     const execResult = await executeAgent({
       message,
@@ -75,15 +67,13 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       rememberedContext: executionContext.rememberedContext as any,
       routerContext: {
         isFirstTurn: history.length === 0,
-        funnelAlreadyCompleted: false, // Playground não tem conceito de funil de boas-vindas
+        funnelAlreadyCompleted: false,
       },
       isOutboundReply: isOutbound,
     });
 
     const reply = execResult.reply;
 
-    // Playground permanece rápido por padrão. O atraso só é aplicado quando
-    // explicitamente habilitado na aba Tempo e Humanização.
     const { data: humanizationConfigRow } = await (context.supabase as any)
       .from("agent_config")
       .select("modules, response_delay_min_sec, response_delay_max_sec, typing_indicator_enabled")
@@ -146,10 +136,6 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     const latencyMs = Date.now() - start;
 
-    // Quando a rota foi "code" (Router respondeu, Claude não foi chamado),
-    // vários campos que só existem numa chamada real ao Claude (módulos,
-    // intelligence, prompt) ficam com valores neutros — refletindo
-    // fielmente que a IA não participou dessa resposta.
     const usage = execResult.usage;
     const modules = execResult.agentResult?.modules ?? {
       selected_keys: [],
@@ -247,9 +233,62 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     };
   });
 
+// Inicia uma simulação de disparo: monta a abertura real (mesma função
+// que o disparo de verdade usa — montarMensagemDisparo, com sorteio de
+// saudação/linha2/pergunta e substituição correta de {instagram}) e
+// insere como mensagem(ns) do agente, sem chamar IA nenhuma — é
+// exatamente o texto fixo que seria mandado de verdade. Resolve 2
+// problemas na mão: variável mal substituída e esquecer de ligar o
+// modo disparo (essa função já devolve o sinal pra UI ligar sozinha).
+export const startOutboundSimulation = createServerFn({ method: "POST" })
+  .middleware([withWorkspaceScope])
+  .inputValidator((d: unknown) =>
+    z.object({
+      sessionId: z.string(),
+      instagramHandle: z.string().min(1).max(60),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { sessionId, instagramHandle } = data;
+    const { userId, workspaceId } = context;
+
+    const { montarMensagemDisparo } = await import("@/lib/blast-variations");
+    const { _toTemplates } = await import("@/lib/opening-templates.functions");
+
+    const { data: tplRow } = await context.supabase
+      .from("opening_templates")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const templates = _toTemplates(tplRow as any);
+    const pick = montarMensagemDisparo("Teste", instagramHandle, { templates });
+
+    const { data: existing } = await context.supabase
+      .from("agent_playground_messages")
+      .select("sequence")
+      .eq("session_id", sessionId)
+      .order("sequence", { ascending: false })
+      .limit(1);
+
+    let nextSequence = Number(existing?.[0]?.sequence || 0) + 1;
+
+    for (const part of pick.parts) {
+      await context.supabase.from("agent_playground_messages").insert({
+        session_id: sessionId,
+        role: "agent",
+        content: part,
+        sequence: nextSequence,
+        metadata: { origem: "abertura_disparo_simulada" },
+      });
+      nextSequence += 1;
+    }
+
+    return { ok: true, parts: pick.parts };
+  });
+
 // Personalidades pré-definidas do cliente IA — cobrem os cenários mais
 // comuns de abordagem fria (disparo) e também servem pra inbound.
-// Texto livre também é aceito (ver CustomerPersona.custom).
 export const CUSTOMER_PERSONAS: Record<string, string> = {
   curioso: "Curioso e receptivo — está interessado em ouvir, faz perguntas genuínas, não é difícil de convencer.",
   cetico: "Desconfiado — desconfia que pode ser golpe, questiona a legitimidade antes de continuar, pede prova/explicação.",
@@ -260,16 +299,14 @@ export const CUSTOMER_PERSONAS: Record<string, string> = {
   bravo: "Já teve experiência ruim com outro serviço parecido, entra na conversa desconfiado e um pouco na defensiva.",
 };
 
-// Gera a próxima mensagem do "cliente" via IA, simulando uma pessoa real
-// respondendo a essa conversa, com uma personalidade escolhida. Usado só
-// no Playground — nunca roda no fluxo real de produção. Chamada separada,
-// simples, sem acesso a módulos/CMS/banco além da própria conversa.
+// Gera a próxima mensagem do "cliente" via IA. Usado só no Playground —
+// nunca roda no fluxo real de produção.
 export const generateSimulatedCustomerReply = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) =>
     z.object({
       sessionId: z.string(),
-      persona: z.string(), // chave de CUSTOMER_PERSONAS, ou texto livre
+      persona: z.string(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
@@ -297,7 +334,7 @@ export const generateSimulatedCustomerReply = createServerFn({ method: "POST" })
       apiKey: process.env.ANTHROPIC_API_KEY,
       system: `Você está simulando um CLIENTE de WhatsApp real, só pra teste interno — nunca revele que é uma simulação.
 
-Personalidade desse cliente: \${personaDescription}
+Personalidade desse cliente: ${personaDescription}
 
 Regras:
 - Responda como uma pessoa real digitaria no WhatsApp: curto, informal, sem pontuação perfeita às vezes.
@@ -307,7 +344,7 @@ Regras:
       messages: [
         {
           role: "user",
-          content: `Histórico da conversa até agora:\n\n\${historyText}\n\nGere a próxima mensagem do cliente.`,
+          content: `Histórico da conversa até agora:\n\n${historyText}\n\nGere a próxima mensagem do cliente.`,
         },
       ],
       model: "claude-sonnet-5",
