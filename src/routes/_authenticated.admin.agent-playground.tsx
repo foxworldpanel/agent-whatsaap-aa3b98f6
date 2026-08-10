@@ -55,6 +55,7 @@ function AgentPlaygroundPage() {
   const [isHistoryEditorOpen, setIsHistoryEditorOpen] = useState(false);
   const [isOutboundMode, setIsOutboundMode] = useState(false);
   const [customerPersona, setCustomerPersona] = useState("curioso");
+  const [testInstagramHandle, setTestInstagramHandle] = useState("perfilteste");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Queries

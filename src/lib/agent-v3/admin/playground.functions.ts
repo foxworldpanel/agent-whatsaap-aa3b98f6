@@ -261,7 +261,7 @@ export const startOutboundSimulation = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .maybeSingle();
 
-    const templates = _toTemplates(tplRow ?? null);
+    const templates = _toTemplates(tplRow as any);
     const pick = montarMensagemDisparo("Teste", instagramHandle, { templates });
 
     const { data: existing } = await context.supabase
