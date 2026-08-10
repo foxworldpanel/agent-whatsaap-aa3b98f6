@@ -1998,7 +1998,11 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   );
   for (const rawUrl of responseUrls) {
     const url = rawUrl.replace(/[.,;:!?]+$/, "");
-    finalContent = finalContent.replace(
+    // replaceAll, não replace: se o link aparecer 2x na resposta (achado
+    // em teste real em 10/08/2026 — o modelo mencionou o link 2 vezes na
+    // mesma resposta), .replace() só isolava a 1ª ocorrência, deixando a
+    // 2ª solta no meio do texto.
+    finalContent = finalContent.replaceAll(
       rawUrl,
       `===SPLIT===${url}===SPLIT===`,
     );
