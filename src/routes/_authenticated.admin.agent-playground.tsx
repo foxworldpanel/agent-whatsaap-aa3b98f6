@@ -53,6 +53,7 @@ function AgentPlaygroundPage() {
   const [isScenarioOpen, setIsScenarioOpen] = useState(false);
   const [isHistoryEditorOpen, setIsHistoryEditorOpen] = useState(false);
   const [isTestScenarioBarOpen, setIsTestScenarioBarOpen] = useState(false);
+  const [isTestScenarioBarOpen, setIsTestScenarioBarOpen] = useState(false);
   const [isOutboundMode, setIsOutboundMode] = useState(false);
   const [customerPersona, setCustomerPersona] = useState("curioso");
   const [testInstagramHandle, setTestInstagramHandle] = useState("perfilteste");
