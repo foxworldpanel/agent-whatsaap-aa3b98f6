@@ -1170,7 +1170,7 @@ ${extraContext}`
   }
 
   const startLlm = Date.now();
-  const llmResult = await callAnthropicV3({
+  const anthropicCallParams = {
     apiKey:
       anthropicApiKey ||
       (typeof process !== "undefined" ? process.env.ANTHROPIC_API_KEY : undefined),
@@ -1185,7 +1185,6 @@ ${extraContext}`
     ],
     model,
 
-
     metadata: {
       message_id: messageId,
       call_number: 1,
@@ -1196,11 +1195,28 @@ ${extraContext}`
       message_chars,
       history_telemetry: historyTelemetry,
     },
-  });
+  };
 
-  const rawText = extractAnthropicTextV3(llmResult);
+  let llmResult = await callAnthropicV3(anthropicCallParams);
+  let rawText = extractAnthropicTextV3(llmResult);
+
+  // Resposta sem texto acontece raramente (edge case da própria API, não
+  // erro de rede — por isso não caía no retry por HTTP que já existe).
+  // Antes, isso quebrava a conversa na hora, sem nenhuma nova tentativa.
+  // Achado em teste real em 10/08/2026 (Sonnet + modo outbound). Uma
+  // segunda tentativa, idêntica, resolve a maioria dos casos — só falha
+  // de verdade se a 2ª também vier vazia.
   if (!rawText) {
-    throw new Error("[agent-v3] A Anthropic retornou uma resposta sem conteúdo de texto");
+    console.warn("[agent-v3] Resposta sem texto na 1ª tentativa, tentando de novo:", { runId, model });
+    llmResult = await callAnthropicV3({
+      ...anthropicCallParams,
+      metadata: { ...anthropicCallParams.metadata, call_number: 2 },
+    });
+    rawText = extractAnthropicTextV3(llmResult);
+  }
+
+  if (!rawText) {
+    throw new Error("[agent-v3] A Anthropic retornou uma resposta sem conteúdo de texto (mesmo após 1 nova tentativa)");
   }
   const latency_ms = Date.now() - startLlm;
 

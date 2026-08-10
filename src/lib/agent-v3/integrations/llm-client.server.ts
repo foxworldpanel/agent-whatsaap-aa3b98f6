@@ -89,7 +89,7 @@ export async function callAnthropicV3(params: {
 
   const body = {
     model: anthropicModel,
-    max_tokens: 256,
+    max_tokens: 400,
     system,
     messages,
   };
