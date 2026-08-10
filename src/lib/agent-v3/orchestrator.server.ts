@@ -1087,7 +1087,19 @@ ${extraContext}`
   // um erro custa mais caro (cliente já insatisfeito, ou dinheiro
   // trocando de mão). Haiku continua no resto (descoberta, qualificação),
   // que é a maioria das mensagens.
-  const isHighRiskState = businessDecision?.state === "reclamacao" || businessDecision?.state === "pagamento";
+  // Sonnet 5 nos momentos de maior risco (reclamação, pagamento) — onde
+  // um erro custa mais caro (cliente já insatisfeito, ou dinheiro
+  // trocando de mão). Estendido pra outbound (disparo) em 09/08/2026:
+  // conversa real de teste mostrou Haiku falhando em seguir várias
+  // regras condicionais ao mesmo tempo (abertura repetida 4x seguidas,
+  // 2 perguntas na mesma mensagem) numa conversa outbound mais longa —
+  // mesmo com as regras reforçadas 2x antes. Parece limite real de
+  // instrução simultânea do modelo mais barato, não falta de regra
+  // escrita. Haiku continua no resto (descoberta, qualificação inbound).
+  const isHighRiskState =
+    businessDecision?.state === "reclamacao" ||
+    businessDecision?.state === "pagamento" ||
+    Boolean(isOutboundReply);
   const model = (isImageInput || isHighRiskState) ? "claude-sonnet-5" : "claude-haiku-4-5";
 
   // ===========================================================================
