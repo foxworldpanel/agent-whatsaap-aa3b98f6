@@ -39,7 +39,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { runPlaygroundTurn, generateSimulatedCustomerReply, CUSTOMER_PERSONAS } from "@/lib/agent-v3/admin/playground.functions";
+import { runPlaygroundTurn, generateSimulatedCustomerReply, CUSTOMER_PERSONAS, startOutboundSimulation } from "@/lib/agent-v3/admin/playground.functions";
 import { ScenarioGenerator } from "@/components/agent-playground/ScenarioGenerator";
 import { HistoryEditor } from "@/components/agent-playground/HistoryEditor";
 
@@ -187,6 +187,7 @@ function AgentPlaygroundPage() {
 
   const sendMessage = useServerFn(runPlaygroundTurn);
   const generateCustomerReply = useServerFn(generateSimulatedCustomerReply);
+  const startOutbound = useServerFn(startOutboundSimulation);
 
   const sendMessageMutation = useMutation({
     mutationFn: async (text: string) => {
@@ -229,6 +230,23 @@ function AgentPlaygroundPage() {
         setMessage(response.message);
         toast.success("Cliente IA gerou uma resposta — revise e envie");
       }
+    },
+    onError: (err) => {
+      toast.error(err.message);
+    },
+  });
+
+  const startOutboundMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeSessionId) return;
+      return await startOutbound({
+        data: { sessionId: activeSessionId, instagramHandle: testInstagramHandle || "perfilteste" },
+      });
+    },
+    onSuccess: () => {
+      setIsOutboundMode(true);
+      queryClient.invalidateQueries({ queryKey: ["playground_messages", activeSessionId] });
+      toast.success("Abordagem de disparo enviada — modo Outbound ativado automaticamente");
     },
     onError: (err) => {
       toast.error(err.message);
@@ -422,22 +440,37 @@ function AgentPlaygroundPage() {
 
           <footer className="p-4 border-t bg-muted/30">
             <div className="max-w-3xl mx-auto flex flex-col gap-2">
-              <div className="flex items-center gap-3 text-xs bg-background/60 border rounded-lg px-3 py-2">
+              <div className="flex items-center gap-3 text-xs bg-background/60 border rounded-lg px-3 py-2 flex-wrap">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <Checkbox
                     checked={isOutboundMode}
                     onCheckedChange={(v) => setIsOutboundMode(Boolean(v))}
                   />
                   <span className={cn("font-medium", isOutboundMode && "text-primary")}>
-                    Modo Disparo (Outbound)
+                    Modo Disparo
                   </span>
                 </label>
-                <span className="text-muted-foreground">
-                  {isOutboundMode
-                    ? "simulando cliente que veio de campanha de disparo — abordagem fria"
-                    : "simulando cliente orgânico/Meta Ads (padrão)"}
-                </span>
-                <div className="flex-1" />
+                
+                <Input 
+                  className="h-7 w-40 text-[10px]" 
+                  placeholder="@instagram teste"
+                  value={testInstagramHandle}
+                  onChange={(e) => setTestInstagramHandle(e.target.value)}
+                />
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1"
+                  disabled={!activeSessionId || startOutboundMutation.isPending}
+                  onClick={() => startOutboundMutation.mutate()}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  {startOutboundMutation.isPending ? "Enviando..." : "Iniciar Abordagem"}
+                </Button>
+
+                <div className="flex-1 min-w-[20px]" />
+
                 <select
                   className="bg-background border rounded px-2 py-1 text-xs"
                   value={customerPersona}
@@ -455,6 +488,7 @@ function AgentPlaygroundPage() {
                     </option>
                   ))}
                 </select>
+
                 <Button
                   size="sm"
                   variant="secondary"
