@@ -85,31 +85,10 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 .lt("updated_at", stuckCutoff)
                 .select("id, telefone, nome, status");
               if (unstuck && unstuck.length > 0) {
-                await logEvent({
-                  userId: camp.user_id,
-                  type: "blast_stuck_recovered",
-                  level: "warn",
-                  summary: `🔁 Recuperados ${unstuck.length} contato(s) travados em envio → pendente para retry`,
-                  metadata: {
-                    origem: "disparo",
-                    direcao: "enviado",
-                    tipo: "recuperacao",
-                    campaign_id: camp.id,
-                    count: unstuck.length,
-                    contacts: unstuck.map((c: { id: string; telefone: string; nome: string }) => ({ id: c.id, telefone: c.telefone, nome: c.nome })),
-                  } as never,
-                });
               }
             }
 
             if (opts.campaignId || bypass) {
-              await logEvent({
-                userId: camp.user_id,
-                type: "blast_worker_tick",
-                level: "info",
-                summary: `🚀 Worker processando campanha ${camp.name}`,
-                metadata: { origem: "disparo", direcao: "enviado", tipo: "processamento", campaign_id: camp.id, now: bypass },
-              });
             }
             const now = new Date();
             // Plataforma opera 24h — sem janela de horário e sem distribuição
@@ -123,95 +102,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               const required = minMs + Math.random() * (maxMs - minMs);
               if (since < required) {
                 results.push({ campaign: camp.name, sent: 0, skipped: "delay" });
-                await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "info", summary: "🚀 Disparo aguardando delay entre mensagens", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "delay", remaining_ms: Math.round(required - since) } });
-                continue;
-              }
-            }
-
-            // Carregar pool de números ativos para rotação round-robin.
-            // Elegível: disparos_mode=true, status conectado, risco != danger,
-            // e (se auto_pause_on_risk desligado) qualquer risco aceito.
-            type NumberRow = {
-              id: string;
-              user_id: string;
-              uazapi_url: string | null;
-              uazapi_token: string | null;
-              warmup_started_at: string | null;
-              warmup_enabled: boolean | null;
-              auto_pause_on_risk: boolean | null;
-              risk_level: string | null;
-              disparos_mode: boolean | null;
-              meta_ads_enabled: boolean | null;
-              status: string | null;
-              nome: string | null;
-            };
-            const { data: allNums } = await supabaseAdmin
-              .from("whatsapp_numbers")
-              .select("id, user_id, uazapi_url, uazapi_token, warmup_started_at, warmup_enabled, auto_pause_on_risk, risk_level, disparos_mode, meta_ads_enabled, status, nome")
-              .in("user_id", await getSharedUazapiUserIdsForDispatcher(camp.user_id));
-            const allNumbers = (allNums as unknown as NumberRow[] | null) ?? [];
-            const isConnected = (s: string | null | undefined) => {
-              const v = (s ?? "").toLowerCase();
-              return v === "connected" || v === "conectado" || v === "online";
-            };
-            // Qualquer número conectado pode disparar. O toggle disparos_mode
-            // deixou de ser um filtro de elegibilidade — todos os números
-            // conectados entram no round-robin.
-            const pool = allNumbers
-              .filter((n) => n.uazapi_url && n.uazapi_token)
-              .filter((n) => isConnected(n.status))
-              .filter((n) => !(n.auto_pause_on_risk && n.risk_level === "danger"))
-              .sort((a, b) => a.id.localeCompare(b.id));
-
-            let numberRow: NumberRow | null = null;
-            if (pool.length === 0) {
-              results.push({ campaign: camp.name, sent: 0, skipped: "nenhum número conectado disponível para disparo" });
-              await logEvent({ userId: camp.user_id, type: "blast_failed", level: "error", summary: "❌ Disparo sem número conectado disponível", error: "Nenhum número conectado disponível para disparo", metadata: { origem: "disparo", direcao: "enviado", tipo: "erro", campaign_id: camp.id, total_numbers: allNumbers.length } });
-              await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
-              continue;
-            }
-
-            const startOfDay = new Date();
-            startOfDay.setHours(0, 0, 0, 0);
-            const { count: sentToday } = await supabaseAdmin
-              .from("blast_logs")
-              .select("id", { count: "exact", head: true })
-              .eq("campaign_id", camp.id)
-              .eq("status", "sent")
-              .gte("created_at", startOfDay.toISOString());
-
-            // Prioridade ABSOLUTA: se a campanha tem um número específico
-            // selecionado no dropdown (whatsapp_number_id), usa SEMPRE esse
-            // número — sem round-robin, sem fallback silencioso para outro.
-            // Round-robin só entra quando a campanha NÃO tem número fixo.
-            if (camp.whatsapp_number_id) {
-              const fixed = pool.find((n) => n.id === camp.whatsapp_number_id) ?? null;
-              if (!fixed) {
-                const exists = allNumbers.find((n) => n.id === camp.whatsapp_number_id) ?? null;
-                const reason = !exists
-                  ? "número selecionado não encontrado"
-                  : !isConnected(exists.status)
-                    ? `número selecionado não está conectado (status=${exists.status ?? "desconhecido"})`
-                    : exists.auto_pause_on_risk && exists.risk_level === "danger"
-                      ? "número selecionado em risco (danger) com auto_pause_on_risk ligado"
-                      : "número selecionado sem credenciais uazapi";
-                results.push({ campaign: camp.name, sent: 0, skipped: reason });
-                await logEvent({
-                  userId: camp.user_id,
-                  type: "blast_skipped",
-                  level: "error",
-                  summary: `❌ Disparo bloqueado — ${reason}`,
-                  metadata: {
-                    origem: "disparo",
-                    direcao: "enviado",
-                    tipo: "bloqueio",
-                    campaign_id: camp.id,
-                    reason,
-                    selected_number_id: camp.whatsapp_number_id,
-                    selected_number_name: exists?.nome ?? null,
-                    selected_number_status: exists?.status ?? null,
-                  },
-                });
                 await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
                 continue;
               }
@@ -230,148 +120,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             if (!next) {
               console.log(`[blast-dispatcher] ${camp.name}: sem contatos elegíveis (list_id=${camp.contact_list_id ?? "null"})`);
               results.push({ campaign: camp.name, sent: 0, skipped: "sem contatos elegíveis" });
-              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: "🚀 Disparo sem contatos elegíveis para enviar", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, contact_list_id: camp.contact_list_id, categoria_ids: camp.categoria_ids ?? [], reason: "sem contatos elegíveis" } });
-              await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
-              continue;
-            }
-            const nextIsTest = await isTestPhone(supabaseAdmin, camp.user_id, next.contact.telefone);
-
-            // Limite diário (com aquecimento progressivo) baseado no número escolhido
-            const effectiveLimit = computeEffectiveLimit(
-              numberRow?.warmup_enabled ?? true,
-              numberRow?.warmup_started_at ?? null,
-              camp.daily_limit,
-            );
-            if (!nextIsTest && (sentToday ?? 0) >= effectiveLimit) {
-              results.push({ campaign: camp.name, sent: 0, skipped: `limite diário (${effectiveLimit})` });
-              await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: `🚀 Disparo bloqueado pelo limite diário (${effectiveLimit})`, metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "limite diário", effectiveLimit, sentToday } });
-              continue;
-            }
-
-            // Kill switches
-            const { data: agent } = await supabaseAdmin
-              .from("agent_config")
-              .select("agent_enabled")
-              .eq("user_id", camp.user_id)
-              .maybeSingle();
-            if (agent?.agent_enabled === false) {
-              // Números de teste devem passar pelo mesmo pipeline de disparo,
-              // mesmo quando o agente global foi desligado para a operação real.
-              if (!nextIsTest) {
-                results.push({ campaign: camp.name, sent: 0, skipped: "agente desativado" });
-                await logEvent({ userId: camp.user_id, type: "blast_skipped", level: "warn", summary: "🚀 Disparo bloqueado — agente global desativado", metadata: { origem: "disparo", direcao: "enviado", tipo: "bloqueio", campaign_id: camp.id, reason: "agente desativado" } });
-                await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
-                continue;
-              }
-            }
-
-            // Credenciais do número escolhido no round-robin
-            const url = numberRow.uazapi_url!;
-            const token = numberRow.uazapi_token!;
-            const mirrorUserId = numberRow.user_id ?? camp.user_id;
-            console.log(`[blast-dispatcher] ${camp.name}: enviando para ${next.contact.nome} ${next.contact.telefone} (stage=${next.stage})`);
-
-            // Variação de saudação por horário na abertura de um disparo ativo.
-            // Independe do rótulo do número — usa variação em qualquer opening
-            // de campanha (inclusive remarketing para leads antigos).
-            const kind = getOpeningKind((camp as { opening_kind?: string }).opening_kind);
-            const useVariacao = next.stage === "opening" && kind.useVariations;
-            const useFixedKindTemplate =
-              next.stage === "opening" && !kind.useVariations && kind.template.length > 0;
-
-            // Carrega templates. Se o kind trouxer seu próprio pack de
-            // variações (ex.: Meta Ads reativação), usa esse pack em PT e
-            // ignora o opening_templates do usuário (que é dedicado ao
-            // Instagram frio). Caso contrário, carrega o editável do usuário.
-            let templates = DEFAULT_TEMPLATES;
-            const kindHasOwnPack = useVariacao && !!kind.variations;
-            if (kindHasOwnPack) {
-              const pack = kind.variations!;
-              templates = {
-                saudacoes: pack.saudacoes,
-                linha2: pack.linha2,
-                perguntas: pack.perguntas,
-              } as typeof DEFAULT_TEMPLATES;
-            } else if (useVariacao) {
-              const { data: tplRow } = await supabaseAdmin
-                .from("opening_templates")
-                .select(
-                  "saudacoes_manha, saudacoes_tarde, saudacoes_noite, linha2, perguntas, templates_en, templates_es, ddi_language_map",
-                )
-                .eq("user_id", camp.user_id)
-                .maybeSingle();
-              templates = _toTemplates(
-                tplRow as Parameters<typeof _toTemplates>[0] ?? null,
-              );
-            }
-
-            // Anti-repetição da saudação: pega saudação do último envio da campanha
-            let avoidSaudacaoIdx: number | null = null;
-            if (useVariacao && camp.last_dispatch_at) {
-              const { data: lastSent } = await supabaseAdmin
-                .from("blast_contacts")
-                .select("last_variation_key")
-                .eq("campaign_id", camp.id)
-                .not("last_variation_key", "is", null)
-                .order("last_sent_at", { ascending: false })
-                .limit(1);
-              avoidSaudacaoIdx = saudacaoIdxFromKey(lastSent?.[0]?.last_variation_key ?? null);
-            }
-
-            const language = useVariacao && !kindHasOwnPack
-              ? detectLanguageFromPhone(
-                  next.contact.telefone,
-                  templates.ddiMap ?? DEFAULT_DDI_LANGUAGE_MAP,
-                )
-              : "pt";
-            const pick = useVariacao
-              ? montarMensagemDisparo(next.contact.nome, next.contact.instagram, {
-                  avoidKey: next.contact.last_variation_key,
-                  avoidSaudacaoIdx,
-                  templates,
-                  language,
-                })
-              : null;
-            const messageParts: string[] = next.stage === "opening"
-              ? useFixedKindTemplate
-                ? (() => {
-                    const parts = templateParts(kind).map((p) => renderTemplate(p, next.contact));
-                    return normalizeOpeningParts(parts.join("\n\n"), parts);
-                  })()
-                : pick
-                  ? normalizeOpeningParts(pick.parts.join("\n\n"), pick.parts)
-                  : normalizeOpeningParts(renderTemplate(next.template, next.contact))
-              : [renderTemplate(next.template, next.contact).trim()].filter(Boolean);
-
-            // Claim atômico do contato ANTES de enviar. Sem isso, cron + clique
-            // manual ou dois workers simultâneos podiam ler o mesmo contato ainda
-            // como "pendente" e reenviar a abertura antes do status final virar
-            // "enviado_abertura". O update condicional faz só um worker vencer.
-            const sendingStatus = `enviando_${next.stage}`;
-            const { data: claimedRows, error: claimErr } = await supabaseAdmin
-              .from("blast_contacts")
-              .update({ status: sendingStatus, updated_at: new Date().toISOString() } as never)
-              .eq("id", next.contact.id)
-              .eq("status", next.contact.status)
-              .select("id");
-            if (claimErr) throw new Error(`claim blast contact failed: ${claimErr.message}`);
-            if (!claimedRows || claimedRows.length === 0) {
-              await logEvent({
-                userId: camp.user_id,
-                type: "blast_skipped",
-                level: "warn",
-                summary: `🚀 Disparo ignorado: contato já estava sendo processado (${next.contact.nome})`,
-                metadata: {
-                  origem: "disparo",
-                  direcao: "enviado",
-                  tipo: "bloqueio",
-                  campaign_id: camp.id,
-                  blast_contact_id: next.contact.id,
-                  expected_status: next.contact.status,
-                  claim_status: sendingStatus,
-                  reason: "contact_claim_lost",
-                } as never,
-              });
               results.push({ campaign: camp.name, sent: 0, skipped: "contato já estava sendo processado" });
               continue;
             }
@@ -445,21 +193,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   .eq("id", next.contact.id);
                 claimedBlastContactId = null;
                 results.push({ campaign: camp.name, sent: 0, skipped: "agente desativado na conversa" });
-                await logEvent({
-                  userId: camp.user_id,
-                  type: "blast_skipped",
-                  level: "info",
-                  summary: "🚀 Disparo pulado — agente desativado na conversa (suporte humanizado)",
-                  metadata: {
-                    origem: "disparo",
-                    direcao: "enviado",
-                    tipo: "bloqueio",
-                    campaign_id: camp.id,
-                    contact_id: next.contact.id,
-                    conversation_id: mirrorConversationId,
-                    reason: "conversation.agent_enabled=false",
-                  },
-                });
                 continue;
               }
             }
@@ -501,28 +234,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                   .update({ parts_sent: i + 1, updated_at: new Date().toISOString() } as never)
                   .eq("id", next.contact.id);
                 try {
-                  await logEvent({
-                    userId: camp.user_id,
-                    phone: next.contact.telefone,
-                    type: "blast_sent",
-                    level: "info",
-                    summary: `🚀 Disparo enviado (${next.stage}) parte ${i + 1}/${messageParts.length} → ${next.contact.nome}: ${messageParts[i].slice(0, 80)}`,
-                    response: messageParts[i],
-                    metadata: {
-                      origem: "disparo",
-                      direcao: "enviado",
-                      tipo: next.stage === "opening" ? "abertura" : `followup_${next.stage}`,
-                      contato_nome: next.contact.nome,
-                      to: next.contact.telefone,
-                      jid: `${String(next.contact.telefone).replace(/\D+/g, "")}@s.whatsapp.net`,
-                      messageId: sendResult.messageId,
-                      status: sendResult.status,
-                      raw: sendResult.raw,
-                      ...(next.stage === "opening"
-                        ? { from_blast: true, part_index: i, part_total: messageParts.length }
-                        : {}),
-                    } as never,
-                  });
                 } catch (logErr) {
                   console.warn("[blast-dispatcher] Falha ao registrar blast_sent:", logErr);
                 }
@@ -536,15 +247,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               status = "failed";
               errMsg = (e as Error).message;
               try {
-                await logEvent({
-                  userId: camp.user_id,
-                  phone: next.contact.telefone,
-                  type: "blast_failed",
-                  level: "error",
-                  summary: `❌ Falha no disparo (${next.stage}) → ${next.contact.nome}`,
-                  error: errMsg,
-                  metadata: { origem: "disparo", direcao: "enviado", tipo: "erro" } as never,
-                });
               } catch (logErr) {
                 console.warn("[blast-dispatcher] Falha ao registrar blast_failed:", logErr);
               }
@@ -620,12 +322,6 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 .update({ status: "erro", error_message: msg, updated_at: new Date().toISOString() } as never)
                 .eq("id", claimedBlastContactId);
             }
-            await logEvent({ userId: camp.user_id, type: "blast_failed", level: "error", summary: `❌ Dispatcher falhou na campanha ${camp.name}`, error: msg, metadata: { origem: "disparo", direcao: "enviado", tipo: "erro", campaign_id: camp.id } });
-            await supabaseAdmin.from("blast_campaigns").update({ state: "pausado" }).eq("id", camp.id);
-          }
-        }
-
-        return Response.json({ ran: results.length, results });
       },
     },
   },
