@@ -1083,16 +1083,6 @@ ${extraContext}`
         ]
       : message;
 
-  // Sonnet 5 nos momentos de maior risco (reclamação, pagamento) — onde
-  // um erro custa mais caro (cliente já insatisfeito, ou dinheiro
-  // trocando de mão). Haiku continua no resto (descoberta, qualificação),
-  // que é a maioria das mensagens.
-  // Sonnet 5 só pra imagem. Testamos Sonnet em reclamação/pagamento/
-  // outbound em 09-10/08/2026, mas boa parte da evidência de "Haiku
-  // falhando" veio de um bug no Playground (agentResult.replies sendo
-  // colado com .join("\n") antes de mostrar), não do modelo em si —
-  // achado e corrigido em 10/08/2026. Revertido: custo do Sonnet não
-  // compensa sem uma causa real confirmada.
   const model = isImageInput ? "claude-sonnet-5" : "claude-haiku-4-5";
 
   // ===========================================================================
@@ -2121,8 +2111,8 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   };
 
   try {
-    // Logging unificado (agent-logger.server removido — logando apenas no console para preservação de dados em trânsito)
-    console.info(`[agent-v3] Log turn: ${userId} | phone: ${phone} | type: agent_v3_turn`, {
+    const { logEvent } = await import("@/lib/agent-logger.server");
+    await logEvent({
       userId,
       workspaceId,
       phone: phone ?? null,
@@ -2141,6 +2131,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
         usage: result.usage,
         cost: result.cost,
         history_telemetry: historyTelemetry ?? null,
+        intelligence: result.intelligence,
       },
     });
   } catch (err) {
