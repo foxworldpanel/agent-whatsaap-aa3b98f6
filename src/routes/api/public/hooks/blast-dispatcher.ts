@@ -85,11 +85,58 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                 .lt("updated_at", stuckCutoff)
                 .select("id, telefone, nome, status");
               if (unstuck && unstuck.length > 0) {
+                console.log(`[blast-dispatcher] ${camp.name}: contatos recuperados (presos > 3min): ${unstuck.length}`);
               }
             }
 
-            if (opts.campaignId || bypass) {
+            // Integrações e Agente (usado no espelhamento e envio)
+            const { data: integ } = await supabaseAdmin
+              .from("integrations")
+              .select("uazapi_url, uazapi_token, user_id")
+              .eq("user_id", camp.user_id)
+              .maybeSingle();
+            if (!integ?.uazapi_url || !integ.uazapi_token) {
+              results.push({ campaign: camp.name, sent: 0, skipped: "uazapi não configurado" });
+              continue;
             }
+            const url = integ.uazapi_url;
+            const token = integ.uazapi_token;
+            const mirrorUserId = integ.user_id;
+
+            // Pool de números e limites
+            const { data: pool } = await supabaseAdmin
+              .from("whatsapp_numbers")
+              .select("*")
+              .eq("user_id", camp.user_id)
+              .eq("status", "conectado");
+            if (!pool || pool.length === 0) {
+              results.push({ campaign: camp.name, sent: 0, skipped: "sem números conectados" });
+              continue;
+            }
+
+            // Volume diário
+            const startOfDay = new Date();
+            startOfDay.setUTCHours(0, 0, 0, 0);
+            const { count: sentToday } = await supabaseAdmin
+              .from("blast_logs")
+              .select("id", { count: "exact", head: true })
+              .eq("campaign_id", camp.id)
+              .eq("status", "sent")
+              .gte("created_at", startOfDay.toISOString());
+            if ((sentToday ?? 0) >= (camp.daily_limit ?? 200)) {
+              results.push({ campaign: camp.name, sent: 0, skipped: "limite diário atingido" });
+              continue;
+            }
+
+            let numberRow;
+            const fixed = pool.find((n) => n.id === camp.whatsapp_number_id);
+            if (fixed) {
+              numberRow = fixed;
+            } else {
+              const rrIndex = (sentToday ?? 0) % pool.length;
+              numberRow = pool[rrIndex];
+            }
+
             const now = new Date();
             // Plataforma opera 24h — sem janela de horário e sem distribuição
             // natural por hora do dia. Todos os ticks processam normalmente.
@@ -125,10 +172,20 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
             }
             claimedBlastContactId = next.contact.id;
 
-            // Prepara a conversa ANTES de enviar. Assim, cada parte enviada com
-            // sucesso é persistida imediatamente após o aceite da Uazapi — se o
-            // worker encerrar depois, o histórico não fica vazio para a resposta
-            // do cliente.
+            // Gera variações e partes da mensagem
+            const lang = detectLanguageFromPhone(next.contact.telefone) || DEFAULT_DDI_LANGUAGE_MAP["55"];
+            const templates = await _toTemplates(supabaseAdmin, camp.user_id);
+            const variations = montarMensagemDisparo(
+              next.template,
+              next.contact.nome,
+              next.contact.instagram,
+              templates,
+              lang
+            );
+            const pick = variations.find(v => v.key === next.contact.last_variation_key) || variations[0];
+            const messageParts = normalizeOpeningParts(pick.text);
+
+            // Prepara a conversa ANTES de enviar.
             const phoneDigits = String(next.contact.telefone).replace(/\D+/g, "");
             let mirrorConversationId: string | null = null;
             {
