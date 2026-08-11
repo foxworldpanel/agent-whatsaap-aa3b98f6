@@ -102,6 +102,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
   const agentResult = await runAgentV3Turn({
     ...input,
     offerEligibility: salesIntelligence.offerEligibility,
+    objections: salesIntelligence.objections,
   });
 
   if (BEHAVIOR_TELEMETRY_ENABLED) {

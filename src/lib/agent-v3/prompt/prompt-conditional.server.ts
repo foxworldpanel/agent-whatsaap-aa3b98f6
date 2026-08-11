@@ -37,3 +37,9 @@ export const HESITACAO_TOM_TEXT = `## SINAL: CLIENTE HESITANDO
 - O cliente demonstrou hesitação recentemente (ex: "vou pensar", "depois eu vejo").
 - Ajuste só o TOM: seja mais acolhedor e paciente, sem pressionar pra decisão.
 - NUNCA ofereça desconto, condição especial ou valor diferente do módulo — isso não está autorizado, é só ajuste de tom.`;
+
+export const OBJECAO_CONFIANCA_TOM_TEXT = `## SINAL: CLIENTE QUESTIONANDO CONFIANÇA/SEGURANÇA
+- O cliente perguntou algo sobre segurança, risco ou legitimidade (ex: "é seguro?", "não corre risco de banir?", "é golpe?", "vocês são confiáveis?").
+- Ajuste o TOM: responda com calma e paciência, sem soar na defensiva nem apressado pra voltar à venda.
+- Responda a pergunta de segurança primeiro, de forma completa, antes de voltar pra qualificação/venda — não emenda direto pra próxima pergunta comercial.
+- NUNCA invente garantia que os módulos não dão, e NUNCA prometa "parecer natural" ou estratégia de evasão de detecção — isso já é proibido em regra própria (P0), vale reforçar aqui: a resposta sobre segurança usa só o que os módulos realmente dizem.`;
