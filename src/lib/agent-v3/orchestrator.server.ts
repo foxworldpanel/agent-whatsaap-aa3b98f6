@@ -20,6 +20,7 @@ import {
 } from "./brain/guards.server";
 import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
 import { isConfirmedPurchaseMessage } from "./memory/customer-memory.server";
+import { extractLastConfirmedPriceV3 } from "./memory/last-confirmed-price.server";
 import type { BusinessDecisionV3 } from "./brain/business-state.server";
 import { businessDecisionToPromptV3 } from "./brain/business-state.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
@@ -1010,6 +1011,16 @@ ${buildP2Text({ isAudioInput, isImageInput, isStickerInput, greetingAlreadyPerfo
     {
       type: "text",
       text: `
+${(() => {
+  // Fato calculado por código (não por IA), a cada turno — não depende
+  // do modelo "lembrar direito" relendo o histórico inteiro. Achado em
+  // conversa real em 10/08/2026: o agente confirmou um preço e, 2
+  // mensagens depois, contradisse a si mesmo dizendo que não existia.
+  const lastPrice = extractLastConfirmedPriceV3(history);
+  return lastPrice
+    ? `⚠️ ÚLTIMO PREÇO QUE VOCÊ MESMO JÁ CONFIRMOU NESSA CONVERSA: "${lastPrice}"\nNUNCA contradiga isso depois — se for perguntado de novo sobre esse valor, confirme de novo, não negue.\n`
+    : "";
+})()}
 ${conditionalPrompts}
 
 ${conversationPrompt}${customerProfilePrompt}
