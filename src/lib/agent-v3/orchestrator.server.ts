@@ -34,7 +34,8 @@ import {
   PLATAFORMAS_DISPONIVEIS_TEXT,
   RECLAMACAO_TEXT,
   SUPORTE_EXPANDIDO_TEXT,
-  HESITACAO_TOM_TEXT
+  HESITACAO_TOM_TEXT,
+  OBJECAO_CONFIANCA_TOM_TEXT
 } from "./prompt/prompt-conditional.server";
 
 
@@ -528,6 +529,7 @@ export interface OrchestratorInput {
   // o TOM da resposta (nunca preço — desconto real precisa de decisão
   // de negócio própria, não é algo que o prompt decide sozinho).
   offerEligibility?: { eligibleForDiscount: boolean };
+  objections?: Array<{ category: string; reason: string }>;
   historyTelemetry?: {
     total_messages_stored: number;
     history_truncated: boolean;
@@ -662,6 +664,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     phone,
     flowActionHint,
     offerEligibility,
+    objections,
   } = input;
 
   // RUN ID — gerado no início do turno, pra correlacionar esse turno
@@ -948,8 +951,17 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
 
   // 9.5. Sales Intelligence — primeira conexão real (Fase A/B só observavam
   // até agora). Só ajusta tom, nunca preço/desconto de verdade.
-if (offerEligibility?.eligibleForDiscount) {
+  if (offerEligibility?.eligibleForDiscount) {
     conditionalPrompts += "\n\n" + HESITACAO_TOM_TEXT;
+  }
+
+  // Objeção de confiança/segurança — primeira conexão real desse sinal.
+  // Diferente da hesitação (já conectada acima), dispara só quando o
+  // cliente pergunta especificamente sobre segurança/risco/legitimidade
+  // (ex: "não corre risco de banir?", "é golpe?") — sinal visto em
+  // conversa real em 10/08/2026.
+  if (objections?.some((o) => o.category === "TRUST")) {
+    conditionalPrompts += "\n\n" + OBJECAO_CONFIANCA_TOM_TEXT;
   }
 
   // 9.6. Abordagem fria (disparo) — cliente originado de campanha de
