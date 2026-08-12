@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Gift, ExternalLink } from "lucide-react";
 import { listFreeTrials } from "@/lib/free-trials.functions";
+import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 
 export const Route = createFileRoute("/_authenticated/teste-gratis")({
   ssr: false,
@@ -51,9 +52,13 @@ function TesteGratisPage() {
         <StatCard label="Completos" value={completed} />
       </div>
 
+      <TesteGratisCard />
+
       <div className="rounded-xl border border-border p-4 text-sm text-muted-foreground" style={{ background: "var(--gradient-card)" }}>
         Configure a API SMM em <a href="/agente" className="text-primary underline">Agente IA → Integrações</a>.
-        O agente detecta links do Instagram/YouTube automaticamente e cria pedido de 100 views (1 teste por telefone).
+        Escolha acima quais serviços entram no teste grátis e a quantidade de cada um.
+        <br />
+        <strong className="text-foreground">Status atual:</strong> a criação automática do teste grátis pela Júlia durante a conversa ainda não está conectada — essa tela hoje serve pra configurar e acompanhar, a criação automática é o próximo passo.
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border" style={{ background: "var(--gradient-card)" }}>
