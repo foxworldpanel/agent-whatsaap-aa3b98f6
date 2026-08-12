@@ -6,7 +6,13 @@ export interface ChatMessageV3 {
 }
 
 const MAX_STORED_MESSAGES = 100;
-const MAX_CONTEXT_MESSAGES = 10;
+// Aumentado de 10 pra 20 em 11/08/2026 — achado em conversa real: as 4
+// mensagens do funil (áudio, link, vídeo, tabela de preço) saíam da
+// janela depois de só ~9 trocas seguintes, fazendo o agente negar a
+// existência de um preço/áudio que ele mesmo já tinha mandado, porque
+// literalmente não via mais essa informação. Não resolve conversas MUITO
+// longas, mas cobre o caso comum (funil + qualificação + fechamento).
+const MAX_CONTEXT_MESSAGES = 20;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 function digitsOnly(phone: string): string {
