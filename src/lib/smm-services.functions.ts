@@ -149,13 +149,14 @@ export const upsertFreeTestService = createServerFn({ method: "POST" })
       .upsert(
         {
           user_id: context.userId,
+          workspace_id: context.workspaceId,
           service_id: data.service_id,
           service_name: data.service_name ?? "",
           category: data.category ?? "",
           quantity: data.quantity,
           enabled: data.enabled,
         },
-        { onConflict: "user_id,service_id" },
+        { onConflict: "user_id,workspace_id,service_id" },
       );
     if (error) throw new Error(error.message);
     return { ok: true };
