@@ -2095,6 +2095,12 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
     }
   }
 
+  // FRASES BANIDAS (Trava de código determinística):
+  // Limpeza final para remover frases de despedida genéricas banidas que o
+  // prompt às vezes deixa passar (confirmado em 3 conversas reais em
+  // 12/08/2026).
+  finalContent = removeBannedClosingPhrasesV3(finalContent);
+
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
 
