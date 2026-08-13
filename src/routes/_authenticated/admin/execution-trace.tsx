@@ -68,7 +68,7 @@ function ExecutionTracePage() {
     const pipelineStart = details.find(d => d.step === "pipeline_start");
     const pipelineEnd = details.find(d => d.step === "pipeline_end") || details[details.length - 1];
     const totalDuration = pipelineStart && pipelineEnd 
-      ? new Date(pipelineEnd.created_at).getTime() - new Date(pipelineStart.created_at).getTime()
+      ? new Date(pipelineEnd.created_at as string).getTime() - new Date(pipelineStart.created_at as string).getTime()
       : 0;
 
     let totalTokens = 0;
@@ -170,7 +170,7 @@ function ExecutionTracePage() {
                       {trace.trace_id}
                     </span>
                     <span className="text-[10px] text-muted-foreground">
-                      {format(new Date(trace.created_at), "HH:mm:ss", { locale: ptBR })}
+                      {format(new Date(trace.created_at as string), "HH:mm:ss", { locale: ptBR })}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs font-medium text-foreground mb-1">
@@ -314,7 +314,7 @@ function ExecutionTracePage() {
                               {step.step.replace(/_/g, " ")}
                             </span>
                             <span className="text-[10px] font-mono text-muted-foreground bg-accent/30 px-1.5 py-0.5 rounded">
-                              {format(new Date(step.created_at), "HH:mm:ss.SSS", { locale: ptBR })}
+                              {format(new Date(step.created_at as string), "HH:mm:ss.SSS", { locale: ptBR })}
                             </span>
                           </div>
                           
