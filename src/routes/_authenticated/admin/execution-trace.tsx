@@ -24,6 +24,7 @@ import {
 import { getExecutionTraces, getTraceDetails } from "@/lib/agent-v3/admin/trace-viewer.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -52,7 +53,7 @@ function ExecutionTracePage() {
 
   const { data: details, isLoading: detailsLoading } = useQuery({
     queryKey: ["trace_details", selectedTraceId],
-    queryFn: () => fetchDetails({ data: { traceId: selectedTraceId! } }),
+    queryFn: () => fetchDetails({ data: { traceId: selectedTraceId as string } }),
     enabled: !!selectedTraceId,
   });
 
