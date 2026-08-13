@@ -153,6 +153,33 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     });
   }
 
+  // Conversation Facts Engine — Extração e persistência pós-execução (Fase 2)
+  // Garante que o estado do pedido seja atualizado com a resposta final do agente (ex: link enviado, ou pergunta de quantidade)
+  if (input.phone && input.workspaceId && input.userId) {
+    (async () => {
+      try {
+        const historyWithReply = [
+          ...input.history,
+          { role: "agent" as const, content: agentResult.replies.join("\n") }
+        ];
+        const storedCtx = await loadOrderContextV3(input.phone!, input.workspaceId!);
+        const currentFacts = normalizeConversationFactsV3(storedCtx);
+        const updatedCtx = deriveOrderContextV3(
+          agentResult.replies.join("\n"), 
+          historyWithReply, 
+          storedCtx, 
+          currentFacts
+        );
+        if (updatedCtx.needsUpdate) {
+          await saveOrderContextV3(input.phone!, input.workspaceId!, input.userId!, updatedCtx);
+          console.log("[FACTS-ENGINE] Contexto atualizado pós-execução.");
+        }
+      } catch (e) {
+        console.warn("[FACTS-ENGINE] Erro na extração pós-execução:", e);
+      }
+    })();
+  }
+
   return {
     route: "claude",
     routerReason: routerResult.reason,
