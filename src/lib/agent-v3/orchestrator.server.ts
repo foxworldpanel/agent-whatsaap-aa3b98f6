@@ -1194,6 +1194,7 @@ ${extraContext}`
     model,
 
     metadata: {
+      traceId,
       message_id: messageId,
       call_number: 1,
       selectedKeys: effectiveSelectedKeys,
