@@ -668,6 +668,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     flowActionHint,
     offerEligibility,
     objections,
+    traceId = generateTraceId()
   } = input;
 
   // RUN ID — gerado no início do turno, pra correlacionar esse turno
