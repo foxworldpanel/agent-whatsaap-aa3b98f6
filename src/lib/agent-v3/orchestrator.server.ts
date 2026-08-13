@@ -21,6 +21,7 @@ import {
 import { autoSplitLongPartsV3 } from "./integrations/audio-processor.server";
 import { isConfirmedPurchaseMessage } from "./memory/customer-memory.server";
 import { extractLastConfirmedPriceV3 } from "./memory/last-confirmed-price.server";
+import { removeBannedClosingPhrasesV3 } from "./prompt/banned-phrases-filter.server";
 import type { BusinessDecisionV3 } from "./brain/business-state.server";
 import { businessDecisionToPromptV3 } from "./brain/business-state.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
@@ -2093,6 +2094,12 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       }
     }
   }
+
+  // FRASES BANIDAS (Trava de código determinística):
+  // Limpeza final para remover frases de despedida genéricas banidas que o
+  // prompt às vezes deixa passar (confirmado em 3 conversas reais em
+  // 12/08/2026).
+  finalContent = removeBannedClosingPhrasesV3(finalContent);
 
   // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
