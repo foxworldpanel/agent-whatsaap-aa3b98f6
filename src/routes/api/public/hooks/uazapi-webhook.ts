@@ -720,7 +720,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       console.log(`[UAZ-WEBHOOK] Duplicata em memória (msgId: ${msgId}) — seguindo mesmo assim pra dar chance ao Welcome Funnel.`);
     }
 
-    // 2. SYNC TO CRM (Always do this for all incoming messages)
+    // 2. CRM SYNC
+    const traceId = generateTraceId();
+
+    await logExecutionTrace({
+      traceId,
+      step: "pipeline_start",
+      messageId: msgId,
+      phone: phoneStr || undefined,
+      details: {
+        event: p.event || p.EventType,
+        kind: content.kind,
+        textPreview: content.text?.slice(0, 100)
+      }
+    });
+
+    // SYNC TO CRM (Always do this for all incoming messages)
     let contactId: string | undefined = undefined;
     let contactProfile: string | null = null;
     let contactTemperature: string | null = null;
