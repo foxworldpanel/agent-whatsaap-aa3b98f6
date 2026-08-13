@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { normalizeTriggerText, removeAccents } from "@/lib/text-normalize";
 import { isConversationAgentEnabledV3 } from "@/lib/agent-v3/brain/config.server";
+import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
@@ -719,7 +720,22 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       console.log(`[UAZ-WEBHOOK] Duplicata em memória (msgId: ${msgId}) — seguindo mesmo assim pra dar chance ao Welcome Funnel.`);
     }
 
-    // 2. SYNC TO CRM (Always do this for all incoming messages)
+    // 2. CRM SYNC
+    const traceId = generateTraceId();
+
+    await logExecutionTrace({
+      traceId,
+      step: "pipeline_start",
+      messageId: msgId,
+      phone: phoneStr || undefined,
+      details: {
+        event: payload.event || payload.EventType,
+        kind: content.kind,
+        textPreview: content.text?.slice(0, 100)
+      }
+    });
+
+    // SYNC TO CRM (Always do this for all incoming messages)
     let contactId: string | undefined = undefined;
     let contactProfile: string | null = null;
     let contactTemperature: string | null = null;
@@ -2293,9 +2309,19 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       console.log("RETURN-PONTO: chegou na V3", { phone: phoneStr });
 
       const { executeAgent } = await import("@/lib/agent-v3/core/execute-agent.server");
+      
+      const orchestratorStartAt = Date.now();
+      await logExecutionTrace({
+        traceId,
+        step: "orchestrator_start",
+        conversationId: conversationId || undefined,
+        phone: phoneStr,
+        messageId: msgId
+      });
+
       console.log("executeAgent foi chamado? SIM");
       const execResult = await executeAgent({
-
+        traceId, // Pass traceId to executeAgent
         userId: num.user_id,
         flowActionHint,
         workspaceId,
@@ -2330,6 +2356,20 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
         inputKind: content.kind,
         imageSource: resolvedImageSource,
         messageId: msgId
+      });
+
+      const orchestratorDuration = Date.now() - orchestratorStartAt;
+      await logExecutionTrace({
+        traceId,
+        step: "orchestrator_end",
+        durationMs: orchestratorDuration,
+        conversationId: conversationId || undefined,
+        phone: phoneStr,
+        details: {
+          route: execResult.route,
+          claudeCalled: execResult.claudeCalled,
+          replyPreview: execResult.reply?.slice(0, 100)
+        }
       });
 
       console.log("[SMART-ROUTER]", {
@@ -2757,6 +2797,19 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
             },
           );
           console.log("RETURN-PONTO: enviado com sucesso", { phone: phoneStr });
+          
+          await logExecutionTrace({
+            traceId,
+            step: "whatsapp_send",
+            conversationId: finalConvId,
+            phone: phoneStr,
+            details: {
+              partIndex,
+              totalParts: replyParts.length,
+              textPreview: part.slice(0, 100)
+            }
+          });
+
           deliveredParts.push(sendResult.transformed);
 
           // O envio via Uazapi não garante que o webhook de eco fromMe será

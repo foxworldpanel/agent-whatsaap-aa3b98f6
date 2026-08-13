@@ -1,4 +1,5 @@
 // src/lib/agent-v3/orchestrator.server.ts
+import { generateTraceId, logExecutionTrace } from "./telemetry/execution-tracer.server";
 import { 
   calculateBasePurchaseProbability, 
   deriveTemperatureFromProbability, 
@@ -563,6 +564,7 @@ export interface OrchestratorInput {
   workspaceId?: string;
   conversationId?: string;
   phone?: string;
+  traceId?: string;
   // Quando presente (só quando uma FlowAction está ligada por feature
   // flag), instrui o Claude a apenas ESCREVER a ação já decidida pelo
   // Flow Engine, em vez de decidir o próximo passo sozinho. Ausente na
@@ -667,6 +669,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     flowActionHint,
     offerEligibility,
     objections,
+    traceId = generateTraceId()
   } = input;
 
   // RUN ID — gerado no início do turno, pra correlacionar esse turno
@@ -1193,6 +1196,7 @@ ${extraContext}`
     model,
 
     metadata: {
+      traceId,
       message_id: messageId,
       call_number: 1,
       selectedKeys: effectiveSelectedKeys,
@@ -2158,6 +2162,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
     rawResponse: rawText,
     rawPrompt: systemPrompt,
     runId,
+    traceId,
   };
 
   try {
@@ -2182,6 +2187,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
         cost: result.cost,
         history_telemetry: historyTelemetry ?? null,
         intelligence: result.intelligence,
+        traceId: traceId,
       },
     });
   } catch (err) {

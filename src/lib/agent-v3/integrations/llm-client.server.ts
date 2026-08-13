@@ -1,4 +1,5 @@
 // src/lib/agent-v3/integrations/llm-client.server.ts
+import { logExecutionTrace } from "../telemetry/execution-tracer.server";
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_COUNT_TOKENS_URL = "https://api.anthropic.com/v1/messages/count_tokens";
@@ -67,6 +68,7 @@ export async function callAnthropicV3(params: {
     message_chars?: number;
     history_summary?: string;
     history_telemetry?: unknown;
+    traceId?: string;
   };
 }): Promise<AnthropicV3Result> {
   const { apiKey, system, messages, model, metadata } = params;
@@ -100,8 +102,16 @@ export async function callAnthropicV3(params: {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const startAt = Date.now();
 
     try {
+      if (metadata?.traceId) {
+        await logExecutionTrace({
+          traceId: metadata.traceId,
+          step: "claude_call_start",
+          details: { attempt, model: anthropicModel }
+        });
+      }
       console.log("[ANTHROPIC-DEBUG-URL]", ANTHROPIC_MESSAGES_URL);
       console.log("[ANTHROPIC-DEBUG-MODEL]", anthropicModel);
       const response = await fetch(ANTHROPIC_MESSAGES_URL, {
@@ -185,6 +195,20 @@ export async function callAnthropicV3(params: {
           },
         }),
       );
+
+      if (metadata?.traceId) {
+        await logExecutionTrace({
+          traceId: metadata.traceId,
+          step: "claude_call_end",
+          durationMs: Date.now() - startAt,
+          details: {
+            attempt,
+            requestId,
+            usage,
+            totalCost
+          }
+        });
+      }
 
       return result;
     } catch (error) {

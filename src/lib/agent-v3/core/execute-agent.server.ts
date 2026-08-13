@@ -13,8 +13,10 @@ import {
   classifySalesIntelligence,
   type SalesIntelligenceResult,
 } from "../sales-intelligence/sales-intelligence-engine.server";
+import { logExecutionTrace } from "../telemetry/execution-tracer.server";
 
 export type ExecuteAgentInput = OrchestratorInput & {
+  traceId?: string; // New field
   routerContext: SmartRouterContext;
   // Quando true, pula o Smart Router e vai direto pro Claude — usado
   // pelo WhatsApp pra mensagens que não são texto puro (áudio/imagem) ou
@@ -99,11 +101,36 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     };
   }
 
+  if (input.traceId) {
+    await logExecutionTrace({
+      traceId: input.traceId,
+      step: "conversation_engine_start",
+      conversationId: input.conversationId,
+      phone: input.phone
+    });
+  }
+
+  const engineStartAt = Date.now();
   const agentResult = await runAgentV3Turn({
     ...input,
     offerEligibility: salesIntelligence.offerEligibility,
     objections: salesIntelligence.objections,
   });
+  const engineDuration = Date.now() - engineStartAt;
+
+  if (input.traceId) {
+    await logExecutionTrace({
+      traceId: input.traceId,
+      step: "conversation_engine_end",
+      durationMs: engineDuration,
+      conversationId: input.conversationId,
+      phone: input.phone,
+      details: {
+        intent: agentResult.intelligence?.intent,
+        stage: agentResult.intelligence?.stage
+      }
+    });
+  }
 
   if (BEHAVIOR_TELEMETRY_ENABLED) {
     const modulosCarregados = agentResult.modules?.selected_keys ?? [];
