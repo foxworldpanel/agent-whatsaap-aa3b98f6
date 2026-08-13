@@ -729,7 +729,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       messageId: msgId,
       phone: phoneStr || undefined,
       details: {
-        event: p.event || p.EventType,
+        event: payload.event || payload.EventType,
         kind: content.kind,
         textPreview: content.text?.slice(0, 100)
       }
