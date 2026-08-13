@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap, LogOut, Phone, FileText, ShieldCheck, Workflow, Database } from "lucide-react";
+import { LayoutDashboard, Users, Bot, Send, MessagesSquare, Gift, Settings, Zap, LogOut, Phone, FileText, ShieldCheck, Workflow, Database, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
@@ -17,6 +17,7 @@ const nav = [
   { to: "/agente", label: "Agente IA", icon: Bot },
   { to: "/auditoria", label: "Auditoria IA", icon: ShieldCheck },
   { to: "/admin/agent-playground", label: "Agent Playground", icon: Zap },
+  { to: "/admin/execution-trace", label: "Execution Trace", icon: Activity },
   { to: "/disparos", label: "Disparos", icon: Send },
   { to: "/conversas", label: "Conversas", icon: MessagesSquare },
   { to: "/funis", label: "Central do Funil", icon: Workflow },
