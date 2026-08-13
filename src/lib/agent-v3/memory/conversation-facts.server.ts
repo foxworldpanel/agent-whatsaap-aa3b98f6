@@ -78,8 +78,8 @@ export function extractConversationFactsV3(
       ]) || current.customerName,
     musicTitle:
       firstMatch(text, [
-        /\b(?:minha|a) m[uú]sica (?:se chama|[ée])\s+["“]?([^"\"n]{1,100})/iu,
-        /\bnome da m[uú]sica(?: [ée])?\s*[:\-]?\s*["“]?([^"\"n]{1,100})/iu,
+        /\b(?:minha|a) m[uú]sica (?:se chama|[ée])\s+["“]?([^"\n]{1,100})/iu,
+        /\bnome da m[uú]sica(?: [ée])?\s*[:\-]?\s*["“]?([^"\n]{1,100})/iu,
       ]) || current.musicTitle,
     artistName:
       firstMatch(text, [
