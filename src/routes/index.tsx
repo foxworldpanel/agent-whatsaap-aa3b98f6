@@ -1,13 +1,20 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (data.user) {
-      throw redirect({ to: "/dashboard" });
-    }
-    throw redirect({ to: "/auth" });
-  },
-  component: () => null,
+  component: Index,
 });
+
+function Index() {
+  return (
+    <div className="p-8 font-mono text-xs whitespace-pre">
+      {`Copia e cola isso pro Lovable rodar, e me manda o resultado:
+
+sql
+
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'conversations_v3'
+  AND column_name = 'order_context';`}
+    </div>
+  );
+}
