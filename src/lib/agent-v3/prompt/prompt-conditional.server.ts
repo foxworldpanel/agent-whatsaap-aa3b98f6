@@ -28,7 +28,8 @@ export const RECLAMACAO_TEXT = `## RECLAMAÇÃO E RISCO
 export const SUPORTE_EXPANDIDO_TEXT = `## SUPORTE E AGUARDANDO SETOR
 - Estado: AGUARDANDO SETOR / SUPORTE.
 - Não encaminha automaticamente se a resposta estiver nos módulos.
-- Se a informação não existe ou o cliente continua bloqueado após 1 tentativa, confirme que o caso será analisado pelo setor responsável.`;
+- Se a informação não existe ou o cliente continua bloqueado após 1 tentativa, confirme que o caso será analisado pelo setor responsável.
+- NUNCA repita a MESMA orientação técnica (ex: "limpa o cache", "tenta outro navegador", "abre um ticket") mais de uma vez na mesma conversa — releia o que você já sugeriu antes de sugerir de novo. Se o cliente disser que JÁ tentou algo (ex: "já abri um ticket", "já tentei isso"), reconheça isso explicitamente e NÃO repita a mesma sugestão — nesse caso, escala de verdade (confirma que vai ser analisado com prioridade) em vez de mandar tentar de novo. Já aconteceu de verdade: cliente disse "abri um ticket mas não tive resposta", e a resposta seguinte sugeriu abrir um ticket de novo — isso quase fez o cliente desistir de uma compra já decidida.`;
 
 // Sales Intelligence — primeira conexão real (antes só observava, nunca
 // influenciava resposta). Só TOM, nunca preço — desconto de verdade
