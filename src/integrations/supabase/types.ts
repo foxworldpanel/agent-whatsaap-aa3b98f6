@@ -189,6 +189,45 @@ export type Database = {
           },
         ]
       }
+      agent_execution_traces: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          details: Json | null
+          duration_ms: number | null
+          id: string
+          message_id: string | null
+          phone: string | null
+          status: string | null
+          step: string
+          trace_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          duration_ms?: number | null
+          id?: string
+          message_id?: string | null
+          phone?: string | null
+          status?: string | null
+          step: string
+          trace_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          details?: Json | null
+          duration_ms?: number | null
+          id?: string
+          message_id?: string | null
+          phone?: string | null
+          status?: string | null
+          step?: string
+          trace_id?: string
+        }
+        Relationships: []
+      }
       agent_generation_locks: {
         Row: {
           acquired_at: string
