@@ -14,6 +14,8 @@ import {
   type SalesIntelligenceResult,
 } from "../sales-intelligence/sales-intelligence-engine.server";
 import { logExecutionTrace } from "../telemetry/execution-tracer.server";
+import { saveOrderContextV3, deriveOrderContextV3, loadOrderContextV3 } from "../memory/order-context.server";
+import { normalizeConversationFactsV3 } from "../memory/conversation-facts.server";
 
 export type ExecuteAgentInput = OrchestratorInput & {
   traceId?: string; // New field
