@@ -6,8 +6,8 @@ import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 // arquivo — é a base da verificação de schema (item de prevenção da
 // auditoria completa feita em 09/08/2026).
 const TABELAS_USADAS_PELO_CODIGO = [
-  "agent_config", "agent_daily_promo", "agent_generation_locks",
-  "agent_identity", "agent_logs", "agent_medias", "agent_modules_v2",
+  "agent_config", "agent_daily_promo", "agent_execution_traces",
+  "agent_generation_locks", "agent_identity", "agent_logs", "agent_medias",
   "agent_modules_v2_history", "agent_modules_v3", "agent_modules_v3_history",
   "agent_parity_runs", "agent_playground_messages", "agent_playground_runs",
   "agent_playground_sessions", "agent_prompt_metrics", "auto_campaign_runs",

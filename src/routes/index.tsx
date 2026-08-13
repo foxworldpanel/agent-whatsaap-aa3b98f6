@@ -9,9 +9,5 @@ export const Route = createFileRoute("/")({
     }
     throw redirect({ to: "/auth" });
   },
-  component: () => (
-    <div className="p-8 font-mono whitespace-pre bg-slate-950 text-slate-50 min-h-screen">
-      preciso da informação aqui no chat
-    </div>
-  ),
+  component: () => null,
 });
