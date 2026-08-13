@@ -1,13 +1,13 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
-  component: Index,
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getUser();
+    if (data.user) {
+      throw redirect({ to: "/dashboard" });
+    }
+    throw redirect({ to: "/auth" });
+  },
+  component: () => null,
 });
-
-function Index() {
-  return (
-    <div className="p-8 font-mono text-xs whitespace-pre">
-      {`esta com erro Internal server error, sistema ficou off`}
-    </div>
-  );
-}
