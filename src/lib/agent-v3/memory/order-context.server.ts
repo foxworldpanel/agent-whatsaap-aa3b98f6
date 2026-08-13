@@ -197,12 +197,19 @@ export function deriveOrderContextV3(
 ): OrderContext {
   const text = String(message || "");
 
+  // Tópico da conversa (para lastTopic)
   const conversationContext = detectConversationContext(text, history, {
     platform: previous.platform ?? undefined,
     product: previous.service ?? undefined,
   });
 
+  // Extração de fatos (inclui salesIntent, objectionType, budgetMentioned)
   const facts = extractConversationFactsV3(text, previousFacts);
+  
+  // Atualiza lastTopic se a intenção for clara
+  if (conversationContext.intent !== "desconhecido") {
+    facts.lastTopic = conversationContext.intent;
+  }
 
   const quantity = extractQuantity(text) ?? previous.quantity;
   const link = extractLink(text) ?? previous.link;

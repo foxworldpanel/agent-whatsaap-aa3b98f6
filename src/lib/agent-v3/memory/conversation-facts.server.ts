@@ -3,6 +3,10 @@ export type ConversationFactsV3 = {
   musicTitle: string | null;
   artistName: string | null;
   objective: string | null;
+  lastTopic: string | null;
+  salesIntent: "low" | "medium" | "high" | null;
+  budgetMentioned: number | null;
+  objectionType: "trust" | "price" | "time" | "none" | null;
 };
 
 export const EMPTY_CONVERSATION_FACTS_V3: ConversationFactsV3 = {
@@ -10,6 +14,10 @@ export const EMPTY_CONVERSATION_FACTS_V3: ConversationFactsV3 = {
   musicTitle: null,
   artistName: null,
   objective: null,
+  lastTopic: null,
+  salesIntent: null,
+  budgetMentioned: null,
+  objectionType: null,
 };
 
 function cleanFact(value: string | undefined): string | null {
@@ -36,6 +44,32 @@ export function extractConversationFactsV3(
   const text = String(message || "").trim();
   if (!text) return { ...current };
 
+  const normalized = text.toLowerCase();
+
+  // Detecção de Intenção de Venda (Simples)
+  let salesIntent = current.salesIntent;
+  if (/\b(quero fechar|como pago|manda o pix|vou querer|comprar agora)\b/i.test(normalized)) {
+    salesIntent = "high";
+  } else if (/\b(quanto custa|valor|preco|como funciona|tem teste)\b/i.test(normalized)) {
+    salesIntent = "medium";
+  }
+
+  // Objeção
+  let objectionType = current.objectionType;
+  if (/\b(seguro|confiavel|golpe|medo)\b/i.test(normalized)) {
+    objectionType = "trust";
+  } else if (/\b(caro|abaixa|desconto|dinheiro)\b/i.test(normalized)) {
+    objectionType = "price";
+  } else if (/\b(demora|prazo|quando chega)\b/i.test(normalized)) {
+    objectionType = "time";
+  }
+
+  // Budget
+  const budgetMatch = text.match(/R\$\s*([\d.]+(?:,\d+)?)/i);
+  const budgetMentioned = budgetMatch 
+    ? Number(budgetMatch[1].replace(/\./g, "").replace(",", ".")) 
+    : current.budgetMentioned;
+
   return {
     customerName:
       firstMatch(text, [
@@ -44,8 +78,8 @@ export function extractConversationFactsV3(
       ]) || current.customerName,
     musicTitle:
       firstMatch(text, [
-        /\b(?:minha|a) m[uú]sica (?:se chama|[ée])\s+["“]?([^"”\n]{1,100})/iu,
-        /\bnome da m[uú]sica(?: [ée])?\s*[:\-]?\s*["“]?([^"”\n]{1,100})/iu,
+        /\b(?:minha|a) m[uú]sica (?:se chama|[ée])\s+["“]?([^"\"n]{1,100})/iu,
+        /\bnome da m[uú]sica(?: [ée])?\s*[:\-]?\s*["“]?([^"\"n]{1,100})/iu,
       ]) || current.musicTitle,
     artistName:
       firstMatch(text, [
@@ -57,6 +91,10 @@ export function extractConversationFactsV3(
         /\b(?:meu objetivo [ée]|quero|preciso)\s+([^.!?\n]{3,140})/iu,
         /\b(?:objetivo|meta)\s*[:\-]\s*([^.!?\n]{3,140})/iu,
       ]) || current.objective,
+    lastTopic: current.lastTopic, // Será atualizado externamente se necessário
+    salesIntent,
+    budgetMentioned,
+    objectionType,
   };
 }
 
@@ -69,14 +107,24 @@ export function normalizeConversationFactsV3(value: unknown): ConversationFactsV
     musicTitle: cleanFact(source.musicTitle || undefined),
     artistName: cleanFact(source.artistName || undefined),
     objective: cleanFact(source.objective || undefined),
+    lastTopic: cleanFact(source.lastTopic || undefined),
+    salesIntent: source.salesIntent || null,
+    budgetMentioned: source.budgetMentioned || null,
+    objectionType: source.objectionType || null,
   };
 }
 
 export function conversationFactsPromptV3(facts: ConversationFactsV3): string {
-  return [
+  const lines = [
     facts.customerName ? `- Nome do cliente: ${facts.customerName}` : "",
     facts.musicTitle ? `- Música: ${facts.musicTitle}` : "",
     facts.artistName ? `- Artista: ${facts.artistName}` : "",
     facts.objective ? `- Objetivo declarado: ${facts.objective}` : "",
-  ].filter(Boolean).join("\n");
+    facts.salesIntent ? `- Intenção de compra: ${facts.salesIntent}` : "",
+    facts.budgetMentioned ? `- Orçamento mencionado: R$ ${facts.budgetMentioned}` : "",
+    facts.objectionType && facts.objectionType !== "none" ? `- Objeção atual: ${facts.objectionType}` : "",
+  ].filter(Boolean);
+
+  if (lines.length === 0) return "";
+  return "\nFATOS DETERMINÍSTICOS (MEMÓRIA DE CURTO PRAZO):\n" + lines.join("\n");
 }

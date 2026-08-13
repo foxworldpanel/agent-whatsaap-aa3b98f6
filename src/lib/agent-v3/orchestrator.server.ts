@@ -25,6 +25,8 @@ import { extractLastConfirmedPriceV3 } from "./memory/last-confirmed-price.serve
 import { removeBannedClosingPhrasesV3 } from "./prompt/banned-phrases-filter.server";
 import type { BusinessDecisionV3 } from "./brain/business-state.server";
 import { businessDecisionToPromptV3 } from "./brain/business-state.server";
+import { loadOrderContextV3, deriveOrderContextV3, saveOrderContextV3 } from "./memory/order-context.server";
+import { normalizeConversationFactsV3, conversationFactsPromptV3 } from "./memory/conversation-facts.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 import { P0_TEXT } from "./prompt/prompt-p0.server";
 import { OUTBOUND_TEXT } from "./prompt/prompt-outbound.server";
@@ -700,6 +702,22 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     throw new Error("[agent-v3] workspaceId é obrigatório; o V3 não usa fallback entre workspaces");
   }
 
+  // 0.5. Conversation Facts Engine (Short-term deterministic memory)
+  // Carrega o contexto estruturado (order_context) e extrai novos fatos da mensagem.
+  const storedOrderContext = await loadOrderContextV3(phone || "", workspaceId);
+  const currentFacts = normalizeConversationFactsV3(storedOrderContext);
+  const updatedOrderContext = deriveOrderContextV3(message, history, storedOrderContext, currentFacts);
+
+  // Salva em background (non-blocking) para persistência.
+  if (phone && workspaceId && userId) {
+    saveOrderContextV3(phone, workspaceId, userId, updatedOrderContext).catch(err => 
+      console.warn("[ORCHESTRATOR-FACTS] Erro ao salvar order_context:", err)
+    );
+  }
+
+  const deterministicFactsPrompt = conversationFactsPromptV3(updatedOrderContext as any);
+
+
 
   // 1. Carregar módulos do CMS e aplicar overrides explícitos do chamador.
   const activeModulesMap = await loadEnabledModulesV3(workspaceId);
@@ -1015,6 +1033,7 @@ ${buildP2Text({ isAudioInput, isImageInput, isStickerInput, greetingAlreadyPerfo
     {
       type: "text",
       text: `
+${deterministicFactsPrompt}
 ${(() => {
   // Fato calculado por código (não por IA), a cada turno — não depende
   // do modelo "lembrar direito" relendo o histórico inteiro. Achado em
