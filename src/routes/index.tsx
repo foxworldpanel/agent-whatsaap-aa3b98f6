@@ -7,7 +7,7 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <div className="p-8 font-mono text-xs whitespace-pre">
-      {`Copia e cola isso pro Lovable rodar, e me manda o resultado:
+      {`Seria bom reenviar a query certa pra ele rodar:
 
 sql
 
