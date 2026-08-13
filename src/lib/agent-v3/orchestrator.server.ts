@@ -1,4 +1,5 @@
 // src/lib/agent-v3/orchestrator.server.ts
+import { generateTraceId, logExecutionTrace } from "./telemetry/execution-tracer.server";
 import { 
   calculateBasePurchaseProbability, 
   deriveTemperatureFromProbability, 
