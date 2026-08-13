@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Settings, Save, Check, Gift, Play, FlaskConical, Plus, X } from "lucide-react";
+import { Settings, Save, Check, Play, FlaskConical, Plus, X } from "lucide-react";
 import { getIntegrations, saveIntegrations, previewVoice } from "@/lib/agent.functions";
 import { listTestNumbers, addTestNumber, removeTestNumber } from "@/lib/test-numbers.functions";
 
@@ -144,25 +144,9 @@ function ConfiguracoesPage() {
           placeholder="ex: 1"
         />
 
-        <div className="border-t border-border pt-5">
-          <div className="flex items-center gap-2">
-            <Gift className="h-5 w-5 text-primary" />
-            <h2 className="font-semibold">Teste Grátis</h2>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Quando ativo, o agente envia automaticamente 100 views grátis para clientes que mandarem link do Instagram/YouTube.
-          </p>
-          <button
-            type="button"
-            onClick={() => setCfg({ ...cfg, free_trial_enabled: !cfg.free_trial_enabled })}
-            className={`mt-4 flex h-7 w-12 items-center rounded-full transition ${cfg.free_trial_enabled ? "bg-primary" : "bg-muted"}`}
-          >
-            <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${cfg.free_trial_enabled ? "translate-x-6" : "translate-x-1"}`} />
-          </button>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {cfg.free_trial_enabled ? "Ativado — envia testes grátis automaticamente" : "Desativado"}
-          </p>
-        </div>
+        <p className="text-xs text-muted-foreground border-t border-border pt-3">
+          Configuração de Teste Grátis (ativar/desativar, escolher serviços) fica na página <a href="/teste-gratis" className="text-primary underline">Teste Grátis</a>.
+        </p>
       </div>
 
       <div className="rounded-xl border border-border p-6 space-y-4" style={{ background: "var(--gradient-card)" }}>

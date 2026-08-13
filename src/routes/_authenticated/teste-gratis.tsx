@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Gift, ExternalLink } from "lucide-react";
 import { listFreeTrials } from "@/lib/free-trials.functions";
+import { getIntegrations, saveIntegrations } from "@/lib/agent.functions";
 import { TesteGratisCard } from "@/components/agente/TesteGratisCard";
 
 export const Route = createFileRoute("/_authenticated/teste-gratis")({
@@ -23,11 +25,29 @@ const statusStyle: Record<string, string> = {
 };
 
 function TesteGratisPage() {
+  const qc = useQueryClient();
   const list = useServerFn(listFreeTrials);
   const { data: trials = [], isLoading } = useQuery({
     queryKey: ["free-trials"],
     queryFn: () => list(),
     refetchInterval: 30000,
+  });
+
+  const fetchInt = useServerFn(getIntegrations);
+  const saveInt = useServerFn(saveIntegrations);
+  const intQ = useQuery({ queryKey: ["integrations"], queryFn: () => fetchInt() });
+  const [masterEnabled, setMasterEnabled] = useState(false);
+
+  useEffect(() => {
+    if (intQ.data) {
+      setMasterEnabled(!!(intQ.data as any).free_trial_enabled);
+    }
+  }, [intQ.data]);
+
+  const saveMasterMut = useMutation({
+    mutationFn: (next: boolean) =>
+      saveInt({ data: { ...(intQ.data ?? {}), free_trial_enabled: next } as any }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
   });
 
   const total = trials.length;
@@ -50,6 +70,36 @@ function TesteGratisPage() {
         <StatCard label="Total" value={total} />
         <StatCard label="Em andamento" value={pending} />
         <StatCard label="Completos" value={completed} />
+      </div>
+
+      <div className="rounded-xl border border-border p-5" style={{ background: "var(--gradient-card)" }}>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="font-semibold">Teste grátis ativo no agente</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Chave-mestra: se desligado, a Júlia nunca cria teste grátis nenhum, mesmo que os serviços abaixo estejam configurados. Use pra desligar rápido se algo der errado.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !masterEnabled;
+              setMasterEnabled(next);
+              saveMasterMut.mutate(next);
+            }}
+            disabled={saveMasterMut.isPending}
+            className={`flex h-7 w-12 shrink-0 items-center rounded-full transition ${masterEnabled ? "bg-primary" : "bg-muted"}`}
+          >
+            <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${masterEnabled ? "translate-x-6" : "translate-x-1"}`} />
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {saveMasterMut.isPending
+            ? "Salvando…"
+            : masterEnabled
+              ? "✅ Ativado — a Júlia pode criar testes grátis automaticamente"
+              : "⛔ Desativado — nenhum teste grátis novo será criado"}
+        </p>
       </div>
 
       <TesteGratisCard />
