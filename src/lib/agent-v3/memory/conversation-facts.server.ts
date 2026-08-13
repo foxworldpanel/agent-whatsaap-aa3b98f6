@@ -54,11 +54,14 @@ export function extractConversationFactsV3(
     salesIntent = "medium";
   }
 
-  // Objeção
+  // Objeção — "trust" removido daqui de propósito em 13/08/2026: já
+  // existe detecção robusta desse conceito em objection-engine.server.ts
+  // (baseada no sinal ASKED_TRUST, conectada ao OBJECAO_CONFIANCA_TOM_TEXT).
+  // Ter 2 regex diferentes pro mesmo conceito é 2 fontes de verdade que
+  // podem discordar. "price" e "time" continuam aqui, que não têm
+  // equivalente direto no outro sistema.
   let objectionType = current.objectionType;
-  if (/\b(seguro|confiavel|golpe|medo)\b/i.test(normalized)) {
-    objectionType = "trust";
-  } else if (/\b(caro|abaixa|desconto|dinheiro)\b/i.test(normalized)) {
+  if (/\b(caro|abaixa|desconto|dinheiro)\b/i.test(normalized)) {
     objectionType = "price";
   } else if (/\b(demora|prazo|quando chega)\b/i.test(normalized)) {
     objectionType = "time";
