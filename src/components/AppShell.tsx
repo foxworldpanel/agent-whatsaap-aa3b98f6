@@ -17,6 +17,7 @@ const nav = [
   { to: "/agente", label: "Agente IA", icon: Bot },
   { to: "/auditoria", label: "Auditoria IA", icon: ShieldCheck },
   { to: "/admin/agent-playground", label: "Agent Playground", icon: Zap },
+  { to: "/admin/execution-trace", label: "Execution Trace", icon: Activity },
   { to: "/disparos", label: "Disparos", icon: Send },
   { to: "/conversas", label: "Conversas", icon: MessagesSquare },
   { to: "/funis", label: "Central do Funil", icon: Workflow },

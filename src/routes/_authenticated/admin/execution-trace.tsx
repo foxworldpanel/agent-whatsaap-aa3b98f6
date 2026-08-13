@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { 
@@ -76,15 +76,16 @@ function ExecutionTracePage() {
     let completionTokens = 0;
     
     details.forEach(d => {
-      if (d.step === "claude_call_end" && d.details?.usage) {
-        totalTokens += (d.details.usage.total_tokens || 0);
-        promptTokens += (d.details.usage.input_tokens || 0);
-        completionTokens += (d.details.usage.output_tokens || 0);
-        totalCost += (d.details.totalCost?.total_usd || 0);
+      const detailsObj = d.details as any;
+      if (d.step === "claude_call_end" && detailsObj?.usage) {
+        totalTokens += (detailsObj.usage.total_tokens || 0);
+        promptTokens += (detailsObj.usage.input_tokens || 0);
+        completionTokens += (detailsObj.usage.output_tokens || 0);
+        totalCost += (detailsObj.totalCost?.total_usd || 0);
       }
     });
 
-    const outputGuardModified = details.some(d => d.step === "output_guard_end" && d.details?.modified === true);
+    const outputGuardModified = details.some(d => (d.details as any)?.modified === true && d.step === "output_guard_end");
 
     return {
       claudeCalls,
@@ -354,5 +355,5 @@ function ExecutionTracePage() {
   );
 }
 
-import { useMemo } from "react";
-import { Label } from "@/components/ui/label";
+
+

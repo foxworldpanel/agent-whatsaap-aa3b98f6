@@ -24,6 +24,7 @@ import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedAuditoriaRouteImport } from './routes/_authenticated/auditoria'
 import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
+import { Route as AuthenticatedAdminExecutionTraceRouteImport } from './routes/_authenticated/admin/execution-trace'
 import { Route as AuthenticatedAdminAgentPlaygroundRouteImport } from './routes/_authenticated.admin.agent-playground'
 import { Route as ApiPublicHooksV3TestWebhookRouteImport } from './routes/api/public/hooks/v3-test-webhook'
 import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
@@ -110,6 +111,12 @@ const AuthenticatedAgenteRoute = AuthenticatedAgenteRouteImport.update({
   path: '/agente',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminExecutionTraceRoute =
+  AuthenticatedAdminExecutionTraceRouteImport.update({
+    id: '/admin/execution-trace',
+    path: '/admin/execution-trace',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminAgentPlaygroundRoute =
   AuthenticatedAdminAgentPlaygroundRouteImport.update({
     id: '/admin/agent-playground',
@@ -174,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/numeros': typeof AuthenticatedNumerosRoute
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/admin/agent-playground': typeof AuthenticatedAdminAgentPlaygroundRoute
+  '/admin/execution-trace': typeof AuthenticatedAdminExecutionTraceRoute
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
@@ -198,6 +206,7 @@ export interface FileRoutesByTo {
   '/numeros': typeof AuthenticatedNumerosRoute
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/admin/agent-playground': typeof AuthenticatedAdminAgentPlaygroundRoute
+  '/admin/execution-trace': typeof AuthenticatedAdminExecutionTraceRoute
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
@@ -224,6 +233,7 @@ export interface FileRoutesById {
   '/_authenticated/numeros': typeof AuthenticatedNumerosRoute
   '/_authenticated/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/_authenticated/admin/agent-playground': typeof AuthenticatedAdminAgentPlaygroundRoute
+  '/_authenticated/admin/execution-trace': typeof AuthenticatedAdminExecutionTraceRoute
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/numeros'
     | '/teste-gratis'
     | '/admin/agent-playground'
+    | '/admin/execution-trace'
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/numeros'
     | '/teste-gratis'
     | '/admin/agent-playground'
+    | '/admin/execution-trace'
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
@@ -299,6 +311,7 @@ export interface FileRouteTypes {
     | '/_authenticated/numeros'
     | '/_authenticated/teste-gratis'
     | '/_authenticated/admin/agent-playground'
+    | '/_authenticated/admin/execution-trace'
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
@@ -428,6 +441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgenteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/execution-trace': {
+      id: '/_authenticated/admin/execution-trace'
+      path: '/admin/execution-trace'
+      fullPath: '/admin/execution-trace'
+      preLoaderRoute: typeof AuthenticatedAdminExecutionTraceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/agent-playground': {
       id: '/_authenticated/admin/agent-playground'
       path: '/admin/agent-playground'
@@ -501,6 +521,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedNumerosRoute: typeof AuthenticatedNumerosRoute
   AuthenticatedTesteGratisRoute: typeof AuthenticatedTesteGratisRoute
   AuthenticatedAdminAgentPlaygroundRoute: typeof AuthenticatedAdminAgentPlaygroundRoute
+  AuthenticatedAdminExecutionTraceRoute: typeof AuthenticatedAdminExecutionTraceRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -518,6 +539,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTesteGratisRoute: AuthenticatedTesteGratisRoute,
   AuthenticatedAdminAgentPlaygroundRoute:
     AuthenticatedAdminAgentPlaygroundRoute,
+  AuthenticatedAdminExecutionTraceRoute: AuthenticatedAdminExecutionTraceRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
