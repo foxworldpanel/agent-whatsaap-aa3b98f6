@@ -34,7 +34,7 @@ export async function logExecutionTrace(params: TraceLogParams) {
     });
     
   // Also log to console for immediate visibility in dev
-  console.log(\`[TRACE][\${traceId}][\${step}]\`, {
+  console.log(`[TRACE][${traceId}][${step}]`, {
     status,
     durationMs,
     messageId,
@@ -43,5 +43,5 @@ export async function logExecutionTrace(params: TraceLogParams) {
 }
 
 export function generateTraceId(): string {
-  return \`trc_\${Math.random().toString(36).substring(2, 11).toUpperCase()}\`;
+  return `trc_${Math.random().toString(36).substring(2, 11).toUpperCase()}`;
 }
