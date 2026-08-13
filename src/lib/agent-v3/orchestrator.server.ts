@@ -2162,6 +2162,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
     rawResponse: rawText,
     rawPrompt: systemPrompt,
     runId,
+    traceId,
   };
 
   try {
