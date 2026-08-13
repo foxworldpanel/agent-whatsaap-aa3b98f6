@@ -11,7 +11,7 @@ export const Route = createFileRoute("/")({
   },
   component: () => (
     <div className="p-8 font-mono whitespace-pre bg-slate-950 text-slate-50 min-h-screen">
-      manda aqui no chat a query
+      preciso da informação aqui no chat
     </div>
   ),
 });
