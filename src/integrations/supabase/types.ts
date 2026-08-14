@@ -2409,6 +2409,7 @@ export type Database = {
         Row: {
           history: Json
           id: string
+          order_context: Json | null
           phone: string
           updated_at: string | null
           user_id: string
@@ -2417,6 +2418,7 @@ export type Database = {
         Insert: {
           history?: Json
           id?: string
+          order_context?: Json | null
           phone: string
           updated_at?: string | null
           user_id: string
@@ -2425,6 +2427,7 @@ export type Database = {
         Update: {
           history?: Json
           id?: string
+          order_context?: Json | null
           phone?: string
           updated_at?: string | null
           user_id?: string
