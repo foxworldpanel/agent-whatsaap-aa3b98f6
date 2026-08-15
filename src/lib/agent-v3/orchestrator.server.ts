@@ -1067,6 +1067,7 @@ ${conditionalPrompts}
 ${conversationPrompt}${customerProfilePrompt}
 
 HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
+Se for cumprimentar agora, a saudação certa pra esse horário é "${saudacaoCorretaV3}" — não infira sozinho lendo a hora, use exatamente essa.
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
