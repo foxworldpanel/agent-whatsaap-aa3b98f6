@@ -2076,6 +2076,11 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   finalContent = finalContent
     .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
     .replace(/^===SPLIT===|===SPLIT===$/g, "")
+    // Remove vírgula/ponto-e-vírgula órfã logo no início de uma bolha
+    // nova — sobra de quando havia espaço entre o link e a pontuação
+    // (ex: "link , continua"), que o match da URL não pega porque o
+    // espaço já quebra a captura. Achado em conversa real em 15/08/2026.
+    .replace(/===SPLIT===\s*[,;]\s*/g, "===SPLIT===")
     .trim();
   // Correção determinística de saudação por horário
   const hourBr = (new Date().getUTCHours() - 3 + 24) % 24;
@@ -2109,6 +2114,9 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       )
       .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
       .replace(/^===SPLIT===|===SPLIT===$/g, "")
+      // Mesma correção do bloco genérico acima: remove vírgula órfã
+      // no início de bolha nova.
+      .replace(/===SPLIT===\s*[,;]\s*/g, "===SPLIT===")
       .trim();
   }
 
