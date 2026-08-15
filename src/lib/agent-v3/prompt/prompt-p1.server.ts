@@ -2,6 +2,8 @@
 // (Prompt Optimization V2). Texto idêntico ao original, só movido —
 // nenhuma regra foi alterada nesta extração.
 
+import { POS_VENDA_PROMPT } from "./prompt-post-sale.server";
+
 export type P1BuildParams = {
   businessDecisionState?: string;
   mentionsOwnMusic: boolean;
@@ -57,7 +59,7 @@ ${businessDecisionState === "pagamento" ? `PAGAMENTO:
 - Link do painel: instrução curta, ===SPLIT===, depois só o endereço (sem pontuação ao redor).
 ` : ""}
 ${(businessDecisionState === "fechamento" || businessDecisionState === "aguardando_setor") ? `SUPORTE DURANTE FECHAMENTO: veja bloco SUPORTE.` : ""}
-${businessDecisionState === "pos_venda" ? `PÓS-VENDA: veja bloco PÓS-VENDA.` : ""}
+${businessDecisionState === "pos_venda" ? POS_VENDA_PROMPT : ""}
 
 ADIAMENTO:
 - Cliente adiando ("depois", "ocupado"): reconhece e NÃO faz nova pergunta comercial no mesmo turno.`;
