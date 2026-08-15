@@ -944,6 +944,24 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date());
+  // Saudação calculada por código, não deixa a IA inferir sozinha lendo
+  // o texto do horário — achado em conversa real em 15/08/2026: o
+  // agente soltou "boa tarde" de madrugada/à noite, mesmo com o horário
+  // certo disponível como texto. Ler e interpretar corretamente toda
+  // vez é menos confiável que calcular uma vez e informar já pronto.
+  const currentBrazilHour = Number(
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date()),
+  );
+  const saudacaoCorretaV3 =
+    currentBrazilHour >= 5 && currentBrazilHour < 12
+      ? "bom dia"
+      : currentBrazilHour >= 12 && currentBrazilHour < 18
+        ? "boa tarde"
+        : "boa noite";
 
   // --- CARREGAMENTO CONDICIONAL DE RESPONSABILIDADES (V2) ---
   let conditionalPrompts = "";
