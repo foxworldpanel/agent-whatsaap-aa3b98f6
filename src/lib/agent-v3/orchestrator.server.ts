@@ -2114,6 +2114,9 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       )
       .replace(/(?:===SPLIT===\s*){2,}/g, "===SPLIT===")
       .replace(/^===SPLIT===|===SPLIT===$/g, "")
+      // Mesma correção do bloco genérico acima: remove vírgula órfã
+      // no início de bolha nova.
+      .replace(/===SPLIT===\s*[,;]\s*/g, "===SPLIT===")
       .trim();
   }
 
