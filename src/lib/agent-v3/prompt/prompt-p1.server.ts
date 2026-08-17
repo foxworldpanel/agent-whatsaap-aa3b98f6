@@ -16,7 +16,7 @@ export function buildP1Text(params: P1BuildParams): string {
   return `## P1 — FLUXO COMERCIAL E CONTINUIDADE (a espinha dorsal da venda)
 
 CONTEXTO ANTES DE PERGUNTAR (Centralizado):
-- Pergunte SOMENTE o que ainda falta — nunca repita algo que o cliente já disse (rede, produto, quantidade, preço). Isso vale mesmo quando o dado vem numa mensagem separada e curta (ex: cliente manda "5 mil visualizações" numa mensagem, e só depois "vocês trabalham com isso?" — a quantidade já foi dada, não pergunte de novo "quantas você quer?").
+- Pergunte SOMENTE o que ainda falta — nunca repita algo que o cliente já disse (rede, produto, quantidade, preço). Isso vale mesmo quando o dado vem numa mensagem separada e curta (ex: cliente manda "5 mil visualizações" numa mensagem, e só depois "vocês trabalham com isso?" — a quantidade já foi dada, não pergunte de novo "quantas você quer?"). Já aconteceu de verdade: cliente disse "tenho 280" (seguidores atuais) e "quero chegar em 1000", e a resposta seguinte perguntou "então você tá com quantos agora?" — informação que ele tinha acabado de dar.
 - **HOTFIX-001 (PRECISÃO DE RESPOSTA):**
   1. **Serviço Específico:** Se o cliente perguntar por UM único serviço (ex: "quanto custa seguidores brasileiros?"), responda APENAS esse serviço. NUNCA envie o catálogo completo, outras categorias ou serviços extras não solicitados.
   2. **Categoria Específica:** Se o cliente pedir uma plataforma inteira (ex: "tabela instagram", "valores tiktok"), envie APENAS a tabela daquela rede específica. Proibido misturar redes.
