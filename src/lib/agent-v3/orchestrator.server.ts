@@ -2003,6 +2003,24 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
     if (!finalContent) finalContent = "Tranquilo!";
   }
 
+  // Nunca solta saudação de horário (bom dia/boa tarde/boa noite/oi/olá)
+  // no meio de uma conversa já em andamento — trava de código, não só
+  // regra de prompt, porque a regra já existia há dias e continuava
+  // falhando repetidamente em conversas reais (achado em várias
+  // conversas de 12 a 17/08/2026). Só não mexe se for o primeiro turno
+  // (saudação esperada) ou se o cliente mandou só uma saudação (aí
+  // ecoar de volta é legítimo).
+  if (!isFirstTurn && !greetingOnly) {
+    const saudacaoNoMeioPattern = /^(bom\s+dia|boa\s+tarde|boa\s+noite|oi|ol[áa])[,!.]?\s*/i;
+    if (saudacaoNoMeioPattern.test(finalContent)) {
+      const semSaudacao = finalContent.replace(saudacaoNoMeioPattern, "");
+      // Proteção: nunca deixa a mensagem vazia por causa desse filtro.
+      if (semSaudacao.trim().length >= 3) {
+        finalContent = semSaudacao.charAt(0).toUpperCase() + semSaudacao.slice(1);
+      }
+    }
+  }
+
   // Pós-venda: não crie insegurança nem causas técnicas não cadastradas.
   if (currentIsPostSale || businessDecision?.state === "pedido_realizado" || businessDecision?.state === "pos_venda") {
     finalContent = finalContent
