@@ -145,12 +145,20 @@ export function isPureGreeting(text: string): boolean {
   // Se tiver mais de 25 caracteres, provavelmente não é só saudação
   if (normalized.length > 25) return false;
   
-  // Lista de saudações comuns
+  // Lista de saudações comuns. NÃO inclui "tudo bem"/"tudo bom"/"como
+  // vai" de propósito — achado em conversa real em 17/08/2026: essas
+  // frases são ambíguas (podem ser ABERTURA "oi, tudo bem?" OU RESPOSTA
+  // a uma pergunta que o próprio agente já fez "tudo bem?" → "tudo
+  // bem"). Tratar sempre como abertura faz o router (que não tem
+  // contexto da conversa) repetir a mesma saudação pronta de novo,
+  // mesmo quando o cliente só estava respondendo. Sem essas frases
+  // aqui, elas caem na rota normal (Claude), que tem o histórico
+  // completo e não repete.
   const commonGreetings = [
     "oi", "ola", "olá", "opa", "bom dia", "boa tarde", "boa noite", 
     "hi", "hello", "hey", "good morning", "good afternoon", "good evening",
     "hola", "buenos dias", "buenos días", "buenas tardes", "buenas noches",
-    "tudo bem", "como vai", "tudo bom", "eae", "e ai", "e aí"
+    "eae", "e ai", "e aí"
   ];
   
   // Remove pontuação para checar
