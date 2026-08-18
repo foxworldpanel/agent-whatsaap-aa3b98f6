@@ -1,0 +1,1 @@
+UPDATE conversations SET agent_enabled = false WHERE id = '2dfa0879-a4bc-4960-8c48-c35f83631479';
