@@ -1904,7 +1904,21 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
 
   // Pagamento só pode avançar depois que plataforma, serviço e uma oferta com
   // preço do catálogo foram validados. O agente não cria cobrança nem promoção.
+  //
+  // Exceção: se a mensagem ATUAL do cliente é claramente de encerramento
+  // (obrigado, vou tentar depois, etc), não dispara essa trava — achado em
+  // conversa real em 17/08/2026: cliente relatou problema de Pix, resolveu
+  // "vou tentar amanhã, não vou usar cartão" + "Obrigado!", e a trava
+  // disparou de novo pedindo "qual serviço você quer", ignorando que o
+  // cliente já tinha encerrado o assunto. O sinal de pagamento fica
+  // "grudado" (accumulatedCustomerText) since a primeira menção de "pix"
+  // na conversa inteira, então sem essa checagem a trava dispara mesmo
+  // quando o cliente só está agradecendo.
+  const currentMessageIsClosing = /^\s*(obrigad[oa]|valeu|vlw|blz|beleza|ok|okay|entendi|certo|tudo bem|vou tentar|depois eu|amanh[ãa] eu)\b/i.test(
+    message.trim(),
+  );
   if (
+    !currentMessageIsClosing &&
     selectionContext.intent === "pagamento" &&
     !selectionContext.hasPaidSignal &&
     !hasValidatedCommercialOfferV3({
