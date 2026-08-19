@@ -12,9 +12,9 @@ function LeadFinderPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Lead Finder - Phase 1 Validation Sprint</h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl">
-            A Fase 1 foi implementada. Antes de iniciar qualquer provider real (Instagram, TikTok, etc.), quero validar que a arquitetura realmente atende aos requisitos definidos.
+          <h1 className="text-3xl font-bold tracking-tight">Lead Finder</h1>
+          <p className="text-muted-foreground">
+            Descubra e gerencie leads qualificados de múltiplas plataformas.
           </p>
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -22,29 +22,7 @@ function LeadFinderPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="text-lg">Objetivo</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <p>Não adicionar funcionalidades novas.</p>
-            <p className="font-medium">Somente validar, testar e corrigir problemas da arquitetura da Fase 1.</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">AI Independence</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm space-y-2 text-muted-foreground">
-            Desabilitar completamente o AI Service.
-            Confirmar que Discovery, Persistência, Timeline e Jobs continuam funcionando.
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="validation" className="space-y-4">
+      <Tabs defaultValue="discovery" className="space-y-4">
         <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
           <TabsTrigger value="validation" className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
