@@ -1,4 +1,4 @@
-import { LeadDiscoveryResult } from "../types";
+import { LeadDiscoveryResult } from "./types";
 
 /**
  * AI Service (Mock for Phase 1)
