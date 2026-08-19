@@ -7,6 +7,8 @@ import { useServerFn } from "@tanstack/react-start"
 import { runLeadFinderTest } from "@/lib/lead-finder/test.functions"
 import { useState } from "react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+
 
 
 export const Route = createFileRoute('/_authenticated/lead-finder')({
