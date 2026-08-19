@@ -40,9 +40,12 @@ A foundation prepared for multi-account and multi-platform discovery.
   - `job.service.ts`: Queue management and run tracking.
   - `ai.service.ts`: Enrichment and scoring (Mock initially).
 
-### 3. Future Architectural Principles (Phase 2+)
-- **Pipeline Order**: Discovery -> Normalize -> Deduplicate -> Enrichment -> Score -> Queue -> Sales Agent.
-- **Normalization**: Dedicated step to transform varied provider outputs into the system's internal standard.
+### 3. Critical Architectural Rules
+- **Database Isolation**: No provider is allowed to perform `INSERT`, `UPDATE`, or `DELETE` directly. They must only return a `LeadDiscoveryResult`.
+- **Centralized Persistence**: Only `LeadService` handles persistence, deduplication, timeline registration, and state updates.
+- **AI Independence**: AI is optional. The core discovery flow must work even if AI services are unavailable.
+  - **Mandatory Flow**: Discovery -> Normalize -> LeadService -> Database.
+  - **Optional Flow**: Database -> AI Enrichment -> Lead Score.
 
 ### 4. User Interface
 - **Tabs**: Discovery (Form + Start), Lead Bank (Universal Table), Lead Detail (Sheet + Timeline), Jobs (Audit).
