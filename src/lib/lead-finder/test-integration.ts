@@ -9,7 +9,9 @@ import { LeadService } from "./lead.service";
  * Validates the entire flow: Job -> Provider -> Result -> Normalization -> Persistence -> Timeline.
  */
 export async function runPhase1IntegrationTest() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   console.log("🚀 Starting Phase 1 Integration Test...");
+
 
   try {
     // 1. Initialize Engine & Register Mock Provider
