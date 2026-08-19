@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Radar, Search, Database, LayoutList, History } from "lucide-react"
+import { Radar, Search, Database, LayoutList, History, CheckCircle2 } from "lucide-react"
 
 export const Route = createFileRoute('/_authenticated/lead-finder')({
   component: LeadFinderPage,
@@ -12,9 +12,9 @@ function LeadFinderPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Lead Finder</h1>
-          <p className="text-muted-foreground">
-            Descubra e gerencie leads qualificados de múltiplas plataformas.
+          <h1 className="text-3xl font-bold tracking-tight">Lead Finder - Phase 1 Validation Sprint</h1>
+          <p className="text-muted-foreground mt-2 max-w-2xl">
+            A Fase 1 foi implementada. Antes de iniciar qualquer provider real (Instagram, TikTok, etc.), quero validar que a arquitetura realmente atende aos requisitos definidos.
           </p>
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -22,15 +22,41 @@ function LeadFinderPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="discovery" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="text-lg">Objetivo</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-2">
+            <p>Não adicionar funcionalidades novas.</p>
+            <p className="font-medium">Somente validar, testar e corrigir problemas da arquitetura da Fase 1.</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">AI Independence</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-2 text-muted-foreground">
+            Desabilitar completamente o AI Service.
+            Confirmar que Discovery, Persistência, Timeline e Jobs continuam funcionando.
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="validation" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
+          <TabsTrigger value="validation" className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" />
+            Checklist
+          </TabsTrigger>
           <TabsTrigger value="discovery" className="flex items-center gap-2">
             <Search className="h-4 w-4" />
             Discovery
           </TabsTrigger>
           <TabsTrigger value="leads" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
-            Banco de Leads
+            Leads
           </TabsTrigger>
           <TabsTrigger value="jobs" className="flex items-center gap-2">
             <LayoutList className="h-4 w-4" />
@@ -41,6 +67,74 @@ function LeadFinderPage() {
             Timeline
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="validation" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <ValidationItem 
+              title="1. Deduplicação" 
+              description="Executar o Mock Provider duas ou mais vezes com os mesmos leads."
+              checks={[
+                "Nenhum lead duplicado é criado",
+                "Timeline não duplica eventos",
+                "Jobs registram corretamente"
+              ]}
+            />
+            <ValidationItem 
+              title="2. Provider Contract" 
+              description="Garantir que providers sejam puros (sem DB, IA ou Sales Agent)."
+              checks={[
+                "Sem INSERT/UPDATE/DELETE direto",
+                "Acesso ao banco proibido",
+                "Retorno exclusivo LeadDiscoveryResult"
+              ]}
+            />
+            <ValidationItem 
+              title="3. DiscoveryEngine" 
+              description="Validar flexibilidade e desacoplamento de providers."
+              checks={[
+                "Aceita múltiplos providers",
+                "Independente do Mock Provider",
+                "Troca sem alteração de código"
+              ]}
+            />
+            <ValidationItem 
+              title="4. LeadService" 
+              description="Validar centralização da persistência."
+              checks={[
+                "Single source of truth para escrita",
+                "Deduplicação centralizada",
+                "Gestão de estado de leads"
+              ]}
+            />
+            <ValidationItem 
+              title="6. Timeline" 
+              description="Fluxo: Discovered → Persisted → Job Registered → Finished."
+              checks={[
+                "Eventos em ordem lógica",
+                "Sem duplicidade de logs",
+                "Dados de contexto preservados"
+              ]}
+            />
+            <ValidationItem 
+              title="7. Jobs" 
+              description="Validar transições de estados de execução."
+              checks={[
+                "RUNNING → FINISHED",
+                "Tratamento de FAILED",
+                "Logs de erro capturados"
+              ]}
+            />
+          </div>
+
+          <Card className="border-dashed">
+            <CardHeader>
+              <CardTitle className="text-lg">8. Relatório Final</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Entregar ao final desta sprint o resultado de cada teste, problemas encontrados, correções e a confirmação dos Success Criteria da Fase 1.
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="discovery">
           <Card>
@@ -99,5 +193,26 @@ function LeadFinderPage() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+function ValidationItem({ title, description, checks }: { title: string, description: string, checks: string[] }) {
+  return (
+    <Card className="flex flex-col">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">{title}</CardTitle>
+        <CardDescription className="text-xs">{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-1">
+        <ul className="space-y-1.5 mt-2">
+          {checks.map((check, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+              <div className="mt-1 h-1.5 w-1.5 rounded-full bg-primary/40 shrink-0" />
+              {check}
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   )
 }
