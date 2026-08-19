@@ -16,8 +16,11 @@ A foundation prepared for multi-account and multi-platform discovery.
   - `lead_origin`, `lead_origin_value`.
   - `raw_profile_data` (JSONB) - For future AI re-processing.
   - `customer_type`, `segment`, `priority`, `confidence`, `lead_score`, `lead_score_reason`, `ai_version`.
-  - `pipeline_stage` (`lead_pipeline_stage`), `sales_status` (`lead_sales_status`), `tags` (TEXT[]).
+  - `pipeline_stage` (`lead_pipeline_stage`), `sales_status` (`lead_sales_status`).
+  - `discovered_at` (When the lead was first found by a provider).
   - `last_seen_at`, `created_at`, `updated_at`.
+- **`lead_finder_tags`**:
+  - Dedicated table for tags: `id`, `lead_id` (FK), `tag` (TEXT), `created_at`.
 - **`lead_finder_credentials`**:
   - `id`, `provider_type` (e.g., 'instagram'), `account_name`, `status`, `config` (JSONB).
 - **`lead_finder_providers`**:
@@ -27,25 +30,28 @@ A foundation prepared for multi-account and multi-platform discovery.
 - **`lead_finder_provider_runs`**:
   - `id`, `job_id` (FK), `provider_key`, `credential_id` (FK to `lead_finder_credentials`), `status`, `error_message`, `finished_at`.
 - **`lead_finder_timeline`**: Audit trail for leads (e.g., '19:10 Discovered').
-- **`lead_finder_campaigns`**: Structure only for Phase 1.
 
 ### 2. Modular Architecture (`src/lib/lead-finder/`)
 - **`IDiscoveryProvider`**: Interface (`search`, `collect`, `validate`, `stop`).
 - **`LeadDiscoveryResult`**: Standardized object returned by all providers (`profile`, `contacts`, `links`, `metadata`, `rawData`).
-- **`DiscoveryEngine`**: Orchestrates provider selection and execution.
+- **`DiscoveryEngine`**: Orchestrates provider selection, normalization, and execution.
 - **Services**:
   - `lead.service.ts`: CRUD, deduplication, and timeline.
   - `job.service.ts`: Queue management and run tracking.
   - `ai.service.ts`: Enrichment and scoring (Mock initially).
 
-### 3. User Interface
+### 3. Future Architectural Principles (Phase 2+)
+- **Pipeline Order**: Discovery -> Normalize -> Deduplicate -> Enrichment -> Score -> Queue -> Sales Agent.
+- **Normalization**: Dedicated step to transform varied provider outputs into the system's internal standard.
+
+### 4. User Interface
 - **Tabs**: Discovery (Form + Start), Lead Bank (Universal Table), Lead Detail (Sheet + Timeline), Jobs (Audit).
 - **Navigation**: "Lead Finder" in `AppShell.tsx` (Icon: `Radar`).
 
 ## Proposed Changes
 
 ### Database
-- SQL migration for all enums, tables (including `credentials`), RLS, and GRANTs.
+- SQL migration for all enums, tables (including `credentials` and `tags`), RLS, and GRANTs.
 
 ### Frontend & Services
 - Update `AppShell.tsx` navigation.
