@@ -40,6 +40,7 @@ import {
   RECLAMACAO_TEXT,
   SUPORTE_EXPANDIDO_TEXT,
   HESITACAO_TOM_TEXT,
+  INTERESSE_TESTE_TOM_TEXT,
   OBJECAO_CONFIANCA_TOM_TEXT
 } from "./prompt/prompt-conditional.server";
 
@@ -533,7 +534,7 @@ export interface OrchestratorInput {
   // consumia. Primeira conexão real: só o sinal de hesitação influencia
   // o TOM da resposta (nunca preço — desconto real precisa de decisão
   // de negócio própria, não é algo que o prompt decide sozinho).
-  offerEligibility?: { eligibleForDiscount: boolean };
+  offerEligibility?: { eligibleForDiscount: boolean; eligibleForFreeTest?: boolean };
   objections?: Array<{ category: string; reason: string }>;
   historyTelemetry?: {
     total_messages_stored: number;
@@ -1005,6 +1006,13 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   // até agora). Só ajusta tom, nunca preço/desconto de verdade.
   if (offerEligibility?.eligibleForDiscount) {
     conditionalPrompts += "\n\n" + HESITACAO_TOM_TEXT;
+  }
+
+  // Conecta eligibleForFreeTest — campo calculado desde a Fase B mas
+  // nunca lido por ninguém até 17/08/2026 (achado em auditoria do
+  // Outbound). Sinal diferente de HESITATING, não duplica nada.
+  if (offerEligibility?.eligibleForFreeTest) {
+    conditionalPrompts += "\n\n" + INTERESSE_TESTE_TOM_TEXT;
   }
 
   // Objeção de confiança/segurança — primeira conexão real desse sinal.
