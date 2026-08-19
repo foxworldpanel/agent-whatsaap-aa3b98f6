@@ -40,10 +40,8 @@ export async function runPhase1IntegrationTest() {
 
 
     // 2. Create Job
-    const { data: { user } } = await supabaseAdmin.auth.getUser(); // This is just for user_id if needed, but admin client won't have session by default. 
-    // In server function context we might want to pass the authenticated user ID if we need it for 'created_by'.
-    
     const { data: job, error: jobError } = await supabaseAdmin
+
       .from('lead_finder_jobs')
       .insert({
         provider_id: providerEntry.id,
