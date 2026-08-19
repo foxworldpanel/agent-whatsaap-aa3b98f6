@@ -1,7 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Radar, Search, Database, LayoutList, History } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Radar, Search, Database, LayoutList, History, Play, CheckCircle2, XCircle } from "lucide-react"
+import { useServerFn } from "@tanstack/react-start"
+import { runLeadFinderTest } from "@/lib/lead-finder/test.functions"
+import { useState } from "react"
+import { toast } from "sonner"
+
 
 export const Route = createFileRoute('/_authenticated/lead-finder')({
   component: LeadFinderPage,
