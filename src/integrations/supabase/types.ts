@@ -2887,6 +2887,297 @@ export type Database = {
           },
         ]
       }
+      lead_finder_credentials: {
+        Row: {
+          account_name: string
+          config: Json | null
+          created_at: string | null
+          id: string
+          provider_type: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          account_name: string
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          provider_type: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          account_name?: string
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          provider_type?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      lead_finder_jobs: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          provider_id: string | null
+          stats: Json | null
+          status: Database["public"]["Enums"]["job_status"]
+          updated_at: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          provider_id?: string | null
+          stats?: Json | null
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          provider_id?: string | null
+          stats?: Json | null
+          status?: Database["public"]["Enums"]["job_status"]
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_finder_jobs_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "lead_finder_providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_finder_leads: {
+        Row: {
+          ai_version: string | null
+          bio: string | null
+          confidence: number | null
+          created_at: string | null
+          customer_type: string | null
+          discovered_at: string | null
+          display_name: string | null
+          email: string | null
+          id: string
+          last_seen_at: string | null
+          lead_origin: string | null
+          lead_origin_value: string | null
+          lead_score: number | null
+          lead_score_reason: string | null
+          links: Json | null
+          phone: string | null
+          pipeline_stage: Database["public"]["Enums"]["lead_pipeline_stage"]
+          platform: string
+          priority: string | null
+          profile_url: string | null
+          profile_username: string
+          raw_profile_data: Json | null
+          sales_status: Database["public"]["Enums"]["lead_sales_status"]
+          segment: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          ai_version?: string | null
+          bio?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          customer_type?: string | null
+          discovered_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          last_seen_at?: string | null
+          lead_origin?: string | null
+          lead_origin_value?: string | null
+          lead_score?: number | null
+          lead_score_reason?: string | null
+          links?: Json | null
+          phone?: string | null
+          pipeline_stage?: Database["public"]["Enums"]["lead_pipeline_stage"]
+          platform: string
+          priority?: string | null
+          profile_url?: string | null
+          profile_username: string
+          raw_profile_data?: Json | null
+          sales_status?: Database["public"]["Enums"]["lead_sales_status"]
+          segment?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          ai_version?: string | null
+          bio?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          customer_type?: string | null
+          discovered_at?: string | null
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          last_seen_at?: string | null
+          lead_origin?: string | null
+          lead_origin_value?: string | null
+          lead_score?: number | null
+          lead_score_reason?: string | null
+          links?: Json | null
+          phone?: string | null
+          pipeline_stage?: Database["public"]["Enums"]["lead_pipeline_stage"]
+          platform?: string
+          priority?: string | null
+          profile_url?: string | null
+          profile_username?: string
+          raw_profile_data?: Json | null
+          sales_status?: Database["public"]["Enums"]["lead_sales_status"]
+          segment?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      lead_finder_provider_runs: {
+        Row: {
+          created_at: string | null
+          credential_id: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          job_id: string
+          provider_key: string
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          credential_id?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_id: string
+          provider_key: string
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          credential_id?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_id?: string
+          provider_key?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_finder_provider_runs_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "lead_finder_credentials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_finder_provider_runs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "lead_finder_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_finder_providers: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          id: string
+          provider_key: string
+          provider_type: string
+          status: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          provider_key: string
+          provider_type: string
+          status?: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          id?: string
+          provider_key?: string
+          provider_type?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      lead_finder_tags: {
+        Row: {
+          created_at: string | null
+          id: string
+          lead_id: string
+          tag: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lead_id: string
+          tag: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lead_id?: string
+          tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_finder_tags_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_finder_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_finder_timeline: {
+        Row: {
+          created_at: string | null
+          event: string
+          id: string
+          lead_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event: string
+          id?: string
+          lead_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event?: string
+          id?: string
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_finder_timeline_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_finder_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           audio_url: string | null
@@ -3662,6 +3953,30 @@ export type Database = {
         | "encerrada"
       execution_mode: "production" | "shadow" | "pilot"
       funnel_status: "not_started" | "running" | "completed"
+      job_status:
+        | "PENDING"
+        | "RUNNING"
+        | "FINISHED"
+        | "FAILED"
+        | "PAUSED"
+        | "CANCELLED"
+      lead_pipeline_stage:
+        | "DISCOVERED"
+        | "ENRICHED"
+        | "READY_FOR_SALES"
+        | "IN_CAMPAIGN"
+        | "CONTACTED"
+        | "RESPONDED"
+        | "QUALIFIED"
+        | "CUSTOMER"
+      lead_sales_status:
+        | "NEW"
+        | "QUEUED"
+        | "CONTACTED"
+        | "RESPONDED"
+        | "QUALIFIED"
+        | "CONVERTED"
+        | "LOST"
       log_status: "enviado" | "respondido" | "falha"
       message_kind: "texto" | "audio"
       message_sender: "agente" | "cliente"
@@ -3815,6 +4130,33 @@ export const Constants = {
       ],
       execution_mode: ["production", "shadow", "pilot"],
       funnel_status: ["not_started", "running", "completed"],
+      job_status: [
+        "PENDING",
+        "RUNNING",
+        "FINISHED",
+        "FAILED",
+        "PAUSED",
+        "CANCELLED",
+      ],
+      lead_pipeline_stage: [
+        "DISCOVERED",
+        "ENRICHED",
+        "READY_FOR_SALES",
+        "IN_CAMPAIGN",
+        "CONTACTED",
+        "RESPONDED",
+        "QUALIFIED",
+        "CUSTOMER",
+      ],
+      lead_sales_status: [
+        "NEW",
+        "QUEUED",
+        "CONTACTED",
+        "RESPONDED",
+        "QUALIFIED",
+        "CONVERTED",
+        "LOST",
+      ],
       log_status: ["enviado", "respondido", "falha"],
       message_kind: ["texto", "audio"],
       message_sender: ["agente", "cliente"],
