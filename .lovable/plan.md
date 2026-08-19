@@ -1,38 +1,57 @@
-# Plan - Lead Finder Phase 1
+# Plan - Lead Finder Phase 1 (Universal & Scalable)
 
-This plan outlines the implementation of the **Lead Finder** module (Phase 1). This phase focuses on the foundational structure: database schema, navigation, and the core user interface with four functional tabs. Automatic lead scraping is not part of this phase.
+This plan outlines the implementation of the **Lead Finder** module (Phase 1). The architecture is designed to be universal, platform-agnostic, and prepared for future AI and Sales Agent automation, avoiding future migrations and refactoring.
 
 ## Technical Details
 
 ### 1. Database Schema
-Create two new tables in the `public` schema with RLS and appropriate grants.
+Create a robust, scalable schema in the `public` schema.
 
-- **`lead_finder_leads`**: Stores discovered lead information.
-  - `id` (UUID, PK), `instagram`, `name`, `bio`, `phone`, `email`, `website`, `links` (JSONB), `source`, `search_term`, `lead_type`, `segment`, `priority`, `confidence` (numeric), `ai_analysis` (JSONB), `status`, `already_contacted` (boolean), `created_at`, `updated_at`.
-- **`lead_finder_jobs`**: Tracks search/discovery tasks.
-  - `id` (UUID, PK), `origin`, `search_term`, `status`, `started_at`, `finished_at`, `total_found`, `new_leads`, `duplicates`, `errors`.
+- **`public.lead_sales_status`** (Enum):
+  - `NEW`, `QUEUED`, `CONTACTED`, `RESPONDED`, `QUALIFIED`, `CONVERTED`, `LOST`.
+
+- **`lead_finder_leads`**:
+  - `id` (UUID, PK).
+  - `platform` (e.g., 'instagram', 'tiktok', 'manual', 'csv').
+  - `profile_username`, `profile_url`, `display_name`, `bio`, `phone`, `email`, `website`, `links` (JSONB).
+  - `source` (e.g., search term, CSV file name).
+  - `customer_type`, `segment`, `priority`, `confidence` (numeric).
+  - `lead_score` (numeric), `lead_score_reason` (text).
+  - `sales_status` (Enum `lead_sales_status` default 'NEW').
+  - `ai_analysis` (JSONB) - For additional unstructured metadata.
+  - `created_at`, `updated_at`.
+  - *Deduplication*: Prepared for intelligent deduplication based on `platform` + `profile_username`, `phone`, and `email`.
+
+- **`lead_finder_jobs`**:
+  - `id` (UUID, PK), `origin` (platform/provider), `search_term`, `status`.
+  - `config` (JSONB) - For provider-specific settings.
+  - `stats` (JSONB) - For rich execution statistics.
+  - `started_at`, `finished_at`, `duration_ms`, `created_by` (UUID).
+
+- **`lead_finder_events`**:
+  - `id` (UUID, PK), `lead_id` (FK), `event_type` (e.g., 'lead_created', 'ai_analyzed', 'sent_to_sales', 'contact_started', 'response_received').
+  - `metadata` (JSONB), `created_at`.
 
 ### 2. Navigation
-- Add a new "Lead Finder" item to `src/components/AppShell.tsx` using a modern icon (e.g., `Search` or `UserPlus`).
-- Create the route at `src/routes/_authenticated/lead-finder.tsx`.
+- Add "Lead Finder" to `src/components/AppShell.tsx` using a modern icon (e.g., `UserPlus` or `Radar`).
+- Route: `src/routes/_authenticated/lead-finder.tsx`.
 
 ### 3. User Interface (Lead Finder Page)
-Implement a tabbed interface using Shadcn components:
-- **Discovery (Aba 1)**: Form to start searches. Selection for Origin (Instagram, TikTok, etc.), Search Type (Hashtag, Keyword, Profile), Max Leads, and AI Classification toggle. The "Start" button will trigger a mock job for now.
-- **Lead Bank (Aba 2)**: A modern data table with columns for lead data, filters (WhatsApp, Email, Contacted status, Priority), search, and pagination.
-- **Lead Detail (Aba 3)**: A side panel (Sheet) triggered by clicking a lead, showing full info and "Send to Sales Agent" (event logging) and "Edit/Delete" actions.
-- **Jobs (Aba 4)**: A list of search jobs showing status and summary statistics.
+- **Discovery (Aba 1)**: Generic "Discovery Provider" interface. Platform selection (Instagram, TikTok, YouTube, Manual, CSV), Search Type, Max Quantity, AI Toggle. "Start" button triggers a Mock Provider for now.
+- **Lead Bank (Aba 2)**: Universal data table with platform-agnostic columns. Filters by platform, status, score, etc.
+- **Lead Detail (Aba 3)**: Sheet showing profile info, individual AI classification fields, score, and event history.
+- **Jobs (Aba 4)**: Audit list of all discovery executions with stats.
 
 ### 4. Integration Boilerplate
-- Prepare functions in `src/lib/lead-finder.functions.ts` for CRUD operations.
-- Set up the interface for future AI analysis storage.
+- `src/lib/lead-finder/`: Modular structure for discovery providers (starting with `mock.ts`).
+- `src/lib/lead-finder.functions.ts` for CRUD and backend communication.
 
 ## Proposed Changes
 
 ### Database
-- Execute SQL migration for `lead_finder_leads` and `lead_finder_jobs`.
+- SQL migration for enums, tables, and RLS policies with GRANTs.
 
 ### Frontend
 - Update `AppShell.tsx` navigation.
 - Create `src/routes/_authenticated/lead-finder.tsx`.
-- Create supporting components for the tabs.
+- Implement supporting components for tabs and providers.
