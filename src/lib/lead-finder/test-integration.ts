@@ -20,7 +20,6 @@ export async function runPhase1IntegrationTest() {
     discoveryEngine.registerProvider(providerKey, mockProvider);
     
     // Ensure provider exists in DB using Admin client to bypass RLS for setup
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: providerEntry, error: providerError } = await supabaseAdmin
       .from('lead_finder_providers')
       .upsert({
@@ -30,6 +29,7 @@ export async function runPhase1IntegrationTest() {
       }, { onConflict: 'provider_key' })
       .select()
       .single();
+
 
     if (providerError) {
       console.error("Provider Error:", providerError);
