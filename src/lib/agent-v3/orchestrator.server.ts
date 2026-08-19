@@ -977,7 +977,18 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   if (needsRegistration) conditionalPrompts += "\n\n" + CADASTRO_TEXT;
 
   // 6. Alerta de Banco (Sinais de risco/bloqueio)
-  const needsBankAlert = /alerta|bloqueio|risco|seguranca|transacao recusada/i.test(lastCustomerMessage);
+  // Gatilho expandido e com normalização de acento — achado em conversa
+  // real em 17/08/2026: a versão anterior desse regex não pegava a frase
+  // real do cliente ("não está autorizando"), porque comparava sem
+  // remover acento contra um regex sem acento. Sem essa correção, o
+  // bloco de orientação de Pix bloqueado nunca disparava de verdade.
+  const lastCustomerMessageSemAcento = lastCustomerMessage
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const needsBankAlert =
+    /alerta|bloque|risco|seguranca|transacao recusad|nao (esta |estao )?autoriz|nao consegui (fazer o pix|pagar)|nao esta indo|nao foi (o pix|aceito)|recusou|recusad|pix nao (funciona|foi|passou|caiu)/i.test(
+      lastCustomerMessageSemAcento,
+    );
   if (needsBankAlert) conditionalPrompts += "\n\n" + BANCO_ALERTA_TEXT;
 
   // 8. Reclamação

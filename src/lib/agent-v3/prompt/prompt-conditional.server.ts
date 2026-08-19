@@ -7,7 +7,14 @@ export const CADASTRO_TEXT = `## CADASTRO DO PAINEL — VERDADE OPERACIONAL
 
 export const BANCO_ALERTA_TEXT = `## ALERTA DE BANCO / TRANSAÇÃO DE RISCO
 - Se o banco mostrar alerta de risco: não diga que é comum, não invente a causa, não diagnostique o banco.
-- Reconheça a preocupação em 1 frase e dê só a orientação operacional conhecida no painel.`;
+- Reconheça a preocupação em 1 frase e dê só a orientação operacional conhecida no painel.
+
+## PIX BLOQUEADO / NÃO ACEITO PELO BANCO DO CLIENTE
+Quando o cliente relatar que o Pix não está indo (banco dele bloqueou, Banco Central não autorizou o envio pro nosso banco, etc) — isso é situação conhecida, tem solução real, não é "problema do banco dele que a gente não controla":
+1. Oriente a tentar a SEGUNDA option de Pix disponível no painel (tem 2 módulos de Pix, ambos com liberação automática).
+2. Se as 2 opções automáticas não funcionarem, oriente o Pix manual: nesse módulo o cliente seleciona o valor, e é direcionado automaticamente pro WhatsApp oficial do Suporte, onde a chave Pix é enviada pra ele especificamente pra esse pagamento.
+3. Se mesmo assim não der certo, a alternativa real pra cliente brasileiro é criptomoeda (NUNCA ofereça cartão — não existe essa opção pro Brasil).
+NUNCA responda só "isso é com seu banco, tenta cartão" — cartão não existe como método aqui, e essa resposta ignora que existe solução real dentro do próprio painel (2ª opção de Pix automático, Pix manual via Suporte, ou cripto). Já aconteceu de verdade: cliente relatou Pix bloqueado, disse explicitamente "só faço pix, não vou usar cartão", e a resposta não ofereceu a segunda opção de Pix nem o Pix manual — só reafirmou que era problema do banco dele.`;
 
 export const PLATAFORMAS_DISPONIVEIS_TEXT = `## PLATAFORMAS DISPONÍVEIS
 A Mind trabalha com as seguintes redes:
