@@ -12,9 +12,9 @@ function LeadFinderPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Lead Finder - Phase 1 Validation Sprint</h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl">
-            A Fase 1 foi implementada. Antes de iniciar qualquer provider real (Instagram, TikTok, etc.), quero validar que a arquitetura realmente atende aos requisitos definidos.
+          <h1 className="text-3xl font-bold tracking-tight">Lead Finder</h1>
+          <p className="text-muted-foreground">
+            Descubra e gerencie leads qualificados de múltiplas plataformas.
           </p>
         </div>
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -22,34 +22,8 @@ function LeadFinderPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-primary/20 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="text-lg">Objetivo</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <p>Não adicionar funcionalidades novas.</p>
-            <p className="font-medium">Somente validar, testar e corrigir problemas da arquitetura da Fase 1.</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">AI Independence</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm space-y-2 text-muted-foreground">
-            Desabilitar completamente o AI Service.
-            Confirmar que Discovery, Persistência, Timeline e Jobs continuam funcionando.
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="validation" className="space-y-4">
+      <Tabs defaultValue="discovery" className="space-y-4">
         <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
-          <TabsTrigger value="validation" className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4" />
-            Checklist
-          </TabsTrigger>
           <TabsTrigger value="discovery" className="flex items-center gap-2">
             <Search className="h-4 w-4" />
             Discovery
@@ -66,46 +40,37 @@ function LeadFinderPage() {
             <History className="h-4 w-4" />
             Timeline
           </TabsTrigger>
+          <TabsTrigger value="validation" className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" />
+            Validation
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="validation" className="space-y-4">
+          <div className="grid gap-6 md:grid-cols-2 mb-4">
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-lg">Objetivo - Phase 1 Validation Sprint</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2">
+                <p>Não adicionar funcionalidades novas.</p>
+                <p className="font-medium">Somente validar, testar e corrigir problemas da arquitetura da Fase 1.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">AI Independence</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2 text-muted-foreground">
+                Desabilitar completamente o AI Service.
+                Confirmar que Discovery, Persistência, Timeline e Jobs continuam funcionando.
+              </CardContent>
+            </Card>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <ValidationItem 
-              title="1. Deduplicação" 
-              description="Executar o Mock Provider duas ou mais vezes com os mesmos leads."
-              checks={[
-                "Nenhum lead duplicado é criado",
-                "Timeline não duplica eventos",
-                "Jobs registram corretamente"
-              ]}
-            />
-            <ValidationItem 
-              title="2. Provider Contract" 
-              description="Garantir que providers sejam puros (sem DB, IA ou Sales Agent)."
-              checks={[
-                "Sem INSERT/UPDATE/DELETE direto",
-                "Acesso ao banco proibido",
-                "Retorno exclusivo LeadDiscoveryResult"
-              ]}
-            />
-            <ValidationItem 
-              title="3. DiscoveryEngine" 
-              description="Validar flexibilidade e desacoplamento de providers."
-              checks={[
-                "Aceita múltiplos providers",
-                "Independente do Mock Provider",
-                "Troca sem alteração de código"
-              ]}
-            />
-            <ValidationItem 
-              title="4. LeadService" 
-              description="Validar centralização da persistência."
-              checks={[
-                "Single source of truth para escrita",
-                "Deduplicação centralizada",
-                "Gestão de estado de leads"
-              ]}
-            />
+...
             <ValidationItem 
               title="6. Timeline" 
               description="Fluxo: Discovered → Persisted → Job Registered → Finished."
