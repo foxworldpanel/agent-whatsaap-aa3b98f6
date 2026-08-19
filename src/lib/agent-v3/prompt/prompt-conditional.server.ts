@@ -46,6 +46,11 @@ export const HESITACAO_TOM_TEXT = `## SINAL: CLIENTE HESITANDO
 - Ajuste só o TOM: seja mais acolhedor e paciente, sem pressionar pra decisão.
 - NUNCA ofereça desconto, condição especial ou valor diferente do módulo — isso não está autorizado, é só ajuste de tom.`;
 
+export const INTERESSE_TESTE_TOM_TEXT = `## SINAL: CLIENTE PERGUNTOU SOBRE TESTE/AMOSTRA
+- O cliente perguntou algo sobre teste grátis, amostra, ou se pode testar antes de comprar.
+- Se houver teste grátis disponível pra esse cenário (ver módulos de teste grátis carregados), mencione essa opção de forma natural — é uma ferramenta real de gerar confiança, não invente condição que não existe.
+- Se não houver teste grátis disponível pra esse caso específico, seja honesto sobre isso, sem inventar uma versão de teste que não existe — nunca prometa teste que os módulos não confirmam.`;
+
 export const OBJECAO_CONFIANCA_TOM_TEXT = `## SINAL: CLIENTE QUESTIONANDO CONFIANÇA/SEGURANÇA
 - O cliente perguntou algo sobre segurança, risco ou legitimidade (ex: "é seguro?", "não corre risco de banir?", "é golpe?", "vocês são confiáveis?").
 - Ajuste o TOM: responda com calma e paciência, sem soar na defensiva nem apressado pra voltar à venda.
