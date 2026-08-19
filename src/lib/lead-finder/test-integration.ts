@@ -17,8 +17,9 @@ export async function runPhase1IntegrationTest() {
     const providerKey = 'mock_tester';
     discoveryEngine.registerProvider(providerKey, mockProvider);
     
-    // Ensure provider exists in DB
-    const { data: providerEntry, error: providerError } = await supabase
+    // Ensure provider exists in DB using Admin client to bypass RLS for setup
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: providerEntry, error: providerError } = await supabaseAdmin
       .from('lead_finder_providers')
       .upsert({
         provider_type: 'mock',
@@ -33,6 +34,7 @@ export async function runPhase1IntegrationTest() {
       throw new Error(`Failed to ensure provider in DB: ${providerError.message} (${providerError.code})`);
     }
     if (!providerEntry) throw new Error("Failed to ensure provider in DB: No data returned");
+
 
 
     // 2. Create Job
