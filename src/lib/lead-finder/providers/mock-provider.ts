@@ -1,6 +1,6 @@
-import { IDiscoveryProvider, LeadDiscoveryResult } from "./types";
-import { JobService } from "./job.service";
-import { LeadService } from "./lead.service";
+import { IDiscoveryProvider, LeadDiscoveryResult } from "../types";
+import { JobService } from "../job.service";
+import { LeadService } from "../lead.service";
 
 /**
  * Mock Discovery Provider
