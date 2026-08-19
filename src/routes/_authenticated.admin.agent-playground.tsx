@@ -321,14 +321,14 @@ function AgentPlaygroundPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] gap-4 overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-80px)] gap-4 overflow-hidden">
       {/* Faixa de Ambiente de Teste */}
       <div className="bg-amber-100 border-l-4 border-amber-500 p-2 text-amber-800 text-xs font-semibold flex items-center gap-2">
         <ShieldCheck className="h-4 w-4" />
         AMBIENTE DE TESTE — nenhuma mensagem será enviada ao WhatsApp
       </div>
 
-      <div className="flex flex-1 gap-4 overflow-hidden">
+      <div className="flex flex-1 min-h-0 gap-4 overflow-hidden">
         {/* Coluna 1: Sessões e Testes */}
         <aside className="w-80 border rounded-lg bg-card flex flex-col overflow-hidden">
           <div className="p-4 border-b space-y-4">
@@ -388,7 +388,7 @@ function AgentPlaygroundPage() {
         </aside>
 
         {/* Coluna 2: Chat */}
-        <div className="flex-1 flex flex-col border rounded-lg bg-card overflow-hidden">
+        <div className="flex-1 flex flex-col border rounded-lg bg-card overflow-hidden min-h-0">
           <header className="p-4 border-b flex items-center justify-between">
             <div>
               <h2 className="font-semibold">{activeSession?.name || "Selecione uma sessão"}</h2>
@@ -403,7 +403,7 @@ function AgentPlaygroundPage() {
             )}
           </header>
 
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+          <ScrollArea className="flex-1 min-h-0 p-4" ref={scrollRef}>
             <div className="space-y-4 max-w-3xl mx-auto">
               {messagesLoading ? (
                 <div className="flex justify-center p-8 text-muted-foreground">Carregando mensagens...</div>
