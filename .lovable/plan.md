@@ -1,47 +1,45 @@
-# Plan - Lead Intelligence (Lead Finder) Phase 1
+# Plan - Lead Finder Phase 1
 
-This plan outlines the implementation of the **Lead Intelligence** module (Phase 1). The architecture is designed as a modular, queue-based pipeline that is robust and scalable, following the successful patterns used in Agent V3.
+This plan outlines the implementation of the **Lead Finder** module (Phase 1). The architecture is designed for scalability and resilience, using a multi-engine discovery pipeline that separates data acquisition, enrichment, and sales delivery.
 
 ## Technical Details
 
-### 1. Robust Database Schema
-Create a foundation that supports dynamic provider management and offline AI processing.
+### 1. Scalable Database Schema
+A robust foundation with multi-account and multi-provider support.
 
 - **`public.lead_sales_status`** (Enum): `NEW`, `QUEUED`, `CONTACTED`, `RESPONDED`, `QUALIFIED`, `CONVERTED`, `LOST`.
+- **`public.job_status`** (Enum): `PENDING`, `RUNNING`, `FINISHED`, `FAILED`, `PAUSED`, `CANCELLED`.
 - **`lead_finder_leads`**:
-  - `id`, `platform`, `profile_username`, `profile_url`, `display_name`, `bio`, `phone`, `email`, `website`, `links` (JSONB), `raw_profile_data` (JSONB).
+  - `id`, `platform`, `profile_username`, `profile_url`, `display_name`, `bio`, `phone`, `email`, `website`, `links` (JSONB).
   - `lead_origin`, `lead_origin_value`.
   - `customer_type`, `segment`, `priority`, `confidence`, `lead_score`, `lead_score_reason`, `ai_version`.
-  - `sales_status`, `last_seen_at`, `created_at`, `updated_at`.
-- **`lead_finder_providers`**:
-  - `id`, `provider_key` (e.g., 'instagram'), `status` (enabled/disabled), `config` (JSONB).
-- **`lead_finder_jobs`**:
-  - `id`, `provider_id`, `search_term`, `status`, `config` (JSONB), `stats` (JSONB), `duration_ms`, `created_by`.
-- **`lead_finder_events`**: Audit trail for the lead lifecycle.
+  - `sales_status`, `raw_profile_data` (JSONB), `last_seen_at`, `created_at`, `updated_at`.
+- **`lead_finder_providers`**: `id`, `provider_key`, `status`, `config`.
+- **`lead_finder_jobs`**: `id`, `provider_id`, `status` (`job_status`), `config`, `stats`, `created_by`.
+- **`lead_finder_provider_runs`**: `id`, `job_id`, `provider_key`, `credential_id` (for future multiple accounts), `stats`, `status`.
+- **`lead_finder_timeline`**: Audit trail for leads (e.g., '19:10 Created', '19:11 AI Analyzed').
 
-### 2. Pipeline Architecture
-The system follows a non-blocking queue approach:
-`Discovery Engine` -> `Lead Bank (Save)` -> `AI Enrichment (Optional)` -> `Lead Score` -> `Sales Queue` -> `Sales Agent`.
-
-Implementation organized under `src/lib/lead-intelligence/`:
-- `discovery-engine.ts`: Decides which provider to use.
-- `lead.service.ts`: Lead CRUD and deduplication.
-- `job.service.ts`: Search execution management.
-- `provider.service.ts`: Provider status and config management.
-- `ai.service.ts`: Isolated enrichment and scoring logic.
-- `sales.service.ts`: Integration with Sales Agent queue.
+### 2. Lead Finder Pipeline Architecture
+Organized under `src/lib/lead-finder/`:
+- **Interface**: `IDiscoveryProvider` with `search()`, `collect()`, `validate()`, `stop()`.
+- **Discovery Engine**: Orchestrates providers based on job configuration.
+- **Services**:
+  - `lead.service.ts`: Handles persistence, deduplication, and timeline.
+  - `job.service.ts`: Manages the job queue and provider runs.
+  - `ai.service.ts`: Optional enrichment and scoring (Mock).
+  - `sales.service.ts`: Delivery to the Sales Agent queue.
 
 ### 3. UI Implementation
-- **Tabs**: Discovery, Lead Bank, Lead Detail (Sheet), Jobs.
+- **Tabs**: Discovery, Lead Bank, Lead Detail (Sheet with Timeline), Jobs.
 - **Components**: Modern shadcn/ui components.
-- **Provider Layer**: The Discovery tab communicates with the `Discovery Engine`.
+- **Navigation**: "Lead Finder" in `AppShell.tsx` (Icon: `Radar`).
 
 ## Proposed Changes
 
 ### Database
-- SQL migration for all enums, tables (including `lead_finder_providers`), and RLS.
+- SQL migration for all enums, tables (including `provider_runs` and `timeline`), and RLS.
 
 ### Frontend & Services
-- Update `AppShell.tsx` navigation (Icon: `Radar`).
+- Update `AppShell.tsx` navigation.
 - Create `src/routes/_authenticated/lead-finder.tsx`.
-- Implement `src/lib/lead-intelligence/` service-based structure.
+- Implement `src/lib/lead-finder/` modular structure and interfaces.
