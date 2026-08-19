@@ -15,6 +15,25 @@ Phase 1 is considered complete only if all of the following are true:
 - No provider performs database writes directly.
 - The architecture allows adding a new provider without changing `DiscoveryEngine`.
 
+## Implementation Strategy
+
+The implementation will be divided into 4 clear stages for easier review:
+
+### Stage 1 - Database
+- Enums, Tables, RLS, Indices, and SQL Migrations.
+
+### Stage 2 - Backend & Services
+- `IDiscoveryProvider`, `LeadDiscoveryResult`, `DiscoveryEngine`.
+- `lead.service.ts`, `job.service.ts`, and a mock `ai.service.ts`.
+
+### Stage 3 - Frontend UI
+- Sidebar Menu, Main Page, Tabs, Components.
+- Jobs and Timeline views.
+
+### Stage 4 - Mock Provider & Integration
+- Mock Discovery implementation.
+- End-to-end testing of persistence, timeline, and job tracking.
+
 ## Technical Details
 
 ### 1. Robust & Scalable Database Schema
@@ -30,20 +49,12 @@ Phase 1 is considered complete only if all of the following are true:
 - **`IDiscoveryProvider`**: Interface (`search`, `collect`, `validate`, `stop`).
 - **`LeadDiscoveryResult`**: Standardized object (`profile`, `contacts`, `links`, `metadata`, `rawData`).
 - **`DiscoveryEngine`**: Orchestrates provider execution and normalization.
-- **Services**:
-  - `lead.service.ts`: CRUD, deduplication, and timeline persistence.
-  - `job.service.ts`: Queue management and run tracking.
-  - `ai.service.ts`: Optional enrichment (Mock initially).
 
-### 3. Architectural Principles
-- **Provider Contract**: Every provider must be **stateless**. They receive input and return a `LeadDiscoveryResult`.
-- **Statelessness**: Providers NEVER persist data, call Sales Agent, call AI, or update Lead status. They only discover information.
+### 3. Architectural Principles (The "Provider Contract")
+- **Stateless Providers**: Every provider must be stateless. They receive input and return a `LeadDiscoveryResult`.
+- **Isolation**: Providers NEVER persist data, call Sales Agent, call AI, or update Lead status. They only discover information.
 - **Centralized Persistence**: Only `LeadService` handles database writes, deduplication, and state updates.
-- **AI Independence**: Core flow (Discovery -> Normalize -> Persist) must work without AI. AI is an optional post-persistence step.
-
-### 4. User Interface
-- **Tabs**: Discovery, Lead Bank, Lead Detail (with Timeline), Jobs.
-- **Navigation**: "Lead Finder" (Radar Icon) in `AppShell.tsx`.
+- **AI Independence**: Core flow must work without AI. AI is an optional post-persistence step.
 
 ## Proposed Changes
 
