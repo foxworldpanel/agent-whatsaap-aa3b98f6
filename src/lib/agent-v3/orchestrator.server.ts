@@ -40,6 +40,7 @@ import {
   RECLAMACAO_TEXT,
   SUPORTE_EXPANDIDO_TEXT,
   HESITACAO_TOM_TEXT,
+  INTERESSE_TESTE_TOM_TEXT,
   OBJECAO_CONFIANCA_TOM_TEXT
 } from "./prompt/prompt-conditional.server";
 
