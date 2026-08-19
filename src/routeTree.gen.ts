@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedTesteGratisRouteImport } from './routes/_authenticated/teste-gratis'
 import { Route as AuthenticatedNumerosRouteImport } from './routes/_authenticated/numeros'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
+import { Route as AuthenticatedLeadFinderRouteImport } from './routes/_authenticated/lead-finder'
 import { Route as AuthenticatedFunisRouteImport } from './routes/_authenticated/funis'
 import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticated/disparos'
 import { Route as AuthenticatedDiagnosticosRouteImport } from './routes/_authenticated/diagnosticos'
@@ -62,6 +63,11 @@ const AuthenticatedNumerosRoute = AuthenticatedNumerosRouteImport.update({
 const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLeadFinderRoute = AuthenticatedLeadFinderRouteImport.update({
+  id: '/lead-finder',
+  path: '/lead-finder',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedFunisRoute = AuthenticatedFunisRouteImport.update({
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/diagnosticos': typeof AuthenticatedDiagnosticosRoute
   '/disparos': typeof AuthenticatedDisparosRoute
   '/funis': typeof AuthenticatedFunisRoute
+  '/lead-finder': typeof AuthenticatedLeadFinderRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/numeros': typeof AuthenticatedNumerosRoute
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
@@ -202,6 +209,7 @@ export interface FileRoutesByTo {
   '/diagnosticos': typeof AuthenticatedDiagnosticosRoute
   '/disparos': typeof AuthenticatedDisparosRoute
   '/funis': typeof AuthenticatedFunisRoute
+  '/lead-finder': typeof AuthenticatedLeadFinderRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/numeros': typeof AuthenticatedNumerosRoute
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
@@ -229,6 +237,7 @@ export interface FileRoutesById {
   '/_authenticated/diagnosticos': typeof AuthenticatedDiagnosticosRoute
   '/_authenticated/disparos': typeof AuthenticatedDisparosRoute
   '/_authenticated/funis': typeof AuthenticatedFunisRoute
+  '/_authenticated/lead-finder': typeof AuthenticatedLeadFinderRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/numeros': typeof AuthenticatedNumerosRoute
   '/_authenticated/teste-gratis': typeof AuthenticatedTesteGratisRoute
@@ -256,6 +265,7 @@ export interface FileRouteTypes {
     | '/diagnosticos'
     | '/disparos'
     | '/funis'
+    | '/lead-finder'
     | '/logs'
     | '/numeros'
     | '/teste-gratis'
@@ -281,6 +291,7 @@ export interface FileRouteTypes {
     | '/diagnosticos'
     | '/disparos'
     | '/funis'
+    | '/lead-finder'
     | '/logs'
     | '/numeros'
     | '/teste-gratis'
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | '/_authenticated/diagnosticos'
     | '/_authenticated/disparos'
     | '/_authenticated/funis'
+    | '/_authenticated/lead-finder'
     | '/_authenticated/logs'
     | '/_authenticated/numeros'
     | '/_authenticated/teste-gratis'
@@ -376,6 +388,13 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/logs'
       preLoaderRoute: typeof AuthenticatedLogsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/lead-finder': {
+      id: '/_authenticated/lead-finder'
+      path: '/lead-finder'
+      fullPath: '/lead-finder'
+      preLoaderRoute: typeof AuthenticatedLeadFinderRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/funis': {
@@ -517,6 +536,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDiagnosticosRoute: typeof AuthenticatedDiagnosticosRoute
   AuthenticatedDisparosRoute: typeof AuthenticatedDisparosRoute
   AuthenticatedFunisRoute: typeof AuthenticatedFunisRoute
+  AuthenticatedLeadFinderRoute: typeof AuthenticatedLeadFinderRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedNumerosRoute: typeof AuthenticatedNumerosRoute
   AuthenticatedTesteGratisRoute: typeof AuthenticatedTesteGratisRoute
@@ -534,6 +554,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDiagnosticosRoute: AuthenticatedDiagnosticosRoute,
   AuthenticatedDisparosRoute: AuthenticatedDisparosRoute,
   AuthenticatedFunisRoute: AuthenticatedFunisRoute,
+  AuthenticatedLeadFinderRoute: AuthenticatedLeadFinderRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedNumerosRoute: AuthenticatedNumerosRoute,
   AuthenticatedTesteGratisRoute: AuthenticatedTesteGratisRoute,
