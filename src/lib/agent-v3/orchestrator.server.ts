@@ -1916,20 +1916,29 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   // Pagamento só pode avançar depois que plataforma, serviço e uma oferta com
   // preço do catálogo foram validados. O agente não cria cobrança nem promoção.
   //
-  // Exceção: se a mensagem ATUAL do cliente é claramente de encerramento
+  // Exceção 1: se a mensagem ATUAL do cliente é claramente de encerramento
   // (obrigado, vou tentar depois, etc), não dispara essa trava — achado em
   // conversa real em 17/08/2026: cliente relatou problema de Pix, resolveu
   // "vou tentar amanhã, não vou usar cartão" + "Obrigado!", e a trava
   // disparou de novo pedindo "qual serviço você quer", ignorando que o
   // cliente já tinha encerrado o assunto. O sinal de pagamento fica
-  // "grudado" (accumulatedCustomerText) since a primeira menção de "pix"
+  // "grudado" (accumulatedCustomerText) desde a primeira menção de "pix"
   // na conversa inteira, então sem essa checagem a trava dispara mesmo
   // quando o cliente só está agradecendo.
   const currentMessageIsClosing = /^\s*(obrigad[oa]|valeu|vlw|blz|beleza|ok|okay|entendi|certo|tudo bem|vou tentar|depois eu|amanh[ãa] eu)\b/i.test(
     message.trim(),
   );
+
+  // Exceção 2: se o cliente está relatando um PROBLEMA de pagamento (Pix
+  // bloqueado, banco recusou, etc — mesmo sinal de needsBankAlert), essa
+  // trava também não deve disparar. Achado em teste real no Playground em
+  // 17/08/2026: mesmo com a Exceção 1 já aplicada, a trava ainda disparava
+  // na PRIMEIRA mensagem de um cliente relatando problema de Pix (não é
+  // encerramento, é problema), perguntando "qual plataforma" em vez de
+  // deixar a orientação real de BANCO_ALERTA_TEXT (Pix bloqueado) aparecer.
   if (
     !currentMessageIsClosing &&
+    !needsBankAlert &&
     selectionContext.intent === "pagamento" &&
     !selectionContext.hasPaidSignal &&
     !hasValidatedCommercialOfferV3({
