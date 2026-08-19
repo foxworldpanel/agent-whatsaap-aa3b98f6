@@ -2,7 +2,7 @@ import { discoveryEngine } from "./discovery-engine";
 import { MockDiscoveryProvider } from "./providers/mock-provider";
 import { JobService } from "./job.service";
 import { LeadService } from "./lead.service";
-import { supabase } from "@/integrations/supabase/client";
+// No direct supabase import needed for logic that uses services
 
 /**
  * Lead Finder Integration Test (Phase 1)
