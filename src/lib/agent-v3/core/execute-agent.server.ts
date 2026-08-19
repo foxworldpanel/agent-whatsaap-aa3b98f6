@@ -56,6 +56,28 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
   // NADA do que acontece depois — só acompanha o resultado final.
   const salesIntelligence = classifySalesIntelligence(input.message);
 
+  // Visibilidade no Execution Trace — Sprint 0 (Sales Agent Activation,
+  // 17/08/2026). Mostra exatamente quais sinais e engines participaram
+  // da decisão, sem precisar investigar log depois. Requisito direto do
+  // ADR-002 (rastreamento desde o primeiro commit).
+  if (input.traceId) {
+    await logExecutionTrace({
+      traceId: input.traceId,
+      step: "sales_intelligence",
+      conversationId: input.conversationId,
+      phone: input.phone,
+      details: {
+        salesSignals: salesIntelligence.salesSignals,
+        objections: salesIntelligence.objections,
+        offerEligibility: salesIntelligence.offerEligibility,
+        // Ainda não conectado a comportamento (achado em auditoria de
+        // 17/08/2026 — redundante com HESITACAO_TOM_TEXT do jeito que
+        // está hoje). Aparece aqui só pra visibilidade/diagnóstico.
+        recoveryStatus: salesIntelligence.recoveryStatus,
+      },
+    });
+  }
+
   const routerResult = input.skipRouter
     ? {
         handled: false,
