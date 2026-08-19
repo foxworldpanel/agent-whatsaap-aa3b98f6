@@ -316,6 +316,20 @@ export const startOutboundSimulation = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .maybeSingle();
 
+    // Diagnóstico temporário — achado em 17/08/2026: Playground mostrando
+    // abertura padrão do código em vez do template customizado salvo pelo
+    // usuário. toTemplates() e montarMensagemDisparo() parecem corretos
+    // na leitura estática — precisa confirmar com dado real se tplRow
+    // veio null/vazio, ou se veio certo e o problema é depois.
+    console.error("[PLAYGROUND-DISPARO-DIAGNOSTICO]", {
+      userId,
+      workspaceId,
+      tplRowIsNull: tplRow === null,
+      tplRowKeys: tplRow ? Object.keys(tplRow) : null,
+      linha2Length: (tplRow as any)?.linha2?.length ?? "n/a",
+      linha2Preview: (tplRow as any)?.linha2?.[0]?.slice(0, 50) ?? "n/a",
+    });
+
     const templates = _toTemplates(tplRow as any);
     const pick = montarMensagemDisparo("Teste", instagramHandle, { templates });
 
