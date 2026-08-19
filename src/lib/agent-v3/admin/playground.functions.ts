@@ -283,6 +283,30 @@ export const startOutboundSimulation = createServerFn({ method: "POST" })
     const { sessionId, instagramHandle } = data;
     const { userId, workspaceId } = context;
 
+    // Cria (ou atualiza) um contato de teste com source="disparo" — sem
+    // isso, o Playground simulava a abertura só como texto solto, sem
+    // nenhum registro real em `contacts`. Se algum dia uma regra passar
+    // a ler contacts.source diretamente (em vez de só o parâmetro
+    // isOutboundReply que já passamos manualmente), o Playground ficaria
+    // defasado sem ninguém perceber. Telefone é determinístico por
+    // sessão (mesma sessão = mesmo contato de teste, sem duplicar).
+    // Achado em auditoria de paridade em 17/08/2026.
+    const fakeTestPhone = `5500${sessionId.replace(/-/g, "").slice(0, 8)}`;
+    await context.supabase.from("contacts").upsert(
+      {
+        user_id: userId,
+        workspace_id: workspaceId,
+        telefone: fakeTestPhone,
+        nome: "Teste Playground",
+        instagram: instagramHandle,
+        perfil: "frio",
+        status: "em_conversa",
+        source: "disparo",
+        source_ref: `playground:${sessionId}`,
+      },
+      { onConflict: "user_id,telefone" },
+    );
+
     const { montarMensagemDisparo } = await import("@/lib/blast-variations");
     const { _toTemplates } = await import("@/lib/opening-templates.functions");
 
