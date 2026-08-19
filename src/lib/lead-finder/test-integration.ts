@@ -18,7 +18,7 @@ export async function runPhase1IntegrationTest() {
     discoveryEngine.registerProvider(providerKey, mockProvider);
     
     // Ensure provider exists in DB
-    const { data: providerEntry } = await supabase
+    const { data: providerEntry, error: providerError } = await supabase
       .from('lead_finder_providers')
       .upsert({
         provider_type: 'mock',
@@ -28,7 +28,12 @@ export async function runPhase1IntegrationTest() {
       .select()
       .single();
 
-    if (!providerEntry) throw new Error("Failed to ensure provider in DB");
+    if (providerError) {
+      console.error("Provider Error:", providerError);
+      throw new Error(`Failed to ensure provider in DB: ${providerError.message} (${providerError.code})`);
+    }
+    if (!providerEntry) throw new Error("Failed to ensure provider in DB: No data returned");
+
 
     // 2. Create Job
     const job = await JobService.createJob(providerEntry.id, { test: true });
