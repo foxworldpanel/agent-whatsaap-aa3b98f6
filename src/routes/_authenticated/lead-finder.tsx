@@ -294,73 +294,77 @@ function LeadFinderPage() {
           <div className="grid gap-6 md:grid-cols-2 mb-4">
             <Card className="border-primary/20 bg-primary/5 col-span-full">
               <CardHeader>
-                <CardTitle className="text-xl text-destructive flex items-center gap-2">
-                  <Info className="h-5 w-5" />
-                  Sprint 3.0 – Pendente: Descoberta Real
+                <CardTitle className="text-xl text-primary flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5" />
+                  Sprint 3.1 – Instagram Account Connection
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                <div className="bg-destructive/10 p-4 rounded-lg border border-destructive/20 mb-4">
-                  <p className="font-bold text-destructive">A implementação atual não atende ao objetivo da Sprint 3.</p>
-                  <p className="text-xs mt-1">A funcionalidade principal (coleta real via Instagram) continua ausente e simulada.</p>
+                <div className="bg-primary/10 p-4 rounded-lg border border-primary/20 mb-4">
+                  <p className="font-bold text-primary">Objetivo</p>
+                  <p className="text-xs mt-1">Implementar o primeiro fluxo funcional de conexão de contas do Instagram que será utilizado pelo Lead Finder. O foco desta sprint é exclusivamente o gerenciamento de sessões.</p>
                 </div>
 
                 <div className="space-y-2">
-                  <h4 className="font-bold">Constatações Técnicas:</h4>
+                  <h4 className="font-bold">IMPORTANTE:</h4>
                   <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground list-disc pl-4">
-                    <li>InstagramPublicProvider continua sendo um simulador.</li>
-                    <li>Busca por hashtags não foi implementada.</li>
-                    <li>O provider retorna apenas dados mockados.</li>
-                    <li>"Connect Account" não autentica sessões reais.</li>
-                    <li>Falta gerenciamento de sessão e cookies.</li>
-                    <li>Falta navegador automatizado e coleta real.</li>
+                    <li>Não implementar Discovery, Hashtags, IA ou Sales Agent.</li>
+                    <li>Não implementar extração de contatos.</li>
+                    <li>Esta sprint não é de arquitetura, é de funcionalidade.</li>
+                    <li>Ao final dela o sistema deve realmente permitir conectar e gerenciar uma conta.</li>
+                    <li>Não criar mocks ou telas que apenas simulam estados.</li>
+                    <li>Toda a autenticação deverá ser baseada apenas em sessão autenticada.</li>
                   </ul>
                 </div>
                 
                 <div className="space-y-2 pt-2">
-                  <h4 className="font-bold">Critérios de Conclusão da Sprint:</h4>
-                  <ul className="space-y-1 text-xs list-disc pl-4">
-                    <li>Conectar conta do Instagram com sessão persistente.</li>
-                    <li>Informar hashtag e navegar pelos resultados reais.</li>
-                    <li>Abrir perfis e extrair info pública (bio, tel, email).</li>
-                    <li>Gerar LeadDiscoveryResult real e persistir via LeadService.</li>
-                    <li>Registro automático em Jobs e Timeline.</li>
-                  </ul>
+                  <h4 className="font-bold">Fluxo esperado:</h4>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-muted p-2 rounded justify-center">
+                    <span>Lead Finder</span>
+                    <Play className="h-2 w-2" />
+                    <span>Accounts</span>
+                    <Play className="h-2 w-2" />
+                    <span>Conectar Conta</span>
+                    <Play className="h-2 w-2" />
+                    <span>Autenticação</span>
+                    <Play className="h-2 w-2" />
+                    <span>Sessão salva</span>
+                    <Play className="h-2 w-2" />
+                    <span className="text-primary font-bold">Status = Connected</span>
+                  </div>
                 </div>
 
                 <div className="bg-muted p-3 rounded border text-[11px] italic text-center mt-2">
-                  Enquanto esse fluxo operacional real não existir, a Sprint 3 permanece incompleta. Foco total em funcionalidade, zero em interface.
+                  Nenhum outro módulo poderá alterar diretamente uma sessão. Criar um Session Manager responsável exclusivamente por criar, validar, renovar, remover e informar status.
                 </div>
 
 
 
                 <div className="space-y-2 pt-2 border-t border-primary/10">
-                  <h4 className="font-bold">Durante a descoberta, mostrar em tempo real:</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-muted-foreground">
-                    <div className="flex items-center gap-2"><span>• perfis analisados</span></div>
-                    <div className="flex items-center gap-2"><span>• leads encontrados</span></div>
-                    <div className="flex items-center gap-2"><span>• telefones encontrados</span></div>
-                    <div className="flex items-center gap-2"><span>• e-mails encontrados</span></div>
-                    <div className="flex items-center gap-2"><span>• duplicados</span></div>
-                    <div className="flex items-center gap-2"><span>• tempo de execução</span></div>
+                  <h4 className="font-bold">1 - Accounts (Centro de Gerenciamento):</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] text-muted-foreground">
+                    <div className="flex items-center gap-1"><span>• Foto/Nome/User</span></div>
+                    <div className="flex items-center gap-1"><span>• Status Real</span></div>
+                    <div className="flex items-center gap-1"><span>• Última Utilização</span></div>
+                    <div className="flex items-center gap-1"><span>• Sincronização</span></div>
                   </div>
                 </div>
 
                 <div className="bg-background/50 p-4 rounded-lg border border-primary/10 mt-4">
-                  <p className="font-medium text-primary">O objetivo do módulo é criar uma base qualificada de contatos públicos que alimentará o Sales Agent para disparos via WhatsApp.</p>
+                  <p className="font-medium text-primary text-xs text-center">Sprint 3.1: Entregar uma funcionalidade operacional de sessão. Toda alteração deve resultar em um fluxo utilizável pelo operador.</p>
                 </div>
 
                 <div className="space-y-3 mt-4">
-                  <h4 className="font-bold flex items-center gap-2">
-                    <Plus className="h-4 w-4 text-primary" />
-                    Fila de Hashtags
+                  <h4 className="font-bold flex items-center gap-2 text-xs">
+                    <CheckCircle2 className="h-3 w-3 text-primary" />
+                    Critérios de Aceite
                   </h4>
-                  <p className="text-muted-foreground">Em vez de pesquisar uma hashtag por vez, você poderia cadastrar uma lista:</p>
-                  <div className="bg-black/5 p-2 rounded font-mono text-xs grid grid-cols-3 gap-1">
-                    <span>#housemusic</span> <span>#dj</span> <span>#musicproducer</span>
-                    <span>#gravadora</span> <span>#trance</span> <span>#liquiddnb</span>
-                  </div>
-                  <p className="text-[11px] italic">O sistema executaria uma por vez, controlando duplicados entre elas e consolidando tudo no mesmo banco de leads. Para o volume de prospecção que você pretende fazer, isso vai economizar muito tempo e tornar a operação muito mais eficiente.</p>
+                  <ul className="text-[10px] text-muted-foreground space-y-1 list-disc pl-4">
+                    <li>Possível adicionar, conectar, desconectar, reconectar e remover contas.</li>
+                    <li>Visualização correta do status real (Never Connected, Connecting, Connected, Expired, Disconnected, Error).</li>
+                    <li>Discovery reconhecer e listar apenas contas com status Connected.</li>
+                    <li>Toda ação deve registrar eventos para a Timeline (Logs).</li>
+                  </ul>
                 </div>
 
               </CardContent>
@@ -369,29 +373,29 @@ function LeadFinderPage() {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <ValidationItem 
-              title="1 - Instagram Accounts" 
-              description="A aba Accounts deve deixar de ser apenas visual. Implementar um fluxo operacional."
-              checks={["Connected, Disconnected, Expired, Connecting", "Conectar, Reconectar, Desconectar, Remover"]}
+              title="1 - Accounts & Estados" 
+              description="A aba Accounts será o centro. Implementar estados reais sincronizados."
+              checks={["Never Connected, Connected, Expired, Disconnected", "Ações válidas por estado (Conectar/Desconectar)", "Refletir estado real, sem alteração manual"]}
             />
             <ValidationItem 
               title="2 - Fluxo de Conexão" 
-              description="Ao clicar em Conectar Conta, iniciar o fluxo de autenticação."
-              checks={["Manter sessão autenticada disponível", "Não armazenar usuário e senha permanentemente", "Armazenar apenas a sessão autenticada"]}
+              description="Fluxo oficial de autenticação preparando automação futura."
+              checks={["Camada de controle de sessões pronta", "Não armazenar usuário/senha permanentemente", "Autenticação baseada apenas em sessão"]}
             />
             <ValidationItem 
-              title="3 - Discovery" 
-              description="Na aba Discovery permitir selecionar parâmetros."
-              checks={["Conta Principal", "Tipo: Perfil (exclusivo desta sprint)", "@usuario e Iniciar Discovery"]}
+              title="3 - Session Manager" 
+              description="Serviço responsável exclusivamente pelas sessões."
+              checks={["Criar, Validar, Renovar e Remover sessões", "Centralização: nenhum outro módulo altera sessão", "Informar status em tempo real"]}
             />
             <ValidationItem 
-              title="4 - Discovery Real" 
-              description="Ao iniciar a descoberta, abrir perfil e ler informações públicas."
-              checks={["username, display_name, bio", "telefone, e-mail, website, links públicos", "LeadDiscoveryResult via LeadService"]}
+              title="4 - Banco de Dados" 
+              description="Garantir suporte completo na tabela de credenciais."
+              checks={["username, profile_picture, status", "last_login, last_validation, last_used", "Sem armazenamento de tokens permanentes"]}
             />
             <ValidationItem 
-              title="5 - Deduplicação" 
-              description="Antes de salvar, verificar integridade."
-              checks={["username, telefone, e-mail", "Não permitir duplicados", "Registrar corretamente na Timeline"]}
+              title="5 - Discovery & Logs" 
+              description="Integração com Discovery e rastreabilidade total."
+              checks={["Discovery lista apenas contas Connected", "Logs: Conta criada/conectada/expirada", "Base para Timeline futura"]}
             />
             <ValidationItem 
               title="6 - Lead Bank & Jobs" 
