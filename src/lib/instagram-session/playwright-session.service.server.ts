@@ -2,13 +2,12 @@
 type Browser = any;
 type BrowserContext = any;
 type Page = any;
-import { type InstagramLoginResult } from './types';
 
-// O Playwright core não exporta tipos globais amigáveis a workers. 
-// Usamos 'any' em tempo de execução para evitar erros de bundling de módulos Node nativos no cliente.
 type BrowserRuntime = Browser;
 type BrowserContextRuntime = BrowserContext;
 type PageRuntime = Page;
+
+import { type InstagramLoginResult } from './types';
 
 export class PlaywrightSessionService {
   private static browser: BrowserRuntime | null = null;
