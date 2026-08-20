@@ -33,6 +33,9 @@ vi.mock('@/lib/instagram-session/playwright-session.service', () => ({
   PlaywrightSessionService: {
     openLoginFlow: vi.fn(),
     validateSession: vi.fn(),
+    extractUsername: vi.fn(),
+    extractDisplayName: vi.fn(),
+    extractProfilePicture: vi.fn(),
   },
 }));
 
