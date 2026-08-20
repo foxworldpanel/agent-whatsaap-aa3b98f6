@@ -11,6 +11,17 @@ export class InstagramSessionManager {
     logger('Login Started');
     
     try {
+      const { EnvironmentCheckService } = await import('./environment-check.service.server');
+      const env = await EnvironmentCheckService.checkEnvironment();
+      
+      if (env.errors.length > 0) {
+        throw new Error(`Ambiente não suportado: ${env.errors.join(', ')}`);
+      }
+
+      if (!env.display) {
+        throw new Error("Ambiente VPS/Linux sem DISPLAY detectado. O login manual requer um servidor X11 ou ambiente desktop.");
+      }
+
       const { PlaywrightSessionService } = await import('./playwright-session.service.server');
       const result = await PlaywrightSessionService.openLoginFlow();
 

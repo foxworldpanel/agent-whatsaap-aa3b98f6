@@ -20,8 +20,11 @@ export class PlaywrightSessionService {
     if (!this.browser) {
       logger('Browser Started');
       const { chromium } = await import('playwright');
+      
+      // O modo oficial é headless: false para permitir login manual.
+      // Em ambientes sem DISPLAY (VPS), o erro será capturado no Environment Check do Manager.
       this.browser = await chromium.launch({ 
-        headless: true,
+        headless: false,
         executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       });
@@ -42,9 +45,9 @@ export class PlaywrightSessionService {
     try {
       const browser = await this.getBrowser();
       context = await browser.newContext({
-        viewport: { width: 1280, height: 1800 }
+        viewport: { width: 1280, height: 800 }
       });
-      logger('Context Created');
+      logger('Context Started');
       
       const page = await context.newPage();
       
@@ -54,15 +57,32 @@ export class PlaywrightSessionService {
         timeout: 60000 
       });
       
-      // INSTRUCTION: In a headless environment without manual interaction, 
-      // this flow requires either pre-authenticated cookies or an automated login if credentials were provided.
-      // Since the requirement mentions "Login manual", and we are in headless: true,
-      // we must clarify that manual interaction is not possible.
-      // For now, we harden the technical lifecycle.
+      logger('Waiting for manual login (timeout: 5m)...');
       
-      return { 
-        success: false, 
-        error: "Ambiente headless não permite login manual. Use autenticação automática ou forneça Storage State." 
+      // Detecção de login concluído: URL não contém mais login/signup e aponta para o domínio principal
+      await page.waitForURL((url: any) => {
+        const href = typeof url === 'string' ? url : url.href;
+        return href.includes('instagram.com/') && 
+               !href.includes('/accounts/login') && 
+               !href.includes('/accounts/emailsignup');
+      }, { timeout: 300000 });
+
+      logger('Login success detected!');
+      await page.waitForTimeout(2000);
+
+      const profile = await this.extractProfile(page);
+      const storageState = await context.storageState();
+
+      if (!profile.username) {
+        throw new Error("Não foi possível extrair o username após o login.");
+      }
+
+      return {
+        success: true,
+        username: profile.username,
+        display_name: profile.display_name,
+        profile_picture: profile.profile_picture,
+        storageState
       };
 
     } catch (error: any) {
@@ -87,8 +107,15 @@ export class PlaywrightSessionService {
 
     let context: BrowserContext | null = null;
     try {
-      const browser = await this.getBrowser();
-      context = await browser.newContext({ storageState });
+      const { chromium } = await import('playwright');
+      // Validação pode rodar em headless: true para economizar recursos
+      const validationBrowser = await chromium.launch({ 
+        headless: true,
+        executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      
+      context = await validationBrowser.newContext({ storageState });
       logger('Context Created (Validation)');
       
       const page = await context.newPage();
@@ -100,6 +127,7 @@ export class PlaywrightSessionService {
                !!document.querySelector('svg[aria-label="Página inicial"]');
       });
       
+      await validationBrowser.close();
       return isLoggedIn;
     } catch (error: any) {
       logger('Validation Failed', error.message);
@@ -109,7 +137,7 @@ export class PlaywrightSessionService {
     }
   }
 
-  static async extractProfile(page: Page): Promise<Partial<InstagramLoginResult>> {
+  private static async extractProfile(page: Page): Promise<Partial<InstagramLoginResult>> {
     return await page.evaluate(() => {
       const navProfile = document.querySelector('a[href^="/"] img[alt*="profile"]')?.closest('a')?.getAttribute('href');
       const username = navProfile ? navProfile.replace(/\//g, '') : undefined;
