@@ -54,7 +54,7 @@ export async function runLeadFinderIntegrationTest() {
     }
   }
 
-  // 2. Test Instagram Session Management (Sprint 3.1)
+  // 2. Test Instagram Session Management
   console.log(`\n--- Testing Instagram Session Manager ---`);
   try {
     const { InstagramSessionManager } = await import("../instagram-session/instagram-session-manager.server");
