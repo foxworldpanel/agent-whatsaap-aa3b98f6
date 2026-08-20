@@ -918,9 +918,9 @@ function LeadFinderPage() {
         </TabsContent>
         <TabsContent value="validation" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight">Phase 1 Validation Sprint</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Sprint 2.2 – Instagram Account Manager</h2>
             <Badge variant="outline" className="gap-1">
-              <CheckCircle2 className="h-3 w-3 text-green-500" /> Sprint 2.1 Active
+              <CheckCircle2 className="h-3 w-3 text-blue-500" /> Sprint 2.2 Planning
             </Badge>
           </div>
           
