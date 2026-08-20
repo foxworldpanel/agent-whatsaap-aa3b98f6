@@ -18,23 +18,25 @@ export class PlaywrightSessionService {
     }
 
     if (!this.browser) {
-      logger('Playwright Launch - Headless: false');
+      logger('Playwright Launch Started');
       const { chromium } = await import('playwright');
       
       try {
+        const isHeaded = process.env.DISPLAY ? false : true; // In sandbox we might need to enforce headless if no display
+        
         this.browser = await chromium.launch({ 
-          headless: false,
+          headless: !process.env.DISPLAY, // Only headed if DISPLAY is present
           executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-          args: ['--no-sandbox', '--disable-setuid-sandbox']
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
         });
-        logger('Browser Opened Successfully');
+        logger('Browser Launched Successfully', { headless: !process.env.DISPLAY });
       } catch (launchError: any) {
         logger('CRITICAL: Playwright Launch FAILED', launchError.message);
         throw launchError;
       }
       
       this.browser.on('disconnected', () => {
-        logger('Browser Closed');
+        logger('Browser Disconnected');
         this.browser = null;
       });
     }
@@ -47,7 +49,7 @@ export class PlaywrightSessionService {
     let context: BrowserContext | null = null;
 
     try {
-      logger('Requesting Browser Instance...');
+      logger('UI CLICK -> Server Function -> Requesting Browser...');
       const browser = await this.getBrowser();
       
       logger('Creating Context...');
@@ -75,7 +77,8 @@ export class PlaywrightSessionService {
                !href.includes('/accounts/emailsignup');
       }, { timeout: 300000 });
 
-      logger('Login success detected!');
+      logger('Login success detected via URL change!');
+      logger('Waiting Login completion (2s)...');
       await page.waitForTimeout(2000);
 
       const profile = await this.extractProfile(page);
@@ -120,7 +123,7 @@ export class PlaywrightSessionService {
       const validationBrowser = await chromium.launch({ 
         headless: true,
         executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
       });
       
       context = await validationBrowser.newContext({ storageState });

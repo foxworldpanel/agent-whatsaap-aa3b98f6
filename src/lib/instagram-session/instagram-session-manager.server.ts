@@ -21,9 +21,9 @@ export class InstagramSessionManager {
         throw new Error(`Ambiente não suportado: ${env.errors.join(', ')}`);
       }
 
-      // REMOVIDA TRAVA DE DISPLAY PARA DEBUG - Deixar o Playwright tentar e falhar com erro real
       if (!env.display) {
-        logger('WARNING: No DISPLAY detected. Attempting launch anyway (debug mode).');
+        logger('Environment Check FAILED: No DISPLAY detected');
+        throw new Error("Ambiente VPS/Linux sem DISPLAY detectado. O login manual requer um servidor X11 ou ambiente desktop. Se estiver usando Lovable, isso é esperado no backend. O navegador headed não pode abrir aqui.");
       }
 
       const { PlaywrightSessionService } = await import('./playwright-session.service.server');
