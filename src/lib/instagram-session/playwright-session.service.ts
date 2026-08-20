@@ -8,19 +8,36 @@ export class PlaywrightSessionService {
   private static async getBrowser() {
     if (!this.browser) {
       // headless: false is critical for manual login as per requirement.
-      this.browser = await chromium.launch({ headless: false });
+      // We use launchPersistentContext or simple launch.
+      // For this environment, we MUST ensure the browser is actually launched.
+      console.log(`[Playwright] Launching Chromium (headless: false)...`);
+      this.browser = await chromium.launch({ 
+        headless: false,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
     }
     return this.browser;
   }
 
   static async openLoginFlow(): Promise<InstagramLoginResult> {
     console.log(`[Playwright] ${new Date().toISOString()} Initializing browser for login...`);
-    const browser = await this.getBrowser();
-    const context = await browser.newContext();
-    const page = await context.newPage();
+    
+    // In this specific sandbox environment, headless: false might require specific handling
+    // or it might just fail if there is no X server.
+    // However, the instructions say "headless: false is critical".
+    
+    let browser: Browser | null = null;
+    let context: BrowserContext | null = null;
 
     try {
-      await page.goto('https://www.instagram.com/', { waitUntil: 'networkidle' });
+      browser = await this.getBrowser();
+      context = await browser.newContext({
+        viewport: { width: 1280, height: 800 }
+      });
+      const page = await context.newPage();
+
+      console.log(`[Playwright] Navigating to Instagram...`);
+      await page.goto('https://www.instagram.com/', { waitUntil: 'networkidle', timeout: 60000 });
       
       console.log(`[Playwright] ${new Date().toISOString()} Waiting for manual login (timeout: 5m)...`);
       
@@ -46,12 +63,10 @@ export class PlaywrightSessionService {
       // Capture storage state to return to manager
       const storageState = await context.storageState();
 
-      // Close browser IMMEDIATELY after capturing state
+      // Close context and browser
       await context.close();
-      if (this.browser) {
-        await this.browser.close();
-        this.browser = null;
-      }
+      await browser.close();
+      this.browser = null;
 
       if (!username) {
         return { success: false, error: "Não foi possível extrair o username após o login." };
@@ -67,10 +82,8 @@ export class PlaywrightSessionService {
     } catch (error: any) {
       console.error(`[Playwright] ${new Date().toISOString()} Login flow error:`, error);
       if (context) await context.close();
-      if (this.browser) {
-        await this.browser.close();
-        this.browser = null;
-      }
+      if (browser) await browser.close();
+      this.browser = null;
       return { success: false, error: error.message || "Erro desconhecido no fluxo do Playwright" };
     }
   }
@@ -83,13 +96,16 @@ export class PlaywrightSessionService {
       return false;
     }
 
-    const browser = await this.getBrowser();
-    const context = await browser.newContext({ storageState });
-    const page = await context.newPage();
+    let browser: Browser | null = null;
+    let context: BrowserContext | null = null;
 
     try {
+      browser = await chromium.launch({ headless: true }); // Validation can be headless
+      context = await browser.newContext({ storageState });
+      const page = await context.newPage();
+
       // Navigate to personal profile or home
-      await page.goto('https://www.instagram.com/', { waitUntil: 'networkidle' });
+      await page.goto('https://www.instagram.com/', { waitUntil: 'networkidle', timeout: 30000 });
       
       // Check for logged-in indicators
       const isLoggedIn = await page.evaluate(() => {
@@ -105,11 +121,8 @@ export class PlaywrightSessionService {
       console.error(`[Playwright] ${new Date().toISOString()} Validation error for ${credentialId}:`, error);
       return false;
     } finally {
-      await context.close();
-      if (this.browser) {
-        await this.browser.close();
-        this.browser = null;
-      }
+      if (context) await context.close();
+      if (browser) await browser.close();
     }
   }
 
@@ -134,8 +147,6 @@ export class PlaywrightSessionService {
 
   private static async extractDisplayName(page: Page): Promise<string | undefined> {
     try {
-      // To get display name reliably we might need to be on the profile page, 
-      // but sometimes it's in the title or sidebar.
       return await page.evaluate(() => {
         const titleParts = document.title.split(' • ');
         if (titleParts.length > 1) return titleParts[0];
