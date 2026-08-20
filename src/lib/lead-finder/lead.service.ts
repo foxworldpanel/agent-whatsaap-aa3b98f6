@@ -1,5 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { LeadDiscoveryResult, LeadSalesStatus, LeadPipelineStage } from "./types";
+import { Database } from "@/integrations/supabase/types";
+
+type LeadUpdate = Database['public']['Tables']['lead_finder_leads']['Update'];
+type LeadInsert = Database['public']['Tables']['lead_finder_leads']['Insert'];
 
 /**
  * Lead Service
@@ -19,7 +23,7 @@ export class LeadService {
     let query = supabase.from('lead_finder_leads').select('*, lead_finder_tags(tag)');
 
     if (filters.platform) query = query.eq('platform', filters.platform);
-    if (filters.status) query = query.eq('sales_status', filters.status);
+    if (filters.status) query = query.eq('sales_status', filters.status as any);
     if (filters.email) query = query.not('email', 'is', null);
     if (filters.phone) query = query.not('phone', 'is', null);
     
@@ -40,7 +44,7 @@ export class LeadService {
     const { profile, contacts, links, metadata, rawData } = result;
 
     // 1. Normalization
-    const normalizedLead = {
+    const normalizedLead: LeadInsert = {
       platform: profile.platform.toLowerCase(),
       profile_username: profile.username.toLowerCase(),
       profile_url: profile.url,
@@ -49,13 +53,13 @@ export class LeadService {
       website: profile.website,
       phone: contacts.phone,
       email: contacts.email,
-      links: links,
+      links: links as any,
       lead_origin: origin,
       lead_origin_value: originValue,
       raw_profile_data: { 
         ...rawData, 
         profile_pic_url: profile.profilePicUrl 
-      },
+      } as any,
       discovered_at: new Date().toISOString(),
       last_seen_at: new Date().toISOString(),
     };
@@ -122,9 +126,9 @@ export class LeadService {
    * Updates lead status.
    */
   static async updateStatus(leadId: string, stage?: LeadPipelineStage, salesStatus?: LeadSalesStatus) {
-    const update: Record<string, any> = { updated_at: new Date().toISOString() };
-    if (stage) update.pipeline_stage = stage;
-    if (salesStatus) update.sales_status = salesStatus;
+    const update: LeadUpdate = { updated_at: new Date().toISOString() };
+    if (stage) update.pipeline_stage = stage as any;
+    if (salesStatus) update.sales_status = salesStatus as any;
 
     const { error } = await supabase
       .from('lead_finder_leads')
