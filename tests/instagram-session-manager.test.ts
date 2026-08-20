@@ -29,7 +29,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 // Mock PlaywrightSessionService
-vi.mock('./playwright-session.service', () => ({
+vi.mock('@/lib/instagram-session/playwright-session.service', () => ({
   PlaywrightSessionService: {
     openLoginFlow: vi.fn(),
     validateSession: vi.fn(),
@@ -37,7 +37,7 @@ vi.mock('./playwright-session.service', () => ({
 }));
 
 // Mock SessionStorageService
-vi.mock('./session-storage.service', () => ({
+vi.mock('@/lib/instagram-session/session-storage.service', () => ({
   SessionStorageService: {
     getStoragePath: vi.fn((id) => `/tmp/instagram-sessions/${id}.json`),
     saveSession: vi.fn(),
