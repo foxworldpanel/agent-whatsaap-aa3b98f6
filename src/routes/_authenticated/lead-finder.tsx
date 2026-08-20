@@ -777,13 +777,61 @@ function LeadFinderPage() {
         <TabsContent value="jobs">
           <Card>
             <CardHeader>
-              <CardTitle>Histórico de Jobs</CardTitle>
+              <CardTitle>Discovery History</CardTitle>
               <CardDescription>
-                Acompanhe o status das execuções de descoberta.
+                Acompanhe o status e performance das execuções.
               </CardDescription>
             </CardHeader>
-            <CardContent className="h-[400px] flex items-center justify-center text-muted-foreground">
-              Lista de Jobs (Em breve)
+            <CardContent>
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead>Job ID</TableHead>
+                      <TableHead>Configuração</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Leads</TableHead>
+                      <TableHead>Iniciado em</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {jobs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                          Nenhum job registrado.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      jobs.map((job) => (
+                        <TableRow key={job.id}>
+                          <TableCell className="font-mono text-[10px]">{job.id.substring(0, 8)}...</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs font-medium uppercase">{job.provider_id}</span>
+                              <span className="text-[10px] text-muted-foreground">@{job.config?.username || 'mock'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="capitalize text-[10px] h-5">
+                              {job.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-bold">{job.stats?.leads || 0}</TableCell>
+                          <TableCell className="text-[10px]">
+                            {formatDistanceToNow(new Date(job.created_at), { addSuffix: true, locale: ptBR })}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <History className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -791,13 +839,38 @@ function LeadFinderPage() {
         <TabsContent value="timeline">
           <Card>
             <CardHeader>
-              <CardTitle>Timeline Global</CardTitle>
-              <CardDescription>
-                Eventos recentes de descoberta e processamento.
-              </CardDescription>
+              <CardTitle>Timeline Operacional</CardTitle>
+              <CardDescription>Audit trail do DiscoveryEngine.</CardDescription>
             </CardHeader>
-            <CardContent className="h-[400px] flex items-center justify-center text-muted-foreground">
-              Timeline de Auditoria (Em breve)
+            <CardContent>
+              <ScrollArea className="h-[500px] pr-4">
+                <div className="space-y-4">
+                  {leads.length === 0 ? (
+                    <div className="text-center py-20 text-muted-foreground">
+                      Nenhum evento registrado.
+                    </div>
+                  ) : (
+                    leads.slice(0, 20).map((lead, idx) => (
+                      <div key={idx} className="flex gap-4 items-start">
+                        <div className="mt-1 h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Database className="h-3 w-3 text-primary" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm">
+                            <span className="font-bold">Lead Persistido:</span> {lead.full_name || lead.username} (@{lead.username})
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Provider: {lead.source_provider} • Score: {Math.round((lead.score_profile || 0) * 100)}%
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {formatDistanceToNow(new Date(lead.created_at), { addSuffix: true, locale: ptBR })}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>
