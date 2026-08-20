@@ -169,20 +169,27 @@ function LeadFinderPage() {
   }
 
   const handleAddCredential = async () => {
+    console.log('[LeadFinder] UI CLICK -> handleAddCredential');
     try {
-      toast.info("Iniciando conexão... Siga as instruções no navegador que será aberto.")
-      const { connectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
-      const result = await connectInstagramAction()
+      toast.info("Iniciando conexão... Aguarde o processamento do servidor.");
+      
+      console.log('[LeadFinder] Importing connectInstagramAction...');
+      const { connectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions');
+      
+      console.log('[LeadFinder] Calling connectInstagramAction...');
+      const result = await connectInstagramAction();
+      
+      console.log('[LeadFinder] Result received:', result);
       
       if (result) {
-        toast.success(`Conta @${result.username} conectada com sucesso!`)
-        await loadCredentials()
+        toast.success(`Conta @${result.username} conectada com sucesso!`);
+        await loadCredentials();
       } else {
-        toast.error("Conexão cancelada ou falhou")
+        toast.error("Conexão cancelada ou falhou. Verifique os logs do servidor.");
       }
     } catch (e: any) {
-      console.error(e)
-      toast.error(`Erro ao conectar conta: ${e.message || 'Erro desconhecido'}`)
+      console.error('[LeadFinder] Error in handleAddCredential:', e);
+      toast.error(`Erro ao conectar conta: ${e.message || 'Erro desconhecido'}`);
     }
   }
 
