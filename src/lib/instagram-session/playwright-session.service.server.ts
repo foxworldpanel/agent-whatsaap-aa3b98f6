@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, type Page } from 'playwright-core';
+import { type Browser, type BrowserContext, type Page } from 'playwright';
 import { type InstagramLoginResult } from './types';
 
 // O Playwright core não exporta tipos globais amigáveis a workers. 
@@ -18,7 +18,7 @@ export class PlaywrightSessionService {
     if (!this.browser) {
       console.log(`[Playwright] ${new Date().toISOString()} Launching Chromium...`);
       // Em ambientes de servidor/sandbox, headless: true é obrigatório.
-      const { chromium } = await import('playwright-core');
+      const { chromium } = await import('playwright');
       this.browser = await chromium.launch({ 
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -109,7 +109,7 @@ export class PlaywrightSessionService {
     let context: BrowserContextRuntime | null = null;
 
     try {
-      const { chromium } = await import('playwright-core');
+      const { chromium } = await import('playwright');
       browser = await chromium.launch({ headless: true });
       context = await browser.newContext({ storageState });
       const page = await context.newPage();

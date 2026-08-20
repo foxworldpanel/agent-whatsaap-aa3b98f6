@@ -24,7 +24,7 @@ export class EnvironmentCheckService {
     };
 
     try {
-      const { chromium } = await import('playwright-core');
+      const { chromium } = await import('playwright');
       check.playwright = true;
       const browser = await chromium.launch({ 
         headless: true,
