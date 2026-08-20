@@ -966,14 +966,6 @@ function LeadFinderPage() {
               checks={["Empty State", "Call to Action", "Bloqueio de busca sem conta"]}
             />
           </div>
-              checks={["lead_finder_jobs", "Leads count", "Duration"]}
-            />
-            <ValidationItem 
-              title="Final Report" 
-              description="UI dashboard consolidating all Phase 1 metrics."
-              checks={["Leads Table", "Jobs List", "Timeline View"]}
-            />
-          </div>
         </TabsContent>
       </Tabs>
     </div>
