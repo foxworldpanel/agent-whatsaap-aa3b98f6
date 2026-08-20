@@ -13,7 +13,8 @@ export interface EnvironmentCheck {
 
 export class EnvironmentCheckService {
   static async checkEnvironment(): Promise<EnvironmentCheck> {
-    if (typeof window !== 'undefined') throw new Error('Server-only');
+    const { isBrowser } = await import('@/lib/utils');
+    if (isBrowser) throw new Error('Server-only');
 
     const errors: string[] = [];
     const check: EnvironmentCheck = {

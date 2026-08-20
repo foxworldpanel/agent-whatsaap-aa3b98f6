@@ -13,24 +13,37 @@ export class PlaywrightSessionService {
   private static browser: Browser | null = null;
 
   private static async getBrowser(): Promise<Browser> {
-    if (typeof window !== 'undefined') {
+    const { isBrowser } = await import('@/lib/utils');
+    if (isBrowser) {
       throw new Error('PlaywrightSessionService is server-only');
     }
 
     if (!this.browser) {
-      logger('Browser Started');
+      logger('Playwright Launch Started');
       const { chromium } = await import('playwright');
       
-      // O modo oficial é headless: false para permitir login manual.
-      // Em ambientes sem DISPLAY (VPS), o erro será capturado no Environment Check do Manager.
-      this.browser = await chromium.launch({ 
-        headless: false,
-        executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
+      try {
+        const isHeaded = !!process.env.DISPLAY;
+        
+        this.browser = await chromium.launch({ 
+          headless: !isHeaded,
+          executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
+          args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox', 
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-zygote'
+          ]
+        });
+        logger('Browser Launched Successfully', { headless: !isHeaded, display: !!process.env.DISPLAY });
+      } catch (launchError: any) {
+        logger('CRITICAL: Playwright Launch FAILED', launchError.message);
+        throw launchError;
+      }
       
       this.browser.on('disconnected', () => {
-        logger('Browser Closed');
+        logger('Browser Disconnected');
         this.browser = null;
       });
     }
@@ -38,24 +51,29 @@ export class PlaywrightSessionService {
   }
 
   static async openLoginFlow(): Promise<InstagramLoginResult> {
-    if (typeof window !== 'undefined') throw new Error('Server-only');
+    const { isBrowser } = await import('@/lib/utils');
+    if (isBrowser) throw new Error('Server-only');
     
     let context: BrowserContext | null = null;
 
     try {
+      logger('UI CLICK -> Server Function -> Requesting Browser...');
       const browser = await this.getBrowser();
+      
+      logger('Creating Context...');
       context = await browser.newContext({
         viewport: { width: 1280, height: 800 }
       });
-      logger('Context Started');
+      logger('Context Created Successfully');
       
       const page = await context.newPage();
       
-      logger('Navigating to Instagram Login');
+      logger('Instagram Opening: Navigating to Login page...');
       await page.goto('https://www.instagram.com/accounts/login/', { 
         waitUntil: 'networkidle', 
         timeout: 60000 
       });
+      logger('Instagram Opened Successfully');
       
       logger('Waiting for manual login (timeout: 5m)...');
       
@@ -67,7 +85,8 @@ export class PlaywrightSessionService {
                !href.includes('/accounts/emailsignup');
       }, { timeout: 300000 });
 
-      logger('Login success detected!');
+      logger('Login success detected via URL change!');
+      logger('Waiting Login completion (2s)...');
       await page.waitForTimeout(2000);
 
       const profile = await this.extractProfile(page);
@@ -112,7 +131,7 @@ export class PlaywrightSessionService {
       const validationBrowser = await chromium.launch({ 
         headless: true,
         executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
       });
       
       context = await validationBrowser.newContext({ storageState });
