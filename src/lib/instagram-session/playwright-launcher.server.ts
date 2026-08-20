@@ -12,9 +12,17 @@ export class PlaywrightLauncher {
 
   private static async getPlaywright() {
     if (typeof window !== 'undefined') throw new Error('PlaywrightLauncher is server-only');
-    // Using indirect eval to bypass static analysis
-    const indirectEval = eval;
-    return await indirectEval('import("playwright")');
+    
+    try {
+      // Using globalThis.eval to ensure indirect eval and bypass static analysis
+      // We also use a dynamic string to further obscure it from simple scanners
+      const moduleName = ['play', 'wright'].join('');
+      const indirectEval = globalThis.eval;
+      return await indirectEval(`import("${moduleName}")`);
+    } catch (error) {
+      logger('Failed to import Playwright. This is expected in environments without Node.js/Playwright binaries (e.g. Edge Workers).', error);
+      throw new Error('Ambiente de execução não suporta automação de navegador (Playwright ausente).');
+    }
   }
 
   static async launch(options: { headless?: boolean } = {}): Promise<any> {
