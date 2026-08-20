@@ -11,93 +11,89 @@ export const Route = createFileRoute("/")({
   },
   component: () => (
     <div className="p-8 max-w-4xl mx-auto whitespace-pre-wrap font-mono text-sm">
-      IMPLEMENTAÇÃO FUNCIONAL – Instagram Session Manager (SEM MOCKS)
+      MODO IMPLEMENTAÇÃO (ENGENHEIRO DE SOFTWARE)
 
-      LEIA ATÉ O FINAL ANTES DE IMPLEMENTAR
+      LEIA ANTES DE COMEÇAR
 
-      Esta tarefa NÃO é de documentação.
+      Pare de interpretar esta tarefa como alteração de interface, documentação ou planejamento.
 
-      NÃO atualizar:
-       README
-       Validation
-       Roadmap
-       Checklist
-       Comentários
-       ADR
+      A partir desta mensagem, entre em modo implementação.
 
-      Esta tarefa NÃO é de UI.
-      A interface já existe.
-      O objetivo agora é implementar o CÓDIGO que faz a funcionalidade funcionar.
-      Não alterar apenas textos.
-      Não criar novos mocks.
-      Não criar TODO.
-      Não criar comentários "Future Implementation".
-      A tarefa somente será considerada concluída quando existir código executável implementando o fluxo abaixo.
+      Você deve atuar como um engenheiro de software sênior.
 
-      Biblioteca obrigatória
-      Utilizar Playwright para abrir um navegador Chromium local e permitir que o usuário realize o login manual no Instagram.
-      O Playwright será utilizado apenas para abrir o navegador, aguardar o login e persistir a sessão autenticada.
-      Não implementar scraping nesta tarefa.
+      Esta tarefa NÃO é para:
+       atualizar textos;
+       atualizar README;
+       atualizar Validation;
+       atualizar Roadmap;
+       atualizar Checklists;
+       alterar apenas páginas React;
+       criar componentes visuais;
+       criar TODOs;
+       criar comentários "Future";
+       criar mocks.
 
-      Objetivo
-      Implementar um Instagram Session Manager funcional.
-      O usuário deverá conseguir:
-       clicar em Conectar Conta;
-       abrir o navegador;
-       acessar Instagram;
-       realizar login manual;
-       concluir eventual autenticação em duas etapas;
-       salvar a sessão autenticada;
-       fechar o navegador;
-       visualizar a conta como Connected.
+      Se a sua resposta for apenas "texto atualizado", "planejamento atualizado" ou "interface atualizada", considere a tarefa INCOMPLETA e continue implementando código.
 
-      Arquivos obrigatórios
-      Criar:
+      OBJETIVO
+
+      Quero implementação de código.
+      Quero novos arquivos.
+      Quero novas classes.
+      Quero novos serviços.
+      Quero novas funções.
+      Quero integração funcional.
+      Não quero documentação.
+
+      ESTA TAREFA SÓ TERMINA QUANDO EXISTIR CÓDIGO FUNCIONAL
+
+      O primeiro objetivo do Lead Finder é conseguir conectar uma conta do Instagram.
+      Ainda não vamos implementar busca por hashtags.
+      Ainda não vamos implementar Discovery.
+      Ainda não vamos implementar IA.
+      Ainda não vamos implementar Sales Agent.
+      Primeiro quero apenas conectar uma conta.
+
+      IMPLEMENTAR
+
+      Criar um módulo novo:
       src/lib/instagram-session/
-      Dentro dele:
+
+      Criar os arquivos:
       instagram-session-manager.ts
       playwright-session.service.ts
       session-storage.service.ts
       session-validator.service.ts
       types.ts
 
-      Dependências
+      Todos devem possuir implementação real.
+      Não criar arquivos vazios.
+
+      UTILIZAR PLAYWRIGHT
+
       Adicionar Playwright ao projeto.
-      Criar um serviço responsável exclusivamente pela comunicação com Playwright.
-      Nenhum outro módulo poderá abrir navegador diretamente.
+      O Playwright será responsável por abrir um navegador Chromium.
 
-      Session Manager
-      Implementar uma classe responsável por:
-      connect()
-      disconnect()
-      reconnect()
-      validate()
-      remove()
-      listSessions()
-      getSession()
-      Todos os métodos devem possuir implementação real.
-      Não criar métodos vazios.
-
-      Fluxo obrigatório
-      Ao clicar:
+      Fluxo esperado:
+      Clique em
       Conectar Conta
-      executar:
-      InstagramSessionManager.connect()
-      Fluxo:
+      ↓
+      Playwright
+      ↓
       Abrir Chromium
       ↓
       Abrir
       https://www.instagram.com/
       ↓
-      Aguardar login manual
+      Usuário faz login manual
       ↓
-      Aguardar autenticação em duas etapas
+      Caso exista autenticação em duas etapas, aguardar conclusão
       ↓
-      Detectar login concluído
+      Detectar sessão autenticada
       ↓
       Salvar Storage State
       ↓
-      Salvar informações da conta
+      Persistir sessão
       ↓
       Atualizar banco
       ↓
@@ -105,26 +101,42 @@ export const Route = createFileRoute("/")({
       ↓
       Status = Connected
 
-      Login concluído
-      Considerar login concluído somente quando existir sessão autenticada.
-      Após isso:
-      capturar:
-       username
-       display_name
-       avatar (quando possível)
-       data do login
-      Persistir essas informações.
+      Não simular login.
+      Não marcar Connected manualmente.
+      Só considerar Connected quando existir uma sessão autenticada.
 
-      Persistência
-      Salvar a sessão autenticada utilizando Storage State do Playwright.
+      IMPLEMENTAR
+
+      Classe:
+      InstagramSessionManager
+
+      Implementar realmente:
+      connect()
+      disconnect()
+      reconnect()
+      validate()
+      listSessions()
+      removeSession()
+      getSession()
+      Nenhum método poderá ficar vazio.
+
+      SESSION STORAGE
+
+      Criar um serviço responsável por salvar e carregar o Storage State do Playwright.
+      Persistir:
+       sessão;
+       cookies;
+       storage state;
+       data do login;
+       última validação.
       Não armazenar senha.
-      Não armazenar token permanente.
-      Persistir apenas o estado autenticado da sessão.
 
-      Banco
+      BANCO
+
       Atualizar:
       lead_finder_credentials
-      Campos obrigatórios:
+
+      Adicionar suporte para:
       platform
       username
       display_name
@@ -137,98 +149,88 @@ export const Route = createFileRoute("/")({
       created_at
       updated_at
 
-      Estados
-      Implementar estados reais.
+      STATUS
+
+      Implementar estados reais:
       Connecting
       Connected
       Expired
       Disconnected
       Error
-      Nunca permitir alterar status manualmente.
-      O status deve refletir a sessão.
 
-      Reconectar
-      Ao clicar:
-      Reconectar
-      Executar:
-      Abrir navegador
-      ↓
-      Carregar Storage State
-      ↓
-      Validar sessão
-      ↓
-      Atualizar banco
+      Não alterar estados manualmente.
+      O estado deverá refletir a sessão real.
 
-      Desconectar
-      Ao clicar:
-      Desconectar
-      Executar:
-      Invalidar sessão
-      ↓
-      Excluir Storage State
-      ↓
-      Atualizar banco
-      ↓
-      Status = Disconnected
+      DISCOVERY
 
-      Discovery
-      Na aba Discovery.
-      Mostrar apenas contas:
-      Connected
+      A aba Discovery deverá listar apenas contas Connected.
+      Ainda não implementar busca.
 
-      Logs
-      Registrar:
+      LOGS
+
+      Registrar eventos:
       Conta criada
       Conta conectada
-      Sessão validada
-      Sessão expirada
+      Conta validada
       Conta desconectada
       Conta removida
+      Sessão expirada
 
-      Interface
-      A interface já existe.
-      Somente integrar com o Session Manager.
-      Não criar novas telas.
+      CRITÉRIOS DE ACEITE
 
-      Critérios obrigatórios
-      A tarefa NÃO poderá ser marcada como concluída enquanto não for possível:
-      ✓ clicar em Conectar Conta
-      ✓ abrir navegador
-      ✓ abrir Instagram
-      ✓ realizar login manual
-      ✓ salvar sessão
-      ✓ fechar navegador
-      ✓ visualizar conta Connected
-      ✓ desconectar
-      ✓ reconectar
-      ✓ remover
+      A tarefa NÃO poderá ser considerada concluída enquanto eu não conseguir:
+      ✔ clicar em Conectar Conta
+      ✔ abrir o navegador
+      ✔ abrir Instagram
+      ✔ fazer login manual
+      ✔ concluir autenticação
+      ✔ fechar navegador
+      ✔ visualizar a conta como Connected
+      ✔ desconectar
+      ✔ reconectar
+      ✔ remover
 
-      NÃO FAZER
+      O QUE NÃO FAZER
       Não atualizar documentação.
+      Não atualizar Roadmap.
       Não atualizar Validation.
       Não atualizar README.
-      Não atualizar Roadmap.
-      Não criar checklist.
-      Não criar comentários Future.
-      Não criar mocks.
-      Não simular estados.
-      Não retornar sucesso sem abrir o navegador.
+      Não atualizar apenas a interface.
+      Não criar comentários TODO.
+      Não criar Future Implementation.
+      Não responder dizendo que "o planejamento foi atualizado".
 
-      Entrega obrigatória
-      Ao finalizar responder obrigatoriamente:
-      Arquivos criados
+      ENTREGA OBRIGATÓRIA
+
+      Ao finalizar, responder obrigatoriamente:
+
+      1. Arquivos novos criados
       Listar todos.
-      Arquivos modificados
+
+      2. Arquivos modificados
       Listar todos.
-      Dependências adicionadas
-      Listar.
-      Funções implementadas
-      Listar.
-      Fluxo executável
-      Explicar exatamente qual fluxo passou a funcionar.
-      Como testar
-      Descrever passo a passo para validar que a conexão realmente funciona.
+
+      3. Dependências adicionadas
+      Listar todas.
+
+      4. Classes implementadas
+      Listar todas.
+
+      5. Funções implementadas
+      Listar todas.
+
+      6. Fluxo funcional
+      Explicar exatamente o que agora funciona.
+
+      7. Como testar
+      Descrever passo a passo para validar a implementação.
+
+      8. Git Diff
+      Mostrar os principais trechos alterados ou informar exatamente quais arquivos contêm a implementação.
+
+      Não finalize a tarefa enquanto não existir código funcional implementando esse fluxo.
     </div>
   ),
 });
+
 
