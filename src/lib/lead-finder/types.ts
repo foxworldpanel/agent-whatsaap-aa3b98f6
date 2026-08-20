@@ -12,6 +12,7 @@ export interface LeadDiscoveryResult {
     displayName?: string;
     bio?: string;
     website?: string;
+    profilePicUrl?: string;
   };
   contacts: {
     phone?: string;
