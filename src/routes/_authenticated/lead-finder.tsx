@@ -256,7 +256,7 @@ function LeadFinderPage() {
                     <CardHeader className="flex flex-row items-center gap-4 pb-2">
                       <Avatar className="h-12 w-12 border">
                         <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${cred.username}`} />
-                        <AvatarFallback>{cred.username[0].toUpperCase()}</AvatarFallback>
+                        <AvatarFallback>{cred.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 overflow-hidden">
                         <CardTitle className="text-base truncate">{cred.account_name}</CardTitle>
@@ -455,7 +455,7 @@ function LeadFinderPage() {
                             >
                               <Avatar className="h-8 w-8 border">
                                 <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${cred.username}`} />
-                                <AvatarFallback>{cred.username[0]}</AvatarFallback>
+                                <AvatarFallback>{cred.username?.[0] || 'U'}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1 overflow-hidden">
                                 <p className="text-sm font-medium truncate">{cred.account_name}</p>
