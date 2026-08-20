@@ -170,26 +170,42 @@ function LeadFinderPage() {
 
   const handleAddCredential = async () => {
     console.log('[LeadFinder] UI CLICK -> handleAddCredential');
+    setIsSearching(true); // Reutilizando estado de loading para o botão
+    
+    const toastId = toast.loading("Iniciando conexão...", {
+      description: "Verificando ambiente do servidor..."
+    });
+
     try {
-      toast.info("Iniciando conexão... Aguarde o processamento do servidor.");
-      
       console.log('[LeadFinder] Importing connectInstagramAction...');
       const { connectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions');
       
+      toast.edit(toastId, {
+        description: "Abrindo navegador... Aguarde o login no popup."
+      });
+
       console.log('[LeadFinder] Calling connectInstagramAction...');
       const result = await connectInstagramAction();
       
       console.log('[LeadFinder] Result received:', result);
       
       if (result) {
-        toast.success(`Conta @${result.username} conectada com sucesso!`);
+        toast.success(`Conta @${result.username} conectada!`, { id: toastId });
         await loadCredentials();
       } else {
-        toast.error("Conexão cancelada ou falhou. Verifique os logs do servidor.");
+        toast.error("Conexão cancelada ou falhou.", { 
+          id: toastId,
+          description: "Verifique os logs do servidor para mais detalhes."
+        });
       }
     } catch (e: any) {
       console.error('[LeadFinder] Error in handleAddCredential:', e);
-      toast.error(`Erro ao conectar conta: ${e.message || 'Erro desconhecido'}`);
+      toast.error(`Erro na conexão`, {
+        id: toastId,
+        description: e.message || 'Erro desconhecido'
+      });
+    } finally {
+      setIsSearching(false);
     }
   }
 
