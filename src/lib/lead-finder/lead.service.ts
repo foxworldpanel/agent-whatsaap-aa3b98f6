@@ -7,13 +7,39 @@ import { LeadDiscoveryResult, LeadSalesStatus, LeadPipelineStage } from "./types
  */
 export class LeadService {
   /**
+   * Lists leads with filters.
+   */
+  static async listLeads(filters: {
+    platform?: string;
+    email?: boolean;
+    phone?: boolean;
+    status?: LeadSalesStatus;
+    search?: string;
+  } = {}) {
+    let query = supabase.from('lead_finder_leads').select('*, lead_finder_tags(tag)');
+
+    if (filters.platform) query = query.eq('platform', filters.platform);
+    if (filters.status) query = query.eq('sales_status', filters.status);
+    if (filters.email) query = query.not('email', 'is', null);
+    if (filters.phone) query = query.not('phone', 'is', null);
+    
+    if (filters.search) {
+      query = query.or(`profile_username.ilike.%${filters.search}%,display_name.ilike.%${filters.search}%`);
+    }
+
+    const { data, error } = await query.order('discovered_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  }
+
+  /**
    * Persists a discovered lead to the database.
    * Includes intelligent deduplication.
    */
   static async saveLead(result: LeadDiscoveryResult, origin: string, originValue: string) {
     const { profile, contacts, links, metadata, rawData } = result;
 
-    // 1. Normalization (Basic Phase 1)
+    // 1. Normalization
     const normalizedLead = {
       platform: profile.platform.toLowerCase(),
       profile_username: profile.username.toLowerCase(),
@@ -26,7 +52,10 @@ export class LeadService {
       links: links,
       lead_origin: origin,
       lead_origin_value: originValue,
-      raw_profile_data: rawData,
+      raw_profile_data: { 
+        ...rawData, 
+        profile_pic_url: profile.profilePicUrl 
+      },
       discovered_at: new Date().toISOString(),
       last_seen_at: new Date().toISOString(),
     };
@@ -45,18 +74,32 @@ export class LeadService {
     if (!lead) throw new Error("Failed to save lead");
 
     // 3. Register Timeline
-    await this.addTimelineEvent(lead.id, `Discovered via ${origin}: ${originValue}`);
+    await this.addTimelineEvent(lead.id, `Discovered via ${origin}: ${originValue}`, { result });
 
     return lead;
   }
 
   /**
+   * Gets timeline for a specific lead.
+   */
+  static async getTimeline(leadId: string) {
+    const { data, error } = await supabase
+      .from('lead_finder_timeline')
+      .select('*')
+      .eq('lead_id', leadId)
+      .order('created_at', { ascending: false });
+    
+    if (error) throw error;
+    return data;
+  }
+
+  /**
    * Adds a timeline event for a lead.
    */
-  static async addTimelineEvent(leadId: string, event: string) {
+  static async addTimelineEvent(leadId: string, event: string, metadata: any = {}) {
     const { error } = await supabase
       .from('lead_finder_timeline')
-      .insert({ lead_id: leadId, event });
+      .insert({ lead_id: leadId, event, metadata });
     
     if (error) console.error("Failed to add timeline event:", error);
   }
@@ -91,5 +134,17 @@ export class LeadService {
     if (error) throw error;
     
     await this.addTimelineEvent(leadId, `Status updated: ${stage || ''} | ${salesStatus || ''}`);
+  }
+
+  /**
+   * Deletes a lead.
+   */
+  static async deleteLead(leadId: string) {
+    const { error } = await supabase
+      .from('lead_finder_leads')
+      .delete()
+      .eq('id', leadId);
+    
+    if (error) throw error;
   }
 }
