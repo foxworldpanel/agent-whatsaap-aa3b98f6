@@ -19,7 +19,7 @@ function LeadFinderPage() {
   const [source, setSource] = useState('')
   const [isSearching, setIsSearching] = useState(false)
 
-  const handleStartDiscovery = () => {
+  const handleStartDiscovery = async () => {
     if (!source && provider === 'instagram_public') {
       toast.error("Por favor, informe a origem (ex: @username)")
       return
@@ -28,11 +28,21 @@ function LeadFinderPage() {
     setIsSearching(true)
     toast.info(`Iniciando descoberta via ${provider === 'mock' ? 'Mock' : 'Instagram Public'}...`)
     
-    // Simulating call to Discovery Engine / Job Service
-    setTimeout(() => {
-      setIsSearching(false)
+    try {
+      // In Phase 2, we could call the DiscoveryEngine directly or via a server function
+      // For now, we simulate the integration with the service layer
+      console.log(`[LeadFinder] Starting discovery for ${source} via ${provider}`);
+      
+      // Artificial delay to show UI feedback
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
       toast.success("Job de descoberta iniciado com sucesso!")
-    }, 2000)
+    } catch (error) {
+      console.error("Discovery failed:", error)
+      toast.error("Erro ao iniciar descoberta")
+    } finally {
+      setIsSearching(false)
+    }
   }
 
   return (
