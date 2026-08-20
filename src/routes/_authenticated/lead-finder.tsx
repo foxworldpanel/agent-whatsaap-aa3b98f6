@@ -324,6 +324,9 @@ function LeadFinderPage() {
                         <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs" onClick={() => handleReconnect(cred.id)}>
                           <RefreshCcw className="h-3 w-3" /> Reconectar
                         </Button>
+                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs" onClick={() => handleValidate(cred.id)}>
+                          Validar
+                        </Button>
                         <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs" onClick={() => handleDisconnect(cred.id)}>
                           Desconectar
                         </Button>
@@ -331,6 +334,7 @@ function LeadFinderPage() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
+
 
                     </CardContent>
                   </Card>
