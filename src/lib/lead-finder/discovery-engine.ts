@@ -1,4 +1,6 @@
 import { IDiscoveryProvider, LeadDiscoveryResult } from "./types";
+import { InstagramPublicProvider } from "./providers/instagram-public";
+import { MockDiscoveryProvider } from "./providers/mock-provider";
 
 /**
  * Discovery Engine
@@ -6,6 +8,12 @@ import { IDiscoveryProvider, LeadDiscoveryResult } from "./types";
  */
 export class DiscoveryEngine {
   private providers: Map<string, IDiscoveryProvider> = new Map();
+
+  constructor() {
+    // Phase 2: Auto-register default providers
+    this.registerProvider('mock', new MockDiscoveryProvider());
+    this.registerProvider('instagram_public', new InstagramPublicProvider());
+  }
 
   /**
    * Registers a new discovery provider.
