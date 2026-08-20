@@ -1,16 +1,24 @@
+// Dynamic types for Playwright to avoid client bundle issues
+type Browser = any;
+type BrowserContext = any;
+type Page = any;
+
+type BrowserRuntime = Browser;
+type BrowserContextRuntime = BrowserContext;
+type PageRuntime = Page;
+
 import { type InstagramLoginResult } from './types';
 
 export class PlaywrightSessionService {
-  private static browser: any = null;
+  private static browser: BrowserRuntime | null = null;
 
-  private static async getBrowser(): Promise<any> {
+  private static async getBrowser(): Promise<BrowserRuntime> {
     if (typeof window !== 'undefined') {
       throw new Error('PlaywrightSessionService is server-only');
     }
 
     if (!this.browser) {
       console.log(`[Playwright] ${new Date().toISOString()} Launching Chromium...`);
-      // Em ambientes de servidor/sandbox, headless: true é obrigatório.
       const { chromium } = await import('playwright');
       this.browser = await chromium.launch({ 
         headless: true,
@@ -47,7 +55,7 @@ export class PlaywrightSessionService {
       
       console.log(`[Playwright] ${new Date().toISOString()} Waiting for manual login (timeout: 5m)...`);
       
-      // Aguarda o redirecionamento para o feed/home pós-login
+      // Wait for redirect after login
       await page.waitForURL((url: any) => {
         return url.href.includes('instagram.com/') && 
                !url.href.includes('/accounts/login') && 
@@ -66,9 +74,8 @@ export class PlaywrightSessionService {
       const storageState = await context.storageState();
 
       await context.close();
-      await browser.close();
-      this.browser = null;
-
+      // We don't close the shared browser here unless it's the last one
+      
       if (!username) {
         return { success: false, error: "Não foi possível extrair o username após o login." };
       }
@@ -83,8 +90,6 @@ export class PlaywrightSessionService {
     } catch (error: any) {
       console.error(`[Playwright] ${new Date().toISOString()} Login flow error:`, error);
       if (context) await context.close();
-      if (browser) await browser.close();
-      this.browser = null;
       return { success: false, error: error.message || "Erro desconhecido no fluxo do Playwright" };
     }
   }
@@ -98,12 +103,10 @@ export class PlaywrightSessionService {
     const storageState = await SessionStorageService.loadSession(credentialId);
     if (!storageState) return false;
 
-    let browser: any = null;
     let context: any = null;
 
     try {
-      const { chromium } = await import('playwright');
-      browser = await chromium.launch({ headless: true });
+      const browser = await this.getBrowser();
       context = await browser.newContext({ storageState });
       const page = await context.newPage();
 
@@ -122,7 +125,6 @@ export class PlaywrightSessionService {
       return false;
     } finally {
       if (context) await context.close();
-      if (browser) await browser.close();
     }
   }
 
