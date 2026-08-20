@@ -163,8 +163,8 @@ export const Route = createFileRoute("/")({
           
           <div>
             <h3 className="font-bold text-xs uppercase underline">Bugs encontrados:</h3>
-            <p>1. Ausência de RLS grants na tabela `lead_finder_credentials` impedindo upsert pelo service role / admin client (HINT detectado no build).</p>
-            <p>2. `headless: false` em ambiente sandbox pode falhar sem DISPLAY.</p>
+            <p>1. Ausência de RLS grants na tabela {"lead_finder_credentials"} impedindo upsert pelo service role / admin client (HINT detectado no build).</p>
+            <p>2. {"headless: false"} em ambiente sandbox pode falhar sem DISPLAY.</p>
           </div>
 
           <div>
