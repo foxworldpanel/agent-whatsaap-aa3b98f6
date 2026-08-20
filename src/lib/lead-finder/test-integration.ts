@@ -1,29 +1,28 @@
 import { discoveryEngine } from "./discovery-engine";
-import { MockDiscoveryProvider } from "./providers/mock-provider";
-import { InstagramPublicProvider } from "./providers/instagram-public";
 import { JobService } from "./job.service";
 import { LeadService } from "./lead.service";
 import { supabase } from "@/integrations/supabase/client";
+import { InstagramSessionManager } from "../instagram-session/instagram-session-manager";
 
 /**
- * Lead Finder Integration Test (Phase 1 & 2)
+ * Lead Finder Integration Test (Phase 1, 2 & 3)
  * Validates the entire flow: Job -> Provider -> Result -> Normalization -> Persistence -> Timeline.
+ * Added Instagram Session validation for Sprint 3.1.
  */
 export async function runLeadFinderIntegrationTest() {
   console.log("🚀 Starting Lead Finder Integration Test...");
 
   const results = [];
 
-  // Test both providers
-  const testCases = [
+  // 1. Test Providers (Stateless)
+  const providerTestCases = [
     { type: 'mock', key: 'mock_tester', query: { limit: 2 } },
     { type: 'instagram_public', key: 'instagram_tester', query: { type: 'profile', username: 'lovable_ai' } }
   ];
 
-  for (const test of testCases) {
+  for (const test of providerTestCases) {
     console.log(`\n--- Testing Provider: ${test.type} ---`);
     try {
-      // 1. Ensure provider exists in DB
       const { data: providerEntry } = await supabase
         .from('lead_finder_providers')
         .upsert({
@@ -36,46 +35,50 @@ export async function runLeadFinderIntegrationTest() {
 
       if (!providerEntry) throw new Error(`Failed to ensure provider ${test.type} in DB`);
 
-      // 2. Create Job
       const job = await JobService.createJob(providerEntry.id, { test: true, provider: test.type });
-      console.log(`✅ Job created for ${test.type}:`, job.id);
-
-      // 3. Start Run
       const run = await JobService.startRun(job.id, test.key);
-      console.log(`✅ Run started for ${test.key}:`, run.id);
-
-      // 4. Execution (Stateless Discovery)
       const provider = discoveryEngine.getProvider(test.type === 'mock' ? 'mock' : 'instagram_public');
       if (!provider) throw new Error(`Provider ${test.type} not found in engine`);
       
       const rawResults = await provider.search(test.query);
-      console.log(`✅ Found ${rawResults.length} raw results from ${test.type}`);
-
-      // 5. Processing & Persistence (Via LeadService)
       for (const raw of rawResults) {
-        // Normalization
         const normalized = discoveryEngine.normalize(raw);
-        
-        // Save (Intelligent Deduplication inside)
         const lead = await LeadService.saveLead(normalized, `test_${test.type}`, job.id);
-        console.log(`✅ Lead persisted: ${lead.profile_username} (${lead.id})`);
-        
-        await LeadService.addTags(lead.id, ['test-sprint-2', test.type]);
+        await LeadService.addTags(lead.id, ['test-integration', test.type]);
       }
 
-      // 6. Complete Job
       await JobService.finishRun(run.id);
-      console.log(`✅ Job and Run for ${test.type} finished successfully!`);
       results.push({ provider: test.type, success: true });
-
     } catch (error) {
       console.error(`❌ Integration Test failed for ${test.type}:`, error);
       results.push({ provider: test.type, success: false, error: (error as Error).message });
     }
   }
 
+  // 2. Test Instagram Session Management (Sprint 3.1)
+  console.log(`\n--- Testing Instagram Session Manager ---`);
+  try {
+    // We can't automate a real login that requires manual interaction here,
+    // but we can test the session listing and validation logic with existing data.
+    const sessions = await InstagramSessionManager.listSessions();
+    console.log(`✅ Found ${sessions.length} Instagram sessions in DB`);
+    
+    if (sessions.length > 0) {
+      const target = sessions[0];
+      console.log(`Testing validation for existing session: @${target.username}`);
+      const status = await InstagramSessionManager.validate(target.id);
+      console.log(`✅ Session validation result: ${status}`);
+    } else {
+      console.log("ℹ️ No Instagram sessions available to test validation.");
+    }
+    
+    results.push({ provider: 'instagram_session_manager', success: true });
+  } catch (error) {
+    console.error(`❌ Instagram Session Manager test failed:`, error);
+    results.push({ provider: 'instagram_session_manager', success: false, error: (error as Error).message });
+  }
+
   return results;
 }
 
-// Keep backward compatibility if anything else imports it
 export const runPhase1IntegrationTest = runLeadFinderIntegrationTest;
