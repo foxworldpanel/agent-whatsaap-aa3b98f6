@@ -19,6 +19,31 @@ export class InstagramSessionManager {
       if (response.success && response.status) {
         if (credentialId) {
           await this.updateStatus(credentialId, response.status as InstagramSessionStatus);
+
+          // Bug real encontrado em 20/08/2026: essa função sempre
+          // retornava null aqui, mesmo em conexão bem-sucedida — a tela
+          // sempre mostrava "Conexão cancelada ou falhou." pro usuário,
+          // mesmo quando o login no popup funcionava de verdade. Busca
+          // o registro atualizado pra retornar o dado real.
+          const { data: updated } = await supabase
+            .from('lead_finder_credentials')
+            .select('*')
+            .eq('id', credentialId)
+            .maybeSingle();
+          if (updated) {
+            return updated as unknown as InstagramSessionInfo;
+          }
+        }
+        // Fallback: se o worker retornou username diretamente na resposta
+        // (não declarado no tipo InstagramWorkerApi, mas pode existir em
+        // tempo de execução).
+        const responseWithUsername = response as unknown as { username?: string };
+        if (responseWithUsername.username) {
+          return {
+            id: credentialId || '',
+            username: responseWithUsername.username,
+            status: response.status as InstagramSessionStatus,
+          };
         }
       }
       
