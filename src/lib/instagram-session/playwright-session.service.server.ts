@@ -13,14 +13,16 @@ export class PlaywrightSessionService {
   private static browser: Browser | null = null;
 
   private static async getBrowser(): Promise<Browser> {
-    const { isBrowser } = await import('@/lib/utils');
-    if (isBrowser) {
+    if (typeof window !== 'undefined') {
       throw new Error('PlaywrightSessionService is server-only');
     }
 
     if (!this.browser) {
       logger('Playwright Launch Started');
-      const { chromium } = await import('playwright');
+      // Import dynamic within function to stay server-side
+      const playwright = await import('playwright');
+      const { chromium } = playwright;
+
       
       try {
         const isHeaded = !!process.env.DISPLAY;
