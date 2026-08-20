@@ -2893,11 +2893,17 @@ export type Database = {
           config: Json | null
           created_at: string | null
           created_by: string | null
+          display_name: string | null
           id: string
           last_login: string | null
           last_sync: string | null
+          last_used: string | null
+          last_validation: string | null
+          platform: string | null
+          profile_picture: string | null
           provider_type: string
           status: string
+          storage_state_path: string | null
           updated_at: string | null
           username: string
         }
@@ -2906,11 +2912,17 @@ export type Database = {
           config?: Json | null
           created_at?: string | null
           created_by?: string | null
+          display_name?: string | null
           id?: string
           last_login?: string | null
           last_sync?: string | null
+          last_used?: string | null
+          last_validation?: string | null
+          platform?: string | null
+          profile_picture?: string | null
           provider_type: string
           status?: string
+          storage_state_path?: string | null
           updated_at?: string | null
           username: string
         }
@@ -2919,11 +2931,17 @@ export type Database = {
           config?: Json | null
           created_at?: string | null
           created_by?: string | null
+          display_name?: string | null
           id?: string
           last_login?: string | null
           last_sync?: string | null
+          last_used?: string | null
+          last_validation?: string | null
+          platform?: string | null
+          profile_picture?: string | null
           provider_type?: string
           status?: string
+          storage_state_path?: string | null
           updated_at?: string | null
           username?: string
         }
