@@ -107,6 +107,17 @@ function LeadFinderPage() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="accounts">
+          <Card>
+            <CardHeader>
+              <CardTitle>Instagram Accounts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-muted-foreground text-sm">Gerenciamento de contas conectado em breve.</div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="validation" className="space-y-4">
           <div className="grid gap-6 md:grid-cols-2 mb-4">
             <Card className="border-primary/20 bg-primary/5">
