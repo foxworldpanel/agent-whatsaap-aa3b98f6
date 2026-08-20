@@ -294,34 +294,30 @@ function LeadFinderPage() {
           <div className="grid gap-6 md:grid-cols-2 mb-4">
             <Card className="border-primary/20 bg-primary/5 col-span-full">
               <CardHeader>
-                <CardTitle className="text-xl">Sprint 2.2 – Instagram Account Manager (Operacional)</CardTitle>
+                <CardTitle className="text-xl">Sprint 2.3 – Instagram Discovery (Operacional)</CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                <p>A arquitetura do Lead Finder está evoluindo corretamente, porém a tela Instagram Accounts ainda funciona como um mock e não representa um fluxo operacional real.</p>
-                <p>O objetivo desta sprint é transformar o gerenciamento de contas em um módulo profissional, que será utilizado por todos os Discovery Providers nas próximas fases.</p>
+                <p>O objetivo desta sprint é fazer o Lead Finder começar a funcionar de verdade. O foco é permitir descobrir contatos públicos do Instagram e salvá-los no Lead Bank.</p>
                 
-                <div className="bg-destructive/10 p-3 rounded-md border border-destructive/20 text-destructive font-bold text-xs uppercase tracking-wider">
-                  IMPORTANTE: Não alterar DiscoveryEngine, LeadService ou Provider Contract.
-                </div>
-
                 <div className="grid md:grid-cols-2 gap-4 pt-2">
                   <div className="space-y-2">
-                    <h4 className="font-bold">Objetivos Operacionais</h4>
+                    <h4 className="font-bold">Objetivo</h4>
                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>Conectar conta do Instagram (Wizard)</li>
-                      <li>Visualizar todas as contas cadastradas</li>
-                      <li>Selecionar conta para as descobertas</li>
-                      <li>Gerenciar estados (Conectada, Expirada, etc)</li>
-                      <li>Ações contextuais (Reconectar, Remover)</li>
+                      <li>Conectar uma conta do Instagram.</li>
+                      <li>Selecionar essa conta na aba Discovery.</li>
+                      <li>Pesquisar por um perfil (@usuario).</li>
+                      <li>Abrir esse perfil e ler apenas informações públicas.</li>
+                      <li>Extrair telefone, e-mail, website e links públicos.</li>
+                      <li>Salvar automaticamente no Lead Bank.</li>
                     </ul>
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-bold">Restrições</h4>
+                    <h4 className="font-bold text-destructive">Restrições / Fora do escopo</h4>
                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>NÃO implementar scraping real nesta sprint</li>
-                      <li>NÃO implementar busca por hashtag</li>
-                      <li>NÃO implementar IA nesta fase</li>
-                      <li>Manter infraestrutura preparada para múltiplas contas</li>
+                      <li>Não focar em melhorias visuais ou arquitetura nova.</li>
+                      <li>NÃO implementar busca por hashtag ou palavra-chave.</li>
+                      <li>NÃO implementar IA, classificação ou Lead Score nesta fase.</li>
+                      <li>NÃO implementar disparos ou Sales Agent.</li>
                     </ul>
                   </div>
                 </div>
@@ -331,34 +327,34 @@ function LeadFinderPage() {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <ValidationItem 
-              title="1 - Melhorar aba Accounts" 
-              description="Cards modernos com indicadores rápidos."
-              checks={["Foto, Nome, @username", "Tipo, Status, Sync", "Jobs e Leads counts"]}
+              title="1 - Instagram Accounts" 
+              description="A aba Accounts deve deixar de ser apenas visual."
+              checks={["Estados: Connected, Disconnected, Expired, Connecting", "Ações: Conectar, Reconectar, Desconectar, Remover"]}
             />
             <ValidationItem 
-              title="2 - Status Reais" 
-              description="Sair do mock Conectada/Desconectada."
-              checks={["Conectada, Expirada", "Desconectada, Sincronizando", "Nunca utilizada"]}
+              title="2 - Fluxo de Conexão" 
+              description="Autenticação e manutenção de sessão."
+              checks={["Iniciar fluxo ao clicar em Conectar", "Não armazenar senha permanentemente", "Armazenar apenas a sessão autenticada"]}
             />
             <ValidationItem 
-              title="3 - Botões Dinâmicos" 
-              description="Ações baseadas no estado da sessão."
-              checks={["Desconectar/Remover (Conectada)", "Conectar/Remover (Desconectada)", "Reconectar/Remover (Expirada)"]}
+              title="3 - Discovery UI" 
+              description="Interface de seleção para busca."
+              checks={["Selecionar Conta Principal", "Tipo: Perfil (exclusivo desta sprint)", "Campo @usuario e Botão Iniciar"]}
             />
             <ValidationItem 
-              title="4 - Conexão Wizard" 
-              description="Fluxo guiado de adição de contas."
-              checks={["Seleção de Plataforma", "Instruções de conexão", "Estrutura mock preparada para real"]}
+              title="4 - Discovery Real" 
+              description="Extração de dados públicos do perfil."
+              checks={["username, display_name, bio", "telefone, e-mail, website, links", "Montar LeadDiscoveryResult e salvar via LeadService"]}
             />
             <ValidationItem 
-              title="5 - Seleção no Discovery" 
-              description="Vincular busca a uma conta específica."
-              checks={["Dropdown de Contas", "Passar ID para o Engine", "Fallback caso sem conta"]}
+              title="5 - Deduplicação" 
+              description="Garantir integridade dos dados."
+              checks={["Verificar username, telefone e e-mail", "Não permitir duplicados", "Registrar corretamente na Timeline"]}
             />
             <ValidationItem 
-              title="6 - Banco de Dados" 
-              description="Revisar lead_finder_credentials."
-              checks={["Campos de Auditoria", "Metadados da Conta", "Timestamps de uso"]}
+              title="6 - Lead Bank & Jobs" 
+              description="Persistência e monitoramento."
+              checks={["Leads aparecem automaticamente", "Jobs com duração e contagem", "Timeline e Estatísticas atualizadas"]}
             />
           </div>
 
@@ -369,19 +365,19 @@ function LeadFinderPage() {
             <CardContent className="text-xs text-muted-foreground grid md:grid-cols-2 gap-2">
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Fluxo de conexão/remoção operacional</span>
+                <span>Conectar conta do Instagram e iniciar descoberta</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Estado da conta sincronizado com UI</span>
+                <span>Perfil público lido e contatos extraídos corretamente</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Seleção de conta reflete no Discovery</span>
+                <span>Lead salvo no Lead Bank automaticamente</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Zero refatoração no DiscoveryEngine</span>
+                <span>Jobs, Timeline e Deduplicação funcionando</span>
               </div>
             </CardContent>
           </Card>
