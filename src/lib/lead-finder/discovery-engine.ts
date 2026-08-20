@@ -1,4 +1,7 @@
 import { IDiscoveryProvider, LeadDiscoveryResult } from "./types";
+import { MockDiscoveryProvider } from "./providers/mock-provider";
+import { InstagramPublicProvider } from "./providers/instagram-public";
+
 
 /**
  * Discovery Engine
@@ -43,5 +46,10 @@ export class DiscoveryEngine {
   }
 }
 
-// Global instance
+// Global instance and registration
 export const discoveryEngine = new DiscoveryEngine();
+
+// Register default providers
+discoveryEngine.registerProvider('mock', new MockDiscoveryProvider());
+discoveryEngine.registerProvider('instagram_public', new InstagramPublicProvider());
+
