@@ -1,33 +1,32 @@
-# Plan: Fix Instagram Session Manager (BUG P0)
+# Plan: Fix Instagram Session Manager & Build Failure
 
-The goal is to ensure the "Connect Account" flow works end-to-end, providing real-time feedback and properly handling different environments (headed vs. headless).
+The build is failing because server-side dependencies (Playwright, Node modules) are leaking into the client-side bundle via the Instagram Session Manager modules. I will strictly isolate these modules and use dynamic imports to ensure they are only loaded in the server environment.
 
-## Proposed Changes
+## Tasks
 
-### 1. Instagram Session Manager (`src/lib/instagram-session/`)
+1. **Strict Server-Side Isolation**
+   - Rename `instagram-session-manager.server.ts` to `instagram-session-manager.server.ts` (already done, but verify contents).
+   - Ensure ALL Node.js/Playwright imports in `.server.ts` files are dynamic and guarded by `typeof window === 'undefined'`.
 
-- **`playwright-session.service.server.ts`**:
-    - Robust browser launch logic (auto-detecting `DISPLAY`).
-    - Explicitly handling `headless: true` for validation and `headless: false` for login when a display is present.
-    - Improved `extractProfile` logic with better selectors.
-- **`instagram-session-manager.server.ts`**:
-    - Enhanced error handling to ensure all failures are reported to the UI.
-    - Added granular logging for each step of the connection process.
-- **`instagram-session.functions.ts`**:
-    - Wrap handlers in consistent error-catching logic.
+2. **Fix Build Failure (Rolldown Resolve Error)**
+   - The error `Rolldown failed to resolve import "chromium-bidi/lib/cjs/bidiMapper/BidiMapper"` indicates that Vite/Rolldown is trying to bundle Playwright for the client or during SSR analysis.
+   - I will mark `playwright` and other Node modules as external in a way that prevents them from being bundled into the client code.
 
-### 2. UI Integration (`src/routes/_authenticated/lead-finder.tsx`)
+3. **Restructure Instagram Session Manager Modules**
+   - Move all logic that touches Playwright into a dedicated `playwright-launcher.server.ts` to centralize the risk.
+   - Use `tanstack-start` server-function splitting best practices.
 
-- **Loading States**: Add `isConnecting` state to provide visual feedback.
-- **Granular Toasts**: Use toasts to show the current stage of connection (e.g., "Opening browser...", "Waiting for login...").
-- **Automatic Refresh**: Ensure the credential list reloads immediately upon successful connection.
-
-### 3. Server-side Protection
-
-- Ensure all Playwright/Node imports are strictly isolated to `.server.ts` files or dynamic imports inside server functions.
+4. **Verify Implementation**
+   - Run `bun run build:dev` to ensure the build passes.
+   - Use Playwright via shell to verify the Instagram connection flow works in the sandbox environment.
 
 ## Technical Details
 
-- **Environment**: The system will automatically use `headless: true` in the Lovable sandbox (where `DISPLAY` is absent) to avoid crashes, while recommending a headed environment for manual user login.
-- **Storage**: Sessions are persisted as JSON files in `/tmp/instagram-sessions/` and tracked in the `lead_finder_credentials` table.
-- **Validation**: A background check using `headless: true` to verify if the session is still valid.
+- **Environment**: TanStack Start (React 19, Vite 8).
+- **Issue**: Static analysis of `import('playwright')` is triggering Rolldown to resolve its sub-dependencies.
+- **Fix**: Wrap imports in a wrapper that Vite's static analyzer won't follow to the client, or use specific Vite config (if accessible) to externalize them. Since I cannot edit `vite.config.ts` easily without risking breaking other things, I will focus on code-level isolation.
+- **Isolation Strategy**:
+  ```typescript
+  const playwright = await (eval('import("playwright")'));
+  ```
+  Using `eval` or similar patterns can sometimes bypass overly aggressive static analysis, but standard dynamic imports should work if the file is correctly identified as server-only.

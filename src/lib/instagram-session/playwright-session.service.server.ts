@@ -13,14 +13,16 @@ export class PlaywrightSessionService {
   private static browser: Browser | null = null;
 
   private static async getBrowser(): Promise<Browser> {
-    const { isBrowser } = await import('@/lib/utils');
-    if (isBrowser) {
+    if (typeof window !== 'undefined') {
       throw new Error('PlaywrightSessionService is server-only');
     }
 
     if (!this.browser) {
       logger('Playwright Launch Started');
-      const { chromium } = await import('playwright');
+      // Import dynamic within function to stay server-side
+      const playwright = await import('playwright');
+      const { chromium } = playwright;
+
       
       try {
         const isHeaded = !!process.env.DISPLAY;
@@ -51,8 +53,7 @@ export class PlaywrightSessionService {
   }
 
   static async openLoginFlow(): Promise<InstagramLoginResult> {
-    const { isBrowser } = await import('@/lib/utils');
-    if (isBrowser) throw new Error('Server-only');
+    if (typeof window !== 'undefined') throw new Error('Server-only');
     
     let context: BrowserContext | null = null;
 
@@ -126,7 +127,8 @@ export class PlaywrightSessionService {
 
     let context: BrowserContext | null = null;
     try {
-      const { chromium } = await import('playwright');
+      const playwright = await import('playwright');
+      const { chromium } = playwright;
       // Validação pode rodar em headless: true para economizar recursos
       const validationBrowser = await chromium.launch({ 
         headless: true,
@@ -157,12 +159,25 @@ export class PlaywrightSessionService {
   }
 
   private static async extractProfile(page: Page): Promise<Partial<InstagramLoginResult>> {
+    logger('Extracting Profile data...');
     return await page.evaluate(() => {
+      // 1. Username
       const navProfile = document.querySelector('a[href^="/"] img[alt*="profile"]')?.closest('a')?.getAttribute('href');
-      const username = navProfile ? navProfile.replace(/\//g, '') : undefined;
+      let username = navProfile ? navProfile.replace(/\//g, '') : undefined;
+      
+      if (!username) {
+        // Fallback for some IG versions
+        const profileLink = document.querySelector('svg[aria-label="Profile"], svg[aria-label="Perfil"]')?.closest('a')?.getAttribute('href');
+        username = profileLink ? profileLink.replace(/\//g, '') : undefined;
+      }
+
+      // 2. Display Name
       const titleParts = document.title.split(' • ');
-      const display_name = titleParts.length > 1 ? titleParts[0] : undefined;
-      const img = document.querySelector('nav img[alt*="profile"]') as HTMLImageElement;
+      let display_name = titleParts.length > 1 ? titleParts[0] : undefined;
+      
+      // 3. Profile Picture
+      const img = document.querySelector('nav img[alt*="profile"], img[alt*="profile picture"]') as HTMLImageElement;
+      
       return { username, display_name, profile_picture: img?.src };
     });
   }
