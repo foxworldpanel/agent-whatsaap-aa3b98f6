@@ -926,38 +926,46 @@ function LeadFinderPage() {
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <ValidationItem 
-              title="Deduplication" 
-              description="LeadService.saveLead detects existing leads by provider/username."
-              checks={["Primary Key lookup", "Conflict handling", "Update existing fields"]}
+              title="1 - Aba Accounts" 
+              description="Cards modernos com indicadores rápidos."
+              checks={["Foto, Nome, @username", "Tipo, Status, Sync", "Jobs e Leads counts"]}
             />
             <ValidationItem 
-              title="Provider Contract" 
-              description="Stateless search() returning LeadDiscoveryResult[]."
-              checks={["MockProvider", "InstagramPublic", "Type Safety"]}
+              title="2 - Status Reais" 
+              description="Sair do mock Conectada/Desconectada."
+              checks={["Conectada, Expirada", "Desconectada, Sincronizando", "Nunca utilizada"]}
             />
             <ValidationItem 
-              title="DiscoveryEngine" 
-              description="Central hub for provider registration and job execution."
-              checks={["Provider Registry", "Job Lifecycle", "Stats Tracking"]}
+              title="3 - Botões Dinâmicos" 
+              description="Ações baseadas no estado da sessão."
+              checks={["Desconectar/Remover (Conectada)", "Conectar/Remover (Desconectada)", "Reconectar/Remover (Expirada)"]}
             />
             <ValidationItem 
-              title="LeadService" 
-              description="Abstraction for leads and timeline persistence."
-              checks={["Supabase Integration", "RLS Compliance", "Timeline Events"]}
+              title="4 - Conexão Wizard" 
+              description="Fluxo guiado de adição de contas."
+              checks={["Seleção de Plataforma", "Instruções de conexão", "Estrutura mock preparada para real"]}
             />
             <ValidationItem 
-              title="AI Independence" 
-              description="Core scraping logic does not depend on LLMs (deterministic)."
-              checks={["Raw Extraction", "Regex parsing", "No GPT-latency"]}
+              title="5 - Seleção no Discovery" 
+              description="Vincular busca a uma conta específica."
+              checks={["Dropdown de Contas", "Passar ID para o Engine", "Fallback caso sem conta"]}
             />
             <ValidationItem 
-              title="Timeline & Audit" 
-              description="Every discovery event is logged for transparency."
-              checks={["lead_finder_timeline", "Job reference", "Step tracing"]}
+              title="6 - Banco de Dados" 
+              description="Revisar lead_finder_credentials."
+              checks={["Campos de Auditoria", "Metadados da Conta", "Timestamps de uso"]}
             />
             <ValidationItem 
-              title="Jobs & Stats" 
-              description="Async execution state and progress monitoring."
+              title="7 - UX & Mobile" 
+              description="Interface responsiva e profissional."
+              checks={["Avatar do perfil", "Badges coloridas", "Cards compactos"]}
+            />
+            <ValidationItem 
+              title="8 - Discovery Wizard" 
+              description="Aviso quando sem conta conectada."
+              checks={["Empty State", "Call to Action", "Bloqueio de busca sem conta"]}
+            />
+          </div>
               checks={["lead_finder_jobs", "Leads count", "Duration"]}
             />
             <ValidationItem 
