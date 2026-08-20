@@ -18,12 +18,11 @@ import { runLeadFinderIntegrationTest } from '@/lib/lead-finder/test-integration
 import { CredentialService } from '@/lib/lead-finder/credential.service'
 import { LeadService } from '@/lib/lead-finder/lead.service'
 import { JobService } from '@/lib/lead-finder/job.service'
-import { 
-  connectInstagramAction, 
-  disconnectInstagramAction, 
-  reconnectInstagramAction, 
-  removeInstagramAction 
-} from '@/lib/instagram-session/instagram-session.functions'
+import type { 
+  InstagramSessionInfo,
+  InstagramSessionStatus
+} from '@/lib/instagram-session/types'
+
 
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
