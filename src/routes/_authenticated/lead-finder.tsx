@@ -297,27 +297,37 @@ function LeadFinderPage() {
                 <CardTitle className="text-xl">Sprint 2.3 – Instagram Discovery (Operacional)</CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                <p>O objetivo desta sprint é fazer o Lead Finder começar a funcionar de verdade. O foco é permitir descobrir contatos públicos do Instagram e salvá-los no Lead Bank.</p>
+                <p>O objetivo desta sprint é fazer o Lead Finder começar a funcionar de verdade.</p>
+                <p>Não focar em melhorias visuais.</p>
+                <p>Não focar em arquitetura nova.</p>
+                <p>Não criar novos módulos genéricos.</p>
+                <p>O foco é permitir descobrir contatos públicos do Instagram e salvá-los no Lead Bank.</p>
                 
                 <div className="grid md:grid-cols-2 gap-4 pt-2">
                   <div className="space-y-2">
                     <h4 className="font-bold">Objetivo</h4>
+                    <p>O usuário deve conseguir:</p>
                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
                       <li>Conectar uma conta do Instagram.</li>
                       <li>Selecionar essa conta na aba Discovery.</li>
-                      <li>Pesquisar por um perfil (@usuario).</li>
-                      <li>Abrir esse perfil e ler apenas informações públicas.</li>
-                      <li>Extrair telefone, e-mail, website e links públicos.</li>
+                      <li>Pesquisar por um perfil.</li>
+                      <li>Abrir esse perfil.</li>
+                      <li>Ler apenas informações públicas.</li>
+                      <li>Extrair telefone, e-mail, website e links públicos quando existirem.</li>
                       <li>Salvar automaticamente no Lead Bank.</li>
                     </ul>
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-bold text-destructive">Restrições / Fora do escopo</h4>
+                    <h4 className="font-bold text-destructive">8 - Fora do escopo</h4>
+                    <p>Ainda NÃO implementar:</p>
                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>Não focar em melhorias visuais ou arquitetura nova.</li>
-                      <li>NÃO implementar busca por hashtag ou palavra-chave.</li>
-                      <li>NÃO implementar IA, classificação ou Lead Score nesta fase.</li>
-                      <li>NÃO implementar disparos ou Sales Agent.</li>
+                      <li>busca por hashtag;</li>
+                      <li>busca por palavra-chave;</li>
+                      <li>IA;</li>
+                      <li>classificação;</li>
+                      <li>Lead Score;</li>
+                      <li>Sales Agent;</li>
+                      <li>disparos.</li>
                     </ul>
                   </div>
                 </div>
@@ -328,56 +338,68 @@ function LeadFinderPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <ValidationItem 
               title="1 - Instagram Accounts" 
-              description="A aba Accounts deve deixar de ser apenas visual."
-              checks={["Estados: Connected, Disconnected, Expired, Connecting", "Ações: Conectar, Reconectar, Desconectar, Remover"]}
+              description="A aba Accounts deve deixar de ser apenas visual. Implementar um fluxo operacional."
+              checks={["Connected, Disconnected, Expired, Connecting", "Conectar, Reconectar, Desconectar, Remover"]}
             />
             <ValidationItem 
               title="2 - Fluxo de Conexão" 
-              description="Autenticação e manutenção de sessão."
-              checks={["Iniciar fluxo ao clicar em Conectar", "Não armazenar senha permanentemente", "Armazenar apenas a sessão autenticada"]}
+              description="Ao clicar em Conectar Conta, iniciar o fluxo de autenticação."
+              checks={["Manter sessão autenticada disponível", "Não armazenar usuário e senha permanentemente", "Armazenar apenas a sessão autenticada"]}
             />
             <ValidationItem 
-              title="3 - Discovery UI" 
-              description="Interface de seleção para busca."
-              checks={["Selecionar Conta Principal", "Tipo: Perfil (exclusivo desta sprint)", "Campo @usuario e Botão Iniciar"]}
+              title="3 - Discovery" 
+              description="Na aba Discovery permitir selecionar parâmetros."
+              checks={["Conta Principal", "Tipo: Perfil (exclusivo desta sprint)", "@usuario e Iniciar Discovery"]}
             />
             <ValidationItem 
               title="4 - Discovery Real" 
-              description="Extração de dados públicos do perfil."
-              checks={["username, display_name, bio", "telefone, e-mail, website, links", "Montar LeadDiscoveryResult e salvar via LeadService"]}
+              description="Ao iniciar a descoberta, abrir perfil e ler informações públicas."
+              checks={["username, display_name, bio", "telefone, e-mail, website, links públicos", "LeadDiscoveryResult via LeadService"]}
             />
             <ValidationItem 
               title="5 - Deduplicação" 
-              description="Garantir integridade dos dados."
-              checks={["Verificar username, telefone e e-mail", "Não permitir duplicados", "Registrar corretamente na Timeline"]}
+              description="Antes de salvar, verificar integridade."
+              checks={["username, telefone, e-mail", "Não permitir duplicados", "Registrar corretamente na Timeline"]}
             />
             <ValidationItem 
               title="6 - Lead Bank & Jobs" 
-              description="Persistência e monitoramento."
-              checks={["Leads aparecem automaticamente", "Jobs com duração e contagem", "Timeline e Estatísticas atualizadas"]}
+              description="Persistência e monitoramento automático."
+              checks={["Lead aparece sem atualizar", "Job, Timeline e Estatísticas", "duração, encontrados, erros, duplicados"]}
             />
           </div>
 
           <Card className="mt-4 border-dashed bg-muted/20">
             <CardHeader>
-              <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">Critérios de Aceite</CardTitle>
+              <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">Critérios de aceite</CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground grid md:grid-cols-2 gap-2">
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Conectar conta do Instagram e iniciar descoberta</span>
+                <span>seja possível conectar uma conta do Instagram;</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Perfil público lido e contatos extraídos corretamente</span>
+                <span>seja possível iniciar uma descoberta utilizando essa conta;</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Lead salvo no Lead Bank automaticamente</span>
+                <span>um perfil público possa ser lido;</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Jobs, Timeline e Deduplicação funcionando</span>
+                <span>os contatos públicos sejam extraídos corretamente quando existirem;</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>o Lead seja salvo no Lead Bank;</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>Jobs e Timeline sejam atualizados automaticamente;</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>a deduplicação continue funcionando.</span>
               </div>
             </CardContent>
           </Card>
