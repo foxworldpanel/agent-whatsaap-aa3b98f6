@@ -127,7 +127,7 @@ export class PlaywrightSessionService {
 
     let context: BrowserContext | null = null;
     try {
-      const playwright = await import('playwright');
+      const playwright = await eval('import("playwright")');
       const { chromium } = playwright;
       // Validação pode rodar em headless: true para economizar recursos
       const validationBrowser = await chromium.launch({ 
