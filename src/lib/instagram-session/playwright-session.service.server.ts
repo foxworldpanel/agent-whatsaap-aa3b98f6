@@ -13,7 +13,8 @@ export class PlaywrightSessionService {
   private static browser: Browser | null = null;
 
   private static async getBrowser(): Promise<Browser> {
-    if (typeof window !== 'undefined') {
+    const { isBrowser } = await import('@/lib/utils');
+    if (isBrowser) {
       throw new Error('PlaywrightSessionService is server-only');
     }
 
@@ -44,7 +45,8 @@ export class PlaywrightSessionService {
   }
 
   static async openLoginFlow(): Promise<InstagramLoginResult> {
-    if (typeof window !== 'undefined') throw new Error('Server-only');
+    const { isBrowser } = await import('@/lib/utils');
+    if (isBrowser) throw new Error('Server-only');
     
     let context: BrowserContext | null = null;
 
