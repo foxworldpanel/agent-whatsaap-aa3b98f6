@@ -584,14 +584,192 @@ function LeadFinderPage() {
 
         <TabsContent value="leads">
           <Card>
-            <CardHeader>
-              <CardTitle>Banco de Leads</CardTitle>
-              <CardDescription>
-                Todos os leads descobertos e persistidos no sistema.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Lead Bank</CardTitle>
+                <CardDescription>Visualize e gerencie todos os leads descobertos.</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Filter className="h-4 w-4" /> Filtros
+                </Button>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Database className="h-4 w-4" /> Exportar
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="h-[400px] flex items-center justify-center text-muted-foreground">
-              Tabela de Leads (Em breve)
+            <CardContent>
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="w-[300px]">Lead</TableHead>
+                      <TableHead>Localização</TableHead>
+                      <TableHead>Contatos</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Temperatura</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {leads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                          Nenhum lead encontrado ainda. Inicie uma descoberta para começar.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      leads.map((lead) => (
+                        <TableRow key={lead.id} className="hover:bg-muted/20 transition-colors">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10 border shadow-sm">
+                                <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.username}`} />
+                                <AvatarFallback>{lead.username[0]}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-sm leading-none">{lead.full_name || lead.username}</span>
+                                <span className="text-xs text-muted-foreground">@{lead.username}</span>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            <div className="flex items-center gap-1">
+                              <Globe className="h-3 w-3 text-muted-foreground" />
+                              {lead.location || 'Brasil'}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {lead.email && (
+                                <Badge variant="secondary" className="h-5 px-1 bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400">
+                                  <Mail className="h-3 w-3" />
+                                </Badge>
+                              )}
+                              {lead.phone && (
+                                <Badge variant="secondary" className="h-5 px-1 bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400">
+                                  <Phone className="h-3 w-3" />
+                                </Badge>
+                              )}
+                              {lead.website && (
+                                <Badge variant="secondary" className="h-5 px-1 bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400">
+                                  <Globe className="h-3 w-3" />
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className="h-6 font-normal capitalize" variant="outline">
+                              {lead.sales_status?.replace('_', ' ') || 'New'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-orange-500" 
+                                  style={{ width: `${(lead.score_profile || 0) * 100}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-bold text-orange-600">
+                                {Math.round((lead.score_profile || 0) * 100)}°
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Sheet>
+                              <SheetTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedLead(lead)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </SheetTrigger>
+                              <SheetContent className="w-[400px] sm:w-[540px]">
+                                <SheetHeader>
+                                  <div className="flex items-center gap-4 pt-4">
+                                    <Avatar className="h-16 w-16 border-2 border-primary/20">
+                                      <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.username}`} />
+                                      <AvatarFallback>{lead.username[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <SheetTitle className="text-2xl">{lead.full_name || lead.username}</SheetTitle>
+                                      <SheetDescription className="text-primary font-medium">@{lead.username}</SheetDescription>
+                                    </div>
+                                  </div>
+                                </SheetHeader>
+
+                                <div className="mt-8 space-y-6">
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <Card className="bg-muted/30 border-none shadow-none">
+                                      <CardContent className="p-4 space-y-1">
+                                        <p className="text-[10px] uppercase text-muted-foreground font-bold">Temperatura</p>
+                                        <p className="text-2xl font-black text-orange-600">{Math.round((lead.score_profile || 0) * 100)}°</p>
+                                      </CardContent>
+                                    </Card>
+                                    <Card className="bg-muted/30 border-none shadow-none">
+                                      <CardContent className="p-4 space-y-1">
+                                        <p className="text-[10px] uppercase text-muted-foreground font-bold">Seguidores</p>
+                                        <p className="text-2xl font-black">--</p>
+                                      </CardContent>
+                                    </Card>
+                                  </div>
+
+                                  <div className="space-y-4">
+                                    <h4 className="text-sm font-bold flex items-center gap-2">
+                                      <Info className="h-4 w-4" /> Informações de Contato
+                                    </h4>
+                                    <div className="space-y-3">
+                                      <div className="flex items-center justify-between text-sm p-3 border rounded-lg bg-background">
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                          <Mail className="h-4 w-4" /> E-mail
+                                        </div>
+                                        <span className="font-medium">{lead.email || 'Não encontrado'}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-sm p-3 border rounded-lg bg-background">
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                          <Phone className="h-4 w-4" /> Telefone
+                                        </div>
+                                        <span className="font-medium">{lead.phone || 'Não encontrado'}</span>
+                                      </div>
+                                      <div className="flex items-center justify-between text-sm p-3 border rounded-lg bg-background">
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                          <Globe className="h-4 w-4" /> Website
+                                        </div>
+                                        {lead.website ? (
+                                          <a href={lead.website} target="_blank" className="text-primary hover:underline flex items-center gap-1 font-medium">
+                                            Visitar site <ExternalLink className="h-3 w-3" />
+                                          </a>
+                                        ) : (
+                                          <span className="text-muted-foreground">Não informado</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <h4 className="text-sm font-bold">Biografia</h4>
+                                    <p className="text-sm text-muted-foreground bg-muted/20 p-4 rounded-lg italic">
+                                      {lead.bio || "Nenhuma biografia extraída."}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex gap-2 pt-4">
+                                    <Button className="flex-1 gap-2 h-12">
+                                      <Send className="h-4 w-4" /> Iniciar Abordagem
+                                    </Button>
+                                    <Button variant="outline" size="icon" className="h-12 w-12 text-destructive border-destructive/20">
+                                      <Trash2 className="h-5 w-5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </SheetContent>
+                            </Sheet>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
