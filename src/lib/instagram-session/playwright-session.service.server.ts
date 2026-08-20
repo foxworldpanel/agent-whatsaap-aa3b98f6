@@ -18,31 +18,8 @@ export class PlaywrightSessionService {
     }
 
     if (!this.browser) {
-      logger('Playwright Launch Started');
-      // Import dynamic within function to stay server-side
-      const playwright = await import('playwright');
-      const { chromium } = playwright;
-
-      
-      try {
-        const isHeaded = !!process.env.DISPLAY;
-        
-        this.browser = await chromium.launch({ 
-          headless: !isHeaded,
-          executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-          args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox', 
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--no-zygote'
-          ]
-        });
-        logger('Browser Launched Successfully', { headless: !isHeaded, display: !!process.env.DISPLAY });
-      } catch (launchError: any) {
-        logger('CRITICAL: Playwright Launch FAILED', launchError.message);
-        throw launchError;
-      }
+      const { PlaywrightLauncher } = await import('./playwright-launcher.server');
+      this.browser = await PlaywrightLauncher.launch();
       
       this.browser.on('disconnected', () => {
         logger('Browser Disconnected');
@@ -78,7 +55,6 @@ export class PlaywrightSessionService {
       
       logger('Waiting for manual login (timeout: 5m)...');
       
-      // Detecção de login concluído: URL não contém mais login/signup e aponta para o domínio principal
       await page.waitForURL((url: any) => {
         const href = typeof url === 'string' ? url : url.href;
         return href.includes('instagram.com/') && 
@@ -127,14 +103,8 @@ export class PlaywrightSessionService {
 
     let context: BrowserContext | null = null;
     try {
-      const playwright = await import('playwright');
-      const { chromium } = playwright;
-      // Validação pode rodar em headless: true para economizar recursos
-      const validationBrowser = await chromium.launch({ 
-        headless: true,
-        executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-      });
+      const { PlaywrightLauncher } = await import('./playwright-launcher.server');
+      const validationBrowser = await PlaywrightLauncher.launch({ headless: true });
       
       context = await validationBrowser.newContext({ storageState });
       logger('Context Created (Validation)');
@@ -161,21 +131,17 @@ export class PlaywrightSessionService {
   private static async extractProfile(page: Page): Promise<Partial<InstagramLoginResult>> {
     logger('Extracting Profile data...');
     return await page.evaluate(() => {
-      // 1. Username
       const navProfile = document.querySelector('a[href^="/"] img[alt*="profile"]')?.closest('a')?.getAttribute('href');
       let username = navProfile ? navProfile.replace(/\//g, '') : undefined;
       
       if (!username) {
-        // Fallback for some IG versions
         const profileLink = document.querySelector('svg[aria-label="Profile"], svg[aria-label="Perfil"]')?.closest('a')?.getAttribute('href');
         username = profileLink ? profileLink.replace(/\//g, '') : undefined;
       }
 
-      // 2. Display Name
       const titleParts = document.title.split(' • ');
       let display_name = titleParts.length > 1 ? titleParts[0] : undefined;
       
-      // 3. Profile Picture
       const img = document.querySelector('nav img[alt*="profile"], img[alt*="profile picture"]') as HTMLImageElement;
       
       return { username, display_name, profile_picture: img?.src };
