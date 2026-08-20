@@ -297,27 +297,37 @@ function LeadFinderPage() {
                 <CardTitle className="text-xl">Sprint 2.3 – Instagram Discovery (Operacional)</CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                <p>O objetivo desta sprint é fazer o Lead Finder começar a funcionar de verdade. O foco é permitir descobrir contatos públicos do Instagram e salvá-los no Lead Bank.</p>
+                <p>O objetivo desta sprint é fazer o Lead Finder começar a funcionar de verdade.</p>
+                <p>Não focar em melhorias visuais.</p>
+                <p>Não focar em arquitetura nova.</p>
+                <p>Não criar novos módulos genéricos.</p>
+                <p>O foco é permitir descobrir contatos públicos do Instagram e salvá-los no Lead Bank.</p>
                 
                 <div className="grid md:grid-cols-2 gap-4 pt-2">
                   <div className="space-y-2">
                     <h4 className="font-bold">Objetivo</h4>
+                    <p>O usuário deve conseguir:</p>
                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
                       <li>Conectar uma conta do Instagram.</li>
                       <li>Selecionar essa conta na aba Discovery.</li>
-                      <li>Pesquisar por um perfil (@usuario).</li>
-                      <li>Abrir esse perfil e ler apenas informações públicas.</li>
-                      <li>Extrair telefone, e-mail, website e links públicos.</li>
+                      <li>Pesquisar por um perfil.</li>
+                      <li>Abrir esse perfil.</li>
+                      <li>Ler apenas informações públicas.</li>
+                      <li>Extrair telefone, e-mail, website e links públicos quando existirem.</li>
                       <li>Salvar automaticamente no Lead Bank.</li>
                     </ul>
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-bold text-destructive">Restrições / Fora do escopo</h4>
+                    <h4 className="font-bold text-destructive">8 - Fora do escopo</h4>
+                    <p>Ainda NÃO implementar:</p>
                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>Não focar em melhorias visuais ou arquitetura nova.</li>
-                      <li>NÃO implementar busca por hashtag ou palavra-chave.</li>
-                      <li>NÃO implementar IA, classificação ou Lead Score nesta fase.</li>
-                      <li>NÃO implementar disparos ou Sales Agent.</li>
+                      <li>busca por hashtag;</li>
+                      <li>busca por palavra-chave;</li>
+                      <li>IA;</li>
+                      <li>classificação;</li>
+                      <li>Lead Score;</li>
+                      <li>Sales Agent;</li>
+                      <li>disparos.</li>
                     </ul>
                   </div>
                 </div>
