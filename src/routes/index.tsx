@@ -174,7 +174,7 @@ export const Route = createFileRoute("/")({
 
           <div>
             <h3 className="font-bold text-xs uppercase underline">Fluxos testados:</h3>
-            <p>Unit test (Manager -> Playwright -> Supabase) com sucesso.</p>
+            <p>Unit test (Manager {"->"} Playwright {"->"} Supabase) com sucesso.</p>
           </div>
 
           <div>
