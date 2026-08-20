@@ -170,7 +170,7 @@ function LeadFinderPage() {
 
   const handleAddCredential = async () => {
     console.log('[LeadFinder] UI CLICK -> handleAddCredential');
-    setIsSearching(true); // Reutilizando estado de loading para o botão
+    setIsSearching(true);
     
     const toastId = toast.loading("Iniciando conexão...", {
       description: "Verificando ambiente do servidor..."
@@ -180,7 +180,8 @@ function LeadFinderPage() {
       console.log('[LeadFinder] Importing connectInstagramAction...');
       const { connectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions');
       
-      toast.edit(toastId, {
+      toast.info("Ação iniciada", {
+        id: toastId,
         description: "Abrindo navegador... Aguarde o login no popup."
       });
 
@@ -190,7 +191,10 @@ function LeadFinderPage() {
       console.log('[LeadFinder] Result received:', result);
       
       if (result) {
-        toast.success(`Conta @${result.username} conectada!`, { id: toastId });
+        toast.success(`Conta @${result.username} conectada!`, { 
+          id: toastId,
+          description: "Sessão validada com sucesso."
+        });
         await loadCredentials();
       } else {
         toast.error("Conexão cancelada ou falhou.", { 
