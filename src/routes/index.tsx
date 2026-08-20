@@ -1,5 +1,10 @@
+import { createFileRoute } from '@tanstack/react-router';
 
-export default function Index() {
+export const Route = createFileRoute('/')({
+  component: Index,
+});
+
+function Index() {
   return (
     <div className="p-8 font-sans max-w-4xl mx-auto space-y-8">
       <h1 className="text-3xl font-bold border-b pb-4 text-primary">
