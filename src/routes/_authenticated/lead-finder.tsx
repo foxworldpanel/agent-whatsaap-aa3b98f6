@@ -19,9 +19,10 @@ import { CredentialService } from '@/lib/lead-finder/credential.service'
 import { LeadService } from '@/lib/lead-finder/lead.service'
 import { JobService } from '@/lib/lead-finder/job.service'
 import type { 
-  InstagramSessionInfo,
-  InstagramSessionStatus
+  InstagramSessionInfo, 
+  InstagramSessionStatus 
 } from '@/lib/instagram-session/types'
+
 
 
 import { Badge } from '@/components/ui/badge'
