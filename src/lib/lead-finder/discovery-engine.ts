@@ -1,4 +1,7 @@
 import { IDiscoveryProvider, LeadDiscoveryResult } from "./types";
+import { MockDiscoveryProvider } from "./providers/mock-provider";
+import { InstagramPublicProvider } from "./providers/instagram-public";
+
 
 /**
  * Discovery Engine
@@ -22,7 +25,7 @@ export class DiscoveryEngine {
   }
 
   /**
-   * Normalizes provider output (Basic implementation for Phase 1).
+   * Normalizes provider output (Phase 2).
    * This ensures all internal system components see a unified data structure.
    */
   normalize(result: LeadDiscoveryResult): LeadDiscoveryResult {
@@ -43,5 +46,10 @@ export class DiscoveryEngine {
   }
 }
 
-// Global instance
+// Global instance and registration
 export const discoveryEngine = new DiscoveryEngine();
+
+// Register default providers
+discoveryEngine.registerProvider('mock', new MockDiscoveryProvider());
+discoveryEngine.registerProvider('instagram_public', new InstagramPublicProvider());
+
