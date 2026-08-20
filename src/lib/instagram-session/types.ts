@@ -23,5 +23,6 @@ export interface InstagramLoginResult {
   username?: string;
   display_name?: string;
   profile_picture?: string;
+  storageState?: any;
   error?: string;
 }

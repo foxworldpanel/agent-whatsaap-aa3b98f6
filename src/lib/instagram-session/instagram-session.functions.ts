@@ -3,9 +3,8 @@ import { InstagramSessionManager } from "./instagram-session-manager";
 import { z } from "zod";
 
 export const connectInstagramAction = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => z.object({ credentialId: z.string() }).parse(data))
-  .handler(async ({ data }) => {
-    return await InstagramSessionManager.connect(data.credentialId);
+  .handler(async () => {
+    return await InstagramSessionManager.connect();
   });
 
 export const disconnectInstagramAction = createServerFn({ method: "POST" })

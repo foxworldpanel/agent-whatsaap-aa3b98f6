@@ -170,21 +170,18 @@ function LeadFinderPage() {
 
   const handleAddCredential = async () => {
     try {
-      const newCred = await CredentialService.addCredential({
-        provider_type: 'instagram',
-        account_name: 'Nova Conta Instagram',
-        username: 'pendente',
-        config: {}
-      })
+      toast.info("Iniciando conexão... Siga as instruções no navegador que será aberto.")
+      const result = await connectInstagramAction()
       
-      toast.info("Iniciando conexão... Siga as instruções no navegador.")
-      await connectInstagramAction({ data: { credentialId: newCred.id } })
-      
-      toast.success("Conta conectada com sucesso!")
-      await loadCredentials()
-    } catch (e) {
+      if (result) {
+        toast.success(`Conta @${result.username} conectada com sucesso!`)
+        await loadCredentials()
+      } else {
+        toast.error("Conexão cancelada ou falhou")
+      }
+    } catch (e: any) {
       console.error(e)
-      toast.error("Erro ao conectar conta")
+      toast.error(`Erro ao conectar conta: ${e.message || 'Erro desconhecido'}`)
     }
   }
 

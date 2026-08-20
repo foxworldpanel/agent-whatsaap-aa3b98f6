@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router"; // aplica as correções
 
 export const Route = createFileRoute("/")({
   component: () => (
