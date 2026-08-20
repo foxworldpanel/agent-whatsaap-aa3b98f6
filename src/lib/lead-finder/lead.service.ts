@@ -103,7 +103,7 @@ export class LeadService {
   static async addTimelineEvent(leadId: string, event: string, metadata: any = {}) {
     const { error } = await supabase
       .from('lead_finder_timeline')
-      .insert({ lead_id: leadId, event, metadata: metadata as any });
+      .insert({ lead_id: leadId, event, metadata: metadata as any } as any);
     
     if (error) console.error("Failed to add timeline event:", error);
   }
