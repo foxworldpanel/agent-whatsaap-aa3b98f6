@@ -1,30 +1,40 @@
-# Plan: Lead Finder - Phase 2 (Instagram Public Provider)
+# Lead Finder Sprint 2.1: UX & Instagram Account Manager
 
-Implement the first real provider for the Lead Finder system, focusing on public Instagram data while adhering to the Phase 1 architectural contract.
+Transformar o Lead Finder em uma ferramenta operacional profissional com gerenciamento de contas, fluxo de descoberta em etapas, CRM de leads e monitoramento em tempo real.
 
-## Proposed Changes
+## 1. Database & Schema
+- Garantir/Criar a tabela `lead_finder_credentials` para gerenciar contas de redes sociais.
+- Ajustar `lead_finder_leads` para suportar campos de CRM (lead score, status, metadados ricos).
+- Implementar RLS e GRANTs para todas as novas tabelas (`authenticated` access).
 
-### 1. Provider Layer
-- Implement `InstagramPublicProvider` in `src/lib/lead-finder/providers/instagram-public.ts`.
-- Ensure it implements `IDiscoveryProvider` and adheres to the stateless contract (no DB, no AI).
-- Logic for parsing public profile metadata (username, bio, links, external contact info).
+## 2. Instagram Account Manager (Backend & UI)
+- Implementar `CredentialService` para CRUD de contas.
+- Criar a aba "Instagram Accounts" com listagem e status (Conectada, Expirada, etc.).
+- Modal "+ Conectar Conta" (Mock/UI flow inicial).
 
-### 2. Service & Engine Integration
-- Register the new provider in `DiscoveryEngine`.
-- Update `LeadDiscoveryResult` if necessary to better support Instagram-specific fields (e.g., bio parsing).
+## 3. Discovery UX Evolution
+- Refatorar a aba "Discovery" para um fluxo de 4 passos:
+  1. **Fonte**: Seleção de plataforma (Instagram ativo, outros "Em breve").
+  2. **Conta**: Seleção da credencial cadastrada.
+  3. **Tipo**: Perfil (ativo), Hashtag/Keyword ("Em breve").
+  4. **Parâmetros**: Username + Limite (10, 25, 50, 100).
 
-### 3. Frontend UI Updates
-- **Discovery Tab**: Add a provider selector (Radio Group or Select).
-- **Conditional Fields**: Show specific inputs based on the selected provider.
-- **Instagram Inputs**: Add a field for Instagram Profile handles (e.g., `@username`).
+## 4. Real-time Discovery Progress
+- Criar visualização de "Job em Execução".
+- Integrar com `JobService` para exibir progresso (Leads encontrados, perfis analisados, tempo decorrido).
 
-### 4. Technical Details
-- Use `LeadService` for all persistence as per Phase 1 rules.
-- Maintain existing `MockProvider` functionality for testing.
-- Add validation to ensure valid Instagram handles are provided.
+## 5. Lead CRM (Bank & Detail)
+- Implementar a tabela de leads com colunas: Foto, Nome, Instagram, Tipo, Telefone, Email, Score, Status, Ações.
+- Filtros e busca instantânea no lado do cliente.
+- Sheet lateral para detalhes do Lead: Bio, Website, Timeline, Tags, Observações.
+- Botão "Enviar para Sales Agent" (Log de evento apenas).
 
-## Success Criteria
-- [ ] `InstagramPublicProvider` extracts data correctly from a public URL/handle.
-- [ ] Switching between Mock and Instagram providers works seamlessly in the UI.
-- [ ] No direct database calls exist within the new provider.
-- [ ] Phase 1 integration tests still pass.
+## 6. Timeline & Jobs UI
+- Melhorar visual da Timeline (estilo log de eventos temporal).
+- Lista de Jobs com estatísticas (tempo, leads, duplicados, erros).
+
+## Technical Details
+- **Tables**: `lead_finder_credentials`, `lead_finder_leads`, `lead_finder_jobs`, `lead_finder_tags`, `lead_finder_timeline`.
+- **Components**: Shadcn UI (Tabs, Sheet, Table, Card, Badge, Modal).
+- **Icons**: Lucide React.
+- **Rules**: Stateless Providers, Persistence via LeadService only.
