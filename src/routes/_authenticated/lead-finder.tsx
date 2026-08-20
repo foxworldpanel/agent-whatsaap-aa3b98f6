@@ -256,7 +256,7 @@ function LeadFinderPage() {
                     <CardHeader className="flex flex-row items-center gap-4 pb-2">
                       <Avatar className="h-12 w-12 border">
                         <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${cred.username}`} />
-                        <AvatarFallback>{cred.username[0].toUpperCase()}</AvatarFallback>
+                        <AvatarFallback>{cred.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 overflow-hidden">
                         <CardTitle className="text-base truncate">{cred.account_name}</CardTitle>
@@ -356,7 +356,7 @@ function LeadFinderPage() {
                       Discovery Running
                     </CardTitle>
                     <CardDescription>
-                      {activeJob.provider_id} • {credentials.find(c => c.id === activeJob.config.credential_id)?.username || 'Mock'}
+                      {activeJob.provider_id} • {credentials.find(c => c.id === activeJob.config?.credential_id)?.username || 'Mock'}
                     </CardDescription>
                   </div>
                   <Badge variant="outline" className="bg-background">Executando</Badge>
@@ -455,7 +455,7 @@ function LeadFinderPage() {
                             >
                               <Avatar className="h-8 w-8 border">
                                 <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${cred.username}`} />
-                                <AvatarFallback>{cred.username[0]}</AvatarFallback>
+                                <AvatarFallback>{cred.username?.[0] || 'U'}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1 overflow-hidden">
                                 <p className="text-sm font-medium truncate">{cred.account_name}</p>
@@ -625,11 +625,11 @@ function LeadFinderPage() {
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 border shadow-sm">
                                 <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.username}`} />
-                                <AvatarFallback>{lead.username[0]}</AvatarFallback>
+                                <AvatarFallback>{lead.username?.[0] || 'U'}</AvatarFallback>
                               </Avatar>
                               <div className="flex flex-col">
                                 <span className="font-semibold text-sm leading-none">{lead.full_name || lead.username}</span>
-                                <span className="text-xs text-muted-foreground">@{lead.username}</span>
+                                <span className="text-xs text-muted-foreground">@{lead.username || 'unknown'}</span>
                               </div>
                             </div>
                           </TableCell>
@@ -688,7 +688,7 @@ function LeadFinderPage() {
                                   <div className="flex items-center gap-4 pt-4">
                                     <Avatar className="h-16 w-16 border-2 border-primary/20">
                                       <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.username}`} />
-                                      <AvatarFallback>{lead.username[0]}</AvatarFallback>
+                                      <AvatarFallback>{lead.username?.[0] || 'U'}</AvatarFallback>
                                     </Avatar>
                                     <div>
                                       <SheetTitle className="text-2xl">{lead.full_name || lead.username}</SheetTitle>
@@ -857,7 +857,7 @@ function LeadFinderPage() {
                         </div>
                         <div className="space-y-1">
                           <p className="text-sm">
-                            <span className="font-bold">Lead Persistido:</span> {lead.full_name || lead.username} (@{lead.username})
+                            <span className="font-bold">Lead Persistido:</span> {lead.full_name || lead.username || 'unknown'} (@{lead.username || 'unknown'})
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Provider: {lead.source_provider} • Score: {Math.round((lead.score_profile || 0) * 100)}%
