@@ -1,28 +1,46 @@
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
-import { SessionStorageService } from './session-storage.service';
-import { InstagramLoginResult } from './types';
+import { type Browser, type BrowserContext, type Page } from 'playwright-core';
+import { type InstagramLoginResult } from './types';
+
+// O Playwright core não exporta tipos globais amigáveis a workers. 
+// Usamos 'any' em tempo de execução para evitar erros de bundling de módulos Node nativos no cliente.
+type BrowserRuntime = any;
+type BrowserContextRuntime = any;
+type PageRuntime = any;
 
 export class PlaywrightSessionService {
-  private static browser: Browser | null = null;
+  private static browser: BrowserRuntime | null = null;
 
-  private static async getBrowser() {
+  private static async getBrowser(): Promise<BrowserRuntime> {
+    if (typeof window !== 'undefined') {
+      throw new Error('PlaywrightSessionService is server-only');
+    }
+
     if (!this.browser) {
-      console.log(`[Playwright] Launching Chromium (HEADLESS: FALSE)...`);
-      // Em ambientes de servidor/sandbox, headless: false geralmente requer um X server (DISPLAY).
-      // Se o navegador "não abre", pode ser falta de permissão ou de ambiente gráfico no backend do TanStack Start.
+      console.log(`[Playwright] ${new Date().toISOString()} Launching Chromium...`);
+      // Em ambientes de servidor/sandbox, headless: true é obrigatório.
+      const { chromium } = await import('playwright-core');
       this.browser = await chromium.launch({ 
-        headless: false,
+        headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      
+      this.browser.on('disconnected', () => {
+        console.log(`[Playwright] ${new Date().toISOString()} Browser disconnected`);
+        this.browser = null;
       });
     }
     return this.browser;
   }
 
   static async openLoginFlow(): Promise<InstagramLoginResult> {
+    if (typeof window !== 'undefined') {
+      throw new Error('PlaywrightSessionService.openLoginFlow is server-only');
+    }
+
     console.log(`[Playwright] ${new Date().toISOString()} Initializing browser for login...`);
     
-    let browser: Browser | null = null;
-    let context: BrowserContext | null = null;
+    let browser: BrowserRuntime | null = null;
+    let context: BrowserContextRuntime | null = null;
 
     try {
       browser = await this.getBrowser();
@@ -37,7 +55,7 @@ export class PlaywrightSessionService {
       console.log(`[Playwright] ${new Date().toISOString()} Waiting for manual login (timeout: 5m)...`);
       
       // Aguarda o redirecionamento para o feed/home pós-login
-      await page.waitForURL((url) => {
+      await page.waitForURL((url: any) => {
         return url.href.includes('instagram.com/') && 
                !url.href.includes('/accounts/login') && 
                !url.href.includes('/accounts/emailsignup');
@@ -79,13 +97,19 @@ export class PlaywrightSessionService {
   }
 
   static async validateSession(credentialId: string): Promise<boolean> {
+    if (typeof window !== 'undefined') {
+      throw new Error('PlaywrightSessionService.validateSession is server-only');
+    }
+
+    const { SessionStorageService } = await import('./session-storage.service.server');
     const storageState = await SessionStorageService.loadSession(credentialId);
     if (!storageState) return false;
 
-    let browser: Browser | null = null;
-    let context: BrowserContext | null = null;
+    let browser: BrowserRuntime | null = null;
+    let context: BrowserContextRuntime | null = null;
 
     try {
+      const { chromium } = await import('playwright-core');
       browser = await chromium.launch({ headless: true });
       context = await browser.newContext({ storageState });
       const page = await context.newPage();
@@ -100,7 +124,8 @@ export class PlaywrightSessionService {
       });
       
       return isLoggedIn;
-    } catch (error) {
+    } catch (error: any) {
+      console.error(`[Playwright] ${new Date().toISOString()} Validation error for ${credentialId}:`, error);
       return false;
     } finally {
       if (context) await context.close();
@@ -108,13 +133,13 @@ export class PlaywrightSessionService {
     }
   }
 
-  private static async extractUsername(page: Page): Promise<string | undefined> {
+  private static async extractUsername(page: PageRuntime): Promise<string | undefined> {
     try {
       return await page.evaluate(() => {
         const navProfile = document.querySelector('a[href^="/"] img[alt*="profile"]')?.closest('a')?.getAttribute('href');
         if (navProfile && navProfile !== '/') return navProfile.replace(/\//g, '');
         const sidebarLinks = Array.from(document.querySelectorAll('a'));
-        const profileLink = sidebarLinks.find(a => a.innerText.toLowerCase().includes('profile') || a.innerText.toLowerCase().includes('perfil'));
+        const profileLink = sidebarLinks.find((a: any) => a.innerText.toLowerCase().includes('profile') || a.innerText.toLowerCase().includes('perfil'));
         if (profileLink) return profileLink.getAttribute('href')?.replace(/\//g, '');
         return undefined;
       });
@@ -123,7 +148,7 @@ export class PlaywrightSessionService {
     }
   }
 
-  private static async extractDisplayName(page: Page): Promise<string | undefined> {
+  private static async extractDisplayName(page: PageRuntime): Promise<string | undefined> {
     try {
       return await page.evaluate(() => {
         const titleParts = document.title.split(' • ');
@@ -135,7 +160,7 @@ export class PlaywrightSessionService {
     }
   }
 
-  private static async extractProfilePicture(page: Page): Promise<string | undefined> {
+  private static async extractProfilePicture(page: PageRuntime): Promise<string | undefined> {
     try {
       return await page.evaluate(() => {
         const img = document.querySelector('nav img[alt*="profile"]') as HTMLImageElement;
