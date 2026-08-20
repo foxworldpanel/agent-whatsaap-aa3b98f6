@@ -13,7 +13,7 @@ export class PlaywrightLauncher {
   private static async getPlaywright() {
     if (typeof window !== 'undefined') throw new Error('PlaywrightLauncher is server-only');
     // Using indirect eval to bypass static analysis
-    const indirectEval = (0, eval);
+    const indirectEval = eval;
     return await indirectEval('import("playwright")');
   }
 
