@@ -294,32 +294,37 @@ function LeadFinderPage() {
           <div className="grid gap-6 md:grid-cols-2 mb-4">
             <Card className="border-primary/20 bg-primary/5 col-span-full">
               <CardHeader>
-                <CardTitle className="text-xl">Mudança de prioridade do Lead Finder</CardTitle>
+                <CardTitle className="text-xl">Sprint 3.0 – Descoberta Real (Hashtags)</CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                <p>Após revisar o fluxo operacional do produto, a prioridade mudou.</p>
-                <p>O objetivo principal do Lead Finder não é descobrir um perfil específico, mas encontrar grandes volumes de leads qualificados através de hashtags do Instagram.</p>
+                <p>A arquitetura e a interface do Lead Finder estão satisfatórias. Agora vamos interromper a criação de novas telas e focar exclusivamente na funcionalidade principal do sistema.</p>
+                <p>O foco absoluto desta sprint é fazer a primeira descoberta real utilizando hashtags, saindo da simulação do InstagramPublicProvider.</p>
                 
                 <div className="grid md:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-2 text-primary font-medium">
-                    <h4 className="font-bold">Portanto:</h4>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li>Tornar Hashtag a forma principal de descoberta.</li>
-                      <li>Perfil passa a ser utilizado apenas para testes e validações.</li>
-                      <li>A interface deve destacar a busca por hashtag como fluxo principal.</li>
+                  <div className="space-y-2">
+                    <h4 className="font-bold">Objetivo Real</h4>
+                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                      <li>Utilizar conta previamente conectada.</li>
+                      <li>Pesquisar uma hashtag real no Instagram.</li>
+                      <li>Abrir perfis encontrados via hashtag.</li>
+                      <li>Extrair telefone, e-mail e links públicos.</li>
+                      <li>Persistir via LeadService e registrar Jobs/Timeline.</li>
                     </ul>
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-bold">Cada lead salvo deve registrar:</h4>
+                    <h4 className="font-bold text-destructive">Restrições</h4>
                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>plataforma;</li>
-                      <li>hashtag de origem;</li>
-                      <li>data da descoberta;</li>
-                      <li>conta do Instagram utilizada;</li>
-                      <li>job responsável pela descoberta.</li>
+                      <li>NÃO criar novas telas ou melhorar UX.</li>
+                      <li>NÃO implementar IA ou Sales Agent.</li>
+                      <li>NÃO implementar campanhas de disparo.</li>
                     </ul>
                   </div>
                 </div>
+
+                <div className="bg-primary/5 p-4 rounded-lg border border-primary/20 mt-4 italic text-center">
+                  <p>"Seu objetivo não é ter uma tela bonita. Seu objetivo é apertar um botão (#housemusic) e ver 1000 perfis virarem contatos no Banco de Leads."</p>
+                </div>
+
 
                 <div className="space-y-2 pt-2 border-t border-primary/10">
                   <h4 className="font-bold">Durante a descoberta, mostrar em tempo real:</h4>
