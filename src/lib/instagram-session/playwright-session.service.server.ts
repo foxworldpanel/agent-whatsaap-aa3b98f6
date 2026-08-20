@@ -23,14 +23,20 @@ export class PlaywrightSessionService {
       const { chromium } = await import('playwright');
       
       try {
-        const isHeaded = process.env.DISPLAY ? false : true; // In sandbox we might need to enforce headless if no display
+        const isHeaded = !!process.env.DISPLAY;
         
         this.browser = await chromium.launch({ 
-          headless: !process.env.DISPLAY, // Only headed if DISPLAY is present
+          headless: !isHeaded,
           executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+          args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox', 
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-zygote'
+          ]
         });
-        logger('Browser Launched Successfully', { headless: !process.env.DISPLAY });
+        logger('Browser Launched Successfully', { headless: !isHeaded, display: !!process.env.DISPLAY });
       } catch (launchError: any) {
         logger('CRITICAL: Playwright Launch FAILED', launchError.message);
         throw launchError;
@@ -125,7 +131,7 @@ export class PlaywrightSessionService {
       const validationBrowser = await chromium.launch({ 
         headless: true,
         executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
       });
       
       context = await validationBrowser.newContext({ storageState });

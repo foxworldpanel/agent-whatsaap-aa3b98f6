@@ -22,8 +22,7 @@ export class InstagramSessionManager {
       }
 
       if (!env.display) {
-        logger('Environment Check FAILED: No DISPLAY detected');
-        throw new Error("Ambiente VPS/Linux sem DISPLAY detectado. O login manual requer um servidor X11 ou ambiente desktop. Se estiver usando Lovable, isso é esperado no backend. O navegador headed não pode abrir aqui.");
+        logger('Environment Check WARNING: No DISPLAY detected. Using headless mode.');
       }
 
       const { PlaywrightSessionService } = await import('./playwright-session.service.server');
