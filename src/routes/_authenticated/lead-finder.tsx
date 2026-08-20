@@ -136,8 +136,80 @@ function LeadFinderPage() {
                 Configure os parâmetros para encontrar novos leads.
               </CardDescription>
             </CardHeader>
-            <CardContent className="h-[400px] flex items-center justify-center text-muted-foreground">
-              Formulário de Discovery (Em breve na Etapa 4)
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <Label>Provider</Label>
+                <RadioGroup 
+                  defaultValue="mock" 
+                  value={provider} 
+                  onValueChange={setProvider}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="mock" id="mock" />
+                    <Label htmlFor="mock" className="font-normal cursor-pointer">Mock</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="instagram_public" id="instagram_public" />
+                    <Label htmlFor="instagram_public" className="font-normal cursor-pointer">Instagram Public</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {provider === 'instagram_public' && (
+                <div className="space-y-6 pt-4 border-t animate-in fade-in duration-300">
+                  <div className="space-y-3">
+                    <Label>Origem</Label>
+                    <RadioGroup 
+                      defaultValue="profile" 
+                      value={origin} 
+                      onValueChange={setOrigin}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="profile" id="profile" />
+                        <Label htmlFor="profile" className="font-normal cursor-pointer">Perfil</Label>
+                      </div>
+                      <div className="flex items-center space-x-2 opacity-50">
+                        <RadioGroupItem value="hashtag" id="hashtag" disabled />
+                        <Label htmlFor="hashtag" className="font-normal">Hashtag (Breve)</Label>
+                      </div>
+                      <div className="flex items-center space-x-2 opacity-50">
+                        <RadioGroupItem value="keyword" id="keyword" disabled />
+                        <Label htmlFor="keyword" className="font-normal">Palavra-chave (Breve)</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label htmlFor="source">Nome do Perfil</Label>
+                    <Input 
+                      id="source" 
+                      placeholder="@sourcee" 
+                      value={source}
+                      onChange={(e) => setSource(e.target.value)}
+                      className="max-w-md"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {provider === 'mock' && (
+                <div className="p-4 rounded-lg bg-muted/50 text-sm text-muted-foreground max-w-md">
+                  O Mock Provider gera leads simulados para validação rápida da arquitetura e fluxos internos.
+                </div>
+              )}
+
+              <div className="pt-4">
+                <Button 
+                  onClick={handleStartDiscovery} 
+                  disabled={isSearching}
+                  className="gap-2"
+                >
+                  <Play className="h-4 w-4" />
+                  {isSearching ? "Iniciando..." : "Iniciar Discovery"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
