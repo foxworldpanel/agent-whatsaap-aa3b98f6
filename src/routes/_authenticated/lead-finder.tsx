@@ -1,13 +1,70 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Radar, Search, Database, LayoutList, History, CheckCircle2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Radar, Search, Database, LayoutList, History, CheckCircle2, Play, Instagram, Terminal } from "lucide-react"
+import { discoveryEngine } from '@/lib/lead-finder/discovery-engine'
+import { toast } from 'sonner'
+import { runLeadFinderIntegrationTest } from '@/lib/lead-finder/test-integration'
 
 export const Route = createFileRoute('/_authenticated/lead-finder')({
   component: LeadFinderPage,
 })
 
 function LeadFinderPage() {
+  const [provider, setProvider] = useState<'mock' | 'instagram_public'>('instagram_public')
+  const [username, setUsername] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+  const [isRunningTest, setIsRunningTest] = useState(false)
+
+  const handleStartDiscovery = async () => {
+    if (provider === 'instagram_public' && !username) {
+      toast.error("Informe um username do Instagram")
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const activeProvider = discoveryEngine.getProvider(provider)
+      if (!activeProvider) throw new Error("Provider não registrado")
+
+      const query = provider === 'instagram_public' 
+        ? { type: 'profile', username } 
+        : { limit: 2 }
+
+      const results = await activeProvider.search(query)
+      toast.success(`Descoberta finalizada! ${results.length} leads encontrados.`)
+    } catch (error) {
+      console.error(error)
+      toast.error("Erro na descoberta")
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const handleRunIntegrationTest = async () => {
+    setIsRunningTest(true)
+    toast.info("Iniciando teste de integração completo...")
+    try {
+      const results = await runLeadFinderIntegrationTest()
+      const allSuccess = results.every(r => r.success)
+      if (allSuccess) {
+        toast.success("Teste de integração concluído com sucesso!")
+      } else {
+        toast.error("Falha em alguns testes de integração")
+      }
+      console.table(results)
+    } catch (error) {
+      toast.error("Erro ao executar teste")
+    } finally {
+      setIsRunningTest(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -109,8 +166,60 @@ function LeadFinderPage() {
                 Configure os parâmetros para encontrar novos leads.
               </CardDescription>
             </CardHeader>
-            <CardContent className="h-[400px] flex items-center justify-center text-muted-foreground">
-              Formulário de Discovery (Em breve na Etapa 4)
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <Label>Provider</Label>
+                <RadioGroup 
+                  value={provider} 
+                  onValueChange={(v: any) => setProvider(v)}
+                  className="flex gap-4"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="instagram_public" id="ig" />
+                    <Label htmlFor="ig" className="flex items-center gap-2 cursor-pointer">
+                      <Instagram className="h-4 w-4" /> Instagram Public
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="mock" id="mock" />
+                    <Label htmlFor="mock" className="flex items-center gap-2 cursor-pointer">
+                      <Terminal className="h-4 w-4" /> Mock Provider
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {provider === 'instagram_public' && (
+                <div className="space-y-2 max-w-sm">
+                  <Label htmlFor="username">Username do Instagram</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      id="username" 
+                      placeholder="@username" 
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {provider === 'mock' && (
+                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground border">
+                  O Mock Provider gera dados aleatórios para teste de pipeline.
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <Button onClick={handleStartDiscovery} disabled={isSearching} className="gap-2">
+                  <Play className="h-4 w-4" />
+                  {isSearching ? "Buscando..." : "Iniciar Discovery"}
+                </Button>
+                
+                <Button variant="outline" onClick={handleRunIntegrationTest} disabled={isRunningTest} className="gap-2">
+                  <Terminal className="h-4 w-4" />
+                  Rodar Teste de Integração
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
