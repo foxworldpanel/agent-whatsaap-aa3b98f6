@@ -1,39 +1,48 @@
 import { createServerFn } from "@tanstack/react-start";
-import { InstagramSessionManager } from "./instagram-session-manager";
 import { z } from "zod";
 
 export const connectInstagramAction = createServerFn({ method: "POST" })
   .handler(async () => {
+    const { InstagramSessionManager } = await import("./instagram-session-manager");
     return await InstagramSessionManager.connect();
   });
 
 export const disconnectInstagramAction = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ credentialId: z.string() }).parse(data))
   .handler(async ({ data }) => {
+    const { InstagramSessionManager } = await import("./instagram-session-manager");
     return await InstagramSessionManager.disconnect(data.credentialId);
   });
 
 export const reconnectInstagramAction = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ credentialId: z.string() }).parse(data))
   .handler(async ({ data }) => {
+    const { InstagramSessionManager } = await import("./instagram-session-manager");
     return await InstagramSessionManager.reconnect(data.credentialId);
   });
 
 export const validateInstagramAction = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ credentialId: z.string() }).parse(data))
   .handler(async ({ data }) => {
+    const { InstagramSessionManager } = await import("./instagram-session-manager");
     return await InstagramSessionManager.validate(data.credentialId);
   });
 
 export const removeInstagramAction = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ credentialId: z.string() }).parse(data))
   .handler(async ({ data }) => {
+    const { InstagramSessionManager } = await import("./instagram-session-manager");
     return await InstagramSessionManager.remove(data.credentialId);
   });
 
 export const listInstagramSessionsAction = createServerFn({ method: "GET" })
   .handler(async () => {
+    const { InstagramSessionManager } = await import("./instagram-session-manager");
     return await InstagramSessionManager.listSessions();
   });
 
-
+export const checkInstagramEnvironmentAction = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { EnvironmentCheckService } = await import("./environment-check.service");
+    return await EnvironmentCheckService.checkEnvironment();
+  });

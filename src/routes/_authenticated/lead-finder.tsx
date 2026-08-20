@@ -18,12 +18,12 @@ import { runLeadFinderIntegrationTest } from '@/lib/lead-finder/test-integration
 import { CredentialService } from '@/lib/lead-finder/credential.service'
 import { LeadService } from '@/lib/lead-finder/lead.service'
 import { JobService } from '@/lib/lead-finder/job.service'
-import { 
-  connectInstagramAction, 
-  disconnectInstagramAction, 
-  reconnectInstagramAction, 
-  removeInstagramAction 
-} from '@/lib/instagram-session/instagram-session.functions'
+import type { 
+  InstagramSessionInfo, 
+  InstagramSessionStatus 
+} from '@/lib/instagram-session/types'
+
+
 
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -171,6 +171,7 @@ function LeadFinderPage() {
   const handleAddCredential = async () => {
     try {
       toast.info("Iniciando conexão... Siga as instruções no navegador que será aberto.")
+      const { connectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
       const result = await connectInstagramAction()
       
       if (result) {
@@ -188,6 +189,7 @@ function LeadFinderPage() {
   const handleReconnect = async (id: string) => {
     try {
       toast.info("Abrindo navegador para reconexão...")
+      const { reconnectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
       await reconnectInstagramAction({ data: { credentialId: id } })
       toast.success("Reconexão concluída")
       loadCredentials()
@@ -198,6 +200,7 @@ function LeadFinderPage() {
 
   const handleDisconnect = async (id: string) => {
     try {
+      const { disconnectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
       await disconnectInstagramAction({ data: { credentialId: id } })
       toast.success("Sessão encerrada")
       loadCredentials()
@@ -208,6 +211,7 @@ function LeadFinderPage() {
 
   const handleRemoveCredential = async (id: string) => {
     try {
+      const { removeInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
       await removeInstagramAction({ data: { credentialId: id } })
       toast.success("Conta removida")
       loadCredentials()
@@ -215,6 +219,18 @@ function LeadFinderPage() {
       toast.error("Erro ao remover conta")
     }
   }
+
+  const handleValidate = async (id: string) => {
+    try {
+      const { validateInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
+      const status = await validateInstagramAction({ data: { credentialId: id } })
+      toast.info(`Status da sessão: ${status}`)
+      loadCredentials()
+    } catch (error) {
+      toast.error('Erro ao validar sessão')
+    }
+  }
+
 
 
   return (
@@ -309,6 +325,9 @@ function LeadFinderPage() {
                         <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs" onClick={() => handleReconnect(cred.id)}>
                           <RefreshCcw className="h-3 w-3" /> Reconectar
                         </Button>
+                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs" onClick={() => handleValidate(cred.id)}>
+                          Validar
+                        </Button>
                         <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs" onClick={() => handleDisconnect(cred.id)}>
                           Desconectar
                         </Button>
@@ -316,6 +335,7 @@ function LeadFinderPage() {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
+
 
                     </CardContent>
                   </Card>

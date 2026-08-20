@@ -1,28 +1,47 @@
-import { chromium, Browser, BrowserContext, Page } from 'playwright';
-import { SessionStorageService } from './session-storage.service';
-import { InstagramLoginResult } from './types';
+// Dynamic types for Playwright to avoid client bundle issues
+type Browser = any;
+type BrowserContext = any;
+type Page = any;
+
+type BrowserRuntime = Browser;
+type BrowserContextRuntime = BrowserContext;
+type PageRuntime = Page;
+
+import { type InstagramLoginResult } from './types';
 
 export class PlaywrightSessionService {
-  private static browser: Browser | null = null;
+  private static browser: BrowserRuntime | null = null;
 
-  private static async getBrowser() {
+  private static async getBrowser(): Promise<BrowserRuntime> {
+    if (typeof window !== 'undefined') {
+      throw new Error('PlaywrightSessionService is server-only');
+    }
+
     if (!this.browser) {
-      console.log(`[Playwright] Launching Chromium (HEADLESS: FALSE)...`);
-      // Em ambientes de servidor/sandbox, headless: false geralmente requer um X server (DISPLAY).
-      // Se o navegador "não abre", pode ser falta de permissão ou de ambiente gráfico no backend do TanStack Start.
+      console.log(`[Playwright] ${new Date().toISOString()} Launching Chromium...`);
+      const { chromium } = await import('playwright');
       this.browser = await chromium.launch({ 
-        headless: false,
+        headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      
+      this.browser.on('disconnected', () => {
+        console.log(`[Playwright] ${new Date().toISOString()} Browser disconnected`);
+        this.browser = null;
       });
     }
     return this.browser;
   }
 
   static async openLoginFlow(): Promise<InstagramLoginResult> {
+    if (typeof window !== 'undefined') {
+      throw new Error('PlaywrightSessionService.openLoginFlow is server-only');
+    }
+
     console.log(`[Playwright] ${new Date().toISOString()} Initializing browser for login...`);
     
-    let browser: Browser | null = null;
-    let context: BrowserContext | null = null;
+    let browser: any = null;
+    let context: any = null;
 
     try {
       browser = await this.getBrowser();
@@ -36,8 +55,8 @@ export class PlaywrightSessionService {
       
       console.log(`[Playwright] ${new Date().toISOString()} Waiting for manual login (timeout: 5m)...`);
       
-      // Aguarda o redirecionamento para o feed/home pós-login
-      await page.waitForURL((url) => {
+      // Wait for redirect after login
+      await page.waitForURL((url: any) => {
         return url.href.includes('instagram.com/') && 
                !url.href.includes('/accounts/login') && 
                !url.href.includes('/accounts/emailsignup');
@@ -55,9 +74,8 @@ export class PlaywrightSessionService {
       const storageState = await context.storageState();
 
       await context.close();
-      await browser.close();
-      this.browser = null;
-
+      // We don't close the shared browser here unless it's the last one
+      
       if (!username) {
         return { success: false, error: "Não foi possível extrair o username após o login." };
       }
@@ -72,21 +90,23 @@ export class PlaywrightSessionService {
     } catch (error: any) {
       console.error(`[Playwright] ${new Date().toISOString()} Login flow error:`, error);
       if (context) await context.close();
-      if (browser) await browser.close();
-      this.browser = null;
       return { success: false, error: error.message || "Erro desconhecido no fluxo do Playwright" };
     }
   }
 
   static async validateSession(credentialId: string): Promise<boolean> {
+    if (typeof window !== 'undefined') {
+      throw new Error('PlaywrightSessionService.validateSession is server-only');
+    }
+
+    const { SessionStorageService } = await import('./session-storage.service.server');
     const storageState = await SessionStorageService.loadSession(credentialId);
     if (!storageState) return false;
 
-    let browser: Browser | null = null;
-    let context: BrowserContext | null = null;
+    let context: any = null;
 
     try {
-      browser = await chromium.launch({ headless: true });
+      const browser = await this.getBrowser();
       context = await browser.newContext({ storageState });
       const page = await context.newPage();
 
@@ -100,21 +120,21 @@ export class PlaywrightSessionService {
       });
       
       return isLoggedIn;
-    } catch (error) {
+    } catch (error: any) {
+      console.error(`[Playwright] ${new Date().toISOString()} Validation error for ${credentialId}:`, error);
       return false;
     } finally {
       if (context) await context.close();
-      if (browser) await browser.close();
     }
   }
 
-  private static async extractUsername(page: Page): Promise<string | undefined> {
+  private static async extractUsername(page: any): Promise<string | undefined> {
     try {
       return await page.evaluate(() => {
         const navProfile = document.querySelector('a[href^="/"] img[alt*="profile"]')?.closest('a')?.getAttribute('href');
         if (navProfile && navProfile !== '/') return navProfile.replace(/\//g, '');
         const sidebarLinks = Array.from(document.querySelectorAll('a'));
-        const profileLink = sidebarLinks.find(a => a.innerText.toLowerCase().includes('profile') || a.innerText.toLowerCase().includes('perfil'));
+        const profileLink = sidebarLinks.find((a: any) => a.innerText.toLowerCase().includes('profile') || a.innerText.toLowerCase().includes('perfil'));
         if (profileLink) return profileLink.getAttribute('href')?.replace(/\//g, '');
         return undefined;
       });
@@ -123,7 +143,7 @@ export class PlaywrightSessionService {
     }
   }
 
-  private static async extractDisplayName(page: Page): Promise<string | undefined> {
+  private static async extractDisplayName(page: any): Promise<string | undefined> {
     try {
       return await page.evaluate(() => {
         const titleParts = document.title.split(' • ');
@@ -135,7 +155,7 @@ export class PlaywrightSessionService {
     }
   }
 
-  private static async extractProfilePicture(page: Page): Promise<string | undefined> {
+  private static async extractProfilePicture(page: any): Promise<string | undefined> {
     try {
       return await page.evaluate(() => {
         const img = document.querySelector('nav img[alt*="profile"]') as HTMLImageElement;
