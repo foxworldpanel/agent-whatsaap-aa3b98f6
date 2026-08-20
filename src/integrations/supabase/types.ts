@@ -2892,28 +2892,40 @@ export type Database = {
           account_name: string
           config: Json | null
           created_at: string | null
+          created_by: string | null
           id: string
+          last_login: string | null
+          last_sync: string | null
           provider_type: string
           status: string
           updated_at: string | null
+          username: string
         }
         Insert: {
           account_name: string
           config?: Json | null
           created_at?: string | null
+          created_by?: string | null
           id?: string
+          last_login?: string | null
+          last_sync?: string | null
           provider_type: string
           status?: string
           updated_at?: string | null
+          username: string
         }
         Update: {
           account_name?: string
           config?: Json | null
           created_at?: string | null
+          created_by?: string | null
           id?: string
+          last_login?: string | null
+          last_sync?: string | null
           provider_type?: string
           status?: string
           updated_at?: string | null
+          username?: string
         }
         Relationships: []
       }
