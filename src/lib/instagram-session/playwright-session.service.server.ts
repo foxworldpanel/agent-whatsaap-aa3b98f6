@@ -1,18 +1,9 @@
-// Dynamic types for Playwright to avoid client bundle issues
-type Browser = any;
-type BrowserContext = any;
-type Page = any;
-
-type BrowserRuntime = Browser;
-type BrowserContextRuntime = BrowserContext;
-type PageRuntime = Page;
-
 import { type InstagramLoginResult } from './types';
 
 export class PlaywrightSessionService {
-  private static browser: BrowserRuntime | null = null;
+  private static browser: any = null;
 
-  private static async getBrowser(): Promise<BrowserRuntime> {
+  private static async getBrowser(): Promise<any> {
     if (typeof window !== 'undefined') {
       throw new Error('PlaywrightSessionService is server-only');
     }
@@ -41,8 +32,8 @@ export class PlaywrightSessionService {
 
     console.log(`[Playwright] ${new Date().toISOString()} Initializing browser for login...`);
     
-    let browser: BrowserRuntime | null = null;
-    let context: BrowserContextRuntime | null = null;
+    let browser: any = null;
+    let context: any = null;
 
     try {
       browser = await this.getBrowser();
@@ -107,8 +98,8 @@ export class PlaywrightSessionService {
     const storageState = await SessionStorageService.loadSession(credentialId);
     if (!storageState) return false;
 
-    let browser: BrowserRuntime | null = null;
-    let context: BrowserContextRuntime | null = null;
+    let browser: any = null;
+    let context: any = null;
 
     try {
       const { chromium } = await import('playwright');
@@ -135,7 +126,7 @@ export class PlaywrightSessionService {
     }
   }
 
-  private static async extractUsername(page: PageRuntime): Promise<string | undefined> {
+  private static async extractUsername(page: any): Promise<string | undefined> {
     try {
       return await page.evaluate(() => {
         const navProfile = document.querySelector('a[href^="/"] img[alt*="profile"]')?.closest('a')?.getAttribute('href');
@@ -150,7 +141,7 @@ export class PlaywrightSessionService {
     }
   }
 
-  private static async extractDisplayName(page: PageRuntime): Promise<string | undefined> {
+  private static async extractDisplayName(page: any): Promise<string | undefined> {
     try {
       return await page.evaluate(() => {
         const titleParts = document.title.split(' • ');
@@ -162,7 +153,7 @@ export class PlaywrightSessionService {
     }
   }
 
-  private static async extractProfilePicture(page: PageRuntime): Promise<string | undefined> {
+  private static async extractProfilePicture(page: any): Promise<string | undefined> {
     try {
       return await page.evaluate(() => {
         const img = document.querySelector('nav img[alt*="profile"]') as HTMLImageElement;
