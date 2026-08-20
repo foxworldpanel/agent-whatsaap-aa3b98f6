@@ -34,7 +34,7 @@ export class CredentialService {
       .insert({
         ...params,
         created_by: user?.id,
-        status: 'connected'
+        status: 'never_connected'
       })
       .select()
       .single();

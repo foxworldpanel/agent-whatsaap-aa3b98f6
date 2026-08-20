@@ -181,7 +181,7 @@ function LeadFinderPage() {
       await connectInstagramAction({ data: { credentialId: newCred.id } })
       
       toast.success("Conta conectada com sucesso!")
-      loadCredentials()
+      await loadCredentials()
     } catch (e) {
       console.error(e)
       toast.error("Erro ao conectar conta")

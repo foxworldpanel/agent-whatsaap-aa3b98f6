@@ -44,6 +44,13 @@ export class PlaywrightSessionService {
       const storageState = await context.storageState();
       await SessionStorageService.saveSession(credentialId, storageState);
 
+      // Close context and browser immediately after saving
+      await context.close();
+      if (this.browser) {
+        await this.browser.close();
+        this.browser = null;
+      }
+
       return {
         success: true,
         username,
@@ -51,9 +58,12 @@ export class PlaywrightSessionService {
       };
     } catch (error: any) {
       console.error('[Playwright] Login flow failed:', error);
+      if (context) await context.close();
+      if (this.browser) {
+        await this.browser.close();
+        this.browser = null;
+      }
       return { success: false, error: error.message };
-    } finally {
-      await context.close();
     }
   }
 
