@@ -1,13 +1,40 @@
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Radar, Search, Database, LayoutList, History, CheckCircle2 } from "lucide-react"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Radar, Search, Database, LayoutList, History, CheckCircle2, Play } from "lucide-react"
+import { toast } from "sonner"
 
 export const Route = createFileRoute('/_authenticated/lead-finder')({
   component: LeadFinderPage,
 })
 
 function LeadFinderPage() {
+  const [provider, setProvider] = useState('mock')
+  const [origin, setOrigin] = useState('profile')
+  const [source, setSource] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
+
+  const handleStartDiscovery = () => {
+    if (!source && provider === 'instagram_public') {
+      toast.error("Por favor, informe a origem (ex: @username)")
+      return
+    }
+    
+    setIsSearching(true)
+    toast.info(`Iniciando descoberta via ${provider === 'mock' ? 'Mock' : 'Instagram Public'}...`)
+    
+    // Simulating call to Discovery Engine / Job Service
+    setTimeout(() => {
+      setIsSearching(false)
+      toast.success("Job de descoberta iniciado com sucesso!")
+    }, 2000)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
