@@ -170,6 +170,7 @@ function LeadFinderPage() {
   const handleAddCredential = async () => {
     try {
       toast.info("Iniciando conexão... Siga as instruções no navegador que será aberto.")
+      const { connectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
       const result = await connectInstagramAction()
       
       if (result) {
@@ -187,6 +188,7 @@ function LeadFinderPage() {
   const handleReconnect = async (id: string) => {
     try {
       toast.info("Abrindo navegador para reconexão...")
+      const { reconnectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
       await reconnectInstagramAction({ data: { credentialId: id } })
       toast.success("Reconexão concluída")
       loadCredentials()
@@ -197,6 +199,7 @@ function LeadFinderPage() {
 
   const handleDisconnect = async (id: string) => {
     try {
+      const { disconnectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
       await disconnectInstagramAction({ data: { credentialId: id } })
       toast.success("Sessão encerrada")
       loadCredentials()
@@ -207,6 +210,7 @@ function LeadFinderPage() {
 
   const handleRemoveCredential = async (id: string) => {
     try {
+      const { removeInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
       await removeInstagramAction({ data: { credentialId: id } })
       toast.success("Conta removida")
       loadCredentials()
@@ -214,6 +218,18 @@ function LeadFinderPage() {
       toast.error("Erro ao remover conta")
     }
   }
+
+  const handleValidate = async (id: string) => {
+    try {
+      const { validateInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
+      const status = await validateInstagramAction({ data: { credentialId: id } })
+      toast.info(`Status da sessão: ${status}`)
+      loadCredentials()
+    } catch (error) {
+      toast.error('Erro ao validar sessão')
+    }
+  }
+
 
 
   return (
