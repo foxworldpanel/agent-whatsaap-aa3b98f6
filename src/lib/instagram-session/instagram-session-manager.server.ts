@@ -8,21 +8,26 @@ const logger = (event: string, details?: any) => {
 
 export class InstagramSessionManager {
   static async connect(): Promise<InstagramSessionInfo | null> {
-    logger('Login Started');
+    logger('UI CLICK RECEIVED - Starting connect()');
     
     try {
       const { EnvironmentCheckService } = await import('./environment-check.service.server');
+      logger('Starting Environment Check...');
       const env = await EnvironmentCheckService.checkEnvironment();
+      logger('Environment Check Result', env);
       
       if (env.errors.length > 0) {
+        logger('Environment Check FAILED with errors', env.errors);
         throw new Error(`Ambiente não suportado: ${env.errors.join(', ')}`);
       }
 
+      // REMOVIDA TRAVA DE DISPLAY PARA DEBUG - Deixar o Playwright tentar e falhar com erro real
       if (!env.display) {
-        throw new Error("Ambiente VPS/Linux sem DISPLAY detectado. O login manual requer um servidor X11 ou ambiente desktop.");
+        logger('WARNING: No DISPLAY detected. Attempting launch anyway (debug mode).');
       }
 
       const { PlaywrightSessionService } = await import('./playwright-session.service.server');
+      logger('Calling PlaywrightSessionService.openLoginFlow()...');
       const result = await PlaywrightSessionService.openLoginFlow();
 
       if (result.success && result.username) {

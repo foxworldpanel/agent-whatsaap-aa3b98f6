@@ -18,16 +18,20 @@ export class PlaywrightSessionService {
     }
 
     if (!this.browser) {
-      logger('Browser Started');
+      logger('Playwright Launch - Headless: false');
       const { chromium } = await import('playwright');
       
-      // O modo oficial é headless: false para permitir login manual.
-      // Em ambientes sem DISPLAY (VPS), o erro será capturado no Environment Check do Manager.
-      this.browser = await chromium.launch({ 
-        headless: false,
-        executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
+      try {
+        this.browser = await chromium.launch({ 
+          headless: false,
+          executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
+          args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+        logger('Browser Opened Successfully');
+      } catch (launchError: any) {
+        logger('CRITICAL: Playwright Launch FAILED', launchError.message);
+        throw launchError;
+      }
       
       this.browser.on('disconnected', () => {
         logger('Browser Closed');
@@ -43,19 +47,23 @@ export class PlaywrightSessionService {
     let context: BrowserContext | null = null;
 
     try {
+      logger('Requesting Browser Instance...');
       const browser = await this.getBrowser();
+      
+      logger('Creating Context...');
       context = await browser.newContext({
         viewport: { width: 1280, height: 800 }
       });
-      logger('Context Started');
+      logger('Context Created Successfully');
       
       const page = await context.newPage();
       
-      logger('Navigating to Instagram Login');
+      logger('Instagram Opening: Navigating to Login page...');
       await page.goto('https://www.instagram.com/accounts/login/', { 
         waitUntil: 'networkidle', 
         timeout: 60000 
       });
+      logger('Instagram Opened Successfully');
       
       logger('Waiting for manual login (timeout: 5m)...');
       
