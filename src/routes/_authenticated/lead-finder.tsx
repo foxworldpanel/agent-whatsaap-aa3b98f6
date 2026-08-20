@@ -338,56 +338,68 @@ function LeadFinderPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <ValidationItem 
               title="1 - Instagram Accounts" 
-              description="A aba Accounts deve deixar de ser apenas visual."
-              checks={["Estados: Connected, Disconnected, Expired, Connecting", "Ações: Conectar, Reconectar, Desconectar, Remover"]}
+              description="A aba Accounts deve deixar de ser apenas visual. Implementar um fluxo operacional."
+              checks={["Connected, Disconnected, Expired, Connecting", "Conectar, Reconectar, Desconectar, Remover"]}
             />
             <ValidationItem 
               title="2 - Fluxo de Conexão" 
-              description="Autenticação e manutenção de sessão."
-              checks={["Iniciar fluxo ao clicar em Conectar", "Não armazenar senha permanentemente", "Armazenar apenas a sessão autenticada"]}
+              description="Ao clicar em Conectar Conta, iniciar o fluxo de autenticação."
+              checks={["Manter sessão autenticada disponível", "Não armazenar usuário e senha permanentemente", "Armazenar apenas a sessão autenticada"]}
             />
             <ValidationItem 
-              title="3 - Discovery UI" 
-              description="Interface de seleção para busca."
-              checks={["Selecionar Conta Principal", "Tipo: Perfil (exclusivo desta sprint)", "Campo @usuario e Botão Iniciar"]}
+              title="3 - Discovery" 
+              description="Na aba Discovery permitir selecionar parâmetros."
+              checks={["Conta Principal", "Tipo: Perfil (exclusivo desta sprint)", "@usuario e Iniciar Discovery"]}
             />
             <ValidationItem 
               title="4 - Discovery Real" 
-              description="Extração de dados públicos do perfil."
-              checks={["username, display_name, bio", "telefone, e-mail, website, links", "Montar LeadDiscoveryResult e salvar via LeadService"]}
+              description="Ao iniciar a descoberta, abrir perfil e ler informações públicas."
+              checks={["username, display_name, bio", "telefone, e-mail, website, links públicos", "LeadDiscoveryResult via LeadService"]}
             />
             <ValidationItem 
               title="5 - Deduplicação" 
-              description="Garantir integridade dos dados."
-              checks={["Verificar username, telefone e e-mail", "Não permitir duplicados", "Registrar corretamente na Timeline"]}
+              description="Antes de salvar, verificar integridade."
+              checks={["username, telefone, e-mail", "Não permitir duplicados", "Registrar corretamente na Timeline"]}
             />
             <ValidationItem 
               title="6 - Lead Bank & Jobs" 
-              description="Persistência e monitoramento."
-              checks={["Leads aparecem automaticamente", "Jobs com duração e contagem", "Timeline e Estatísticas atualizadas"]}
+              description="Persistência e monitoramento automático."
+              checks={["Lead aparece sem atualizar", "Job, Timeline e Estatísticas", "duração, encontrados, erros, duplicados"]}
             />
           </div>
 
           <Card className="mt-4 border-dashed bg-muted/20">
             <CardHeader>
-              <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">Critérios de Aceite</CardTitle>
+              <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">Critérios de aceite</CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground grid md:grid-cols-2 gap-2">
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Conectar conta do Instagram e iniciar descoberta</span>
+                <span>seja possível conectar uma conta do Instagram;</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Perfil público lido e contatos extraídos corretamente</span>
+                <span>seja possível iniciar uma descoberta utilizando essa conta;</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Lead salvo no Lead Bank automaticamente</span>
+                <span>um perfil público possa ser lido;</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-primary" />
-                <span>Jobs, Timeline e Deduplicação funcionando</span>
+                <span>os contatos públicos sejam extraídos corretamente quando existirem;</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>o Lead seja salvo no Lead Bank;</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>Jobs e Timeline sejam atualizados automaticamente;</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>a deduplicação continue funcionando.</span>
               </div>
             </CardContent>
           </Card>
