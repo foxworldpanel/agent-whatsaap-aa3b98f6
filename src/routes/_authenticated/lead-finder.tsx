@@ -857,7 +857,7 @@ function LeadFinderPage() {
                         </div>
                         <div className="space-y-1">
                           <p className="text-sm">
-                            <span className="font-bold">Lead Persistido:</span> {lead.full_name || lead.username} (@{lead.username})
+                            <span className="font-bold">Lead Persistido:</span> {lead.full_name || lead.username || 'unknown'} (@{lead.username || 'unknown'})
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Provider: {lead.source_provider} • Score: {Math.round((lead.score_profile || 0) * 100)}%
