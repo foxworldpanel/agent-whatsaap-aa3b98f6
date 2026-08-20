@@ -346,69 +346,240 @@ function LeadFinderPage() {
         </TabsContent>
 
         <TabsContent value="discovery">
-          <Card>
-            <CardHeader>
-              <CardTitle>Nova Descoberta</CardTitle>
-              <CardDescription>
-                Configure os parâmetros para encontrar novos leads.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <Label>Provider</Label>
-                <RadioGroup 
-                  value={provider} 
-                  onValueChange={(v: any) => setProvider(v)}
-                  className="flex gap-4"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="instagram_public" id="ig" />
-                    <Label htmlFor="ig" className="flex items-center gap-2 cursor-pointer">
-                      <Instagram className="h-4 w-4" /> Instagram Public
-                    </Label>
+          {activeJob ? (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-primary flex items-center gap-2">
+                      <Play className="h-4 w-4 animate-pulse" />
+                      Discovery Running
+                    </CardTitle>
+                    <CardDescription>
+                      {activeJob.provider_id} • {credentials.find(c => c.id === activeJob.config.credential_id)?.username || 'Mock'}
+                    </CardDescription>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="mock" id="mock" />
-                    <Label htmlFor="mock" className="flex items-center gap-2 cursor-pointer">
-                      <Terminal className="h-4 w-4" /> Mock Provider
-                    </Label>
+                  <Badge variant="outline" className="bg-background">Executando</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase">Status</p>
+                    <p className="text-xl font-bold">Executando</p>
                   </div>
-                </RadioGroup>
-              </div>
-
-              {provider === 'instagram_public' && (
-                <div className="space-y-2 max-w-sm">
-                  <Label htmlFor="username">Username do Instagram</Label>
-                  <div className="flex gap-2">
-                    <Input 
-                      id="username" 
-                      placeholder="@username" 
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                    />
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase">Perfis analisados</p>
+                    <p className="text-xl font-bold">{activeJob.stats?.profiles_analyzed || 0}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase">Leads encontrados</p>
+                    <p className="text-xl font-bold">{activeJob.stats?.leads || 0}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase">Duplicados</p>
+                    <p className="text-xl font-bold">{activeJob.stats?.duplicates || 0}</p>
                   </div>
                 </div>
-              )}
-
-              {provider === 'mock' && (
-                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground border">
-                  O Mock Provider gera dados aleatórios para teste de pipeline.
+                <Separator className="my-6" />
+                <div className="flex justify-between items-center text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Instagram className="h-3 w-3" />
+                    <span>@{activeJob.config?.username || 'sourcee'}</span>
+                  </div>
+                  <span>Iniciado há poucos segundos</span>
                 </div>
-              )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2 space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Nova Descoberta</CardTitle>
+                    <CardDescription>
+                      Transforme fontes sociais em leads qualificados.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-8">
+                    {/* Step 1: Source */}
+                    <div className="space-y-4">
+                      <Label className="text-base font-bold">1. Fonte</Label>
+                      <RadioGroup 
+                        value={provider} 
+                        onValueChange={(v: any) => setProvider(v)}
+                        className="grid grid-cols-2 md:grid-cols-3 gap-4"
+                      >
+                        <div className="flex items-center space-x-2 border p-3 rounded-lg cursor-pointer hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 transition-colors">
+                          <RadioGroupItem value="instagram_public" id="src-ig" className="sr-only" />
+                          <Label htmlFor="src-ig" className="flex items-center gap-2 cursor-pointer w-full font-medium">
+                            <Instagram className="h-5 w-5 text-[#E4405F]" /> Instagram
+                          </Label>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2 border p-3 rounded-lg opacity-50 cursor-not-allowed bg-muted/20">
+                          <RadioGroupItem value="tiktok" id="src-tt" className="sr-only" disabled />
+                          <Label htmlFor="src-tt" className="flex flex-col gap-0.5 w-full">
+                            <span className="font-medium text-sm">TikTok</span>
+                            <span className="text-[10px] text-muted-foreground">Em breve</span>
+                          </Label>
+                        </div>
 
-              <div className="flex gap-3 pt-4">
-                <Button onClick={handleStartDiscovery} disabled={isSearching} className="gap-2">
-                  <Play className="h-4 w-4" />
-                  {isSearching ? "Buscando..." : "Iniciar Discovery"}
-                </Button>
-                
-                <Button variant="outline" onClick={handleRunIntegrationTest} disabled={isRunningTest} className="gap-2">
-                  <Terminal className="h-4 w-4" />
-                  Rodar Teste de Integração
-                </Button>
+                        <div className="flex items-center space-x-2 border p-3 rounded-lg opacity-50 cursor-not-allowed bg-muted/20">
+                          <RadioGroupItem value="youtube" id="src-yt" className="sr-only" disabled />
+                          <Label htmlFor="src-yt" className="flex flex-col gap-0.5 w-full">
+                            <span className="font-medium text-sm">YouTube</span>
+                            <span className="text-[10px] text-muted-foreground">Em breve</span>
+                          </Label>
+                        </div>
+
+                        <div className="flex items-center space-x-2 border p-3 rounded-lg cursor-pointer hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5 transition-colors">
+                          <RadioGroupItem value="mock" id="src-mock" className="sr-only" />
+                          <Label htmlFor="src-mock" className="flex items-center gap-2 cursor-pointer w-full font-medium">
+                            <Terminal className="h-5 w-5 text-primary" /> Mock Data
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {/* Step 2: Account */}
+                    {provider !== 'mock' && (
+                      <div className="space-y-4">
+                        <Label className="text-base font-bold">2. Conta</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {credentials.map(cred => (
+                            <div 
+                              key={cred.id}
+                              onClick={() => setSelectedCredential(cred.id)}
+                              className={`flex items-center gap-3 border p-3 rounded-lg cursor-pointer hover:bg-muted/50 transition-all ${selectedCredential === cred.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : ''}`}
+                            >
+                              <Avatar className="h-8 w-8 border">
+                                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${cred.username}`} />
+                                <AvatarFallback>{cred.username[0]}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 overflow-hidden">
+                                <p className="text-sm font-medium truncate">{cred.account_name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">@{cred.username}</p>
+                              </div>
+                              {selectedCredential === cred.id && <CheckCircle2 className="h-4 w-4 text-primary" />}
+                            </div>
+                          ))}
+                          <Button variant="outline" onClick={handleAddCredential} className="h-auto py-3 border-dashed gap-2 justify-start px-4">
+                            <Plus className="h-4 w-4" />
+                            <span className="text-sm">Nova Conta</span>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 3: Type */}
+                    <div className="space-y-4">
+                      <Label className="text-base font-bold">3. Tipo de descoberta</Label>
+                      <RadioGroup 
+                        value={discoveryType} 
+                        onValueChange={(v: any) => setDiscoveryType(v)}
+                        className="grid grid-cols-1 md:grid-cols-3 gap-3"
+                      >
+                        <div className="flex items-center space-x-2 border p-3 rounded-lg cursor-pointer hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                          <RadioGroupItem value="profile" id="type-prof" className="sr-only" />
+                          <Label htmlFor="type-prof" className="w-full cursor-pointer text-sm font-medium">Perfil</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 border p-3 rounded-lg opacity-50 bg-muted/20">
+                          <RadioGroupItem value="hashtag" id="type-hash" className="sr-only" disabled />
+                          <Label htmlFor="type-hash" className="flex flex-col gap-0.5 w-full">
+                            <span className="text-sm font-medium">Hashtag</span>
+                            <span className="text-[10px] text-muted-foreground">Em breve</span>
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2 border p-3 rounded-lg opacity-50 bg-muted/20">
+                          <RadioGroupItem value="keyword" id="type-key" className="sr-only" disabled />
+                          <Label htmlFor="type-key" className="flex flex-col gap-0.5 w-full">
+                            <span className="text-sm font-medium">Palavra-chave</span>
+                            <span className="text-[10px] text-muted-foreground">Em breve</span>
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {/* Step 4: Params */}
+                    <div className="space-y-6">
+                      <Label className="text-base font-bold">4. Parâmetros</Label>
+                      <div className="grid gap-6 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="username" className="text-xs uppercase text-muted-foreground">@usuario do Instagram</Label>
+                          <Input 
+                            id="username" 
+                            placeholder="@username" 
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs uppercase text-muted-foreground">Limite de Leads</Label>
+                          <div className="flex gap-2">
+                            {['10', '25', '50', '100'].map(val => (
+                              <Button 
+                                key={val} 
+                                variant={limit === val ? 'default' : 'outline'} 
+                                size="sm" 
+                                className="flex-1"
+                                onClick={() => setLimit(val)}
+                              >
+                                {val}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-6">
+                      <Button onClick={handleStartDiscovery} disabled={isSearching} className="flex-1 h-12 text-base gap-2">
+                        <Play className="h-5 w-5" />
+                        {isSearching ? "Buscando..." : "Iniciar Discovery"}
+                      </Button>
+                      
+                      <Button variant="outline" onClick={handleRunIntegrationTest} disabled={isRunningTest} className="h-12 px-6">
+                        <Terminal className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
+
+              <div className="space-y-6">
+                <Card className="bg-muted/30">
+                  <CardHeader>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      Como funciona
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-xs space-y-4 text-muted-foreground leading-relaxed">
+                    <p>O Lead Finder utiliza inteligência de dados públicos para encontrar perfis que correspondem aos seus critérios.</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        <span>Respeita limites de plataforma</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        <span>Extração de e-mail e telefone públicos</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                        <span>Deduplicação automática inteligente</span>
+                      </div>
+                    </div>
+                    <Separator />
+                    <p className="font-medium text-foreground">Sprint 2.1 Focus:</p>
+                    <p>Nesta fase estamos otimizando a interface e o gerenciamento de contas. O scraping real por hashtags será liberado na Sprint 3.0.</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="leads">
