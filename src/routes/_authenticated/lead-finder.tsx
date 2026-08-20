@@ -964,45 +964,36 @@ function LeadFinderPage() {
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <ValidationItem 
-              title="1 - Instagram Accounts" 
-              description="Fluxo operacional de gestão de contas."
-              checks={["Estados: Connected/Disconnected/Expired", "Ações: Conectar, Reconectar, Remover"]}
+              title="1 - Fila de Hashtags" 
+              description="Cadastrar múltiplas hashtags para execução sequencial."
+              checks={["Input de lista de hashtags", "Execução um por vez", "Consolidação no Lead Bank"]}
             />
             <ValidationItem 
-              title="2 - Fluxo de Conexão" 
-              description="Autenticação e manutenção de sessão."
-              checks={["Wizard de conexão do Instagram", "Armazenar sessão autenticada", "Não salvar senhas"]}
+              title="2 - Hashtag Discovery" 
+              description="Fluxo principal de descoberta por hashtag."
+              checks={["Busca principal por #", "Extração de perfis da hashtag", "Análise em tempo real"]}
             />
             <ValidationItem 
-              title="3 - Discovery UI" 
-              description="Seleção de conta e parâmetros."
-              checks={["Dropdown de Contas Principal", "Tipo Perfil habilitado", "Input de @usuario"]}
+              title="3 - Monitoramento Realtime" 
+              description="Métricas de descoberta em tempo real."
+              checks={["Telefones e E-mails encontrados", "Perfis analisados e duplicados", "Tempo de execução"]}
             />
             <ValidationItem 
-              title="4 - Discovery Real" 
-              description="Leitura e extração de dados públicos."
-              checks={["username, bio, display_name", "E-mail, Telefone, Website", "Uso do LeadService para persistência"]}
+              title="4 - Lead Metadata" 
+              description="Registro detalhado da origem do lead."
+              checks={["Hashtag de origem", "Plataforma e Conta utilizada", "Job ID e timestamp"]}
             />
             <ValidationItem 
-              title="5 - Deduplicação" 
-              description="Garantir unicidade dos leads."
-              checks={["PK por username/provider", "Check de e-mail e telefone", "Logs na Timeline"]}
+              title="5 - Deduplicação Cross-Hashtag" 
+              description="Evitar leads repetidos em diferentes hashtags."
+              checks={["Check global de duplicados", "Filtro por username", "Audit trail na Timeline"]}
             />
             <ValidationItem 
-              title="6 - Lead Bank Integration" 
-              description="Interface de visualização dos leads."
-              checks={["Atualização automática", "Cards de leads detalhados", "Filtros de busca"]}
+              title="6 - Sales Agent Prep" 
+              description="Base qualificada para disparos WhatsApp."
+              checks={["Validação de contatos públicos", "Extração de links e bio", "Pronto para Sales Agent"]}
             />
-            <ValidationItem 
-              title="7 - Jobs & Monitoring" 
-              description="Rastreabilidade da execução."
-              checks={["Duração da descoberta", "Total de leads encontrados", "Status de erro/sucesso"]}
-            />
-            <ValidationItem 
-              title="8 - Limpeza e Scope" 
-              description="Foco exclusivo em dados públicos."
-              checks={["NÃO implementar hashtags", "NÃO implementar IA", "Foco na funcionalidade base"]}
-            />
+
           </div>
         </TabsContent>
       </Tabs>
