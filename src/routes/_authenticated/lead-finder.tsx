@@ -292,55 +292,97 @@ function LeadFinderPage() {
 
         <TabsContent value="validation" className="space-y-4">
           <div className="grid gap-6 md:grid-cols-2 mb-4">
-            <Card className="border-primary/20 bg-primary/5">
+            <Card className="border-primary/20 bg-primary/5 col-span-full">
               <CardHeader>
-                <CardTitle className="text-lg">Objetivo - Phase 1 Validation Sprint</CardTitle>
+                <CardTitle className="text-xl">Sprint 2.2 – Instagram Account Manager (Operacional)</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm space-y-2">
-                <p>Não adicionar funcionalidades novas.</p>
-                <p className="font-medium">Somente validar, testar e corrigir problemas da arquitetura da Fase 1.</p>
-              </CardContent>
-            </Card>
+              <CardContent className="text-sm space-y-4">
+                <p>A arquitetura do Lead Finder está evoluindo corretamente, porém a tela Instagram Accounts ainda funciona como um mock e não representa um fluxo operacional real.</p>
+                <p>O objetivo desta sprint é transformar o gerenciamento de contas em um módulo profissional, que será utilizado por todos os Discovery Providers nas próximas fases.</p>
+                
+                <div className="bg-destructive/10 p-3 rounded-md border border-destructive/20 text-destructive font-bold text-xs uppercase tracking-wider">
+                  IMPORTANTE: Não alterar DiscoveryEngine, LeadService ou Provider Contract.
+                </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">AI Independence</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm space-y-2 text-muted-foreground">
-                Desabilitar completamente o AI Service.
-                Confirmar que Discovery, Persistência, Timeline e Jobs continuam funcionando.
+                <div className="grid md:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-2">
+                    <h4 className="font-bold">Objetivos Operacionais</h4>
+                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                      <li>Conectar conta do Instagram (Wizard)</li>
+                      <li>Visualizar todas as contas cadastradas</li>
+                      <li>Selecionar conta para as descobertas</li>
+                      <li>Gerenciar estados (Conectada, Expirada, etc)</li>
+                      <li>Ações contextuais (Reconectar, Remover)</li>
+                    </ul>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-bold">Restrições</h4>
+                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                      <li>NÃO implementar scraping real nesta sprint</li>
+                      <li>NÃO implementar busca por hashtag</li>
+                      <li>NÃO implementar IA nesta fase</li>
+                      <li>Manter infraestrutura preparada para múltiplas contas</li>
+                    </ul>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-...
             <ValidationItem 
-              title="6. Timeline" 
-              description="Fluxo: Discovered → Persisted → Job Registered → Finished."
-              checks={[
-                "Eventos em ordem lógica",
-                "Sem duplicidade de logs",
-                "Dados de contexto preservados"
-              ]}
+              title="1 - Melhorar aba Accounts" 
+              description="Cards modernos com indicadores rápidos."
+              checks={["Foto, Nome, @username", "Tipo, Status, Sync", "Jobs e Leads counts"]}
             />
             <ValidationItem 
-              title="7. Jobs" 
-              description="Validar transições de estados de execução."
-              checks={[
-                "RUNNING → FINISHED",
-                "Tratamento de FAILED",
-                "Logs de erro capturados"
-              ]}
+              title="2 - Status Reais" 
+              description="Sair do mock Conectada/Desconectada."
+              checks={["Conectada, Expirada", "Desconectada, Sincronizando", "Nunca utilizada"]}
+            />
+            <ValidationItem 
+              title="3 - Botões Dinâmicos" 
+              description="Ações baseadas no estado da sessão."
+              checks={["Desconectar/Remover (Conectada)", "Conectar/Remover (Desconectada)", "Reconectar/Remover (Expirada)"]}
+            />
+            <ValidationItem 
+              title="4 - Conexão Wizard" 
+              description="Fluxo guiado de adição de contas."
+              checks={["Seleção de Plataforma", "Instruções de conexão", "Estrutura mock preparada para real"]}
+            />
+            <ValidationItem 
+              title="5 - Seleção no Discovery" 
+              description="Vincular busca a uma conta específica."
+              checks={["Dropdown de Contas", "Passar ID para o Engine", "Fallback caso sem conta"]}
+            />
+            <ValidationItem 
+              title="6 - Banco de Dados" 
+              description="Revisar lead_finder_credentials."
+              checks={["Campos de Auditoria", "Metadados da Conta", "Timestamps de uso"]}
             />
           </div>
 
-          <Card className="border-dashed">
+          <Card className="mt-4 border-dashed bg-muted/20">
             <CardHeader>
-              <CardTitle className="text-lg">8. Relatório Final</CardTitle>
+              <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">Critérios de Aceite</CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Entregar ao final desta sprint o resultado de cada teste, problemas encontrados, correções e a confirmação dos Success Criteria da Fase 1.
+            <CardContent className="text-xs text-muted-foreground grid md:grid-cols-2 gap-2">
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>Fluxo de conexão/remoção operacional</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>Estado da conta sincronizado com UI</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>Seleção de conta reflete no Discovery</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-primary" />
+                <span>Zero refatoração no DiscoveryEngine</span>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -876,52 +918,52 @@ function LeadFinderPage() {
         </TabsContent>
         <TabsContent value="validation" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight">Phase 1 Validation Sprint</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Sprint 2.2 – Instagram Account Manager</h2>
             <Badge variant="outline" className="gap-1">
-              <CheckCircle2 className="h-3 w-3 text-green-500" /> Sprint 2.1 Active
+              <CheckCircle2 className="h-3 w-3 text-blue-500" /> Sprint 2.2 Planning
             </Badge>
           </div>
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <ValidationItem 
-              title="Deduplication" 
-              description="LeadService.saveLead detects existing leads by provider/username."
-              checks={["Primary Key lookup", "Conflict handling", "Update existing fields"]}
+              title="1 - Aba Accounts" 
+              description="Cards modernos com indicadores rápidos."
+              checks={["Foto, Nome, @username", "Tipo, Status, Sync", "Jobs e Leads counts"]}
             />
             <ValidationItem 
-              title="Provider Contract" 
-              description="Stateless search() returning LeadDiscoveryResult[]."
-              checks={["MockProvider", "InstagramPublic", "Type Safety"]}
+              title="2 - Status Reais" 
+              description="Sair do mock Conectada/Desconectada."
+              checks={["Conectada, Expirada", "Desconectada, Sincronizando", "Nunca utilizada"]}
             />
             <ValidationItem 
-              title="DiscoveryEngine" 
-              description="Central hub for provider registration and job execution."
-              checks={["Provider Registry", "Job Lifecycle", "Stats Tracking"]}
+              title="3 - Botões Dinâmicos" 
+              description="Ações baseadas no estado da sessão."
+              checks={["Desconectar/Remover (Conectada)", "Conectar/Remover (Desconectada)", "Reconectar/Remover (Expirada)"]}
             />
             <ValidationItem 
-              title="LeadService" 
-              description="Abstraction for leads and timeline persistence."
-              checks={["Supabase Integration", "RLS Compliance", "Timeline Events"]}
+              title="4 - Conexão Wizard" 
+              description="Fluxo guiado de adição de contas."
+              checks={["Seleção de Plataforma", "Instruções de conexão", "Estrutura mock preparada para real"]}
             />
             <ValidationItem 
-              title="AI Independence" 
-              description="Core scraping logic does not depend on LLMs (deterministic)."
-              checks={["Raw Extraction", "Regex parsing", "No GPT-latency"]}
+              title="5 - Seleção no Discovery" 
+              description="Vincular busca a uma conta específica."
+              checks={["Dropdown de Contas", "Passar ID para o Engine", "Fallback caso sem conta"]}
             />
             <ValidationItem 
-              title="Timeline & Audit" 
-              description="Every discovery event is logged for transparency."
-              checks={["lead_finder_timeline", "Job reference", "Step tracing"]}
+              title="6 - Banco de Dados" 
+              description="Revisar lead_finder_credentials."
+              checks={["Campos de Auditoria", "Metadados da Conta", "Timestamps de uso"]}
             />
             <ValidationItem 
-              title="Jobs & Stats" 
-              description="Async execution state and progress monitoring."
-              checks={["lead_finder_jobs", "Leads count", "Duration"]}
+              title="7 - UX & Mobile" 
+              description="Interface responsiva e profissional."
+              checks={["Avatar do perfil", "Badges coloridas", "Cards compactos"]}
             />
             <ValidationItem 
-              title="Final Report" 
-              description="UI dashboard consolidating all Phase 1 metrics."
-              checks={["Leads Table", "Jobs List", "Timeline View"]}
+              title="8 - Discovery Wizard" 
+              description="Aviso quando sem conta conectada."
+              checks={["Empty State", "Call to Action", "Bloqueio de busca sem conta"]}
             />
           </div>
         </TabsContent>
