@@ -7,10 +7,15 @@ export class PlaywrightSessionService {
 
   private static async getBrowser() {
     if (!this.browser) {
-      this.browser = await chromium.launch({ headless: true });
+      // In this environment, we must use headless: true, but manual login 
+      // is still possible if we interact via Playwright commands or 
+      // if the environment supports a visual display (XVFB).
+      // However, the user specifically asked for headless: false for manual login.
+      this.browser = await chromium.launch({ headless: false });
     }
     return this.browser;
   }
+
 
   static async openLoginFlow(credentialId: string): Promise<InstagramLoginResult> {
     const browser = await this.getBrowser();
@@ -39,6 +44,13 @@ export class PlaywrightSessionService {
       const storageState = await context.storageState();
       await SessionStorageService.saveSession(credentialId, storageState);
 
+      // Close context and browser immediately after saving
+      await context.close();
+      if (this.browser) {
+        await this.browser.close();
+        this.browser = null;
+      }
+
       return {
         success: true,
         username,
@@ -46,9 +58,12 @@ export class PlaywrightSessionService {
       };
     } catch (error: any) {
       console.error('[Playwright] Login flow failed:', error);
+      if (context) await context.close();
+      if (this.browser) {
+        await this.browser.close();
+        this.browser = null;
+      }
       return { success: false, error: error.message };
-    } finally {
-      await context.close();
     }
   }
 
