@@ -30,16 +30,11 @@ export class EnvironmentCheckService {
 
     // 1. Playwright & Chromium
     try {
-      const playwright = await eval('import("playwright")');
-      const { chromium } = playwright;
+      const { PlaywrightLauncher } = await import('./playwright-launcher.server');
+      const browser = await PlaywrightLauncher.launch({ headless: true });
       check.playwright = true;
-      const browser = await chromium.launch({ 
-        headless: true,
-        executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-      await browser.close();
       check.chromium = true;
+      await browser.close();
     } catch (e: any) {
       errors.push(`Playwright/Chromium: ${e.message}`);
     }
