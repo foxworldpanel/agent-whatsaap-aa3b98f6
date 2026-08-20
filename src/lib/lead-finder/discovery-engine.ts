@@ -25,7 +25,7 @@ export class DiscoveryEngine {
   }
 
   /**
-   * Normalizes provider output (Basic implementation for Phase 1).
+   * Normalizes provider output (Phase 2).
    * This ensures all internal system components see a unified data structure.
    */
   normalize(result: LeadDiscoveryResult): LeadDiscoveryResult {
