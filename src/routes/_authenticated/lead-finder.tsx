@@ -356,7 +356,7 @@ function LeadFinderPage() {
                       Discovery Running
                     </CardTitle>
                     <CardDescription>
-                      {activeJob.provider_id} • {credentials.find(c => c.id === activeJob.config.credential_id)?.username || 'Mock'}
+                      {activeJob.provider_id} • {credentials.find(c => c.id === activeJob.config?.credential_id)?.username || 'Mock'}
                     </CardDescription>
                   </div>
                   <Badge variant="outline" className="bg-background">Executando</Badge>
