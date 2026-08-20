@@ -21,7 +21,7 @@ export class PlaywrightSessionService {
       logger('Browser Started');
       const { chromium } = await import('playwright');
       this.browser = await chromium.launch({ 
-        headless: true,
+        headless: false,
         executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       });
@@ -62,7 +62,7 @@ export class PlaywrightSessionService {
       
       return { 
         success: false, 
-        error: "Ambiente headless não permite login manual. Use autenticação automática ou forneça Storage State." 
+        error: "Ambiente headless desativado. Autenticação deve ser realizada manualmente no navegador aberto." 
       };
 
     } catch (error: any) {
