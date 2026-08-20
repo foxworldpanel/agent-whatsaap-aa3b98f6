@@ -6,114 +6,76 @@ import { LeadService } from "./lead.service";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Lead Finder Integration Test (Phase 2)
- * Validates the flow for the new InstagramPublicProvider.
+ * Lead Finder Integration Test (Phase 1 & 2)
+ * Validates the entire flow: Job -> Provider -> Result -> Normalization -> Persistence -> Timeline.
  */
-export async function runPhase2IntegrationTest() {
-  console.log("🚀 Starting Phase 2 Integration Test (Instagram Public)...");
+export async function runLeadFinderIntegrationTest() {
+  console.log("🚀 Starting Lead Finder Integration Test...");
 
-  try {
-    // 1. Initialize Engine & Provider
-    const igProvider = new InstagramPublicProvider();
-    const providerKey = 'instagram_public';
-    // Registry is usually handled in discovery-engine.ts, but we ensure it here for testing
-    discoveryEngine.registerProvider(providerKey, igProvider);
-    
-    // Ensure provider exists in DB
-    const { data: providerEntry } = await supabase
-      .from('lead_finder_providers')
-      .upsert({
-        provider_type: 'instagram_public',
-        provider_key: providerKey,
-        status: 'enabled'
-      }, { onConflict: 'provider_key' })
-      .select()
-      .single();
+  const results = [];
 
-    if (!providerEntry) throw new Error("Failed to ensure provider in DB");
+  // Test both providers
+  const testCases = [
+    { type: 'mock', key: 'mock_tester', query: { limit: 2 } },
+    { type: 'instagram_public', key: 'instagram_tester', query: { type: 'profile', username: 'lovable_ai' } }
+  ];
 
-    // 2. Create Job for a specific username
-    const testUsername = 'lovable_test_lead';
-    const job = await JobService.createJob(providerEntry.id, { 
-      type: 'profile', 
-      username: testUsername 
-    });
-    console.log("✅ Job created:", job.id);
+  for (const test of testCases) {
+    console.log(`\n--- Testing Provider: ${test.type} ---`);
+    try {
+      // 1. Ensure provider exists in DB
+      const { data: providerEntry } = await supabase
+        .from('lead_finder_providers')
+        .upsert({
+          provider_type: test.type,
+          provider_key: test.key,
+          status: 'enabled'
+        }, { onConflict: 'provider_key' })
+        .select()
+        .single();
 
-    // 3. Start Run
-    const run = await JobService.startRun(job.id, providerKey);
-    console.log("✅ Run started:", run.id);
+      if (!providerEntry) throw new Error(`Failed to ensure provider ${test.type} in DB`);
 
-    // 4. Execution (Stateless Discovery) - Testing search/collect simulation
-    const rawResults = await igProvider.search({ 
-      type: 'profile', 
-      username: testUsername 
-    });
-    console.log(`✅ Found ${rawResults.length} results for ${testUsername}`);
+      // 2. Create Job
+      const job = await JobService.createJob(providerEntry.id, { test: true, provider: test.type });
+      console.log(`✅ Job created for ${test.type}:`, job.id);
 
-    if (rawResults.length === 0) throw new Error("No results returned from Instagram provider");
+      // 3. Start Run
+      const run = await JobService.startRun(job.id, test.key);
+      console.log(`✅ Run started for ${test.key}:`, run.id);
 
-    // 5. Processing & Persistence (Via LeadService)
-    for (const raw of rawResults) {
-      // Normalization
-      const normalized = discoveryEngine.normalize(raw);
+      // 4. Execution (Stateless Discovery)
+      const provider = discoveryEngine.getProvider(test.type === 'mock' ? 'mock' : 'instagram_public');
+      if (!provider) throw new Error(`Provider ${test.type} not found in engine`);
       
-      // Save (Intelligent Deduplication inside)
-      const lead = await LeadService.saveLead(normalized, providerKey, job.id);
-      console.log(`✅ Instagram Lead persisted: ${lead.profile_username} (${lead.id})`);
-      
-      // Add Phase 2 tag
-      await LeadService.addTags(lead.id, ['test-phase-2', 'instagram-public']);
+      const rawResults = await provider.search(test.query);
+      console.log(`✅ Found ${rawResults.length} raw results from ${test.type}`);
+
+      // 5. Processing & Persistence (Via LeadService)
+      for (const raw of rawResults) {
+        // Normalization
+        const normalized = discoveryEngine.normalize(raw);
+        
+        // Save (Intelligent Deduplication inside)
+        const lead = await LeadService.saveLead(normalized, `test_${test.type}`, job.id);
+        console.log(`✅ Lead persisted: ${lead.profile_username} (${lead.id})`);
+        
+        await LeadService.addTags(lead.id, ['test-sprint-2', test.type]);
+      }
+
+      // 6. Complete Job
+      await JobService.finishRun(run.id);
+      console.log(`✅ Job and Run for ${test.type} finished successfully!`);
+      results.push({ provider: test.type, success: true });
+
+    } catch (error) {
+      console.error(`❌ Integration Test failed for ${test.type}:`, error);
+      results.push({ provider: test.type, success: false, error: (error as Error).message });
     }
-
-    // 6. Complete Job
-    await JobService.finishRun(run.id);
-    console.log("✅ Phase 2 Job and Run finished successfully!");
-
-    return { success: true, jobId: job.id };
-  } catch (error) {
-    console.error("❌ Phase 2 Integration Test failed:", error);
-    return { success: false, error: (error as Error).message };
   }
+
+  return results;
 }
 
-/**
- * Legacy Phase 1 Test runner (kept for regression)
- */
-export async function runPhase1IntegrationTest() {
-  console.log("🚀 Starting Phase 1 Integration Test (Regression)...");
-  try {
-    const mockProvider = new MockDiscoveryProvider();
-    const providerKey = 'mock_tester';
-    discoveryEngine.registerProvider(providerKey, mockProvider);
-    
-    const { data: providerEntry } = await supabase
-      .from('lead_finder_providers')
-      .upsert({
-        provider_type: 'mock',
-        provider_key: providerKey,
-        status: 'enabled'
-      }, { onConflict: 'provider_key' })
-      .select()
-      .single();
-
-    if (!providerEntry) throw new Error("Failed to ensure provider in DB");
-
-    const job = await JobService.createJob(providerEntry.id, { test: true });
-    const run = await JobService.startRun(job.id, providerKey);
-    const rawResults = await mockProvider.search({ limit: 2 });
-
-    for (const raw of rawResults) {
-      const normalized = discoveryEngine.normalize(raw);
-      const lead = await LeadService.saveLead(normalized, 'mock_test', job.id);
-      await LeadService.addTags(lead.id, ['test-phase-1-regression']);
-    }
-
-    await JobService.finishRun(run.id);
-    console.log("✅ Phase 1 Regression Test finished successfully!");
-    return { success: true, jobId: job.id };
-  } catch (error) {
-    console.error("❌ Phase 1 Regression Test failed:", error);
-    return { success: false, error: (error as Error).message };
-  }
-}
+// Keep backward compatibility if anything else imports it
+export const runPhase1IntegrationTest = runLeadFinderIntegrationTest;

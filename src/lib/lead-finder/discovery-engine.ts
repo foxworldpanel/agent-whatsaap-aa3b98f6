@@ -1,7 +1,6 @@
 import { IDiscoveryProvider, LeadDiscoveryResult } from "./types";
-import { MockDiscoveryProvider } from "./providers/mock-provider";
 import { InstagramPublicProvider } from "./providers/instagram-public";
-
+import { MockDiscoveryProvider } from "./providers/mock-provider";
 
 /**
  * Discovery Engine
@@ -9,6 +8,12 @@ import { InstagramPublicProvider } from "./providers/instagram-public";
  */
 export class DiscoveryEngine {
   private providers: Map<string, IDiscoveryProvider> = new Map();
+
+  constructor() {
+    // Phase 2: Auto-register default providers
+    this.registerProvider('mock', new MockDiscoveryProvider());
+    this.registerProvider('instagram_public', new InstagramPublicProvider());
+  }
 
   /**
    * Registers a new discovery provider.
@@ -25,7 +30,7 @@ export class DiscoveryEngine {
   }
 
   /**
-   * Normalizes provider output (Phase 2).
+   * Normalizes provider output (Basic implementation for Phase 1).
    * This ensures all internal system components see a unified data structure.
    */
   normalize(result: LeadDiscoveryResult): LeadDiscoveryResult {
@@ -46,10 +51,5 @@ export class DiscoveryEngine {
   }
 }
 
-// Global instance and registration
+// Global instance
 export const discoveryEngine = new DiscoveryEngine();
-
-// Register default providers
-discoveryEngine.registerProvider('mock', new MockDiscoveryProvider());
-discoveryEngine.registerProvider('instagram_public', new InstagramPublicProvider());
-

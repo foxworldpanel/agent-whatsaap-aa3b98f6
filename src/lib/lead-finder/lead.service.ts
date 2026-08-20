@@ -13,7 +13,7 @@ export class LeadService {
   static async saveLead(result: LeadDiscoveryResult, origin: string, originValue: string) {
     const { profile, contacts, links, metadata, rawData } = result;
 
-    // 1. Normalization (Phase 2)
+    // 1. Normalization (Basic Phase 1)
     const normalizedLead = {
       platform: profile.platform.toLowerCase(),
       profile_username: profile.username.toLowerCase(),
@@ -26,7 +26,7 @@ export class LeadService {
       links: links,
       lead_origin: origin,
       lead_origin_value: originValue,
-      raw_profile_data: { ...rawData, ...metadata }, // Merging metadata into raw_profile_data for Phase 2
+      raw_profile_data: rawData,
       discovered_at: new Date().toISOString(),
       last_seen_at: new Date().toISOString(),
     };

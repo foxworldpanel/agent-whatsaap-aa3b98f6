@@ -1,47 +1,67 @@
-import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Radar, Search, Database, LayoutList, History, CheckCircle2, Play } from "lucide-react"
-import { toast } from "sonner"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Radar, Search, Database, LayoutList, History, CheckCircle2, Play, Instagram, Terminal } from "lucide-react"
+import { discoveryEngine } from '@/lib/lead-finder/discovery-engine'
+import { toast } from 'sonner'
+import { runLeadFinderIntegrationTest } from '@/lib/lead-finder/test-integration'
 
 export const Route = createFileRoute('/_authenticated/lead-finder')({
   component: LeadFinderPage,
 })
 
 function LeadFinderPage() {
-  const [provider, setProvider] = useState('mock')
-  const [origin, setOrigin] = useState('profile')
-  const [source, setSource] = useState('')
+  const [provider, setProvider] = useState<'mock' | 'instagram_public'>('instagram_public')
+  const [username, setUsername] = useState('')
   const [isSearching, setIsSearching] = useState(false)
+  const [isRunningTest, setIsRunningTest] = useState(false)
 
   const handleStartDiscovery = async () => {
-    if (!source && provider === 'instagram_public') {
-      toast.error("Por favor, informe a origem (ex: @username)")
+    if (provider === 'instagram_public' && !username) {
+      toast.error("Informe um username do Instagram")
       return
     }
-    
+
     setIsSearching(true)
-    toast.info(`Iniciando descoberta via ${provider === 'mock' ? 'Mock' : 'Instagram Public'}...`)
-    
     try {
-      // In Phase 2, we could call the DiscoveryEngine directly or via a server function
-      // For now, we simulate the integration with the service layer
-      console.log(`[LeadFinder] Starting discovery for ${source} via ${provider}`);
-      
-      // Artificial delay to show UI feedback
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      toast.success("Job de descoberta iniciado com sucesso!")
+      const activeProvider = discoveryEngine.getProvider(provider)
+      if (!activeProvider) throw new Error("Provider não registrado")
+
+      const query = provider === 'instagram_public' 
+        ? { type: 'profile', username } 
+        : { limit: 2 }
+
+      const results = await activeProvider.search(query)
+      toast.success(`Descoberta finalizada! ${results.length} leads encontrados.`)
     } catch (error) {
-      console.error("Discovery failed:", error)
-      toast.error("Erro ao iniciar descoberta")
+      console.error(error)
+      toast.error("Erro na descoberta")
     } finally {
       setIsSearching(false)
+    }
+  }
+
+  const handleRunIntegrationTest = async () => {
+    setIsRunningTest(true)
+    toast.info("Iniciando teste de integração completo...")
+    try {
+      const results = await runLeadFinderIntegrationTest()
+      const allSuccess = results.every(r => r.success)
+      if (allSuccess) {
+        toast.success("Teste de integração concluído com sucesso!")
+      } else {
+        toast.error("Falha em alguns testes de integração")
+      }
+      console.table(results)
+    } catch (error) {
+      toast.error("Erro ao executar teste")
+    } finally {
+      setIsRunningTest(false)
     }
   }
 
@@ -83,6 +103,61 @@ function LeadFinderPage() {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="validation" className="space-y-4">
+          <div className="grid gap-6 md:grid-cols-2 mb-4">
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-lg">Objetivo - Phase 1 Validation Sprint</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2">
+                <p>Não adicionar funcionalidades novas.</p>
+                <p className="font-medium">Somente validar, testar e corrigir problemas da arquitetura da Fase 1.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">AI Independence</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2 text-muted-foreground">
+                Desabilitar completamente o AI Service.
+                Confirmar que Discovery, Persistência, Timeline e Jobs continuam funcionando.
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+...
+            <ValidationItem 
+              title="6. Timeline" 
+              description="Fluxo: Discovered → Persisted → Job Registered → Finished."
+              checks={[
+                "Eventos em ordem lógica",
+                "Sem duplicidade de logs",
+                "Dados de contexto preservados"
+              ]}
+            />
+            <ValidationItem 
+              title="7. Jobs" 
+              description="Validar transições de estados de execução."
+              checks={[
+                "RUNNING → FINISHED",
+                "Tratamento de FAILED",
+                "Logs de erro capturados"
+              ]}
+            />
+          </div>
+
+          <Card className="border-dashed">
+            <CardHeader>
+              <CardTitle className="text-lg">8. Relatório Final</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Entregar ao final desta sprint o resultado de cada teste, problemas encontrados, correções e a confirmação dos Success Criteria da Fase 1.
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="discovery">
           <Card>
             <CardHeader>
@@ -92,144 +167,61 @@ function LeadFinderPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <Label>Provider</Label>
                 <RadioGroup 
-                  defaultValue="mock" 
                   value={provider} 
-                  onValueChange={setProvider}
+                  onValueChange={(v: any) => setProvider(v)}
                   className="flex gap-4"
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="mock" id="mock" />
-                    <Label htmlFor="mock" className="font-normal cursor-pointer">Mock</Label>
+                    <RadioGroupItem value="instagram_public" id="ig" />
+                    <Label htmlFor="ig" className="flex items-center gap-2 cursor-pointer">
+                      <Instagram className="h-4 w-4" /> Instagram Public
+                    </Label>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="instagram_public" id="instagram_public" />
-                    <Label htmlFor="instagram_public" className="font-normal cursor-pointer">Instagram Public</Label>
+                    <RadioGroupItem value="mock" id="mock" />
+                    <Label htmlFor="mock" className="flex items-center gap-2 cursor-pointer">
+                      <Terminal className="h-4 w-4" /> Mock Provider
+                    </Label>
                   </div>
                 </RadioGroup>
               </div>
 
               {provider === 'instagram_public' && (
-                <div className="space-y-6 pt-4 border-t animate-in fade-in duration-300">
-                  <div className="space-y-3">
-                    <Label>Origem</Label>
-                    <RadioGroup 
-                      defaultValue="profile" 
-                      value={origin} 
-                      onValueChange={setOrigin}
-                      className="flex gap-4"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="profile" id="profile" />
-                        <Label htmlFor="profile" className="font-normal cursor-pointer">Perfil</Label>
-                      </div>
-                      <div className="flex items-center space-x-2 opacity-50">
-                        <RadioGroupItem value="hashtag" id="hashtag" disabled />
-                        <Label htmlFor="hashtag" className="font-normal">Hashtag (Breve)</Label>
-                      </div>
-                      <div className="flex items-center space-x-2 opacity-50">
-                        <RadioGroupItem value="keyword" id="keyword" disabled />
-                        <Label htmlFor="keyword" className="font-normal">Palavra-chave (Breve)</Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label htmlFor="source">Nome do Perfil</Label>
+                <div className="space-y-2 max-w-sm">
+                  <Label htmlFor="username">Username do Instagram</Label>
+                  <div className="flex gap-2">
                     <Input 
-                      id="source" 
-                      placeholder="@sourcee" 
-                      value={source}
-                      onChange={(e) => setSource(e.target.value)}
-                      className="max-w-md"
+                      id="username" 
+                      placeholder="@username" 
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                     />
                   </div>
                 </div>
               )}
 
               {provider === 'mock' && (
-                <div className="p-4 rounded-lg bg-muted/50 text-sm text-muted-foreground max-w-md">
-                  O Mock Provider gera leads simulados para validação rápida da arquitetura e fluxos internos.
+                <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground border">
+                  O Mock Provider gera dados aleatórios para teste de pipeline.
                 </div>
               )}
 
-              <div className="pt-4">
-                <Button 
-                  onClick={handleStartDiscovery} 
-                  disabled={isSearching}
-                  className="gap-2"
-                >
+              <div className="flex gap-3 pt-4">
+                <Button onClick={handleStartDiscovery} disabled={isSearching} className="gap-2">
                   <Play className="h-4 w-4" />
-                  {isSearching ? "Iniciando..." : "Iniciar Discovery"}
+                  {isSearching ? "Buscando..." : "Iniciar Discovery"}
+                </Button>
+                
+                <Button variant="outline" onClick={handleRunIntegrationTest} disabled={isRunningTest} className="gap-2">
+                  <Terminal className="h-4 w-4" />
+                  Rodar Teste de Integração
                 </Button>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="validation" className="space-y-4">
-          <div className="grid gap-6 md:grid-cols-2 mb-4">
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader>
-                <CardTitle className="text-lg">Objetivo - Phase 2 (Instagram Public Provider)</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm space-y-2">
-                <p>Implementar o primeiro provider real utilizando apenas informações públicas de perfis do Instagram.</p>
-                <p className="font-medium">Nesta sprint NÃO implementamos IA, Sales Agent ou disparos.</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Provider Contract (Fase 2)</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm space-y-2 text-muted-foreground">
-                O provider deve ser 100% apátrida (sem DB, IA ou Agent).
-                Deve apenas retornar um LeadDiscoveryResult para o LeadService persistir.
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <ValidationItem 
-              title="1. InstagramPublicProvider" 
-              description="Validar extração de dados públicos de perfis."
-              checks={[
-                "Username, Nome, Bio e Website",
-                "Telefone e E-mail (se públicos)",
-                "Links e Links externos"
-              ]}
-            />
-            <ValidationItem 
-              title="2. Discovery Selection" 
-              description="Interface de troca entre Mock e Instagram."
-              checks={[
-                "Seleção de Provider (Mock/Instagram)",
-                "Seleção de Origem (Perfil)",
-                "Inputs condicionais por provider"
-              ]}
-            />
-            <ValidationItem 
-              title="3. Discovery Engine" 
-              description="Orquestração sem alteração de código base."
-              checks={[
-                "Suporte a múltiplos providers",
-                "Normalização padronizada",
-                "Execução desacoplada"
-              ]}
-            />
-            <ValidationItem 
-              title="4. Success Criteria" 
-              description="Critérios de aceite para conclusão da Fase 2."
-              checks={[
-                "Instagram Provider funciona",
-                "Mock Provider continua OK",
-                "Nenhuma regra da Fase 1 quebrada"
-              ]}
-            />
-          </div>
         </TabsContent>
 
         <TabsContent value="leads">
