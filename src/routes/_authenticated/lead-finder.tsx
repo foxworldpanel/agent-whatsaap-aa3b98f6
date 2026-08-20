@@ -18,6 +18,13 @@ import { runLeadFinderIntegrationTest } from '@/lib/lead-finder/test-integration
 import { CredentialService } from '@/lib/lead-finder/credential.service'
 import { LeadService } from '@/lib/lead-finder/lead.service'
 import { JobService } from '@/lib/lead-finder/job.service'
+import { 
+  connectInstagramAction, 
+  disconnectInstagramAction, 
+  reconnectInstagramAction, 
+  removeInstagramAction 
+} from '@/lib/instagram-session/instagram-session.functions'
+
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -163,28 +170,55 @@ function LeadFinderPage() {
 
   const handleAddCredential = async () => {
     try {
-      await CredentialService.addCredential({
+      const newCred = await CredentialService.addCredential({
         provider_type: 'instagram',
-        account_name: 'Conta Principal',
-        username: 'sourcee_oficial',
+        account_name: 'Nova Conta Instagram',
+        username: 'pendente',
         config: {}
       })
+      
+      toast.info("Iniciando conexão... Siga as instruções no navegador.")
+      await connectInstagramAction({ data: { credentialId: newCred.id } })
+      
       toast.success("Conta conectada com sucesso!")
       loadCredentials()
     } catch (e) {
+      console.error(e)
       toast.error("Erro ao conectar conta")
+    }
+  }
+
+  const handleReconnect = async (id: string) => {
+    try {
+      toast.info("Abrindo navegador para reconexão...")
+      await reconnectInstagramAction({ data: { credentialId: id } })
+      toast.success("Reconexão concluída")
+      loadCredentials()
+    } catch (e) {
+      toast.error("Erro ao reconectar")
+    }
+  }
+
+  const handleDisconnect = async (id: string) => {
+    try {
+      await disconnectInstagramAction({ data: { credentialId: id } })
+      toast.success("Sessão encerrada")
+      loadCredentials()
+    } catch (e) {
+      toast.error("Erro ao desconectar")
     }
   }
 
   const handleRemoveCredential = async (id: string) => {
     try {
-      await CredentialService.removeCredential(id)
+      await removeInstagramAction({ data: { credentialId: id } })
       toast.success("Conta removida")
       loadCredentials()
     } catch (e) {
       toast.error("Erro ao remover conta")
     }
   }
+
 
   return (
     <div className="space-y-6">
@@ -266,22 +300,26 @@ function LeadFinderPage() {
                     <CardContent className="space-y-4">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Status</span>
-                        <Badge variant={cred.status === 'connected' ? 'default' : 'destructive'} className="h-5">
-                          {cred.status === 'connected' ? 'Conectada' : cred.status === 'expired' ? 'Expirada' : 'Desconectada'}
+                        <Badge variant={cred.status === 'connected' ? 'default' : cred.status === 'connecting' ? 'secondary' : 'destructive'} className="h-5 capitalize">
+                          {cred.status?.replace('_', ' ') || 'Pendente'}
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Última sincronização</span>
-                        <span>{cred.last_sync ? formatDistanceToNow(new Date(cred.last_sync), { addSuffix: true, locale: ptBR }) : 'Nunca'}</span>
+                        <span>{cred.last_validation ? formatDistanceToNow(new Date(cred.last_validation), { addSuffix: true, locale: ptBR }) : 'Nunca'}</span>
                       </div>
                       <div className="flex gap-2 pt-2">
-                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs">
+                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs" onClick={() => handleReconnect(cred.id)}>
                           <RefreshCcw className="h-3 w-3" /> Reconectar
+                        </Button>
+                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs" onClick={() => handleDisconnect(cred.id)}>
+                          Desconectar
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveCredential(cred.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
+
                     </CardContent>
                   </Card>
                 ))
