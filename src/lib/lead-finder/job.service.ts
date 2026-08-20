@@ -1,5 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import { JobStatus } from "./types";
+import { Database } from "@/integrations/supabase/types";
+
+type JobInsert = Database['public']['Tables']['lead_finder_jobs']['Insert'];
+type JobUpdate = Database['public']['Tables']['lead_finder_jobs']['Update'];
+type RunInsert = Database['public']['Tables']['lead_finder_provider_runs']['Insert'];
 
 /**
  * Job Service
@@ -17,9 +22,10 @@ export class JobService {
       .insert({
         provider_id: providerId,
         status: 'PENDING',
-        config,
-        created_by: user?.id
-      })
+        config: config as any,
+        created_by: user?.id,
+        stats: { leads: 0, duplicates: 0, profiles_analyzed: 0, errors: 0 } as any
+      } as JobInsert)
       .select()
       .single();
 
@@ -38,7 +44,7 @@ export class JobService {
         provider_key: providerKey,
         credential_id: credentialId,
         status: 'running'
-      })
+      } as RunInsert)
       .select()
       .single();
 
@@ -47,6 +53,24 @@ export class JobService {
     await this.updateJobStatus(jobId, 'RUNNING');
     
     return run;
+  }
+
+  /**
+   * Updates job statistics.
+   */
+  static async updateStats(jobId: string, stats: { leads?: number; duplicates?: number; profiles_analyzed?: number; errors?: number }) {
+    const { data: job } = await supabase.from('lead_finder_jobs').select('stats').eq('id', jobId).single();
+    if (!job) return;
+
+    const currentStats = (job.stats as any) || { leads: 0, duplicates: 0, profiles_analyzed: 0, errors: 0 };
+    const newStats = {
+      leads: (currentStats.leads || 0) + (stats.leads || 0),
+      duplicates: (currentStats.duplicates || 0) + (stats.duplicates || 0),
+      profiles_analyzed: (currentStats.profiles_analyzed || 0) + (stats.profiles_analyzed || 0),
+      errors: (currentStats.errors || 0) + (stats.errors || 0),
+    };
+
+    await supabase.from('lead_finder_jobs').update({ stats: newStats as any }).eq('id', jobId);
   }
 
   /**
@@ -59,7 +83,7 @@ export class JobService {
         status: error ? 'failed' : 'finished',
         error_message: error,
         finished_at: new Date().toISOString()
-      })
+      } as any)
       .eq('id', runId)
       .select()
       .single();
@@ -80,10 +104,24 @@ export class JobService {
   static async updateJobStatus(jobId: string, status: JobStatus) {
     const { error } = await supabase
       .from('lead_finder_jobs')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({ status: status as any, updated_at: new Date().toISOString() } as JobUpdate)
       .eq('id', jobId);
     
     if (error) throw error;
+  }
+
+  /**
+   * Lists recent jobs.
+   */
+  static async listJobs() {
+    const { data, error } = await supabase
+      .from('lead_finder_jobs')
+      .select('*, lead_finder_provider_runs(*)')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    
+    if (error) throw error;
+    return data;
   }
 
   /**
