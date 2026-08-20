@@ -955,10 +955,11 @@ function LeadFinderPage() {
         </TabsContent>
         <TabsContent value="validation" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight">Sprint 2.3 – Instagram Discovery (Operacional)</h2>
-            <Badge variant="outline" className="gap-1">
-              <CheckCircle2 className="h-3 w-3 text-blue-500" /> Sprint 2.3 Planning
+            <h2 className="text-2xl font-bold tracking-tight">Mudança de prioridade do Lead Finder</h2>
+            <Badge variant="outline" className="gap-1 border-primary/50 text-primary">
+              <Radar className="h-3 w-3" /> New Strategic Focus
             </Badge>
+
           </div>
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
