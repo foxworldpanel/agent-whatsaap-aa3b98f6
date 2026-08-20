@@ -874,10 +874,62 @@ function LeadFinderPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="validation" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold tracking-tight">Phase 1 Validation Sprint</h2>
+            <Badge variant="outline" className="gap-1">
+              <CheckCircle2 className="h-3 w-3 text-green-500" /> Sprint 2.1 Active
+            </Badge>
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <ValidationItem 
+              title="Deduplication" 
+              description="LeadService.saveLead detects existing leads by provider/username."
+              checks={["Primary Key lookup", "Conflict handling", "Update existing fields"]}
+            />
+            <ValidationItem 
+              title="Provider Contract" 
+              description="Stateless search() returning LeadDiscoveryResult[]."
+              checks={["MockProvider", "InstagramPublic", "Type Safety"]}
+            />
+            <ValidationItem 
+              title="DiscoveryEngine" 
+              description="Central hub for provider registration and job execution."
+              checks={["Provider Registry", "Job Lifecycle", "Stats Tracking"]}
+            />
+            <ValidationItem 
+              title="LeadService" 
+              description="Abstraction for leads and timeline persistence."
+              checks={["Supabase Integration", "RLS Compliance", "Timeline Events"]}
+            />
+            <ValidationItem 
+              title="AI Independence" 
+              description="Core scraping logic does not depend on LLMs (deterministic)."
+              checks={["Raw Extraction", "Regex parsing", "No GPT-latency"]}
+            />
+            <ValidationItem 
+              title="Timeline & Audit" 
+              description="Every discovery event is logged for transparency."
+              checks={["lead_finder_timeline", "Job reference", "Step tracing"]}
+            />
+            <ValidationItem 
+              title="Jobs & Stats" 
+              description="Async execution state and progress monitoring."
+              checks={["lead_finder_jobs", "Leads count", "Duration"]}
+            />
+            <ValidationItem 
+              title="Final Report" 
+              description="UI dashboard consolidating all Phase 1 metrics."
+              checks={["Leads Table", "Jobs List", "Timeline View"]}
+            />
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   )
 }
+
 
 function ValidationItem({ title, description, checks }: { title: string, description: string, checks: string[] }) {
   return (
