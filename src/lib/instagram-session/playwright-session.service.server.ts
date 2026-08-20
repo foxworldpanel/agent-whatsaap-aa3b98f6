@@ -53,8 +53,7 @@ export class PlaywrightSessionService {
   }
 
   static async openLoginFlow(): Promise<InstagramLoginResult> {
-    const { isBrowser } = await import('@/lib/utils');
-    if (isBrowser) throw new Error('Server-only');
+    if (typeof window !== 'undefined') throw new Error('Server-only');
     
     let context: BrowserContext | null = null;
 
@@ -128,7 +127,8 @@ export class PlaywrightSessionService {
 
     let context: BrowserContext | null = null;
     try {
-      const { chromium } = await import('playwright');
+      const playwright = await import('playwright');
+      const { chromium } = playwright;
       // Validação pode rodar em headless: true para economizar recursos
       const validationBrowser = await chromium.launch({ 
         headless: true,
