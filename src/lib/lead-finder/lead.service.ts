@@ -122,7 +122,7 @@ export class LeadService {
    * Updates lead status.
    */
   static async updateStatus(leadId: string, stage?: LeadPipelineStage, salesStatus?: LeadSalesStatus) {
-    const update: any = { updated_at: new Date().toISOString() };
+    const update: Record<string, any> = { updated_at: new Date().toISOString() };
     if (stage) update.pipeline_stage = stage;
     if (salesStatus) update.sales_status = salesStatus;
 
