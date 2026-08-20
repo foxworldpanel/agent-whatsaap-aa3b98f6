@@ -294,32 +294,37 @@ function LeadFinderPage() {
           <div className="grid gap-6 md:grid-cols-2 mb-4">
             <Card className="border-primary/20 bg-primary/5 col-span-full">
               <CardHeader>
-                <CardTitle className="text-xl">Mudança de prioridade do Lead Finder</CardTitle>
+                <CardTitle className="text-xl">Sprint 3.0 – Descoberta Real (Hashtags)</CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                <p>Após revisar o fluxo operacional do produto, a prioridade mudou.</p>
-                <p>O objetivo principal do Lead Finder não é descobrir um perfil específico, mas encontrar grandes volumes de leads qualificados através de hashtags do Instagram.</p>
+                <p>A arquitetura e a interface do Lead Finder estão satisfatórias. Agora vamos interromper a criação de novas telas e focar exclusivamente na funcionalidade principal do sistema.</p>
+                <p>O foco absoluto desta sprint é fazer a primeira descoberta real utilizando hashtags, saindo da simulação do InstagramPublicProvider.</p>
                 
                 <div className="grid md:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-2 text-primary font-medium">
-                    <h4 className="font-bold">Portanto:</h4>
-                    <ul className="list-disc pl-4 space-y-1">
-                      <li>Tornar Hashtag a forma principal de descoberta.</li>
-                      <li>Perfil passa a ser utilizado apenas para testes e validações.</li>
-                      <li>A interface deve destacar a busca por hashtag como fluxo principal.</li>
+                  <div className="space-y-2">
+                    <h4 className="font-bold">Objetivo Real</h4>
+                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
+                      <li>Utilizar conta previamente conectada.</li>
+                      <li>Pesquisar uma hashtag real no Instagram.</li>
+                      <li>Abrir perfis encontrados via hashtag.</li>
+                      <li>Extrair telefone, e-mail e links públicos.</li>
+                      <li>Persistir via LeadService e registrar Jobs/Timeline.</li>
                     </ul>
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-bold">Cada lead salvo deve registrar:</h4>
+                    <h4 className="font-bold text-destructive">Restrições</h4>
                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>plataforma;</li>
-                      <li>hashtag de origem;</li>
-                      <li>data da descoberta;</li>
-                      <li>conta do Instagram utilizada;</li>
-                      <li>job responsável pela descoberta.</li>
+                      <li>NÃO criar novas telas ou melhorar UX.</li>
+                      <li>NÃO implementar IA ou Sales Agent.</li>
+                      <li>NÃO implementar campanhas de disparo.</li>
                     </ul>
                   </div>
                 </div>
+
+                <div className="bg-primary/5 p-4 rounded-lg border border-primary/20 mt-4 italic text-center">
+                  <p>"Seu objetivo não é ter uma tela bonita. Seu objetivo é apertar um botão (#housemusic) e ver 1000 perfis virarem contatos no Banco de Leads."</p>
+                </div>
+
 
                 <div className="space-y-2 pt-2 border-t border-primary/10">
                   <h4 className="font-bold">Durante a descoberta, mostrar em tempo real:</h4>
@@ -955,44 +960,46 @@ function LeadFinderPage() {
         </TabsContent>
         <TabsContent value="validation" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight">Mudança de prioridade do Lead Finder</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Sprint 3.0 – Descoberta Real (Hashtags)</h2>
             <Badge variant="outline" className="gap-1 border-primary/50 text-primary">
-              <Radar className="h-3 w-3" /> New Strategic Focus
+              <Play className="h-3 w-3" /> MVP Execution Phase
             </Badge>
+
 
           </div>
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <ValidationItem 
-              title="1 - Fila de Hashtags" 
-              description="Cadastrar múltiplas hashtags para execução sequencial."
-              checks={["Input de lista de hashtags", "Execução um por vez", "Consolidação no Lead Bank"]}
+              title="1 - Conexão Operacional" 
+              description="Conta do Instagram conectada e pronta para requisições reais."
+              checks={["Sessão ativa e válida", "Bypass de simulação mock", "Uso de credenciais reais"]}
             />
             <ValidationItem 
-              title="2 - Hashtag Discovery" 
-              description="Fluxo principal de descoberta por hashtag."
-              checks={["Busca principal por #", "Extração de perfis da hashtag", "Análise em tempo real"]}
+              title="2 - Scraper de Hashtag" 
+              description="Capacidade de extrair perfis a partir de uma hashtag informada."
+              checks={["Input #hashtag funcional", "Paginação de resultados", "Identificação de perfis únicos"]}
             />
             <ValidationItem 
-              title="3 - Monitoramento Realtime" 
-              description="Métricas de descoberta em tempo real."
-              checks={["Telefones e E-mails encontrados", "Perfis analisados e duplicados", "Tempo de execução"]}
+              title="3 - Extração de Contatos" 
+              description="Leitura de informações públicas (Bio, Links, WhatsApp)."
+              checks={["WhatsApp/Telefone extraído", "E-mail extraído", "Website/Links capturados"]}
             />
             <ValidationItem 
-              title="4 - Lead Metadata" 
-              description="Registro detalhado da origem do lead."
-              checks={["Hashtag de origem", "Plataforma e Conta utilizada", "Job ID e timestamp"]}
+              title="4 - LeadDiscoveryResult" 
+              description="Padronização do objeto de lead para o motor do sistema."
+              checks={["Objeto completo e tipado", "Fallback para campos vazios", "Score básico de validade"]}
             />
             <ValidationItem 
-              title="5 - Deduplicação Cross-Hashtag" 
-              description="Evitar leads repetidos em diferentes hashtags."
-              checks={["Check global de duplicados", "Filtro por username", "Audit trail na Timeline"]}
+              title="5 - Persistência Real" 
+              description="Escrita no banco de leads via LeadService."
+              checks={["Gravação no PostgreSQL", "Deduplicação funcional", "Audit trail na Timeline"]}
             />
             <ValidationItem 
-              title="6 - Sales Agent Prep" 
-              description="Base qualificada para disparos WhatsApp."
-              checks={["Validação de contatos públicos", "Extração de links e bio", "Pronto para Sales Agent"]}
+              title="6 - Job & Stats" 
+              description="Controle de execução e métricas reais de descoberta."
+              checks={["Contagem de perfis analisados", "Contagem de leads com contato", "Tempo total de execução"]}
             />
+
 
           </div>
         </TabsContent>
