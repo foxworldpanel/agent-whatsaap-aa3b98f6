@@ -1,11 +1,14 @@
-import { type Browser, type BrowserContext, type Page } from 'playwright';
+// Dynamic types for Playwright to avoid client bundle issues
+type Browser = any;
+type BrowserContext = any;
+type Page = any;
 import { type InstagramLoginResult } from './types';
 
 // O Playwright core não exporta tipos globais amigáveis a workers. 
 // Usamos 'any' em tempo de execução para evitar erros de bundling de módulos Node nativos no cliente.
-type BrowserRuntime = any;
-type BrowserContextRuntime = any;
-type PageRuntime = any;
+type BrowserRuntime = Browser;
+type BrowserContextRuntime = BrowserContext;
+type PageRuntime = Page;
 
 export class PlaywrightSessionService {
   private static browser: BrowserRuntime | null = null;
