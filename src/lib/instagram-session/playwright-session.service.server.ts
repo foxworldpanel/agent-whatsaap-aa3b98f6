@@ -157,12 +157,25 @@ export class PlaywrightSessionService {
   }
 
   private static async extractProfile(page: Page): Promise<Partial<InstagramLoginResult>> {
+    logger('Extracting Profile data...');
     return await page.evaluate(() => {
+      // 1. Username
       const navProfile = document.querySelector('a[href^="/"] img[alt*="profile"]')?.closest('a')?.getAttribute('href');
-      const username = navProfile ? navProfile.replace(/\//g, '') : undefined;
+      let username = navProfile ? navProfile.replace(/\//g, '') : undefined;
+      
+      if (!username) {
+        // Fallback for some IG versions
+        const profileLink = document.querySelector('svg[aria-label="Profile"], svg[aria-label="Perfil"]')?.closest('a')?.getAttribute('href');
+        username = profileLink ? profileLink.replace(/\//g, '') : undefined;
+      }
+
+      // 2. Display Name
       const titleParts = document.title.split(' • ');
-      const display_name = titleParts.length > 1 ? titleParts[0] : undefined;
-      const img = document.querySelector('nav img[alt*="profile"]') as HTMLImageElement;
+      let display_name = titleParts.length > 1 ? titleParts[0] : undefined;
+      
+      // 3. Profile Picture
+      const img = document.querySelector('nav img[alt*="profile"], img[alt*="profile picture"]') as HTMLImageElement;
+      
       return { username, display_name, profile_picture: img?.src };
     });
   }
