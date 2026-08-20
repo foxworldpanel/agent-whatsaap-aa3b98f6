@@ -19,8 +19,8 @@ export class PlaywrightSessionService {
 
     if (!this.browser) {
       logger('Playwright Launch Started');
-      // Import dynamic within function to stay server-side
-      const playwright = await import('playwright');
+      // Use eval('import(...)') to bypass Vite's static analysis
+      const playwright = await eval('import("playwright")');
       const { chromium } = playwright;
 
       
