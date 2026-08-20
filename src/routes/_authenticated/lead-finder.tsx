@@ -229,14 +229,65 @@ function LeadFinderPage() {
         </TabsList>
 
         <TabsContent value="accounts">
-          <Card>
-            <CardHeader>
-              <CardTitle>Instagram Accounts</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-muted-foreground text-sm">Gerenciamento de contas conectado em breve.</div>
-            </CardContent>
-          </Card>
+          <div className="grid gap-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium">Instagram Accounts</h3>
+                <p className="text-sm text-muted-foreground">Gerencie as contas utilizadas para descoberta.</p>
+              </div>
+              <Button onClick={handleAddCredential} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Conectar Conta
+              </Button>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {credentials.length === 0 ? (
+                <Card className="col-span-full border-dashed p-12 text-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <Instagram className="h-8 w-8 text-muted-foreground/50" />
+                    <p className="text-muted-foreground">Nenhuma conta conectada ainda.</p>
+                    <Button variant="link" onClick={handleAddCredential}>+ Conectar sua primeira conta</Button>
+                  </div>
+                </Card>
+              ) : (
+                credentials.map(cred => (
+                  <Card key={cred.id}>
+                    <CardHeader className="flex flex-row items-center gap-4 pb-2">
+                      <Avatar className="h-12 w-12 border">
+                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${cred.username}`} />
+                        <AvatarFallback>{cred.username[0].toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 overflow-hidden">
+                        <CardTitle className="text-base truncate">{cred.account_name}</CardTitle>
+                        <CardDescription className="truncate">@{cred.username}</CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Status</span>
+                        <Badge variant={cred.status === 'connected' ? 'default' : 'destructive'} className="h-5">
+                          {cred.status === 'connected' ? 'Conectada' : cred.status === 'expired' ? 'Expirada' : 'Desconectada'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Última sincronização</span>
+                        <span>{cred.last_sync ? formatDistanceToNow(new Date(cred.last_sync), { addSuffix: true, locale: ptBR }) : 'Nunca'}</span>
+                      </div>
+                      <div className="flex gap-2 pt-2">
+                        <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs">
+                          <RefreshCcw className="h-3 w-3" /> Reconectar
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveCredential(cred.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="validation" className="space-y-4">
