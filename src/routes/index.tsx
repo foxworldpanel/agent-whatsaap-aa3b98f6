@@ -9,7 +9,7 @@ function Index() {
     <div className="p-8 font-sans max-w-4xl mx-auto space-y-8">
       <div className="bg-destructive/10 border-2 border-destructive p-6 rounded-xl text-destructive">
         <h1 className="text-2xl font-bold mb-2">CRITICAL: Instagram Connection is NOT working</h1>
-        <p className="font-medium">tem que fazer funcionar a conexão do instagram no lead finder</p>
+        <p className="font-medium text-lg italic">tem que fazer funcionar a conexão do instagram no lead finder</p>
       </div>
 
       <div className="bg-muted p-6 rounded-xl border-2 border-primary/20">
@@ -17,42 +17,50 @@ function Index() {
         
         <div className="space-y-6 text-sm">
           <section>
-            <h3 className="font-bold uppercase text-xs tracking-wider opacity-70">Problema</h3>
-            <p className="text-base mt-1">O botão "Conectar Conta" no Lead Finder falha ao iniciar o fluxo real de autenticação ou não fornece feedback suficiente.</p>
+            <h3 className="font-bold uppercase text-xs tracking-wider opacity-70">Status da Implementação</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+              <div className="bg-background p-2 rounded border flex items-center gap-2">
+                <span className="text-green-500">✅</span>
+                <span>Infra (.server.ts)</span>
+              </div>
+              <div className="bg-background p-2 rounded border flex items-center gap-2">
+                <span className="text-green-500">✅</span>
+                <span>Playwright Service</span>
+              </div>
+              <div className="bg-background p-2 rounded border flex items-center gap-2">
+                <span className="text-red-500">❌</span>
+                <span>Build Client-Side</span>
+              </div>
+              <div className="bg-background p-2 rounded border flex items-center gap-2">
+                <span className="text-green-500">✅</span>
+                <span>Server Functions</span>
+              </div>
+              <div className="bg-background p-2 rounded border flex items-center gap-2">
+                <span className="text-yellow-500">⚠️</span>
+                <span>UI Feedback</span>
+              </div>
+              <div className="bg-background p-2 rounded border flex items-center gap-2">
+                <span className="text-red-500">❌</span>
+                <span>Fluxo de Login</span>
+              </div>
+            </div>
           </section>
 
-          <section className="grid md:grid-cols-2 gap-4">
-            <div className="bg-background p-4 rounded border">
-              <h4 className="font-bold mb-2 text-primary">Objetivo</h4>
-              <ul className="space-y-1 text-xs">
-                <li>1. Clicar em "Conectar Instagram"</li>
-                <li>2. Iniciar navegador (Headed/Headless)</li>
-                <li>3. Capturar StorageState após login</li>
-                <li>4. Salvar credencial no banco</li>
-                <li>5. Status = <strong>CONNECTED</strong></li>
-              </ul>
-            </div>
-            <div className="bg-background p-4 rounded border">
-              <h4 className="font-bold mb-2 text-primary">Critérios de Aceite</h4>
-              <ul className="space-y-1 text-xs">
-                <li>✅ Feedback visual em cada etapa</li>
-                <li>✅ Erros técnicos claros expostos na UI</li>
-                <li>✅ Atualização automática da lista</li>
-                <li>✅ Logs de telemetria completos</li>
-              </ul>
-            </div>
+          <section>
+            <h3 className="font-bold uppercase text-xs tracking-wider opacity-70">Problema Detectado</h3>
+            <p className="text-base mt-1 text-destructive font-medium">O build está falhando devido a vazamento de dependências do servidor (Playwright/Node) para o bundle do cliente através de arquivos de teste e importações dinâmicas mal resolvidas.</p>
           </section>
 
           <section className="bg-primary/5 p-4 rounded border border-primary/20">
             <h3 className="font-bold uppercase text-xs tracking-wider opacity-70">Modo de Operação</h3>
-            <p className="mt-2 font-medium">Esta é uma tarefa de <strong>IMPLEMENTAÇÃO PURA</strong>. Não atualize documentação, README ou Roadmaps. Foque em fazer o código funcionar de ponta a ponta.</p>
+            <p className="mt-2 font-medium">Corrigindo o isolamento do bundle para restaurar o funcionamento do Lead Finder. Foco total em <strong>STABILITY</strong> e <strong>VISIBILITY</strong>.</p>
           </section>
         </div>
       </div>
 
       <footer className="pt-8 border-t flex justify-between items-center text-xs text-muted-foreground italic">
         <span>Minha avaliação</span>
-        <span>2026-08-20</span>
+        <span>2026-08-20 22:40 UTC</span>
       </footer>
     </div>
   );
