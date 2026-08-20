@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { InstagramSessionManager } from './instagram-session-manager';
-import { PlaywrightSessionService } from './playwright-session.service';
+import { InstagramSessionManager } from '@/lib/instagram-session/instagram-session-manager';
+import { PlaywrightSessionService } from '@/lib/instagram-session/playwright-session.service';
 import { supabase } from '@/integrations/supabase/client';
 
 // Mock Supabase
