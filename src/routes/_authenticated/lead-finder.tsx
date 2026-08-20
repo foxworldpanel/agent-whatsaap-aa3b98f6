@@ -914,52 +914,52 @@ function LeadFinderPage() {
         </TabsContent>
         <TabsContent value="validation" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight">Sprint 2.2 – Instagram Account Manager</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Sprint 2.3 – Instagram Discovery (Operacional)</h2>
             <Badge variant="outline" className="gap-1">
-              <CheckCircle2 className="h-3 w-3 text-blue-500" /> Sprint 2.2 Planning
+              <CheckCircle2 className="h-3 w-3 text-blue-500" /> Sprint 2.3 Planning
             </Badge>
           </div>
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <ValidationItem 
-              title="1 - Aba Accounts" 
-              description="Cards modernos com indicadores rápidos."
-              checks={["Foto, Nome, @username", "Tipo, Status, Sync", "Jobs e Leads counts"]}
+              title="1 - Instagram Accounts" 
+              description="Fluxo operacional de gestão de contas."
+              checks={["Estados: Connected/Disconnected/Expired", "Ações: Conectar, Reconectar, Remover"]}
             />
             <ValidationItem 
-              title="2 - Status Reais" 
-              description="Sair do mock Conectada/Desconectada."
-              checks={["Conectada, Expirada", "Desconectada, Sincronizando", "Nunca utilizada"]}
+              title="2 - Fluxo de Conexão" 
+              description="Autenticação e manutenção de sessão."
+              checks={["Wizard de conexão do Instagram", "Armazenar sessão autenticada", "Não salvar senhas"]}
             />
             <ValidationItem 
-              title="3 - Botões Dinâmicos" 
-              description="Ações baseadas no estado da sessão."
-              checks={["Desconectar/Remover (Conectada)", "Conectar/Remover (Desconectada)", "Reconectar/Remover (Expirada)"]}
+              title="3 - Discovery UI" 
+              description="Seleção de conta e parâmetros."
+              checks={["Dropdown de Contas Principal", "Tipo Perfil habilitado", "Input de @usuario"]}
             />
             <ValidationItem 
-              title="4 - Conexão Wizard" 
-              description="Fluxo guiado de adição de contas."
-              checks={["Seleção de Plataforma", "Instruções de conexão", "Estrutura mock preparada para real"]}
+              title="4 - Discovery Real" 
+              description="Leitura e extração de dados públicos."
+              checks={["username, bio, display_name", "E-mail, Telefone, Website", "Uso do LeadService para persistência"]}
             />
             <ValidationItem 
-              title="5 - Seleção no Discovery" 
-              description="Vincular busca a uma conta específica."
-              checks={["Dropdown de Contas", "Passar ID para o Engine", "Fallback caso sem conta"]}
+              title="5 - Deduplicação" 
+              description="Garantir unicidade dos leads."
+              checks={["PK por username/provider", "Check de e-mail e telefone", "Logs na Timeline"]}
             />
             <ValidationItem 
-              title="6 - Banco de Dados" 
-              description="Revisar lead_finder_credentials."
-              checks={["Campos de Auditoria", "Metadados da Conta", "Timestamps de uso"]}
+              title="6 - Lead Bank Integration" 
+              description="Interface de visualização dos leads."
+              checks={["Atualização automática", "Cards de leads detalhados", "Filtros de busca"]}
             />
             <ValidationItem 
-              title="7 - UX & Mobile" 
-              description="Interface responsiva e profissional."
-              checks={["Avatar do perfil", "Badges coloridas", "Cards compactos"]}
+              title="7 - Jobs & Monitoring" 
+              description="Rastreabilidade da execução."
+              checks={["Duração da descoberta", "Total de leads encontrados", "Status de erro/sucesso"]}
             />
             <ValidationItem 
-              title="8 - Discovery Wizard" 
-              description="Aviso quando sem conta conectada."
-              checks={["Empty State", "Call to Action", "Bloqueio de busca sem conta"]}
+              title="8 - Limpeza e Scope" 
+              description="Foco exclusivo em dados públicos."
+              checks={["NÃO implementar hashtags", "NÃO implementar IA", "Foco na funcionalidade base"]}
             />
           </div>
         </TabsContent>
