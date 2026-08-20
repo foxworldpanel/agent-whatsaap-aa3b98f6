@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { InstagramSessionInfo, InstagramSessionStatus } from './types';
-import { InstagramWorkerClient } from '../instagram-worker/instagram-worker.client';
+import { InstagramWorkerClient } from '../instagram-worker/instagram-worker';
 
 const logger = (event: string, details?: any) => {
   console.log(`[SessionManager] [${new Date().toISOString()}] ${event}`, details || '');
