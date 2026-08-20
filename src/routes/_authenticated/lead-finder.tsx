@@ -960,10 +960,11 @@ function LeadFinderPage() {
         </TabsContent>
         <TabsContent value="validation" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight">Mudança de prioridade do Lead Finder</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Sprint 3.0 – Descoberta Real (Hashtags)</h2>
             <Badge variant="outline" className="gap-1 border-primary/50 text-primary">
-              <Radar className="h-3 w-3" /> New Strategic Focus
+              <Play className="h-3 w-3" /> MVP Execution Phase
             </Badge>
+
 
           </div>
           
