@@ -30,7 +30,7 @@ export class EnvironmentCheckService {
 
     // 1. Playwright & Chromium
     try {
-      const playwright = await import('playwright');
+      const playwright = await eval('import("playwright")');
       const { chromium } = playwright;
       check.playwright = true;
       const browser = await chromium.launch({ 
