@@ -73,61 +73,6 @@ function LeadFinderPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="validation" className="space-y-4">
-          <div className="grid gap-6 md:grid-cols-2 mb-4">
-            <Card className="border-primary/20 bg-primary/5">
-              <CardHeader>
-                <CardTitle className="text-lg">Objetivo - Phase 1 Validation Sprint</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm space-y-2">
-                <p>Não adicionar funcionalidades novas.</p>
-                <p className="font-medium">Somente validar, testar e corrigir problemas da arquitetura da Fase 1.</p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">AI Independence</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm space-y-2 text-muted-foreground">
-                Desabilitar completamente o AI Service.
-                Confirmar que Discovery, Persistência, Timeline e Jobs continuam funcionando.
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-...
-            <ValidationItem 
-              title="6. Timeline" 
-              description="Fluxo: Discovered → Persisted → Job Registered → Finished."
-              checks={[
-                "Eventos em ordem lógica",
-                "Sem duplicidade de logs",
-                "Dados de contexto preservados"
-              ]}
-            />
-            <ValidationItem 
-              title="7. Jobs" 
-              description="Validar transições de estados de execução."
-              checks={[
-                "RUNNING → FINISHED",
-                "Tratamento de FAILED",
-                "Logs de erro capturados"
-              ]}
-            />
-          </div>
-
-          <Card className="border-dashed">
-            <CardHeader>
-              <CardTitle className="text-lg">8. Relatório Final</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Entregar ao final desta sprint o resultado de cada teste, problemas encontrados, correções e a confirmação dos Success Criteria da Fase 1.
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="discovery">
           <Card>
             <CardHeader>
@@ -212,6 +157,69 @@ function LeadFinderPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="validation" className="space-y-4">
+          <div className="grid gap-6 md:grid-cols-2 mb-4">
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-lg">Objetivo - Phase 2 (Instagram Public Provider)</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2">
+                <p>Implementar o primeiro provider real utilizando apenas informações públicas de perfis do Instagram.</p>
+                <p className="font-medium">Nesta sprint NÃO implementamos IA, Sales Agent ou disparos.</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Provider Contract (Fase 2)</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2 text-muted-foreground">
+                O provider deve ser 100% apátrida (sem DB, IA ou Agent).
+                Deve apenas retornar um LeadDiscoveryResult para o LeadService persistir.
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <ValidationItem 
+              title="1. InstagramPublicProvider" 
+              description="Validar extração de dados públicos de perfis."
+              checks={[
+                "Username, Nome, Bio e Website",
+                "Telefone e E-mail (se públicos)",
+                "Links e Links externos"
+              ]}
+            />
+            <ValidationItem 
+              title="2. Discovery Selection" 
+              description="Interface de troca entre Mock e Instagram."
+              checks={[
+                "Seleção de Provider (Mock/Instagram)",
+                "Seleção de Origem (Perfil)",
+                "Inputs condicionais por provider"
+              ]}
+            />
+            <ValidationItem 
+              title="3. Discovery Engine" 
+              description="Orquestração sem alteração de código base."
+              checks={[
+                "Suporte a múltiplos providers",
+                "Normalização padronizada",
+                "Execução desacoplada"
+              ]}
+            />
+            <ValidationItem 
+              title="4. Success Criteria" 
+              description="Critérios de aceite para conclusão da Fase 2."
+              checks={[
+                "Instagram Provider funciona",
+                "Mock Provider continua OK",
+                "Nenhuma regra da Fase 1 quebrada"
+              ]}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="leads">
