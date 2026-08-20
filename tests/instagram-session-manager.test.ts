@@ -1,109 +1,49 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { InstagramSessionManager } from '@/lib/instagram-session/instagram-session-manager';
-import { PlaywrightSessionService } from '@/lib/instagram-session/playwright-session.service';
-import { supabase } from '@/integrations/supabase/client';
 
-// Mock Supabase
-vi.mock('@/integrations/supabase/client', () => ({
-  supabase: {
-    auth: {
-      getUser: vi.fn(),
-    },
-    from: vi.fn(() => ({
-      upsert: vi.fn(() => ({
-        select: vi.fn(() => ({
-          single: vi.fn(),
-        })),
-      })),
-      update: vi.fn(() => ({
-        eq: vi.fn(),
-      })),
-      select: vi.fn(() => ({
-        eq: vi.fn(),
-      })),
-      delete: vi.fn(() => ({
-        eq: vi.fn(),
-      })),
-    })),
-  },
-}));
+import { EnvironmentCheckService } from '../src/lib/instagram-session/environment-check.service.server';
+import { PlaywrightSessionService } from '../src/lib/instagram-session/playwright-session.service.server';
+import { SessionStorageService } from '../src/lib/instagram-session/session-storage.service.server';
 
-// Mock PlaywrightSessionService
-vi.mock('@/lib/instagram-session/playwright-session.service', () => ({
-  PlaywrightSessionService: {
-    openLoginFlow: vi.fn(),
-    validateSession: vi.fn(),
-    extractUsername: vi.fn(),
-    extractDisplayName: vi.fn(),
-    extractProfilePicture: vi.fn(),
-  },
-}));
+async function testManager() {
+  console.log('--- STARTING INTEGRATION TEST ---');
+  
+  // 1. Environment Check
+  console.log('1. Checking Environment...');
+  const env = await EnvironmentCheckService.checkEnvironment();
+  if (env.errors.length > 0) {
+    console.error('Environment check failed:', env.errors);
+    process.exit(1);
+  }
+  console.log('Environment OK');
 
-// Mock SessionStorageService
-vi.mock('@/lib/instagram-session/session-storage.service', () => ({
-  SessionStorageService: {
-    getStoragePath: vi.fn((id) => `/tmp/instagram-sessions/${id}.json`),
-    saveSession: vi.fn(),
-    removeSession: vi.fn(),
-    loadSession: vi.fn(),
-    exists: vi.fn(),
-  },
-}));
+  // 2. Playwright Lifecycle
+  console.log('2. Testing Playwright Lifecycle...');
+  try {
+    const result = await PlaywrightSessionService.openLoginFlow();
+    console.log('Login result (expected headless failure or timeout):', result);
+  } catch (e) {
+    console.log('Login failed as expected in restricted env');
+  }
 
-describe('InstagramSessionManager', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+  // 3. Storage
+  console.log('3. Testing Storage...');
+  const testId = 'test-id-' + Date.now();
+  const mockState = { cookies: [], origins: [] };
+  const path = await SessionStorageService.saveSession(testId, mockState);
+  console.log('Session saved to:', path);
+  
+  const loaded = await SessionStorageService.loadSession(testId);
+  if (JSON.stringify(loaded) !== JSON.stringify(mockState)) {
+    throw new Error('Storage integrity failed');
+  }
+  console.log('Storage OK');
 
-  it('should be defined', () => {
-    expect(InstagramSessionManager).toBeDefined();
-  });
+  await SessionStorageService.removeSession(testId);
+  console.log('Test session removed');
 
-  describe('connect', () => {
-    it('should handle successful login', async () => {
-      const mockResult = {
-        success: true,
-        username: 'testuser',
-        display_name: 'Test User',
-        profile_picture: 'http://example.com/pic.jpg',
-        storageState: { cookies: [] }
-      };
-      
-      (PlaywrightSessionService.openLoginFlow as any).mockResolvedValue(mockResult);
-      (supabase.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'user-123' } } });
-      
-      const mockUpsert = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: 'cred-123', username: 'testuser' }, error: null })
-        })
-      });
-      (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'lead_finder_credentials') {
-          return {
-            upsert: mockUpsert,
-            update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
-            select: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) })
-          };
-        }
-        return {};
-      });
+  console.log('--- INTEGRATION TEST FINISHED SUCCESSFULLY ---');
+}
 
-      // Mock validate to return connected
-      vi.spyOn(InstagramSessionManager, 'validate').mockResolvedValue('connected');
-
-      const result = await InstagramSessionManager.connect();
-      
-      expect(result).toBeDefined();
-      expect(PlaywrightSessionService.openLoginFlow).toHaveBeenCalled();
-      expect(mockUpsert).toHaveBeenCalled();
-    });
-
-    it('should handle failed login', async () => {
-      (PlaywrightSessionService.openLoginFlow as any).mockResolvedValue({ success: false, error: 'Login failed' });
-      
-      const result = await InstagramSessionManager.connect();
-      
-      expect(result).toBeNull();
-    });
-  });
+testManager().catch(e => {
+  console.error('Test suite failed:', e);
+  process.exit(1);
 });

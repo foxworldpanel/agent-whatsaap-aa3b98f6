@@ -1,17 +1,19 @@
+
 export interface EnvironmentCheck {
   playwright: boolean;
   chromium: boolean;
   filesystem: boolean;
   storage: boolean;
   node: boolean;
+  display: boolean;
+  writable: boolean;
   errors: string[];
+  timestamp: string;
 }
 
 export class EnvironmentCheckService {
   static async checkEnvironment(): Promise<EnvironmentCheck> {
-    if (typeof window !== 'undefined') {
-      throw new Error('EnvironmentCheckService is server-only');
-    }
+    if (typeof window !== 'undefined') throw new Error('Server-only');
 
     const errors: string[] = [];
     const check: EnvironmentCheck = {
@@ -20,37 +22,44 @@ export class EnvironmentCheckService {
       filesystem: false,
       storage: false,
       node: !!process.versions.node,
-      errors: []
+      display: !!process.env.DISPLAY,
+      writable: false,
+      errors: [],
+      timestamp: new Date().toISOString()
     };
 
+    // 1. Playwright & Chromium
     try {
       const { chromium } = await import('playwright');
       check.playwright = true;
       const browser = await chromium.launch({ 
         headless: true,
+        executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       });
       await browser.close();
       check.chromium = true;
     } catch (e: any) {
-      errors.push(`Browser check failed: ${e.message}`);
+      errors.push(`Playwright/Chromium: ${e.message}`);
     }
 
+    // 2. Filesystem & Writable
     try {
       const fs = await import('node:fs');
-      const path = await import('node:path');
-      const testDir = '/tmp/env-check-test';
+      const testDir = '/tmp/instagram-session-check';
       if (!fs.existsSync(testDir)) fs.mkdirSync(testDir, { recursive: true });
-      const testFile = path.join(testDir, 'test.txt');
-      fs.writeFileSync(testFile, 'test');
+      const testFile = `${testDir}/write-test.tmp`;
+      fs.writeFileSync(testFile, 'ok');
       fs.unlinkSync(testFile);
       check.filesystem = true;
+      check.writable = true;
       check.storage = true;
     } catch (e: any) {
-      errors.push(`Filesystem/Storage error: ${e.message}`);
+      errors.push(`Filesystem: ${e.message}`);
     }
 
     check.errors = errors;
+    console.log('[EnvironmentCheck]', check);
     return check;
   }
 }
