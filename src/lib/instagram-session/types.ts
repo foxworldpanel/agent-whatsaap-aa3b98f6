@@ -1,10 +1,10 @@
 export type InstagramSessionStatus = 
-  | 'never_connected' 
-  | 'connecting' 
-  | 'connected' 
-  | 'expired' 
-  | 'disconnected' 
-  | 'error';
+  | 'NEVER_CONNECTED' 
+  | 'CONNECTING' 
+  | 'CONNECTED' 
+  | 'EXPIRED' 
+  | 'DISCONNECTED' 
+  | 'ERROR';
 
 export interface InstagramSessionInfo {
   id: string;
