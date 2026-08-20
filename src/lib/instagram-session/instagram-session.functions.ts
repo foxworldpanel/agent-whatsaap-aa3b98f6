@@ -2,9 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 export const connectInstagramAction = createServerFn({ method: "POST" })
-  .handler(async () => {
+  .inputValidator((data: unknown) => z.object({ credentialId: z.string().optional() }).parse(data))
+  .handler(async ({ data }) => {
     const { InstagramSessionManager } = await import("./instagram-session-manager.server");
-    return await InstagramSessionManager.connect();
+    return await InstagramSessionManager.connect(data?.credentialId);
   });
 
 export const disconnectInstagramAction = createServerFn({ method: "POST" })
@@ -43,15 +44,12 @@ export const listInstagramSessionsAction = createServerFn({ method: "GET" })
 
 export const checkInstagramEnvironmentAction = createServerFn({ method: "GET" })
   .handler(async () => {
+    const workerUrl = process.env.INSTAGRAM_WORKER_URL;
     return {
       playwright: false,
       chromium: false,
-      filesystem: true,
-      storage: true,
-      node: true,
-      display: false,
-      writable: true,
-      errors: ["Playwright removed from build. Use external worker."],
+      workerConfigured: !!workerUrl,
+      workerUrl: workerUrl ? 'CONFIGURED' : 'MISSING',
       timestamp: new Date().toISOString()
     };
   });

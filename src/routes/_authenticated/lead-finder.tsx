@@ -186,7 +186,7 @@ function LeadFinderPage() {
       });
 
       console.log('[LeadFinder] Calling connectInstagramAction...');
-      const result = await connectInstagramAction();
+      const result = await connectInstagramAction({ data: { credentialId: undefined } });
       
       console.log('[LeadFinder] Result received:', result);
       
