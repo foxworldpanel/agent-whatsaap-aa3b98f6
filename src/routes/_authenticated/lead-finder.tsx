@@ -1,15 +1,31 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Radar, Search, Database, LayoutList, History, CheckCircle2, Play, Instagram, Terminal } from "lucide-react"
+import { 
+  Radar, Search, Database, LayoutList, History, CheckCircle2, 
+  Play, Instagram, Terminal, Plus, RefreshCcw, Trash2, 
+  ExternalLink, User, MessageSquare, Phone, Mail, Globe, 
+  Info, Filter, MoreHorizontal, Eye, Send
+} from "lucide-react"
 import { discoveryEngine } from '@/lib/lead-finder/discovery-engine'
 import { toast } from 'sonner'
 import { runLeadFinderIntegrationTest } from '@/lib/lead-finder/test-integration'
+import { CredentialService } from '@/lib/lead-finder/credential.service'
+import { LeadService } from '@/lib/lead-finder/lead.service'
+import { JobService } from '@/lib/lead-finder/job.service'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
+import { formatDistanceToNow } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 export const Route = createFileRoute('/_authenticated/lead-finder')({
   component: LeadFinderPage,
