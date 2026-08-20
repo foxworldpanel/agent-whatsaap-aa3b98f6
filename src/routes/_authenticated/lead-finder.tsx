@@ -294,43 +294,62 @@ function LeadFinderPage() {
           <div className="grid gap-6 md:grid-cols-2 mb-4">
             <Card className="border-primary/20 bg-primary/5 col-span-full">
               <CardHeader>
-                <CardTitle className="text-xl">Sprint 2.3 – Instagram Discovery (Operacional)</CardTitle>
+                <CardTitle className="text-xl">Mudança de prioridade do Lead Finder</CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                <p>O objetivo desta sprint é fazer o Lead Finder começar a funcionar de verdade.</p>
-                <p>Não focar em melhorias visuais.</p>
-                <p>Não focar em arquitetura nova.</p>
-                <p>Não criar novos módulos genéricos.</p>
-                <p>O foco é permitir descobrir contatos públicos do Instagram e salvá-los no Lead Bank.</p>
+                <p>Após revisar o fluxo operacional do produto, a prioridade mudou.</p>
+                <p>O objetivo principal do Lead Finder não é descobrir um perfil específico, mas encontrar grandes volumes de leads qualificados através de hashtags do Instagram.</p>
                 
                 <div className="grid md:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-2">
-                    <h4 className="font-bold">Objetivo</h4>
-                    <p>O usuário deve conseguir:</p>
-                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>Conectar uma conta do Instagram.</li>
-                      <li>Selecionar essa conta na aba Discovery.</li>
-                      <li>Pesquisar por um perfil.</li>
-                      <li>Abrir esse perfil.</li>
-                      <li>Ler apenas informações públicas.</li>
-                      <li>Extrair telefone, e-mail, website e links públicos quando existirem.</li>
-                      <li>Salvar automaticamente no Lead Bank.</li>
+                  <div className="space-y-2 text-primary font-medium">
+                    <h4 className="font-bold">Portanto:</h4>
+                    <ul className="list-disc pl-4 space-y-1">
+                      <li>Tornar Hashtag a forma principal de descoberta.</li>
+                      <li>Perfil passa a ser utilizado apenas para testes e validações.</li>
+                      <li>A interface deve destacar a busca por hashtag como fluxo principal.</li>
                     </ul>
                   </div>
                   <div className="space-y-2">
-                    <h4 className="font-bold text-destructive">8 - Fora do escopo</h4>
-                    <p>Ainda NÃO implementar:</p>
+                    <h4 className="font-bold">Cada lead salvo deve registrar:</h4>
                     <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>busca por hashtag;</li>
-                      <li>busca por palavra-chave;</li>
-                      <li>IA;</li>
-                      <li>classificação;</li>
-                      <li>Lead Score;</li>
-                      <li>Sales Agent;</li>
-                      <li>disparos.</li>
+                      <li>plataforma;</li>
+                      <li>hashtag de origem;</li>
+                      <li>data da descoberta;</li>
+                      <li>conta do Instagram utilizada;</li>
+                      <li>job responsável pela descoberta.</li>
                     </ul>
                   </div>
                 </div>
+
+                <div className="space-y-2 pt-2 border-t border-primary/10">
+                  <h4 className="font-bold">Durante a descoberta, mostrar em tempo real:</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-muted-foreground">
+                    <div className="flex items-center gap-2"><span>• perfis analisados</span></div>
+                    <div className="flex items-center gap-2"><span>• leads encontrados</span></div>
+                    <div className="flex items-center gap-2"><span>• telefones encontrados</span></div>
+                    <div className="flex items-center gap-2"><span>• e-mails encontrados</span></div>
+                    <div className="flex items-center gap-2"><span>• duplicados</span></div>
+                    <div className="flex items-center gap-2"><span>• tempo de execução</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-background/50 p-4 rounded-lg border border-primary/10 mt-4">
+                  <p className="font-medium text-primary">O objetivo do módulo é criar uma base qualificada de contatos públicos que alimentará o Sales Agent para disparos via WhatsApp.</p>
+                </div>
+
+                <div className="space-y-3 mt-4">
+                  <h4 className="font-bold flex items-center gap-2">
+                    <Plus className="h-4 w-4 text-primary" />
+                    Fila de Hashtags
+                  </h4>
+                  <p className="text-muted-foreground">Em vez de pesquisar uma hashtag por vez, você poderia cadastrar uma lista:</p>
+                  <div className="bg-black/5 p-2 rounded font-mono text-xs grid grid-cols-3 gap-1">
+                    <span>#housemusic</span> <span>#dj</span> <span>#musicproducer</span>
+                    <span>#gravadora</span> <span>#trance</span> <span>#liquiddnb</span>
+                  </div>
+                  <p className="text-[11px] italic">O sistema executaria uma por vez, controlando duplicados entre elas e consolidando tudo no mesmo banco de leads. Para o volume de prospecção que você pretende fazer, isso vai economizar muito tempo e tornar a operação muito mais eficiente.</p>
+                </div>
+
               </CardContent>
             </Card>
           </div>
@@ -936,53 +955,45 @@ function LeadFinderPage() {
         </TabsContent>
         <TabsContent value="validation" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight">Sprint 2.3 – Instagram Discovery (Operacional)</h2>
-            <Badge variant="outline" className="gap-1">
-              <CheckCircle2 className="h-3 w-3 text-blue-500" /> Sprint 2.3 Planning
+            <h2 className="text-2xl font-bold tracking-tight">Mudança de prioridade do Lead Finder</h2>
+            <Badge variant="outline" className="gap-1 border-primary/50 text-primary">
+              <Radar className="h-3 w-3" /> New Strategic Focus
             </Badge>
+
           </div>
           
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <ValidationItem 
-              title="1 - Instagram Accounts" 
-              description="Fluxo operacional de gestão de contas."
-              checks={["Estados: Connected/Disconnected/Expired", "Ações: Conectar, Reconectar, Remover"]}
+              title="1 - Fila de Hashtags" 
+              description="Cadastrar múltiplas hashtags para execução sequencial."
+              checks={["Input de lista de hashtags", "Execução um por vez", "Consolidação no Lead Bank"]}
             />
             <ValidationItem 
-              title="2 - Fluxo de Conexão" 
-              description="Autenticação e manutenção de sessão."
-              checks={["Wizard de conexão do Instagram", "Armazenar sessão autenticada", "Não salvar senhas"]}
+              title="2 - Hashtag Discovery" 
+              description="Fluxo principal de descoberta por hashtag."
+              checks={["Busca principal por #", "Extração de perfis da hashtag", "Análise em tempo real"]}
             />
             <ValidationItem 
-              title="3 - Discovery UI" 
-              description="Seleção de conta e parâmetros."
-              checks={["Dropdown de Contas Principal", "Tipo Perfil habilitado", "Input de @usuario"]}
+              title="3 - Monitoramento Realtime" 
+              description="Métricas de descoberta em tempo real."
+              checks={["Telefones e E-mails encontrados", "Perfis analisados e duplicados", "Tempo de execução"]}
             />
             <ValidationItem 
-              title="4 - Discovery Real" 
-              description="Leitura e extração de dados públicos."
-              checks={["username, bio, display_name", "E-mail, Telefone, Website", "Uso do LeadService para persistência"]}
+              title="4 - Lead Metadata" 
+              description="Registro detalhado da origem do lead."
+              checks={["Hashtag de origem", "Plataforma e Conta utilizada", "Job ID e timestamp"]}
             />
             <ValidationItem 
-              title="5 - Deduplicação" 
-              description="Garantir unicidade dos leads."
-              checks={["PK por username/provider", "Check de e-mail e telefone", "Logs na Timeline"]}
+              title="5 - Deduplicação Cross-Hashtag" 
+              description="Evitar leads repetidos em diferentes hashtags."
+              checks={["Check global de duplicados", "Filtro por username", "Audit trail na Timeline"]}
             />
             <ValidationItem 
-              title="6 - Lead Bank Integration" 
-              description="Interface de visualização dos leads."
-              checks={["Atualização automática", "Cards de leads detalhados", "Filtros de busca"]}
+              title="6 - Sales Agent Prep" 
+              description="Base qualificada para disparos WhatsApp."
+              checks={["Validação de contatos públicos", "Extração de links e bio", "Pronto para Sales Agent"]}
             />
-            <ValidationItem 
-              title="7 - Jobs & Monitoring" 
-              description="Rastreabilidade da execução."
-              checks={["Duração da descoberta", "Total de leads encontrados", "Status de erro/sucesso"]}
-            />
-            <ValidationItem 
-              title="8 - Limpeza e Scope" 
-              description="Foco exclusivo em dados públicos."
-              checks={["NÃO implementar hashtags", "NÃO implementar IA", "Foco na funcionalidade base"]}
-            />
+
           </div>
         </TabsContent>
       </Tabs>
