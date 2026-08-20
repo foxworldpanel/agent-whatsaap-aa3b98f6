@@ -2,7 +2,7 @@ import { discoveryEngine } from "./discovery-engine";
 import { JobService } from "./job.service";
 import { LeadService } from "./lead.service";
 import { supabase } from "@/integrations/supabase/client";
-import { InstagramSessionManager } from "../instagram-session/instagram-session-manager";
+// InstagramSessionManager is imported dynamically in functions below to avoid client bundling errors
 
 /**
  * Lead Finder Integration Test (Phase 1, 2 & 3)
@@ -60,12 +60,14 @@ export async function runLeadFinderIntegrationTest() {
   try {
     // We can't automate a real login that requires manual interaction here,
     // but we can test the session listing and validation logic with existing data.
+    const { InstagramSessionManager } = await import("../instagram-session/instagram-session-manager");
     const sessions = await InstagramSessionManager.listSessions();
     console.log(`✅ Found ${sessions.length} Instagram sessions in DB`);
     
     if (sessions.length > 0) {
       const target = sessions[0];
       console.log(`Testing validation for existing session: @${target.username}`);
+      const { InstagramSessionManager } = await import("../instagram-session/instagram-session-manager");
       const status = await InstagramSessionManager.validate(target.id);
       console.log(`✅ Session validation result: ${status}`);
     } else {
