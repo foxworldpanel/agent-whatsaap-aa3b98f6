@@ -21,7 +21,8 @@ export class PlaywrightSessionService {
       logger('Browser Started');
       const { chromium } = await import('playwright');
       this.browser = await chromium.launch({ 
-        headless: true, // Required for sandbox environments
+        headless: true,
+        executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       });
       

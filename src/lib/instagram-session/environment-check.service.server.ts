@@ -34,6 +34,7 @@ export class EnvironmentCheckService {
       check.playwright = true;
       const browser = await chromium.launch({ 
         headless: true,
+        executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       });
       await browser.close();
