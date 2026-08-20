@@ -968,10 +968,11 @@ function LeadFinderPage() {
         </TabsContent>
         <TabsContent value="validation" className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold tracking-tight">Sprint 3.0 – Descoberta Real (Hashtags)</h2>
-            <Badge variant="outline" className="gap-1 border-primary/50 text-primary">
-              <Play className="h-3 w-3" /> MVP Execution Phase
+            <h2 className="text-2xl font-bold tracking-tight text-destructive">Sprint 3.0 – Pendente (Funcionalidade Real)</h2>
+            <Badge variant="destructive" className="gap-1">
+              <Info className="h-3 w-3" /> Sprint Incompleta
             </Badge>
+
 
 
           </div>
