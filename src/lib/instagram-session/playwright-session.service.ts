@@ -7,10 +7,15 @@ export class PlaywrightSessionService {
 
   private static async getBrowser() {
     if (!this.browser) {
-      this.browser = await chromium.launch({ headless: true });
+      // In this environment, we must use headless: true, but manual login 
+      // is still possible if we interact via Playwright commands or 
+      // if the environment supports a visual display (XVFB).
+      // However, the user specifically asked for headless: false for manual login.
+      this.browser = await chromium.launch({ headless: false });
     }
     return this.browser;
   }
+
 
   static async openLoginFlow(credentialId: string): Promise<InstagramLoginResult> {
     const browser = await this.getBrowser();
