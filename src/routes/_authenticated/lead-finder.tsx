@@ -625,11 +625,11 @@ function LeadFinderPage() {
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 border shadow-sm">
                                 <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.username}`} />
-                                <AvatarFallback>{lead.username[0]}</AvatarFallback>
+                                <AvatarFallback>{lead.username?.[0] || 'U'}</AvatarFallback>
                               </Avatar>
                               <div className="flex flex-col">
                                 <span className="font-semibold text-sm leading-none">{lead.full_name || lead.username}</span>
-                                <span className="text-xs text-muted-foreground">@{lead.username}</span>
+                                <span className="text-xs text-muted-foreground">@{lead.username || 'unknown'}</span>
                               </div>
                             </div>
                           </TableCell>
@@ -688,7 +688,7 @@ function LeadFinderPage() {
                                   <div className="flex items-center gap-4 pt-4">
                                     <Avatar className="h-16 w-16 border-2 border-primary/20">
                                       <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.username}`} />
-                                      <AvatarFallback>{lead.username[0]}</AvatarFallback>
+                                      <AvatarFallback>{lead.username?.[0] || 'U'}</AvatarFallback>
                                     </Avatar>
                                     <div>
                                       <SheetTitle className="text-2xl">{lead.full_name || lead.username}</SheetTitle>
