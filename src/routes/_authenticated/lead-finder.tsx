@@ -80,7 +80,11 @@ function LeadFinderPage() {
       </div>
 
       <Tabs defaultValue="discovery" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[750px]">
+        <TabsList className="grid w-full grid-cols-6 lg:w-[900px]">
+          <TabsTrigger value="accounts" className="flex items-center gap-2">
+            <Instagram className="h-4 w-4" />
+            Accounts
+          </TabsTrigger>
           <TabsTrigger value="discovery" className="flex items-center gap-2">
             <Search className="h-4 w-4" />
             Discovery
