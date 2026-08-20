@@ -34,8 +34,55 @@ export const Route = createFileRoute('/_authenticated/lead-finder')({
 function LeadFinderPage() {
   const [provider, setProvider] = useState<'mock' | 'instagram_public'>('instagram_public')
   const [username, setUsername] = useState('')
+  const [limit, setLimit] = useState('25')
+  const [discoveryType, setDiscoveryType] = useState<'profile' | 'hashtag' | 'keyword'>('profile')
   const [isSearching, setIsSearching] = useState(false)
   const [isRunningTest, setIsRunningTest] = useState(false)
+  
+  const [credentials, setCredentials] = useState<any[]>([])
+  const [selectedCredential, setSelectedCredential] = useState<string>('')
+  
+  const [leads, setLeads] = useState<any[]>([])
+  const [selectedLead, setSelectedLead] = useState<any>(null)
+  
+  const [jobs, setJobs] = useState<any[]>([])
+  const [activeJob, setActiveJob] = useState<any>(null)
+  
+  const [timeline, setTimeline] = useState<any[]>([])
+
+  useEffect(() => {
+    loadCredentials()
+    loadLeads()
+    loadJobs()
+  }, [])
+
+  const loadCredentials = async () => {
+    try {
+      const data = await CredentialService.listCredentials()
+      setCredentials(data)
+      if (data.length > 0) setSelectedCredential(data[0].id)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const loadLeads = async () => {
+    try {
+      const data = await LeadService.listLeads()
+      setLeads(data)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const loadJobs = async () => {
+    try {
+      const data = await JobService.listJobs()
+      setJobs(data)
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   const handleStartDiscovery = async () => {
     if (provider === 'instagram_public' && !username) {
@@ -43,17 +90,49 @@ function LeadFinderPage() {
       return
     }
 
+    if (!selectedCredential && provider !== 'mock') {
+      toast.error("Selecione uma conta para a descoberta")
+      return
+    }
+
     setIsSearching(true)
     try {
+      // 1. Create Job
+      const job = await JobService.createJob(provider, { 
+        username, 
+        limit: parseInt(limit), 
+        credential_id: selectedCredential,
+        type: discoveryType
+      })
+      setActiveJob(job)
+      loadJobs()
+
+      // 2. Start Provider Run
+      const run = await JobService.startRun(job.id, provider, selectedCredential)
+
+      // 3. Execution (Provider call)
       const activeProvider = discoveryEngine.getProvider(provider)
       if (!activeProvider) throw new Error("Provider não registrado")
 
       const query = provider === 'instagram_public' 
-        ? { type: 'profile', username } 
-        : { limit: 2 }
+        ? { type: 'profile', username, limit: parseInt(limit) } 
+        : { limit: parseInt(limit) }
 
       const results = await activeProvider.search(query)
+      
+      // 4. Persistence via LeadService (Engine calls this normally, but here we do it for simplicity in Phase 2)
+      for (const res of results) {
+        await LeadService.saveLead(res, provider, username || 'mock')
+        await JobService.updateStats(job.id, { leads: 1, profiles_analyzed: 1 })
+      }
+
+      // 5. Finish Run & Job
+      await JobService.finishRun(run.id)
+      
       toast.success(`Descoberta finalizada! ${results.length} leads encontrados.`)
+      loadLeads()
+      loadJobs()
+      setActiveJob(null)
     } catch (error) {
       console.error(error)
       toast.error("Erro na descoberta")
@@ -73,11 +152,37 @@ function LeadFinderPage() {
       } else {
         toast.error("Falha em alguns testes de integração")
       }
-      console.table(results)
+      loadLeads()
+      loadJobs()
     } catch (error) {
       toast.error("Erro ao executar teste")
     } finally {
       setIsRunningTest(false)
+    }
+  }
+
+  const handleAddCredential = async () => {
+    try {
+      await CredentialService.addCredential({
+        provider_type: 'instagram',
+        account_name: 'Conta Principal',
+        username: 'sourcee_oficial',
+        config: {}
+      })
+      toast.success("Conta conectada com sucesso!")
+      loadCredentials()
+    } catch (e) {
+      toast.error("Erro ao conectar conta")
+    }
+  }
+
+  const handleRemoveCredential = async (id: string) => {
+    try {
+      await CredentialService.removeCredential(id)
+      toast.success("Conta removida")
+      loadCredentials()
+    } catch (e) {
+      toast.error("Erro ao remover conta")
     }
   }
 
