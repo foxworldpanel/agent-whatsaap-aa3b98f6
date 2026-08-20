@@ -1,7 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { PlaywrightSessionService } from './playwright-session.service';
-import { SessionStorageService } from './session-storage.service';
-import { SessionValidatorService } from './session-validator.service';
+// PlaywrightSessionService is now only imported dynamically to avoid browser bundling errors
+// Internal services are imported dynamically to avoid client bundling errors
 import { InstagramSessionInfo, InstagramSessionStatus } from './types';
 
 export class InstagramSessionManager {
@@ -9,6 +8,7 @@ export class InstagramSessionManager {
     console.log(`[SessionManager] ${new Date().toISOString()} Starting connection flow...`);
     
     // 1. Open login flow via Playwright (NO credentialId yet)
+    const { PlaywrightSessionService } = await import('./playwright-session.service.server');
     const result = await PlaywrightSessionService.openLoginFlow();
 
     if (result.success && result.username) {
@@ -41,6 +41,7 @@ export class InstagramSessionManager {
         throw error;
       }
 
+      const { SessionStorageService } = await import('./session-storage.service.server');
       const credentialId = data.id;
       const storageStatePath = SessionStorageService.getStoragePath(credentialId);
       
@@ -60,7 +61,7 @@ export class InstagramSessionManager {
       // 5. Final Real Validation
       const finalStatus = await this.validate(credentialId);
       if (finalStatus !== 'connected') {
-         console.warn(`[SessionManager] ${new Date().toISOString()} Initial validation failed for ${result.username}`);
+         console.warn(`[SessionManager] ${new Date().toISOString()} Initial validation failed for ${result.username}. Status: ${finalStatus}`);
       }
 
       return {
@@ -74,6 +75,7 @@ export class InstagramSessionManager {
   }
 
   static async disconnect(credentialId: string): Promise<void> {
+    const { SessionStorageService } = await import('./session-storage.service.server');
     console.log(`[SessionManager] ${new Date().toISOString()} Disconnecting ${credentialId}`);
     await SessionStorageService.removeSession(credentialId);
     await this.updateStatus(credentialId, 'disconnected');
@@ -88,6 +90,7 @@ export class InstagramSessionManager {
 
   static async validate(credentialId: string): Promise<InstagramSessionStatus> {
     console.log(`[SessionManager] ${new Date().toISOString()} Validating session for ${credentialId}`);
+    const { SessionValidatorService } = await import('./session-validator.service');
     const isValid = await SessionValidatorService.validate(credentialId);
     const status: InstagramSessionStatus = isValid ? 'connected' : 'expired';
     
@@ -105,6 +108,7 @@ export class InstagramSessionManager {
 
   static async remove(credentialId: string): Promise<void> {
     console.log(`[SessionManager] ${new Date().toISOString()} Removing ${credentialId}`);
+    const { SessionStorageService } = await import('./session-storage.service.server');
     await SessionStorageService.removeSession(credentialId);
     const { error } = await supabase
       .from('lead_finder_credentials')

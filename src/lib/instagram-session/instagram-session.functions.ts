@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { InstagramSessionManager } from "./instagram-session-manager";
+import { EnvironmentCheckService } from "./environment-check.service";
 import { z } from "zod";
 
 export const connectInstagramAction = createServerFn({ method: "POST" })
@@ -34,6 +35,11 @@ export const removeInstagramAction = createServerFn({ method: "POST" })
 export const listInstagramSessionsAction = createServerFn({ method: "GET" })
   .handler(async () => {
     return await InstagramSessionManager.listSessions();
+  });
+
+export const checkInstagramEnvironmentAction = createServerFn({ method: "GET" })
+  .handler(async () => {
+    return await EnvironmentCheckService.checkEnvironment();
   });
 
 
