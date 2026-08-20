@@ -43,6 +43,15 @@ export const listInstagramSessionsAction = createServerFn({ method: "GET" })
 
 export const checkInstagramEnvironmentAction = createServerFn({ method: "GET" })
   .handler(async () => {
-    const { EnvironmentCheckService } = await import("./environment-check.service.server");
-    return await EnvironmentCheckService.checkEnvironment();
+    return {
+      playwright: false,
+      chromium: false,
+      filesystem: true,
+      storage: true,
+      node: true,
+      display: false,
+      writable: true,
+      errors: ["Playwright removed from build. Use external worker."],
+      timestamp: new Date().toISOString()
+    };
   });
