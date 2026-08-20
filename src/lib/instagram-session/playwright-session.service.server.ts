@@ -21,7 +21,7 @@ export class PlaywrightSessionService {
       logger('Browser Started');
       const { chromium } = await import('playwright');
       this.browser = await chromium.launch({ 
-        headless: false,
+        headless: !process.env.DISPLAY,
         executablePath: '/opt/ms-playwright/chromium-1194/chrome-linux/chrome',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       });
@@ -54,15 +54,26 @@ export class PlaywrightSessionService {
         timeout: 60000 
       });
       
-      // INSTRUCTION: In a headless environment without manual interaction, 
-      // this flow requires either pre-authenticated cookies or an automated login if credentials were provided.
-      // Since the requirement mentions "Login manual", and we are in headless: true,
-      // we must clarify that manual interaction is not possible.
-      // For now, we harden the technical lifecycle.
+      logger('Waiting for manual login (timeout: 5m)...');
       
-      return { 
-        success: false, 
-        error: "Ambiente headless desativado. Autenticação deve ser realizada manualmente no navegador aberto." 
+      await page.waitForURL((url: URL) => {
+        return url.href.includes('instagram.com/') && 
+               !url.href.includes('/accounts/login') && 
+               !url.href.includes('/accounts/emailsignup');
+      }, { timeout: 300000 });
+
+      logger('Login success detected!');
+      await page.waitForTimeout(2000);
+
+      const profile = await this.extractProfile(page);
+      const storageState = await context.storageState();
+
+      return {
+        success: true,
+        username: profile.username,
+        display_name: profile.display_name,
+        profile_picture: profile.profile_picture,
+        storageState
       };
 
     } catch (error: any) {
