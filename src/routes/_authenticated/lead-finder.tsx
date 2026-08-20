@@ -294,36 +294,44 @@ function LeadFinderPage() {
           <div className="grid gap-6 md:grid-cols-2 mb-4">
             <Card className="border-primary/20 bg-primary/5 col-span-full">
               <CardHeader>
-                <CardTitle className="text-xl">Sprint 3.0 – Descoberta Real (Hashtags)</CardTitle>
+                <CardTitle className="text-xl text-destructive flex items-center gap-2">
+                  <Info className="h-5 w-5" />
+                  Sprint 3.0 – Pendente: Descoberta Real
+                </CardTitle>
               </CardHeader>
               <CardContent className="text-sm space-y-4">
-                <p>A arquitetura e a interface do Lead Finder estão satisfatórias. Agora vamos interromper a criação de novas telas e focar exclusivamente na funcionalidade principal do sistema.</p>
-                <p>O foco absoluto desta sprint é fazer a primeira descoberta real utilizando hashtags, saindo da simulação do InstagramPublicProvider.</p>
-                
-                <div className="grid md:grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-2">
-                    <h4 className="font-bold">Objetivo Real</h4>
-                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>Utilizar conta previamente conectada.</li>
-                      <li>Pesquisar uma hashtag real no Instagram.</li>
-                      <li>Abrir perfis encontrados via hashtag.</li>
-                      <li>Extrair telefone, e-mail e links públicos.</li>
-                      <li>Persistir via LeadService e registrar Jobs/Timeline.</li>
-                    </ul>
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-bold text-destructive">Restrições</h4>
-                    <ul className="list-disc pl-4 space-y-1 text-muted-foreground">
-                      <li>NÃO criar novas telas ou melhorar UX.</li>
-                      <li>NÃO implementar IA ou Sales Agent.</li>
-                      <li>NÃO implementar campanhas de disparo.</li>
-                    </ul>
-                  </div>
+                <div className="bg-destructive/10 p-4 rounded-lg border border-destructive/20 mb-4">
+                  <p className="font-bold text-destructive">A implementação atual não atende ao objetivo da Sprint 3.</p>
+                  <p className="text-xs mt-1">A funcionalidade principal (coleta real via Instagram) continua ausente e simulada.</p>
                 </div>
 
-                <div className="bg-primary/5 p-4 rounded-lg border border-primary/20 mt-4 italic text-center">
-                  <p>"Seu objetivo não é ter uma tela bonita. Seu objetivo é apertar um botão (#housemusic) e ver 1000 perfis virarem contatos no Banco de Leads."</p>
+                <div className="space-y-2">
+                  <h4 className="font-bold">Constatações Técnicas:</h4>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground list-disc pl-4">
+                    <li>InstagramPublicProvider continua sendo um simulador.</li>
+                    <li>Busca por hashtags não foi implementada.</li>
+                    <li>O provider retorna apenas dados mockados.</li>
+                    <li>"Connect Account" não autentica sessões reais.</li>
+                    <li>Falta gerenciamento de sessão e cookies.</li>
+                    <li>Falta navegador automatizado e coleta real.</li>
+                  </ul>
                 </div>
+                
+                <div className="space-y-2 pt-2">
+                  <h4 className="font-bold">Critérios de Conclusão da Sprint:</h4>
+                  <ul className="space-y-1 text-xs list-disc pl-4">
+                    <li>Conectar conta do Instagram com sessão persistente.</li>
+                    <li>Informar hashtag e navegar pelos resultados reais.</li>
+                    <li>Abrir perfis e extrair info pública (bio, tel, email).</li>
+                    <li>Gerar LeadDiscoveryResult real e persistir via LeadService.</li>
+                    <li>Registro automático em Jobs e Timeline.</li>
+                  </ul>
+                </div>
+
+                <div className="bg-muted p-3 rounded border text-[11px] italic text-center mt-2">
+                  Enquanto esse fluxo operacional real não existir, a Sprint 3 permanece incompleta. Foco total em funcionalidade, zero em interface.
+                </div>
+
 
 
                 <div className="space-y-2 pt-2 border-t border-primary/10">
