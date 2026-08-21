@@ -1,5 +1,5 @@
 
-import { supabase } from '@/integrations/supabase/client';
+import { supabaseAdmin } from '@/integrations/supabase/client.server';
 import { InstagramSessionInfo, InstagramSessionStatus } from './types';
 import { InstagramWorkerClient } from '../instagram-worker/instagram-worker';
 
@@ -25,7 +25,7 @@ export class InstagramSessionManager {
           // sempre mostrava "Conexão cancelada ou falhou." pro usuário,
           // mesmo quando o login no popup funcionava de verdade. Busca
           // o registro atualizado pra retornar o dado real.
-          const { data: updated } = await supabase
+          const { data: updated } = await supabaseAdmin
             .from('lead_finder_credentials')
             .select('*')
             .eq('id', credentialId)
@@ -93,7 +93,7 @@ export class InstagramSessionManager {
       if (responseWithUsername.status === 'CONNECTED' && responseWithUsername.username) {
         // Login concluído — salva o username real, não mais o placeholder
         // usado na criação do registro.
-        await supabase
+        await supabaseAdmin
           .from('lead_finder_credentials')
           .update({
             status: responseWithUsername.status,
@@ -114,7 +114,7 @@ export class InstagramSessionManager {
   }
 
   static async remove(credentialId: string): Promise<void> {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('lead_finder_credentials')
       .delete()
       .eq('id', credentialId);
@@ -122,7 +122,7 @@ export class InstagramSessionManager {
   }
 
   static async listSessions(): Promise<InstagramSessionInfo[]> {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('lead_finder_credentials')
       .select('*')
       .eq('platform', 'instagram');
@@ -131,7 +131,7 @@ export class InstagramSessionManager {
   }
 
   private static async updateStatus(credentialId: string, status: InstagramSessionStatus) {
-    await supabase
+    await supabaseAdmin
       .from('lead_finder_credentials')
       .update({ 
         status, 
