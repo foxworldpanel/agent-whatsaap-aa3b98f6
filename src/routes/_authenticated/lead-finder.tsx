@@ -270,6 +270,13 @@ function LeadFinderPage() {
       await loadCredentials();
     } catch (e: any) {
       console.error('[LeadFinder] Error in handleAddCredential:', e);
+      // Bug real encontrado em 21/08/2026: quando a conexão falhava
+      // (ex: worker inacessível), a aba "Preparando conexão..." aberta
+      // no início ficava presa nessa mensagem pra sempre, sem fechar
+      // nem mostrar o erro real.
+      if (loginWindow && !loginWindow.closed) {
+        loginWindow.document.body.innerHTML = `<p style="font-family: sans-serif; padding: 20px; color: #b91c1c;">Erro ao conectar: ${e.message || 'Erro desconhecido'}. Pode fechar esta aba.</p>`;
+      }
       toast.error(`Erro na conexão`, {
         id: toastId,
         description: e.message || 'Erro desconhecido'
