@@ -1018,6 +1018,16 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     conditionalPrompts += "\n\n" + INTERESSE_TESTE_TOM_TEXT;
   }
 
+  // Conecta recoveryStatus — calculado desde a Fase B mas nunca repassado
+  // pro orchestrator até 21/08/2026 (achado em auditoria). Só o motivo
+  // CUSTOMER_LOST_CONTEXT é conectado aqui — CUSTOMER_HESITATED
+  // continua fora de propósito, pois já é redundante com
+  // HESITACAO_TOM_TEXT (mesmo sinal HESITATING, já conectado via
+  // eligibleForDiscount).
+  if (recoveryStatus?.needsRecovery && recoveryStatus.reason === "CUSTOMER_LOST_CONTEXT") {
+    conditionalPrompts += "\n\n" + RECUPERACAO_CONTEXTO_TEXT;
+  }
+
   // Objeção de confiança/segurança — primeira conexão real desse sinal.
   // Diferente da hesitação (já conectada acima), dispara só quando o
   // cliente pergunta especificamente sobre segurança/risco/legitimidade
