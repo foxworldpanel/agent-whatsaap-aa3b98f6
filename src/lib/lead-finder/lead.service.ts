@@ -54,6 +54,9 @@ export class LeadService {
       phone: contacts.phone,
       email: contacts.email,
       links: links as any,
+      // Achado em 21/08/2026: segment vinha em metadata mas nunca era
+      // extraído pra coluna própria — ficava perdido dentro do JSON.
+      segment: metadata?.segment || null,
       lead_origin: origin,
       lead_origin_value: originValue,
       raw_profile_data: { 
