@@ -8,45 +8,29 @@ export const Route = createFileRoute('/')({
     <div className="p-8">
       <h1 className="text-xl font-bold mb-4">Manifesto Técnico</h1>
       <pre className="whitespace-pre-wrap bg-slate-100 p-4 rounded text-sm">
-{`ARQUIVO EXATO A EDITAR: src/lib/instagram-worker/instagram-worker.ts
+{`AÇÃO NECESSÁRIA: Fazer 1 edição pontual num arquivo já existente. Não é criar arquivo novo. Não mexa em nenhuma página, rota, ou "index"/página inicial.
+
+ARQUIVO EXATO A EDITAR: src/lib/agent-v3/prompt/prompt-conditional.server.ts
 
 Troca:
 
 typescript
 
-try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-      });
+export const RECLAMACAO_TEXT = \`## RECLAMAÇÃO E RISCO
+- Estado: RECLAMAÇÃO.
+- Prioridade: Proteção da marca e resolução.
+- Não discuta ou tente justificar erros técnicos inexistentes nos módulos.
+- Dê uma orientação definitiva ou informe o encaminhamento ao setor responsável.\`;
 
 por:
 
 typescript
 
-try {
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          // Token de autenticação do worker — sem isso, o servidor na
-          // VPS recusa toda requisição com 401 (proteção adicionada em
-          // 21/08/2026, junto com a implantação do worker real).
-          'x-worker-token': process.env.INSTAGRAM_WORKER_TOKEN || '',
-          ...options.headers,
-        },
-      });
-
-
-Mensagem 2 — variáveis de ambiente
-
-Preciso que você adicione 2 variáveis de ambiente (Environment Variables / Secrets) nas configurações do projeto:
-
-INSTAGRAM_WORKER_URL = http://169.58.169.242:3000
-INSTAGRAM_WORKER_TOKEN = 091087ro`}
+export const RECLAMACAO_TEXT = \`## RECLAMAÇÃO E RISCO
+- Estado: RECLAMAÇÃO.
+- Prioridade: Proteção da marca e resolução.
+- Não discuta ou tente justificar erros técnicos inexistentes nos módulos.
+- Encaminhamento concreto: oriente o cliente a acessar o painel (mindsmmpanel.com) e abrir um ticket no menu Suporte, descrevendo o problema relatado. Não fica só em "vou verificar" ou "encaminho ao setor" de forma vaga — dá o passo prático real (painel → Suporte → abrir ticket), igual já é feito pra problemas técnicos de pagamento/painel.\`;`}
       </pre>
     </div>
   )

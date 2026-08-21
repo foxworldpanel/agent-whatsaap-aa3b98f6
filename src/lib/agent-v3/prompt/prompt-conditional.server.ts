@@ -30,7 +30,7 @@ export const RECLAMACAO_TEXT = `## RECLAMAÇÃO E RISCO
 - Estado: RECLAMAÇÃO.
 - Prioridade: Proteção da marca e resolução.
 - Não discuta ou tente justificar erros técnicos inexistentes nos módulos.
-- Dê uma orientação definitiva ou informe o encaminhamento ao setor responsável.`;
+- Encaminhamento concreto: oriente o cliente a acessar o painel (mindsmmpanel.com) e abrir um ticket no menu Suporte, descrevendo o problema relatado. Não fica só em "vou verificar" ou "encaminho ao setor" de forma vaga — dá o passo prático real (painel → Suporte → abrir ticket), igual já é feito pra problemas técnicos de pagamento/painel.`;
 
 export const SUPORTE_EXPANDIDO_TEXT = `## SUPORTE E AGUARDANDO SETOR
 - Estado: AGUARDANDO SETOR / SUPORTE.
