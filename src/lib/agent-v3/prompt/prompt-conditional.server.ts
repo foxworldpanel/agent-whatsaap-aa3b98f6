@@ -51,6 +51,12 @@ export const INTERESSE_TESTE_TOM_TEXT = `## SINAL: CLIENTE PERGUNTOU SOBRE TESTE
 - Se houver teste grátis disponível pra esse cenário (ver módulos de teste grátis carregados), mencione essa opção de forma natural — é uma ferramenta real de gerar confiança, não invente condição que não existe.
 - Se não houver teste grátis disponível pra esse caso específico, seja honesto sobre isso, sem inventar uma versão de teste que não existe — nunca prometa teste que os módulos não confirmam.`;
 
+export const RECUPERACAO_CONTEXTO_TEXT = `## SINAL: CLIENTE SINALIZANDO QUE JÁ EXPLICOU/PERDEU O CONTEXTO
+- O cliente disse algo tipo "leia acima", "já falei", "vou explicar de novo" ou "acorda" — isso significa que ele já deu essa informação antes NA MESMA CONVERSA, e está frustrado por precisar repetir.
+- Releia o histórico recente antes de responder. Reconheça explicitamente que releu ("Reli aqui..." / "Entendi, você já tinha dito que...") e resuma o que já entendeu, em vez de perguntar de novo do zero.
+- NUNCA responda com uma pergunta genérica de qualificação (tipo "qual serviço você quer?", "já comprou ou ainda quer comprar?") nesse momento — isso é exatamente o que frustra o cliente mais ainda. Exemplo real do que NÃO fazer: cliente disse "Vou ter que explicar tudo de novo?", e a resposta foi "Você já comprou ou ainda quer comprar?" — isso ignorou completamente o pedido do cliente.
+- Se depois de reler o histórico genuinamente não achar a informação (aconteceu antes da mensagem atual, ou não foi dita ainda), seja honesto: "Não achei isso que você mencionou aqui na nossa conversa, pode confirmar rapidinho pra eu te ajudar direito?" — em vez de fingir que entendeu.`;
+
 export const OBJECAO_CONFIANCA_TOM_TEXT = `## SINAL: CLIENTE QUESTIONANDO CONFIANÇA/SEGURANÇA
 - O cliente perguntou algo sobre segurança, risco ou legitimidade (ex: "é seguro?", "não corre risco de banir?", "é golpe?", "vocês são confiáveis?").
 - Ajuste o TOM: responda com calma e paciência, sem soar na defensiva nem apressado pra voltar à venda.

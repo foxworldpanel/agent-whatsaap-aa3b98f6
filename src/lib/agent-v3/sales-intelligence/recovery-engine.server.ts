@@ -11,12 +11,16 @@
 // SalesSignal[] — isso é dado de sessão/histórico, não sinal extraído
 // de texto. Detectar esses dois exigiria um input novo (ex:
 // lastMessageAt, ou o próprio histórico com timestamps), fora do
-// escopo desta função pura. Por isso o reason "CUSTOMER_HESITATED" é
-// o único motivo que este engine realmente produz nesta versão.
+// escopo desta função pura.
+//
+// 21/08/2026 — adicionado CUSTOMER_LOST_CONTEXT: cliente sinalizando
+// que já explicou/perdeu paciência com repetição (sinal LOST_CONTEXT,
+// achado em conversa real). Continua função pura, só consome sinal já
+// produzido na Fase A — nenhuma mudança de arquitetura.
 
 import type { SalesSignal } from "./sales-intelligence-engine.server";
 
-export type RecoveryReason = "CUSTOMER_HESITATED" | "NONE";
+export type RecoveryReason = "CUSTOMER_HESITATED" | "CUSTOMER_LOST_CONTEXT" | "NONE";
 
 export type RecoveryStatus = {
   needsRecovery: boolean;
@@ -28,6 +32,9 @@ function hasSignal(signals: SalesSignal[], type: SalesSignal["type"]): boolean {
 }
 
 export function evaluateRecoveryStatus(signals: SalesSignal[]): RecoveryStatus {
+  if (hasSignal(signals, "LOST_CONTEXT")) {
+    return { needsRecovery: true, reason: "CUSTOMER_LOST_CONTEXT" };
+  }
   if (hasSignal(signals, "HESITATING")) {
     return { needsRecovery: true, reason: "CUSTOMER_HESITATED" };
   }
