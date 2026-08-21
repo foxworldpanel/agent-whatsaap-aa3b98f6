@@ -171,6 +171,17 @@ function LeadFinderPage() {
   const handleAddCredential = async () => {
     console.log('[LeadFinder] UI CLICK -> handleAddCredential');
     setIsSearching(true);
+
+    // Correção real de 21/08/2026: abrir a aba tem que acontecer AQUI,
+    // no exato momento do clique, sem nenhum await antes — navegadores
+    // só permitem abrir aba nova automaticamente durante uma ação
+    // direta do usuário. Se abrir depois de qualquer "await" (criar
+    // registro, chamar API), o navegador bloqueia silenciosamente.
+    // Abre em branco agora, preenche o endereço real assim que tiver.
+    const loginWindow = window.open('about:blank', '_blank');
+    if (loginWindow) {
+      loginWindow.document.write('<p style="font-family: sans-serif; padding: 20px;">Preparando conexão, aguarde...</p>');
+    }
     
     const toastId = toast.loading("Iniciando conexão...", {
       description: "Criando registro da conta..."
@@ -205,13 +216,20 @@ function LeadFinderPage() {
       // manual nunca era mostrado nem aberto — o card ficava em
       // "Conectando..." sem nenhum jeito de acessar a tela de login.
       if (connectResult?.url) {
-        window.open(connectResult.url, '_blank');
+        if (loginWindow && !loginWindow.closed) {
+          loginWindow.location.href = connectResult.url;
+        } else {
+          // Aba foi bloqueada mesmo assim (ex: bloqueador de popup mais
+          // rígido) — deixa o link visível por mais tempo como reforço.
+          window.open(connectResult.url, '_blank');
+        }
         toast.info("Aguardando login...", {
           id: toastId,
           description: `Janela de login aberta em nova aba. Se não abriu, acesse: ${connectResult.url}`,
           duration: 15000,
         });
       } else {
+        if (loginWindow && !loginWindow.closed) loginWindow.close();
         toast.info("Aguardando login...", {
           id: toastId,
           description: "Não recebi o link de login do worker. Verifique se o INSTAGRAM_WORKER_URL está configurado corretamente."
