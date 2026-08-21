@@ -16,6 +16,9 @@ export interface InstagramSessionInfo {
   last_validation?: string;
   last_used?: string;
   storage_state_path?: string;
+  // Link de VNC pra login manual — só presente durante a fase de
+  // CONNECTING, não é uma propriedade persistente da sessão.
+  url?: string;
 }
 
 export interface InstagramLoginResult {
