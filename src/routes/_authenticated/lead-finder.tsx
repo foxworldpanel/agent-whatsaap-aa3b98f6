@@ -92,13 +92,80 @@ function LeadFinderPage() {
   }
 
   const handleStartDiscovery = async () => {
-    if (provider === 'instagram_public' && !username) {
-      toast.error("Informe um username do Instagram")
+    if (!username) {
+      toast.error(discoveryType === 'hashtag' ? "Informe uma hashtag" : "Informe um username do Instagram")
       return
     }
 
     if (!selectedCredential && provider !== 'mock') {
       toast.error("Selecione uma conta para a descoberta")
+      return
+    }
+
+    // Caminho real de hashtag — chama o worker de verdade (navegação
+    // real na VPS), diferente do provider 'instagram_public' que ainda
+    // é simulado (dados fixos, não conectado a nada real). O worker já
+    // salva os leads direto no banco, então aqui só acompanhamos o
+    // progresso via polling, igual já fizemos no fluxo de conexão.
+    if (discoveryType === 'hashtag') {
+      setIsSearching(true)
+      const toastId = toast.loading("Iniciando busca por hashtag...", {
+        description: "Isso pode levar alguns minutos — o worker navega perfil por perfil de verdade."
+      })
+      try {
+        const job = await JobService.createJob('instagram_hashtag', {
+          hashtag: username,
+          limit: parseInt(limit),
+          credential_id: selectedCredential,
+          type: discoveryType,
+        })
+        setActiveJob(job)
+        loadJobs()
+
+        const { startDiscoveryAction, getDiscoveryStatusAction } = await import('@/lib/instagram-worker/discovery.functions')
+        const startResult = await startDiscoveryAction({
+          data: { credentialId: selectedCredential!, hashtag: username, maxLeads: parseInt(limit) },
+        })
+
+        if (!startResult?.jobId) {
+          throw new Error(startResult?.message || 'Worker não retornou um job válido.')
+        }
+
+        // Busca por hashtag é lenta de propósito (ritmo humano entre
+        // perfis) — pode levar vários minutos, por isso o polling
+        // continua por até 15 minutos antes de desistir.
+        const maxAttempts = 180 // 180 * 5s = 15 minutos
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 5000))
+          const statusResult = await getDiscoveryStatusAction({ data: { jobId: startResult.jobId } })
+
+          toast.loading(statusResult.currentStep || "Buscando...", { id: toastId })
+
+          if (statusResult.status === 'COMPLETED') {
+            await JobService.updateStats(job.id, { leads: statusResult.leadsFound, profiles_analyzed: statusResult.leadsFound })
+            toast.success(`Busca concluída! ${statusResult.leadsFound} leads encontrados.`, { id: toastId })
+            loadLeads()
+            loadJobs()
+            setActiveJob(null)
+            setIsSearching(false)
+            return
+          }
+          if (statusResult.status === 'ERROR') {
+            toast.error("Busca falhou.", { id: toastId, description: statusResult.currentStep })
+            loadJobs()
+            setActiveJob(null)
+            setIsSearching(false)
+            return
+          }
+        }
+
+        toast.error("Tempo esgotado esperando a busca.", { id: toastId })
+        setIsSearching(false)
+      } catch (error: any) {
+        console.error(error)
+        toast.error("Erro na descoberta por hashtag", { id: toastId, description: error?.message })
+        setIsSearching(false)
+      }
       return
     }
 
@@ -738,12 +805,9 @@ function LeadFinderPage() {
                           <RadioGroupItem value="profile" id="type-prof" className="sr-only" />
                           <Label htmlFor="type-prof" className="w-full cursor-pointer text-sm font-medium">Perfil</Label>
                         </div>
-                        <div className="flex items-center space-x-2 border p-3 rounded-lg opacity-50 bg-muted/20">
-                          <RadioGroupItem value="hashtag" id="type-hash" className="sr-only" disabled />
-                          <Label htmlFor="type-hash" className="flex flex-col gap-0.5 w-full">
-                            <span className="text-sm font-medium">Hashtag</span>
-                            <span className="text-[10px] text-muted-foreground">Em breve</span>
-                          </Label>
+                        <div className="flex items-center space-x-2 border p-3 rounded-lg cursor-pointer hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                          <RadioGroupItem value="hashtag" id="type-hash" className="sr-only" />
+                          <Label htmlFor="type-hash" className="w-full cursor-pointer text-sm font-medium">Hashtag</Label>
                         </div>
                         <div className="flex items-center space-x-2 border p-3 rounded-lg opacity-50 bg-muted/20">
                           <RadioGroupItem value="keyword" id="type-key" className="sr-only" disabled />
@@ -760,10 +824,12 @@ function LeadFinderPage() {
                       <Label className="text-base font-bold">4. Parâmetros</Label>
                       <div className="grid gap-6 md:grid-cols-2">
                         <div className="space-y-2">
-                          <Label htmlFor="username" className="text-xs uppercase text-muted-foreground">@usuario do Instagram</Label>
+                          <Label htmlFor="username" className="text-xs uppercase text-muted-foreground">
+                            {discoveryType === 'hashtag' ? '#hashtag (sem o #)' : '@usuario do Instagram'}
+                          </Label>
                           <Input 
                             id="username" 
-                            placeholder="@username" 
+                            placeholder={discoveryType === 'hashtag' ? 'musicabrasileira' : '@username'}
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             className="h-10"
