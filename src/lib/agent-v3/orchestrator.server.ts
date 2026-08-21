@@ -41,6 +41,7 @@ import {
   SUPORTE_EXPANDIDO_TEXT,
   HESITACAO_TOM_TEXT,
   INTERESSE_TESTE_TOM_TEXT,
+  RECUPERACAO_CONTEXTO_TEXT,
   OBJECAO_CONFIANCA_TOM_TEXT
 } from "./prompt/prompt-conditional.server";
 
@@ -536,6 +537,7 @@ export interface OrchestratorInput {
   // de negócio própria, não é algo que o prompt decide sozinho).
   offerEligibility?: { eligibleForDiscount: boolean; eligibleForFreeTest?: boolean };
   objections?: Array<{ category: string; reason: string }>;
+  recoveryStatus?: { needsRecovery: boolean; reason: string };
   historyTelemetry?: {
     total_messages_stored: number;
     history_truncated: boolean;
