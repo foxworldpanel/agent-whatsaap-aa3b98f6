@@ -48,6 +48,8 @@ export class InstagramSessionManager {
       }
       
       return null; 
+      // Em 21/08/2026: removemos o "throw error" se não vier status, 
+      // pois o worker pode estar em processo de abertura de navegador.
     } catch (error: any) {
       logger('Connect Error', error.message);
       throw error;
@@ -82,12 +84,29 @@ export class InstagramSessionManager {
     }
   }
 
-  static async getStatus(credentialId: string): Promise<InstagramSessionStatus> {
+  static async getStatus(credentialId: string): Promise<{ status: InstagramSessionStatus; username: string | null }> {
     logger('Status Requested', { credentialId });
     try {
       const response = await this.workerClient.status(credentialId);
-      await this.updateStatus(credentialId, response.status);
-      return response.status;
+      const responseWithUsername = response as unknown as { status: InstagramSessionStatus; username?: string };
+
+      if (responseWithUsername.status === 'CONNECTED' && responseWithUsername.username) {
+        // Login concluído — salva o username real, não mais o placeholder
+        // usado na criação do registro.
+        await supabase
+          .from('lead_finder_credentials')
+          .update({
+            status: responseWithUsername.status,
+            username: responseWithUsername.username,
+            account_name: responseWithUsername.username,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', credentialId);
+      } else {
+        await this.updateStatus(credentialId, response.status);
+      }
+
+      return { status: response.status, username: responseWithUsername.username || null };
     } catch (error: any) {
       logger('Status Error', error.message);
       throw error;
@@ -121,4 +140,3 @@ export class InstagramSessionManager {
       .eq('id', credentialId);
   }
 }
-

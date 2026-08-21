@@ -8,7 +8,9 @@ export const Route = createFileRoute('/')({
     <div className="p-8">
       <h1 className="text-xl font-bold mb-4">Manifesto Técnico</h1>
       <pre className="whitespace-pre-wrap bg-slate-100 p-4 rounded text-sm">
-{`Parte 1 — VPS (arquivo server.js atualizado)
+{`voce tem que aplicar nos codigos as correções abaixo
+
+Parte 1 — VPS (arquivo server.js atualizado)
 
 Como fizemos antes, vou te passar comando por comando na VPS. Antes de mais nada:
 

@@ -173,35 +173,71 @@ function LeadFinderPage() {
     setIsSearching(true);
     
     const toastId = toast.loading("Iniciando conexão...", {
-      description: "Verificando ambiente do servidor..."
+      description: "Criando registro da conta..."
     });
 
     try {
-      console.log('[LeadFinder] Importing connectInstagramAction...');
-      const { connectInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions');
+      // Achado real em 21/08/2026: conectar direto sem criar um
+      // registro primeiro fazia a conexão funcionar na VPS mas nunca
+      // aparecer no sistema — connect() só atualiza um registro que já
+      // existe, e nenhum existia ainda na primeira conexão. Cria o
+      // registro (com dados provisórios) ANTES de conectar, pra ter um
+      // ID real pra associar.
+      const { CredentialService } = await import('@/lib/lead-finder/credential.service');
+      const newCredential = await CredentialService.addCredential({
+        provider_type: 'instagram',
+        account_name: 'Conectando...',
+        username: 'pending',
+      });
+
+      const { connectInstagramAction, getInstagramStatusAction } = await import('@/lib/instagram-session/instagram-session.functions');
       
       toast.info("Ação iniciada", {
         id: toastId,
         description: "Abrindo navegador... Aguarde o login no popup."
       });
 
-      console.log('[LeadFinder] Calling connectInstagramAction...');
-      const result = await connectInstagramAction({ data: { credentialId: undefined } });
-      
-      console.log('[LeadFinder] Result received:', result);
-      
-      if (result) {
-        toast.success(`Conta @${result.username} conectada!`, { 
-          id: toastId,
-          description: "Sessão validada com sucesso."
-        });
-        await loadCredentials();
-      } else {
-        toast.error("Conexão cancelada ou falhou.", { 
-          id: toastId,
-          description: "Verifique os logs do servidor para mais detalhes."
-        });
+      console.log('[LeadFinder] Calling connectInstagramAction with real credentialId...');
+      await connectInstagramAction({ data: { credentialId: newCredential.id } });
+      await loadCredentials();
+
+      toast.info("Aguardando login...", {
+        id: toastId,
+        description: "Faça login na janela que abriu. Isso pode levar alguns minutos."
+      });
+
+      // Login é manual (via VNC) e pode levar até 20 minutos — verifica
+      // o status a cada 5 segundos, sem travar a tela.
+      const maxAttempts = 240; // 240 * 5s = 20 minutos
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        const statusResult = await getInstagramStatusAction({ data: { credentialId: newCredential.id } });
+
+        if (statusResult.status === 'CONNECTED') {
+          toast.success(`Conta @${statusResult.username || newCredential.id} conectada!`, {
+            id: toastId,
+            description: "Sessão validada com sucesso."
+          });
+          await loadCredentials();
+          setIsSearching(false);
+          return;
+        }
+        if (statusResult.status === 'ERROR') {
+          toast.error("Conexão falhou ou expirou.", {
+            id: toastId,
+            description: "Tenta reconectar essa conta na lista."
+          });
+          await loadCredentials();
+          setIsSearching(false);
+          return;
+        }
       }
+
+      toast.error("Tempo esgotado esperando o login.", {
+        id: toastId,
+        description: "Tenta reconectar essa conta na lista."
+      });
+      await loadCredentials();
     } catch (e: any) {
       console.error('[LeadFinder] Error in handleAddCredential:', e);
       toast.error(`Erro na conexão`, {
