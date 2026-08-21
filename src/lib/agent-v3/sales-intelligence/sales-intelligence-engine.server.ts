@@ -43,7 +43,8 @@ export type SalesSignalType =
   | "ASKED_TEST"
   | "MENTIONED_PLATFORM"
   | "READY_TO_BUY"
-  | "HESITATING";
+  | "HESITATING"
+  | "LOST_CONTEXT";
 
 export type SalesSignal = {
   type: SalesSignalType;
@@ -97,6 +98,29 @@ const SIGNAL_DETECTORS: Array<{ type: SalesSignalType; terms: string[] }> = [
   },
   { type: "READY_TO_BUY", terms: ["quero comprar", "vou querer", "fechar pedido", "quero fechar"] },
   { type: "HESITATING", terms: ["nao sei", "vou pensar", "depois eu vejo", "depois eu volto"] },
+  // Achado em conversa real em 21/08/2026: cliente disse "Le as msg
+  // anteriores" e "Já testei mn...acorda" depois de repetir a mesma
+  // dúvida várias vezes, e o agente continuou perguntando do zero —
+  // nenhum sinal existente cobria "cliente sinalizando que já
+  // explicou/perdeu paciência com repetição".
+  {
+    type: "LOST_CONTEXT",
+    terms: [
+      "leia acima",
+      "le acima",
+      "le as msg",
+      "leia as msg",
+      "msg anterior",
+      "mensagens anteriores",
+      "ja falei",
+      "ja expliquei",
+      "vou repetir",
+      "vou explicar de novo",
+      "explicar tudo de novo",
+      "explicar td de novo",
+      "acorda",
+    ],
+  },
 ];
 
 function detectSalesSignals(message: string): SalesSignal[] {

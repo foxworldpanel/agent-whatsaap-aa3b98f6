@@ -41,6 +41,7 @@ import {
   SUPORTE_EXPANDIDO_TEXT,
   HESITACAO_TOM_TEXT,
   INTERESSE_TESTE_TOM_TEXT,
+  RECUPERACAO_CONTEXTO_TEXT,
   OBJECAO_CONFIANCA_TOM_TEXT
 } from "./prompt/prompt-conditional.server";
 
@@ -536,6 +537,7 @@ export interface OrchestratorInput {
   // de negócio própria, não é algo que o prompt decide sozinho).
   offerEligibility?: { eligibleForDiscount: boolean; eligibleForFreeTest?: boolean };
   objections?: Array<{ category: string; reason: string }>;
+  recoveryStatus?: { needsRecovery: boolean; reason: string };
   historyTelemetry?: {
     total_messages_stored: number;
     history_truncated: boolean;
@@ -672,6 +674,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     flowActionHint,
     offerEligibility,
     objections,
+    recoveryStatus,
     traceId = generateTraceId()
   } = input;
 
@@ -1013,6 +1016,16 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   // Outbound). Sinal diferente de HESITATING, não duplica nada.
   if (offerEligibility?.eligibleForFreeTest) {
     conditionalPrompts += "\n\n" + INTERESSE_TESTE_TOM_TEXT;
+  }
+
+  // Conecta recoveryStatus — calculado desde a Fase B mas nunca repassado
+  // pro orchestrator até 21/08/2026 (achado em auditoria). Só o motivo
+  // CUSTOMER_LOST_CONTEXT é conectado aqui — CUSTOMER_HESITATED
+  // continua fora de propósito, pois já é redundante com
+  // HESITACAO_TOM_TEXT (mesmo sinal HESITATING, já conectado via
+  // eligibleForDiscount).
+  if (recoveryStatus?.needsRecovery && recoveryStatus.reason === "CUSTOMER_LOST_CONTEXT") {
+    conditionalPrompts += "\n\n" + RECUPERACAO_CONTEXTO_TEXT;
   }
 
   // Objeção de confiança/segurança — primeira conexão real desse sinal.
