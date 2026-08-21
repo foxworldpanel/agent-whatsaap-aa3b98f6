@@ -31,7 +31,12 @@ export class InstagramSessionManager {
             .eq('id', credentialId)
             .maybeSingle();
           if (updated) {
-            return updated as unknown as InstagramSessionInfo;
+            // Bug real encontrado em 21/08/2026: ao corrigir o retorno
+            // acima, a URL de VNC (necessária pra tela mostrar o link de
+            // login) parou de chegar até o frontend — só o registro do
+            // banco era retornado, sem a url. Sem isso, o card de
+            // "Conectando..." aparecia sem nenhum jeito de logar.
+            return { ...(updated as unknown as InstagramSessionInfo), url: response.url };
           }
         }
         // Fallback: se o worker retornou username diretamente na resposta
