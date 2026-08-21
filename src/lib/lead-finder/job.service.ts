@@ -16,11 +16,27 @@ export class JobService {
    */
   static async createJob(providerId: string, config: any = {}) {
     const { data: { user } } = await supabase.auth.getUser();
-    
+
+    // Bug real encontrado em 21/08/2026: provider_id é uma FK estrita
+    // (uuid) pra lead_finder_providers, mas o código sempre passou a
+    // CHAVE em texto (ex: 'instagram_public') direto — nunca existia
+    // resolução pro UUID real, e a tabela de providers nunca tinha
+    // sido semeada. Isso quebrava a criação de qualquer job desde o
+    // início, mesmo no caminho simulado. Resolve o UUID real aqui.
+    const { data: providerRow, error: providerError } = await supabase
+      .from('lead_finder_providers')
+      .select('id')
+      .eq('provider_key', providerId)
+      .maybeSingle();
+
+    if (providerError || !providerRow) {
+      throw new Error(`Provider "${providerId}" não encontrado em lead_finder_providers. Rode o seed dessa tabela primeiro.`);
+    }
+
     const { data: job, error } = await supabase
       .from('lead_finder_jobs')
       .insert({
-        provider_id: providerId,
+        provider_id: providerRow.id,
         status: 'PENDING',
         config: config as any,
         created_by: user?.id,
