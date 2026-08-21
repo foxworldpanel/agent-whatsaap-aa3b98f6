@@ -99,9 +99,17 @@ export class InstagramWorkerClient implements InstagramWorkerApi {
   }
 
   async discoveryStatus(jobId: string) {
-    return this.request<{ success: boolean; status: string; leadsFound: number; currentStep: string }>(
-      `/api/instagram/discover/${jobId}/status`,
-      { method: 'GET' },
-    );
+    return this.request<{
+      success: boolean;
+      status: string;
+      currentStep: string;
+      results: Array<{
+        profile: { platform: string; username: string; url?: string; bio?: string | null };
+        contacts: { phone?: string | null; email?: string | null };
+        links: string[];
+        metadata: { segment?: string | null };
+        rawData: Record<string, any>;
+      }>;
+    }>(`/api/instagram/discover/${jobId}/status`, { method: 'GET' });
   }
 }
