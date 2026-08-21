@@ -70,9 +70,9 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
         salesSignals: salesIntelligence.salesSignals,
         objections: salesIntelligence.objections,
         offerEligibility: salesIntelligence.offerEligibility,
-        // Ainda não conectado a comportamento (achado em auditoria de
-        // 17/08/2026 — redundante com HESITACAO_TOM_TEXT do jeito que
-        // está hoje). Aparece aqui só pra visibilidade/diagnóstico.
+        // CUSTOMER_HESITATED continua não conectado a comportamento
+        // (redundante com HESITACAO_TOM_TEXT). CUSTOMER_LOST_CONTEXT foi
+        // conectado em 21/08/2026 — ver RECUPERACAO_CONTEXTO_TEXT.
         recoveryStatus: salesIntelligence.recoveryStatus,
       },
     });
@@ -139,6 +139,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     ...input,
     offerEligibility: salesIntelligence.offerEligibility,
     objections: salesIntelligence.objections,
+    recoveryStatus: salesIntelligence.recoveryStatus,
   });
   const engineDuration = Date.now() - engineStartAt;
 

@@ -674,6 +674,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     flowActionHint,
     offerEligibility,
     objections,
+    recoveryStatus,
     traceId = generateTraceId()
   } = input;
 
