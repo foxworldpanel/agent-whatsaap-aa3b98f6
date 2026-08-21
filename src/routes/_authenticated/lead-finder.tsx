@@ -198,13 +198,25 @@ function LeadFinderPage() {
       });
 
       console.log('[LeadFinder] Calling connectInstagramAction with real credentialId...');
-      await connectInstagramAction({ data: { credentialId: newCredential.id } });
+      const connectResult = await connectInstagramAction({ data: { credentialId: newCredential.id } });
       await loadCredentials();
 
-      toast.info("Aguardando login...", {
-        id: toastId,
-        description: "Faça login na janela que abriu. Isso pode levar alguns minutos."
-      });
+      // Bug real encontrado em 21/08/2026: o link de VNC pra login
+      // manual nunca era mostrado nem aberto — o card ficava em
+      // "Conectando..." sem nenhum jeito de acessar a tela de login.
+      if (connectResult?.url) {
+        window.open(connectResult.url, '_blank');
+        toast.info("Aguardando login...", {
+          id: toastId,
+          description: `Janela de login aberta em nova aba. Se não abriu, acesse: ${connectResult.url}`,
+          duration: 15000,
+        });
+      } else {
+        toast.info("Aguardando login...", {
+          id: toastId,
+          description: "Não recebi o link de login do worker. Verifique se o INSTAGRAM_WORKER_URL está configurado corretamente."
+        });
+      }
 
       // Login é manual (via VNC) e pode levar até 20 minutos — verifica
       // o status a cada 5 segundos, sem travar a tela.
