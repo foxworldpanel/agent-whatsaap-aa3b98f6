@@ -29,6 +29,18 @@ export const validateInstagramAction = createServerFn({ method: "POST" })
     return await InstagramSessionManager.validate(data.credentialId);
   });
 
+// Consulta o status em tempo real durante uma conexão em andamento (o
+// login pode levar até 20 minutos, feito manualmente pelo usuário via
+// VNC). Diferente de validateInstagramAction, que só confirma sessão
+// já salva em disco — esta consulta o estado em memória do worker,
+// incluindo o username assim que o login é detectado.
+export const getInstagramStatusAction = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => z.object({ credentialId: z.string() }).parse(data))
+  .handler(async ({ data }) => {
+    const { InstagramSessionManager } = await import("./instagram-session-manager.server");
+    return await InstagramSessionManager.getStatus(data.credentialId);
+  });
+
 export const removeInstagramAction = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ credentialId: z.string() }).parse(data))
   .handler(async ({ data }) => {
