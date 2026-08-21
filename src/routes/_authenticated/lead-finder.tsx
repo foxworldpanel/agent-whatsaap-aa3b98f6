@@ -159,11 +159,17 @@ function LeadFinderPage() {
           }
         }
 
+        // Bug real encontrado em 21/08/2026: os caminhos de erro/timeout
+        // nunca limpavam activeJob, deixando o formulário inteiro
+        // escondido pra sempre (a tela mostra o card de "buscando..."
+        // no lugar do formulário enquanto activeJob existir).
         toast.error("Tempo esgotado esperando a busca.", { id: toastId })
+        setActiveJob(null)
         setIsSearching(false)
       } catch (error: any) {
         console.error(error)
         toast.error("Erro na descoberta por hashtag", { id: toastId, description: error?.message })
+        setActiveJob(null)
         setIsSearching(false)
       }
       return
