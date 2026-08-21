@@ -33,6 +33,10 @@ function createSupabaseClient() {
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
 
+  // Diagnóstico temporário — 21/08/2026 — remover depois de confirmar
+  // qual projeto Supabase o app realmente usa em produção.
+  console.error("[DIAGNOSTICO-SUPABASE-URL-REAL]", SUPABASE_URL);
+
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
