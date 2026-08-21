@@ -278,8 +278,11 @@ function LeadFinderPage() {
       await removeInstagramAction({ data: { credentialId: id } })
       toast.success("Conta removida")
       loadCredentials()
-    } catch (e) {
-      toast.error("Erro ao remover conta")
+    } catch (e: any) {
+      console.error('[LeadFinder] Error in handleRemoveCredential:', e);
+      toast.error("Erro ao remover conta", {
+        description: e?.message || JSON.stringify(e) || 'Erro desconhecido',
+      })
     }
   }
 
