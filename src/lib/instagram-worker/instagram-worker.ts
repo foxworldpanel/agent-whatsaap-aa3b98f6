@@ -34,6 +34,10 @@ export class InstagramWorkerClient implements InstagramWorkerApi {
         ...options,
         headers: {
           'Content-Type': 'application/json',
+          // Token de autenticação do worker — sem isso, o servidor na
+          // VPS recusa toda requisição com 401 (proteção adicionada em
+          // 21/08/2026, junto com a implantação do worker real).
+          'x-worker-token': process.env.INSTAGRAM_WORKER_TOKEN || '',
           ...options.headers,
         },
       });
