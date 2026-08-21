@@ -131,9 +131,13 @@ function LeadFinderPage() {
           throw new Error(startResult?.message || 'Worker não retornou um job válido.')
         }
 
-        // Busca por hashtag é lenta de propósito (ritmo humano entre
-        // perfis) — pode levar vários minutos, por isso o polling
-        // continua por até 15 minutos antes de desistir.
+        // Achado real em 21/08/2026: o worker NÃO grava mais no banco
+        // diretamente (arquitetura corrigida — Worker só navega e
+        // devolve dado bruto). Cada consulta de status traz TODOS os
+        // resultados acumulados até agora — persiste aqui via
+        // LeadService, que já faz dedupe (upsert por platform+username,
+        // seguro chamar de novo pro mesmo lead sem duplicar).
+        const savedUsernames = new Set<string>()
         const maxAttempts = 180 // 180 * 5s = 15 minutos
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           await new Promise((resolve) => setTimeout(resolve, 5000))
@@ -141,10 +145,18 @@ function LeadFinderPage() {
 
           toast.loading(statusResult.currentStep || "Buscando...", { id: toastId })
 
-          if (statusResult.status === 'COMPLETED') {
-            await JobService.updateStats(job.id, { leads: statusResult.leadsFound, profiles_analyzed: statusResult.leadsFound })
-            toast.success(`Busca concluída! ${statusResult.leadsFound} leads encontrados.`, { id: toastId })
+          for (const result of statusResult.results || []) {
+            if (savedUsernames.has(result.profile.username)) continue
+            await LeadService.saveLead(result as any, 'hashtag', username)
+            savedUsernames.add(result.profile.username)
+          }
+          if (savedUsernames.size > 0) {
+            await JobService.updateStats(job.id, { leads: savedUsernames.size, profiles_analyzed: savedUsernames.size })
             loadLeads()
+          }
+
+          if (statusResult.status === 'COMPLETED') {
+            toast.success(`Busca concluída! ${savedUsernames.size} leads encontrados.`, { id: toastId })
             loadJobs()
             setActiveJob(null)
             setIsSearching(false)
@@ -159,10 +171,6 @@ function LeadFinderPage() {
           }
         }
 
-        // Bug real encontrado em 21/08/2026: os caminhos de erro/timeout
-        // nunca limpavam activeJob, deixando o formulário inteiro
-        // escondido pra sempre (a tela mostra o card de "buscando..."
-        // no lugar do formulário enquanto activeJob existir).
         toast.error("Tempo esgotado esperando a busca.", { id: toastId })
         setActiveJob(null)
         setIsSearching(false)
