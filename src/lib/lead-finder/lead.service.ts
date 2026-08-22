@@ -57,6 +57,9 @@ export class LeadService {
       // Achado em 21/08/2026: segment vinha em metadata mas nunca era
       // extraído pra coluna própria — ficava perdido dentro do JSON.
       segment: metadata?.segment || null,
+      // Detectado pelo código do telefone (achado em 22/08/2026 —
+      // primeiro passo pra virar agente de vendas global).
+      country: metadata?.country || null,
       lead_origin: origin,
       lead_origin_value: originValue,
       raw_profile_data: { 
