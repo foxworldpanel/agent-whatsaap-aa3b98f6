@@ -171,4 +171,66 @@ export class LeadService {
     if (error) throw error;
     return (data || []).map((row) => row.profile_username);
   }
+
+  /**
+   * A ponte que faltava — achado real em 21/08/2026: o Lead Finder e o
+   * sistema de disparo eram dois mundos separados. Um lead descoberto
+   * nunca virava um "contact" de verdade, então nunca podia ser
+   * abordado pelo agente. Essa função cria (ou reaproveita, se o
+   * telefone já existir) o contato real, e avança o estágio do lead.
+   */
+  static async promoteToContact(leadId: string, userId: string): Promise<{ contactId: string; alreadyExisted: boolean }> {
+    const { data: lead, error: leadError } = await supabase
+      .from('lead_finder_leads')
+      .select('*')
+      .eq('id', leadId)
+      .single();
+
+    if (leadError) throw leadError;
+    if (!lead.phone) throw new Error('Lead sem telefone não pode virar contato de disparo.');
+
+    // Reaproveita se o telefone já é um contato conhecido — evita
+    // duplicar e evita reiniciar o histórico de abordagem de alguém
+    // que já está na base.
+    const { data: existente } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('telefone', lead.phone)
+      .maybeSingle();
+
+    let contactId: string;
+    let alreadyExisted = false;
+
+    if (existente) {
+      contactId = existente.id;
+      alreadyExisted = true;
+    } else {
+      const { data: novoContato, error: contactError } = await supabase
+        .from('contacts')
+        .insert({
+          user_id: userId,
+          nome: lead.display_name || lead.profile_username,
+          telefone: lead.phone,
+          instagram: lead.profile_username,
+          source: 'lead_finder',
+          perfil: 'frio',
+          status: 'nao_abordado',
+        })
+        .select('id')
+        .single();
+
+      if (contactError) throw contactError;
+      contactId = novoContato.id;
+    }
+
+    await supabase
+      .from('lead_finder_leads')
+      .update({ pipeline_stage: 'READY_FOR_SALES', sales_status: 'QUEUED' })
+      .eq('id', leadId);
+
+    await this.addTimelineEvent(leadId, alreadyExisted ? 'PROMOTED_EXISTING_CONTACT' : 'PROMOTED_TO_CONTACT', { contactId });
+
+    return { contactId, alreadyExisted };
+  }
 }
