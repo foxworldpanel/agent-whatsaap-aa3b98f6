@@ -57,7 +57,7 @@ function LeadFinderPage() {
   const [activeJob, setActiveJob] = useState<any>(null)
   // Lista ao vivo, preenchida durante a busca por hashtag em andamento
   // — mostra cada lead assim que é encontrado, sem esperar terminar.
-  const [liveResults, setLiveResults] = useState<Array<{ username: string; phone: string | null; segment: string | null }>>([])
+  const [liveResults, setLiveResults] = useState<Array<{ username: string; phone: string | null; email: string | null; segment: string | null }>>([])
   
   const [timeline, setTimeline] = useState<any[]>([])
 
@@ -169,26 +169,36 @@ function LeadFinderPage() {
 
           for (const result of statusResult.results || []) {
             if (savedUsernames.has(result.profile.username)) continue
-            await LeadService.saveLead(result as any, 'hashtag', cleanHashtag)
             savedUsernames.add(result.profile.username)
-            // Atualiza a lista ao vivo — o usuário vê cada lead
-            // aparecer na hora, sem esperar a busca terminar.
+
+            // Atualiza a lista ao vivo pra TODO perfil verificado, com
+            // ou sem contato — assim dá pra conferir manualmente
+            // depois se realmente não tinha nada, sem ficar no escuro.
             setLiveResults((prev) => [
               ...prev,
               {
                 username: result.profile.username,
                 phone: result.contacts?.phone || null,
+                email: result.contacts?.email || null,
                 segment: result.metadata?.segment || null,
               },
             ])
+
+            // Só persiste no banco quem tem telefone ou email de
+            // verdade — perfil sem nenhum contato não vira lead salvo,
+            // só aparece na lista ao vivo pra conferência.
+            if (result.contacts?.phone || result.contacts?.email) {
+              await LeadService.saveLead(result as any, 'hashtag', cleanHashtag)
+            }
           }
-          if (savedUsernames.size > 0) {
-            await JobService.updateStats(job.id, { leads: savedUsernames.size, profiles_analyzed: savedUsernames.size })
+          const leadsComContato = liveResults.filter((r) => r.phone || r.email).length
+          if (leadsComContato > 0) {
+            await JobService.updateStats(job.id, { leads: leadsComContato, profiles_analyzed: savedUsernames.size })
             loadLeads()
           }
 
           if (statusResult.status === 'COMPLETED') {
-            toast.success(`Busca concluída! ${savedUsernames.size} leads novos encontrados.`, { id: toastId })
+            toast.success(`Busca concluída! ${savedUsernames.size} perfis verificados.`, { id: toastId })
             loadJobs()
             setActiveJob(null)
             setIsSearching(false)
@@ -766,9 +776,9 @@ function LeadFinderPage() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          const header = 'username,telefone,segmento\n'
+                          const header = 'username,telefone,email,segmento\n'
                           const rows = liveResults
-                            .map((r) => `${r.username},${r.phone || ''},${r.segment || ''}`)
+                            .map((r) => `${r.username},${r.phone || ''},${r.email || ''},${r.segment || ''}`)
                             .join('\n')
                           const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' })
                           const url = URL.createObjectURL(blob)
@@ -783,13 +793,24 @@ function LeadFinderPage() {
                       </Button>
                     </div>
                     <div className="max-h-64 overflow-y-auto space-y-1 border rounded-lg p-2">
-                      {liveResults.slice().reverse().map((r, i) => (
-                        <div key={i} className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-muted/50">
-                          <span className="font-medium">@{r.username}</span>
-                          <span className="text-muted-foreground">{r.phone || '—'}</span>
-                          <span className="text-xs text-muted-foreground">{r.segment || '—'}</span>
-                        </div>
-                      ))}
+                      {liveResults.slice().reverse().map((r, i) => {
+                        const temContato = r.phone || r.email
+                        return (
+                          <div
+                            key={i}
+                            className={`flex items-center justify-between text-sm py-1.5 px-2 rounded ${temContato ? 'bg-green-50 dark:bg-green-900/10' : 'hover:bg-muted/50'}`}
+                          >
+                            <span className="font-medium">@{r.username}</span>
+                            <span className="text-muted-foreground text-xs">
+                              {r.phone && <span className="text-green-700 dark:text-green-400 font-medium">{r.phone}</span>}
+                              {r.phone && r.email && ' · '}
+                              {r.email && <span>{r.email}</span>}
+                              {!temContato && <span className="italic">sem contato</span>}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{r.segment || '—'}</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </>
                 )}
