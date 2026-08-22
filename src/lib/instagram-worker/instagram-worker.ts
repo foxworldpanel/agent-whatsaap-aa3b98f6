@@ -91,10 +91,22 @@ export class InstagramWorkerClient implements InstagramWorkerApi {
     });
   }
 
-  async discover(credentialId: string, hashtag: string, maxLeads: number) {
+  async discover(
+    credentialId: string,
+    hashtag: string,
+    maxLeads: number,
+    options?: { minDelaySec?: number; maxDelaySec?: number; excludeUsernames?: string[] },
+  ) {
     return this.request<{ success: boolean; jobId?: string; status?: string; message?: string }>('/api/instagram/discover', {
       method: 'POST',
-      body: JSON.stringify({ credentialId, hashtag, maxLeads }),
+      body: JSON.stringify({
+        credentialId,
+        hashtag,
+        maxLeads,
+        minDelaySec: options?.minDelaySec,
+        maxDelaySec: options?.maxDelaySec,
+        excludeUsernames: options?.excludeUsernames,
+      }),
     });
   }
 
