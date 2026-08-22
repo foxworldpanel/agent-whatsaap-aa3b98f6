@@ -58,6 +58,9 @@ function LeadFinderPage() {
   // Lista ao vivo, preenchida durante a busca por hashtag em andamento
   // — mostra cada lead assim que é encontrado, sem esperar terminar.
   const [liveResults, setLiveResults] = useState<Array<{ username: string; phone: string | null; email: string | null; segment: string | null }>>([])
+  // Status atual em texto — fica fixo na tela, diferente do toast que
+  // desaparece. Assim o progresso real fica sempre visível.
+  const [currentSearchStep, setCurrentSearchStep] = useState<string>('')
   
   const [timeline, setTimeline] = useState<any[]>([])
 
@@ -114,6 +117,7 @@ function LeadFinderPage() {
     if (discoveryType === 'hashtag') {
       setIsSearching(true)
       setLiveResults([])
+      setCurrentSearchStep('Iniciando...')
       const toastId = toast.loading("Verificando perfis já buscados antes...", {
         description: "Evita repetir perfil de buscas anteriores com a mesma hashtag."
       })
@@ -166,6 +170,7 @@ function LeadFinderPage() {
           const statusResult = await getDiscoveryStatusAction({ data: { jobId: startResult.jobId } })
 
           toast.loading(statusResult.currentStep || "Buscando...", { id: toastId })
+          setCurrentSearchStep(statusResult.currentStep || 'Buscando...')
 
           for (const result of statusResult.results || []) {
             if (savedUsernames.has(result.profile.username)) continue
@@ -767,6 +772,16 @@ function LeadFinderPage() {
                   <span>Iniciado há poucos segundos</span>
                 </div>
 
+                {currentSearchStep && (
+                  <div className="mt-4 flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                    </span>
+                    <span className="text-sm font-medium">{currentSearchStep}</span>
+                  </div>
+                )}
+
                 {liveResults.length > 0 && (
                   <>
                     <Separator className="my-6" />
@@ -1014,6 +1029,40 @@ function LeadFinderPage() {
                 <CardDescription>Visualize e gerencie todos os leads descobertos.</CardDescription>
               </div>
               <div className="flex gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
+                  onClick={async () => {
+                    const elegiveis = leads.filter(
+                      (l) => l.phone && l.sales_status !== 'QUEUED' && l.sales_status !== 'CONTACTED'
+                    )
+                    if (elegiveis.length === 0) {
+                      toast.info('Nenhum lead novo com telefone pra promover.')
+                      return
+                    }
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (!user) {
+                      toast.error('Sessão expirada, recarregue a página.')
+                      return
+                    }
+                    const toastId = toast.loading(`Promovendo ${elegiveis.length} leads...`)
+                    let sucesso = 0
+                    let falhas = 0
+                    for (const lead of elegiveis) {
+                      try {
+                        await LeadService.promoteToContact(lead.id, user.id)
+                        sucesso++
+                      } catch {
+                        falhas++
+                      }
+                    }
+                    toast.success(`${sucesso} leads promovidos${falhas > 0 ? `, ${falhas} falharam` : ''}.`, { id: toastId })
+                    loadLeads()
+                  }}
+                >
+                  <Play className="h-4 w-4" /> Promover Todos
+                </Button>
                 <Button variant="outline" size="sm" className="gap-2">
                   <Filter className="h-4 w-4" /> Filtros
                 </Button>
