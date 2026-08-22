@@ -157,4 +157,18 @@ export class JobService {
       await this.updateJobStatus(jobId, anyFailed ? 'FAILED' : 'FINISHED');
     }
   }
+
+  /**
+   * AUDITORIA 001 — Problema 5. Liga o job do banco ao job em memória
+   * do Worker, pra a rota de fundo (discovery-poll) conseguir
+   * consultar e persistir progresso sem depender do navegador aberto.
+   */
+  static async linkWorkerJob(jobId: string, workerJobId: string) {
+    const { error } = await supabase
+      .from('lead_finder_jobs')
+      .update({ worker_job_id: workerJobId, status: 'RUNNING' })
+      .eq('id', jobId);
+
+    if (error) throw error;
+  }
 }
