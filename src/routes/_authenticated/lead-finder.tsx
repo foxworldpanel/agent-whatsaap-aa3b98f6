@@ -127,8 +127,6 @@ function LeadFinderPage() {
         description: "Evita repetir perfil de buscas anteriores com a mesma hashtag."
       })
       try {
-        // "Continuar de onde parou" — busca quem já foi descoberto
-        // antes com essa mesma hashtag, pra não visitar de novo.
         const cleanHashtag = username.replace(/^#/, '').trim()
         const jaConhecidos = await LeadService.getKnownUsernamesByOrigin('hashtag', cleanHashtag)
 
@@ -164,13 +162,15 @@ function LeadFinderPage() {
           throw new Error(startResult?.message || 'Worker não retornou um job válido.')
         }
 
-        // Achado real em 21/08/2026: o worker NÃO grava mais no banco
-        // diretamente (arquitetura corrigida — Worker só navega e
-        // devolve dado bruto). Cada consulta de status traz TODOS os
-        // resultados acumulados até agora — persiste aqui via
-        // LeadService, que já faz dedupe (upsert por platform+username,
-        // seguro chamar de novo pro mesmo lead sem duplicar).
-        const savedUsernames = new Set<string>()
+        // AUDITORIA 001 — Problema 5, corrigido em 22/08/2026: liga o
+        // job do banco ao job do Worker. A partir daqui, uma rota de
+        // fundo (discovery-poll, chamada por pg_cron a cada minuto)
+        // é quem persiste de verdade — independente dessa aba
+        // continuar aberta ou não. Esse loop abaixo só CONSULTA pra
+        // mostrar progresso, não decide mais o que fica salvo.
+        await JobService.linkWorkerJob(job.id, startResult.jobId)
+
+        const usernamesExibidos = new Set<string>()
         const maxAttempts = 180 // 180 * 5s = 15 minutos
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           await new Promise((resolve) => setTimeout(resolve, 5000))
@@ -179,13 +179,12 @@ function LeadFinderPage() {
           toast.loading(statusResult.currentStep || "Buscando...", { id: toastId })
           setCurrentSearchStep(statusResult.currentStep || 'Buscando...')
 
+          // Só exibe — a persistência real acontece na rota de fundo,
+          // não aqui. Isso é seguro mesmo mostrando 2x o mesmo perfil
+          // entre reloads, já que é só exibição, sem duplicar no banco.
           for (const result of statusResult.results || []) {
-            if (savedUsernames.has(result.profile.username)) continue
-            savedUsernames.add(result.profile.username)
-
-            // Atualiza a lista ao vivo pra TODO perfil verificado, com
-            // ou sem contato — assim dá pra conferir manualmente
-            // depois se realmente não tinha nada, sem ficar no escuro.
+            if (usernamesExibidos.has(result.profile.username)) continue
+            usernamesExibidos.add(result.profile.username)
             setLiveResults((prev) => [
               ...prev,
               {
@@ -196,23 +195,16 @@ function LeadFinderPage() {
                 country: result.metadata?.country || null,
               },
             ])
+          }
 
-            // Só persiste no banco quem tem telefone ou email de
-            // verdade — perfil sem nenhum contato não vira lead salvo,
-            // só aparece na lista ao vivo pra conferência.
-            if (result.contacts?.phone || result.contacts?.email) {
-              await LeadService.saveLead(result as any, 'hashtag', cleanHashtag)
-            }
-          }
-          const leadsComContato = liveResults.filter((r) => r.phone || r.email).length
-          if (leadsComContato > 0) {
-            await JobService.updateStats(job.id, { leads: leadsComContato, profiles_analyzed: savedUsernames.size })
-            loadLeads()
-          }
+          // Recarrega leads periodicamente — a rota de fundo já deve
+          // ter persistido alguns nesse meio tempo.
+          loadLeads()
 
           if (statusResult.status === 'COMPLETED') {
-            toast.success(`Busca concluída! ${savedUsernames.size} perfis verificados.`, { id: toastId })
+            toast.success(`Busca concluída! ${usernamesExibidos.size} perfis verificados. A persistência final roda em segundo plano.`, { id: toastId })
             loadJobs()
+            loadLeads()
             setActiveJob(null)
             setIsSearching(false)
             return
@@ -226,7 +218,10 @@ function LeadFinderPage() {
           }
         }
 
-        toast.error("Tempo esgotado esperando a busca.", { id: toastId })
+        // Mesmo se essa aba parar de consultar aqui (timeout de
+        // exibição), a busca e a persistência continuam de fundo —
+        // só avisa que a TELA parou de acompanhar, não que perdeu dado.
+        toast.info("A busca continua em segundo plano — pode fechar essa tela sem perder nada.", { id: toastId })
         setActiveJob(null)
         setIsSearching(false)
       } catch (error: any) {
