@@ -54,6 +54,9 @@ function LeadFinderPage() {
   
   const [jobs, setJobs] = useState<any[]>([])
   const [activeJob, setActiveJob] = useState<any>(null)
+  // Lista ao vivo, preenchida durante a busca por hashtag em andamento
+  // — mostra cada lead assim que é encontrado, sem esperar terminar.
+  const [liveResults, setLiveResults] = useState<Array<{ username: string; phone: string | null; segment: string | null }>>([])
   
   const [timeline, setTimeline] = useState<any[]>([])
 
@@ -109,10 +112,16 @@ function LeadFinderPage() {
     // progresso via polling, igual já fizemos no fluxo de conexão.
     if (discoveryType === 'hashtag') {
       setIsSearching(true)
-      const toastId = toast.loading("Iniciando busca por hashtag...", {
-        description: "Isso pode levar alguns minutos — o worker navega perfil por perfil de verdade."
+      setLiveResults([])
+      const toastId = toast.loading("Verificando perfis já buscados antes...", {
+        description: "Evita repetir perfil de buscas anteriores com a mesma hashtag."
       })
       try {
+        // "Continuar de onde parou" — busca quem já foi descoberto
+        // antes com essa mesma hashtag, pra não visitar de novo.
+        const cleanHashtag = username.replace(/^#/, '').trim()
+        const jaConhecidos = await LeadService.getKnownUsernamesByOrigin('hashtag', cleanHashtag)
+
         const job = await JobService.createJob('instagram_hashtag', {
           hashtag: username,
           limit: parseInt(limit),
@@ -122,9 +131,21 @@ function LeadFinderPage() {
         setActiveJob(job)
         loadJobs()
 
+        toast.loading("Iniciando busca por hashtag...", {
+          id: toastId,
+          description: jaConhecidos.length > 0
+            ? `Pulando ${jaConhecidos.length} perfil(is) já encontrado(s) antes.`
+            : "Isso pode levar alguns minutos — o worker navega perfil por perfil de verdade."
+        })
+
         const { startDiscoveryAction, getDiscoveryStatusAction } = await import('@/lib/instagram-worker/discovery.functions')
         const startResult = await startDiscoveryAction({
-          data: { credentialId: selectedCredential!, hashtag: username, maxLeads: parseInt(limit) },
+          data: {
+            credentialId: selectedCredential!,
+            hashtag: username,
+            maxLeads: parseInt(limit),
+            excludeUsernames: jaConhecidos,
+          },
         })
 
         if (!startResult?.jobId) {
@@ -147,8 +168,18 @@ function LeadFinderPage() {
 
           for (const result of statusResult.results || []) {
             if (savedUsernames.has(result.profile.username)) continue
-            await LeadService.saveLead(result as any, 'hashtag', username)
+            await LeadService.saveLead(result as any, 'hashtag', cleanHashtag)
             savedUsernames.add(result.profile.username)
+            // Atualiza a lista ao vivo — o usuário vê cada lead
+            // aparecer na hora, sem esperar a busca terminar.
+            setLiveResults((prev) => [
+              ...prev,
+              {
+                username: result.profile.username,
+                phone: result.contacts?.phone || null,
+                segment: result.metadata?.segment || null,
+              },
+            ])
           }
           if (savedUsernames.size > 0) {
             await JobService.updateStats(job.id, { leads: savedUsernames.size, profiles_analyzed: savedUsernames.size })
@@ -156,7 +187,7 @@ function LeadFinderPage() {
           }
 
           if (statusResult.status === 'COMPLETED') {
-            toast.success(`Busca concluída! ${savedUsernames.size} leads encontrados.`, { id: toastId })
+            toast.success(`Busca concluída! ${savedUsernames.size} leads novos encontrados.`, { id: toastId })
             loadJobs()
             setActiveJob(null)
             setIsSearching(false)
@@ -724,6 +755,43 @@ function LeadFinderPage() {
                   </div>
                   <span>Iniciado há poucos segundos</span>
                 </div>
+
+                {liveResults.length > 0 && (
+                  <>
+                    <Separator className="my-6" />
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-medium">Leads encontrados até agora ({liveResults.length})</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const header = 'username,telefone,segmento\n'
+                          const rows = liveResults
+                            .map((r) => `${r.username},${r.phone || ''},${r.segment || ''}`)
+                            .join('\n')
+                          const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' })
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `leads-${username}-${new Date().toISOString().slice(0, 10)}.csv`
+                          a.click()
+                          URL.revokeObjectURL(url)
+                        }}
+                      >
+                        Exportar CSV
+                      </Button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto space-y-1 border rounded-lg p-2">
+                      {liveResults.slice().reverse().map((r, i) => (
+                        <div key={i} className="flex items-center justify-between text-sm py-1.5 px-2 rounded hover:bg-muted/50">
+                          <span className="font-medium">@{r.username}</span>
+                          <span className="text-muted-foreground">{r.phone || '—'}</span>
+                          <span className="text-xs text-muted-foreground">{r.segment || '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           ) : (
