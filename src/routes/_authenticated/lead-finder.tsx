@@ -62,7 +62,7 @@ function LeadFinderPage() {
   const [activeJob, setActiveJob] = useState<any>(null)
   // Lista ao vivo, preenchida durante a busca por hashtag em andamento
   // — mostra cada lead assim que é encontrado, sem esperar terminar.
-  const [liveResults, setLiveResults] = useState<Array<{ username: string; phone: string | null; email: string | null; segment: string | null }>>([])
+  const [liveResults, setLiveResults] = useState<Array<{ username: string; phone: string | null; email: string | null; segment: string | null; country: string | null }>>([])
   // Status atual em texto — fica fixo na tela, diferente do toast que
   // desaparece. Assim o progresso real fica sempre visível.
   const [currentSearchStep, setCurrentSearchStep] = useState<string>('')
@@ -193,6 +193,7 @@ function LeadFinderPage() {
                 phone: result.contacts?.phone || null,
                 email: result.contacts?.email || null,
                 segment: result.metadata?.segment || null,
+                country: result.metadata?.country || null,
               },
             ])
 
@@ -829,7 +830,9 @@ function LeadFinderPage() {
                               {r.email && <span>{r.email}</span>}
                               {!temContato && <span className="italic">sem contato</span>}
                             </span>
-                            <span className="text-xs text-muted-foreground">{r.segment || '—'}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {r.segment || '—'}{r.country && r.country !== 'Brasil' ? ` · ${r.country}` : ''}
+                            </span>
                           </div>
                         )
                       })}
