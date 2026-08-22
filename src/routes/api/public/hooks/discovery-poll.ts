@@ -69,14 +69,15 @@ export const Route = createFileRoute("/api/public/hooks/discovery-poll")({
 
               const temContato = !!(result.contacts?.phone || result.contacts?.email);
 
-              // Problema 2 — registra TODO perfil visitado, não só
-              // quem virou lead.
+              // AUDITORIA 002 — usa o motivo de rejeição real que o
+              // Worker já calculou (mais específico que só NO_CONTACT).
               await supabaseAdmin.from("lead_finder_visited_profiles").insert({
                 job_id: job.id,
                 username,
                 url: result.profile.url,
                 has_contact: temContato,
-                rejection_reason: temContato ? null : "NO_CONTACT",
+                rejection_reason: (result.metadata as any)?.rejectionReason || (temContato ? null : "NO_CONTACT"),
+                contact_source: (result.metadata as any)?.contactSource || null,
                 created_by: job.created_by,
               });
 
@@ -93,6 +94,9 @@ export const Route = createFileRoute("/api/public/hooks/discovery-poll")({
                       email: result.contacts?.email || null,
                       segment: result.metadata?.segment || null,
                       country: result.metadata?.country || null,
+                      country_code: (result.metadata as any)?.countryCode || null,
+                      language: (result.metadata as any)?.language || null,
+                      contact_source: (result.metadata as any)?.contactSource || null,
                       lead_origin: "hashtag",
                       lead_origin_value: hashtag,
                       pipeline_stage: "DISCOVERED",
