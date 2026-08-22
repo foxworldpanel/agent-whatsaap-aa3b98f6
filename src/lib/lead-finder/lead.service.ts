@@ -154,4 +154,21 @@ export class LeadService {
     
     if (error) throw error;
   }
+
+  /**
+   * Retorna os usernames já conhecidos pra uma origem específica (ex:
+   * a mesma hashtag buscada antes) — usado pra "continuar de onde
+   * parou": evita visitar de novo perfis já descobertos numa busca
+   * anterior com a mesma origem.
+   */
+  static async getKnownUsernamesByOrigin(origin: string, originValue: string): Promise<string[]> {
+    const { data, error } = await supabase
+      .from('lead_finder_leads')
+      .select('profile_username')
+      .eq('lead_origin', origin)
+      .eq('lead_origin_value', originValue);
+
+    if (error) throw error;
+    return (data || []).map((row) => row.profile_username);
+  }
 }
