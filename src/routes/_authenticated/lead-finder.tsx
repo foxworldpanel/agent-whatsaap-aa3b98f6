@@ -43,6 +43,11 @@ function LeadFinderPage() {
   const [provider, setProvider] = useState<'mock' | 'instagram_public'>('instagram_public')
   const [username, setUsername] = useState('')
   const [limit, setLimit] = useState('25')
+  // Tempo de espera entre visitar cada perfil, em segundos —
+  // configurável pelo usuário, já que ritmo mais lento reduz risco de
+  // bloqueio da conta. Padrão sugerido: 30-45s.
+  const [minDelay, setMinDelay] = useState('30')
+  const [maxDelay, setMaxDelay] = useState('45')
   const [discoveryType, setDiscoveryType] = useState<'profile' | 'hashtag' | 'keyword'>('profile')
   const [isSearching, setIsSearching] = useState(false)
   const [isRunningTest, setIsRunningTest] = useState(false)
@@ -150,6 +155,8 @@ function LeadFinderPage() {
             hashtag: username,
             maxLeads: parseInt(limit),
             excludeUsernames: jaConhecidos,
+            minDelaySec: parseInt(minDelay),
+            maxDelaySec: parseInt(maxDelay),
           },
         })
 
@@ -970,6 +977,33 @@ function LeadFinderPage() {
                             ))}
                           </div>
                         </div>
+                        {discoveryType === 'hashtag' && (
+                          <div className="space-y-2 col-span-2">
+                            <Label className="text-xs uppercase text-muted-foreground">
+                              Tempo entre perfis (segundos) — ritmo mais lento reduz risco de bloqueio da conta
+                            </Label>
+                            <div className="flex gap-2 items-center">
+                              <Input
+                                type="number"
+                                min="5"
+                                max="120"
+                                value={minDelay}
+                                onChange={(e) => setMinDelay(e.target.value)}
+                                className="h-10 w-24"
+                              />
+                              <span className="text-sm text-muted-foreground">a</span>
+                              <Input
+                                type="number"
+                                min="5"
+                                max="120"
+                                value={maxDelay}
+                                onChange={(e) => setMaxDelay(e.target.value)}
+                                className="h-10 w-24"
+                              />
+                              <span className="text-sm text-muted-foreground">segundos (aleatório entre os dois)</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
