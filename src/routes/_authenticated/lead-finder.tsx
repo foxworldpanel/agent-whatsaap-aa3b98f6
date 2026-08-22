@@ -18,6 +18,7 @@ import { runLeadFinderIntegrationTest } from '@/lib/lead-finder/test-integration
 import { CredentialService } from '@/lib/lead-finder/credential.service'
 import { LeadService } from '@/lib/lead-finder/lead.service'
 import { JobService } from '@/lib/lead-finder/job.service'
+import { supabase } from '@/integrations/supabase/client'
 import type { 
   InstagramSessionInfo, 
   InstagramSessionStatus 
@@ -1079,6 +1080,30 @@ function LeadFinderPage() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
+                            {lead.phone && lead.sales_status !== 'QUEUED' && lead.sales_status !== 'CONTACTED' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 mr-1"
+                                onClick={async () => {
+                                  try {
+                                    const { data: { user } } = await supabase.auth.getUser()
+                                    if (!user) throw new Error('Sessão expirada, recarregue a página.')
+                                    const result = await LeadService.promoteToContact(lead.id, user.id)
+                                    toast.success(
+                                      result.alreadyExisted
+                                        ? 'Lead vinculado a um contato já existente.'
+                                        : 'Lead promovido — pronto pra disparo!'
+                                    )
+                                    loadLeads()
+                                  } catch (e: any) {
+                                    toast.error('Erro ao promover lead', { description: e.message })
+                                  }
+                                }}
+                              >
+                                Promover
+                              </Button>
+                            )}
                             <Sheet>
                               <SheetTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedLead(lead)}>
