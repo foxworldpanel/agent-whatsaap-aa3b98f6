@@ -57,6 +57,9 @@ function LeadFinderPage() {
   
   const [leads, setLeads] = useState<any[]>([])
   const [selectedLead, setSelectedLead] = useState<any>(null)
+  const [selectedJobHistory, setSelectedJobHistory] = useState<any>(null)
+  const [jobVisitedProfiles, setJobVisitedProfiles] = useState<any[]>([])
+  const [loadingJobHistory, setLoadingJobHistory] = useState(false)
   
   const [jobs, setJobs] = useState<any[]>([])
   const [activeJob, setActiveJob] = useState<any>(null)
@@ -1351,7 +1354,29 @@ function LeadFinderPage() {
                             {formatDistanceToNow(new Date(job.created_at), { addSuffix: true, locale: ptBR })}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={async () => {
+                                setSelectedJobHistory(job)
+                                setLoadingJobHistory(true)
+                                setJobVisitedProfiles([])
+                                try {
+                                  const { data, error } = await supabase
+                                    .from('lead_finder_visited_profiles')
+                                    .select('*')
+                                    .eq('job_id', job.id)
+                                    .order('visited_at', { ascending: false })
+                                  if (error) throw error
+                                  setJobVisitedProfiles(data || [])
+                                } catch (e: any) {
+                                  toast.error('Erro ao carregar histórico', { description: e.message })
+                                } finally {
+                                  setLoadingJobHistory(false)
+                                }
+                              }}
+                            >
                               <History className="h-3.5 w-3.5" />
                             </Button>
                           </TableCell>
@@ -1363,6 +1388,46 @@ function LeadFinderPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Sheet open={!!selectedJobHistory} onOpenChange={(open) => !open && setSelectedJobHistory(null)}>
+            <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Histórico completo da busca</SheetTitle>
+                <SheetDescription>
+                  #{selectedJobHistory?.config?.hashtag || selectedJobHistory?.config?.username || 'busca'} —
+                  {' '}{selectedJobHistory?.stats?.profiles_analyzed || 0} perfis analisados,
+                  {' '}{selectedJobHistory?.stats?.leads || 0} com contato
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-4 space-y-1">
+                {loadingJobHistory ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+                ) : jobVisitedProfiles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Nenhum perfil registrado ainda pra esse job — se a busca terminou há pouco, a persistência de fundo pode levar até 1 minuto pra concluir.
+                  </p>
+                ) : (
+                  jobVisitedProfiles.map((p) => (
+                    <div
+                      key={p.id}
+                      className={`flex items-center justify-between text-sm py-2 px-3 rounded ${p.has_contact ? 'bg-green-50 dark:bg-green-900/10' : ''}`}
+                    >
+                      <span className="font-medium">@{p.username}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {p.has_contact ? (
+                          <span className="text-green-700 dark:text-green-400 font-medium">
+                            {p.contact_source || 'contato encontrado'}
+                          </span>
+                        ) : (
+                          <span className="italic">{p.rejection_reason || 'sem contato'}</span>
+                        )}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
         </TabsContent>
 
         <TabsContent value="timeline">
