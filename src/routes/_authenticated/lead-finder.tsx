@@ -59,6 +59,8 @@ function LeadFinderPage() {
   const [selectedLead, setSelectedLead] = useState<any>(null)
   const [selectedJobHistory, setSelectedJobHistory] = useState<any>(null)
   const [jobVisitedProfiles, setJobVisitedProfiles] = useState<any[]>([])
+  const [historicoCompleto, setHistoricoCompleto] = useState<any[]>([])
+  const [loadingHistoricoCompleto, setLoadingHistoricoCompleto] = useState(false)
   const [loadingJobHistory, setLoadingJobHistory] = useState(false)
   
   const [jobs, setJobs] = useState<any[]>([])
@@ -76,6 +78,7 @@ function LeadFinderPage() {
     loadCredentials()
     loadLeads()
     loadJobs()
+    loadHistoricoCompleto()
   }, [])
 
   const loadCredentials = async () => {
@@ -114,6 +117,23 @@ function LeadFinderPage() {
       setLeads(data)
     } catch (e) {
       console.error(e)
+    }
+  }
+
+  const loadHistoricoCompleto = async () => {
+    setLoadingHistoricoCompleto(true)
+    try {
+      const { data, error } = await supabase
+        .from('lead_finder_visited_profiles')
+        .select('*')
+        .order('visited_at', { ascending: false })
+        .limit(500)
+      if (error) throw error
+      setHistoricoCompleto(data || [])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoadingHistoricoCompleto(false)
     }
   }
 
@@ -557,6 +577,10 @@ function LeadFinderPage() {
           <TabsTrigger value="jobs" className="flex items-center gap-2">
             <LayoutList className="h-4 w-4" />
             Jobs
+          </TabsTrigger>
+          <TabsTrigger value="historico-completo" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            Histórico Completo
           </TabsTrigger>
           <TabsTrigger value="timeline" className="flex items-center gap-2">
             <History className="h-4 w-4" />
@@ -1493,6 +1517,67 @@ function LeadFinderPage() {
               </div>
             </SheetContent>
           </Sheet>
+        </TabsContent>
+
+        <TabsContent value="historico-completo">
+          <Card>
+            <CardHeader>
+              <CardTitle>Histórico Completo</CardTitle>
+              <CardDescription>
+                Todo perfil já verificado, de qualquer busca, qualquer hashtag — {historicoCompleto.length} registros
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingHistoricoCompleto ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+              ) : historicoCompleto.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Nenhum perfil verificado ainda — faz uma busca por hashtag pra começar a preencher esse histórico.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Hashtag</TableHead>
+                        <TableHead>Usuário</TableHead>
+                        <TableHead>Telefone</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>País</TableHead>
+                        <TableHead>Segmento</TableHead>
+                        <TableHead>Resultado</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {historicoCompleto.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(row.visited_at).toLocaleString('pt-BR')}
+                          </TableCell>
+                          <TableCell className="text-sm">#{row.hashtag || '—'}</TableCell>
+                          <TableCell className="font-medium">@{row.username}</TableCell>
+                          <TableCell className="text-sm">{row.phone || '—'}</TableCell>
+                          <TableCell className="text-sm">{row.email || '—'}</TableCell>
+                          <TableCell className="text-sm">{row.country || '—'}</TableCell>
+                          <TableCell className="text-sm">{row.segment || '—'}</TableCell>
+                          <TableCell>
+                            {row.has_contact ? (
+                              <span className="text-xs text-green-700 dark:text-green-400 font-medium">
+                                {row.contact_source || 'contato encontrado'}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">{row.rejection_reason || 'sem contato'}</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="timeline">
