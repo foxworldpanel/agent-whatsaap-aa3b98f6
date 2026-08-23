@@ -165,14 +165,42 @@ export class LeadService {
    * anterior com a mesma origem.
    */
   static async getKnownUsernamesByOrigin(origin: string, originValue: string): Promise<string[]> {
-    const { data, error } = await supabase
+    const { data: leadsData, error: leadsError } = await supabase
       .from('lead_finder_leads')
       .select('profile_username')
       .eq('lead_origin', origin)
       .eq('lead_origin_value', originValue);
 
-    if (error) throw error;
-    return (data || []).map((row) => row.profile_username);
+    if (leadsError) throw leadsError;
+
+    // Achado real em 23/08/2026: pular só quem virou lead deixava de
+    // fora quem já foi verificado e não tinha contato — a mesma
+    // hashtag rechecava esses perfis à toa. Busca também no histórico
+    // de perfis visitados, ligando pelo job dessa mesma hashtag.
+    let usernamesVisitados: string[] = [];
+    if (origin === 'hashtag') {
+      const { data: jobsDaHashtag } = await supabase
+        .from('lead_finder_jobs')
+        .select('id, config');
+
+      const jobIds = (jobsDaHashtag || [])
+        .filter((j: any) => j.config?.hashtag?.replace(/^#/, '').trim().toLowerCase() === originValue.toLowerCase())
+        .map((j: any) => j.id);
+
+      if (jobIds.length > 0) {
+        const { data: visitados } = await supabase
+          .from('lead_finder_visited_profiles')
+          .select('username')
+          .in('job_id', jobIds);
+        usernamesVisitados = (visitados || []).map((row: any) => row.username);
+      }
+    }
+
+    const todosConhecidos = new Set([
+      ...(leadsData || []).map((row) => row.profile_username),
+      ...usernamesVisitados,
+    ]);
+    return Array.from(todosConhecidos);
   }
 
   /**
