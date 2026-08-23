@@ -83,6 +83,20 @@ function LeadFinderPage() {
       const data = await CredentialService.listCredentials()
       setCredentials(data)
       if (data.length > 0) setSelectedCredential(data[0].id)
+
+      // Achado do ChatGPT em 23/08/2026 — nunca confiar no status
+      // salvo sem revalidar: sessão pode ter expirado desde a última
+      // vez que foi checada. Revalida em segundo plano, sem travar a
+      // tela, e recarrega quando terminar.
+      const conectados = (data || []).filter((c: any) => c.status === 'CONNECTED')
+      if (conectados.length > 0) {
+        const { validateInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
+        Promise.all(conectados.map((c: any) => validateInstagramAction({ data: { credentialId: c.id } }).catch(() => null)))
+          .then(async () => {
+            const dataAtualizada = await CredentialService.listCredentials()
+            setCredentials(dataAtualizada)
+          })
+      }
     } catch (e) {
       console.error(e)
     }
@@ -125,11 +139,31 @@ function LeadFinderPage() {
     if (discoveryType === 'hashtag') {
       setIsSearching(true)
       setLiveResults([])
-      setCurrentSearchStep('Iniciando...')
-      const toastId = toast.loading("Verificando perfis já buscados antes...", {
-        description: "Evita repetir perfil de buscas anteriores com a mesma hashtag."
+      setCurrentSearchStep('Verificando sessão...')
+      const toastId = toast.loading("Verificando se a conta ainda está conectada...", {
+        description: "Evita começar uma busca com sessão expirada."
       })
       try {
+        // Achado do ChatGPT em 23/08/2026 — nunca iniciar Discovery
+        // sem confirmar sessão válida primeiro. Evita gastar tempo
+        // numa busca inteira que vai voltar tudo vazio por sessão
+        // expirada, sem o usuário saber até o fim.
+        const { validateInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
+        const validacao = await validateInstagramAction({ data: { credentialId: selectedCredential! } })
+        if (validacao.status !== 'CONNECTED') {
+          toast.error("Conta desconectada", {
+            id: toastId,
+            description: "A sessão expirou. Reconecta a conta antes de buscar."
+          })
+          setIsSearching(false)
+          return
+        }
+
+        toast.loading("Verificando perfis já buscados antes...", {
+          id: toastId,
+          description: "Evita repetir perfil de buscas anteriores com a mesma hashtag."
+        })
+
         const cleanHashtag = username.replace(/^#/, '').trim()
         const jaConhecidos = await LeadService.getKnownUsernamesByOrigin('hashtag', cleanHashtag)
 
