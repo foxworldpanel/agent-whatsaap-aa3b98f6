@@ -393,8 +393,12 @@ function LeadFinderPage() {
         if (loginWindow && !loginWindow.closed) {
           loginWindow.location.href = connectResult.url;
         } else {
-          // Aba foi bloqueada mesmo assim (ex: bloqueador de popup mais
-          // rígido) — deixa o link visível por mais tempo como reforço.
+          // Bug real encontrado em 23/08/2026: quando cai nesse
+          // caminho (a navegação da aba original falhou por algum
+          // motivo), a aba original ficava presa em "about:blank"
+          // pra sempre, mesmo com a nova aba funcionando normal.
+          // Fecha a antiga, já que a nova assumiu o lugar dela.
+          try { loginWindow?.close(); } catch {}
           window.open(connectResult.url, '_blank');
         }
         toast.info("Aguardando login...", {
