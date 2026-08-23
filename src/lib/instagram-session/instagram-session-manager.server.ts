@@ -82,6 +82,21 @@ export class InstagramSessionManager {
     try {
       const response = await this.workerClient.validate(credentialId);
       await this.updateStatus(credentialId, response.status);
+
+      // Achado do ChatGPT — nunca confiar em status persistido sem
+      // saber QUANDO foi validado. sessionHealth é mais granular que
+      // um booleano simples (CONNECTED/EXPIRED/LOGIN_REQUIRED/INVALID).
+      const sessionHealth =
+        response.status === 'CONNECTED' ? 'CONNECTED' :
+        response.status === 'EXPIRED' ? 'EXPIRED' :
+        response.status === 'NEVER_CONNECTED' ? 'LOGIN_REQUIRED' :
+        'INVALID';
+
+      await supabaseAdmin
+        .from('lead_finder_credentials')
+        .update({ last_validated_at: new Date().toISOString(), session_health: sessionHealth })
+        .eq('id', credentialId);
+
       return response.status;
     } catch (error: any) {
       logger('Validation Error', error.message);
