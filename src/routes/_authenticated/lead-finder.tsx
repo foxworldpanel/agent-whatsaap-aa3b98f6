@@ -88,10 +88,16 @@ function LeadFinderPage() {
       // salvo sem revalidar: sessão pode ter expirado desde a última
       // vez que foi checada. Revalida em segundo plano, sem travar a
       // tela, e recarrega quando terminar.
-      const conectados = (data || []).filter((c: any) => c.status === 'CONNECTED')
-      if (conectados.length > 0) {
+      // Bug real encontrado em 23/08/2026: o filtro só revalidava
+      // contas JÁ marcadas como CONNECTED — uma conta presa em ERROR
+      // nunca tinha chance de se corrigir sozinha, mesmo se a sessão
+      // real por trás dela estivesse boa. Revalida qualquer status que
+      // não seja "nunca conectado" (não faz sentido testar sessão que
+      // nunca existiu).
+      const paraRevalidar = (data || []).filter((c: any) => c.status && c.status !== 'NEVER_CONNECTED')
+      if (paraRevalidar.length > 0) {
         const { validateInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
-        Promise.all(conectados.map((c: any) => validateInstagramAction({ data: { credentialId: c.id } }).catch(() => null)))
+        Promise.all(paraRevalidar.map((c: any) => validateInstagramAction({ data: { credentialId: c.id } }).catch(() => null)))
           .then(async () => {
             const dataAtualizada = await CredentialService.listCredentials()
             setCredentials(dataAtualizada)
