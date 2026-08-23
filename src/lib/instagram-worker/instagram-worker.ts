@@ -124,4 +124,10 @@ export class InstagramWorkerClient implements InstagramWorkerApi {
       }>;
     }>(`/api/instagram/discover/${jobId}/status`, { method: 'GET' });
   }
+
+  async discoveryCancel(jobId: string) {
+    return this.request<{ success: boolean; message: string }>(`/api/instagram/discover/${jobId}/cancel`, {
+      method: 'POST',
+    });
+  }
 }
