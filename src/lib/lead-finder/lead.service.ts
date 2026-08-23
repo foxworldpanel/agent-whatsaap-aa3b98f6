@@ -164,41 +164,29 @@ export class LeadService {
    * parou": evita visitar de novo perfis já descobertos numa busca
    * anterior com a mesma origem.
    */
+  /**
+   * Achado real em 23/08/2026 — pedido explícito do usuário: a base de
+   * "já conhecido" deve ser GLOBAL, não só da mesma hashtag. Se um
+   * perfil já foi verificado em QUALQUER busca anterior (com ou sem
+   * contato encontrado), nunca mais verifica de novo, não importa qual
+   * hashtag encontrou ele dessa vez.
+   */
   static async getKnownUsernamesByOrigin(origin: string, originValue: string): Promise<string[]> {
     const { data: leadsData, error: leadsError } = await supabase
       .from('lead_finder_leads')
-      .select('profile_username')
-      .eq('lead_origin', origin)
-      .eq('lead_origin_value', originValue);
+      .select('profile_username');
 
     if (leadsError) throw leadsError;
 
-    // Achado real em 23/08/2026: pular só quem virou lead deixava de
-    // fora quem já foi verificado e não tinha contato — a mesma
-    // hashtag rechecava esses perfis à toa. Busca também no histórico
-    // de perfis visitados, ligando pelo job dessa mesma hashtag.
-    let usernamesVisitados: string[] = [];
-    if (origin === 'hashtag') {
-      const { data: jobsDaHashtag } = await supabase
-        .from('lead_finder_jobs')
-        .select('id, config');
+    const { data: visitados, error: visitadosError } = await supabase
+      .from('lead_finder_visited_profiles')
+      .select('username');
 
-      const jobIds = (jobsDaHashtag || [])
-        .filter((j: any) => j.config?.hashtag?.replace(/^#/, '').trim().toLowerCase() === originValue.toLowerCase())
-        .map((j: any) => j.id);
-
-      if (jobIds.length > 0) {
-        const { data: visitados } = await supabase
-          .from('lead_finder_visited_profiles')
-          .select('username')
-          .in('job_id', jobIds);
-        usernamesVisitados = (visitados || []).map((row: any) => row.username);
-      }
-    }
+    if (visitadosError) throw visitadosError;
 
     const todosConhecidos = new Set([
       ...(leadsData || []).map((row) => row.profile_username),
-      ...usernamesVisitados,
+      ...(visitados || []).map((row) => row.username),
     ]);
     return Array.from(todosConhecidos);
   }
