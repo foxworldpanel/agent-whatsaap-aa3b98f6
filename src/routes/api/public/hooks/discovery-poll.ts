@@ -71,6 +71,11 @@ export const Route = createFileRoute("/api/public/hooks/discovery-poll")({
 
               // AUDITORIA 002 — usa o motivo de rejeição real que o
               // Worker já calculou (mais específico que só NO_CONTACT).
+              //
+              // Achado real em 23/08/2026 — pedido do usuário: o
+              // histórico precisa ser autossuficiente, com telefone,
+              // email, país, segmento e hashtag direto na própria
+              // linha, sem precisar cruzar com outra tabela.
               await supabaseAdmin.from("lead_finder_visited_profiles").insert({
                 job_id: job.id,
                 username,
@@ -78,6 +83,11 @@ export const Route = createFileRoute("/api/public/hooks/discovery-poll")({
                 has_contact: temContato,
                 rejection_reason: (result.metadata as any)?.rejectionReason || (temContato ? null : "NO_CONTACT"),
                 contact_source: (result.metadata as any)?.contactSource || null,
+                phone: result.contacts?.phone || null,
+                email: result.contacts?.email || null,
+                country: result.metadata?.country || null,
+                segment: result.metadata?.segment || null,
+                hashtag,
                 created_by: job.created_by,
               });
 
