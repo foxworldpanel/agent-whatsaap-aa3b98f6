@@ -154,9 +154,15 @@ function LeadFinderPage() {
         // sem confirmar sessão válida primeiro. Evita gastar tempo
         // numa busca inteira que vai voltar tudo vazio por sessão
         // expirada, sem o usuário saber até o fim.
+        //
+        // Bug real encontrado em 23/08/2026: validateInstagramAction
+        // devolve o status DIRETO como texto (ex: "CONNECTED"), não
+        // um objeto com propriedade .status — a checagem errada fazia
+        // o sistema sempre achar que a conta estava desconectada,
+        // mesmo quando o Worker confirmava sessão válida.
         const { validateInstagramAction } = await import('@/lib/instagram-session/instagram-session.functions')
         const validacao = await validateInstagramAction({ data: { credentialId: selectedCredential! } })
-        if (validacao.status !== 'CONNECTED') {
+        if (validacao !== 'CONNECTED') {
           toast.error("Conta desconectada", {
             id: toastId,
             description: "A sessão expirou. Reconecta a conta antes de buscar."
