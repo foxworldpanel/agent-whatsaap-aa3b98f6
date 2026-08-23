@@ -788,6 +788,15 @@ function LeadFinderPage() {
                   </div>
                 )}
 
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 gap-2 w-full"
+                  onClick={() => window.open('http://169-58-169-242.sslip.io:6080/vnc.html?autoconnect=true', '_blank')}
+                >
+                  <Eye className="h-4 w-4" /> Acompanhar navegador ao vivo
+                </Button>
+
                 {liveResults.length > 0 && (
                   <>
                     <Separator className="my-6" />
