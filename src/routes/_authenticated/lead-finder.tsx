@@ -71,6 +71,9 @@ function LeadFinderPage() {
   // Status atual em texto — fica fixo na tela, diferente do toast que
   // desaparece. Assim o progresso real fica sempre visível.
   const [currentSearchStep, setCurrentSearchStep] = useState<string>('')
+  // Guarda o jobId do Worker (diferente do id do job no banco) pra
+  // conseguir cancelar a busca em andamento.
+  const [activeWorkerJobId, setActiveWorkerJobId] = useState<string | null>(null)
   
   const [timeline, setTimeline] = useState<any[]>([])
 
@@ -238,6 +241,7 @@ function LeadFinderPage() {
         // continuar aberta ou não. Esse loop abaixo só CONSULTA pra
         // mostrar progresso, não decide mais o que fica salvo.
         await JobService.linkWorkerJob(job.id, startResult.jobId)
+        setActiveWorkerJobId(startResult.jobId)
 
         const usernamesExibidos = new Set<string>()
         // Bug real encontrado em 23/08/2026: 15 minutos era pouco —
@@ -281,6 +285,7 @@ function LeadFinderPage() {
             loadJobs()
             loadLeads()
             setActiveJob(null)
+            setActiveWorkerJobId(null)
             setIsSearching(false)
             return
           }
@@ -288,6 +293,7 @@ function LeadFinderPage() {
             toast.error("Busca falhou.", { id: toastId, description: statusResult.currentStep })
             loadJobs()
             setActiveJob(null)
+            setActiveWorkerJobId(null)
             setIsSearching(false)
             return
           }
@@ -298,11 +304,13 @@ function LeadFinderPage() {
         // só avisa que a TELA parou de acompanhar, não que perdeu dado.
         toast.info("A busca continua em segundo plano — pode fechar essa tela sem perder nada.", { id: toastId })
         setActiveJob(null)
+        setActiveWorkerJobId(null)
         setIsSearching(false)
       } catch (error: any) {
         console.error(error)
         toast.error("Erro na descoberta por hashtag", { id: toastId, description: error?.message })
         setActiveJob(null)
+        setActiveWorkerJobId(null)
         setIsSearching(false)
       }
       return
@@ -868,14 +876,34 @@ function LeadFinderPage() {
                   </div>
                 )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 gap-2 w-full"
-                  onClick={() => window.open('http://169-58-169-242.sslip.io:6080/vnc.html?autoconnect=true', '_blank')}
-                >
-                  <Eye className="h-4 w-4" /> Acompanhar navegador ao vivo
-                </Button>
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 flex-1"
+                    onClick={() => window.open('http://169-58-169-242.sslip.io:6080/vnc.html?autoconnect=true', '_blank')}
+                  >
+                    <Eye className="h-4 w-4" /> Acompanhar navegador ao vivo
+                  </Button>
+                  {activeWorkerJobId && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="gap-2"
+                      onClick={async () => {
+                        try {
+                          const { cancelDiscoveryAction } = await import('@/lib/instagram-worker/discovery.functions')
+                          await cancelDiscoveryAction({ data: { jobId: activeWorkerJobId } })
+                          toast.info('Cancelamento solicitado — a busca vai parar em breve.')
+                        } catch (e: any) {
+                          toast.error('Erro ao cancelar', { description: e.message })
+                        }
+                      }}
+                    >
+                      Cancelar Busca
+                    </Button>
+                  )}
+                </div>
 
                 {liveResults.length > 0 && (
                   <>
