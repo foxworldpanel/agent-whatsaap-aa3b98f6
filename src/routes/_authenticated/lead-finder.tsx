@@ -220,7 +220,13 @@ function LeadFinderPage() {
         await JobService.linkWorkerJob(job.id, startResult.jobId)
 
         const usernamesExibidos = new Set<string>()
-        const maxAttempts = 180 // 180 * 5s = 15 minutos
+        // Bug real encontrado em 23/08/2026: 15 minutos era pouco —
+        // com o ritmo de segurança atual (30-45s por perfil, mais
+        // checagem de site), uma busca de 20+ perfis facilmente passa
+        // disso. A tela desistia de mostrar progresso, mesmo com a
+        // busca ainda rodando de verdade (confirmado acompanhando
+        // pelo VNC). Aumentado pra 2 horas — tempo de sobra.
+        const maxAttempts = 1440 // 1440 * 5s = 2 horas
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
           await new Promise((resolve) => setTimeout(resolve, 5000))
           const statusResult = await getDiscoveryStatusAction({ data: { jobId: startResult.jobId } })
