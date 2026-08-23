@@ -36,3 +36,11 @@ export const getDiscoveryStatusAction = createServerFn({ method: "POST" })
     const client = new InstagramWorkerClient();
     return await client.discoveryStatus(data.jobId);
   });
+
+export const cancelDiscoveryAction = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => z.object({ jobId: z.string() }).parse(data))
+  .handler(async ({ data }) => {
+    const { InstagramWorkerClient } = await import("@/lib/instagram-worker/instagram-worker");
+    const client = new InstagramWorkerClient();
+    return await client.discoveryCancel(data.jobId);
+  });
