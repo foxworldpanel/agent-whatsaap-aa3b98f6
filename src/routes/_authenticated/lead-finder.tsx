@@ -258,6 +258,16 @@ function LeadFinderPage() {
           toast.loading(statusResult.currentStep || "Buscando...", { id: toastId })
           setCurrentSearchStep(statusResult.currentStep || 'Buscando...')
 
+          // Atualiza o Histórico Completo periodicamente (não a cada 5s,
+          // seria pesado demais) — a cada 3 ciclos (~15s), tempo
+          // suficiente pra rota de fundo já ter persistido algo novo.
+          // Atualiza também Leads — quem tem WhatsApp aparece lá em
+          // tempo real, não só depois que a busca inteira terminar.
+          if (attempt % 3 === 0) {
+            loadHistoricoCompleto()
+            loadLeads()
+          }
+
           // Só exibe — a persistência real acontece na rota de fundo,
           // não aqui. Isso é seguro mesmo mostrando 2x o mesmo perfil
           // entre reloads, já que é só exibição, sem duplicar no banco.
