@@ -84,34 +84,42 @@ export const Route = createFileRoute("/api/public/hooks/discovery-poll")({
                 rejection_reason: (result.metadata as any)?.rejectionReason || (temContato ? null : "NO_CONTACT"),
                 contact_source: (result.metadata as any)?.contactSource || null,
                 phone: result.contacts?.phone || null,
+                raw_phone: (result.contacts as any)?.phoneOriginal || null,
                 email: result.contacts?.email || null,
                 country: result.metadata?.country || null,
+                country_confidence: (result.metadata as any)?.countryConfidence || null,
                 segment: result.metadata?.segment || null,
                 hashtag,
                 created_by: job.created_by,
               });
 
               if (temContato) {
+                // Achado real em 24/08/2026 — bug confirmado: essa
+                // tabela NÃO tem colunas "country" nem "created_by"
+                // (só "country_code") — o insert vinha silenciosamente
+                // caindo em erro nesses campos. Corrigido pros nomes
+                // reais do schema.
                 const { error: saveError, data: leadSalvo } = await supabaseAdmin
                   .from("lead_finder_leads")
                   .upsert(
                     {
                       platform: result.profile.platform.toLowerCase(),
                       profile_username: username.toLowerCase(),
+                      display_name: username,
                       profile_url: result.profile.url,
                       bio: result.profile.bio,
                       phone: result.contacts?.phone || null,
+                      raw_phone: (result.contacts as any)?.phoneOriginal || null,
                       email: result.contacts?.email || null,
                       segment: result.metadata?.segment || null,
-                      country: result.metadata?.country || null,
                       country_code: (result.metadata as any)?.countryCode || null,
+                      country_confidence: (result.metadata as any)?.countryConfidence || null,
                       language: (result.metadata as any)?.language || null,
                       contact_source: (result.metadata as any)?.contactSource || null,
                       lead_origin: "hashtag",
                       lead_origin_value: hashtag,
                       pipeline_stage: "DISCOVERED",
                       sales_status: "NEW",
-                      created_by: job.created_by,
                     },
                     { onConflict: "platform,profile_username", ignoreDuplicates: true },
                   )
