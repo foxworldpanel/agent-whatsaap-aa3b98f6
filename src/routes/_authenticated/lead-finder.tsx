@@ -1259,12 +1259,12 @@ function LeadFinderPage() {
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 border shadow-sm">
-                                <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.username}`} />
-                                <AvatarFallback>{lead.username?.[0] || 'U'}</AvatarFallback>
+                                <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.profile_username}`} />
+                                <AvatarFallback>{lead.profile_username?.[0] || 'U'}</AvatarFallback>
                               </Avatar>
                               <div className="flex flex-col">
-                                <span className="font-semibold text-sm leading-none">{lead.full_name || lead.username}</span>
-                                <span className="text-xs text-muted-foreground">@{lead.username || 'unknown'}</span>
+                                <span className="font-semibold text-sm leading-none">{lead.display_name || lead.profile_username}</span>
+                                <span className="text-xs text-muted-foreground">@{lead.profile_username || 'unknown'}</span>
                               </div>
                             </div>
                           </TableCell>
@@ -1275,19 +1275,21 @@ function LeadFinderPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-1">
-                              {lead.email && (
-                                <Badge variant="secondary" className="h-5 px-1 bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400">
-                                  <Mail className="h-3 w-3" />
-                                </Badge>
-                              )}
+                            <div className="flex flex-col gap-1">
                               {lead.phone && (
-                                <Badge variant="secondary" className="h-5 px-1 bg-green-50 text-green-700 border-green-100 dark:bg-green-900/20 dark:text-green-400">
+                                <div className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
                                   <Phone className="h-3 w-3" />
-                                </Badge>
+                                  <span>{lead.phone}</span>
+                                </div>
+                              )}
+                              {lead.email && (
+                                <div className="flex items-center gap-1 text-xs text-blue-700 dark:text-blue-400">
+                                  <Mail className="h-3 w-3" />
+                                  <span className="truncate max-w-[140px]">{lead.email}</span>
+                                </div>
                               )}
                               {lead.website && (
-                                <Badge variant="secondary" className="h-5 px-1 bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400">
+                                <Badge variant="secondary" className="h-5 px-1 w-fit bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400">
                                   <Globe className="h-3 w-3" />
                                 </Badge>
                               )}
@@ -1346,12 +1348,12 @@ function LeadFinderPage() {
                                 <SheetHeader>
                                   <div className="flex items-center gap-4 pt-4">
                                     <Avatar className="h-16 w-16 border-2 border-primary/20">
-                                      <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.username}`} />
-                                      <AvatarFallback>{lead.username?.[0] || 'U'}</AvatarFallback>
+                                      <AvatarImage src={lead.profile_pic_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${lead.profile_username}`} />
+                                      <AvatarFallback>{lead.profile_username?.[0] || 'U'}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                      <SheetTitle className="text-2xl">{lead.full_name || lead.username}</SheetTitle>
-                                      <SheetDescription className="text-primary font-medium">@{lead.username}</SheetDescription>
+                                      <SheetTitle className="text-2xl">{lead.display_name || lead.profile_username}</SheetTitle>
+                                      <SheetDescription className="text-primary font-medium">@{lead.profile_username}</SheetDescription>
                                     </div>
                                   </div>
                                 </SheetHeader>
@@ -1639,7 +1641,7 @@ function LeadFinderPage() {
                         </div>
                         <div className="space-y-1">
                           <p className="text-sm">
-                            <span className="font-bold">Lead Persistido:</span> {lead.full_name || lead.username || 'unknown'} (@{lead.username || 'unknown'})
+                            <span className="font-bold">Lead Persistido:</span> {lead.display_name || lead.profile_username || 'unknown'} (@{lead.profile_username || 'unknown'})
                           </p>
                           <p className="text-xs text-muted-foreground">
                             Provider: {lead.source_provider} • Score: {Math.round((lead.score_profile || 0) * 100)}%
