@@ -92,7 +92,7 @@ export const Route = createFileRoute("/api/public/hooks/discovery-poll")({
               });
 
               if (temContato) {
-                const { error: saveError } = await supabaseAdmin
+                const { error: saveError, data: leadSalvo } = await supabaseAdmin
                   .from("lead_finder_leads")
                   .upsert(
                     {
@@ -114,9 +114,20 @@ export const Route = createFileRoute("/api/public/hooks/discovery-poll")({
                       created_by: job.created_by,
                     },
                     { onConflict: "platform,profile_username", ignoreDuplicates: true },
-                  );
-                if (saveError) errorsCount++;
-                else leadsCount++;
+                  )
+                  .select();
+                // Achado real em 24/08/2026 — pedido do usuário: leads
+                // com contato não estavam chegando na tabela de leads,
+                // sem erro visível. Log detalhado do erro real (não só
+                // truthy/falsy) e confirmação de quantas linhas
+                // realmente foram afetadas pelo upsert.
+                if (saveError) {
+                  errorsCount++;
+                  console.error(`[discovery-poll] ERRO ao salvar lead @${username}:`, JSON.stringify(saveError));
+                } else {
+                  leadsCount++;
+                  console.log(`[discovery-poll] Lead @${username} — upsert OK, linhas afetadas: ${leadSalvo?.length ?? "desconhecido"}`);
+                }
               }
             }
 
