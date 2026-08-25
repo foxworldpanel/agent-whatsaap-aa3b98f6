@@ -1220,7 +1220,7 @@ function LeadFinderPage() {
                         listCategories(),
                       ])
                       const listaInstagram = (listasResult as any[]).find((l) => l.origem === 'instagram')
-                      const categoriaInstagram = (categoriasResult as any[]).find((c) => c.slug === 'lead_instagram')
+                      const categoriaInstagram = (categoriasResult as any[]).find((c) => c.slug === 'lead_finder')
 
                       if (!listaInstagram || !categoriaInstagram) {
                         toast.error('Não achei a lista/categoria de Instagram na tela de Disparos.', { id: toastId })
@@ -1363,7 +1363,7 @@ function LeadFinderPage() {
                                       listCategories(),
                                     ])
                                     const listaInstagram = (listasResult as any[]).find((l) => l.origem === 'instagram')
-                                    const categoriaInstagram = (categoriasResult as any[]).find((c) => c.slug === 'lead_instagram')
+                                    const categoriaInstagram = (categoriasResult as any[]).find((c) => c.slug === 'lead_finder')
                                     if (!listaInstagram || !categoriaInstagram) {
                                       throw new Error('Não achei a lista/categoria de Instagram na tela de Disparos.')
                                     }
