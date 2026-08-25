@@ -1203,24 +1203,57 @@ function LeadFinderPage() {
                       toast.info('Nenhum lead novo com telefone pra promover.')
                       return
                     }
-                    const { data: { user } } = await supabase.auth.getUser()
-                    if (!user) {
-                      toast.error('Sessão expirada, recarregue a página.')
-                      return
-                    }
-                    const toastId = toast.loading(`Promovendo ${elegiveis.length} leads...`)
-                    let sucesso = 0
-                    let falhas = 0
-                    for (const lead of elegiveis) {
-                      try {
-                        await LeadService.promoteToContact(lead.id, user.id)
-                        sucesso++
-                      } catch {
-                        falhas++
+                    const toastId = toast.loading(`Promovendo ${elegiveis.length} leads pra disparo...`)
+                    try {
+                      // Achado real em 25/08/2026 — auditoria pedida pelo
+                      // usuário: "Promover" salvava numa tabela ("contacts")
+                      // completamente desconectada da tela de Disparos real
+                      // (que lê de "blast_contacts"). Corrigido pra usar a
+                      // MESMA função de importação que o CSV manual usa —
+                      // sem precisar de upload, direto do Lead Finder.
+                      const { listContactLists } = await import('@/lib/contact-lists.functions')
+                      const { listCategories } = await import('@/lib/categories.functions')
+                      const { importContactsToList } = await import('@/lib/contact-lists.functions')
+
+                      const [listasResult, categoriasResult] = await Promise.all([
+                        listContactLists(),
+                        listCategories(),
+                      ])
+                      const listaInstagram = (listasResult as any[]).find((l) => l.origem === 'instagram')
+                      const categoriaInstagram = (categoriasResult as any[]).find((c) => c.slug === 'lead_instagram')
+
+                      if (!listaInstagram || !categoriaInstagram) {
+                        toast.error('Não achei a lista/categoria de Instagram na tela de Disparos.', { id: toastId })
+                        return
                       }
+
+                      const rows = elegiveis.map((l) => ({
+                        nome: l.display_name || l.profile_username,
+                        telefone: l.phone!,
+                        instagram: l.profile_username || '',
+                      }))
+
+                      const resultado: any = await importContactsToList({
+                        data: { listId: listaInstagram.id, categoriaId: categoriaInstagram.id, rows },
+                      })
+
+                      // Marca como QUEUED no Lead Finder também, mantendo
+                      // as 2 telas em sincronia — quem já foi promovido não
+                      // aparece de novo como elegível.
+                      await Promise.all(
+                        elegiveis.map((l) =>
+                          supabase.from('lead_finder_leads').update({ pipeline_stage: 'READY_FOR_SALES', sales_status: 'QUEUED' }).eq('id', l.id)
+                        )
+                      )
+
+                      toast.success(
+                        `${resultado.inserted} leads prontos pra disparo · ${resultado.ignored_sent} já enviados · ${resultado.ignored_blocked} bloqueados`,
+                        { id: toastId }
+                      )
+                      loadLeads()
+                    } catch (error: any) {
+                      toast.error('Erro ao promover leads', { id: toastId, description: error?.message })
                     }
-                    toast.success(`${sucesso} leads promovidos${falhas > 0 ? `, ${falhas} falharam` : ''}.`, { id: toastId })
-                    loadLeads()
                   }}
                 >
                   <Play className="h-4 w-4" /> Promover Todos
@@ -1321,12 +1354,30 @@ function LeadFinderPage() {
                                 className="h-8 mr-1"
                                 onClick={async () => {
                                   try {
-                                    const { data: { user } } = await supabase.auth.getUser()
-                                    if (!user) throw new Error('Sessão expirada, recarregue a página.')
-                                    const result = await LeadService.promoteToContact(lead.id, user.id)
+                                    // Mesmo caminho real do "Promover Todos"
+                                    // — achado real em 25/08/2026.
+                                    const { listContactLists, importContactsToList } = await import('@/lib/contact-lists.functions')
+                                    const { listCategories } = await import('@/lib/categories.functions')
+                                    const [listasResult, categoriasResult] = await Promise.all([
+                                      listContactLists(),
+                                      listCategories(),
+                                    ])
+                                    const listaInstagram = (listasResult as any[]).find((l) => l.origem === 'instagram')
+                                    const categoriaInstagram = (categoriasResult as any[]).find((c) => c.slug === 'lead_instagram')
+                                    if (!listaInstagram || !categoriaInstagram) {
+                                      throw new Error('Não achei a lista/categoria de Instagram na tela de Disparos.')
+                                    }
+                                    const resultado: any = await importContactsToList({
+                                      data: {
+                                        listId: listaInstagram.id,
+                                        categoriaId: categoriaInstagram.id,
+                                        rows: [{ nome: lead.display_name || lead.profile_username, telefone: lead.phone!, instagram: lead.profile_username || '' }],
+                                      },
+                                    })
+                                    await supabase.from('lead_finder_leads').update({ pipeline_stage: 'READY_FOR_SALES', sales_status: 'QUEUED' }).eq('id', lead.id)
                                     toast.success(
-                                      result.alreadyExisted
-                                        ? 'Lead vinculado a um contato já existente.'
+                                      resultado.ignored_sent > 0 || resultado.ignored_blocked > 0
+                                        ? 'Lead já estava na base de disparo.'
                                         : 'Lead promovido — pronto pra disparo!'
                                     )
                                     loadLeads()
