@@ -82,6 +82,36 @@ function LeadFinderPage() {
     loadLeads()
     loadJobs()
     loadHistoricoCompleto()
+
+    // Achado real em 25/08/2026 — pedido do usuário: "Discovery
+    // Running" desaparecia ao atualizar a página (F5), mesmo a busca
+    // real continuando no fundo (Worker + rota de persistência). Isso
+    // também parava as atualizações periódicas de Histórico/Leads,
+    // já que estavam ligadas ao mesmo ciclo. Agora, ao carregar a
+    // página, procura por uma busca ainda RUNNING no banco e retoma o
+    // acompanhamento sozinho — só para quando o usuário cancelar ou a
+    // busca realmente terminar.
+    ;(async () => {
+      const { data: jobAtivo } = await supabase
+        .from('lead_finder_jobs')
+        .select('*')
+        .eq('status', 'RUNNING')
+        .not('worker_job_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (jobAtivo?.worker_job_id) {
+        setActiveJob(jobAtivo)
+        setActiveWorkerJobId(jobAtivo.worker_job_id)
+        setIsSearching(true)
+        setLiveResults([])
+        const toastId = toast.loading('Retomando acompanhamento de busca em andamento...', {
+          description: 'Encontrei uma busca que já estava rodando.'
+        })
+        acompanharBusca(jobAtivo.id, jobAtivo.worker_job_id, toastId)
+      }
+    })()
   }, [])
 
   const loadCredentials = async () => {
@@ -147,6 +177,71 @@ function LeadFinderPage() {
     } catch (e) {
       console.error(e)
     }
+  }
+
+  // Achado real em 25/08/2026 — pedido do usuário: extraído o loop de
+  // acompanhamento numa função separada, pra poder ser chamado tanto
+  // ao iniciar uma busca nova quanto ao RETOMAR uma busca que já
+  // estava rodando quando a página foi recarregada (o "Discovery
+  // Running" antes desaparecia com o F5, mesmo a busca real
+  // continuando no fundo — isso corrige isso).
+  const acompanharBusca = async (jobId: string, workerJobId: string, toastId: string | number) => {
+    const usernamesExibidos = new Set<string>()
+    const maxAttempts = 1440 // 1440 * 5s = 2 horas
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 5000))
+      const { getDiscoveryStatusAction } = await import('@/lib/instagram-worker/discovery.functions')
+      const statusResult = await getDiscoveryStatusAction({ data: { jobId: workerJobId } })
+
+      toast.loading(statusResult.currentStep || "Buscando...", { id: toastId })
+      setCurrentSearchStep(statusResult.currentStep || 'Buscando...')
+
+      if (attempt % 3 === 0) {
+        loadHistoricoCompleto()
+        loadLeads()
+      }
+
+      for (const result of statusResult.results || []) {
+        if (usernamesExibidos.has(result.profile.username)) continue
+        usernamesExibidos.add(result.profile.username)
+        setLiveResults((prev) => [
+          ...prev,
+          {
+            username: result.profile.username,
+            phone: result.contacts?.phone || null,
+            email: result.contacts?.email || null,
+            segment: result.metadata?.segment || null,
+            country: result.metadata?.country || null,
+          },
+        ])
+      }
+
+      loadLeads()
+
+      if (statusResult.status === 'COMPLETED') {
+        toast.success(`Busca concluída! ${usernamesExibidos.size} perfis verificados. A persistência final roda em segundo plano.`, { id: toastId })
+        loadJobs()
+        loadLeads()
+        loadHistoricoCompleto()
+        setActiveJob(null)
+        setActiveWorkerJobId(null)
+        setIsSearching(false)
+        return
+      }
+      if (statusResult.status === 'ERROR') {
+        toast.error("Busca falhou.", { id: toastId, description: statusResult.currentStep })
+        loadJobs()
+        setActiveJob(null)
+        setActiveWorkerJobId(null)
+        setIsSearching(false)
+        return
+      }
+    }
+
+    toast.info("A busca continua em segundo plano — pode fechar essa tela sem perder nada.", { id: toastId })
+    setActiveJob(null)
+    setActiveWorkerJobId(null)
+    setIsSearching(false)
   }
 
   const handleStartDiscovery = async () => {
@@ -218,7 +313,7 @@ function LeadFinderPage() {
             : "Isso pode levar alguns minutos — o worker navega perfil por perfil de verdade."
         })
 
-        const { startDiscoveryAction, getDiscoveryStatusAction } = await import('@/lib/instagram-worker/discovery.functions')
+        const { startDiscoveryAction } = await import('@/lib/instagram-worker/discovery.functions')
         const startResult = await startDiscoveryAction({
           data: {
             credentialId: selectedCredential!,
@@ -238,84 +333,11 @@ function LeadFinderPage() {
         // job do banco ao job do Worker. A partir daqui, uma rota de
         // fundo (discovery-poll, chamada por pg_cron a cada minuto)
         // é quem persiste de verdade — independente dessa aba
-        // continuar aberta ou não. Esse loop abaixo só CONSULTA pra
-        // mostrar progresso, não decide mais o que fica salvo.
+        // continuar aberta ou não.
         await JobService.linkWorkerJob(job.id, startResult.jobId)
         setActiveWorkerJobId(startResult.jobId)
 
-        const usernamesExibidos = new Set<string>()
-        // Bug real encontrado em 23/08/2026: 15 minutos era pouco —
-        // com o ritmo de segurança atual (30-45s por perfil, mais
-        // checagem de site), uma busca de 20+ perfis facilmente passa
-        // disso. A tela desistia de mostrar progresso, mesmo com a
-        // busca ainda rodando de verdade (confirmado acompanhando
-        // pelo VNC). Aumentado pra 2 horas — tempo de sobra.
-        const maxAttempts = 1440 // 1440 * 5s = 2 horas
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          await new Promise((resolve) => setTimeout(resolve, 5000))
-          const statusResult = await getDiscoveryStatusAction({ data: { jobId: startResult.jobId } })
-
-          toast.loading(statusResult.currentStep || "Buscando...", { id: toastId })
-          setCurrentSearchStep(statusResult.currentStep || 'Buscando...')
-
-          // Atualiza o Histórico Completo periodicamente (não a cada 5s,
-          // seria pesado demais) — a cada 3 ciclos (~15s), tempo
-          // suficiente pra rota de fundo já ter persistido algo novo.
-          // Atualiza também Leads — quem tem WhatsApp aparece lá em
-          // tempo real, não só depois que a busca inteira terminar.
-          if (attempt % 3 === 0) {
-            loadHistoricoCompleto()
-            loadLeads()
-          }
-
-          // Só exibe — a persistência real acontece na rota de fundo,
-          // não aqui. Isso é seguro mesmo mostrando 2x o mesmo perfil
-          // entre reloads, já que é só exibição, sem duplicar no banco.
-          for (const result of statusResult.results || []) {
-            if (usernamesExibidos.has(result.profile.username)) continue
-            usernamesExibidos.add(result.profile.username)
-            setLiveResults((prev) => [
-              ...prev,
-              {
-                username: result.profile.username,
-                phone: result.contacts?.phone || null,
-                email: result.contacts?.email || null,
-                segment: result.metadata?.segment || null,
-                country: result.metadata?.country || null,
-              },
-            ])
-          }
-
-          // Recarrega leads periodicamente — a rota de fundo já deve
-          // ter persistido alguns nesse meio tempo.
-          loadLeads()
-
-          if (statusResult.status === 'COMPLETED') {
-            toast.success(`Busca concluída! ${usernamesExibidos.size} perfis verificados. A persistência final roda em segundo plano.`, { id: toastId })
-            loadJobs()
-            loadLeads()
-            setActiveJob(null)
-            setActiveWorkerJobId(null)
-            setIsSearching(false)
-            return
-          }
-          if (statusResult.status === 'ERROR') {
-            toast.error("Busca falhou.", { id: toastId, description: statusResult.currentStep })
-            loadJobs()
-            setActiveJob(null)
-            setActiveWorkerJobId(null)
-            setIsSearching(false)
-            return
-          }
-        }
-
-        // Mesmo se essa aba parar de consultar aqui (timeout de
-        // exibição), a busca e a persistência continuam de fundo —
-        // só avisa que a TELA parou de acompanhar, não que perdeu dado.
-        toast.info("A busca continua em segundo plano — pode fechar essa tela sem perder nada.", { id: toastId })
-        setActiveJob(null)
-        setActiveWorkerJobId(null)
-        setIsSearching(false)
+        await acompanharBusca(job.id, startResult.jobId, toastId)
       } catch (error: any) {
         console.error(error)
         toast.error("Erro na descoberta por hashtag", { id: toastId, description: error?.message })
