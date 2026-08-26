@@ -2,7 +2,7 @@
 // Detecta horário (timezone Brasil) e monta saudação + linha2 + pergunta.
 // Suporta múltiplos idiomas selecionados pelo DDI do telefone do lead.
 
-export type Language = "pt" | "en" | "es";
+export type Language = "pt" | "en" | "es" | "de" | "fr" | "it" | "nl";
 
 export type LangTemplates = {
   saudacoes: Record<"manha" | "tarde" | "noite", string[]>;
@@ -125,6 +125,131 @@ export const ES_DEFAULT: LangTemplates = {
   ],
 };
 
+export const DE_DEFAULT: LangTemplates = {
+  saudacoes: {
+    manha: [
+      "Hi, guten Morgen!",
+      "Hallo, guten Morgen!",
+      "Guten Morgen, wie geht's?",
+    ],
+    tarde: [
+      "Hi, guten Tag!",
+      "Hallo, guten Tag!",
+      "Guten Tag, wie geht's?",
+    ],
+    noite: [
+      "Hi, guten Abend!",
+      "Hallo, guten Abend!",
+      "Guten Abend, wie geht's?",
+    ],
+  },
+  linha2: [
+    "Ich habe deinen Kontakt über dein Profil @{instagram} gefunden, mir gefällt dein Content sehr!",
+    "Ich habe deinen Kontakt auf @{instagram} gefunden, richtig guter Content!",
+    "Habe deinen Kontakt über @{instagram} entdeckt, gefällt mir echt gut!",
+    "Ich habe deinen Kontakt direkt von deinem Profil @{instagram}, toller Stil!",
+    "Habe deinen Kontakt über dein Instagram @{instagram} bekommen, super Content!",
+  ],
+  perguntas: [
+    "Darf ich dir etwas zeigen, das dein Wachstum beschleunigen könnte?",
+    "Ich habe etwas, das deine Reichweite steigern könnte — darf ich es dir zeigen?",
+    "Kann ich dir etwas vorstellen, das dein Profil viel schneller wachsen lassen könnte?",
+  ],
+};
+
+export const FR_DEFAULT: LangTemplates = {
+  saudacoes: {
+    manha: [
+      "Salut, bonjour !",
+      "Bonjour, ça va ?",
+      "Coucou, bonjour !",
+    ],
+    tarde: [
+      "Salut, bon après-midi !",
+      "Bonjour, ça va ?",
+      "Coucou !",
+    ],
+    noite: [
+      "Salut, bonsoir !",
+      "Bonsoir, ça va ?",
+      "Coucou, bonsoir !",
+    ],
+  },
+  linha2: [
+    "J'ai récupéré ton contact sur ton profil @{instagram}, j'adore ton contenu !",
+    "J'ai trouvé ton contact sur @{instagram}, vraiment top ce que tu postes !",
+    "J'ai eu ton contact via ton Instagram @{instagram}, super contenu !",
+    "J'ai récupéré ton contact directement sur @{instagram}, j'aime beaucoup le style !",
+  ],
+  perguntas: [
+    "Je peux te montrer quelque chose qui pourrait accélérer ta croissance ?",
+    "J'ai quelque chose qui pourrait booster tes réseaux, je te montre ?",
+    "Je peux te présenter quelque chose qui ferait grandir ton profil bien plus vite ?",
+  ],
+};
+
+export const IT_DEFAULT: LangTemplates = {
+  saudacoes: {
+    manha: [
+      "Ciao, buongiorno!",
+      "Ehi, buongiorno!",
+      "Buongiorno, come va?",
+    ],
+    tarde: [
+      "Ciao, buon pomeriggio!",
+      "Ehi, come va?",
+      "Buon pomeriggio!",
+    ],
+    noite: [
+      "Ciao, buonasera!",
+      "Ehi, buonasera!",
+      "Buonasera, come va?",
+    ],
+  },
+  linha2: [
+    "Ho preso il tuo contatto dal tuo profilo @{instagram}, mi piace molto il tuo contenuto!",
+    "Ho trovato il tuo contatto su @{instagram}, contenuto davvero bello!",
+    "Ho preso il tuo contatto dal tuo Instagram @{instagram}, ottimo stile!",
+    "Ho preso il tuo contatto proprio lì su @{instagram}, mi è piaciuto molto!",
+  ],
+  perguntas: [
+    "Posso mostrarti qualcosa che potrebbe accelerare la tua crescita?",
+    "Ho qualcosa che potrebbe far crescere i tuoi social, ti va se te lo mostro?",
+    "Posso presentarti qualcosa che farebbe crescere il tuo profilo molto più in fretta?",
+  ],
+};
+
+export const NL_DEFAULT: LangTemplates = {
+  saudacoes: {
+    manha: [
+      "Hoi, goedemorgen!",
+      "Hallo, goedemorgen!",
+      "Goedemorgen, hoe gaat het?",
+    ],
+    tarde: [
+      "Hoi, goedemiddag!",
+      "Hallo, hoe gaat het?",
+      "Goedemiddag!",
+    ],
+    noite: [
+      "Hoi, goedenavond!",
+      "Hallo, goedenavond!",
+      "Goedenavond, hoe gaat het?",
+    ],
+  },
+  linha2: [
+    "Ik heb je contact van je profiel @{instagram} gehaald, ik vind je content echt leuk!",
+    "Ik heb je contact gevonden op @{instagram}, heel goede content!",
+    "Ik heb je contact via je Instagram @{instagram} gekregen, mooie stijl!",
+    "Ik heb je contact rechtstreeks van @{instagram}, vond het echt leuk!",
+  ],
+  perguntas: [
+    "Mag ik je iets laten zien dat je groei zou kunnen versnellen?",
+    "Ik heb iets dat je bereik zou kunnen vergroten, mag ik het je laten zien?",
+    "Mag ik je iets voorstellen waardoor je profiel veel sneller zou kunnen groeien?",
+  ],
+};
+
 export const PT_DEFAULT: LangTemplates = {
   saudacoes: SAUDACOES_DEFAULT,
   linha2: LINHA2_DEFAULT,
@@ -133,18 +258,50 @@ export const PT_DEFAULT: LangTemplates = {
 
 // Mapa padrão de DDI → idioma. Editável no banco (opening_templates.ddi_language_map).
 export const DEFAULT_DDI_LANGUAGE_MAP: Record<string, Language> = {
-  "55": "pt",
-  "351": "pt",
-  "1": "en",
-  "34": "es",
-  "52": "es",
-  "54": "es",
-  "57": "es",
-  "51": "es",
-  "56": "es",
-  "593": "es",
-  "598": "es",
-  "507": "es",
+  // Português
+  "55": "pt",  // Brasil
+  "351": "pt", // Portugal
+  // Inglês — países de língua inglesa + fallback pros que não têm
+  // pacote nativo próprio (Japão, Coreia, Emirados, escandinavos,
+  // Polônia — decisão consciente em 25/08/2026, prefere inglês
+  // correto a um idioma nativo mal escrito).
+  "1": "en",   // EUA/Canadá
+  "44": "en",  // Reino Unido
+  "61": "en",  // Austrália
+  "64": "en",  // Nova Zelândia
+  "353": "en", // Irlanda
+  "65": "en",  // Singapura
+  "81": "en",  // Japão — sem pacote nativo, cai em inglês por segurança
+  "82": "en",  // Coreia do Sul — idem
+  "971": "en", // Emirados Árabes — idem
+  "46": "en",  // Suécia — idem
+  "47": "en",  // Noruega — idem
+  "45": "en",  // Dinamarca — idem
+  "358": "en", // Finlândia — idem
+  "48": "en",  // Polônia — idem
+  // Espanhol
+  "34": "es",  // Espanha
+  "52": "es",  // México
+  "54": "es",  // Argentina
+  "57": "es",  // Colômbia
+  "51": "es",  // Peru
+  "56": "es",  // Chile
+  "593": "es", // Equador
+  "598": "es", // Uruguai
+  "591": "es", // Bolívia
+  "58": "es",  // Venezuela
+  "507": "es", // Panamá
+  // Alemão
+  "49": "de",  // Alemanha
+  "43": "de",  // Áustria
+  "41": "de",  // Suíça (majoritariamente alemão)
+  // Francês
+  "33": "fr",  // França
+  "32": "fr",  // Bélgica (parte francófona — simplificação consciente)
+  // Italiano
+  "39": "it",  // Itália
+  // Holandês
+  "31": "nl",  // Holanda
 };
 
 export function detectLanguageFromPhone(
@@ -172,6 +329,10 @@ export type OpeningTemplates = {
   // Novos campos multi-idioma (opcionais para retrocompat com UI antiga)
   en?: LangTemplates;
   es?: LangTemplates;
+  de?: LangTemplates;
+  fr?: LangTemplates;
+  it?: LangTemplates;
+  nl?: LangTemplates;
   ddiMap?: Record<string, Language>;
 };
 
@@ -181,6 +342,10 @@ export const DEFAULT_TEMPLATES: OpeningTemplates = {
   perguntas: PERGUNTAS_DEFAULT,
   en: EN_DEFAULT,
   es: ES_DEFAULT,
+  de: DE_DEFAULT,
+  fr: FR_DEFAULT,
+  it: IT_DEFAULT,
+  nl: NL_DEFAULT,
   ddiMap: DEFAULT_DDI_LANGUAGE_MAP,
 };
 
@@ -239,14 +404,21 @@ export function montarMensagemDisparo(
   const periodo = getPeriodoBrasil(options.now);
   const tpls = options.templates ?? DEFAULT_TEMPLATES;
   const lang: Language = options.language ?? "pt";
-  const pack: LangTemplates =
-    lang === "en"
-      ? (tpls.en ?? EN_DEFAULT)
-      : lang === "es"
-        ? (tpls.es ?? ES_DEFAULT)
-        : { saudacoes: tpls.saudacoes, linha2: tpls.linha2, perguntas: tpls.perguntas };
-  const fallback: LangTemplates =
-    lang === "en" ? EN_DEFAULT : lang === "es" ? ES_DEFAULT : PT_DEFAULT;
+  // Acessa o pacote e o padrão de reserva do idioma pedido — mapa em
+  // vez de cadeia de if/else, fica sustentável conforme mais idiomas
+  // forem adicionados no futuro.
+  const PACOTES_POR_IDIOMA: Record<Language, { pack: () => LangTemplates | undefined; fallback: LangTemplates }> = {
+    pt: { pack: () => ({ saudacoes: tpls.saudacoes, linha2: tpls.linha2, perguntas: tpls.perguntas }), fallback: PT_DEFAULT },
+    en: { pack: () => tpls.en, fallback: EN_DEFAULT },
+    es: { pack: () => tpls.es, fallback: ES_DEFAULT },
+    de: { pack: () => tpls.de, fallback: DE_DEFAULT },
+    fr: { pack: () => tpls.fr, fallback: FR_DEFAULT },
+    it: { pack: () => tpls.it, fallback: IT_DEFAULT },
+    nl: { pack: () => tpls.nl, fallback: NL_DEFAULT },
+  };
+  const escolhido = PACOTES_POR_IDIOMA[lang] ?? PACOTES_POR_IDIOMA.pt;
+  const pack: LangTemplates = escolhido.pack() ?? escolhido.fallback;
+  const fallback: LangTemplates = escolhido.fallback;
   const saudacoes = pack.saudacoes?.[periodo]?.length
     ? pack.saudacoes[periodo]
     : fallback.saudacoes[periodo];
