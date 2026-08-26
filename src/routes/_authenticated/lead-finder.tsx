@@ -1113,19 +1113,14 @@ function LeadFinderPage() {
                         </div>
                         <div className="space-y-2">
                           <Label className="text-xs uppercase text-muted-foreground">Limite de Leads</Label>
-                          <div className="flex gap-2">
-                            {['10', '25', '50', '100'].map(val => (
-                              <Button 
-                                key={val} 
-                                variant={limit === val ? 'default' : 'outline'} 
-                                size="sm" 
-                                className="flex-1"
-                                onClick={() => setLimit(val)}
-                              >
-                                {val}
-                              </Button>
-                            ))}
-                          </div>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={limit}
+                            onChange={(e) => setLimit(e.target.value)}
+                            className="h-10"
+                            placeholder="Ex: 100, 200, 500..."
+                          />
                         </div>
                         {discoveryType === 'hashtag' && (
                           <div className="space-y-2 col-span-2">
