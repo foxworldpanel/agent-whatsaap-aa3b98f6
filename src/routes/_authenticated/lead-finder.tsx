@@ -1253,6 +1253,8 @@ function LeadFinderPage() {
                         nome: l.display_name || l.profile_username,
                         telefone: l.phone!,
                         instagram: l.profile_username || '',
+                        language: (l as any).language || undefined,
+                        countryCode: (l as any).country_code || undefined,
                       }))
 
                       const resultado: any = await importContactsToList({
@@ -1393,7 +1395,7 @@ function LeadFinderPage() {
                                       data: {
                                         listId: listaInstagram.id,
                                         categoriaId: categoriaInstagram.id,
-                                        rows: [{ nome: lead.display_name || lead.profile_username, telefone: lead.phone!, instagram: lead.profile_username || '' }],
+                                        rows: [{ nome: lead.display_name || lead.profile_username, telefone: lead.phone!, instagram: lead.profile_username || '', language: (lead as any).language || undefined, countryCode: (lead as any).country_code || undefined }],
                                       },
                                     })
                                     await supabase.from('lead_finder_leads').update({ pipeline_stage: 'READY_FOR_SALES', sales_status: 'QUEUED' }).eq('id', lead.id)
