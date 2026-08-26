@@ -12,7 +12,7 @@ export const startDiscoveryAction = createServerFn({ method: "POST" })
       .object({
         credentialId: z.string(),
         hashtag: z.string().min(1),
-        maxLeads: z.number().min(1).max(200).default(20),
+        maxLeads: z.number().min(1).default(20),
         minDelaySec: z.number().min(1).max(60).default(5),
         maxDelaySec: z.number().min(1).max(60).default(12),
         excludeUsernames: z.array(z.string()).default([]),
