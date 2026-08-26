@@ -190,6 +190,28 @@ function escapeRegex(value: string): string {
  * Evita falsos positivos de substring, por exemplo "face" dentro de
  * "interface" ou "live" dentro de outra palavra.
  */
+// Achado real em 26/08/2026, pedido do usuário: "obrigado"/"tchau"
+// sozinhos disparavam encerramento mesmo quando o cliente estava
+// saindo FRUSTRADO de uma reclamação não resolvida (ex: "vou buscar
+// outra empresa... obrigado" foi lido como despedida positiva). Essa
+// checagem olha as últimas mensagens do CLIENTE (não do agente) por
+// sinal de problema ainda não resolvido antes de confiar numa palavra
+// de despedida solta.
+const PALAVRAS_PROBLEMA_NAO_RESOLVIDO = [
+  "nao recebi", "nao chegou", "nao funcionou", "nao avancou", "nao veio",
+  "problema", "reclamar", "reclamacao", "buscar outra", "cancelar",
+  "nao foi feito", "nao foi processado", "golpe", "enganado", "estorno",
+];
+
+function temSinalDeProblemaNaoResolvido(history: ConversationMessageV3[]): boolean {
+  const ultimasDoCliente = history
+    .filter((m) => m.role === "customer")
+    .slice(-4)
+    .map((m) => normalizeText(m.content))
+    .join(" ");
+  return containsAny(ultimasDoCliente, PALAVRAS_PROBLEMA_NAO_RESOLVIDO);
+}
+
 function containsAny(text: string, terms: string[]): boolean {
   return terms.some((term) => {
     const normalizedTerm = normalizeText(term);
@@ -477,7 +499,10 @@ export function detectConversationContext(
   ) {
     intent = "descoberta";
     stage = "apresentacao";
-  } else if (containsAny(normalizedText, ["obrigado", "valeu", "ate mais", "tchau"])) {
+  } else if (
+    containsAny(normalizedText, ["obrigado", "valeu", "ate mais", "tchau"]) &&
+    !temSinalDeProblemaNaoResolvido(history)
+  ) {
     intent = "encerramento";
     stage = "pos_venda";
   } else if (isPureGreeting) {
