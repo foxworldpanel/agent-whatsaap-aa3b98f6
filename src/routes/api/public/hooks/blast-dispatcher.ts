@@ -320,11 +320,20 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               avoidSaudacaoIdx = saudacaoIdxFromKey(lastSent?.[0]?.last_variation_key ?? null);
             }
 
+            // Achado real em 25/08/2026, pedido do usuário: prefere o
+            // idioma já descoberto pelo Lead Finder (bio da conta —
+            // sinal mais rico) — só cai pro DDI do telefone quando
+            // esse campo não existir (ex: contato importado via CSV
+            // manual, sem passar pelo Lead Finder).
+            const IDIOMAS_VALIDOS: string[] = ["pt", "en", "es", "de", "fr", "it", "nl"];
+            const idiomaSalvo = next.contact.language;
             const language = useVariacao && !kindHasOwnPack
-              ? detectLanguageFromPhone(
-                  next.contact.telefone,
-                  templates.ddiMap ?? DEFAULT_DDI_LANGUAGE_MAP,
-                )
+              ? (idiomaSalvo && IDIOMAS_VALIDOS.includes(idiomaSalvo)
+                  ? (idiomaSalvo as any)
+                  : detectLanguageFromPhone(
+                      next.contact.telefone,
+                      templates.ddiMap ?? DEFAULT_DDI_LANGUAGE_MAP,
+                    ))
               : "pt";
             const pick = useVariacao
               ? montarMensagemDisparo(next.contact.nome, next.contact.instagram, {
@@ -691,6 +700,11 @@ type BlastContact = {
   last_sent_at: string | null;
   last_variation_key: string | null;
   parts_sent?: number | null;
+  // Achado real em 25/08/2026, pedido do usuário: idioma/país já
+  // descoberto pelo Lead Finder (bio da conta), mais confiável que
+  // só o DDI do telefone — usado como primeira escolha no disparo.
+  language?: string | null;
+  country_code?: string | null;
 };
 
 async function pickNext(
@@ -726,7 +740,7 @@ async function pickNext(
       ? q.eq("contact_list_id", camp.contact_list_id)
       : q.eq("campaign_id", camp.id);
 
-  const SELECT = "id, nome, telefone, instagram, status, last_sent_at, last_variation_key, parts_sent";
+  const SELECT = "id, nome, telefone, instagram, status, last_sent_at, last_variation_key, parts_sent, language, country_code";
   const baseQ = () => {
     if (useCats) {
       return admin
