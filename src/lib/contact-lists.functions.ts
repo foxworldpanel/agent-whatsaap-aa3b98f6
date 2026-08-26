@@ -69,6 +69,12 @@ export const importContactsToList = createServerFn({ method: "POST" })
         nome: z.string().trim().min(1).max(120),
         telefone: z.string().trim().min(5).max(40),
         instagram: z.string().trim().max(80).optional().default(""),
+        // Achado real em 25/08/2026, pedido do usuário: conecta o
+        // idioma/país já descoberto pelo Lead Finder direto no
+        // disparo — opcionais, pra não quebrar o CSV manual antigo
+        // que nunca passa esses campos.
+        language: z.string().trim().max(10).optional(),
+        countryCode: z.string().trim().max(5).optional(),
       })).min(1).max(5000),
     }).parse(d),
   )
@@ -95,6 +101,8 @@ export const importContactsToList = createServerFn({ method: "POST" })
       nome: r.nome,
       telefone: normalizePhone(r.telefone),
       instagram: (r.instagram ?? "").replace(/^@/, ""),
+      language: r.language ?? null,
+      countryCode: r.countryCode ?? null,
     })).filter((r) => {
       const ok = r.telefone.length >= 10 && r.telefone.length <= 15;
       if (!ok) invalid++;
@@ -167,6 +175,8 @@ export const importContactsToList = createServerFn({ method: "POST" })
       nome: r.nome,
       telefone: r.telefone,
       instagram: r.instagram,
+      language: r.language,
+      country_code: r.countryCode,
       status: "pendente" as const,
     }));
     const { error, count } = await context.supabase
