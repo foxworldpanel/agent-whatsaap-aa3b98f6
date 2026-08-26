@@ -188,10 +188,33 @@ function LeadFinderPage() {
   const acompanharBusca = async (jobId: string, workerJobId: string, toastId: string | number) => {
     const usernamesExibidos = new Set<string>()
     const maxAttempts = 1440 // 1440 * 5s = 2 horas
+    let falhasSeguidas = 0
+    const maxFalhasSeguidas = 10 // ~50s de falha contínua antes de desistir de vez
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 5000))
-      const { getDiscoveryStatusAction } = await import('@/lib/instagram-worker/discovery.functions')
-      const statusResult = await getDiscoveryStatusAction({ data: { jobId: workerJobId } })
+
+      // Achado real em 26/08/2026, pedido do usuário: uma falha
+      // temporária de rede (timeout, hiccup) fazia esse loop inteiro
+      // morrer silenciosamente — a busca real continuava no Worker,
+      // mas a tela "esquecia" dela sem avisar nada. Agora tenta de
+      // novo em vez de desistir na primeira falha.
+      let statusResult
+      try {
+        const { getDiscoveryStatusAction } = await import('@/lib/instagram-worker/discovery.functions')
+        statusResult = await getDiscoveryStatusAction({ data: { jobId: workerJobId } })
+        falhasSeguidas = 0
+      } catch (erroConsulta) {
+        falhasSeguidas++
+        console.error(`[acompanharBusca] Falha ao consultar status (tentativa ${falhasSeguidas}/${maxFalhasSeguidas}):`, erroConsulta)
+        if (falhasSeguidas >= maxFalhasSeguidas) {
+          toast.error("Perdi contato com o Worker — a busca real pode continuar rodando, mas pare de acompanhar aqui. Verifique manualmente.", { id: toastId })
+          setActiveJob(null)
+          setActiveWorkerJobId(null)
+          setIsSearching(false)
+          return
+        }
+        continue // tenta de novo no próximo ciclo, sem desistir ainda
+      }
 
       toast.loading(statusResult.currentStep || "Buscando...", { id: toastId })
       setCurrentSearchStep(statusResult.currentStep || 'Buscando...')
