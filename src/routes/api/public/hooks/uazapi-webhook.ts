@@ -2839,7 +2839,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
       const nextHistory = [
         ...history,
-        { role: "customer" as const, content: finalMsgText },
+        { role: "customer" as const, content: effectiveAgentMessage },
         // Salva exatamente o texto que chegou ao cliente após humanização/emoji guard.
         { role: "agent" as const, content: deliveredReplyText },
       ].slice(-100);

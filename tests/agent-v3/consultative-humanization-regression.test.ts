@@ -12,16 +12,25 @@ describe("Atendimento consultivo e humano", () => {
     expect(ctx.intent).toBe("descoberta");
     expect(ctx.stage).toBe("apresentacao");
   });
-  it("instrui recomendação em vez de catálogo", () => {
-    expect(orchestrator).toContain("ATENDIMENTO CONSULTIVO — ENTENDA O OBJETIVO");
-    expect(orchestrator).toContain("NÃO devolva um catálogo");
+  it("prioriza a dúvida do cliente antes de empurrar oferta", () => {
+    expect(orchestrator).toContain("REGRA DE OURO: PRIORIDADE FACTUAL VS COMERCIAL");
+    expect(orchestrator).toContain("a resposta DEVE priorizar a informação factual");
   });
   it("permite quebrar explicação em duas mensagens", () => {
     expect(orchestrator).toContain("===SPLIT===");
-    expect(orchestrator).toContain("DUAS mensagens curtas");
+    expect(orchestrator).toContain("autoSplitLongPartsV3");
   });
   it("agrupa rajadas e suprime resposta obsoleta", () => {
     expect(webhook).toContain("effectiveAgentMessage");
-    expect(webhook).toContain("superseded by newer customer message");
+    expect(webhook).toContain("ok (debounced v2, newer message will handle)");
+  });
+
+  it("salva na memória o mesmo turno agregado enviado ao agente", () => {
+    expect(webhook).toContain(
+      '{ role: "customer" as const, content: effectiveAgentMessage }',
+    );
+    expect(webhook).not.toContain(
+      '{ role: "customer" as const, content: finalMsgText }',
+    );
   });
 });

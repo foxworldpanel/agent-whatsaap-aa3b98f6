@@ -30,6 +30,7 @@ import { Route as AuthenticatedAdminAgentPlaygroundRouteImport } from './routes/
 import { Route as ApiPublicHooksV3TestWebhookRouteImport } from './routes/api/public/hooks/v3-test-webhook'
 import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
 import { Route as ApiPublicHooksSmmPollRouteImport } from './routes/api/public/hooks/smm-poll'
+import { Route as ApiPublicHooksDiscoveryPollRouteImport } from './routes/api/public/hooks/discovery-poll'
 import { Route as ApiPublicHooksDebugSendTextRouteImport } from './routes/api/public/hooks/debug-send-text'
 import { Route as ApiPublicHooksCampaignDispatcherRouteImport } from './routes/api/public/hooks/campaign-dispatcher'
 import { Route as ApiPublicHooksBlastDispatcherRouteImport } from './routes/api/public/hooks/blast-dispatcher'
@@ -146,6 +147,12 @@ const ApiPublicHooksSmmPollRoute = ApiPublicHooksSmmPollRouteImport.update({
   path: '/api/public/hooks/smm-poll',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksDiscoveryPollRoute =
+  ApiPublicHooksDiscoveryPollRouteImport.update({
+    id: '/api/public/hooks/discovery-poll',
+    path: '/api/public/hooks/discovery-poll',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksDebugSendTextRoute =
   ApiPublicHooksDebugSendTextRouteImport.update({
     id: '/api/public/hooks/debug-send-text',
@@ -193,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/debug-send-text': typeof ApiPublicHooksDebugSendTextRoute
+  '/api/public/hooks/discovery-poll': typeof ApiPublicHooksDiscoveryPollRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
   '/api/public/hooks/v3-test-webhook': typeof ApiPublicHooksV3TestWebhookRoute
@@ -219,6 +227,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/debug-send-text': typeof ApiPublicHooksDebugSendTextRoute
+  '/api/public/hooks/discovery-poll': typeof ApiPublicHooksDiscoveryPollRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
   '/api/public/hooks/v3-test-webhook': typeof ApiPublicHooksV3TestWebhookRoute
@@ -247,6 +256,7 @@ export interface FileRoutesById {
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
   '/api/public/hooks/debug-send-text': typeof ApiPublicHooksDebugSendTextRoute
+  '/api/public/hooks/discovery-poll': typeof ApiPublicHooksDiscoveryPollRoute
   '/api/public/hooks/smm-poll': typeof ApiPublicHooksSmmPollRoute
   '/api/public/hooks/uazapi-webhook': typeof ApiPublicHooksUazapiWebhookRoute
   '/api/public/hooks/v3-test-webhook': typeof ApiPublicHooksV3TestWebhookRoute
@@ -275,6 +285,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/debug-send-text'
+    | '/api/public/hooks/discovery-poll'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
     | '/api/public/hooks/v3-test-webhook'
@@ -301,6 +312,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/debug-send-text'
+    | '/api/public/hooks/discovery-poll'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
     | '/api/public/hooks/v3-test-webhook'
@@ -328,6 +340,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
     | '/api/public/hooks/debug-send-text'
+    | '/api/public/hooks/discovery-poll'
     | '/api/public/hooks/smm-poll'
     | '/api/public/hooks/uazapi-webhook'
     | '/api/public/hooks/v3-test-webhook'
@@ -341,6 +354,7 @@ export interface RootRouteChildren {
   ApiPublicHooksBlastDispatcherRoute: typeof ApiPublicHooksBlastDispatcherRoute
   ApiPublicHooksCampaignDispatcherRoute: typeof ApiPublicHooksCampaignDispatcherRoute
   ApiPublicHooksDebugSendTextRoute: typeof ApiPublicHooksDebugSendTextRoute
+  ApiPublicHooksDiscoveryPollRoute: typeof ApiPublicHooksDiscoveryPollRoute
   ApiPublicHooksSmmPollRoute: typeof ApiPublicHooksSmmPollRoute
   ApiPublicHooksUazapiWebhookRoute: typeof ApiPublicHooksUazapiWebhookRoute
   ApiPublicHooksV3TestWebhookRoute: typeof ApiPublicHooksV3TestWebhookRoute
@@ -495,6 +509,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSmmPollRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/discovery-poll': {
+      id: '/api/public/hooks/discovery-poll'
+      path: '/api/public/hooks/discovery-poll'
+      fullPath: '/api/public/hooks/discovery-poll'
+      preLoaderRoute: typeof ApiPublicHooksDiscoveryPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/debug-send-text': {
       id: '/api/public/hooks/debug-send-text'
       path: '/api/public/hooks/debug-send-text'
@@ -575,6 +596,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksBlastDispatcherRoute: ApiPublicHooksBlastDispatcherRoute,
   ApiPublicHooksCampaignDispatcherRoute: ApiPublicHooksCampaignDispatcherRoute,
   ApiPublicHooksDebugSendTextRoute: ApiPublicHooksDebugSendTextRoute,
+  ApiPublicHooksDiscoveryPollRoute: ApiPublicHooksDiscoveryPollRoute,
   ApiPublicHooksSmmPollRoute: ApiPublicHooksSmmPollRoute,
   ApiPublicHooksUazapiWebhookRoute: ApiPublicHooksUazapiWebhookRoute,
   ApiPublicHooksV3TestWebhookRoute: ApiPublicHooksV3TestWebhookRoute,
