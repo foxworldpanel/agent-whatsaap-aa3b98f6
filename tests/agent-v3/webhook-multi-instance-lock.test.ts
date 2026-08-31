@@ -9,4 +9,13 @@ describe("Agent V3 persistent conversation lock", () => {
     expect(source).toContain("releaseConversationDbLock");
     expect(source).toContain("finally");
   });
+  it("não considera um turno saudável como lock órfão após poucos segundos", () => {
+    const source = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
+    expect(source).toContain(
+      "const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;",
+    );
+    expect(source).not.toContain(
+      "const DB_CONVERSATION_LOCK_STALE_MS = 20 * 1000;",
+    );
+  });
 });

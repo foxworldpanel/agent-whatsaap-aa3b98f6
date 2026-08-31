@@ -33,7 +33,7 @@ async function withConversationLock<T>(key: string, task: () => Promise<T>): Pro
 
 // Lock persistente por conversation_id para proteger também ambientes com
 // múltiplas instâncias/processos. A PK da tabela torna a aquisição atômica.
-const DB_CONVERSATION_LOCK_STALE_MS = 20 * 1000;
+const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;
 
 async function acquireConversationDbLock(
   supabaseAdmin: any,
