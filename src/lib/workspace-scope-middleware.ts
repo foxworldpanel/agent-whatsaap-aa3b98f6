@@ -19,8 +19,8 @@ export const withWorkspaceScope = createMiddleware({ type: "function" })
 
     const req = getRequest();
     const bearer = req?.headers.get("authorization") ?? "";
-    const SUPABASE_URL = process.env.SUPABASE_URL!;
-    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
+    const SUPABASE_URL = process.env.MIND_SUPABASE_URL!;
+    const SUPABASE_PUBLISHABLE_KEY = process.env.MIND_SUPABASE_PUBLISHABLE_KEY!;
 
     const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
       global: {
