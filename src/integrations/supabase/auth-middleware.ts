@@ -89,20 +89,18 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       }
     );
 
-    const { data, error } = await supabase.auth.getClaims(token);
-    if (error || !data?.claims) {
+    // Validate the access token against the KXV Auth server. This avoids
+    // JWKS/signing-key compatibility errors during the migrated-auth cutover.
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user?.id) {
       throw new Error('Unauthorized: Invalid token');
-    }
-
-    if (!data.claims.sub) {
-      throw new Error('Unauthorized: No user ID found in token');
     }
 
     return next({
       context: {
         supabase,
-        userId: data.claims.sub,
-        claims: data.claims,
+        userId: data.user.id,
+        claims: { sub: data.user.id },
       },
     });
   },
