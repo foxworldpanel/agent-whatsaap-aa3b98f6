@@ -30,12 +30,12 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_URL = process.env.MIND_SUPABASE_URL;
   const SUPABASE_SECRET_KEY = process.env.MIND_SUPABASE_SECRET_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
     const missing = [
-      ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
+      ...(!SUPABASE_URL ? ['MIND_SUPABASE_URL'] : []),
       ...(!SUPABASE_SECRET_KEY ? ['MIND_SUPABASE_SECRET_KEY'] : []),
     ];
     const message = `Missing Supabase environment variable(s): ${missing.join(', ')}.`;
