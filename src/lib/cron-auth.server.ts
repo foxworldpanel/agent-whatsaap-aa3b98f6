@@ -6,6 +6,7 @@ import { timingSafeEqual } from "node:crypto";
 // could POST to the dispatcher URLs and force mass WhatsApp sends.
 export function assertCronAuthorized(request: Request): Response | null {
   const expected =
+    process.env.MIND_SUPABASE_PUBLISHABLE_KEY ||
     process.env.SUPABASE_PUBLISHABLE_KEY ||
     process.env.SUPABASE_ANON_KEY ||
     process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
