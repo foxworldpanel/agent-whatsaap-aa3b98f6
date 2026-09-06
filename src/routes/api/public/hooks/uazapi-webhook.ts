@@ -143,6 +143,8 @@ type UazapiPayload = {
     wa_messageid?: string;
     key?: { id?: string; senderPn?: string; cleanedSenderPn?: string; remoteJid?: string };
     fromMe?: boolean;
+    fromme?: boolean;
+    from_me?: boolean;
     type?: string;
     messageType?: string;
     text?: string;
@@ -165,6 +167,16 @@ type UazapiPayload = {
   };
   data?: UazapiPayload["message"];
 };
+
+type FromMeSource = "fromMe" | "fromme" | "from_me" | "default";
+
+function normalizeFromMe(message: UazapiPayload["message"]): { fromMe: boolean; source: FromMeSource } {
+  if (!message) return { fromMe: false, source: "default" };
+  if (typeof message.fromMe === "boolean") return { fromMe: message.fromMe, source: "fromMe" };
+  if (typeof message.fromme === "boolean") return { fromMe: message.fromme, source: "fromme" };
+  if (typeof message.from_me === "boolean") return { fromMe: message.from_me, source: "from_me" };
+  return { fromMe: false, source: "default" };
+}
 
 function pickInstanceToken(p: UazapiPayload): string | null {
   if (typeof p.token === "string" && p.token) return p.token;
@@ -651,6 +663,7 @@ async function executeWelcomeFunnel(params: {
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const msgLocal = payload.message ?? payload.data ?? {};
+    const { fromMe, source: fromMeSource } = normalizeFromMe(msgLocal);
     const phoneLocal = extractPhone(
       msgLocal.sender_pn ?? msgLocal.senderPn ?? msgLocal.key?.cleanedSenderPn ?? msgLocal.key?.senderPn ?? msgLocal.wa_chatid ?? msgLocal.chatid,
       msgLocal.sender,
@@ -731,7 +744,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       details: {
         event: payload.event || payload.EventType,
         kind: content.kind,
-        textPreview: content.text?.slice(0, 100)
+        textPreview: content.text?.slice(0, 100),
+        fromMe,
+        fromMeSource
       }
     });
 
@@ -771,7 +786,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       // Hidrata a foto real do WhatsApp quando o contato ainda não possui uma.
       // O menu Conversas usa contacts.photo_url; sem este passo o avatar ficava
       // eternamente nas iniciais para contatos criados diretamente pelo webhook.
-      if (contact?.id && !contact.photo_url && !msgLocal.fromMe) {
+      if (contact?.id && !contact.photo_url && !fromMe) {
         try {
           const { uazapiGetProfilePic } = await import("@/lib/uazapi.server");
           const profilePic = await uazapiGetProfilePic(
@@ -805,7 +820,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           whatsapp_number_id: num.id,
           last_message_preview: content.text.slice(0, 100),
           last_message_at: new Date().toISOString(),
-          status: (msgLocal.fromMe ? "agente_respondendo" : "aguardando") as any,
+          status: (fromMe ? "agente_respondendo" : "aguardando") as any,
         };
 
 
@@ -887,7 +902,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           conversation_id: conversationId,
           user_id: num.user_id,
           workspace_id: num.workspace_id,
-          sender: msgLocal.fromMe ? "agente" : "cliente",
+          sender: fromMe ? "agente" : "cliente",
           kind: dbKind,
           body: content.text,
           audio_url: content.mediaUrl || undefined,
@@ -951,7 +966,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
     // 3. AI GATE
-    if (msgLocal.fromMe) {
+    if (fromMe) {
       console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: sync only for fromMe para msgId ${msgId}`);
       return new Response("ok (sync only for fromMe)");
     }
