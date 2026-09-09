@@ -9,6 +9,10 @@ import {
 } from "@/lib/agent-v3/inbound-jobs.server";
 import { loadAgentInboundResumeContext } from "@/lib/agent-v3/inbound-job-context.server";
 import {
+  runtimeInputFromResumeContext,
+  type AgentV3RuntimeExecutor,
+} from "@/lib/agent-v3/inbound-runtime-contract.server";
+import {
   acquireAgentConversationLock,
   releaseAgentConversationLock,
 } from "@/lib/agent-v3/conversation-lock.server";
@@ -47,12 +51,15 @@ export async function claimOneAgentInboundForRuntime(
     );
 
     if (!conversationLocked) {
-      await releaseAgentInboundJob(
+      const requeued = await releaseAgentInboundJob(
         supabaseAdmin,
         job.message_id,
         holder,
         "conversation busy during dispatcher claim",
       );
+      if (!requeued) {
+        throw new Error("busy-stage requeue rejected because durable ownership changed");
+      }
       return null;
     }
 
@@ -62,18 +69,24 @@ export async function claimOneAgentInboundForRuntime(
       holder,
     );
     if (!enteredRuntime) {
-      await releaseAgentConversationLock(
+      const lockReleased = await releaseAgentConversationLock(
         supabaseAdmin,
         job.conversation_id,
         holder,
       );
       conversationLocked = false;
-      await releaseAgentInboundJob(
+      if (!lockReleased) {
+        throw new Error("dispatcher lost conversation lock before runtime transition");
+      }
+      const requeued = await releaseAgentInboundJob(
         supabaseAdmin,
         job.message_id,
         holder,
         "dispatcher runtime ownership transition rejected",
       );
+      if (!requeued) {
+        throw new Error("runtime-transition requeue rejected because durable ownership changed");
+      }
       return null;
     }
 
@@ -81,11 +94,14 @@ export async function claimOneAgentInboundForRuntime(
   } catch (error) {
     if (conversationLocked) {
       try {
-        await releaseAgentConversationLock(
+        const released = await releaseAgentConversationLock(
           supabaseAdmin,
           job.conversation_id,
           holder,
         );
+        if (!released) {
+          console.error("[AGENT-INBOUND-DISPATCH] conversation lock ownership changed before release");
+        }
       } catch (lockReleaseError) {
         console.error("[AGENT-INBOUND-DISPATCH] failed to release conversation lock", lockReleaseError);
       }
@@ -151,11 +167,42 @@ export async function finishClaimedAgentInbound(
       }
     }
   } finally {
-    await releaseAgentConversationLock(
+    const released = await releaseAgentConversationLock(
       supabaseAdmin,
       claim.job.conversation_id,
       claim.holder,
     );
+    if (!released) {
+      throw new Error(
+        `Agent conversation lock release rejected for message ${claim.job.message_id}`,
+      );
+    }
+  }
+}
+
+/**
+ * Executes at most one pending durable inbound using the same Agent V3 runtime
+ * contract as the immediate webhook path. This is the reusable dispatcher/drain
+ * primitive; scheduling/HTTP exposure remains a separate concern.
+ */
+export async function dispatchOneAgentInbound(
+  supabaseAdmin: any,
+  workerId: string,
+  executeRuntime: AgentV3RuntimeExecutor,
+): Promise<"idle" | "processed" | "needs_review"> {
+  const claim = await claimOneAgentInboundForRuntime(supabaseAdmin, workerId);
+  if (!claim) return "idle";
+
+  try {
+    await executeRuntime(
+      supabaseAdmin,
+      runtimeInputFromResumeContext(claim.context),
+    );
+    await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: true });
+    return "processed";
+  } catch (error) {
+    await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: false, error });
+    return "needs_review";
   }
 }
 
