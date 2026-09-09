@@ -42,6 +42,27 @@ function requireSameIdentity(
   }
 }
 
+function requireSupportedMessageKind(
+  job: AgentInboundJob,
+  persistedKind: unknown,
+): void {
+  const normalized = String(persistedKind || "").toLowerCase();
+  if (!normalized) {
+    throw new Error(`Inbound job persisted message kind missing: ${job.id}`);
+  }
+
+  // Text may be stored under legacy aliases, while media kinds must preserve
+  // their semantic type so a recovered job cannot accidentally execute a media
+  // snapshot against a different persisted message.
+  const compatible =
+    job.input_kind === "texto"
+      ? normalized === "texto" || normalized === "text"
+      : normalized === job.input_kind;
+  if (!compatible) {
+    throw new Error(`Inbound job persisted message kind mismatch: ${job.id}`);
+  }
+}
+
 /**
  * Rebuild only the state required at the Agent V3 post-gates boundary.
  * It deliberately does not replay webhook dedup, CRM, funnel or agent gates.
@@ -59,8 +80,10 @@ export async function loadAgentInboundResumeContext(
     .maybeSingle();
   if (messageError) throw messageError;
   if (!message) throw new Error(`Inbound job message not found: ${job.message_id}`);
+  requireSameIdentity("message id", job.message_id, message.id, job.id);
   requireSameIdentity("message conversation", job.conversation_id, message.conversation_id, job.id);
   requireSameIdentity("message workspace", job.workspace_id, message.workspace_id, job.id);
+  requireSupportedMessageKind(job, message.kind);
 
   const externalId = String(message.external_id || "").trim();
   if (!externalId) {
@@ -80,6 +103,7 @@ export async function loadAgentInboundResumeContext(
   if (!conversation.whatsapp_number_id) {
     throw new Error(`Inbound job WhatsApp number missing: ${job.id}`);
   }
+  requireSameIdentity("conversation id", job.conversation_id, conversation.id, job.id);
   requireSameIdentity("conversation workspace", job.workspace_id, conversation.workspace_id, job.id);
 
   const [{ data: contact, error: contactError }, { data: number, error: numberError }] =
