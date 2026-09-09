@@ -46,12 +46,15 @@ export async function releaseAgentConversationLock(
   supabaseAdmin: any,
   conversationId: string,
   holder: string,
-): Promise<void> {
-  const { error } = await supabaseAdmin
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
     .from("agent_generation_locks")
     .delete()
     .eq("conversation_id", conversationId)
-    .eq("holder", holder);
+    .eq("holder", holder)
+    .select("conversation_id")
+    .maybeSingle();
 
   if (error) throw error;
+  return Boolean(data?.conversation_id);
 }
