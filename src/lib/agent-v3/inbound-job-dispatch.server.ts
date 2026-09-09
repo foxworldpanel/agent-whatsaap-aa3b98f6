@@ -37,6 +37,7 @@ export async function claimOneAgentInboundForRuntime(
   if (!job) return null;
 
   let conversationLocked = false;
+  let enteredRuntime = false;
   try {
     const context = await loadAgentInboundResumeContext(supabaseAdmin, job);
     conversationLocked = await acquireAgentConversationLock(
@@ -55,12 +56,12 @@ export async function claimOneAgentInboundForRuntime(
       return null;
     }
 
-    const entered = await enterAgentInboundRuntime(
+    enteredRuntime = await enterAgentInboundRuntime(
       supabaseAdmin,
       job.message_id,
       holder,
     );
-    if (!entered) {
+    if (!enteredRuntime) {
       await releaseAgentConversationLock(
         supabaseAdmin,
         job.conversation_id,
@@ -90,28 +91,31 @@ export async function claimOneAgentInboundForRuntime(
       }
     }
 
-    // Safe-stage failures can be requeued. If the transition to processing
-    // already happened, releaseAgentInboundJob cannot match and we mark review.
+    const reason = error instanceof Error ? error.message : String(error);
     try {
-      await releaseAgentInboundJob(
-        supabaseAdmin,
-        job.message_id,
-        holder,
-        error instanceof Error ? error.message : String(error),
-      );
-    } catch {
-      try {
-        await reviewAgentInboundJob(
+      if (!enteredRuntime) {
+        const requeued = await releaseAgentInboundJob(
           supabaseAdmin,
           job.message_id,
           holder,
-          `dispatcher preparation failed after runtime transition: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          reason,
         );
-      } catch (reviewError) {
-        console.error("[AGENT-INBOUND-DISPATCH] failed to mark uncertain job for review", reviewError);
+        if (!requeued) {
+          throw new Error("safe-stage requeue rejected because durable ownership changed");
+        }
+      } else {
+        const reviewed = await reviewAgentInboundJob(
+          supabaseAdmin,
+          job.message_id,
+          holder,
+          `dispatcher preparation failed after runtime transition: ${reason}`,
+        );
+        if (!reviewed) {
+          throw new Error("runtime-stage review rejected because durable ownership changed");
+        }
       }
+    } catch (stateError) {
+      console.error("[AGENT-INBOUND-DISPATCH] failed to finalize preparation state", stateError);
     }
     throw error;
   }
@@ -132,7 +136,7 @@ export async function finishClaimedAgentInbound(
         claim.holder,
       );
     } else {
-      await reviewAgentInboundJob(
+      const reviewed = await reviewAgentInboundJob(
         supabaseAdmin,
         claim.job.message_id,
         claim.holder,
@@ -140,6 +144,11 @@ export async function finishClaimedAgentInbound(
           ? outcome.error.message
           : String(outcome.error),
       );
+      if (!reviewed) {
+        throw new Error(
+          `Agent inbound job review transition rejected for message ${claim.job.message_id}`,
+        );
+      }
     }
   } finally {
     await releaseAgentConversationLock(
