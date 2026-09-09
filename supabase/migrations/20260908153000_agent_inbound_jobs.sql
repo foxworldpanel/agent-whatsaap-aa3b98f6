@@ -40,6 +40,43 @@ END; $$;
 REVOKE ALL ON FUNCTION public.claim_agent_inbound_job(uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_agent_inbound_job(uuid,text) TO service_role;
 
+-- Dispatcher claim: atomically owns the oldest pending job whose conversation
+-- has no other active inbound job. SKIP LOCKED lets multiple dispatcher
+-- instances cooperate without claiming the same row.
+CREATE OR REPLACE FUNCTION public.claim_next_agent_inbound_job(p_holder text)
+RETURNS SETOF public.agent_inbound_jobs
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+ RETURN QUERY
+ WITH candidate AS (
+  SELECT j.id
+  FROM public.agent_inbound_jobs j
+  WHERE j.status='pending'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.agent_inbound_jobs active
+      WHERE active.conversation_id=j.conversation_id
+        AND active.id<>j.id
+        AND active.status IN ('processing_safe','processing')
+    )
+  ORDER BY j.created_at,j.id
+  FOR UPDATE SKIP LOCKED
+  LIMIT 1
+ )
+ UPDATE public.agent_inbound_jobs j
+ SET status='processing_safe',
+     claimed_by=p_holder,
+     claimed_at=now(),
+     attempt_count=j.attempt_count+1,
+     last_error=NULL,
+     updated_at=now()
+ FROM candidate c
+ WHERE j.id=c.id
+ RETURNING j.*;
+END; $$;
+REVOKE ALL ON FUNCTION public.claim_next_agent_inbound_job(text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_next_agent_inbound_job(text) TO service_role;
+
 CREATE OR REPLACE FUNCTION public.enter_agent_inbound_runtime(p_message_id uuid,p_holder text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_id uuid;
@@ -53,8 +90,12 @@ GRANT EXECUTE ON FUNCTION public.enter_agent_inbound_runtime(uuid,text) TO servi
 
 CREATE OR REPLACE FUNCTION public.recover_stale_agent_inbound_jobs(p_stale_before timestamptz,p_max_attempts integer DEFAULT 5)
 RETURNS TABLE(requeued integer,review integer) LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
-DECLARE v_requeued integer:=0; v_review integer:=0;
+DECLARE v_requeued integer:=0; v_review integer:=0; v_unsafe_review integer:=0;
 BEGIN
+ IF p_max_attempts < 1 THEN
+  RAISE EXCEPTION 'p_max_attempts must be >= 1';
+ END IF;
+
  WITH changed AS (
   UPDATE public.agent_inbound_jobs
   SET status=CASE WHEN attempt_count>=p_max_attempts THEN 'needs_review' ELSE 'pending' END,
@@ -64,7 +105,8 @@ BEGIN
   WHERE status='processing_safe' AND claimed_at<p_stale_before
   RETURNING status
  )
- SELECT count(*) FILTER(WHERE status='pending'),count(*) FILTER(WHERE status='needs_review')
+ SELECT count(*) FILTER(WHERE status='pending')::integer,
+        count(*) FILTER(WHERE status='needs_review')::integer
  INTO v_requeued,v_review FROM changed;
 
  WITH unsafe AS (
@@ -74,7 +116,9 @@ BEGIN
   WHERE status='processing' AND claimed_at<p_stale_before
   RETURNING 1
  )
- SELECT v_review+count(*) INTO v_review FROM unsafe;
+ SELECT count(*)::integer INTO v_unsafe_review FROM unsafe;
+
+ v_review := v_review + v_unsafe_review;
  RETURN QUERY SELECT v_requeued,v_review;
 END; $$;
 REVOKE ALL ON FUNCTION public.recover_stale_agent_inbound_jobs(timestamptz,integer) FROM PUBLIC,anon,authenticated;
