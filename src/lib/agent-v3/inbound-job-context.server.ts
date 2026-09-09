@@ -30,6 +30,18 @@ export type AgentInboundResumeContext = {
   deferredFunnelMessage: string | null;
 };
 
+function requireSameIdentity(
+  label: string,
+  expected: string,
+  actual: unknown,
+  jobId: string,
+): void {
+  const normalized = String(actual || "");
+  if (!normalized || normalized !== expected) {
+    throw new Error(`Inbound job ${label} mismatch: ${jobId}`);
+  }
+}
+
 /**
  * Rebuild only the state required at the Agent V3 post-gates boundary.
  * It deliberately does not replay webhook dedup, CRM, funnel or agent gates.
@@ -47,11 +59,15 @@ export async function loadAgentInboundResumeContext(
     .maybeSingle();
   if (messageError) throw messageError;
   if (!message) throw new Error(`Inbound job message not found: ${job.message_id}`);
-  if (message.conversation_id !== job.conversation_id) {
-    throw new Error(`Inbound job conversation mismatch: ${job.id}`);
-  }
-  if (message.workspace_id !== job.workspace_id) {
-    throw new Error(`Inbound job workspace mismatch: ${job.id}`);
+  requireSameIdentity("message conversation", job.conversation_id, message.conversation_id, job.id);
+  requireSameIdentity("message workspace", job.workspace_id, message.workspace_id, job.id);
+
+  const externalId = String(message.external_id || "").trim();
+  if (!externalId) {
+    // Recovery of media depends on the original provider message id. More
+    // importantly, an empty id makes a reconstructed execution ambiguous, so
+    // fail before runtime side effects instead of attempting a best-effort replay.
+    throw new Error(`Inbound job external message id missing: ${job.id}`);
   }
 
   const { data: conversation, error: conversationError } = await supabaseAdmin
@@ -64,6 +80,7 @@ export async function loadAgentInboundResumeContext(
   if (!conversation.whatsapp_number_id) {
     throw new Error(`Inbound job WhatsApp number missing: ${job.id}`);
   }
+  requireSameIdentity("conversation workspace", job.workspace_id, conversation.workspace_id, job.id);
 
   const [{ data: contact, error: contactError }, { data: number, error: numberError }] =
     await Promise.all([
@@ -86,23 +103,29 @@ export async function loadAgentInboundResumeContext(
     throw new Error(`Inbound job provider credentials unavailable: ${job.id}`);
   }
 
-  const userId = String(conversation.user_id || message.user_id || number.user_id || "");
+  const userId = String(conversation.user_id || "");
   if (!userId) throw new Error(`Inbound job user missing: ${job.id}`);
-  if (String(conversation.workspace_id || "") !== job.workspace_id) {
-    throw new Error(`Inbound job conversation workspace mismatch: ${job.id}`);
-  }
-  if (String(number.workspace_id || "") !== job.workspace_id) {
-    throw new Error(`Inbound job WhatsApp workspace mismatch: ${job.id}`);
-  }
+
+  // A durable resume must never cross tenants. The webhook originally resolved
+  // all these rows under one user/workspace; recovery verifies the same invariant
+  // again before acquiring runtime ownership.
+  requireSameIdentity("message user", userId, message.user_id, job.id);
+  requireSameIdentity("contact user", userId, contact.user_id, job.id);
+  requireSameIdentity("WhatsApp user", userId, number.user_id, job.id);
+  requireSameIdentity("contact workspace", job.workspace_id, contact.workspace_id, job.id);
+  requireSameIdentity("WhatsApp workspace", job.workspace_id, number.workspace_id, job.id);
 
   const phone = String(contact.telefone).replace(/\D+/g, "");
   if (!phone) throw new Error(`Inbound job normalized phone missing: ${job.id}`);
+
+  const sendTarget = String(job.send_target || "").trim();
+  if (!sendTarget) throw new Error(`Inbound job send target missing: ${job.id}`);
 
   return {
     job,
     message: {
       id: String(message.id),
-      externalId: String(message.external_id || ""),
+      externalId,
       body: String(message.body || ""),
       kind: String(message.kind || ""),
       audioUrl: message.audio_url ? String(message.audio_url) : null,
@@ -114,7 +137,7 @@ export async function loadAgentInboundResumeContext(
     userId,
     workspaceId: job.workspace_id,
     whatsappNumberId: String(number.id),
-    sendTarget: job.send_target,
+    sendTarget,
     instance: {
       uazapiUrl: String(number.uazapi_url),
       uazapiToken: String(number.uazapi_token),
@@ -123,8 +146,8 @@ export async function loadAgentInboundResumeContext(
       text: job.input_text,
       kind: job.input_kind,
       mime: job.input_mime || undefined,
-      // Audio recovery may reuse the URL persisted by the original webhook;
-      // the runtime still prefers Uazapi /message/download by external id.
+      // Audio/image recovery may reuse the media reference persisted by the
+      // original webhook; runtime still prefers provider resolution by external id.
       mediaUrl: message.audio_url ? String(message.audio_url) : undefined,
     },
     deferredFunnelMessage: job.deferred_funnel ? job.input_text : null,
