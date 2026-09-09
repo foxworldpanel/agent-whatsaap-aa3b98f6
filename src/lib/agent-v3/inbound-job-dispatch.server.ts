@@ -1,5 +1,6 @@
 import {
   claimNextAgentInboundJob,
+  completeAgentInboundJob,
   enterAgentInboundRuntime,
   recoverStaleAgentInboundJobs,
   releaseAgentInboundJob,
@@ -89,9 +90,8 @@ export async function claimOneAgentInboundForRuntime(
       }
     }
 
-    // Context/lock failures happen while the job is still processing_safe and
-    // are safe to retry. If the transition to processing happened immediately
-    // before an unexpected failure, do not blindly replay it.
+    // Safe-stage failures can be requeued. If the transition to processing
+    // already happened, releaseAgentInboundJob cannot match and we mark review.
     try {
       await releaseAgentInboundJob(
         supabaseAdmin,
@@ -123,7 +123,15 @@ export async function finishClaimedAgentInbound(
   outcome: { ok: true } | { ok: false; error: unknown },
 ): Promise<void> {
   try {
-    if (!outcome.ok) {
+    if (outcome.ok) {
+      // Completion is intentionally committed while the conversation lock is
+      // still held, matching the webhook invariant.
+      await completeAgentInboundJob(
+        supabaseAdmin,
+        claim.job.message_id,
+        claim.holder,
+      );
+    } else {
       await reviewAgentInboundJob(
         supabaseAdmin,
         claim.job.message_id,
