@@ -1,6 +1,5 @@
 import {
   claimNextAgentInboundJob,
-  completeAgentInboundJob,
   enterAgentInboundRuntime,
   recoverStaleAgentInboundJobs,
   releaseAgentInboundJob,
@@ -16,6 +15,10 @@ import {
   acquireAgentConversationLock,
   releaseAgentConversationLock,
 } from "@/lib/agent-v3/conversation-lock.server";
+import {
+  finalizeAgentInboundRuntimeOwnership,
+  type AgentInboundRuntimeOutcome,
+} from "@/lib/agent-v3/inbound-runtime-ownership.server";
 
 export type ClaimedAgentInbound = {
   job: AgentInboundJob;
@@ -140,44 +143,17 @@ export async function claimOneAgentInboundForRuntime(
 export async function finishClaimedAgentInbound(
   supabaseAdmin: any,
   claim: ClaimedAgentInbound,
-  outcome: { ok: true } | { ok: false; error: unknown },
+  outcome: AgentInboundRuntimeOutcome,
 ): Promise<void> {
-  try {
-    if (outcome.ok) {
-      // Completion is intentionally committed while the conversation lock is
-      // still held, matching the webhook invariant.
-      await completeAgentInboundJob(
-        supabaseAdmin,
-        claim.job.message_id,
-        claim.holder,
-      );
-    } else {
-      const reviewed = await reviewAgentInboundJob(
-        supabaseAdmin,
-        claim.job.message_id,
-        claim.holder,
-        outcome.error instanceof Error
-          ? outcome.error.message
-          : String(outcome.error),
-      );
-      if (!reviewed) {
-        throw new Error(
-          `Agent inbound job review transition rejected for message ${claim.job.message_id}`,
-        );
-      }
-    }
-  } finally {
-    const released = await releaseAgentConversationLock(
-      supabaseAdmin,
-      claim.job.conversation_id,
-      claim.holder,
-    );
-    if (!released) {
-      throw new Error(
-        `Agent conversation lock release rejected for message ${claim.job.message_id}`,
-      );
-    }
-  }
+  await finalizeAgentInboundRuntimeOwnership(
+    supabaseAdmin,
+    {
+      messageId: claim.job.message_id,
+      conversationId: claim.job.conversation_id,
+      holder: claim.holder,
+    },
+    outcome,
+  );
 }
 
 /**
