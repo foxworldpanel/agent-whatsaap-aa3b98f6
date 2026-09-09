@@ -19,20 +19,35 @@ export type AgentInboundJob = {
   updated_at: string;
 };
 
+type AgentInboundJobInput = {
+  messageId: string;
+  conversationId: string;
+  workspaceId: string;
+  sendTarget: string;
+  inputText: string;
+  inputKind: AgentInboundKind;
+  inputMime?: string;
+  deferredFunnel: boolean;
+};
+
+function sameInboundSnapshot(job: AgentInboundJob, input: AgentInboundJobInput): boolean {
+  return (
+    job.message_id === input.messageId &&
+    job.conversation_id === input.conversationId &&
+    job.workspace_id === input.workspaceId &&
+    job.send_target === input.sendTarget &&
+    job.input_text === input.inputText &&
+    job.input_kind === input.inputKind &&
+    (job.input_mime ?? null) === (input.inputMime ?? null) &&
+    job.deferred_funnel === input.deferredFunnel
+  );
+}
+
 export async function ensureAgentInboundJob(
   supabaseAdmin: any,
-  input: {
-    messageId: string;
-    conversationId: string;
-    workspaceId: string;
-    sendTarget: string;
-    inputText: string;
-    inputKind: AgentInboundKind;
-    inputMime?: string;
-    deferredFunnel: boolean;
-  },
+  input: AgentInboundJobInput,
 ): Promise<void> {
-  const { error } = await supabaseAdmin.from("agent_inbound_jobs").insert({
+  const row = {
     message_id: input.messageId,
     conversation_id: input.conversationId,
     workspace_id: input.workspaceId,
@@ -42,9 +57,28 @@ export async function ensureAgentInboundJob(
     input_mime: input.inputMime ?? null,
     deferred_funnel: input.deferredFunnel,
     status: "pending",
-  });
-  if (!error || error.code === "23505") return;
-  throw error;
+  };
+
+  const { error } = await supabaseAdmin.from("agent_inbound_jobs").insert(row);
+  if (!error) return;
+  if (error.code !== "23505") throw error;
+
+  // A duplicate webhook is only idempotent if it resolves to the exact same
+  // normalized execution snapshot. Never silently accept a conflicting replay
+  // for the same persisted message, because recovery would otherwise execute
+  // whichever payload happened to win the first insert.
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("agent_inbound_jobs")
+    .select("*")
+    .eq("message_id", input.messageId)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (!existing) {
+    throw new Error(`Agent inbound job duplicate disappeared for message ${input.messageId}`);
+  }
+  if (!sameInboundSnapshot(existing as AgentInboundJob, input)) {
+    throw new Error(`Agent inbound job snapshot conflict for message ${input.messageId}`);
+  }
 }
 
 export async function claimAgentInboundJob(
