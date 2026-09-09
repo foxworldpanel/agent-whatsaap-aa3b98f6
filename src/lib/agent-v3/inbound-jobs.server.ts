@@ -89,8 +89,8 @@ export async function releaseAgentInboundJob(
   messageId: string,
   holder: string,
   lastError?: string,
-): Promise<void> {
-  const { error } = await supabaseAdmin
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
     .from("agent_inbound_jobs")
     .update({
       status: "pending",
@@ -101,8 +101,11 @@ export async function releaseAgentInboundJob(
     })
     .eq("message_id", messageId)
     .eq("status", "processing_safe")
-    .eq("claimed_by", holder);
+    .eq("claimed_by", holder)
+    .select("id")
+    .maybeSingle();
   if (error) throw error;
+  return Boolean(data?.id);
 }
 
 export async function completeAgentInboundJob(
@@ -133,8 +136,8 @@ export async function reviewAgentInboundJob(
   messageId: string,
   holder: string,
   lastError: string,
-): Promise<void> {
-  const { error } = await supabaseAdmin
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
     .from("agent_inbound_jobs")
     .update({
       status: "needs_review",
@@ -145,8 +148,11 @@ export async function reviewAgentInboundJob(
     })
     .eq("message_id", messageId)
     .eq("status", "processing")
-    .eq("claimed_by", holder);
+    .eq("claimed_by", holder)
+    .select("id")
+    .maybeSingle();
   if (error) throw error;
+  return Boolean(data?.id);
 }
 
 export async function recoverStaleAgentInboundJobs(
