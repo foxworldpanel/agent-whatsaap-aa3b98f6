@@ -59,22 +59,23 @@ export async function releaseAgentConversationLock(
 
   if (!error && data?.conversation_id) return true;
 
-  // Verify both transport errors and a normal zero-row DELETE. A zero-row result
-  // is not enough to say our holder released the lock: another holder may have
-  // replaced it, or the lock may already be gone after an earlier successful
-  // finalization. Durable read-back distinguishes those states.
+  // Verify both transport errors and a normal zero-row DELETE. Unlock is
+  // idempotent for this holder: a missing row or a different holder proves our
+  // ownership has ended. Only the same durable holder proves release failed.
   try {
     const current = await readConversationLock(supabaseAdmin, conversationId);
     if (!current) return true;
-    if (current.holder === holder) return false;
+    if (current.holder !== holder) return true;
     return false;
   } catch (verifyError) {
     console.error(
       "[AGENT-CONVERSATION-LOCK] failed to verify conversation unlock",
       verifyError,
     );
+    // If DELETE itself was uncertain, preserve that original failure. If the
+    // DELETE was a normal zero-row response, failed read-back is still an
+    // ownership uncertainty and must not be collapsed into a known false.
+    if (error) throw error;
+    throw verifyError;
   }
-
-  if (error) throw error;
-  return false;
 }
