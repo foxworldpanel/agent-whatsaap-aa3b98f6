@@ -43,6 +43,19 @@ function sameInboundSnapshot(job: AgentInboundJob, input: AgentInboundJobInput):
   );
 }
 
+async function readAgentInboundJob(
+  supabaseAdmin: any,
+  messageId: string,
+): Promise<AgentInboundJob | null> {
+  const { data, error } = await supabaseAdmin
+    .from("agent_inbound_jobs")
+    .select("*")
+    .eq("message_id", messageId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? (data as AgentInboundJob) : null;
+}
+
 export async function ensureAgentInboundJob(
   supabaseAdmin: any,
   input: AgentInboundJobInput,
@@ -67,16 +80,11 @@ export async function ensureAgentInboundJob(
   // normalized execution snapshot. Never silently accept a conflicting replay
   // for the same persisted message, because recovery would otherwise execute
   // whichever payload happened to win the first insert.
-  const { data: existing, error: existingError } = await supabaseAdmin
-    .from("agent_inbound_jobs")
-    .select("*")
-    .eq("message_id", input.messageId)
-    .maybeSingle();
-  if (existingError) throw existingError;
+  const existing = await readAgentInboundJob(supabaseAdmin, input.messageId);
   if (!existing) {
     throw new Error(`Agent inbound job duplicate disappeared for message ${input.messageId}`);
   }
-  if (!sameInboundSnapshot(existing as AgentInboundJob, input)) {
+  if (!sameInboundSnapshot(existing, input)) {
     throw new Error(`Agent inbound job snapshot conflict for message ${input.messageId}`);
   }
 }
@@ -116,8 +124,23 @@ export async function transferAgentInboundJobClaim(
     p_from_holder: fromHolder,
     p_to_holder: toHolder,
   });
-  if (error) throw error;
-  return data === true;
+  if (!error) return data === true;
+
+  // The database may have committed the holder transfer even if the client lost
+  // the RPC response. Read back durable state before declaring the result
+  // uncertain; this avoids abandoning a safe claim solely because of transport.
+  try {
+    const current = await readAgentInboundJob(supabaseAdmin, messageId);
+    if (current?.status === "processing_safe" && current.claimed_by === toHolder) {
+      return true;
+    }
+    if (current?.status === "processing_safe" && current.claimed_by === fromHolder) {
+      return false;
+    }
+  } catch (verifyError) {
+    console.error("[AGENT-INBOUND-JOB] failed to verify claim transfer after RPC error", verifyError);
+  }
+  throw error;
 }
 
 export async function enterAgentInboundRuntime(
@@ -129,8 +152,24 @@ export async function enterAgentInboundRuntime(
     p_message_id: messageId,
     p_holder: holder,
   });
-  if (error) throw error;
-  return data === true;
+  if (!error) return data === true;
+
+  // processing_safe -> processing is the external-side-effect boundary. If the
+  // RPC response is lost, verify the durable row before treating the transition
+  // as uncertain. Confirmed processing means the caller must keep runtime
+  // ownership; confirmed processing_safe means the transition did not happen.
+  try {
+    const current = await readAgentInboundJob(supabaseAdmin, messageId);
+    if (current?.status === "processing" && current.claimed_by === holder) {
+      return true;
+    }
+    if (current?.status === "processing_safe" && current.claimed_by === holder) {
+      return false;
+    }
+  } catch (verifyError) {
+    console.error("[AGENT-INBOUND-JOB] failed to verify runtime transition after RPC error", verifyError);
+  }
+  throw error;
 }
 
 export async function releaseAgentInboundJob(
@@ -176,8 +215,20 @@ export async function completeAgentInboundJob(
     .eq("claimed_by", holder)
     .select("id")
     .maybeSingle();
-  if (error) throw error;
-  if (!data?.id) throw new Error(`Agent inbound job completion rejected for message ${messageId}`);
+  if (!error && data?.id) return;
+
+  if (error) {
+    // Completion may have committed while the response was lost. Confirming the
+    // terminal row is enough to safely unlock the conversation.
+    try {
+      const current = await readAgentInboundJob(supabaseAdmin, messageId);
+      if (current?.status === "processed" && current.claimed_by === null) return;
+    } catch (verifyError) {
+      console.error("[AGENT-INBOUND-JOB] failed to verify completion after DB error", verifyError);
+    }
+    throw error;
+  }
+  throw new Error(`Agent inbound job completion rejected for message ${messageId}`);
 }
 
 export async function reviewAgentInboundJob(
@@ -200,8 +251,17 @@ export async function reviewAgentInboundJob(
     .eq("claimed_by", holder)
     .select("id")
     .maybeSingle();
-  if (error) throw error;
-  return Boolean(data?.id);
+  if (!error) return Boolean(data?.id);
+
+  // Same ambiguity as completion: a lost response after commit must not keep a
+  // terminal needs_review job artificially locked forever.
+  try {
+    const current = await readAgentInboundJob(supabaseAdmin, messageId);
+    if (current?.status === "needs_review" && current.claimed_by === null) return true;
+  } catch (verifyError) {
+    console.error("[AGENT-INBOUND-JOB] failed to verify review transition after DB error", verifyError);
+  }
+  throw error;
 }
 
 export async function recoverStaleAgentInboundJobs(
