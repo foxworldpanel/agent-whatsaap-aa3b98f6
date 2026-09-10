@@ -32,14 +32,19 @@ export type AgentV3RuntimeInput = {
   deferredFunnelMessage: string | null;
 };
 
-export type AgentV3RuntimeResult = {
-  responseText: string;
-};
-
+/**
+ * Agent V3 is an effectful terminal boundary: one execution may send one or more
+ * WhatsApp bubbles, persist outbound messages, update CRM/memory, hand off to a
+ * human, or terminate without a textual reply. There is no single responseText
+ * that truthfully represents every successful runtime path.
+ *
+ * Success is therefore represented by normal resolution; any uncertain runtime
+ * failure must throw so durable ownership can move the job to needs_review.
+ */
 export type AgentV3RuntimeExecutor = (
   supabaseAdmin: any,
   input: AgentV3RuntimeInput,
-) => Promise<AgentV3RuntimeResult>;
+) => Promise<void>;
 
 export type WebhookAgentV3RuntimeBoundary = {
   messageId: string;
