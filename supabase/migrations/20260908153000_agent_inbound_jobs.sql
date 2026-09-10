@@ -29,6 +29,11 @@ GRANT ALL ON public.agent_inbound_jobs TO service_role;
 CREATE POLICY "service role manages agent inbound jobs" ON public.agent_inbound_jobs FOR ALL TO service_role USING(true) WITH CHECK(true);
 COMMENT ON TABLE public.agent_inbound_jobs IS 'Durable message-level ownership for eligible Agent V3 inbound processing. Stage B; not Customer Turn aggregation.';
 
+-- Remove development-era overloads that did not receive an explicit retry cap.
+-- On a clean database these are no-ops; on an environment where an earlier
+-- Stage B draft was applied manually they prevent PostgREST from exposing an
+-- obsolete path that can bypass the bounded safe-attempt policy.
+DROP FUNCTION IF EXISTS public.claim_agent_inbound_job(uuid,text);
 CREATE OR REPLACE FUNCTION public.claim_agent_inbound_job(
  p_message_id uuid,
  p_holder text,
@@ -41,9 +46,6 @@ BEGIN
   RAISE EXCEPTION 'p_max_attempts must be >= 1';
  END IF;
 
- -- A specific webhook replay must obey the same bounded safe-attempt policy as
- -- dispatcher claims. Exhausted pending work is quarantined rather than being
- -- claimed again merely because the provider delivered another duplicate event.
  UPDATE public.agent_inbound_jobs
  SET status='needs_review',
      claimed_by=NULL,
@@ -65,6 +67,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.claim_agent_inbound_job(uuid,text,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_agent_inbound_job(uuid,text,integer) TO service_role;
 
+DROP FUNCTION IF EXISTS public.claim_next_agent_inbound_job(text);
 CREATE OR REPLACE FUNCTION public.claim_next_agent_inbound_job(
  p_holder text,
  p_max_attempts integer DEFAULT 5
@@ -76,8 +79,6 @@ BEGIN
   RAISE EXCEPTION 'p_max_attempts must be >= 1';
  END IF;
 
- -- Clean up exhausted pending work before selection. This also covers jobs that
- -- were immediately requeued while still on the safe side of the runtime boundary.
  UPDATE public.agent_inbound_jobs
  SET status='needs_review',
      claimed_by=NULL,
@@ -149,6 +150,7 @@ END; $$;
 REVOKE ALL ON FUNCTION public.enter_agent_inbound_runtime(uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.enter_agent_inbound_runtime(uuid,text) TO service_role;
 
+DROP FUNCTION IF EXISTS public.recover_stale_agent_inbound_jobs(timestamptz);
 CREATE OR REPLACE FUNCTION public.recover_stale_agent_inbound_jobs(p_stale_before timestamptz,p_max_attempts integer DEFAULT 5)
 RETURNS TABLE(requeued integer,review integer) LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_requeued integer:=0; v_review integer:=0; v_unsafe_review integer:=0;
