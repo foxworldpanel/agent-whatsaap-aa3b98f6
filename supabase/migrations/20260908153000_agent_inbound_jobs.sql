@@ -29,29 +29,69 @@ GRANT ALL ON public.agent_inbound_jobs TO service_role;
 CREATE POLICY "service role manages agent inbound jobs" ON public.agent_inbound_jobs FOR ALL TO service_role USING(true) WITH CHECK(true);
 COMMENT ON TABLE public.agent_inbound_jobs IS 'Durable message-level ownership for eligible Agent V3 inbound processing. Stage B; not Customer Turn aggregation.';
 
-CREATE OR REPLACE FUNCTION public.claim_agent_inbound_job(p_message_id uuid,p_holder text)
+CREATE OR REPLACE FUNCTION public.claim_agent_inbound_job(
+ p_message_id uuid,
+ p_holder text,
+ p_max_attempts integer DEFAULT 5
+)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_id uuid;
 BEGIN
- UPDATE public.agent_inbound_jobs SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=attempt_count+1,last_error=NULL,updated_at=now()
- WHERE message_id=p_message_id AND status='pending' RETURNING id INTO v_id;
+ IF p_max_attempts < 1 THEN
+  RAISE EXCEPTION 'p_max_attempts must be >= 1';
+ END IF;
+
+ -- A specific webhook replay must obey the same bounded safe-attempt policy as
+ -- dispatcher claims. Exhausted pending work is quarantined rather than being
+ -- claimed again merely because the provider delivered another duplicate event.
+ UPDATE public.agent_inbound_jobs
+ SET status='needs_review',
+     claimed_by=NULL,
+     claimed_at=NULL,
+     last_error='max safe attempts exceeded before runtime',
+     updated_at=now()
+ WHERE message_id=p_message_id
+   AND status='pending'
+   AND attempt_count>=p_max_attempts;
+
+ UPDATE public.agent_inbound_jobs
+ SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=attempt_count+1,last_error=NULL,updated_at=now()
+ WHERE message_id=p_message_id
+   AND status='pending'
+   AND attempt_count<p_max_attempts
+ RETURNING id INTO v_id;
  RETURN v_id IS NOT NULL;
 END; $$;
-REVOKE ALL ON FUNCTION public.claim_agent_inbound_job(uuid,text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.claim_agent_inbound_job(uuid,text) TO service_role;
+REVOKE ALL ON FUNCTION public.claim_agent_inbound_job(uuid,text,integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_agent_inbound_job(uuid,text,integer) TO service_role;
 
--- Dispatcher claim: atomically owns the oldest pending job whose conversation
--- has no other active inbound job. SKIP LOCKED lets multiple dispatcher
--- instances cooperate without claiming the same row.
-CREATE OR REPLACE FUNCTION public.claim_next_agent_inbound_job(p_holder text)
+CREATE OR REPLACE FUNCTION public.claim_next_agent_inbound_job(
+ p_holder text,
+ p_max_attempts integer DEFAULT 5
+)
 RETURNS SETOF public.agent_inbound_jobs
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
+ IF p_max_attempts < 1 THEN
+  RAISE EXCEPTION 'p_max_attempts must be >= 1';
+ END IF;
+
+ -- Clean up exhausted pending work before selection. This also covers jobs that
+ -- were immediately requeued while still on the safe side of the runtime boundary.
+ UPDATE public.agent_inbound_jobs
+ SET status='needs_review',
+     claimed_by=NULL,
+     claimed_at=NULL,
+     last_error='max safe attempts exceeded before runtime',
+     updated_at=now()
+ WHERE status='pending' AND attempt_count>=p_max_attempts;
+
  RETURN QUERY
  WITH candidate AS (
   SELECT j.id
   FROM public.agent_inbound_jobs j
   WHERE j.status='pending'
+    AND j.attempt_count<p_max_attempts
     AND NOT EXISTS (
       SELECT 1
       FROM public.agent_inbound_jobs active
@@ -74,14 +114,9 @@ BEGIN
  WHERE j.id=c.id
  RETURNING j.*;
 END; $$;
-REVOKE ALL ON FUNCTION public.claim_next_agent_inbound_job(text) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.claim_next_agent_inbound_job(text) TO service_role;
+REVOKE ALL ON FUNCTION public.claim_next_agent_inbound_job(text,integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_next_agent_inbound_job(text,integer) TO service_role;
 
--- Transfer a processing_safe dispatcher selection to its runtime holder without
--- returning the row to pending. This closes the release/reclaim race where a
--- second worker could steal the same message between queue selection and the
--- persistent conversation-lock acquisition. A transfer is ownership movement,
--- not a new execution attempt, so attempt_count is deliberately unchanged.
 CREATE OR REPLACE FUNCTION public.transfer_agent_inbound_job_claim(
  p_message_id uuid,
  p_from_holder text,
@@ -122,10 +157,6 @@ BEGIN
   RAISE EXCEPTION 'p_max_attempts must be >= 1';
  END IF;
 
- -- attempt_count is monotonic and is incremented only by a real pending ->
- -- processing_safe claim. Releasing a safe claim never decrements it. Therefore a
- -- repeatedly failing safe job cannot retry forever: once the configured limit is
- -- reached, stale recovery quarantines it for review instead of replaying it.
  WITH changed AS (
   UPDATE public.agent_inbound_jobs
   SET status=CASE WHEN attempt_count>=p_max_attempts THEN 'needs_review' ELSE 'pending' END,
