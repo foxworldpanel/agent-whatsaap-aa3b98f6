@@ -61,25 +61,30 @@ export async function claimOneAgentInboundForRuntime(supabaseAdmin: any, workerI
   try {
     transferred = await transferAgentInboundJobClaim(supabaseAdmin, job.message_id, queueHolder, holder);
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    let recovered = false;
-    try {
-      recovered = await releaseAgentInboundJob(supabaseAdmin, job.message_id, queueHolder,
-        `dispatcher claim transfer failed: ${reason}`);
-      if (!recovered) {
-        recovered = await releaseAgentInboundJob(supabaseAdmin, job.message_id, holder,
-          `dispatcher claim transfer result uncertain: ${reason}`);
-      }
-    } catch (recoveryError) {
-      console.error("[AGENT-INBOUND-DISPATCH] failed to recover transfer error", recoveryError);
-    }
-    if (!recovered) {
-      console.error("[AGENT-INBOUND-DISPATCH] transfer error could not be immediately requeued; stale processing_safe recovery remains authoritative");
-    }
+    // transferAgentInboundJobClaim already performs a durable read-back after an
+    // RPC error. If it still throws, ownership could not be proven on either
+    // holder. Do not issue competing release attempts: that can turn an unknown
+    // transfer result into a false safe-requeue decision. Leave processing_safe
+    // untouched and let bounded stale recovery resolve it authoritatively.
+    console.error(
+      "[AGENT-INBOUND-DISPATCH] dispatcher claim transfer remains uncertain; preserving durable safe ownership for stale recovery",
+      error,
+    );
     throw error;
   }
 
-  if (!transferred) throw new Error("dispatcher queue ownership changed before atomic runtime transfer");
+  if (!transferred) {
+    const requeued = await releaseAgentInboundJob(
+      supabaseAdmin,
+      job.message_id,
+      queueHolder,
+      "dispatcher queue ownership changed before atomic runtime transfer",
+    );
+    if (!requeued) {
+      console.error("[AGENT-INBOUND-DISPATCH] rejected transfer could not be requeued because durable ownership changed");
+    }
+    return null;
+  }
 
   const claim = await enterClaimedAgentInboundForRuntime(supabaseAdmin, {
     messageId: job.message_id, conversationId: job.conversation_id, holder,
