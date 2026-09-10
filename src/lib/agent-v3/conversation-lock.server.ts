@@ -1,19 +1,5 @@
 const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;
 
-async function hasActiveInboundOwnership(
-  supabaseAdmin: any,
-  conversationId: string,
-): Promise<boolean> {
-  const { data, error } = await supabaseAdmin
-    .from("agent_inbound_jobs")
-    .select("id")
-    .eq("conversation_id", conversationId)
-    .in("status", ["processing_safe", "processing"])
-    .limit(1);
-  if (error) throw error;
-  return Array.isArray(data) && data.length > 0;
-}
-
 async function readConversationLock(
   supabaseAdmin: any,
   conversationId: string,
@@ -27,51 +13,35 @@ async function readConversationLock(
   return data ?? null;
 }
 
+/**
+ * Acquires the persistent conversation lock through one database transaction.
+ *
+ * The RPC owns stale-lock cleanup and the active inbound-job check atomically;
+ * doing those as separate client round-trips leaves a TOCTOU window where a
+ * worker can create processing_safe ownership after the check but before stale
+ * deletion. The database function serializes the conversation lock row and
+ * refuses stale cleanup while any processing_safe/processing job is active.
+ */
 export async function acquireAgentConversationLock(
   supabaseAdmin: any,
   conversationId: string,
   holder: string,
 ): Promise<boolean> {
-  const { error } = await supabaseAdmin
-    .from("agent_generation_locks")
-    .insert({
-      conversation_id: conversationId,
-      holder,
-      acquired_at: new Date().toISOString(),
-    });
-
-  if (!error) return true;
-  if (error.code !== "23505") throw error;
-
-  // Time alone is not proof that a generation lock is orphaned. Protect both
-  // processing_safe and processing durable ownership: a safe claimant may have
-  // acquired the conversation lock and still be crossing the runtime boundary.
-  if (await hasActiveInboundOwnership(supabaseAdmin, conversationId)) {
-    return false;
-  }
-
   const staleBefore = new Date(
     Date.now() - DB_CONVERSATION_LOCK_STALE_MS,
   ).toISOString();
 
-  const { error: staleDeleteError } = await supabaseAdmin
-    .from("agent_generation_locks")
-    .delete()
-    .eq("conversation_id", conversationId)
-    .lt("acquired_at", staleBefore);
-  if (staleDeleteError) throw staleDeleteError;
+  const { data, error } = await supabaseAdmin.rpc(
+    "acquire_agent_conversation_lock",
+    {
+      p_conversation_id: conversationId,
+      p_holder: holder,
+      p_stale_before: staleBefore,
+    },
+  );
 
-  const { error: retryError } = await supabaseAdmin
-    .from("agent_generation_locks")
-    .insert({
-      conversation_id: conversationId,
-      holder,
-      acquired_at: new Date().toISOString(),
-    });
-
-  if (!retryError) return true;
-  if (retryError.code === "23505") return false;
-  throw retryError;
+  if (error) throw error;
+  return data === true;
 }
 
 export async function releaseAgentConversationLock(
