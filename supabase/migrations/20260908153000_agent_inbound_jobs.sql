@@ -23,9 +23,6 @@ CREATE INDEX agent_inbound_jobs_pending_idx ON public.agent_inbound_jobs(created
 CREATE INDEX agent_inbound_jobs_conversation_idx ON public.agent_inbound_jobs(conversation_id,status,created_at);
 CREATE INDEX agent_inbound_jobs_processing_safe_idx ON public.agent_inbound_jobs(claimed_at) WHERE status='processing_safe';
 CREATE INDEX agent_inbound_jobs_needs_review_idx ON public.agent_inbound_jobs(updated_at) WHERE status='needs_review';
--- Database-level invariant: at most one message may own the safe/runtime boundary
--- for a conversation. Application locks remain useful for the wider Agent V3
--- critical section, but correctness no longer depends on a check-then-update race.
 CREATE UNIQUE INDEX agent_inbound_jobs_one_active_per_conversation_idx
  ON public.agent_inbound_jobs(conversation_id)
  WHERE status IN ('processing_safe','processing');
@@ -35,7 +32,6 @@ GRANT ALL ON public.agent_inbound_jobs TO service_role;
 CREATE POLICY "service role manages agent inbound jobs" ON public.agent_inbound_jobs FOR ALL TO service_role USING(true) WITH CHECK(true);
 COMMENT ON TABLE public.agent_inbound_jobs IS 'Durable message-level ownership for eligible Agent V3 inbound processing. Stage B; not Customer Turn aggregation.';
 
--- Remove development-era overloads that did not receive an explicit retry cap.
 DROP FUNCTION IF EXISTS public.claim_agent_inbound_job(uuid,text);
 CREATE OR REPLACE FUNCTION public.claim_agent_inbound_job(
  p_message_id uuid,
@@ -56,9 +52,8 @@ BEGIN
   WHERE message_id=p_message_id AND status='pending' AND attempt_count<p_max_attempts
   RETURNING id INTO v_id;
  EXCEPTION WHEN unique_violation THEN
-  -- The nested PL/pgSQL block is a subtransaction: the failed UPDATE (including
-  -- its attempt_count increment) is rolled back before we report a normal busy
-  -- result. Another message already owns this conversation.
+  -- Nested block is a subtransaction: a conversation-busy conflict rolls the
+  -- attempted UPDATE back, including attempt_count.
   v_id := NULL;
  END;
  RETURN v_id IS NOT NULL;
@@ -95,8 +90,8 @@ BEGIN
   SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=j.attempt_count+1,last_error=NULL,updated_at=now()
   FROM candidate c WHERE j.id=c.id RETURNING j.*;
  EXCEPTION WHEN unique_violation THEN
-  -- Nested block rollback preserves the pending row and its attempt_count if a
-  -- concurrent worker wins this conversation after candidate selection.
+  -- Concurrent winner: nested-block rollback keeps the candidate pending and
+  -- preserves attempt_count.
   RETURN;
  END;
 END; $$;
@@ -129,11 +124,6 @@ END; $$;
 REVOKE ALL ON FUNCTION public.enter_agent_inbound_runtime(uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.enter_agent_inbound_runtime(uuid,text) TO service_role;
 
--- Compatibility guard while webhook centralization is completed. A generation
--- lock must never disappear while durable safe/runtime ownership is active,
--- even when the deleting caller uses the same holder. Legitimate unlocks happen
--- only after safe requeue or terminal runtime finalization, so no active job
--- remains by the time DELETE is allowed.
 CREATE OR REPLACE FUNCTION public.guard_agent_generation_lock_delete()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
@@ -154,10 +144,6 @@ FOR EACH ROW EXECUTE FUNCTION public.guard_agent_generation_lock_delete();
 REVOKE ALL ON FUNCTION public.guard_agent_generation_lock_delete() FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.guard_agent_generation_lock_delete() TO service_role;
 
--- Atomic conversation-lock acquisition. The advisory transaction lock serializes
--- stale takeover decisions for one conversation, eliminating the client-side
--- check/delete/insert TOCTOU window. A stale generation lock is never removed
--- while durable processing_safe/processing ownership exists.
 CREATE OR REPLACE FUNCTION public.acquire_agent_conversation_lock(
  p_conversation_id uuid,
  p_holder text,
@@ -180,15 +166,8 @@ BEGIN
   VALUES(p_conversation_id,p_holder,now());
   RETURN true;
  END IF;
-
- IF v_current_holder=p_holder THEN
-  RETURN true;
- END IF;
-
- IF v_acquired_at>=p_stale_before THEN
-  RETURN false;
- END IF;
-
+ IF v_current_holder=p_holder THEN RETURN true; END IF;
+ IF v_acquired_at>=p_stale_before THEN RETURN false; END IF;
  IF EXISTS (
   SELECT 1 FROM public.agent_inbound_jobs
   WHERE conversation_id=p_conversation_id
@@ -214,6 +193,7 @@ DECLARE
  v_review integer:=0;
  v_unsafe_review integer:=0;
  v_stale_conversations uuid[]:=ARRAY[]::uuid[];
+ v_stale_conversation uuid;
 BEGIN
  IF p_max_attempts < 1 THEN RAISE EXCEPTION 'p_max_attempts must be >= 1'; END IF;
 
@@ -222,13 +202,16 @@ BEGIN
  FROM public.agent_inbound_jobs
  WHERE status IN ('processing_safe','processing') AND claimed_at<p_stale_before;
 
- -- Serialize exactly the conversations whose stale durable ownership this call
- -- is about to recover. Keeping this set explicit also prevents the recovery
- -- worker from deleting unrelated stale locks that another acquisition may be
- -- resolving concurrently.
- PERFORM pg_advisory_xact_lock(hashtextextended(stale_conversation::text, 0))
- FROM unnest(v_stale_conversations) AS stale_conversation
- ORDER BY stale_conversation;
+ -- Lock each affected conversation explicitly and in a stable order. An explicit
+ -- loop makes acquisition order part of the procedure instead of relying on the
+ -- execution order of a PERFORM ... FROM query.
+ FOR v_stale_conversation IN
+  SELECT conversation_id
+  FROM unnest(v_stale_conversations) AS recovered(conversation_id)
+  ORDER BY conversation_id
+ LOOP
+  PERFORM pg_advisory_xact_lock(hashtextextended(v_stale_conversation::text, 0));
+ END LOOP;
 
  WITH changed AS (
   UPDATE public.agent_inbound_jobs
@@ -250,9 +233,6 @@ BEGIN
  SELECT count(*)::integer INTO v_unsafe_review FROM unsafe;
  v_review := v_review + v_unsafe_review;
 
- -- Clean only locks belonging to conversations recovered by this invocation.
- -- Unrelated orphan locks remain the responsibility of atomic acquisition, which
- -- already performs stale takeover under the same per-conversation advisory lock.
  DELETE FROM public.agent_generation_locks l
  WHERE l.conversation_id=ANY(v_stale_conversations)
    AND l.acquired_at<p_stale_before
