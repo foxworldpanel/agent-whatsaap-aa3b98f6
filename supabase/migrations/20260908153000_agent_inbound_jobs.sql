@@ -194,6 +194,19 @@ RETURNS TABLE(requeued integer,review integer) LANGUAGE plpgsql SECURITY DEFINER
 DECLARE v_requeued integer:=0; v_review integer:=0; v_unsafe_review integer:=0;
 BEGIN
  IF p_max_attempts < 1 THEN RAISE EXCEPTION 'p_max_attempts must be >= 1'; END IF;
+
+ -- Serialize stale recovery per conversation before mutating ownership. This
+ -- keeps the job transition and orphaned generation-lock cleanup in the same
+ -- transaction, so a recovered pending job is not left blocked behind the old
+ -- holder until another five-minute stale window passes.
+ PERFORM pg_advisory_xact_lock(hashtextextended(conversation_id::text, 0))
+ FROM (
+  SELECT DISTINCT conversation_id
+  FROM public.agent_inbound_jobs
+  WHERE status IN ('processing_safe','processing') AND claimed_at<p_stale_before
+  ORDER BY conversation_id
+ ) stale_conversations;
+
  WITH changed AS (
   UPDATE public.agent_inbound_jobs
   SET status=CASE WHEN attempt_count>=p_max_attempts THEN 'needs_review' ELSE 'pending' END,
@@ -213,6 +226,18 @@ BEGIN
  )
  SELECT count(*)::integer INTO v_unsafe_review FROM unsafe;
  v_review := v_review + v_unsafe_review;
+
+ -- Once stale durable ownership has been resolved, remove only generation locks
+ -- that are themselves stale and whose conversation has no remaining active
+ -- safe/runtime owner. The delete guard remains an independent safety net.
+ DELETE FROM public.agent_generation_locks l
+ WHERE l.acquired_at<p_stale_before
+   AND NOT EXISTS (
+    SELECT 1 FROM public.agent_inbound_jobs active
+    WHERE active.conversation_id=l.conversation_id
+      AND active.status IN ('processing_safe','processing')
+   );
+
  RETURN QUERY SELECT v_requeued,v_review;
 END; $$;
 REVOKE ALL ON FUNCTION public.recover_stale_agent_inbound_jobs(timestamptz,integer) FROM PUBLIC,anon,authenticated;
