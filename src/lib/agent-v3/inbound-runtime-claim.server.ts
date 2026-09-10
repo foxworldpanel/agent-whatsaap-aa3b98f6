@@ -81,6 +81,10 @@ export async function enterClaimedAgentInboundForRuntime(
         throw error;
       }
       if (!requeued) {
+        // A false result means the durable row no longer proves this holder owns
+        // processing_safe. Do not unlock a conversation while job ownership has
+        // advanced or changed behind us.
+        preserveConversationLock = true;
         throw new Error(
           `Agent inbound runtime-transition requeue rejected for message ${input.messageId}`,
         );
@@ -128,9 +132,13 @@ export async function enterClaimedAgentInboundForRuntime(
         reason,
       );
       if (!requeued) {
+        // We still hold the conversation lock, but the job is no longer provably
+        // ours on the safe side. Preserve the lock for durable recovery rather
+        // than releasing it based on an ownership assumption that is now false.
         console.error(
-          "[AGENT-INBOUND-CLAIM] safe-stage requeue rejected because ownership changed",
+          "[AGENT-INBOUND-CLAIM] safe-stage ownership changed; preserving conversation lock",
         );
+        throw error;
       }
     } catch (stateError) {
       // A lost requeue response is ownership uncertainty. Keep the conversation
