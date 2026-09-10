@@ -1,9 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { assertCronAuthorized } from "@/lib/cron-auth.server";
-import {
-  AGENT_INBOUND_MAX_SAFE_ATTEMPTS,
-  recoverStaleAgentInboundJobs,
-} from "@/lib/agent-v3/inbound-jobs.server";
+import { AGENT_INBOUND_MAX_SAFE_ATTEMPTS } from "@/lib/agent-v3/inbound-jobs.server";
+import { recoverAgentInboundDispatcherClaims } from "@/lib/agent-v3/inbound-job-dispatch.server";
 
 const DEFAULT_STALE_MS = 5 * 60 * 1000;
 
@@ -30,9 +28,9 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
         const staleBefore = new Date(Date.now() - DEFAULT_STALE_MS).toISOString();
 
         try {
-          const recovered = await recoverStaleAgentInboundJobs(
+          const recovered = await recoverAgentInboundDispatcherClaims(
             supabaseAdmin,
-            staleBefore,
+            DEFAULT_STALE_MS,
             AGENT_INBOUND_MAX_SAFE_ATTEMPTS,
           );
 
