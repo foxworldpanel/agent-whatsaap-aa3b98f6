@@ -16,29 +16,21 @@ export type AgentInboundRuntimeClaimResult =
   | { status: "conversation_busy" }
   | { status: "ownership_changed" };
 
-/**
- * Shared pre-runtime ownership transition for both the immediate webhook and
- * durable recovery paths.
- *
- * The job remains safely replayable while it is `processing_safe`. Only after
- * the persistent conversation lock is held do we transition to `processing`,
- * where failures must be treated as runtime uncertainty rather than requeued.
- */
-export async function claimAgentInboundForRuntime(
-  supabaseAdmin: any,
-  input: {
-    messageId: string;
-    conversationId: string;
-    holder: string;
-  },
-): Promise<AgentInboundRuntimeClaimResult> {
-  const claimed = await claimAgentInboundJob(
-    supabaseAdmin,
-    input.messageId,
-    input.holder,
-  );
-  if (!claimed) return { status: "job_busy" };
+type RuntimeClaimInput = {
+  messageId: string;
+  conversationId: string;
+  holder: string;
+};
 
+/**
+ * Takes a job that is already `processing_safe` under input.holder, acquires the
+ * persistent conversation lock, then crosses the one-way boundary to
+ * `processing`. This is shared by webhook claims and dispatcher claim transfers.
+ */
+export async function enterClaimedAgentInboundForRuntime(
+  supabaseAdmin: any,
+  input: RuntimeClaimInput,
+): Promise<Exclude<AgentInboundRuntimeClaimResult, { status: "job_busy" }>> {
   let conversationLocked = false;
   let enteredRuntime = false;
   try {
@@ -122,11 +114,6 @@ export async function claimAgentInboundForRuntime(
     }
 
     const reason = error instanceof Error ? error.message : String(error);
-
-    // Once the RPC has confirmed `processing`, a later failure is uncertain:
-    // runtime ownership existed and callers must never make that job replayable
-    // again. Route it to review instead. Before that boundary, safe requeue is
-    // allowed because no Agent V3 runtime side effect could have started.
     try {
       if (enteredRuntime) {
         const reviewed = await reviewAgentInboundJob(
@@ -158,4 +145,21 @@ export async function claimAgentInboundForRuntime(
     }
     throw error;
   }
+}
+
+/**
+ * Immediate-path helper. It first claims a pending job and then delegates all
+ * processing_safe ownership semantics to enterClaimedAgentInboundForRuntime.
+ */
+export async function claimAgentInboundForRuntime(
+  supabaseAdmin: any,
+  input: RuntimeClaimInput,
+): Promise<AgentInboundRuntimeClaimResult> {
+  const claimed = await claimAgentInboundJob(
+    supabaseAdmin,
+    input.messageId,
+    input.holder,
+  );
+  if (!claimed) return { status: "job_busy" };
+  return enterClaimedAgentInboundForRuntime(supabaseAdmin, input);
 }
