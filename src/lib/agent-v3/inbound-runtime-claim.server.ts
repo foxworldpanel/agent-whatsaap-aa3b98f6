@@ -2,6 +2,7 @@ import {
   claimAgentInboundJob,
   enterAgentInboundRuntime,
   releaseAgentInboundJob,
+  reviewAgentInboundJob,
 } from "@/lib/agent-v3/inbound-jobs.server";
 import {
   acquireAgentConversationLock,
@@ -39,6 +40,7 @@ export async function claimAgentInboundForRuntime(
   if (!claimed) return { status: "job_busy" };
 
   let conversationLocked = false;
+  let enteredRuntime = false;
   try {
     conversationLocked = await acquireAgentConversationLock(
       supabaseAdmin,
@@ -61,7 +63,7 @@ export async function claimAgentInboundForRuntime(
       return { status: "conversation_busy" };
     }
 
-    const enteredRuntime = await enterAgentInboundRuntime(
+    enteredRuntime = await enterAgentInboundRuntime(
       supabaseAdmin,
       input.messageId,
       input.holder,
@@ -104,28 +106,55 @@ export async function claimAgentInboundForRuntime(
   } catch (error) {
     if (conversationLocked) {
       try {
-        await releaseAgentConversationLock(
+        const released = await releaseAgentConversationLock(
           supabaseAdmin,
           input.conversationId,
           input.holder,
         );
+        if (!released) {
+          console.error(
+            "[AGENT-INBOUND-CLAIM] conversation lock ownership changed before failure release",
+          );
+        }
       } catch (releaseError) {
         console.error("[AGENT-INBOUND-CLAIM] failed to release conversation lock", releaseError);
       }
     }
 
-    // At this helper's failure boundary the runtime transition has not returned
-    // success, so only processing_safe ownership may be returned to pending.
-    // releaseAgentInboundJob is status-guarded and will refuse processing jobs.
+    const reason = error instanceof Error ? error.message : String(error);
+
+    // Once the RPC has confirmed `processing`, a later failure is uncertain:
+    // runtime ownership existed and callers must never make that job replayable
+    // again. Route it to review instead. Before that boundary, safe requeue is
+    // allowed because no Agent V3 runtime side effect could have started.
     try {
-      await releaseAgentInboundJob(
-        supabaseAdmin,
-        input.messageId,
-        input.holder,
-        error instanceof Error ? error.message : String(error),
-      );
-    } catch (requeueError) {
-      console.error("[AGENT-INBOUND-CLAIM] failed to restore safe job", requeueError);
+      if (enteredRuntime) {
+        const reviewed = await reviewAgentInboundJob(
+          supabaseAdmin,
+          input.messageId,
+          input.holder,
+          `runtime ownership claim failed after processing transition: ${reason}`,
+        );
+        if (!reviewed) {
+          console.error(
+            "[AGENT-INBOUND-CLAIM] runtime-stage review rejected because ownership changed",
+          );
+        }
+      } else {
+        const requeued = await releaseAgentInboundJob(
+          supabaseAdmin,
+          input.messageId,
+          input.holder,
+          reason,
+        );
+        if (!requeued) {
+          console.error(
+            "[AGENT-INBOUND-CLAIM] safe-stage requeue rejected because ownership changed",
+          );
+        }
+      }
+    } catch (stateError) {
+      console.error("[AGENT-INBOUND-CLAIM] failed to preserve durable failure state", stateError);
     }
     throw error;
   }
