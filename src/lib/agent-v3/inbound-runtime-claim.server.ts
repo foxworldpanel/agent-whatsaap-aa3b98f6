@@ -81,9 +81,6 @@ export async function enterClaimedAgentInboundForRuntime(
         throw error;
       }
       if (!requeued) {
-        // A false result means the durable row no longer proves this holder owns
-        // processing_safe. Do not unlock a conversation while job ownership has
-        // advanced or changed behind us.
         preserveConversationLock = true;
         throw new Error(
           `Agent inbound runtime-transition requeue rejected for message ${input.messageId}`,
@@ -96,8 +93,11 @@ export async function enterClaimedAgentInboundForRuntime(
         input.holder,
       );
       if (!released) {
+        // The durable lock still exists or ownership is no longer provable. Do
+        // not let the generic catch try to "clean up" based on a stale assumption.
+        preserveConversationLock = true;
         throw new Error(
-          `Agent conversation lock ownership changed for message ${input.messageId}`,
+          `Agent conversation lock release rejected for message ${input.messageId}`,
         );
       }
       conversationLocked = false;
@@ -124,26 +124,26 @@ export async function enterClaimedAgentInboundForRuntime(
     // still held. Unlocking first creates a window where another worker can enter
     // while this job continues to advertise processing_safe ownership.
     const reason = error instanceof Error ? error.message : String(error);
+    let requeued: boolean;
     try {
-      const requeued = await releaseAgentInboundJob(
+      requeued = await releaseAgentInboundJob(
         supabaseAdmin,
         input.messageId,
         input.holder,
         reason,
       );
-      if (!requeued) {
-        // We still hold the conversation lock, but the job is no longer provably
-        // ours on the safe side. Preserve the lock for durable recovery rather
-        // than releasing it based on an ownership assumption that is now false.
-        console.error(
-          "[AGENT-INBOUND-CLAIM] safe-stage ownership changed; preserving conversation lock",
-        );
-        throw error;
-      }
     } catch (stateError) {
-      // A lost requeue response is ownership uncertainty. Keep the conversation
-      // lock instead of opening the door to a second worker.
-      console.error("[AGENT-INBOUND-CLAIM] safe requeue remains uncertain; preserving conversation lock", stateError);
+      console.error(
+        "[AGENT-INBOUND-CLAIM] safe requeue remains uncertain; preserving conversation lock",
+        stateError,
+      );
+      throw error;
+    }
+
+    if (!requeued) {
+      console.error(
+        "[AGENT-INBOUND-CLAIM] safe-stage ownership changed; preserving conversation lock",
+      );
       throw error;
     }
 
@@ -156,11 +156,17 @@ export async function enterClaimedAgentInboundForRuntime(
         );
         if (!released) {
           console.error(
-            "[AGENT-INBOUND-CLAIM] conversation lock ownership changed before failure release",
+            "[AGENT-INBOUND-CLAIM] conversation lock release remains unconfirmed; preserving durable lock",
           );
+          throw error;
         }
+        conversationLocked = false;
       } catch (releaseError) {
-        console.error("[AGENT-INBOUND-CLAIM] failed to release conversation lock", releaseError);
+        console.error(
+          "[AGENT-INBOUND-CLAIM] failed to confirm conversation lock release; preserving durable state",
+          releaseError,
+        );
+        throw error;
       }
     }
     throw error;
