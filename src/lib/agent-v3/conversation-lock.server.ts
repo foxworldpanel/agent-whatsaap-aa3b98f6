@@ -1,6 +1,6 @@
 const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;
 
-async function hasActiveInboundRuntime(
+async function hasActiveInboundOwnership(
   supabaseAdmin: any,
   conversationId: string,
 ): Promise<boolean> {
@@ -8,7 +8,7 @@ async function hasActiveInboundRuntime(
     .from("agent_inbound_jobs")
     .select("id")
     .eq("conversation_id", conversationId)
-    .eq("status", "processing")
+    .in("status", ["processing_safe", "processing"])
     .limit(1);
   if (error) throw error;
   return Array.isArray(data) && data.length > 0;
@@ -30,12 +30,11 @@ export async function acquireAgentConversationLock(
   if (!error) return true;
   if (error.code !== "23505") throw error;
 
-  // Time alone is not proof that a generation lock is orphaned. Agent V3 can
-  // legitimately spend longer than the stale window in runtime. If the durable
-  // ownership table still says this conversation has a processing job, never
-  // steal its generation lock; stale processing recovery will route uncertainty
-  // to needs_review instead of allowing a concurrent second runtime.
-  if (await hasActiveInboundRuntime(supabaseAdmin, conversationId)) {
+  // Time alone is not proof that a generation lock is orphaned. Protect both
+  // processing_safe and processing durable ownership: a safe claimant may have
+  // acquired the conversation lock and still be crossing the runtime boundary.
+  // Stealing that lock would allow a second worker into the same conversation.
+  if (await hasActiveInboundOwnership(supabaseAdmin, conversationId)) {
     return false;
   }
 
