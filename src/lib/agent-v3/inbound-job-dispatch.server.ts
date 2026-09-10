@@ -28,11 +28,9 @@ export type ClaimedAgentInbound = {
  * Claims one durable pending job and moves it to the exact boundary immediately
  * before Agent V3 runtime side effects. It never replays webhook gates.
  *
- * Queue selection and runtime ownership remain continuous: the dispatcher first
- * claims the row as processing_safe, atomically transfers that claim to the
- * runtime holder, then the shared helper acquires the conversation lock and
- * crosses processing_safe -> processing. The job is never exposed as pending in
- * the middle of that handoff.
+ * Resume context is validated while the job is still processing_safe. Only after
+ * the durable snapshot and tenant/provider identities are proven coherent do we
+ * cross into processing, where replay becomes unsafe.
  */
 export async function claimOneAgentInboundForRuntime(
   supabaseAdmin: any,
@@ -41,6 +39,29 @@ export async function claimOneAgentInboundForRuntime(
   const queueHolder = `dispatcher-select:${workerId}:${Date.now()}`;
   const job = await claimNextAgentInboundJob(supabaseAdmin, queueHolder);
   if (!job) return null;
+
+  // Context reconstruction has no Agent V3 runtime side effects. Validate it at
+  // the safe phase so missing/corrupt dependencies do not get mislabeled as an
+  // uncertain runtime execution. A failure is requeued under the guarded holder;
+  // max-attempt stale recovery remains the backstop for repeated bad snapshots.
+  let context: Awaited<ReturnType<typeof loadAgentInboundResumeContext>>;
+  try {
+    context = await loadAgentInboundResumeContext(supabaseAdmin, job);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    const requeued = await releaseAgentInboundJob(
+      supabaseAdmin,
+      job.message_id,
+      queueHolder,
+      `resume context validation failed: ${reason}`,
+    );
+    if (!requeued) {
+      console.error(
+        "[AGENT-INBOUND-DISPATCH] resume-context failure could not be safely requeued because ownership changed",
+      );
+    }
+    throw error;
+  }
 
   const holder = `dispatcher:${workerId}:${Date.now()}`;
   let transferred = false;
@@ -102,20 +123,7 @@ export async function claimOneAgentInboundForRuntime(
     return null;
   }
 
-  try {
-    const context = await loadAgentInboundResumeContext(supabaseAdmin, job);
-    return { job, holder, ownership: claim.ownership, context };
-  } catch (error) {
-    // Context reconstruction happens after runtime ownership was established but
-    // before the Agent V3 executor is invoked. Treat failure as uncertain
-    // processing ownership and never make the message replayable automatically.
-    await finalizeAgentInboundRuntimeOwnership(
-      supabaseAdmin,
-      claim.ownership,
-      { ok: false, error },
-    );
-    throw error;
-  }
+  return { job, holder, ownership: claim.ownership, context };
 }
 
 export async function finishClaimedAgentInbound(
