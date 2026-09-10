@@ -80,7 +80,8 @@ GRANT EXECUTE ON FUNCTION public.claim_next_agent_inbound_job(text) TO service_r
 -- Transfer a processing_safe dispatcher selection to its runtime holder without
 -- returning the row to pending. This closes the release/reclaim race where a
 -- second worker could steal the same message between queue selection and the
--- persistent conversation-lock acquisition.
+-- persistent conversation-lock acquisition. A transfer is ownership movement,
+-- not a new execution attempt, so attempt_count is deliberately unchanged.
 CREATE OR REPLACE FUNCTION public.transfer_agent_inbound_job_claim(
  p_message_id uuid,
  p_from_holder text,
@@ -121,6 +122,10 @@ BEGIN
   RAISE EXCEPTION 'p_max_attempts must be >= 1';
  END IF;
 
+ -- attempt_count is monotonic and is incremented only by a real pending ->
+ -- processing_safe claim. Releasing a safe claim never decrements it. Therefore a
+ -- repeatedly failing safe job cannot retry forever: once the configured limit is
+ -- reached, stale recovery quarantines it for review instead of replaying it.
  WITH changed AS (
   UPDATE public.agent_inbound_jobs
   SET status=CASE WHEN attempt_count>=p_max_attempts THEN 'needs_review' ELSE 'pending' END,
