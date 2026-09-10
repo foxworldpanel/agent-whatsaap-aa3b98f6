@@ -140,12 +140,18 @@ export async function completeAgentInboundJob(supabaseAdmin: any, messageId: str
     .update({ status: "processed", claimed_by: null, claimed_at: null, last_error: null, updated_at: new Date().toISOString() })
     .eq("message_id", messageId).eq("status", "processing").eq("claimed_by", holder).select("id").maybeSingle();
   if (!error && data?.id) return;
+
+  let current: AgentInboundJob | null = null;
   try {
-    const current = await readAgentInboundJob(supabaseAdmin, messageId);
+    current = await readAgentInboundJob(supabaseAdmin, messageId);
     if (current?.status === "processed" && current.claimed_by === null) return;
-  } catch (verifyError) { console.error("[AGENT-INBOUND-JOB] failed to verify completion", verifyError); }
+  } catch (verifyError) {
+    console.error("[AGENT-INBOUND-JOB] failed to verify completion", verifyError);
+    if (error) throw error;
+    throw verifyError;
+  }
   if (error) throw error;
-  throw new Error(`Agent inbound job completion rejected for message ${messageId}`);
+  throw unexpectedTransitionState("completion", messageId, current);
 }
 
 export async function reviewAgentInboundJob(supabaseAdmin: any, messageId: string, holder: string, lastError: string): Promise<boolean> {
