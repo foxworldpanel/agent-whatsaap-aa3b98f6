@@ -26,6 +26,13 @@ async function readAgentInboundJob(supabaseAdmin: any, messageId: string): Promi
   return data ? data as AgentInboundJob : null;
 }
 
+function unexpectedTransitionState(operation: string, messageId: string, current: AgentInboundJob | null): Error {
+  const state = current
+    ? `${current.status}/${current.claimed_by ?? "unclaimed"}`
+    : "missing";
+  return new Error(`Agent inbound ${operation} is uncertain for message ${messageId}; durable state is ${state}`);
+}
+
 export async function ensureAgentInboundJob(supabaseAdmin: any, input: AgentInboundJobInput): Promise<void> {
   const { error } = await supabaseAdmin.from("agent_inbound_jobs").insert({ message_id: input.messageId,
     conversation_id: input.conversationId, workspace_id: input.workspaceId, send_target: input.sendTarget,
@@ -58,25 +65,35 @@ export async function transferAgentInboundJobClaim(supabaseAdmin: any, messageId
   const { data, error } = await supabaseAdmin.rpc("transfer_agent_inbound_job_claim", { p_message_id: messageId,
     p_from_holder: fromHolder, p_to_holder: toHolder });
   if (!error && data === true) return true;
+  let current: AgentInboundJob | null = null;
   try {
-    const current = await readAgentInboundJob(supabaseAdmin, messageId);
+    current = await readAgentInboundJob(supabaseAdmin, messageId);
     if (current?.status === "processing_safe" && current.claimed_by === toHolder) return true;
     if (current?.status === "processing_safe" && current.claimed_by === fromHolder) return false;
-  } catch (verifyError) { console.error("[AGENT-INBOUND-JOB] failed to verify claim transfer", verifyError); }
+  } catch (verifyError) {
+    console.error("[AGENT-INBOUND-JOB] failed to verify claim transfer", verifyError);
+    if (error) throw error;
+    throw verifyError;
+  }
   if (error) throw error;
-  return false;
+  throw unexpectedTransitionState("claim transfer", messageId, current);
 }
 
 export async function enterAgentInboundRuntime(supabaseAdmin: any, messageId: string, holder: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin.rpc("enter_agent_inbound_runtime", { p_message_id: messageId, p_holder: holder });
   if (!error && data === true) return true;
+  let current: AgentInboundJob | null = null;
   try {
-    const current = await readAgentInboundJob(supabaseAdmin, messageId);
+    current = await readAgentInboundJob(supabaseAdmin, messageId);
     if (current?.status === "processing" && current.claimed_by === holder) return true;
     if (current?.status === "processing_safe" && current.claimed_by === holder) return false;
-  } catch (verifyError) { console.error("[AGENT-INBOUND-JOB] failed to verify runtime transition", verifyError); }
+  } catch (verifyError) {
+    console.error("[AGENT-INBOUND-JOB] failed to verify runtime transition", verifyError);
+    if (error) throw error;
+    throw verifyError;
+  }
   if (error) throw error;
-  return false;
+  throw unexpectedTransitionState("runtime transition", messageId, current);
 }
 
 export async function releaseAgentInboundJob(supabaseAdmin: any, messageId: string, holder: string, lastError?: string): Promise<boolean> {
@@ -85,16 +102,18 @@ export async function releaseAgentInboundJob(supabaseAdmin: any, messageId: stri
     .eq("message_id", messageId).eq("status", "processing_safe").eq("claimed_by", holder).select("id").maybeSingle();
   if (!error && data?.id) return true;
 
-  // Verify both database errors and zero-row updates. A zero-row update can mean
-  // ownership advanced between our last observation and this write; callers must
-  // distinguish confirmed pending from an unproven safe-side assumption.
+  let current: AgentInboundJob | null = null;
   try {
-    const current = await readAgentInboundJob(supabaseAdmin, messageId);
+    current = await readAgentInboundJob(supabaseAdmin, messageId);
     if (current?.status === "pending" && current.claimed_by === null) return true;
     if (current?.status === "processing_safe" && current.claimed_by === holder) return false;
-  } catch (verifyError) { console.error("[AGENT-INBOUND-JOB] failed to verify safe requeue", verifyError); }
+  } catch (verifyError) {
+    console.error("[AGENT-INBOUND-JOB] failed to verify safe requeue", verifyError);
+    if (error) throw error;
+    throw verifyError;
+  }
   if (error) throw error;
-  return false;
+  throw unexpectedTransitionState("safe requeue", messageId, current);
 }
 
 export async function reviewSafeAgentInboundJob(supabaseAdmin: any, messageId: string, holder: string, lastError: string): Promise<boolean> {
@@ -102,13 +121,18 @@ export async function reviewSafeAgentInboundJob(supabaseAdmin: any, messageId: s
     .update({ status: "needs_review", claimed_by: null, claimed_at: null, last_error: lastError.slice(0, 1000), updated_at: new Date().toISOString() })
     .eq("message_id", messageId).eq("status", "processing_safe").eq("claimed_by", holder).select("id").maybeSingle();
   if (!error && data?.id) return true;
+  let current: AgentInboundJob | null = null;
   try {
-    const current = await readAgentInboundJob(supabaseAdmin, messageId);
+    current = await readAgentInboundJob(supabaseAdmin, messageId);
     if (current?.status === "needs_review" && current.claimed_by === null) return true;
     if (current?.status === "processing_safe" && current.claimed_by === holder) return false;
-  } catch (verifyError) { console.error("[AGENT-INBOUND-JOB] failed to verify safe review transition", verifyError); }
+  } catch (verifyError) {
+    console.error("[AGENT-INBOUND-JOB] failed to verify safe review transition", verifyError);
+    if (error) throw error;
+    throw verifyError;
+  }
   if (error) throw error;
-  return false;
+  throw unexpectedTransitionState("safe review transition", messageId, current);
 }
 
 export async function completeAgentInboundJob(supabaseAdmin: any, messageId: string, holder: string): Promise<void> {
@@ -129,13 +153,18 @@ export async function reviewAgentInboundJob(supabaseAdmin: any, messageId: strin
     .update({ status: "needs_review", claimed_by: null, claimed_at: null, last_error: lastError.slice(0, 1000), updated_at: new Date().toISOString() })
     .eq("message_id", messageId).eq("status", "processing").eq("claimed_by", holder).select("id").maybeSingle();
   if (!error && data?.id) return true;
+  let current: AgentInboundJob | null = null;
   try {
-    const current = await readAgentInboundJob(supabaseAdmin, messageId);
+    current = await readAgentInboundJob(supabaseAdmin, messageId);
     if (current?.status === "needs_review" && current.claimed_by === null) return true;
     if (current?.status === "processing" && current.claimed_by === holder) return false;
-  } catch (verifyError) { console.error("[AGENT-INBOUND-JOB] failed to verify review transition", verifyError); }
+  } catch (verifyError) {
+    console.error("[AGENT-INBOUND-JOB] failed to verify review transition", verifyError);
+    if (error) throw error;
+    throw verifyError;
+  }
   if (error) throw error;
-  return false;
+  throw unexpectedTransitionState("runtime review transition", messageId, current);
 }
 
 export async function recoverStaleAgentInboundJobs(supabaseAdmin: any, staleBefore: string,
