@@ -105,6 +105,21 @@ export async function claimNextAgentInboundJob(
   return Array.isArray(data) && data.length > 0 ? (data[0] as AgentInboundJob) : null;
 }
 
+export async function transferAgentInboundJobClaim(
+  supabaseAdmin: any,
+  messageId: string,
+  fromHolder: string,
+  toHolder: string,
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.rpc("transfer_agent_inbound_job_claim", {
+    p_message_id: messageId,
+    p_from_holder: fromHolder,
+    p_to_holder: toHolder,
+  });
+  if (error) throw error;
+  return data === true;
+}
+
 export async function enterAgentInboundRuntime(
   supabaseAdmin: any,
   messageId: string,
