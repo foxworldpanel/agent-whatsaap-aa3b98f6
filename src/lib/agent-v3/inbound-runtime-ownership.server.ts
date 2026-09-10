@@ -32,38 +32,31 @@ export async function finalizeAgentInboundRuntimeOwnership(
   ownership: AgentInboundRuntimeOwnership,
   outcome: AgentInboundRuntimeOutcome,
 ): Promise<void> {
-  try {
-    if (outcome.ok) {
-      await completeAgentInboundJob(
-        supabaseAdmin,
-        ownership.messageId,
-        ownership.holder,
+  if (outcome.ok) {
+    await completeAgentInboundJob(
+      supabaseAdmin,
+      ownership.messageId,
+      ownership.holder,
+    );
+  } else {
+    const reviewed = await reviewAgentInboundJob(
+      supabaseAdmin,
+      ownership.messageId,
+      ownership.holder,
+      runtimeErrorMessage(outcome.error),
+    );
+    if (!reviewed) {
+      throw new Error(
+        `Agent inbound job review transition rejected for message ${ownership.messageId}`,
       );
-    } else {
-      const reviewed = await reviewAgentInboundJob(
-        supabaseAdmin,
-        ownership.messageId,
-        ownership.holder,
-        runtimeErrorMessage(outcome.error),
-      );
-      if (!reviewed) {
-        throw new Error(
-          `Agent inbound job review transition rejected for message ${ownership.messageId}`,
-        );
-      }
     }
-  } catch (error) {
-    // Do not unlock when the durable terminal transition is unknown. If the DB
-    // accepted the transition but the client lost the response, recovery can
-    // inspect the terminal job later. If it did not accept it, the processing
-    // row plus generation lock still prevent a second concurrent runtime. A
-    // stale processing job is quarantined to needs_review rather than replayed.
-    throw error;
   }
 
   // Unlock only after a terminal durable state is confirmed. This ordering is a
   // core Stage B invariant: another inbound may enter this conversation only
   // after the current runtime is known to be processed or needs_review.
+  // releaseAgentConversationLock is idempotent for this holder after transport
+  // uncertainty: a missing lock or a newer holder proves our ownership ended.
   const released = await releaseAgentConversationLock(
     supabaseAdmin,
     ownership.conversationId,
