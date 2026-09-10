@@ -110,6 +110,32 @@ END; $$;
 REVOKE ALL ON FUNCTION public.enter_agent_inbound_runtime(uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.enter_agent_inbound_runtime(uuid,text) TO service_role;
 
+-- Compatibility guard for callers that still perform stale generation-lock
+-- cleanup with a direct DELETE. A worker may release the lock it actually owns,
+-- but it may not delete another holder's lock while durable safe/runtime
+-- ownership exists for the conversation. This closes the legacy TOCTOU path
+-- while webhook centralization is completed.
+CREATE OR REPLACE FUNCTION public.guard_agent_generation_lock_delete()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+ IF EXISTS (
+  SELECT 1 FROM public.agent_inbound_jobs j
+  WHERE j.conversation_id=OLD.conversation_id
+    AND j.status IN ('processing_safe','processing')
+    AND j.claimed_by IS DISTINCT FROM OLD.holder
+ ) THEN
+  RAISE EXCEPTION 'cannot delete generation lock while another durable inbound owner is active'
+    USING ERRCODE='55000';
+ END IF;
+ RETURN OLD;
+END; $$;
+DROP TRIGGER IF EXISTS guard_agent_generation_lock_delete ON public.agent_generation_locks;
+CREATE TRIGGER guard_agent_generation_lock_delete
+BEFORE DELETE ON public.agent_generation_locks
+FOR EACH ROW EXECUTE FUNCTION public.guard_agent_generation_lock_delete();
+REVOKE ALL ON FUNCTION public.guard_agent_generation_lock_delete() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.guard_agent_generation_lock_delete() TO service_role;
+
 -- Atomic conversation-lock acquisition. The advisory transaction lock serializes
 -- stale takeover decisions for one conversation, eliminating the client-side
 -- check/delete/insert TOCTOU window. A stale generation lock is never removed
