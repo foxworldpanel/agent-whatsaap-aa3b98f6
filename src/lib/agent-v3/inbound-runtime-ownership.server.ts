@@ -32,8 +32,6 @@ export async function finalizeAgentInboundRuntimeOwnership(
   ownership: AgentInboundRuntimeOwnership,
   outcome: AgentInboundRuntimeOutcome,
 ): Promise<void> {
-  let finalizationError: unknown = null;
-
   try {
     if (outcome.ok) {
       await completeAgentInboundJob(
@@ -55,27 +53,25 @@ export async function finalizeAgentInboundRuntimeOwnership(
       }
     }
   } catch (error) {
-    finalizationError = error;
+    // Do not unlock when the durable terminal transition is unknown. If the DB
+    // accepted the transition but the client lost the response, recovery can
+    // inspect the terminal job later. If it did not accept it, the processing
+    // row plus generation lock still prevent a second concurrent runtime. A
+    // stale processing job is quarantined to needs_review rather than replayed.
+    throw error;
   }
 
-  let releaseError: unknown = null;
-  try {
-    const released = await releaseAgentConversationLock(
-      supabaseAdmin,
-      ownership.conversationId,
-      ownership.holder,
+  // Unlock only after a terminal durable state is confirmed. This ordering is a
+  // core Stage B invariant: another inbound may enter this conversation only
+  // after the current runtime is known to be processed or needs_review.
+  const released = await releaseAgentConversationLock(
+    supabaseAdmin,
+    ownership.conversationId,
+    ownership.holder,
+  );
+  if (!released) {
+    throw new Error(
+      `Agent conversation lock release rejected for message ${ownership.messageId}`,
     );
-    if (!released) {
-      throw new Error(
-        `Agent conversation lock release rejected for message ${ownership.messageId}`,
-      );
-    }
-  } catch (error) {
-    releaseError = error;
   }
-
-  // Preserve the state-transition failure as the primary error. Lock-release
-  // failure is still surfaced when finalization itself succeeded.
-  if (finalizationError) throw finalizationError;
-  if (releaseError) throw releaseError;
 }
