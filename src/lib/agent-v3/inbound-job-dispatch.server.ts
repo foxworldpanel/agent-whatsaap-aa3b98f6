@@ -1,7 +1,7 @@
 import {
   claimNextAgentInboundJob,
   recoverStaleAgentInboundJobs,
-  releaseAgentInboundJob,
+  transferAgentInboundJobClaim,
   type AgentInboundJob,
 } from "@/lib/agent-v3/inbound-jobs.server";
 import { loadAgentInboundResumeContext } from "@/lib/agent-v3/inbound-job-context.server";
@@ -14,7 +14,7 @@ import {
   type AgentInboundRuntimeOutcome,
   type AgentInboundRuntimeOwnership,
 } from "@/lib/agent-v3/inbound-runtime-ownership.server";
-import { claimAgentInboundForRuntime } from "@/lib/agent-v3/inbound-runtime-claim.server";
+import { enterClaimedAgentInboundForRuntime } from "@/lib/agent-v3/inbound-runtime-claim.server";
 
 export type ClaimedAgentInbound = {
   job: AgentInboundJob;
@@ -27,9 +27,11 @@ export type ClaimedAgentInbound = {
  * Claims one durable pending job and moves it to the exact boundary immediately
  * before Agent V3 runtime side effects. It never replays webhook gates.
  *
- * The durable queue claim selects the next eligible job. The shared runtime
- * claim then owns the conversation lock and performs processing_safe ->
- * processing with the same semantics used by the immediate webhook path.
+ * Queue selection and runtime ownership remain continuous: the dispatcher first
+ * claims the row as processing_safe, atomically transfers that claim to the
+ * runtime holder, then the shared helper acquires the conversation lock and
+ * crosses processing_safe -> processing. The job is never exposed as pending in
+ * the middle of that handoff.
  */
 export async function claimOneAgentInboundForRuntime(
   supabaseAdmin: any,
@@ -39,31 +41,26 @@ export async function claimOneAgentInboundForRuntime(
   const job = await claimNextAgentInboundJob(supabaseAdmin, queueHolder);
   if (!job) return null;
 
-  // claimNextAgentInboundJob already moved this row to processing_safe under
-  // queueHolder. Return it to pending before entering the shared claim primitive;
-  // this keeps exactly one implementation responsible for the conversation lock
-  // and the processing transition. The release is status/holder guarded.
-  const releasedForRuntimeClaim = await releaseAgentInboundJob(
+  const holder = `dispatcher:${workerId}:${Date.now()}`;
+  const transferred = await transferAgentInboundJobClaim(
     supabaseAdmin,
     job.message_id,
     queueHolder,
-    null,
+    holder,
   );
-  if (!releasedForRuntimeClaim) {
-    throw new Error("dispatcher queue ownership changed before runtime claim");
+  if (!transferred) {
+    throw new Error("dispatcher queue ownership changed before atomic runtime transfer");
   }
 
-  const holder = `dispatcher:${workerId}:${Date.now()}`;
-  const claim = await claimAgentInboundForRuntime(supabaseAdmin, {
+  const claim = await enterClaimedAgentInboundForRuntime(supabaseAdmin, {
     messageId: job.message_id,
     conversationId: job.conversation_id,
     holder,
   });
 
   if (claim.status !== "claimed") {
-    // job_busy can happen if another worker won the race after the safe release;
     // conversation_busy/ownership_changed are already durably handled by the
-    // shared claim helper. In all cases this worker has nothing safe to execute.
+    // shared helper. This worker has nothing safe to execute.
     return null;
   }
 
