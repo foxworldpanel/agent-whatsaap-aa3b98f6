@@ -1,6 +1,7 @@
 import {
   claimNextAgentInboundJob,
   recoverStaleAgentInboundJobs,
+  releaseAgentInboundJob,
   transferAgentInboundJobClaim,
   type AgentInboundJob,
 } from "@/lib/agent-v3/inbound-jobs.server";
@@ -42,13 +43,50 @@ export async function claimOneAgentInboundForRuntime(
   if (!job) return null;
 
   const holder = `dispatcher:${workerId}:${Date.now()}`;
-  const transferred = await transferAgentInboundJobClaim(
-    supabaseAdmin,
-    job.message_id,
-    queueHolder,
-    holder,
-  );
+  let transferred = false;
+  try {
+    transferred = await transferAgentInboundJobClaim(
+      supabaseAdmin,
+      job.message_id,
+      queueHolder,
+      holder,
+    );
+  } catch (error) {
+    // The transfer RPC can fail before the database accepts it, or the client can
+    // lose the response after the database accepted it. First try the old holder;
+    // then the new holder. Both releases are status/holder guarded, so at most one
+    // can make this still-safe job pending again.
+    const reason = error instanceof Error ? error.message : String(error);
+    let recovered = false;
+    try {
+      recovered = await releaseAgentInboundJob(
+        supabaseAdmin,
+        job.message_id,
+        queueHolder,
+        `dispatcher claim transfer failed: ${reason}`,
+      );
+      if (!recovered) {
+        recovered = await releaseAgentInboundJob(
+          supabaseAdmin,
+          job.message_id,
+          holder,
+          `dispatcher claim transfer result uncertain: ${reason}`,
+        );
+      }
+    } catch (recoveryError) {
+      console.error("[AGENT-INBOUND-DISPATCH] failed to recover transfer error", recoveryError);
+    }
+    if (!recovered) {
+      console.error(
+        "[AGENT-INBOUND-DISPATCH] transfer error could not be immediately requeued; stale processing_safe recovery remains authoritative",
+      );
+    }
+    throw error;
+  }
+
   if (!transferred) {
+    // A false result means the row no longer belongs to queueHolder. Do not
+    // mutate another holder's state; stale recovery handles abandoned safe claims.
     throw new Error("dispatcher queue ownership changed before atomic runtime transfer");
   }
 
