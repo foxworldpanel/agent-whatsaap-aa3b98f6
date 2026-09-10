@@ -1,9 +1,7 @@
 import {
   claimNextAgentInboundJob,
-  enterAgentInboundRuntime,
   recoverStaleAgentInboundJobs,
   releaseAgentInboundJob,
-  reviewAgentInboundJob,
   type AgentInboundJob,
 } from "@/lib/agent-v3/inbound-jobs.server";
 import { loadAgentInboundResumeContext } from "@/lib/agent-v3/inbound-job-context.server";
@@ -12,17 +10,16 @@ import {
   type AgentV3RuntimeExecutor,
 } from "@/lib/agent-v3/inbound-runtime-contract.server";
 import {
-  acquireAgentConversationLock,
-  releaseAgentConversationLock,
-} from "@/lib/agent-v3/conversation-lock.server";
-import {
   finalizeAgentInboundRuntimeOwnership,
   type AgentInboundRuntimeOutcome,
+  type AgentInboundRuntimeOwnership,
 } from "@/lib/agent-v3/inbound-runtime-ownership.server";
+import { claimAgentInboundForRuntime } from "@/lib/agent-v3/inbound-runtime-claim.server";
 
 export type ClaimedAgentInbound = {
   job: AgentInboundJob;
   holder: string;
+  ownership: AgentInboundRuntimeOwnership;
   context: Awaited<ReturnType<typeof loadAgentInboundResumeContext>>;
 };
 
@@ -30,112 +27,58 @@ export type ClaimedAgentInbound = {
  * Claims one durable pending job and moves it to the exact boundary immediately
  * before Agent V3 runtime side effects. It never replays webhook gates.
  *
- * The caller MUST call finishClaimedAgentInbound after running the shared V3
- * runtime. Until the runtime extraction is wired, this function is intentionally
- * not exposed as an HTTP dispatcher: owning a job without executing it would be
- * worse than leaving it pending.
+ * The durable queue claim selects the next eligible job. The shared runtime
+ * claim then owns the conversation lock and performs processing_safe ->
+ * processing with the same semantics used by the immediate webhook path.
  */
 export async function claimOneAgentInboundForRuntime(
   supabaseAdmin: any,
   workerId: string,
 ): Promise<ClaimedAgentInbound | null> {
-  const holder = `dispatcher:${workerId}:${Date.now()}`;
-  const job = await claimNextAgentInboundJob(supabaseAdmin, holder);
+  const queueHolder = `dispatcher-select:${workerId}:${Date.now()}`;
+  const job = await claimNextAgentInboundJob(supabaseAdmin, queueHolder);
   if (!job) return null;
 
-  let conversationLocked = false;
-  let enteredRuntime = false;
+  // claimNextAgentInboundJob already moved this row to processing_safe under
+  // queueHolder. Return it to pending before entering the shared claim primitive;
+  // this keeps exactly one implementation responsible for the conversation lock
+  // and the processing transition. The release is status/holder guarded.
+  const releasedForRuntimeClaim = await releaseAgentInboundJob(
+    supabaseAdmin,
+    job.message_id,
+    queueHolder,
+    null,
+  );
+  if (!releasedForRuntimeClaim) {
+    throw new Error("dispatcher queue ownership changed before runtime claim");
+  }
+
+  const holder = `dispatcher:${workerId}:${Date.now()}`;
+  const claim = await claimAgentInboundForRuntime(supabaseAdmin, {
+    messageId: job.message_id,
+    conversationId: job.conversation_id,
+    holder,
+  });
+
+  if (claim.status !== "claimed") {
+    // job_busy can happen if another worker won the race after the safe release;
+    // conversation_busy/ownership_changed are already durably handled by the
+    // shared claim helper. In all cases this worker has nothing safe to execute.
+    return null;
+  }
+
   try {
     const context = await loadAgentInboundResumeContext(supabaseAdmin, job);
-    conversationLocked = await acquireAgentConversationLock(
-      supabaseAdmin,
-      job.conversation_id,
-      holder,
-    );
-
-    if (!conversationLocked) {
-      const requeued = await releaseAgentInboundJob(
-        supabaseAdmin,
-        job.message_id,
-        holder,
-        "conversation busy during dispatcher claim",
-      );
-      if (!requeued) {
-        throw new Error("busy-stage requeue rejected because durable ownership changed");
-      }
-      return null;
-    }
-
-    enteredRuntime = await enterAgentInboundRuntime(
-      supabaseAdmin,
-      job.message_id,
-      holder,
-    );
-    if (!enteredRuntime) {
-      const lockReleased = await releaseAgentConversationLock(
-        supabaseAdmin,
-        job.conversation_id,
-        holder,
-      );
-      conversationLocked = false;
-      if (!lockReleased) {
-        throw new Error("dispatcher lost conversation lock before runtime transition");
-      }
-      const requeued = await releaseAgentInboundJob(
-        supabaseAdmin,
-        job.message_id,
-        holder,
-        "dispatcher runtime ownership transition rejected",
-      );
-      if (!requeued) {
-        throw new Error("runtime-transition requeue rejected because durable ownership changed");
-      }
-      return null;
-    }
-
-    return { job, holder, context };
+    return { job, holder, ownership: claim.ownership, context };
   } catch (error) {
-    if (conversationLocked) {
-      try {
-        const released = await releaseAgentConversationLock(
-          supabaseAdmin,
-          job.conversation_id,
-          holder,
-        );
-        if (!released) {
-          console.error("[AGENT-INBOUND-DISPATCH] conversation lock ownership changed before release");
-        }
-      } catch (lockReleaseError) {
-        console.error("[AGENT-INBOUND-DISPATCH] failed to release conversation lock", lockReleaseError);
-      }
-    }
-
-    const reason = error instanceof Error ? error.message : String(error);
-    try {
-      if (!enteredRuntime) {
-        const requeued = await releaseAgentInboundJob(
-          supabaseAdmin,
-          job.message_id,
-          holder,
-          reason,
-        );
-        if (!requeued) {
-          throw new Error("safe-stage requeue rejected because durable ownership changed");
-        }
-      } else {
-        const reviewed = await reviewAgentInboundJob(
-          supabaseAdmin,
-          job.message_id,
-          holder,
-          `dispatcher preparation failed after runtime transition: ${reason}`,
-        );
-        if (!reviewed) {
-          throw new Error("runtime-stage review rejected because durable ownership changed");
-        }
-      }
-    } catch (stateError) {
-      console.error("[AGENT-INBOUND-DISPATCH] failed to finalize preparation state", stateError);
-    }
+    // Context reconstruction happens after runtime ownership was established but
+    // before the Agent V3 executor is invoked. Treat failure as uncertain
+    // processing ownership and never make the message replayable automatically.
+    await finalizeAgentInboundRuntimeOwnership(
+      supabaseAdmin,
+      claim.ownership,
+      { ok: false, error },
+    );
     throw error;
   }
 }
@@ -147,11 +90,7 @@ export async function finishClaimedAgentInbound(
 ): Promise<void> {
   await finalizeAgentInboundRuntimeOwnership(
     supabaseAdmin,
-    {
-      messageId: claim.job.message_id,
-      conversationId: claim.job.conversation_id,
-      holder: claim.holder,
-    },
+    claim.ownership,
     outcome,
   );
 }
