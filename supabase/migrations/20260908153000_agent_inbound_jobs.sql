@@ -30,9 +30,6 @@ CREATE POLICY "service role manages agent inbound jobs" ON public.agent_inbound_
 COMMENT ON TABLE public.agent_inbound_jobs IS 'Durable message-level ownership for eligible Agent V3 inbound processing. Stage B; not Customer Turn aggregation.';
 
 -- Remove development-era overloads that did not receive an explicit retry cap.
--- On a clean database these are no-ops; on an environment where an earlier
--- Stage B draft was applied manually they prevent PostgREST from exposing an
--- obsolete path that can bypass the bounded safe-attempt policy.
 DROP FUNCTION IF EXISTS public.claim_agent_inbound_job(uuid,text);
 CREATE OR REPLACE FUNCTION public.claim_agent_inbound_job(
  p_message_id uuid,
@@ -42,25 +39,14 @@ CREATE OR REPLACE FUNCTION public.claim_agent_inbound_job(
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_id uuid;
 BEGIN
- IF p_max_attempts < 1 THEN
-  RAISE EXCEPTION 'p_max_attempts must be >= 1';
- END IF;
-
+ IF p_max_attempts < 1 THEN RAISE EXCEPTION 'p_max_attempts must be >= 1'; END IF;
  UPDATE public.agent_inbound_jobs
- SET status='needs_review',
-     claimed_by=NULL,
-     claimed_at=NULL,
-     last_error='max safe attempts exceeded before runtime',
-     updated_at=now()
- WHERE message_id=p_message_id
-   AND status='pending'
-   AND attempt_count>=p_max_attempts;
-
+ SET status='needs_review',claimed_by=NULL,claimed_at=NULL,
+     last_error='max safe attempts exceeded before runtime',updated_at=now()
+ WHERE message_id=p_message_id AND status='pending' AND attempt_count>=p_max_attempts;
  UPDATE public.agent_inbound_jobs
  SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=attempt_count+1,last_error=NULL,updated_at=now()
- WHERE message_id=p_message_id
-   AND status='pending'
-   AND attempt_count<p_max_attempts
+ WHERE message_id=p_message_id AND status='pending' AND attempt_count<p_max_attempts
  RETURNING id INTO v_id;
  RETURN v_id IS NOT NULL;
 END; $$;
@@ -75,64 +61,38 @@ CREATE OR REPLACE FUNCTION public.claim_next_agent_inbound_job(
 RETURNS SETOF public.agent_inbound_jobs
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN
- IF p_max_attempts < 1 THEN
-  RAISE EXCEPTION 'p_max_attempts must be >= 1';
- END IF;
-
+ IF p_max_attempts < 1 THEN RAISE EXCEPTION 'p_max_attempts must be >= 1'; END IF;
  UPDATE public.agent_inbound_jobs
- SET status='needs_review',
-     claimed_by=NULL,
-     claimed_at=NULL,
-     last_error='max safe attempts exceeded before runtime',
-     updated_at=now()
+ SET status='needs_review',claimed_by=NULL,claimed_at=NULL,
+     last_error='max safe attempts exceeded before runtime',updated_at=now()
  WHERE status='pending' AND attempt_count>=p_max_attempts;
-
  RETURN QUERY
  WITH candidate AS (
-  SELECT j.id
-  FROM public.agent_inbound_jobs j
-  WHERE j.status='pending'
-    AND j.attempt_count<p_max_attempts
+  SELECT j.id FROM public.agent_inbound_jobs j
+  WHERE j.status='pending' AND j.attempt_count<p_max_attempts
     AND NOT EXISTS (
-      SELECT 1
-      FROM public.agent_inbound_jobs active
-      WHERE active.conversation_id=j.conversation_id
-        AND active.id<>j.id
+      SELECT 1 FROM public.agent_inbound_jobs active
+      WHERE active.conversation_id=j.conversation_id AND active.id<>j.id
         AND active.status IN ('processing_safe','processing')
     )
-  ORDER BY j.created_at,j.id
-  FOR UPDATE SKIP LOCKED
-  LIMIT 1
+  ORDER BY j.created_at,j.id FOR UPDATE SKIP LOCKED LIMIT 1
  )
  UPDATE public.agent_inbound_jobs j
- SET status='processing_safe',
-     claimed_by=p_holder,
-     claimed_at=now(),
-     attempt_count=j.attempt_count+1,
-     last_error=NULL,
-     updated_at=now()
- FROM candidate c
- WHERE j.id=c.id
- RETURNING j.*;
+ SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=j.attempt_count+1,last_error=NULL,updated_at=now()
+ FROM candidate c WHERE j.id=c.id RETURNING j.*;
 END; $$;
 REVOKE ALL ON FUNCTION public.claim_next_agent_inbound_job(text,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_next_agent_inbound_job(text,integer) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.transfer_agent_inbound_job_claim(
- p_message_id uuid,
- p_from_holder text,
- p_to_holder text
+ p_message_id uuid,p_from_holder text,p_to_holder text
 )
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_id uuid;
 BEGIN
  UPDATE public.agent_inbound_jobs
- SET claimed_by=p_to_holder,
-     claimed_at=now(),
-     updated_at=now()
- WHERE message_id=p_message_id
-   AND status='processing_safe'
-   AND claimed_by=p_from_holder
+ SET claimed_by=p_to_holder,claimed_at=now(),updated_at=now()
+ WHERE message_id=p_message_id AND status='processing_safe' AND claimed_by=p_from_holder
  RETURNING id INTO v_id;
  RETURN v_id IS NOT NULL;
 END; $$;
@@ -150,37 +110,82 @@ END; $$;
 REVOKE ALL ON FUNCTION public.enter_agent_inbound_runtime(uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.enter_agent_inbound_runtime(uuid,text) TO service_role;
 
+-- Atomic conversation-lock acquisition. The advisory transaction lock serializes
+-- stale takeover decisions for one conversation, eliminating the client-side
+-- check/delete/insert TOCTOU window. A stale generation lock is never removed
+-- while durable processing_safe/processing ownership exists.
+CREATE OR REPLACE FUNCTION public.acquire_agent_conversation_lock(
+ p_conversation_id uuid,
+ p_holder text,
+ p_stale_before timestamptz
+)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE
+ v_current_holder text;
+ v_acquired_at timestamptz;
+BEGIN
+ PERFORM pg_advisory_xact_lock(hashtextextended(p_conversation_id::text, 0));
+
+ SELECT holder,acquired_at INTO v_current_holder,v_acquired_at
+ FROM public.agent_generation_locks
+ WHERE conversation_id=p_conversation_id
+ FOR UPDATE;
+
+ IF NOT FOUND THEN
+  INSERT INTO public.agent_generation_locks(conversation_id,holder,acquired_at)
+  VALUES(p_conversation_id,p_holder,now());
+  RETURN true;
+ END IF;
+
+ IF v_current_holder=p_holder THEN
+  RETURN true;
+ END IF;
+
+ IF v_acquired_at>=p_stale_before THEN
+  RETURN false;
+ END IF;
+
+ IF EXISTS (
+  SELECT 1 FROM public.agent_inbound_jobs
+  WHERE conversation_id=p_conversation_id
+    AND status IN ('processing_safe','processing')
+ ) THEN
+  RETURN false;
+ END IF;
+
+ DELETE FROM public.agent_generation_locks
+ WHERE conversation_id=p_conversation_id AND holder=v_current_holder;
+ INSERT INTO public.agent_generation_locks(conversation_id,holder,acquired_at)
+ VALUES(p_conversation_id,p_holder,now());
+ RETURN true;
+END; $$;
+REVOKE ALL ON FUNCTION public.acquire_agent_conversation_lock(uuid,text,timestamptz) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.acquire_agent_conversation_lock(uuid,text,timestamptz) TO service_role;
+
 DROP FUNCTION IF EXISTS public.recover_stale_agent_inbound_jobs(timestamptz);
 CREATE OR REPLACE FUNCTION public.recover_stale_agent_inbound_jobs(p_stale_before timestamptz,p_max_attempts integer DEFAULT 5)
 RETURNS TABLE(requeued integer,review integer) LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_requeued integer:=0; v_review integer:=0; v_unsafe_review integer:=0;
 BEGIN
- IF p_max_attempts < 1 THEN
-  RAISE EXCEPTION 'p_max_attempts must be >= 1';
- END IF;
-
+ IF p_max_attempts < 1 THEN RAISE EXCEPTION 'p_max_attempts must be >= 1'; END IF;
  WITH changed AS (
   UPDATE public.agent_inbound_jobs
   SET status=CASE WHEN attempt_count>=p_max_attempts THEN 'needs_review' ELSE 'pending' END,
       claimed_by=NULL,claimed_at=NULL,
       last_error=CASE WHEN attempt_count>=p_max_attempts THEN 'stale processing_safe exceeded max attempts' ELSE 'recovered stale processing_safe claim' END,
       updated_at=now()
-  WHERE status='processing_safe' AND claimed_at<p_stale_before
-  RETURNING status
+  WHERE status='processing_safe' AND claimed_at<p_stale_before RETURNING status
  )
  SELECT count(*) FILTER(WHERE status='pending')::integer,
         count(*) FILTER(WHERE status='needs_review')::integer
  INTO v_requeued,v_review FROM changed;
-
  WITH unsafe AS (
   UPDATE public.agent_inbound_jobs
   SET status='needs_review',claimed_by=NULL,claimed_at=NULL,
       last_error=COALESCE(last_error,'stale processing state; external side effect uncertain'),updated_at=now()
-  WHERE status='processing' AND claimed_at<p_stale_before
-  RETURNING 1
+  WHERE status='processing' AND claimed_at<p_stale_before RETURNING 1
  )
  SELECT count(*)::integer INTO v_unsafe_review FROM unsafe;
-
  v_review := v_review + v_unsafe_review;
  RETURN QUERY SELECT v_requeued,v_review;
 END; $$;
