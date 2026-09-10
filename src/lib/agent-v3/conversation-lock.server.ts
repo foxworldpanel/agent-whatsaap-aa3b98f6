@@ -14,6 +14,19 @@ async function hasActiveInboundOwnership(
   return Array.isArray(data) && data.length > 0;
 }
 
+async function readConversationLock(
+  supabaseAdmin: any,
+  conversationId: string,
+): Promise<{ conversation_id: string; holder: string } | null> {
+  const { data, error } = await supabaseAdmin
+    .from("agent_generation_locks")
+    .select("conversation_id,holder")
+    .eq("conversation_id", conversationId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
 export async function acquireAgentConversationLock(
   supabaseAdmin: any,
   conversationId: string,
@@ -33,7 +46,6 @@ export async function acquireAgentConversationLock(
   // Time alone is not proof that a generation lock is orphaned. Protect both
   // processing_safe and processing durable ownership: a safe claimant may have
   // acquired the conversation lock and still be crossing the runtime boundary.
-  // Stealing that lock would allow a second worker into the same conversation.
   if (await hasActiveInboundOwnership(supabaseAdmin, conversationId)) {
     return false;
   }
@@ -75,6 +87,24 @@ export async function releaseAgentConversationLock(
     .select("conversation_id")
     .maybeSingle();
 
-  if (error) throw error;
-  return Boolean(data?.conversation_id);
+  if (!error) return Boolean(data?.conversation_id);
+
+  // DELETE may have committed even when the client lost the response. Verify
+  // durable lock state before telling ownership finalization that unlock failed.
+  // No row means our delete succeeded (or an equivalent terminal state exists).
+  // The same holder means it definitely remains ours and was not released.
+  try {
+    const current = await readConversationLock(supabaseAdmin, conversationId);
+    if (!current) return true;
+    if (current.holder === holder) return false;
+  } catch (verifyError) {
+    console.error(
+      "[AGENT-CONVERSATION-LOCK] failed to verify unlock after DB error",
+      verifyError,
+    );
+  }
+
+  // A different holder or unreadable state is ownership uncertainty; never
+  // pretend our release succeeded because doing so could hide a lock race.
+  throw error;
 }
