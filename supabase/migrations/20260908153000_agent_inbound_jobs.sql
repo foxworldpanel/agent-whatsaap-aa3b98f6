@@ -191,21 +191,26 @@ GRANT EXECUTE ON FUNCTION public.acquire_agent_conversation_lock(uuid,text,times
 DROP FUNCTION IF EXISTS public.recover_stale_agent_inbound_jobs(timestamptz);
 CREATE OR REPLACE FUNCTION public.recover_stale_agent_inbound_jobs(p_stale_before timestamptz,p_max_attempts integer DEFAULT 5)
 RETURNS TABLE(requeued integer,review integer) LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
-DECLARE v_requeued integer:=0; v_review integer:=0; v_unsafe_review integer:=0;
+DECLARE
+ v_requeued integer:=0;
+ v_review integer:=0;
+ v_unsafe_review integer:=0;
+ v_stale_conversations uuid[]:=ARRAY[]::uuid[];
 BEGIN
  IF p_max_attempts < 1 THEN RAISE EXCEPTION 'p_max_attempts must be >= 1'; END IF;
 
- -- Serialize stale recovery per conversation before mutating ownership. This
- -- keeps the job transition and orphaned generation-lock cleanup in the same
- -- transaction, so a recovered pending job is not left blocked behind the old
- -- holder until another five-minute stale window passes.
- PERFORM pg_advisory_xact_lock(hashtextextended(conversation_id::text, 0))
- FROM (
-  SELECT DISTINCT conversation_id
-  FROM public.agent_inbound_jobs
-  WHERE status IN ('processing_safe','processing') AND claimed_at<p_stale_before
-  ORDER BY conversation_id
- ) stale_conversations;
+ SELECT COALESCE(array_agg(DISTINCT conversation_id ORDER BY conversation_id),ARRAY[]::uuid[])
+ INTO v_stale_conversations
+ FROM public.agent_inbound_jobs
+ WHERE status IN ('processing_safe','processing') AND claimed_at<p_stale_before;
+
+ -- Serialize exactly the conversations whose stale durable ownership this call
+ -- is about to recover. Keeping this set explicit also prevents the recovery
+ -- worker from deleting unrelated stale locks that another acquisition may be
+ -- resolving concurrently.
+ PERFORM pg_advisory_xact_lock(hashtextextended(stale_conversation::text, 0))
+ FROM unnest(v_stale_conversations) AS stale_conversation
+ ORDER BY stale_conversation;
 
  WITH changed AS (
   UPDATE public.agent_inbound_jobs
@@ -227,11 +232,12 @@ BEGIN
  SELECT count(*)::integer INTO v_unsafe_review FROM unsafe;
  v_review := v_review + v_unsafe_review;
 
- -- Once stale durable ownership has been resolved, remove only generation locks
- -- that are themselves stale and whose conversation has no remaining active
- -- safe/runtime owner. The delete guard remains an independent safety net.
+ -- Clean only locks belonging to conversations recovered by this invocation.
+ -- Unrelated orphan locks remain the responsibility of atomic acquisition, which
+ -- already performs stale takeover under the same per-conversation advisory lock.
  DELETE FROM public.agent_generation_locks l
- WHERE l.acquired_at<p_stale_before
+ WHERE l.conversation_id=ANY(v_stale_conversations)
+   AND l.acquired_at<p_stale_before
    AND NOT EXISTS (
     SELECT 1 FROM public.agent_inbound_jobs active
     WHERE active.conversation_id=l.conversation_id
