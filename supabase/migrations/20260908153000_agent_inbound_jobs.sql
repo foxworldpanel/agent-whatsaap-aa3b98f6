@@ -56,8 +56,9 @@ BEGIN
   WHERE message_id=p_message_id AND status='pending' AND attempt_count<p_max_attempts
   RETURNING id INTO v_id;
  EXCEPTION WHEN unique_violation THEN
-  -- Another message already owns this conversation. Busy is a normal safe-side
-  -- outcome, not a database failure and must not consume an attempt.
+  -- The nested PL/pgSQL block is a subtransaction: the failed UPDATE (including
+  -- its attempt_count increment) is rolled back before we report a normal busy
+  -- result. Another message already owns this conversation.
   v_id := NULL;
  END;
  RETURN v_id IS NOT NULL;
@@ -94,9 +95,8 @@ BEGIN
   SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=j.attempt_count+1,last_error=NULL,updated_at=now()
   FROM candidate c WHERE j.id=c.id RETURNING j.*;
  EXCEPTION WHEN unique_violation THEN
-  -- A concurrent worker won this conversation after candidate selection. The
-  -- unique partial index is authoritative; this worker simply reports idle and
-  -- the pending row remains retryable without crossing the runtime boundary.
+  -- Nested block rollback preserves the pending row and its attempt_count if a
+  -- concurrent worker wins this conversation after candidate selection.
   RETURN;
  END;
 END; $$;
