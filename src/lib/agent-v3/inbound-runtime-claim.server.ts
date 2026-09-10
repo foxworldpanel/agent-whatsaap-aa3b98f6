@@ -33,6 +33,7 @@ export async function enterClaimedAgentInboundForRuntime(
 ): Promise<Exclude<AgentInboundRuntimeClaimResult, { status: "job_busy" }>> {
   let conversationLocked = false;
   let enteredRuntime = false;
+  let runtimeTransitionAttempted = false;
   try {
     conversationLocked = await acquireAgentConversationLock(
       supabaseAdmin,
@@ -55,6 +56,7 @@ export async function enterClaimedAgentInboundForRuntime(
       return { status: "conversation_busy" };
     }
 
+    runtimeTransitionAttempted = true;
     enteredRuntime = await enterAgentInboundRuntime(
       supabaseAdmin,
       input.messageId,
@@ -96,7 +98,16 @@ export async function enterClaimedAgentInboundForRuntime(
       },
     };
   } catch (error) {
-    if (conversationLocked) {
+    const reason = error instanceof Error ? error.message : String(error);
+
+    // If the RPC call that crosses processing_safe -> processing threw, its
+    // database result is unknown: PostgreSQL may have committed the transition
+    // while the client lost the response. Do NOT release the conversation lock
+    // in that case. Keeping it blocks a second runtime until durable stale-state
+    // recovery can inspect/quarantine the job.
+    const transitionUncertain = runtimeTransitionAttempted && !enteredRuntime;
+
+    if (conversationLocked && !transitionUncertain) {
       try {
         const released = await releaseAgentConversationLock(
           supabaseAdmin,
@@ -113,7 +124,6 @@ export async function enterClaimedAgentInboundForRuntime(
       }
     }
 
-    const reason = error instanceof Error ? error.message : String(error);
     try {
       if (enteredRuntime) {
         const reviewed = await reviewAgentInboundJob(
@@ -127,7 +137,7 @@ export async function enterClaimedAgentInboundForRuntime(
             "[AGENT-INBOUND-CLAIM] runtime-stage review rejected because ownership changed",
           );
         }
-      } else {
+      } else if (!transitionUncertain) {
         const requeued = await releaseAgentInboundJob(
           supabaseAdmin,
           input.messageId,
@@ -139,6 +149,10 @@ export async function enterClaimedAgentInboundForRuntime(
             "[AGENT-INBOUND-CLAIM] safe-stage requeue rejected because ownership changed",
           );
         }
+      } else {
+        console.error(
+          "[AGENT-INBOUND-CLAIM] runtime transition result uncertain; preserving job and conversation lock for durable recovery",
+        );
       }
     } catch (stateError) {
       console.error("[AGENT-INBOUND-CLAIM] failed to preserve durable failure state", stateError);
