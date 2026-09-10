@@ -1,5 +1,19 @@
 const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;
 
+async function hasActiveInboundRuntime(
+  supabaseAdmin: any,
+  conversationId: string,
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("agent_inbound_jobs")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .eq("status", "processing")
+    .limit(1);
+  if (error) throw error;
+  return Array.isArray(data) && data.length > 0;
+}
+
 export async function acquireAgentConversationLock(
   supabaseAdmin: any,
   conversationId: string,
@@ -16,8 +30,15 @@ export async function acquireAgentConversationLock(
   if (!error) return true;
   if (error.code !== "23505") throw error;
 
-  // Only an orphaned lock older than the established safety window may be
-  // removed. A live lock is never stolen by the dispatcher.
+  // Time alone is not proof that a generation lock is orphaned. Agent V3 can
+  // legitimately spend longer than the stale window in runtime. If the durable
+  // ownership table still says this conversation has a processing job, never
+  // steal its generation lock; stale processing recovery will route uncertainty
+  // to needs_review instead of allowing a concurrent second runtime.
+  if (await hasActiveInboundRuntime(supabaseAdmin, conversationId)) {
+    return false;
+  }
+
   const staleBefore = new Date(
     Date.now() - DB_CONVERSATION_LOCK_STALE_MS,
   ).toISOString();
