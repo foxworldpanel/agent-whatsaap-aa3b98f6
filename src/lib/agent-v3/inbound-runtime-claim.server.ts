@@ -21,15 +21,6 @@ type RuntimeClaimInput = {
   holder: string;
 };
 
-/**
- * Takes a job that is already `processing_safe` under input.holder, acquires the
- * persistent conversation lock, then crosses the one-way boundary to
- * `processing`. This is shared by webhook claims and dispatcher claim transfers.
- *
- * enterAgentInboundRuntime verifies ambiguous RPC responses against durable DB
- * state. Therefore a returned true is confirmed processing ownership, a returned
- * false is confirmed safe non-entry, and only a thrown error remains uncertain.
- */
 export async function enterClaimedAgentInboundForRuntime(
   supabaseAdmin: any,
   input: RuntimeClaimInput,
@@ -52,9 +43,7 @@ export async function enterClaimedAgentInboundForRuntime(
         "conversation busy",
       );
       if (!requeued) {
-        throw new Error(
-          `Agent inbound safe requeue rejected for message ${input.messageId}`,
-        );
+        throw new Error(`Agent inbound safe requeue rejected for message ${input.messageId}`);
       }
       return { status: "conversation_busy" };
     }
@@ -67,25 +56,15 @@ export async function enterClaimedAgentInboundForRuntime(
         input.holder,
       );
     } catch (error) {
-      // The lower-level helper already attempted durable read-back. A throw here
-      // means neither success nor safe non-entry could be established.
       transitionUncertain = true;
       throw error;
     }
 
     if (!enteredRuntime) {
-      const released = await releaseAgentConversationLock(
-        supabaseAdmin,
-        input.conversationId,
-        input.holder,
-      );
-      conversationLocked = false;
-      if (!released) {
-        throw new Error(
-          `Agent conversation lock ownership changed for message ${input.messageId}`,
-        );
-      }
-
+      // We are still durably on the safe side. Requeue the job BEFORE unlocking
+      // the conversation. Otherwise another worker can acquire the conversation
+      // lock while this job still advertises processing_safe ownership, creating
+      // an avoidable ownership race between the two durable coordination layers.
       const requeued = await releaseAgentInboundJob(
         supabaseAdmin,
         input.messageId,
@@ -97,6 +76,18 @@ export async function enterClaimedAgentInboundForRuntime(
           `Agent inbound runtime-transition requeue rejected for message ${input.messageId}`,
         );
       }
+
+      const released = await releaseAgentConversationLock(
+        supabaseAdmin,
+        input.conversationId,
+        input.holder,
+      );
+      if (!released) {
+        throw new Error(
+          `Agent conversation lock ownership changed for message ${input.messageId}`,
+        );
+      }
+      conversationLocked = false;
       return { status: "ownership_changed" };
     }
 
@@ -109,8 +100,6 @@ export async function enterClaimedAgentInboundForRuntime(
       },
     };
   } catch (error) {
-    // Never unlock an ambiguous processing transition. A second runtime must not
-    // enter until stale durable recovery can determine/quarantine the job.
     if (conversationLocked && !transitionUncertain) {
       try {
         const released = await releaseAgentConversationLock(
@@ -135,9 +124,6 @@ export async function enterClaimedAgentInboundForRuntime(
       throw error;
     }
 
-    // Every failure that reaches here is still on the confirmed safe side of the
-    // runtime boundary. Requeue only under the current holder; ownership changes
-    // are intentionally not overridden.
     const reason = error instanceof Error ? error.message : String(error);
     try {
       const requeued = await releaseAgentInboundJob(
@@ -158,10 +144,6 @@ export async function enterClaimedAgentInboundForRuntime(
   }
 }
 
-/**
- * Immediate-path helper. It first claims a pending job and then delegates all
- * processing_safe ownership semantics to enterClaimedAgentInboundForRuntime.
- */
 export async function claimAgentInboundForRuntime(
   supabaseAdmin: any,
   input: RuntimeClaimInput,
