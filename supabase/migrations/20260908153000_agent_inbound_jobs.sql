@@ -77,6 +77,31 @@ END; $$;
 REVOKE ALL ON FUNCTION public.claim_next_agent_inbound_job(text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_next_agent_inbound_job(text) TO service_role;
 
+-- Transfer a processing_safe dispatcher selection to its runtime holder without
+-- returning the row to pending. This closes the release/reclaim race where a
+-- second worker could steal the same message between queue selection and the
+-- persistent conversation-lock acquisition.
+CREATE OR REPLACE FUNCTION public.transfer_agent_inbound_job_claim(
+ p_message_id uuid,
+ p_from_holder text,
+ p_to_holder text
+)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE v_id uuid;
+BEGIN
+ UPDATE public.agent_inbound_jobs
+ SET claimed_by=p_to_holder,
+     claimed_at=now(),
+     updated_at=now()
+ WHERE message_id=p_message_id
+   AND status='processing_safe'
+   AND claimed_by=p_from_holder
+ RETURNING id INTO v_id;
+ RETURN v_id IS NOT NULL;
+END; $$;
+REVOKE ALL ON FUNCTION public.transfer_agent_inbound_job_claim(uuid,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.transfer_agent_inbound_job_claim(uuid,text,text) TO service_role;
+
 CREATE OR REPLACE FUNCTION public.enter_agent_inbound_runtime(p_message_id uuid,p_holder text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_id uuid;
