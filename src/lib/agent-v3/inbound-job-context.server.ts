@@ -35,9 +35,17 @@ function requireSameIdentity(label: string, expected: string, actual: unknown, j
 function requireSupportedMessageKind(job: AgentInboundJob, persistedKind: unknown): void {
   const normalized = String(persistedKind || "").toLowerCase();
   if (!normalized) integrityError(`Inbound job persisted message kind missing: ${job.id}`);
-  const compatible = job.input_kind === "texto"
-    ? normalized === "texto" || normalized === "text"
-    : normalized === job.input_kind;
+
+  // The webhook deliberately normalizes every non-audio CRM message to `texto`
+  // because the persisted messages.kind enum only supports texto/audio. The
+  // durable inbound job keeps the richer execution kind (image/sticker), so a
+  // dispatcher resume must validate against that storage normalization instead
+  // of quarantining valid media jobs as corrupted.
+  const persistedAsText = normalized === "texto" || normalized === "text";
+  const compatible = job.input_kind === "audio"
+    ? normalized === "audio"
+    : persistedAsText;
+
   if (!compatible) integrityError(`Inbound job persisted message kind mismatch: ${job.id}`);
 }
 
