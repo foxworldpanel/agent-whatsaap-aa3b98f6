@@ -23,6 +23,12 @@ CREATE INDEX agent_inbound_jobs_pending_idx ON public.agent_inbound_jobs(created
 CREATE INDEX agent_inbound_jobs_conversation_idx ON public.agent_inbound_jobs(conversation_id,status,created_at);
 CREATE INDEX agent_inbound_jobs_processing_safe_idx ON public.agent_inbound_jobs(claimed_at) WHERE status='processing_safe';
 CREATE INDEX agent_inbound_jobs_needs_review_idx ON public.agent_inbound_jobs(updated_at) WHERE status='needs_review';
+-- Database-level invariant: at most one message may own the safe/runtime boundary
+-- for a conversation. Application locks remain useful for the wider Agent V3
+-- critical section, but correctness no longer depends on a check-then-update race.
+CREATE UNIQUE INDEX agent_inbound_jobs_one_active_per_conversation_idx
+ ON public.agent_inbound_jobs(conversation_id)
+ WHERE status IN ('processing_safe','processing');
 ALTER TABLE public.agent_inbound_jobs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.agent_inbound_jobs FROM anon,authenticated,public;
 GRANT ALL ON public.agent_inbound_jobs TO service_role;
@@ -44,10 +50,16 @@ BEGIN
  SET status='needs_review',claimed_by=NULL,claimed_at=NULL,
      last_error='max safe attempts exceeded before runtime',updated_at=now()
  WHERE message_id=p_message_id AND status='pending' AND attempt_count>=p_max_attempts;
- UPDATE public.agent_inbound_jobs
- SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=attempt_count+1,last_error=NULL,updated_at=now()
- WHERE message_id=p_message_id AND status='pending' AND attempt_count<p_max_attempts
- RETURNING id INTO v_id;
+ BEGIN
+  UPDATE public.agent_inbound_jobs
+  SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=attempt_count+1,last_error=NULL,updated_at=now()
+  WHERE message_id=p_message_id AND status='pending' AND attempt_count<p_max_attempts
+  RETURNING id INTO v_id;
+ EXCEPTION WHEN unique_violation THEN
+  -- Another message already owns this conversation. Busy is a normal safe-side
+  -- outcome, not a database failure and must not consume an attempt.
+  v_id := NULL;
+ END;
  RETURN v_id IS NOT NULL;
 END; $$;
 REVOKE ALL ON FUNCTION public.claim_agent_inbound_job(uuid,text,integer) FROM PUBLIC,anon,authenticated;
@@ -66,20 +78,27 @@ BEGIN
  SET status='needs_review',claimed_by=NULL,claimed_at=NULL,
      last_error='max safe attempts exceeded before runtime',updated_at=now()
  WHERE status='pending' AND attempt_count>=p_max_attempts;
- RETURN QUERY
- WITH candidate AS (
-  SELECT j.id FROM public.agent_inbound_jobs j
-  WHERE j.status='pending' AND j.attempt_count<p_max_attempts
-    AND NOT EXISTS (
-      SELECT 1 FROM public.agent_inbound_jobs active
-      WHERE active.conversation_id=j.conversation_id AND active.id<>j.id
-        AND active.status IN ('processing_safe','processing')
-    )
-  ORDER BY j.created_at,j.id FOR UPDATE SKIP LOCKED LIMIT 1
- )
- UPDATE public.agent_inbound_jobs j
- SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=j.attempt_count+1,last_error=NULL,updated_at=now()
- FROM candidate c WHERE j.id=c.id RETURNING j.*;
+ BEGIN
+  RETURN QUERY
+  WITH candidate AS (
+   SELECT j.id FROM public.agent_inbound_jobs j
+   WHERE j.status='pending' AND j.attempt_count<p_max_attempts
+     AND NOT EXISTS (
+       SELECT 1 FROM public.agent_inbound_jobs active
+       WHERE active.conversation_id=j.conversation_id AND active.id<>j.id
+         AND active.status IN ('processing_safe','processing')
+     )
+   ORDER BY j.created_at,j.id FOR UPDATE SKIP LOCKED LIMIT 1
+  )
+  UPDATE public.agent_inbound_jobs j
+  SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=j.attempt_count+1,last_error=NULL,updated_at=now()
+  FROM candidate c WHERE j.id=c.id RETURNING j.*;
+ EXCEPTION WHEN unique_violation THEN
+  -- A concurrent worker won this conversation after candidate selection. The
+  -- unique partial index is authoritative; this worker simply reports idle and
+  -- the pending row remains retryable without crossing the runtime boundary.
+  RETURN;
+ END;
 END; $$;
 REVOKE ALL ON FUNCTION public.claim_next_agent_inbound_job(text,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_next_agent_inbound_job(text,integer) TO service_role;
