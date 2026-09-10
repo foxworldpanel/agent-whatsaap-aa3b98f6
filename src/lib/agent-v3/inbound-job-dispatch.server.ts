@@ -169,17 +169,31 @@ export async function dispatchOneAgentInbound(
   const claim = await claimOneAgentInboundForRuntime(supabaseAdmin, workerId);
   if (!claim) return "idle";
 
+  let runtimeFailed = false;
+  let runtimeError: unknown;
   try {
     await executeRuntime(
       supabaseAdmin,
       runtimeInputFromResumeContext(claim.context),
     );
+  } catch (error) {
+    runtimeFailed = true;
+    runtimeError = error;
+  }
+
+  // Finalization errors are ownership/integrity failures, not runtime failures.
+  // Keep them outside the runtime catch so a job already marked processed is
+  // never subjected to a second, contradictory needs_review transition.
+  if (!runtimeFailed) {
     await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: true });
     return "processed";
-  } catch (error) {
-    await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: false, error });
-    return "needs_review";
   }
+
+  await finishClaimedAgentInbound(supabaseAdmin, claim, {
+    ok: false,
+    error: runtimeError,
+  });
+  return "needs_review";
 }
 
 export async function recoverAgentInboundDispatcherClaims(
