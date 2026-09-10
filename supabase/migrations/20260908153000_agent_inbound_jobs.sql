@@ -39,9 +39,22 @@ CREATE OR REPLACE FUNCTION public.claim_agent_inbound_job(
  p_max_attempts integer DEFAULT 5
 )
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
-DECLARE v_id uuid;
+DECLARE
+ v_id uuid;
+ v_conversation_id uuid;
 BEGIN
  IF p_max_attempts < 1 THEN RAISE EXCEPTION 'p_max_attempts must be >= 1'; END IF;
+
+ SELECT conversation_id INTO v_conversation_id
+ FROM public.agent_inbound_jobs
+ WHERE message_id=p_message_id;
+ IF NOT FOUND THEN RETURN false; END IF;
+
+ -- Serialize direct webhook claims with recovery/acquisition for this exact
+ -- conversation. This keeps ownership decisions ordered before the unique index
+ -- acts as the final invariant.
+ PERFORM pg_advisory_xact_lock(hashtextextended(v_conversation_id::text, 0));
+
  UPDATE public.agent_inbound_jobs
  SET status='needs_review',claimed_by=NULL,claimed_at=NULL,
      last_error='max safe attempts exceeded before runtime',updated_at=now()
@@ -50,6 +63,11 @@ BEGIN
   UPDATE public.agent_inbound_jobs
   SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=attempt_count+1,last_error=NULL,updated_at=now()
   WHERE message_id=p_message_id AND status='pending' AND attempt_count<p_max_attempts
+    AND NOT EXISTS (
+      SELECT 1 FROM public.agent_inbound_jobs active
+      WHERE active.conversation_id=v_conversation_id AND active.id<>agent_inbound_jobs.id
+        AND active.status IN ('processing_safe','processing')
+    )
   RETURNING id INTO v_id;
  EXCEPTION WHEN unique_violation THEN
   -- Nested block is a subtransaction: a conversation-busy conflict rolls the
