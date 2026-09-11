@@ -3,8 +3,8 @@ import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/exe
 import type { AgentV3RuntimeExecutor } from "@/lib/agent-v3/inbound-runtime-contract.server";
 import { runtimeTerminal } from "@/lib/agent-v3/inbound-runtime-result.server";
 
-// Generated from the audited effectful webhook boundary. Do not wire this file
-// until it compiles and the remaining helper dependencies have been made explicit.
+// Generated from the audited effectful webhook boundary. The webhook owns the
+// outer catch/finally so durable ownership is finalized in one place.
 export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmin, input) => {
   const msgId = input.externalMessageId;
   const conversationId = input.conversationId;
@@ -1438,32 +1438,6 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: AI processed para conversa ${conversationId}`);
       return runtimeTerminal("ai_processed");
 
-      } catch (e: any) {
-        const criticalErrorMessage = String(e?.message ?? e ?? "erro desconhecido");
-        runtimeNeedsReview = true;
-        runtimeFailure = criticalErrorMessage;
-        console.error("[UAZ-WEBHOOK] AI Critical Error:", criticalErrorMessage);
-
-        // A mensagem do cliente já foi persistida no CRM antes deste ponto.
-        // Não pedimos retry ao provedor para evitar uma segunda resposta, mas
-        // também não deixamos a falha silenciosa: a conversa fica visível para
-        // atendimento humano/revisão.
-        if (conversationId) {
-          const { error: reviewErr } = await supabaseAdmin
-            .from("conversations")
-            .update({
-              needs_review: true,
-              review_reason: `falha crítica no Agent V3: ${criticalErrorMessage}`.slice(0, 500),
-            })
-            .eq("id", conversationId);
-          if (reviewErr) {
-            console.error("[UAZ-WEBHOOK] Failed to flag AI error for review:", reviewErr);
-          }
-        }
-
-
-        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: AI error flagged para conversa ${conversationId}`);
-        return runtimeTerminal("ai_error_needs_review");
 
   return runtimeTerminal("completed");
 };
