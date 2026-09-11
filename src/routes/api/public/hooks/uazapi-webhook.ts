@@ -3,6 +3,10 @@ import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { normalizeTriggerText, removeAccents } from "@/lib/text-normalize";
 import { isConversationAgentEnabledV3 } from "@/lib/agent-v3/brain/config.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
+import {
+  beginWebhookAgentInboundRuntime,
+  finishWebhookAgentInboundRuntime,
+} from "@/lib/agent-v3/inbound-webhook-ownership.server";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
@@ -78,133 +82,6 @@ async function releaseConversationDbLock(
 }
 
 
-async function ensureAgentInboundJob(
-  supabaseAdmin: any,
-  messageId: string,
-  conversationId: string,
-  workspaceId: string,
-  sendTarget: string,
-  inputText: string,
-  inputKind: "texto" | "audio" | "image" | "sticker",
-  inputMime: string | undefined,
-  deferredFunnel: boolean,
-): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from("agent_inbound_jobs")
-    .insert({
-      message_id: messageId,
-      conversation_id: conversationId,
-      workspace_id: workspaceId,
-      send_target: sendTarget,
-      input_text: inputText,
-      input_kind: inputKind,
-      input_mime: inputMime ?? null,
-      deferred_funnel: deferredFunnel,
-      status: "pending",
-    });
-
-  if (!error || error.code === "23505") return;
-  throw error;
-}
-
-async function claimAgentInboundJob(
-  supabaseAdmin: any,
-  messageId: string,
-  holder: string,
-): Promise<boolean> {
-  const { data, error } = await supabaseAdmin.rpc(
-    "claim_agent_inbound_job",
-    {
-      p_message_id: messageId,
-      p_holder: holder,
-    },
-  );
-
-  if (error) throw error;
-  return data === true;
-}
-
-async function releaseAgentInboundJob(
-  supabaseAdmin: any,
-  messageId: string,
-  holder: string,
-  lastError?: string,
-): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from("agent_inbound_jobs")
-    .update({
-      status: "pending",
-      claimed_by: null,
-      claimed_at: null,
-      last_error: lastError ?? null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("message_id", messageId)
-    .eq("status", "processing_safe")
-    .eq("claimed_by", holder);
-
-  if (error) throw error;
-}
-
-async function enterAgentInboundRuntime(
-  supabaseAdmin: any,
-  messageId: string,
-  holder: string,
-): Promise<boolean> {
-  const { data, error } = await supabaseAdmin.rpc("enter_agent_inbound_runtime", {
-    p_message_id: messageId,
-    p_holder: holder,
-  });
-  if (error) throw error;
-  return data === true;
-}
-
-async function reviewAgentInboundJob(
-  supabaseAdmin: any,
-  messageId: string,
-  holder: string,
-  lastError: string,
-): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from("agent_inbound_jobs")
-    .update({
-      status: "needs_review",
-      claimed_by: null,
-      claimed_at: null,
-      last_error: lastError.slice(0, 1000),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("message_id", messageId)
-    .eq("status", "processing")
-    .eq("claimed_by", holder);
-  if (error) throw error;
-}
-
-async function completeAgentInboundJob(
-  supabaseAdmin: any,
-  messageId: string,
-  holder: string,
-): Promise<void> {
-  const { data, error } = await supabaseAdmin
-    .from("agent_inbound_jobs")
-    .update({
-      status: "processed",
-      claimed_by: null,
-      claimed_at: null,
-      last_error: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("message_id", messageId)
-    .eq("status", "processing")
-    .eq("claimed_by", holder)
-    .select("id")
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!data?.id) {
-    throw new Error(`Agent inbound job completion rejected for message ${messageId}`);
-  }
-}
 // Deduplicação em memória por messageId. O TTL evita crescimento permanente do
 // mapa e cobre as retransmissões normais do provedor. A proteção definitiva
 // entre reinícios/instâncias é feita também pelo external_id persistido no banco.
@@ -1083,7 +960,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // 2 respostas pro cliente.
     const isDuplicateDelivery = duplicateMessageInDb;
     if (isDuplicateDelivery) {
-      console.log(`[UAZ-WEBHOOK] [AUDIT] Mensagem duplicada (msgId ${msgId}) — pulando resposta da IA, mas ainda verificando Welcome Funnel (idempotente).`);
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Mensagem duplicada (msgId ${msgId}) — Welcome Funnel continua idempotente; após os gates, ownership durável decide se o Agent V3 ainda precisa processar.`);
     }
     traceFunnel(supabaseAdmin, msgId, phoneStr, "dedup_check", {
       isDuplicateInMemory,
@@ -1549,12 +1426,11 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     }
 
 
-    // Bloqueio da resposta da IA pra mensagens duplicadas — o Welcome Funnel
-    // já teve a chance de rodar acima (idempotente), agora sim replicamos o
-    // comportamento original: nunca gerar uma 2ª resposta de IA pro cliente.
+    // Duplicata do provedor não prova que o Agent V3 já processou a mensagem.
+    // Depois de todos os gates de elegibilidade, o job durável é a fonte de
+    // verdade: retry pode reparar o crash entre persistir messages e criar job.
     if (isDuplicateInMemory || isDuplicateDelivery) {
-      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: duplicate msgId (após checagem do funil): ${msgId}`);
-      return new Response("ok (duplicate msgId, after funnel check)");
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Retry elegível seguirá até ownership durável: ${msgId}`);
     }
 
     // 4. AGENT GATES — aplicados DEPOIS do funil.
@@ -1599,119 +1475,30 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
       const lockHolder = `v3:${msgId}:${Date.now()}`;
 
-      await ensureAgentInboundJob(
-        supabaseAdmin,
-        persistedMessageId,
+      const ownershipResult = await beginWebhookAgentInboundRuntime(supabaseAdmin, {
+        messageId: persistedMessageId,
         conversationId,
         workspaceId,
         sendTarget,
-        deferredFunnelMessage || content.text || "",
-        content.kind,
-        content.mime,
-        Boolean(deferredFunnelMessage),
-      );
+        inputText: deferredFunnelMessage || content.text || "",
+        inputKind: content.kind,
+        inputMime: content.mime,
+        deferredFunnel: Boolean(deferredFunnelMessage),
+        holder: lockHolder,
+      });
 
-      const jobClaimed = await claimAgentInboundJob(
-        supabaseAdmin,
-        persistedMessageId,
-        lockHolder,
-      );
-
-      if (!jobClaimed) {
-        console.log("[UAZ-WEBHOOK] Agent inbound job já possui outro owner", {
+      if (ownershipResult.status !== "claimed") {
+        console.log("[UAZ-WEBHOOK] Agent inbound não entrou no runtime síncrono", {
           phone: phoneStr,
           messageId: persistedMessageId,
+          status: ownershipResult.status,
         });
-        return new Response("ok (inbound job already claimed)");
+        return new Response(`ok (inbound ownership ${ownershipResult.status})`);
       }
 
-      console.log(
-        `[UAZ-WEBHOOK] [AUDIT] Tentando adquirir lock persistente no DB para conversa: ${conversationId}`,
-      );
-
-      let acquired: boolean;
-
-      try {
-        acquired = await acquireConversationDbLock(
-          supabaseAdmin,
-          conversationId,
-          lockHolder,
-        );
-      } catch (lockError) {
-        try {
-          await releaseAgentInboundJob(
-            supabaseAdmin,
-            persistedMessageId,
-            lockHolder,
-            "conversation lock acquisition failed",
-          );
-        } catch (jobError) {
-          console.error(
-            "[UAZ-WEBHOOK] Falha ao devolver inbound job após erro de lock:",
-            jobError,
-          );
-        }
-
-        throw lockError;
-      }
-
-      if (!acquired) {
-        await releaseAgentInboundJob(
-          supabaseAdmin,
-          persistedMessageId,
-          lockHolder,
-          "conversation busy",
-        );
-
-        console.log("RETURN-PONTO: conversation-busy-job-pending", {
-          phone: phoneStr,
-        });
-
-        return new Response("ok (conversation busy; inbound job pending)");
-      }
-
-      console.log(
-        `[UAZ-WEBHOOK] [AUDIT] Lock persistente adquirido para ${conversationId}`,
-      );
-
-      let enteredRuntime = false;
-      try {
-        enteredRuntime = await enterAgentInboundRuntime(
-          supabaseAdmin,
-          persistedMessageId,
-          lockHolder,
-        );
-      } catch (runtimeClaimError) {
-        await releaseConversationDbLock(supabaseAdmin, conversationId, lockHolder);
-        try {
-          await releaseAgentInboundJob(
-            supabaseAdmin,
-            persistedMessageId,
-            lockHolder,
-            "failed to enter Agent V3 runtime",
-          );
-        } catch (jobError) {
-          console.error("[UAZ-WEBHOOK] Falha ao devolver inbound job antes do runtime:", jobError);
-        }
-        throw runtimeClaimError;
-      }
-
-      if (!enteredRuntime) {
-        await releaseConversationDbLock(supabaseAdmin, conversationId, lockHolder);
-        try {
-          await releaseAgentInboundJob(
-            supabaseAdmin,
-            persistedMessageId,
-            lockHolder,
-            "runtime ownership transition rejected",
-          );
-        } catch (jobError) {
-          console.error("[UAZ-WEBHOOK] Falha ao devolver inbound job sem ownership de runtime:", jobError);
-        }
-        return new Response("ok (inbound job ownership changed)");
-      }
-
+      const runtimeOwnership = ownershipResult.ownership;
       let runtimeNeedsReview = false;
+      let runtimeFailure: string | null = null;
       try {
       const { data: integ, error: integErr } = await supabaseAdmin
         .from("integrations")
@@ -3129,6 +2916,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       } catch (e: any) {
         const criticalErrorMessage = String(e?.message ?? e ?? "erro desconhecido");
         runtimeNeedsReview = true;
+        runtimeFailure = criticalErrorMessage;
         console.error("[UAZ-WEBHOOK] AI Critical Error:", criticalErrorMessage);
 
         // A mensagem do cliente já foi persistida no CRM antes deste ponto.
@@ -3148,45 +2936,27 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           }
         }
 
-        try {
-          await reviewAgentInboundJob(
-            supabaseAdmin,
-            persistedMessageId,
-            lockHolder,
-            `Agent V3 critical error: ${criticalErrorMessage}`,
-          );
-        } catch (jobError) {
-          console.error("[UAZ-WEBHOOK] Falha ao marcar inbound job para revisão:", jobError);
-        }
 
         console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: AI error flagged para conversa ${conversationId}`);
         return new Response("ok (AI error flagged for review)");
       } finally {
-        // Finaliza a ownership durável ANTES de liberar a conversa. Assim outro
-        // worker nunca observa a conversa livre enquanto este job ainda aparece
-        // como processing. Se a conclusão falhar após possíveis efeitos externos,
-        // mantemos processing: a recuperação de stale o levará a needs_review,
-        // nunca a replay cego.
-        if (!runtimeNeedsReview) {
-          try {
-            await completeAgentInboundJob(
-              supabaseAdmin,
-              persistedMessageId,
-              lockHolder,
-            );
-          } catch (jobError) {
-            console.error(
-              "[UAZ-WEBHOOK] Falha ao concluir agent inbound job; mantendo estado seguro para revisão:",
-              jobError,
-            );
-          }
+        // A mesma fronteira terminal usada pelo dispatcher resolve o job antes
+        // de liberar a geração. Falha após entrada no runtime nunca volta para
+        // pending/replay automático.
+        try {
+          await finishWebhookAgentInboundRuntime(
+            supabaseAdmin,
+            runtimeOwnership,
+            runtimeNeedsReview
+              ? { status: "needs_review", error: `Agent V3 critical error: ${runtimeFailure || "erro desconhecido"}` }
+              : { status: "ok" },
+          );
+        } catch (ownershipFinalizeError) {
+          console.error(
+            "[UAZ-WEBHOOK] Falha ao finalizar ownership durável; mantendo estado seguro para recovery/review:",
+            ownershipFinalizeError,
+          );
         }
-
-        await releaseConversationDbLock(
-          supabaseAdmin,
-          conversationId,
-          lockHolder,
-        );
       }
     });
 }
