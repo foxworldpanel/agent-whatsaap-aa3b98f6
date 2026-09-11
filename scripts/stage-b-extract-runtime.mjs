@@ -18,10 +18,12 @@ if (s.indexOf(endAnchor, end + 1) >= 0) throw new Error("runtime end anchor is n
 const body = s.slice(start + startAnchor.length, end);
 if (body.length < 50000) throw new Error(`runtime body unexpectedly small (${body.length} chars)`);
 
+// These behaviors are physically inside the effectful boundary being extracted.
+// Trace-id creation is intentionally NOT required here: it is created outside this
+// slice today and must be reconstructed as runtime-local state by the apply transform.
 const required = [
   "sendAgentTextGuarded",
   "saveConversationStateV3",
-  "generateTraceId",
   "logExecutionTrace",
   "replyParts",
 ];
@@ -37,18 +39,15 @@ const closureMappings = {
   phoneStr: "input.phone",
   workspaceId: "input.workspaceId",
   sendTarget: "input.sendTarget",
-  instanceUrl: "input.instance.uazapiUrl",
   instanceToken: "input.instance.uazapiToken",
   deferredFunnelMessage: "input.deferredFunnelMessage",
   content: "input.content",
   "num.user_id": "input.userId",
+  "num.uazapi_url": "input.instance.uazapiUrl",
 };
 
 const closureHits = Object.fromEntries(
-  Object.keys(closureMappings).map((token) => [
-    token,
-    body.split(token).length - 1,
-  ]),
+  Object.keys(closureMappings).map((token) => [token, body.split(token).length - 1]),
 );
 
 const responseReturns = [...body.matchAll(/return new Response\(([^\n]{0,180})/g)].map((m) => m[0]);
@@ -56,14 +55,14 @@ const responseReturns = [...body.matchAll(/return new Response\(([^\n]{0,180})/g
 const terminalReturnMap = {
   "ok (AI integrations unavailable)": "ai_integrations_unavailable",
   "ok (audio unavailable; flagged for review)": "audio_unavailable",
-  "ok (transcription failed; flagged for review)": "audio_transcription_failed",
+  "ok (audio transcription failed; flagged for review)": "audio_transcription_failed",
   "ok (image unavailable; flagged for review)": "image_unavailable",
   "ok (empty content)": "empty_content",
   "ok (critical human escalation)": "critical_human_escalation",
   "ok (critical escalation failed)": "critical_escalation_failed",
   "ok (human handoff)": "human_handoff",
   "ok (human handoff failed)": "human_handoff_failed",
-  "ok (stop request)": "stop_request",
+  "ok (stop request persisted)": "stop_request",
   "ok": "completed",
 };
 
@@ -74,10 +73,6 @@ if (unmappedResponses.length > 0) {
   throw new Error(`runtime contains unmapped HTTP terminal returns:\n${unmappedResponses.join("\n")}`);
 }
 
-// Safety gate only: no source rewrite happens until every closure and terminal
-// path is known. This report is intentionally generated locally and ignored by
-// git; it gives the next transform an exact inventory instead of relying on a
-// manual edit of the ~100KB webhook.
 const report = {
   webhookChars: s.length,
   runtimeBodyChars: body.length,
