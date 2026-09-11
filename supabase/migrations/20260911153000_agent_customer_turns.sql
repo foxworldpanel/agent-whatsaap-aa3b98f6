@@ -29,8 +29,9 @@ CREATE OR REPLACE FUNCTION public.attach_agent_inbound_job_to_customer_turn(p_jo
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_job public.agent_inbound_jobs%ROWTYPE; v_turn uuid;
 BEGIN
- SELECT * INTO v_job FROM public.agent_inbound_jobs WHERE id=p_job_id;
+ SELECT * INTO v_job FROM public.agent_inbound_jobs WHERE id=p_job_id FOR UPDATE;
  IF NOT FOUND THEN RAISE EXCEPTION 'agent inbound job not found'; END IF;
+ IF v_job.status <> 'pending' THEN RAISE EXCEPTION 'agent inbound job % is not pending',p_job_id; END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended(v_job.conversation_id::text,31));
  SELECT turn_id INTO v_turn FROM public.agent_customer_turn_messages WHERE job_id=p_job_id;
  IF FOUND THEN RETURN v_turn; END IF;
@@ -40,7 +41,7 @@ BEGIN
  ELSE
    UPDATE public.agent_customer_turns SET last_received_at=now(),updated_at=now() WHERE id=v_turn;
  END IF;
- INSERT INTO public.agent_customer_turn_messages(turn_id,job_id,message_id) VALUES(v_turn,v_job.id,v_job.message_id) ON CONFLICT(job_id) DO NOTHING;
+ INSERT INTO public.agent_customer_turn_messages(turn_id,job_id,message_id) VALUES(v_turn,v_job.id,v_job.message_id);
  RETURN v_turn;
 END $$;
 
@@ -65,12 +66,18 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.finish_agent_customer_turn(p_turn_id uuid,p_holder text,p_ok boolean,p_error text DEFAULT NULL) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
-DECLARE v_changed integer;
+DECLARE v_changed integer; v_terminal text;
 BEGIN
- UPDATE public.agent_customer_turns SET state=CASE WHEN p_ok THEN 'processed' ELSE 'needs_review' END,claimed_by=NULL,claimed_at=NULL,
+ v_terminal:=CASE WHEN p_ok THEN 'processed' ELSE 'needs_review' END;
+ UPDATE public.agent_customer_turns SET state=v_terminal,claimed_by=NULL,claimed_at=NULL,
  last_error=CASE WHEN p_ok THEN NULL ELSE left(coalesce(p_error,'unknown customer turn failure'),1000) END,updated_at=now()
  WHERE id=p_turn_id AND state='processing' AND claimed_by=p_holder;
- GET DIAGNOSTICS v_changed=ROW_COUNT; RETURN v_changed=1;
+ GET DIAGNOSTICS v_changed=ROW_COUNT;
+ IF v_changed<>1 THEN RETURN false; END IF;
+ UPDATE public.agent_inbound_jobs j SET status=v_terminal,claimed_by=NULL,claimed_at=NULL,processed_at=CASE WHEN p_ok THEN now() ELSE j.processed_at END,
+ last_error=CASE WHEN p_ok THEN NULL ELSE left(coalesce(p_error,'customer turn needs review'),1000) END,updated_at=now()
+ FROM public.agent_customer_turn_messages tm WHERE tm.turn_id=p_turn_id AND tm.job_id=j.id AND j.status='pending';
+ RETURN true;
 END $$;
 
 REVOKE ALL ON FUNCTION public.attach_agent_inbound_job_to_customer_turn(uuid) FROM PUBLIC,anon,authenticated;
