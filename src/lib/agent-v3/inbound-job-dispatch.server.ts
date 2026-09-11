@@ -12,6 +12,7 @@ import {
   loadAgentInboundResumeContext,
 } from "@/lib/agent-v3/inbound-job-context.server";
 import { runtimeInputFromResumeContext, type AgentV3RuntimeExecutor } from "@/lib/agent-v3/inbound-runtime-contract.server";
+import type { AgentV3RuntimeTerminalReason } from "@/lib/agent-v3/inbound-runtime-result.server";
 import {
   finalizeAgentInboundRuntimeOwnership,
   type AgentInboundRuntimeOutcome,
@@ -26,6 +27,11 @@ export type ClaimedAgentInbound = {
   context: Awaited<ReturnType<typeof loadAgentInboundResumeContext>>;
 };
 
+export type AgentInboundDispatchResult =
+  | { status: "idle" }
+  | { status: "processed"; reason: AgentV3RuntimeTerminalReason }
+  | { status: "needs_review" };
+
 export async function claimOneAgentInboundForRuntime(supabaseAdmin: any, workerId: string): Promise<ClaimedAgentInbound | null> {
   const queueHolder = `dispatcher-select:${workerId}:${Date.now()}`;
   const job = await claimNextAgentInboundJob(supabaseAdmin, queueHolder);
@@ -39,19 +45,12 @@ export async function claimOneAgentInboundForRuntime(supabaseAdmin: any, workerI
     const failure = `resume context validation failed: ${reason}`;
     const deterministicCorruption = isAgentInboundResumeIntegrityError(error);
 
-    // Identity/configuration corruption cannot heal by retrying the same durable
-    // snapshot. Quarantine it immediately while still processing_safe. Transport
-    // and Supabase query failures remain retryable, but only up to the shared cap.
     if (deterministicCorruption || job.attempt_count >= AGENT_INBOUND_MAX_SAFE_ATTEMPTS) {
       const reviewed = await reviewSafeAgentInboundJob(supabaseAdmin, job.message_id, queueHolder, failure);
-      if (!reviewed) {
-        console.error("[AGENT-INBOUND-DISPATCH] safe quarantine rejected because ownership changed");
-      }
+      if (!reviewed) console.error("[AGENT-INBOUND-DISPATCH] safe quarantine rejected because ownership changed");
     } else {
       const requeued = await releaseAgentInboundJob(supabaseAdmin, job.message_id, queueHolder, failure);
-      if (!requeued) {
-        console.error("[AGENT-INBOUND-DISPATCH] resume-context failure could not be safely requeued because ownership changed");
-      }
+      if (!requeued) console.error("[AGENT-INBOUND-DISPATCH] resume-context failure could not be safely requeued because ownership changed");
     }
     throw error;
   }
@@ -61,11 +60,6 @@ export async function claimOneAgentInboundForRuntime(supabaseAdmin: any, workerI
   try {
     transferred = await transferAgentInboundJobClaim(supabaseAdmin, job.message_id, queueHolder, holder);
   } catch (error) {
-    // transferAgentInboundJobClaim already performs a durable read-back after an
-    // RPC error. If it still throws, ownership could not be proven on either
-    // holder. Do not issue competing release attempts: that can turn an unknown
-    // transfer result into a false safe-requeue decision. Leave processing_safe
-    // untouched and let bounded stale recovery resolve it authoritatively.
     console.error(
       "[AGENT-INBOUND-DISPATCH] dispatcher claim transfer remains uncertain; preserving durable safe ownership for stale recovery",
       error,
@@ -80,9 +74,7 @@ export async function claimOneAgentInboundForRuntime(supabaseAdmin: any, workerI
       queueHolder,
       "dispatcher queue ownership changed before atomic runtime transfer",
     );
-    if (!requeued) {
-      console.error("[AGENT-INBOUND-DISPATCH] rejected transfer could not be requeued because durable ownership changed");
-    }
+    if (!requeued) console.error("[AGENT-INBOUND-DISPATCH] rejected transfer could not be requeued because durable ownership changed");
     return null;
   }
 
@@ -98,26 +90,22 @@ export async function finishClaimedAgentInbound(supabaseAdmin: any, claim: Claim
   await finalizeAgentInboundRuntimeOwnership(supabaseAdmin, claim.ownership, outcome);
 }
 
-export async function dispatchOneAgentInbound(supabaseAdmin: any, workerId: string,
-  executeRuntime: AgentV3RuntimeExecutor): Promise<"idle" | "processed" | "needs_review"> {
+export async function dispatchOneAgentInbound(
+  supabaseAdmin: any,
+  workerId: string,
+  executeRuntime: AgentV3RuntimeExecutor,
+): Promise<AgentInboundDispatchResult> {
   const claim = await claimOneAgentInboundForRuntime(supabaseAdmin, workerId);
-  if (!claim) return "idle";
+  if (!claim) return { status: "idle" };
 
-  let runtimeFailed = false;
-  let runtimeError: unknown;
   try {
-    await executeRuntime(supabaseAdmin, runtimeInputFromResumeContext(claim.context));
-  } catch (error) {
-    runtimeFailed = true;
-    runtimeError = error;
-  }
-
-  if (!runtimeFailed) {
+    const result = await executeRuntime(supabaseAdmin, runtimeInputFromResumeContext(claim.context));
     await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: true });
-    return "processed";
+    return { status: "processed", reason: result.reason };
+  } catch (error) {
+    await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: false, error });
+    return { status: "needs_review" };
   }
-  await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: false, error: runtimeError });
-  return "needs_review";
 }
 
 export async function recoverAgentInboundDispatcherClaims(supabaseAdmin: any, staleMs = 5 * 60 * 1000,
