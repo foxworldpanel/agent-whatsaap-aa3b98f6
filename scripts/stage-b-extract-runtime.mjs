@@ -18,9 +18,6 @@ if (s.indexOf(endAnchor, end + 1) >= 0) throw new Error("runtime end anchor is n
 const body = s.slice(start + startAnchor.length, end);
 if (body.length < 50000) throw new Error(`runtime body unexpectedly small (${body.length} chars)`);
 
-// These behaviors are physically inside the effectful boundary being extracted.
-// Trace-id creation is intentionally NOT required here: it is created outside this
-// slice today and must be reconstructed as runtime-local state by the apply transform.
 const required = [
   "sendAgentTextGuarded",
   "saveConversationStateV3",
@@ -52,23 +49,32 @@ const closureHits = Object.fromEntries(
 
 const responseReturns = [...body.matchAll(/return new Response\(([^\n]{0,180})/g)].map((m) => m[0]);
 
-const terminalReturnMap = {
-  "ok (AI integrations unavailable)": "ai_integrations_unavailable",
-  "ok (audio unavailable; flagged for review)": "audio_unavailable",
-  "ok (audio transcription failed; flagged for review)": "audio_transcription_failed",
-  "ok (image unavailable; flagged for review)": "image_unavailable",
-  "ok (empty content)": "empty_content",
-  "ok (critical human escalation)": "critical_human_escalation",
-  "ok (critical escalation failed)": "critical_escalation_failed",
-  "ok (human handoff)": "human_handoff",
-  "ok (human handoff failed)": "human_handoff_failed",
-  "ok (stop request persisted)": "stop_request",
-  "ok": "completed",
-};
+// Exact current webhook terminals. Dynamic smart-router success is matched by
+// prefix because the reason is interpolated into the old HTTP response text.
+const terminalPatterns = [
+  { pattern: /return new Response\("ok \(AI integrations unavailable\)"\)/, reason: "ai_integrations_unavailable" },
+  { pattern: /return new Response\("ok \(audio unavailable; flagged for review\)"\)/, reason: "audio_unavailable" },
+  { pattern: /return new Response\("ok \(audio transcription failed; flagged for review\)"\)/, reason: "audio_transcription_failed" },
+  { pattern: /return new Response\("ok \(image unavailable; flagged for review\)"\)/, reason: "image_unavailable" },
+  { pattern: /return new Response\("ok \(empty content\)"\)/, reason: "empty_content" },
+  { pattern: /return new Response\("ok \(critical human escalation\)"\)/, reason: "critical_human_escalation" },
+  { pattern: /return new Response\("ok \(critical escalation failed\)"\)/, reason: "critical_escalation_failed" },
+  { pattern: /return new Response\("ok \(human handoff\)"\)/, reason: "human_handoff" },
+  { pattern: /return new Response\("ok \(human handoff failed\)"\)/, reason: "human_handoff_failed" },
+  { pattern: /return new Response\("ok \(stop request persisted\)"\)/, reason: "stop_request" },
+  { pattern: /return new Response\("ok \(natural conversational silence\)"\)/, reason: "natural_conversational_silence" },
+  { pattern: /return new Response\(`ok \(smart router — \$\{execResult\.routerReason\}\)`\)/, reason: "smart_router_completed" },
+  { pattern: /return new Response\("erro \(smart router — falha no envio\)"/, reason: "smart_router_send_failed" },
+  { pattern: /return new Response\("ok \(AI processed\)"\)/, reason: "ai_processed" },
+  { pattern: /return new Response\("ok \(AI error flagged for review\)"\)/, reason: "ai_error_needs_review" },
+  { pattern: /return new Response\("ok"\)/, reason: "completed" },
+];
 
-const unmappedResponses = responseReturns.filter(
-  (line) => !Object.keys(terminalReturnMap).some((label) => line.includes(`\"${label}\"`)),
-);
+const classifiedResponses = responseReturns.map((line) => ({
+  line,
+  reason: terminalPatterns.find(({ pattern }) => pattern.test(line))?.reason ?? null,
+}));
+const unmappedResponses = classifiedResponses.filter((item) => !item.reason).map((item) => item.line);
 if (unmappedResponses.length > 0) {
   throw new Error(`runtime contains unmapped HTTP terminal returns:\n${unmappedResponses.join("\n")}`);
 }
@@ -83,7 +89,7 @@ const report = {
   closureHits,
   responseReturnCount: responseReturns.length,
   responseReturns,
-  terminalReturnMap,
+  classifiedResponses,
   unmappedResponses,
 };
 fs.writeFileSync(path.resolve(".stage-b-runtime-extraction.json"), JSON.stringify(report, null, 2), "utf8");
