@@ -37,12 +37,12 @@ export async function dispatchAgentInboundBatch(
       executeRegisteredAgentV3Runtime,
     );
 
-    if (result === "idle") {
+    if (result.status === "idle") {
       return { claimed, processed, needsReview, idle: true };
     }
 
     claimed += 1;
-    if (result === "processed") processed += 1;
+    if (result.status === "processed") processed += 1;
     else needsReview += 1;
   }
 
