@@ -3,7 +3,7 @@ import path from "node:path";
 
 const webhookPath = path.resolve("src/routes/api/public/hooks/uazapi-webhook.ts");
 const runtimePath = path.resolve("src/lib/agent-v3/runtime.server.ts");
-const webhook = fs.readFileSync(webhookPath, "utf8");
+const webhook = fs.readFileSync(webhookPath, "utf8").replace(/\r\n/g, "\n");
 
 const startAnchor = "      let runtimeNeedsReview = false;\n      let runtimeFailure: string | null = null;\n      try {\n";
 const catchAnchor = "      } catch (e: any) {\n";
@@ -12,7 +12,7 @@ const start = webhook.indexOf(startAnchor);
 const catchStart = webhook.indexOf(catchAnchor, start);
 const end = webhook.indexOf(endAnchor, start);
 if (start < 0 || catchStart < 0 || end < 0 || catchStart <= start || end <= catchStart) {
-  throw new Error("runtime anchors changed; refusing draft generation");
+  throw new Error(`runtime anchors changed; refusing draft generation (start=${start}, catch=${catchStart}, end=${end})`);
 }
 const body = webhook.slice(start + startAnchor.length, catchStart);
 if (body.length < 45000) throw new Error(`runtime body unexpectedly small: ${body.length}`);
