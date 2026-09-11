@@ -12,6 +12,11 @@ export type AgentCustomerTurnRuntime = {
   members: AgentCustomerTurnMember[];
 };
 
+/**
+ * Builds a runtime input only when doing so cannot erase media semantics.
+ * Mixed/multi-message media turns deliberately fail closed until the Stage D
+ * resolver has transcribed/resolved every member in chronological order.
+ */
 export async function buildCustomerTurnRuntimeInput(
   supabaseAdmin: any,
   turnId: string,
@@ -19,8 +24,12 @@ export async function buildCustomerTurnRuntimeInput(
   const members = await loadCustomerTurnMembers(supabaseAdmin, turnId);
   if (!members.length) throw new Error(`Customer Turn ${turnId} has no members`);
 
-  const first = members[0];
   const last = members[members.length - 1];
+  const hasMedia = members.some((member) => member.input_kind !== "texto");
+  if (members.length > 1 && hasMedia) {
+    throw new Error(`Customer Turn ${turnId} requires multimodal member resolution`);
+  }
+
   const { data: job, error } = await supabaseAdmin
     .from("agent_inbound_jobs")
     .select("*")
@@ -48,9 +57,9 @@ export async function buildCustomerTurnRuntimeInput(
       instance: context.instance,
       content: {
         text: combinedText,
-        kind: members.length === 1 ? last.input_kind : "texto",
-        mime: members.length === 1 ? last.input_mime ?? undefined : undefined,
-        mediaUrl: members.length === 1 ? last.audio_url ?? undefined : undefined,
+        kind: last.input_kind,
+        mime: last.input_mime ?? undefined,
+        mediaUrl: last.audio_url ?? undefined,
       },
       deferredFunnelMessage: context.deferredFunnelMessage,
     },
