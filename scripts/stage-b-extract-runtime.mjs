@@ -29,15 +29,67 @@ for (const token of required) {
   if (!body.includes(token)) throw new Error(`runtime body missing required behavior token: ${token}`);
 }
 
-// This transform is intentionally a preparation/validation artifact only. The
-// extracted body still closes over webhook locals. The next transform maps each
-// free variable to AgentV3RuntimeInput before any source file is rewritten.
+const closureMappings = {
+  msgId: "input.externalMessageId",
+  conversationId: "input.conversationId",
+  contactId: "input.contactId",
+  contactSource: "input.contactSource",
+  phoneStr: "input.phone",
+  workspaceId: "input.workspaceId",
+  sendTarget: "input.sendTarget",
+  instanceUrl: "input.instance.uazapiUrl",
+  instanceToken: "input.instance.uazapiToken",
+  deferredFunnelMessage: "input.deferredFunnelMessage",
+  content: "input.content",
+  "num.user_id": "input.userId",
+};
+
+const closureHits = Object.fromEntries(
+  Object.keys(closureMappings).map((token) => [
+    token,
+    body.split(token).length - 1,
+  ]),
+);
+
+const responseReturns = [...body.matchAll(/return new Response\(([^\n]{0,180})/g)].map((m) => m[0]);
+
+const terminalReturnMap = {
+  "ok (AI integrations unavailable)": "ai_integrations_unavailable",
+  "ok (audio unavailable; flagged for review)": "audio_unavailable",
+  "ok (transcription failed; flagged for review)": "audio_transcription_failed",
+  "ok (image unavailable; flagged for review)": "image_unavailable",
+  "ok (empty content)": "empty_content",
+  "ok (critical human escalation)": "critical_human_escalation",
+  "ok (critical escalation failed)": "critical_escalation_failed",
+  "ok (human handoff)": "human_handoff",
+  "ok (human handoff failed)": "human_handoff_failed",
+  "ok (stop request)": "stop_request",
+  "ok": "completed",
+};
+
+const unmappedResponses = responseReturns.filter(
+  (line) => !Object.keys(terminalReturnMap).some((label) => line.includes(`\"${label}\"`)),
+);
+if (unmappedResponses.length > 0) {
+  throw new Error(`runtime contains unmapped HTTP terminal returns:\n${unmappedResponses.join("\n")}`);
+}
+
+// Safety gate only: no source rewrite happens until every closure and terminal
+// path is known. This report is intentionally generated locally and ignored by
+// git; it gives the next transform an exact inventory instead of relying on a
+// manual edit of the ~100KB webhook.
 const report = {
   webhookChars: s.length,
   runtimeBodyChars: body.length,
   start,
   end,
   requiredTokens: required,
+  closureMappings,
+  closureHits,
+  responseReturnCount: responseReturns.length,
+  responseReturns,
+  terminalReturnMap,
+  unmappedResponses,
 };
 fs.writeFileSync(path.resolve(".stage-b-runtime-extraction.json"), JSON.stringify(report, null, 2), "utf8");
 console.log(JSON.stringify(report, null, 2));
