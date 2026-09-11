@@ -4,6 +4,10 @@ const root = "C:\\mind-agent-v3-stage-b";
 const webhookPath = `${root}\\src\\routes\\api\\public\\hooks\\uazapi-webhook.ts`;
 const dispatchPath = `${root}\\src\\lib\\agent-v3\\inbound-job-dispatch.server.ts`;
 
+function normalizeLf(source) {
+  return source.replace(/\r\n/g, "\n");
+}
+
 function replaceExactlyOnce(source, before, after, label) {
   const first = source.indexOf(before);
   if (first < 0) throw new Error(`${label}: anchor not found`);
@@ -11,7 +15,7 @@ function replaceExactlyOnce(source, before, after, label) {
   return source.slice(0, first) + after + source.slice(first + before.length);
 }
 
-let webhook = fs.readFileSync(webhookPath, "utf8");
+let webhook = normalizeLf(fs.readFileSync(webhookPath, "utf8"));
 webhook = replaceExactlyOnce(
   webhook,
   `          if (runtimeResult.class === "operational_attention") {\n            console.warn("[AGENT-INBOUND] runtime terminou com atenção operacional", {\n              jobId: runtimeOwnership.jobId,\n              reason: runtimeResult.reason,\n            });\n          }`,
@@ -19,7 +23,7 @@ webhook = replaceExactlyOnce(
   "webhook operational outcome",
 );
 
-let dispatch = fs.readFileSync(dispatchPath, "utf8");
+let dispatch = normalizeLf(fs.readFileSync(dispatchPath, "utf8"));
 dispatch = replaceExactlyOnce(
   dispatch,
   `    const result = await executeRuntime(supabaseAdmin, runtimeInputFromResumeContext(claim.context));\n    await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: true });\n    return { status: "processed", reason: result.reason };`,
