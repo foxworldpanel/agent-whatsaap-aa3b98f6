@@ -5,8 +5,19 @@ $branch = "fix/zero-lost-turn-stage-b"
 & {
   Set-Location $repo
   if ((git branch --show-current).Trim() -ne $branch) { Write-Error "Wrong branch"; return }
-  if (git diff --quiet -- . ':!*.bak') { } else { Write-Error "Tracked working tree is not clean"; return }
-  if (git diff --cached --quiet) { } else { Write-Error "Staged changes exist"; return }
+
+  # Use porcelain output instead of invoking native git inside a PowerShell
+  # boolean expression. Untracked audit/backups are intentionally allowed.
+  $trackedChanges = @(git status --porcelain=v1 --untracked-files=no)
+  if ($trackedChanges.Count -gt 0) {
+    Write-Error ("Tracked working tree is not clean: " + ($trackedChanges -join "; "))
+    return
+  }
+  $stagedChanges = @(git diff --cached --name-only)
+  if ($stagedChanges.Count -gt 0) {
+    Write-Error ("Staged changes exist: " + ($stagedChanges -join ", "))
+    return
+  }
 
   git pull --ff-only
   if ($LASTEXITCODE -ne 0) { return }
@@ -25,8 +36,8 @@ $branch = "fix/zero-lost-turn-stage-b"
   git diff --stat -- src/lib/agent-v3/inbound-job-dispatch.server.ts src/routes/api/public/hooks/uazapi-webhook.ts src/routeTree.gen.ts
 
   git add -- src/lib/agent-v3/inbound-job-dispatch.server.ts src/routes/api/public/hooks/uazapi-webhook.ts src/routeTree.gen.ts
-  git diff --cached --quiet
-  if ($LASTEXITCODE -eq 0) { Write-Host "No closure changes to commit"; return }
+  $stagedAfter = @(git diff --cached --name-only)
+  if ($stagedAfter.Count -eq 0) { Write-Host "No closure changes to commit"; return }
 
   git commit -m "fix(stage-b): quarantine operational runtime outcomes"
   if ($LASTEXITCODE -ne 0) { return }
