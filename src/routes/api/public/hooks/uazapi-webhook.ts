@@ -1502,7 +1502,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       let runtimeFailure: string | null = null;
       try {
           const runtimeResult = await executeAgentV3Runtime(supabaseAdmin, {
-            jobId: runtimeOwnership.jobId,
+            source: "webhook",
+            messageId: persistedMessageId,
+            externalMessageId: msgId,
             conversationId,
             workspaceId,
             userId: num.user_id,
@@ -1510,7 +1512,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
             contactId,
             contactSource,
             phone: phoneStr,
-            externalMessageId: msgId,
             sendTarget,
             content: { ...content },
             deferredFunnelMessage,

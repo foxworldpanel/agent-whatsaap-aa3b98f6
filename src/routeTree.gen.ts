@@ -9,97 +9,57 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedTesteGratisRouteImport } from './routes/_authenticated/teste-gratis'
-import { Route as AuthenticatedNumerosRouteImport } from './routes/_authenticated/numeros'
-import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
-import { Route as AuthenticatedLeadFinderRouteImport } from './routes/_authenticated/lead-finder'
-import { Route as AuthenticatedFunisRouteImport } from './routes/_authenticated/funis'
-import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticated/disparos'
-import { Route as AuthenticatedDiagnosticosRouteImport } from './routes/_authenticated/diagnosticos'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
-import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
-import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
-import { Route as AuthenticatedAuditoriaRouteImport } from './routes/_authenticated/auditoria'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAgenteRouteImport } from './routes/_authenticated/agente'
-import { Route as AuthenticatedAdminExecutionTraceRouteImport } from './routes/_authenticated/admin/execution-trace'
+import { Route as AuthenticatedAuditoriaRouteImport } from './routes/_authenticated/auditoria'
+import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
+import { Route as AuthenticatedContatosRouteImport } from './routes/_authenticated/contatos'
+import { Route as AuthenticatedConversasRouteImport } from './routes/_authenticated/conversas'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDiagnosticosRouteImport } from './routes/_authenticated/diagnosticos'
+import { Route as AuthenticatedDisparosRouteImport } from './routes/_authenticated/disparos'
+import { Route as AuthenticatedFunisRouteImport } from './routes/_authenticated/funis'
+import { Route as AuthenticatedLeadFinderRouteImport } from './routes/_authenticated/lead-finder'
+import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
+import { Route as AuthenticatedNumerosRouteImport } from './routes/_authenticated/numeros'
+import { Route as AuthenticatedTesteGratisRouteImport } from './routes/_authenticated/teste-gratis'
 import { Route as AuthenticatedAdminAgentPlaygroundRouteImport } from './routes/_authenticated.admin.agent-playground'
-import { Route as ApiPublicHooksV3TestWebhookRouteImport } from './routes/api/public/hooks/v3-test-webhook'
-import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
-import { Route as ApiPublicHooksSmmPollRouteImport } from './routes/api/public/hooks/smm-poll'
-import { Route as ApiPublicHooksDiscoveryPollRouteImport } from './routes/api/public/hooks/discovery-poll'
-import { Route as ApiPublicHooksDebugSendTextRouteImport } from './routes/api/public/hooks/debug-send-text'
-import { Route as ApiPublicHooksCampaignDispatcherRouteImport } from './routes/api/public/hooks/campaign-dispatcher'
-import { Route as ApiPublicHooksBlastDispatcherRouteImport } from './routes/api/public/hooks/blast-dispatcher'
+import { Route as AuthenticatedAdminExecutionTraceRouteImport } from './routes/_authenticated/admin/execution-trace'
+import { Route as ApiPublicHooksAgentInboundDispatcherRouteImport } from './routes/api/public/hooks/agent-inbound-dispatcher'
+import { Route as ApiPublicHooksAgentInboundRecoveryRouteImport } from './routes/api/public/hooks/agent-inbound-recovery'
 import { Route as ApiPublicHooksAutoCampaignDispatcherRouteImport } from './routes/api/public/hooks/auto-campaign-dispatcher'
+import { Route as ApiPublicHooksBlastDispatcherRouteImport } from './routes/api/public/hooks/blast-dispatcher'
+import { Route as ApiPublicHooksCampaignDispatcherRouteImport } from './routes/api/public/hooks/campaign-dispatcher'
+import { Route as ApiPublicHooksDebugSendTextRouteImport } from './routes/api/public/hooks/debug-send-text'
+import { Route as ApiPublicHooksDiscoveryPollRouteImport } from './routes/api/public/hooks/discovery-poll'
+import { Route as ApiPublicHooksSmmPollRouteImport } from './routes/api/public/hooks/smm-poll'
+import { Route as ApiPublicHooksUazapiWebhookRouteImport } from './routes/api/public/hooks/uazapi-webhook'
+import { Route as ApiPublicHooksV3TestWebhookRouteImport } from './routes/api/public/hooks/v3-test-webhook'
 
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedTesteGratisRoute =
-  AuthenticatedTesteGratisRouteImport.update({
-    id: '/teste-gratis',
-    path: '/teste-gratis',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedNumerosRoute = AuthenticatedNumerosRouteImport.update({
-  id: '/numeros',
-  path: '/numeros',
+const AuthenticatedAgenteRoute = AuthenticatedAgenteRouteImport.update({
+  id: '/agente',
+  path: '/agente',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
-  id: '/logs',
-  path: '/logs',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedLeadFinderRoute = AuthenticatedLeadFinderRouteImport.update({
-  id: '/lead-finder',
-  path: '/lead-finder',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedFunisRoute = AuthenticatedFunisRouteImport.update({
-  id: '/funis',
-  path: '/funis',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDisparosRoute = AuthenticatedDisparosRouteImport.update({
-  id: '/disparos',
-  path: '/disparos',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDiagnosticosRoute =
-  AuthenticatedDiagnosticosRouteImport.update({
-    id: '/diagnosticos',
-    path: '/diagnosticos',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedConversasRoute = AuthenticatedConversasRouteImport.update({
-  id: '/conversas',
-  path: '/conversas',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedContatosRoute = AuthenticatedContatosRouteImport.update({
-  id: '/contatos',
-  path: '/contatos',
+const AuthenticatedAuditoriaRoute = AuthenticatedAuditoriaRouteImport.update({
+  id: '/auditoria',
+  path: '/auditoria',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConfiguracoesRoute =
@@ -108,20 +68,56 @@ const AuthenticatedConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedAuditoriaRoute = AuthenticatedAuditoriaRouteImport.update({
-  id: '/auditoria',
-  path: '/auditoria',
+const AuthenticatedContatosRoute = AuthenticatedContatosRouteImport.update({
+  id: '/contatos',
+  path: '/contatos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAgenteRoute = AuthenticatedAgenteRouteImport.update({
-  id: '/agente',
-  path: '/agente',
+const AuthenticatedConversasRoute = AuthenticatedConversasRouteImport.update({
+  id: '/conversas',
+  path: '/conversas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAdminExecutionTraceRoute =
-  AuthenticatedAdminExecutionTraceRouteImport.update({
-    id: '/admin/execution-trace',
-    path: '/admin/execution-trace',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDiagnosticosRoute =
+  AuthenticatedDiagnosticosRouteImport.update({
+    id: '/diagnosticos',
+    path: '/diagnosticos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDisparosRoute = AuthenticatedDisparosRouteImport.update({
+  id: '/disparos',
+  path: '/disparos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedFunisRoute = AuthenticatedFunisRouteImport.update({
+  id: '/funis',
+  path: '/funis',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLeadFinderRoute = AuthenticatedLeadFinderRouteImport.update({
+  id: '/lead-finder',
+  path: '/lead-finder',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedNumerosRoute = AuthenticatedNumerosRouteImport.update({
+  id: '/numeros',
+  path: '/numeros',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTesteGratisRoute =
+  AuthenticatedTesteGratisRouteImport.update({
+    id: '/teste-gratis',
+    path: '/teste-gratis',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAdminAgentPlaygroundRoute =
@@ -130,39 +126,28 @@ const AuthenticatedAdminAgentPlaygroundRoute =
     path: '/admin/agent-playground',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicHooksV3TestWebhookRoute =
-  ApiPublicHooksV3TestWebhookRouteImport.update({
-    id: '/api/public/hooks/v3-test-webhook',
-    path: '/api/public/hooks/v3-test-webhook',
+const AuthenticatedAdminExecutionTraceRoute =
+  AuthenticatedAdminExecutionTraceRouteImport.update({
+    id: '/admin/execution-trace',
+    path: '/admin/execution-trace',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const ApiPublicHooksAgentInboundDispatcherRoute =
+  ApiPublicHooksAgentInboundDispatcherRouteImport.update({
+    id: '/api/public/hooks/agent-inbound-dispatcher',
+    path: '/api/public/hooks/agent-inbound-dispatcher',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksUazapiWebhookRoute =
-  ApiPublicHooksUazapiWebhookRouteImport.update({
-    id: '/api/public/hooks/uazapi-webhook',
-    path: '/api/public/hooks/uazapi-webhook',
+const ApiPublicHooksAgentInboundRecoveryRoute =
+  ApiPublicHooksAgentInboundRecoveryRouteImport.update({
+    id: '/api/public/hooks/agent-inbound-recovery',
+    path: '/api/public/hooks/agent-inbound-recovery',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksSmmPollRoute = ApiPublicHooksSmmPollRouteImport.update({
-  id: '/api/public/hooks/smm-poll',
-  path: '/api/public/hooks/smm-poll',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHooksDiscoveryPollRoute =
-  ApiPublicHooksDiscoveryPollRouteImport.update({
-    id: '/api/public/hooks/discovery-poll',
-    path: '/api/public/hooks/discovery-poll',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicHooksDebugSendTextRoute =
-  ApiPublicHooksDebugSendTextRouteImport.update({
-    id: '/api/public/hooks/debug-send-text',
-    path: '/api/public/hooks/debug-send-text',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicHooksCampaignDispatcherRoute =
-  ApiPublicHooksCampaignDispatcherRouteImport.update({
-    id: '/api/public/hooks/campaign-dispatcher',
-    path: '/api/public/hooks/campaign-dispatcher',
+const ApiPublicHooksAutoCampaignDispatcherRoute =
+  ApiPublicHooksAutoCampaignDispatcherRouteImport.update({
+    id: '/api/public/hooks/auto-campaign-dispatcher',
+    path: '/api/public/hooks/auto-campaign-dispatcher',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHooksBlastDispatcherRoute =
@@ -171,10 +156,39 @@ const ApiPublicHooksBlastDispatcherRoute =
     path: '/api/public/hooks/blast-dispatcher',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksAutoCampaignDispatcherRoute =
-  ApiPublicHooksAutoCampaignDispatcherRouteImport.update({
-    id: '/api/public/hooks/auto-campaign-dispatcher',
-    path: '/api/public/hooks/auto-campaign-dispatcher',
+const ApiPublicHooksCampaignDispatcherRoute =
+  ApiPublicHooksCampaignDispatcherRouteImport.update({
+    id: '/api/public/hooks/campaign-dispatcher',
+    path: '/api/public/hooks/campaign-dispatcher',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksDebugSendTextRoute =
+  ApiPublicHooksDebugSendTextRouteImport.update({
+    id: '/api/public/hooks/debug-send-text',
+    path: '/api/public/hooks/debug-send-text',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksDiscoveryPollRoute =
+  ApiPublicHooksDiscoveryPollRouteImport.update({
+    id: '/api/public/hooks/discovery-poll',
+    path: '/api/public/hooks/discovery-poll',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksSmmPollRoute = ApiPublicHooksSmmPollRouteImport.update({
+  id: '/api/public/hooks/smm-poll',
+  path: '/api/public/hooks/smm-poll',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksUazapiWebhookRoute =
+  ApiPublicHooksUazapiWebhookRouteImport.update({
+    id: '/api/public/hooks/uazapi-webhook',
+    path: '/api/public/hooks/uazapi-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksV3TestWebhookRoute =
+  ApiPublicHooksV3TestWebhookRouteImport.update({
+    id: '/api/public/hooks/v3-test-webhook',
+    path: '/api/public/hooks/v3-test-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -196,6 +210,8 @@ export interface FileRoutesByFullPath {
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/admin/agent-playground': typeof AuthenticatedAdminAgentPlaygroundRoute
   '/admin/execution-trace': typeof AuthenticatedAdminExecutionTraceRoute
+  '/api/public/hooks/agent-inbound-dispatcher': typeof ApiPublicHooksAgentInboundDispatcherRoute
+  '/api/public/hooks/agent-inbound-recovery': typeof ApiPublicHooksAgentInboundRecoveryRoute
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
@@ -223,6 +239,8 @@ export interface FileRoutesByTo {
   '/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/admin/agent-playground': typeof AuthenticatedAdminAgentPlaygroundRoute
   '/admin/execution-trace': typeof AuthenticatedAdminExecutionTraceRoute
+  '/api/public/hooks/agent-inbound-dispatcher': typeof ApiPublicHooksAgentInboundDispatcherRoute
+  '/api/public/hooks/agent-inbound-recovery': typeof ApiPublicHooksAgentInboundRecoveryRoute
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
@@ -252,6 +270,8 @@ export interface FileRoutesById {
   '/_authenticated/teste-gratis': typeof AuthenticatedTesteGratisRoute
   '/_authenticated/admin/agent-playground': typeof AuthenticatedAdminAgentPlaygroundRoute
   '/_authenticated/admin/execution-trace': typeof AuthenticatedAdminExecutionTraceRoute
+  '/api/public/hooks/agent-inbound-dispatcher': typeof ApiPublicHooksAgentInboundDispatcherRoute
+  '/api/public/hooks/agent-inbound-recovery': typeof ApiPublicHooksAgentInboundRecoveryRoute
   '/api/public/hooks/auto-campaign-dispatcher': typeof ApiPublicHooksAutoCampaignDispatcherRoute
   '/api/public/hooks/blast-dispatcher': typeof ApiPublicHooksBlastDispatcherRoute
   '/api/public/hooks/campaign-dispatcher': typeof ApiPublicHooksCampaignDispatcherRoute
@@ -281,6 +301,8 @@ export interface FileRouteTypes {
     | '/teste-gratis'
     | '/admin/agent-playground'
     | '/admin/execution-trace'
+    | '/api/public/hooks/agent-inbound-dispatcher'
+    | '/api/public/hooks/agent-inbound-recovery'
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
@@ -308,6 +330,8 @@ export interface FileRouteTypes {
     | '/teste-gratis'
     | '/admin/agent-playground'
     | '/admin/execution-trace'
+    | '/api/public/hooks/agent-inbound-dispatcher'
+    | '/api/public/hooks/agent-inbound-recovery'
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
@@ -336,6 +360,8 @@ export interface FileRouteTypes {
     | '/_authenticated/teste-gratis'
     | '/_authenticated/admin/agent-playground'
     | '/_authenticated/admin/execution-trace'
+    | '/api/public/hooks/agent-inbound-dispatcher'
+    | '/api/public/hooks/agent-inbound-recovery'
     | '/api/public/hooks/auto-campaign-dispatcher'
     | '/api/public/hooks/blast-dispatcher'
     | '/api/public/hooks/campaign-dispatcher'
@@ -350,6 +376,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksAgentInboundDispatcherRoute: typeof ApiPublicHooksAgentInboundDispatcherRoute
+  ApiPublicHooksAgentInboundRecoveryRoute: typeof ApiPublicHooksAgentInboundRecoveryRoute
   ApiPublicHooksAutoCampaignDispatcherRoute: typeof ApiPublicHooksAutoCampaignDispatcherRoute
   ApiPublicHooksBlastDispatcherRoute: typeof ApiPublicHooksBlastDispatcherRoute
   ApiPublicHooksCampaignDispatcherRoute: typeof ApiPublicHooksCampaignDispatcherRoute
@@ -362,11 +390,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -376,88 +404,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/teste-gratis': {
-      id: '/_authenticated/teste-gratis'
-      path: '/teste-gratis'
-      fullPath: '/teste-gratis'
-      preLoaderRoute: typeof AuthenticatedTesteGratisRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/numeros': {
-      id: '/_authenticated/numeros'
-      path: '/numeros'
-      fullPath: '/numeros'
-      preLoaderRoute: typeof AuthenticatedNumerosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/logs': {
-      id: '/_authenticated/logs'
-      path: '/logs'
-      fullPath: '/logs'
-      preLoaderRoute: typeof AuthenticatedLogsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/lead-finder': {
-      id: '/_authenticated/lead-finder'
-      path: '/lead-finder'
-      fullPath: '/lead-finder'
-      preLoaderRoute: typeof AuthenticatedLeadFinderRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/funis': {
-      id: '/_authenticated/funis'
-      path: '/funis'
-      fullPath: '/funis'
-      preLoaderRoute: typeof AuthenticatedFunisRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/disparos': {
-      id: '/_authenticated/disparos'
-      path: '/disparos'
-      fullPath: '/disparos'
-      preLoaderRoute: typeof AuthenticatedDisparosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/diagnosticos': {
-      id: '/_authenticated/diagnosticos'
-      path: '/diagnosticos'
-      fullPath: '/diagnosticos'
-      preLoaderRoute: typeof AuthenticatedDiagnosticosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/conversas': {
-      id: '/_authenticated/conversas'
-      path: '/conversas'
-      fullPath: '/conversas'
-      preLoaderRoute: typeof AuthenticatedConversasRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/contatos': {
-      id: '/_authenticated/contatos'
-      path: '/contatos'
-      fullPath: '/contatos'
-      preLoaderRoute: typeof AuthenticatedContatosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/configuracoes': {
-      id: '/_authenticated/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/configuracoes'
-      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
+    '/_authenticated/agente': {
+      id: '/_authenticated/agente'
+      path: '/agente'
+      fullPath: '/agente'
+      preLoaderRoute: typeof AuthenticatedAgenteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/auditoria': {
@@ -467,18 +425,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAuditoriaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/agente': {
-      id: '/_authenticated/agente'
-      path: '/agente'
-      fullPath: '/agente'
-      preLoaderRoute: typeof AuthenticatedAgenteRouteImport
+    '/_authenticated/configuracoes': {
+      id: '/_authenticated/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedConfiguracoesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/admin/execution-trace': {
-      id: '/_authenticated/admin/execution-trace'
-      path: '/admin/execution-trace'
-      fullPath: '/admin/execution-trace'
-      preLoaderRoute: typeof AuthenticatedAdminExecutionTraceRouteImport
+    '/_authenticated/contatos': {
+      id: '/_authenticated/contatos'
+      path: '/contatos'
+      fullPath: '/contatos'
+      preLoaderRoute: typeof AuthenticatedContatosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/conversas': {
+      id: '/_authenticated/conversas'
+      path: '/conversas'
+      fullPath: '/conversas'
+      preLoaderRoute: typeof AuthenticatedConversasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/diagnosticos': {
+      id: '/_authenticated/diagnosticos'
+      path: '/diagnosticos'
+      fullPath: '/diagnosticos'
+      preLoaderRoute: typeof AuthenticatedDiagnosticosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/disparos': {
+      id: '/_authenticated/disparos'
+      path: '/disparos'
+      fullPath: '/disparos'
+      preLoaderRoute: typeof AuthenticatedDisparosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/funis': {
+      id: '/_authenticated/funis'
+      path: '/funis'
+      fullPath: '/funis'
+      preLoaderRoute: typeof AuthenticatedFunisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/lead-finder': {
+      id: '/_authenticated/lead-finder'
+      path: '/lead-finder'
+      fullPath: '/lead-finder'
+      preLoaderRoute: typeof AuthenticatedLeadFinderRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/logs': {
+      id: '/_authenticated/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof AuthenticatedLogsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/numeros': {
+      id: '/_authenticated/numeros'
+      path: '/numeros'
+      fullPath: '/numeros'
+      preLoaderRoute: typeof AuthenticatedNumerosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/teste-gratis': {
+      id: '/_authenticated/teste-gratis'
+      path: '/teste-gratis'
+      fullPath: '/teste-gratis'
+      preLoaderRoute: typeof AuthenticatedTesteGratisRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/agent-playground': {
@@ -488,46 +509,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminAgentPlaygroundRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/hooks/v3-test-webhook': {
-      id: '/api/public/hooks/v3-test-webhook'
-      path: '/api/public/hooks/v3-test-webhook'
-      fullPath: '/api/public/hooks/v3-test-webhook'
-      preLoaderRoute: typeof ApiPublicHooksV3TestWebhookRouteImport
+    '/_authenticated/admin/execution-trace': {
+      id: '/_authenticated/admin/execution-trace'
+      path: '/admin/execution-trace'
+      fullPath: '/admin/execution-trace'
+      preLoaderRoute: typeof AuthenticatedAdminExecutionTraceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/hooks/agent-inbound-dispatcher': {
+      id: '/api/public/hooks/agent-inbound-dispatcher'
+      path: '/api/public/hooks/agent-inbound-dispatcher'
+      fullPath: '/api/public/hooks/agent-inbound-dispatcher'
+      preLoaderRoute: typeof ApiPublicHooksAgentInboundDispatcherRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/uazapi-webhook': {
-      id: '/api/public/hooks/uazapi-webhook'
-      path: '/api/public/hooks/uazapi-webhook'
-      fullPath: '/api/public/hooks/uazapi-webhook'
-      preLoaderRoute: typeof ApiPublicHooksUazapiWebhookRouteImport
+    '/api/public/hooks/agent-inbound-recovery': {
+      id: '/api/public/hooks/agent-inbound-recovery'
+      path: '/api/public/hooks/agent-inbound-recovery'
+      fullPath: '/api/public/hooks/agent-inbound-recovery'
+      preLoaderRoute: typeof ApiPublicHooksAgentInboundRecoveryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/smm-poll': {
-      id: '/api/public/hooks/smm-poll'
-      path: '/api/public/hooks/smm-poll'
-      fullPath: '/api/public/hooks/smm-poll'
-      preLoaderRoute: typeof ApiPublicHooksSmmPollRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/discovery-poll': {
-      id: '/api/public/hooks/discovery-poll'
-      path: '/api/public/hooks/discovery-poll'
-      fullPath: '/api/public/hooks/discovery-poll'
-      preLoaderRoute: typeof ApiPublicHooksDiscoveryPollRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/debug-send-text': {
-      id: '/api/public/hooks/debug-send-text'
-      path: '/api/public/hooks/debug-send-text'
-      fullPath: '/api/public/hooks/debug-send-text'
-      preLoaderRoute: typeof ApiPublicHooksDebugSendTextRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/campaign-dispatcher': {
-      id: '/api/public/hooks/campaign-dispatcher'
-      path: '/api/public/hooks/campaign-dispatcher'
-      fullPath: '/api/public/hooks/campaign-dispatcher'
-      preLoaderRoute: typeof ApiPublicHooksCampaignDispatcherRouteImport
+    '/api/public/hooks/auto-campaign-dispatcher': {
+      id: '/api/public/hooks/auto-campaign-dispatcher'
+      path: '/api/public/hooks/auto-campaign-dispatcher'
+      fullPath: '/api/public/hooks/auto-campaign-dispatcher'
+      preLoaderRoute: typeof ApiPublicHooksAutoCampaignDispatcherRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/blast-dispatcher': {
@@ -537,11 +544,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksBlastDispatcherRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/auto-campaign-dispatcher': {
-      id: '/api/public/hooks/auto-campaign-dispatcher'
-      path: '/api/public/hooks/auto-campaign-dispatcher'
-      fullPath: '/api/public/hooks/auto-campaign-dispatcher'
-      preLoaderRoute: typeof ApiPublicHooksAutoCampaignDispatcherRouteImport
+    '/api/public/hooks/campaign-dispatcher': {
+      id: '/api/public/hooks/campaign-dispatcher'
+      path: '/api/public/hooks/campaign-dispatcher'
+      fullPath: '/api/public/hooks/campaign-dispatcher'
+      preLoaderRoute: typeof ApiPublicHooksCampaignDispatcherRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/debug-send-text': {
+      id: '/api/public/hooks/debug-send-text'
+      path: '/api/public/hooks/debug-send-text'
+      fullPath: '/api/public/hooks/debug-send-text'
+      preLoaderRoute: typeof ApiPublicHooksDebugSendTextRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/discovery-poll': {
+      id: '/api/public/hooks/discovery-poll'
+      path: '/api/public/hooks/discovery-poll'
+      fullPath: '/api/public/hooks/discovery-poll'
+      preLoaderRoute: typeof ApiPublicHooksDiscoveryPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/smm-poll': {
+      id: '/api/public/hooks/smm-poll'
+      path: '/api/public/hooks/smm-poll'
+      fullPath: '/api/public/hooks/smm-poll'
+      preLoaderRoute: typeof ApiPublicHooksSmmPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/uazapi-webhook': {
+      id: '/api/public/hooks/uazapi-webhook'
+      path: '/api/public/hooks/uazapi-webhook'
+      fullPath: '/api/public/hooks/uazapi-webhook'
+      preLoaderRoute: typeof ApiPublicHooksUazapiWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/v3-test-webhook': {
+      id: '/api/public/hooks/v3-test-webhook'
+      path: '/api/public/hooks/v3-test-webhook'
+      fullPath: '/api/public/hooks/v3-test-webhook'
+      preLoaderRoute: typeof ApiPublicHooksV3TestWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -591,6 +633,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksAgentInboundDispatcherRoute:
+    ApiPublicHooksAgentInboundDispatcherRoute,
+  ApiPublicHooksAgentInboundRecoveryRoute:
+    ApiPublicHooksAgentInboundRecoveryRoute,
   ApiPublicHooksAutoCampaignDispatcherRoute:
     ApiPublicHooksAutoCampaignDispatcherRoute,
   ApiPublicHooksBlastDispatcherRoute: ApiPublicHooksBlastDispatcherRoute,
