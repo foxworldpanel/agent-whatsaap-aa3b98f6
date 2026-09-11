@@ -8,26 +8,29 @@ Set-Location "C:\mind-agent-v3-stage-b"
   git diff --cached --quiet
   if ($LASTEXITCODE -ne 0) { Write-Error "existem alteracoes staged locais; corte bloqueado"; return }
 
-  # O runner anterior podia deixar somente o webhook cortado quando o build falhava.
-  # Esse estado e conhecido e recuperavel: restaura apenas o webhook tracked antes do pull.
+  # Build anterior pode deixar webhook cortado e routeTree gerado. Ambos sao
+  # artefatos conhecidos e seguros para restaurar; qualquer outro tracked bloqueia.
   $tracked = @(git diff --name-only)
-  $allowedRecovery = @("src/routes/api/public/hooks/uazapi-webhook.ts")
+  $allowedRecovery = @(
+    "src/routes/api/public/hooks/uazapi-webhook.ts",
+    "src/routeTree.gen.ts"
+  )
   $unexpected = @($tracked | Where-Object { $_ -and ($_ -notin $allowedRecovery) })
   if ($unexpected.Count -gt 0) {
     Write-Error ("existem alteracoes tracked locais fora do corte conhecido: " + ($unexpected -join ", "))
     return
   }
-  if ($tracked -contains "src/routes/api/public/hooks/uazapi-webhook.ts") {
-    Write-Host "Restaurando webhook do corte local que falhou no build anterior..."
-    git restore -- "src/routes/api/public/hooks/uazapi-webhook.ts"
-    if ($LASTEXITCODE -ne 0) { Write-Error "nao foi possivel restaurar webhook"; return }
+  foreach ($known in $allowedRecovery) {
+    if ($tracked -contains $known) {
+      Write-Host "Restaurando artefato conhecido do build anterior: $known"
+      git restore -- $known
+      if ($LASTEXITCODE -ne 0) { Write-Error "nao foi possivel restaurar $known"; return }
+    }
   }
 
   git pull --ff-only
   if ($LASTEXITCODE -ne 0) { Write-Error "git pull falhou"; return }
 
-  # Regenera o runtime a partir do webhook canonical. Isso corrige o antigo draft
-  # que carregava o catch externo sem o try correspondente.
   if (Test-Path "src\lib\agent-v3\runtime.server.ts") {
     Remove-Item "src\lib\agent-v3\runtime.server.ts" -Force
   }
