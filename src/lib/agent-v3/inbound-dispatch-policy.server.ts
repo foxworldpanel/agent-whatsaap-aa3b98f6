@@ -15,8 +15,8 @@ export type AgentInboundBatchDispatchResult = {
  *
  * The dispatcher imports the exact same runtime used by the webhook. This is
  * intentionally a static import instead of a process-local registry: a fresh
- * serverless/worker process must be able to execute a claimed job without
- * relying on another request having registered an executor first.
+ * serverless/worker process must execute a claimed job without relying on a
+ * previous request having registered an executor first.
  */
 export async function dispatchAgentInboundBatch(
   supabaseAdmin: any,
