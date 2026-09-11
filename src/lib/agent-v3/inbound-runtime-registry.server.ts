@@ -2,6 +2,7 @@ import type {
   AgentV3RuntimeExecutor,
   AgentV3RuntimeInput,
 } from "@/lib/agent-v3/inbound-runtime-contract.server";
+import type { AgentV3RuntimeResult } from "@/lib/agent-v3/inbound-runtime-result.server";
 
 let registeredRuntime: AgentV3RuntimeExecutor | null = null;
 
@@ -27,12 +28,12 @@ export function hasRegisteredAgentV3Runtime(): boolean {
 export async function executeRegisteredAgentV3Runtime(
   supabaseAdmin: any,
   input: AgentV3RuntimeInput,
-): Promise<void> {
+): Promise<AgentV3RuntimeResult> {
   const executor = registeredRuntime;
   if (!executor) {
     throw new Error("Agent V3 runtime executor is not registered in this process");
   }
-  await executor(supabaseAdmin, input);
+  return await executor(supabaseAdmin, input);
 }
 
 /** Test-only reset hook; production code must never swap runtimes dynamically. */
