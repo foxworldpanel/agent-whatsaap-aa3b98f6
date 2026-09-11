@@ -1,5 +1,5 @@
 import { dispatchOneAgentInbound } from "@/lib/agent-v3/inbound-job-dispatch.server";
-import type { AgentV3RuntimeExecutor } from "@/lib/agent-v3/inbound-runtime-contract.server";
+import { executeRegisteredAgentV3Runtime } from "@/lib/agent-v3/inbound-runtime-registry.server";
 
 export const AGENT_INBOUND_DISPATCH_MAX_PER_RUN = 20;
 
@@ -13,14 +13,13 @@ export type AgentInboundDispatchBatchResult = {
 /**
  * Bounded dispatcher drain used by the eventual cron/worker boundary.
  *
- * Stage B deliberately caps each invocation so a backlog cannot monopolize a
- * serverless request forever. Every item still crosses the durable claim +
- * conversation lock boundary in dispatchOneAgentInbound before runtime starts.
+ * There is deliberately no runtime argument here. The dispatcher is bound to
+ * the same registered Agent V3 implementation as the immediate webhook path,
+ * preventing a caller from accidentally injecting a second behavioral runtime.
  */
 export async function dispatchAgentInboundBatch(
   supabaseAdmin: any,
   workerId: string,
-  executeRuntime: AgentV3RuntimeExecutor,
   maxPerRun = AGENT_INBOUND_DISPATCH_MAX_PER_RUN,
 ): Promise<AgentInboundDispatchBatchResult> {
   if (!Number.isInteger(maxPerRun) || maxPerRun < 1 || maxPerRun > 100) {
@@ -35,7 +34,7 @@ export async function dispatchAgentInboundBatch(
     const result = await dispatchOneAgentInbound(
       supabaseAdmin,
       `${workerId}:${index}`,
-      executeRuntime,
+      executeRegisteredAgentV3Runtime,
     );
 
     if (result === "idle") {
