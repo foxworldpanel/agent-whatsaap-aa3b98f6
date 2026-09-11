@@ -37,6 +37,19 @@ Set-Location "C:\mind-agent-v3-stage-b"
     return
   }
 
+  $evidence = [ordered]@{
+    branch = $branch
+    head = (git rev-parse HEAD).Trim()
+    webhookChars = $report.webhookChars
+    runtimeBodyChars = $report.runtimeBodyChars
+    responseReturnCount = $report.responseReturnCount
+    closureHits = $report.closureHits
+    responseReturns = $report.responseReturns
+    auditedAt = (Get-Date).ToUniversalTime().ToString("o")
+  }
+  $evidence | ConvertTo-Json -Depth 8 | Set-Content ".stage-b-runtime-audit-evidence.json" -Encoding utf8
+
   Write-Host ""
   Write-Host "AUDIT_OK"
+  Write-Host "Evidence: C:\mind-agent-v3-stage-b\.stage-b-runtime-audit-evidence.json"
 }
