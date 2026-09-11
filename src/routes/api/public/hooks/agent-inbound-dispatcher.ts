@@ -1,16 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { assertCronAuthorized } from "@/lib/cron-auth.server";
-import {
-  AGENT_INBOUND_DISPATCH_MAX_PER_RUN,
-  dispatchAgentInboundBatch,
-} from "@/lib/agent-v3/inbound-dispatch-policy.server";
+import { dispatchCustomerTurnBatch } from "@/lib/agent-v3/customer-turn-dispatch.server";
+
+export const AGENT_CUSTOMER_TURN_DISPATCH_MAX_PER_RUN = 20;
 
 /**
- * Stage B durable pending-job dispatcher.
- *
- * Webhook execution remains the fast path. This endpoint is the bounded safety
- * net that claims pending jobs and executes the exact same shared Agent V3
- * runtime in a fresh worker process.
+ * Stage C+D durable semantic-turn dispatcher.
+ * Eligible inbound messages are already durable Stage B jobs and members of a
+ * collecting Customer Turn. This endpoint waits for the natural-silence gate,
+ * claims one turn per conversation and executes one logical Agent V3 decision
+ * for that sealed turn.
  */
 export const Route = createFileRoute("/api/public/hooks/agent-inbound-dispatcher")({
   server: {
@@ -20,24 +19,24 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-dispatcher
         if (unauth) return unauth;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const workerId = `agent-inbound-dispatcher:${crypto.randomUUID()}`;
+        const workerId = `agent-customer-turn-dispatcher:${crypto.randomUUID()}`;
 
         try {
-          const result = await dispatchAgentInboundBatch(
+          const result = await dispatchCustomerTurnBatch(
             supabaseAdmin,
             workerId,
-            AGENT_INBOUND_DISPATCH_MAX_PER_RUN,
+            AGENT_CUSTOMER_TURN_DISPATCH_MAX_PER_RUN,
           );
-
           return Response.json({
             ok: true,
-            maxPerRun: AGENT_INBOUND_DISPATCH_MAX_PER_RUN,
+            mode: "customer_turn",
+            maxPerRun: AGENT_CUSTOMER_TURN_DISPATCH_MAX_PER_RUN,
             ...result,
           });
         } catch (error) {
-          console.error("[AGENT-INBOUND-DISPATCHER] durable dispatch failed", error);
+          console.error("[AGENT-CUSTOMER-TURN-DISPATCHER] durable dispatch failed", error);
           return Response.json(
-            { ok: false, error: "agent inbound dispatch failed" },
+            { ok: false, error: "agent customer turn dispatch failed" },
             { status: 500 },
           );
         }
