@@ -1,12 +1,16 @@
 import type { AgentInboundKind } from "@/lib/agent-v3/inbound-jobs.server";
+
 export const AGENT_CUSTOMER_TURN_QUIET_MS = 2200;
 export const AGENT_CUSTOMER_TURN_STALE_MS = 5 * 60 * 1000;
+
 export type AgentCustomerTurnState = "collecting" | "processing" | "processed" | "needs_review";
 export type AgentCustomerTurn = { id:string; conversation_id:string; workspace_id:string; state:AgentCustomerTurnState; last_received_at:string; sealed_at:string|null; claimed_by:string|null; claimed_at:string|null; last_error:string|null; created_at:string; updated_at:string };
 export type AgentCustomerTurnMember = { turn_id:string; job_id:string; message_id:string; ordinal:number; external_id:string; input_text:string; input_kind:AgentInboundKind; input_mime:string|null; audio_url:string|null; created_at:string };
+
 export async function attachAgentInboundJobToCustomerTurn(s:any,jobId:string):Promise<string>{const {data,error}=await s.rpc("attach_agent_inbound_job_to_customer_turn",{p_job_id:jobId});if(error)throw error;if(typeof data!=="string"||!data)throw new Error(`Customer Turn attachment failed for job ${jobId}`);return data;}
 export async function attachPendingAgentInboundJobsToCustomerTurns(s:any,limit=50):Promise<number>{const {data,error}=await s.rpc("attach_pending_agent_inbound_jobs_to_customer_turns",{p_limit:limit});if(error)throw error;return Number(data||0);}
 export async function claimNextReadyCustomerTurn(s:any,holder:string,quietMs=AGENT_CUSTOMER_TURN_QUIET_MS):Promise<AgentCustomerTurn|null>{const {data,error}=await s.rpc("claim_next_agent_customer_turn",{p_holder:holder,p_quiet_before:new Date(Date.now()-quietMs).toISOString()});if(error)throw error;return Array.isArray(data)&&data.length?data[0] as AgentCustomerTurn:null;}
+export async function claimReadyCustomerTurnById(s:any,turnId:string,holder:string,quietMs=AGENT_CUSTOMER_TURN_QUIET_MS):Promise<AgentCustomerTurn|null>{const {data,error}=await s.rpc("claim_agent_customer_turn",{p_turn_id:turnId,p_holder:holder,p_quiet_before:new Date(Date.now()-quietMs).toISOString()});if(error)throw error;return Array.isArray(data)&&data.length?data[0] as AgentCustomerTurn:null;}
 export async function loadCustomerTurnMembers(s:any,turnId:string):Promise<AgentCustomerTurnMember[]>{const {data,error}=await s.rpc("load_agent_customer_turn_members",{p_turn_id:turnId});if(error)throw error;return Array.isArray(data)?data as AgentCustomerTurnMember[]:[];}
 export async function finishCustomerTurn(s:any,turnId:string,holder:string,outcome:{ok:true}|{ok:false;error:unknown}):Promise<void>{const errorText=outcome.ok?null:(outcome.error instanceof Error?outcome.error.message:String(outcome.error));const {data,error}=await s.rpc("finish_agent_customer_turn",{p_turn_id:turnId,p_holder:holder,p_ok:outcome.ok,p_error:errorText});if(error)throw error;if(data!==true)throw new Error(`Customer Turn terminal transition rejected for ${turnId}`);}
 export async function recoverStaleCustomerTurns(s:any,staleMs=AGENT_CUSTOMER_TURN_STALE_MS):Promise<number>{const {data,error}=await s.rpc("recover_stale_agent_customer_turns",{p_stale_before:new Date(Date.now()-staleMs).toISOString()});if(error)throw error;return Number(data||0);}
