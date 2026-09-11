@@ -52,6 +52,25 @@ BEGIN
  RETURN v_count;
 END $$;
 
+-- Fence the Stage B message-level fallback once a job belongs to a semantic turn.
+CREATE OR REPLACE FUNCTION public.claim_next_agent_inbound_job(p_holder text,p_max_attempts integer DEFAULT 5)
+RETURNS SETOF public.agent_inbound_jobs LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+BEGIN
+ IF p_max_attempts<1 THEN RAISE EXCEPTION 'p_max_attempts must be >= 1'; END IF;
+ UPDATE public.agent_inbound_jobs j SET status='needs_review',claimed_by=NULL,claimed_at=NULL,last_error='max safe attempts exceeded before runtime',updated_at=now()
+ WHERE j.status='pending' AND j.attempt_count>=p_max_attempts
+ AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turn_messages tm WHERE tm.job_id=j.id);
+ BEGIN
+  RETURN QUERY WITH candidate AS (
+   SELECT j.id FROM public.agent_inbound_jobs j WHERE j.status='pending' AND j.attempt_count<p_max_attempts
+   AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turn_messages tm WHERE tm.job_id=j.id)
+   AND NOT EXISTS(SELECT 1 FROM public.agent_inbound_jobs active WHERE active.conversation_id=j.conversation_id AND active.id<>j.id AND active.status IN ('processing_safe','processing'))
+   ORDER BY j.created_at,j.id FOR UPDATE SKIP LOCKED LIMIT 1
+  ) UPDATE public.agent_inbound_jobs j SET status='processing_safe',claimed_by=p_holder,claimed_at=now(),attempt_count=j.attempt_count+1,last_error=NULL,updated_at=now()
+  FROM candidate c WHERE j.id=c.id RETURNING j.*;
+ EXCEPTION WHEN unique_violation THEN RETURN; END;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.claim_next_agent_customer_turn(p_holder text,p_quiet_before timestamptz)
 RETURNS SETOF public.agent_customer_turns LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 BEGIN RETURN QUERY WITH candidate AS (
@@ -68,41 +87,31 @@ LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
  FROM public.agent_customer_turn_messages tm JOIN public.agent_inbound_jobs j ON j.id=tm.job_id JOIN public.messages m ON m.id=tm.message_id
  WHERE tm.turn_id=p_turn_id ORDER BY tm.ordinal,m.created_at,m.id;
 $$;
-
 CREATE OR REPLACE FUNCTION public.finish_agent_customer_turn(p_turn_id uuid,p_holder text,p_ok boolean,p_error text DEFAULT NULL) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_changed integer; v_terminal text;
-BEGIN
- v_terminal:=CASE WHEN p_ok THEN 'processed' ELSE 'needs_review' END;
- UPDATE public.agent_customer_turns SET state=v_terminal,claimed_by=NULL,claimed_at=NULL,last_error=CASE WHEN p_ok THEN NULL ELSE left(coalesce(p_error,'unknown customer turn failure'),1000) END,updated_at=now()
- WHERE id=p_turn_id AND state='processing' AND claimed_by=p_holder;
+BEGIN v_terminal:=CASE WHEN p_ok THEN 'processed' ELSE 'needs_review' END;
+ UPDATE public.agent_customer_turns SET state=v_terminal,claimed_by=NULL,claimed_at=NULL,last_error=CASE WHEN p_ok THEN NULL ELSE left(coalesce(p_error,'unknown customer turn failure'),1000) END,updated_at=now() WHERE id=p_turn_id AND state='processing' AND claimed_by=p_holder;
  GET DIAGNOSTICS v_changed=ROW_COUNT; IF v_changed<>1 THEN RETURN false; END IF;
- UPDATE public.agent_inbound_jobs j SET status=v_terminal,claimed_by=NULL,claimed_at=NULL,processed_at=CASE WHEN p_ok THEN now() ELSE j.processed_at END,last_error=CASE WHEN p_ok THEN NULL ELSE left(coalesce(p_error,'customer turn needs review'),1000) END,updated_at=now()
- FROM public.agent_customer_turn_messages tm WHERE tm.turn_id=p_turn_id AND tm.job_id=j.id AND j.status='pending';
- RETURN true;
+ UPDATE public.agent_inbound_jobs j SET status=v_terminal,claimed_by=NULL,claimed_at=NULL,processed_at=CASE WHEN p_ok THEN now() ELSE j.processed_at END,last_error=CASE WHEN p_ok THEN NULL ELSE left(coalesce(p_error,'customer turn needs review'),1000) END,updated_at=now() FROM public.agent_customer_turn_messages tm WHERE tm.turn_id=p_turn_id AND tm.job_id=j.id AND j.status='pending'; RETURN true;
 END $$;
-
 CREATE OR REPLACE FUNCTION public.recover_stale_agent_customer_turns(p_stale_before timestamptz) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_ids uuid[]; v_count integer:=0;
-BEGIN
- SELECT coalesce(array_agg(id),'{}'::uuid[]) INTO v_ids FROM public.agent_customer_turns WHERE state='processing' AND claimed_at<p_stale_before;
- IF cardinality(v_ids)=0 THEN RETURN 0; END IF;
- UPDATE public.agent_customer_turns SET state='needs_review',claimed_by=NULL,claimed_at=NULL,last_error='stale processing turn quarantined; runtime side effects may be uncertain',updated_at=now() WHERE id=ANY(v_ids) AND state='processing';
- GET DIAGNOSTICS v_count=ROW_COUNT;
- UPDATE public.agent_inbound_jobs j SET status='needs_review',claimed_by=NULL,claimed_at=NULL,last_error='customer turn stale after runtime boundary',updated_at=now()
- FROM public.agent_customer_turn_messages tm WHERE tm.turn_id=ANY(v_ids) AND tm.job_id=j.id AND j.status='pending';
- RETURN v_count;
+BEGIN SELECT coalesce(array_agg(id),'{}'::uuid[]) INTO v_ids FROM public.agent_customer_turns WHERE state='processing' AND claimed_at<p_stale_before; IF cardinality(v_ids)=0 THEN RETURN 0; END IF;
+ UPDATE public.agent_customer_turns SET state='needs_review',claimed_by=NULL,claimed_at=NULL,last_error='stale processing turn quarantined; runtime side effects may be uncertain',updated_at=now() WHERE id=ANY(v_ids) AND state='processing'; GET DIAGNOSTICS v_count=ROW_COUNT;
+ UPDATE public.agent_inbound_jobs j SET status='needs_review',claimed_by=NULL,claimed_at=NULL,last_error='customer turn stale after runtime boundary',updated_at=now() FROM public.agent_customer_turn_messages tm WHERE tm.turn_id=ANY(v_ids) AND tm.job_id=j.id AND j.status='pending'; RETURN v_count;
 END $$;
-
 REVOKE ALL ON FUNCTION public.attach_agent_inbound_job_to_customer_turn(uuid) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.attach_pending_agent_inbound_jobs_to_customer_turns(integer) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.claim_next_agent_inbound_job(text,integer) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.claim_next_agent_customer_turn(text,timestamptz) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.load_agent_customer_turn_members(uuid) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.finish_agent_customer_turn(uuid,text,boolean,text) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.recover_stale_agent_customer_turns(timestamptz) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.attach_agent_inbound_job_to_customer_turn(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.attach_pending_agent_inbound_jobs_to_customer_turns(integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.claim_next_agent_inbound_job(text,integer) TO service_role;
 GRANT EXECUTE ON FUNCTION public.claim_next_agent_customer_turn(text,timestamptz) TO service_role;
 GRANT EXECUTE ON FUNCTION public.load_agent_customer_turn_members(uuid) TO service_role;
 GRANT EXECUTE ON FUNCTION public.finish_agent_customer_turn(uuid,text,boolean,text) TO service_role;
