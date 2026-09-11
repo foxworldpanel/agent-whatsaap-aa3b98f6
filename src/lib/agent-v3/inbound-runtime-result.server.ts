@@ -9,7 +9,12 @@ export type AgentV3RuntimeTerminalReason =
   | "critical_escalation_failed"
   | "human_handoff"
   | "human_handoff_failed"
-  | "stop_request";
+  | "stop_request"
+  | "natural_conversational_silence"
+  | "smart_router_completed"
+  | "smart_router_send_failed"
+  | "ai_processed"
+  | "ai_error_needs_review";
 
 export type AgentV3RuntimeTerminalClass =
   | "completed"
@@ -36,6 +41,11 @@ const TERMINAL_CLASS: Record<AgentV3RuntimeTerminalReason, AgentV3RuntimeTermina
   human_handoff: "human_handoff",
   human_handoff_failed: "operational_attention",
   stop_request: "completed_without_reply",
+  natural_conversational_silence: "completed_without_reply",
+  smart_router_completed: "completed",
+  smart_router_send_failed: "operational_attention",
+  ai_processed: "completed",
+  ai_error_needs_review: "operational_attention",
 };
 
 export function runtimeTerminal(
