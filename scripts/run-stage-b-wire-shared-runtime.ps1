@@ -8,12 +8,13 @@ Set-Location "C:\mind-agent-v3-stage-b"
   git diff --cached --quiet
   if ($LASTEXITCODE -ne 0) { Write-Error "existem alteracoes staged locais; corte bloqueado"; return }
 
-  # Build anterior pode deixar webhook cortado e routeTree gerado. Ambos sao
-  # artefatos conhecidos e seguros para restaurar; qualquer outro tracked bloqueia.
+  # Builds anteriores podem deixar apenas estes artefatos tracked modificados.
+  # Todos sao gerados/recriados por este proprio runner e podem ser restaurados.
   $tracked = @(git diff --name-only)
   $allowedRecovery = @(
     "src/routes/api/public/hooks/uazapi-webhook.ts",
-    "src/routeTree.gen.ts"
+    "src/routeTree.gen.ts",
+    "src/lib/agent-v3/runtime.server.ts"
   )
   $unexpected = @($tracked | Where-Object { $_ -and ($_ -notin $allowedRecovery) })
   if ($unexpected.Count -gt 0) {
