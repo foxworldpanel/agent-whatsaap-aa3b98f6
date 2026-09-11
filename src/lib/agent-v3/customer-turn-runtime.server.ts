@@ -11,9 +11,26 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
   if (!members.length) throw new Error(`Customer Turn ${turnId} has no members`);
   const last = members[members.length - 1];
 
-  const { data: job, error } = await supabaseAdmin.from("agent_inbound_jobs").select("*").eq("id", last.job_id).single();
+  const { data: jobs, error } = await supabaseAdmin
+    .from("agent_inbound_jobs")
+    .select("*")
+    .in("id", members.map((member) => member.job_id));
   if (error) throw error;
-  const context = await loadAgentInboundResumeContext(supabaseAdmin, job as AgentInboundJob);
+
+  const jobById = new Map<string, AgentInboundJob>(
+    (jobs || []).map((job: AgentInboundJob) => [job.id, job]),
+  );
+  if (jobById.size !== members.length) throw new Error(`Customer Turn ${turnId} has missing inbound jobs`);
+  const lastJob = jobById.get(last.job_id);
+  if (!lastJob) throw new Error(`Customer Turn ${turnId} last inbound job is missing`);
+
+  const context = await loadAgentInboundResumeContext(supabaseAdmin, lastJob);
+  const deferredFunnelMessages = members
+    .map((member) => jobById.get(member.job_id))
+    .filter((job): job is AgentInboundJob => Boolean(job?.deferred_funnel))
+    .map((job) => job.input_text.trim())
+    .filter(Boolean);
+  const deferredFunnelMessage = deferredFunnelMessages.length ? deferredFunnelMessages.join("\n") : null;
 
   const { data: integration, error: integrationError } = await supabaseAdmin.from("integrations")
     .select("openai_api_key").eq("user_id", context.userId).eq("workspace_id", context.workspaceId).maybeSingle();
@@ -42,7 +59,7 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
       phone: context.phone, userId: context.userId, workspaceId: context.workspaceId,
       whatsappNumberId: context.whatsappNumberId, sendTarget: context.sendTarget, instance: context.instance,
       content: { text: combinedText, kind: "texto" },
-      deferredFunnelMessage: context.deferredFunnelMessage,
+      deferredFunnelMessage,
     },
   };
 }
