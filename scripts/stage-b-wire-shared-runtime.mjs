@@ -6,7 +6,7 @@ const runtimePath = path.resolve("src/lib/agent-v3/runtime.server.ts");
 
 if (!fs.existsSync(runtimePath)) throw new Error("shared runtime missing; pull the extraction commit first");
 
-const original = fs.readFileSync(webhookPath, "utf8");
+const original = fs.readFileSync(webhookPath, "utf8").replace(/\r\n/g, "\n");
 const importAnchor = `import {\n  beginWebhookAgentInboundRuntime,\n  finishWebhookAgentInboundRuntime,\n} from "@/lib/agent-v3/inbound-webhook-ownership.server";\n`;
 const runtimeImport = `import { executeAgentV3Runtime } from "@/lib/agent-v3/runtime.server";\n`;
 if (!original.includes(importAnchor)) throw new Error("webhook ownership import anchor changed");
@@ -16,7 +16,7 @@ const startAnchor = "      let runtimeNeedsReview = false;\n      let runtimeFai
 const endAnchor = "      } finally {\n        // A mesma fronteira terminal usada pelo dispatcher resolve o job antes";
 const start = original.indexOf(startAnchor);
 const end = original.indexOf(endAnchor, start);
-if (start < 0 || end < 0 || end <= start) throw new Error("effectful runtime anchors changed");
+if (start < 0 || end < 0 || end <= start) throw new Error(`effectful runtime anchors changed (start=${start}, end=${end})`);
 if (original.indexOf(startAnchor, start + 1) >= 0 || original.indexOf(endAnchor, end + 1) >= 0) {
   throw new Error("runtime anchors are not unique");
 }
