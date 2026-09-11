@@ -100,6 +100,13 @@ export async function dispatchOneAgentInbound(
 
   try {
     const result = await executeRuntime(supabaseAdmin, runtimeInputFromResumeContext(claim.context));
+    if (result.class === "operational_attention") {
+      await finishClaimedAgentInbound(supabaseAdmin, claim, {
+        ok: false,
+        error: new Error(`Agent V3 operational attention: ${result.reason}`),
+      });
+      return { status: "needs_review" };
+    }
     await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: true });
     return { status: "processed", reason: result.reason };
   } catch (error) {

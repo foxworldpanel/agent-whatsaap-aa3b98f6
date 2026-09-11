@@ -1522,6 +1522,8 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
           });
 
           if (runtimeResult.class === "operational_attention") {
+            runtimeNeedsReview = true;
+            runtimeFailure = `Agent V3 operational attention: ${runtimeResult.reason}`;
             console.warn("[AGENT-INBOUND] runtime terminou com atenção operacional", {
               jobId: runtimeOwnership.jobId,
               reason: runtimeResult.reason,
