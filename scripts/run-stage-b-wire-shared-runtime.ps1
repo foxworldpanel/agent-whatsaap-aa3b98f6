@@ -5,8 +5,10 @@ Set-Location "C:\mind-agent-v3-stage-b"
   $branch = (git branch --show-current).Trim()
   if ($branch -ne "fix/zero-lost-turn-stage-b") { Write-Error "Branch incorreta: $branch"; return }
 
-  if (-not (git diff --quiet)) { Write-Error "existem alteracoes tracked locais; corte bloqueado"; return }
-  if (-not (git diff --cached --quiet)) { Write-Error "existem alteracoes staged locais; corte bloqueado"; return }
+  git diff --quiet
+  if ($LASTEXITCODE -ne 0) { Write-Error "existem alteracoes tracked locais; corte bloqueado"; return }
+  git diff --cached --quiet
+  if ($LASTEXITCODE -ne 0) { Write-Error "existem alteracoes staged locais; corte bloqueado"; return }
 
   git pull --ff-only
   if ($LASTEXITCODE -ne 0) { Write-Error "git pull falhou"; return }
