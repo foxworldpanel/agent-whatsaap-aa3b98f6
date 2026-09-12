@@ -1,32 +1,51 @@
 import fs from "node:fs";
-const root="C:\\mind-agent-v3-stage-b";
-const path=`${root}\\src\\routes\\api\\public\\hooks\\uazapi-webhook.ts`;
-const lf=s=>s.replace(/\r\n/g,"\n");
-function once(s,a,b,label){const i=s.indexOf(a);if(i<0)throw new Error(`${label}: anchor not found`);if(s.indexOf(a,i+a.length)>=0)throw new Error(`${label}: anchor not unique`);return s.slice(0,i)+b+s.slice(i+a.length);}
-let s=lf(fs.readFileSync(path,"utf8"));
-s=once(s,
-`        if (runtimeOwnershipResult.status !== "claimed") {
-          console.log("[AGENT-INBOUND] runtime não adquirido no fast path", {
-            messageId: persistedMessageId,
-            status: runtimeOwnershipResult.status,
-          });
-          return new Response("ok (agent queued)");
-        }
-        runtimeOwnership = runtimeOwnershipResult.ownership;
 
-        try {
-          const runtimeResult = await executeAgentV3Runtime(supabaseAdmin, {`,
-`        if (runtimeOwnershipResult.status === "queued_turn") {
-          console.log("[AGENT-CUSTOMER-TURN] inbound anexado ao turno durável", {
-            messageId: persistedMessageId,
-            jobId: runtimeOwnershipResult.jobId,
-            turnId: runtimeOwnershipResult.turnId,
-            duplicate: runtimeOwnershipResult.duplicate,
-          });
-          return new Response("ok (agent customer turn queued)");
-        }
+const root = "C:\\mind-agent-v3-stage-b";
+const path = `${root}\\src\\routes\\api\\public\\hooks\\uazapi-webhook.ts`;
+const lf = (value) => value.replace(/\r\n/g, "\n");
 
-        try {
-          const runtimeResult = await executeAgentV3Runtime(supabaseAdmin, {`,"webhook runtime cutover");
-fs.writeFileSync(path,s,"utf8");
+function replaceUnique(source, before, after, label) {
+  const first = source.indexOf(before);
+  if (first < 0) throw new Error(`${label}: anchor not found`);
+  if (source.indexOf(before, first + before.length) >= 0) throw new Error(`${label}: anchor not unique`);
+  return source.slice(0, first) + after + source.slice(first + before.length);
+}
+
+let source = lf(fs.readFileSync(path, "utf8"));
+
+source = replaceUnique(
+  source,
+  `import {\n  beginWebhookAgentInboundRuntime,\n  finishWebhookAgentInboundRuntime,\n} from "@/lib/agent-v3/inbound-webhook-ownership.server";\nimport { executeAgentV3Runtime } from "@/lib/agent-v3/runtime.server";`,
+  `import { beginWebhookAgentInboundRuntime } from "@/lib/agent-v3/inbound-webhook-ownership.server";`,
+  "legacy runtime imports",
+);
+
+const debounceStart = `    // DEBOUNCE DE MENSAGENS RÁPIDAS — V2, mais curto e monitorado.\n`;
+const debounceEnd = `    // 3.4. FUNNEL GATE GLOBAL\n`;
+const debounceStartIndex = source.indexOf(debounceStart);
+const debounceEndIndex = source.indexOf(debounceEnd, debounceStartIndex);
+if (debounceStartIndex < 0 || debounceEndIndex < 0) throw new Error("legacy debounce block not found");
+source = source.slice(0, debounceStartIndex) + debounceEnd + source.slice(debounceEndIndex + debounceEnd.length);
+
+const runtimeStart = `    // 5. AI PROCESSING (V3)\n`;
+const routeStart = `}\n\nexport const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({`;
+const runtimeStartIndex = source.indexOf(runtimeStart);
+const routeStartIndex = source.indexOf(routeStart, runtimeStartIndex);
+if (runtimeStartIndex < 0 || routeStartIndex < 0) throw new Error("legacy runtime section not found");
+
+const durableIngress = `    // 5. DURABLE CUSTOMER TURN INGRESS (Stage C+D)\n    if (!persistedMessageId || !conversationId) {\n      throw new Error("Agent V3 reached without persisted message/conversation id");\n    }\n\n    const ownershipResult = await beginWebhookAgentInboundRuntime(supabaseAdmin, {\n      messageId: persistedMessageId,\n      conversationId,\n      workspaceId,\n      sendTarget,\n      inputText: deferredFunnelMessage || content.text || "",\n      inputKind: content.kind,\n      inputMime: content.mime,\n      deferredFunnel: Boolean(deferredFunnelMessage),\n      holder: \`turn-ingress:\${msgId}:\${Date.now()}\`,\n    });\n\n    console.log("[AGENT-CUSTOMER-TURN] inbound anexado ao turno durável", {\n      phone: phoneStr,\n      messageId: persistedMessageId,\n      jobId: ownershipResult.jobId,\n      turnId: ownershipResult.turnId,\n      duplicate: ownershipResult.duplicate,\n    });\n    return new Response("ok (agent customer turn queued)");\n`;
+source = source.slice(0, runtimeStartIndex) + durableIngress + source.slice(routeStartIndex);
+
+for (const residue of [
+  "finishWebhookAgentInboundRuntime",
+  "executeAgentV3Runtime",
+  "runtimeOwnership",
+  "DEBOUNCE-V2",
+  "debounce_v2_",
+  "newer message will handle",
+]) {
+  if (source.includes(residue)) throw new Error(`legacy residue remains: ${residue}`);
+}
+
+fs.writeFileSync(path, source, "utf8");
 console.log("STAGE_CD_WEBHOOK_CUTOVER_OK");
