@@ -1,0 +1,16 @@
+import fs from "node:fs";
+const p="C:/mind-agent-v3-stage-b/src/lib/agent-v3/runtime.server.ts";
+let s=fs.readFileSync(p,"utf8");
+const platform='customerMemory?.preferredPlatform ?? null';
+const product='customerMemory?.preferredProduct ?? null';
+s=s.replaceAll(platform,`((customerMemory?.preferredPlatform ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["platform"])`);
+s=s.replaceAll(product,`((customerMemory?.preferredProduct ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["product"])`);
+const persist='customerMemory = await persistCustomerCommercialMemory({';
+if(!s.includes(persist)) throw new Error("persist anchor missing");
+s=s.replace(persist,'customerMemory = await persistCustomerCommercialMemory({');
+const lifecycle='customerMemory.lifecycle === "cliente" ||';
+if(!s.includes(lifecycle)) throw new Error("lifecycle anchor missing");
+s=s.replace(lifecycle,'customerMemory && (customerMemory.lifecycle === "cliente" ||');
+s=s.replace('customerMemory.lifecycle === "cliente_recorrente"\n          ) {','customerMemory.lifecycle === "cliente_recorrente")\n          ) {');
+fs.writeFileSync(p,s,"utf8");
+console.log("STAGE_CD_RUNTIME_TYPES_OK");
