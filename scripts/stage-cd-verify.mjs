@@ -1,0 +1,12 @@
+import fs from "node:fs";
+import path from "node:path";
+const root="C:\\mind-agent-v3-stage-b";
+const webhook=path.join(root,"src/routes/api/public/hooks/uazapi-webhook.ts");
+const legacy=path.join(root,"src/lib/agent-v3/inbound-dispatch-policy.server.ts");
+const text=fs.readFileSync(webhook,"utf8");
+const forbidden=["finishWebhookAgentInboundRuntime","executeAgentV3Runtime","runtimeOwnership","DEBOUNCE-V2","debounce_v2_","newer message will handle"];
+const required=["beginWebhookAgentInboundRuntime","AGENT_CUSTOMER_TURN_QUIET_MS","dispatchReadyCustomerTurnById","ownershipResult.turnId"];
+for(const value of forbidden)if(text.includes(value))throw new Error(`forbidden webhook residue: ${value}`);
+for(const value of required)if(!text.includes(value))throw new Error(`required webhook contract missing: ${value}`);
+if(!fs.existsSync(legacy))throw new Error("legacy dispatcher policy file unexpectedly missing; inspect before removal");
+console.log("STAGE_CD_VERIFY_OK");
