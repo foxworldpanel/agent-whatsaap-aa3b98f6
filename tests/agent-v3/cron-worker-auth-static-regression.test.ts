@@ -8,7 +8,7 @@ const auth = source("src/lib/cron-auth.server.ts");
 const scheduler = source("supabase/migrations/20260914184500_schedule_agent_customer_turn_workers.sql");
 
 describe("Agent V3 cron worker authentication", () => {
-  it("accepts only the dedicated private runtime secret", () => {
+  it("accepts only the dedicated private runtime secret and header", () => {
     expect(auth).toContain('const expected = process.env.AGENT_CRON_SECRET || ""');
     expect(auth).toContain('request.headers.get("x-cron-secret")');
     expect(auth).not.toContain("process.env.CRON_SECRET");
@@ -16,6 +16,8 @@ describe("Agent V3 cron worker authentication", () => {
     expect(auth).not.toContain("SUPABASE_ANON_KEY");
     expect(auth).not.toContain("VITE_SUPABASE_PUBLISHABLE_KEY");
     expect(auth).not.toContain('request.headers.get("apikey")');
+    expect(auth).not.toContain('request.headers.get("authorization")');
+    expect(auth).not.toContain("Bearer");
   });
 
   it("fails closed before scheduling and uses the matching Vault secret", () => {
