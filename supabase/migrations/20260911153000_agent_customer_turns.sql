@@ -94,7 +94,7 @@ RETURNS TABLE(turn_id uuid,job_id uuid,message_id uuid,ordinal bigint,external_i
 LANGUAGE sql SECURITY DEFINER SET search_path=public AS $$
  SELECT tm.turn_id,j.id,j.message_id,tm.ordinal,m.external_id,j.input_text,j.input_kind,j.input_mime,m.audio_url,m.created_at
  FROM public.agent_customer_turn_messages tm JOIN public.agent_inbound_jobs j ON j.id=tm.job_id JOIN public.messages m ON m.id=tm.message_id
- WHERE tm.turn_id=p_turn_id ORDER BY tm.ordinal,m.created_at,m.id;
+ WHERE tm.turn_id=p_turn_id ORDER BY m.created_at,m.id,tm.ordinal;
 $$;
 
 CREATE OR REPLACE FUNCTION public.finish_agent_customer_turn(p_turn_id uuid,p_holder text,p_ok boolean,p_error text DEFAULT NULL) RETURNS boolean
