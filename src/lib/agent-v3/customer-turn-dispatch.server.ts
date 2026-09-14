@@ -15,32 +15,60 @@ export type AgentCustomerTurnDispatchResult =
   | { status: "processed"; turnId: string; memberCount: number; reason: AgentV3RuntimeTerminalReason }
   | { status: "needs_review"; turnId: string };
 
+async function quarantineClaimedCustomerTurn(
+  s: any,
+  turn: AgentCustomerTurn,
+  holder: string,
+  error: unknown,
+): Promise<AgentCustomerTurnDispatchResult> {
+  await finishCustomerTurn(s, turn.id, holder, { ok: false, error });
+  return { status: "needs_review", turnId: turn.id };
+}
+
 async function executeClaimedCustomerTurn(
   s: any,
   turn: AgentCustomerTurn,
   holder: string,
 ): Promise<AgentCustomerTurnDispatchResult> {
+  let runtime;
   try {
-    const runtime = await buildCustomerTurnRuntimeInput(s, turn.id);
-    const result = await executeAgentV3Runtime(s, runtime.input);
-    if (result.class === "operational_attention") {
-      await finishCustomerTurn(s, turn.id, holder, {
-        ok: false,
-        error: new Error(`Agent V3 operational attention: ${result.reason}`),
-      });
-      return { status: "needs_review", turnId: turn.id };
-    }
-    await finishCustomerTurn(s, turn.id, holder, { ok: true });
-    return {
-      status: "processed",
-      turnId: turn.id,
-      memberCount: runtime.members.length,
-      reason: result.reason,
-    };
+    runtime = await buildCustomerTurnRuntimeInput(s, turn.id);
   } catch (error) {
-    await finishCustomerTurn(s, turn.id, holder, { ok: false, error });
-    return { status: "needs_review", turnId: turn.id };
+    // No Agent V3 side effects have started yet, so a deterministic/transient
+    // preparation failure can be safely quarantined under the current holder.
+    return quarantineClaimedCustomerTurn(s, turn, holder, error);
   }
+
+  let result;
+  try {
+    result = await executeAgentV3Runtime(s, runtime.input);
+  } catch (error) {
+    // Runtime may already have produced external side effects. Move the turn to
+    // needs_review once. If that terminal transition is itself uncertain,
+    // finishCustomerTurn throws after durable read-back and we MUST propagate it
+    // instead of attempting a second contradictory terminal transition.
+    return quarantineClaimedCustomerTurn(s, turn, holder, error);
+  }
+
+  if (result.class === "operational_attention") {
+    return quarantineClaimedCustomerTurn(
+      s,
+      turn,
+      holder,
+      new Error(`Agent V3 operational attention: ${result.reason}`),
+    );
+  }
+
+  // A successful runtime is already across the external side-effect boundary.
+  // Do not catch a finalization uncertainty and then try to rewrite the same turn
+  // as needs_review: that would hide whether the processed commit actually won.
+  await finishCustomerTurn(s, turn.id, holder, { ok: true });
+  return {
+    status: "processed",
+    turnId: turn.id,
+    memberCount: runtime.members.length,
+    reason: result.reason,
+  };
 }
 
 export async function dispatchReadyCustomerTurnById(
