@@ -53,7 +53,7 @@ SELECT cron.schedule(
      'Content-Type','application/json',
      'x-cron-secret',(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='agent_cron_secret' LIMIT 1)
    ),
-   body := '{} '::jsonb,
+   body := '{}'::jsonb,
    timeout_milliseconds := 55000
  );
  $cron$
@@ -74,7 +74,7 @@ SELECT cron.schedule(
      'Content-Type','application/json',
      'x-cron-secret',(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='agent_cron_secret' LIMIT 1)
    ),
-   body := '{} '::jsonb,
+   body := '{}'::jsonb,
    timeout_milliseconds := 55000
  );
  $cron$
