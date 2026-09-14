@@ -8,9 +8,10 @@ const auth = source("src/lib/cron-auth.server.ts");
 const scheduler = source("supabase/migrations/20260914184500_schedule_agent_customer_turn_workers.sql");
 
 describe("Agent V3 cron worker authentication", () => {
-  it("accepts only a private runtime secret", () => {
-    expect(auth).toContain("process.env.AGENT_CRON_SECRET");
+  it("accepts only the dedicated private runtime secret", () => {
+    expect(auth).toContain('const expected = process.env.AGENT_CRON_SECRET || ""');
     expect(auth).toContain('request.headers.get("x-cron-secret")');
+    expect(auth).not.toContain("process.env.CRON_SECRET");
     expect(auth).not.toContain("SUPABASE_PUBLISHABLE_KEY");
     expect(auth).not.toContain("SUPABASE_ANON_KEY");
     expect(auth).not.toContain("VITE_SUPABASE_PUBLISHABLE_KEY");
