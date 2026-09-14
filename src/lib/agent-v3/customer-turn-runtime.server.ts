@@ -44,7 +44,21 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
     }
   }
 
-  const context = await loadAgentInboundResumeContext(supabaseAdmin, lastJob);
+  // Validate every member against its persisted message/conversation/contact/
+  // WhatsApp identity, not only the final member. Otherwise a corrupted earlier
+  // job could contribute text/media to the Claude turn while the last job alone
+  // made the runtime context look valid.
+  const contexts = [];
+  for (const member of members) {
+    const job = jobById.get(member.job_id)!;
+    const memberContext = await loadAgentInboundResumeContext(supabaseAdmin, job);
+    if (memberContext.conversationId !== lastJob.conversation_id || memberContext.workspaceId !== lastJob.workspace_id) {
+      throw new Error(`Customer Turn ${turnId} durable member identity mismatch`);
+    }
+    contexts.push(memberContext);
+  }
+  const context = contexts[contexts.length - 1];
+
   const deferredFunnelMessages = members
     .map((member) => jobById.get(member.job_id))
     .filter((job): job is AgentInboundJob => Boolean(job?.deferred_funnel))
