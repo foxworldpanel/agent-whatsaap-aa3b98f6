@@ -16,11 +16,9 @@ async function readConversationLock(
 /**
  * Acquires the persistent conversation lock through one database transaction.
  *
- * The RPC owns stale-lock cleanup and the active inbound-job check atomically;
- * doing those as separate client round-trips leaves a TOCTOU window where a
- * worker can create processing_safe ownership after the check but before stale
- * deletion. The database function serializes the conversation lock row and
- * refuses stale cleanup while any processing_safe/processing job is active.
+ * The RPC owns stale-lock cleanup and the active durable-owner check atomically.
+ * The database function serializes this conversation with the same advisory
+ * namespace used by Stage B and Customer Turns.
  */
 export async function acquireAgentConversationLock(
   supabaseAdmin: any,
@@ -49,19 +47,19 @@ export async function releaseAgentConversationLock(
   conversationId: string,
   holder: string,
 ): Promise<boolean> {
-  const { data, error } = await supabaseAdmin
-    .from("agent_generation_locks")
-    .delete()
-    .eq("conversation_id", conversationId)
-    .eq("holder", holder)
-    .select("conversation_id")
-    .maybeSingle();
+  const { data, error } = await supabaseAdmin.rpc(
+    "release_agent_conversation_lock",
+    {
+      p_conversation_id: conversationId,
+      p_holder: holder,
+    },
+  );
 
-  if (!error && data?.conversation_id) return true;
+  if (!error && data === true) return true;
 
-  // Verify both transport errors and a normal zero-row DELETE. Unlock is
-  // idempotent for this holder: a missing row or a different holder proves our
-  // ownership has ended. Only the same durable holder proves release failed.
+  // Verify transport/RPC uncertainty durably. Unlock is idempotent for this
+  // holder: a missing row or a different holder proves our ownership ended.
+  // Only the same durable holder proves release failed.
   try {
     const current = await readConversationLock(supabaseAdmin, conversationId);
     if (!current) return true;
@@ -72,9 +70,6 @@ export async function releaseAgentConversationLock(
       "[AGENT-CONVERSATION-LOCK] failed to verify conversation unlock",
       verifyError,
     );
-    // If DELETE itself was uncertain, preserve that original failure. If the
-    // DELETE was a normal zero-row response, failed read-back is still an
-    // ownership uncertainty and must not be collapsed into a known false.
     if (error) throw error;
     throw verifyError;
   }
