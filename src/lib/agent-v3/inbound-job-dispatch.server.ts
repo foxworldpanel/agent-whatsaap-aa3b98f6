@@ -1,7 +1,6 @@
 import {
   AGENT_INBOUND_MAX_SAFE_ATTEMPTS,
   claimNextAgentInboundJob,
-  recoverStaleAgentInboundJobs,
   releaseAgentInboundJob,
   reviewSafeAgentInboundJob,
   transferAgentInboundJobClaim,
@@ -113,10 +112,4 @@ export async function dispatchOneAgentInbound(
     await finishClaimedAgentInbound(supabaseAdmin, claim, { ok: false, error });
     return { status: "needs_review" };
   }
-}
-
-export async function recoverAgentInboundDispatcherClaims(supabaseAdmin: any, staleMs = 5 * 60 * 1000,
-  maxAttempts = AGENT_INBOUND_MAX_SAFE_ATTEMPTS): Promise<{ requeued: number; review: number }> {
-  const staleBefore = new Date(Date.now() - staleMs).toISOString();
-  return recoverStaleAgentInboundJobs(supabaseAdmin, staleBefore, maxAttempts);
 }
