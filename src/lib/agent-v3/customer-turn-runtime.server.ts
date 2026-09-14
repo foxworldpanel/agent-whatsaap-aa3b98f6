@@ -33,9 +33,10 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
   const deferredFunnelMessage = deferredFunnelMessages.length ? deferredFunnelMessages.join("\n") : null;
 
   const { data: integration, error: integrationError } = await supabaseAdmin.from("integrations")
-    .select("openai_api_key").eq("user_id", context.userId).eq("workspace_id", context.workspaceId).maybeSingle();
+    .select("openai_api_key, anthropic_api_key").eq("user_id", context.userId).eq("workspace_id", context.workspaceId).maybeSingle();
   if (integrationError) throw integrationError;
   const openaiApiKey = integration?.openai_api_key?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
+  const anthropicApiKey = integration?.anthropic_api_key?.trim() || process.env.ANTHROPIC_API_KEY?.trim() || "";
 
   const resolved: string[] = [];
   for (const member of members) {
@@ -45,6 +46,7 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
       uazapiUrl: context.instance.uazapiUrl,
       uazapiToken: context.instance.uazapiToken,
       openaiApiKey,
+      anthropicApiKey,
     });
     if (text.trim()) resolved.push(text.trim());
   }
