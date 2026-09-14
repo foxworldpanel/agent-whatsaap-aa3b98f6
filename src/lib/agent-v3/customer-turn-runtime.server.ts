@@ -24,6 +24,26 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
   const lastJob = jobById.get(last.job_id);
   if (!lastJob) throw new Error(`Customer Turn ${turnId} last inbound job is missing`);
 
+  // A Customer Turn is one semantic execution boundary. Never let a corrupted or
+  // cross-conversation membership collapse unrelated customers/workspaces into a
+  // single Claude execution. The database FKs prove row existence, not identity.
+  for (const member of members) {
+    const job = jobById.get(member.job_id);
+    if (!job) throw new Error(`Customer Turn ${turnId} member ${member.message_id} has no inbound job`);
+    if (job.message_id !== member.message_id) {
+      throw new Error(`Customer Turn ${turnId} member/job message identity mismatch`);
+    }
+    if (job.conversation_id !== lastJob.conversation_id) {
+      throw new Error(`Customer Turn ${turnId} contains multiple conversations`);
+    }
+    if (job.workspace_id !== lastJob.workspace_id) {
+      throw new Error(`Customer Turn ${turnId} contains multiple workspaces`);
+    }
+    if (job.status !== "pending") {
+      throw new Error(`Customer Turn ${turnId} member ${member.message_id} is not pending`);
+    }
+  }
+
   const context = await loadAgentInboundResumeContext(supabaseAdmin, lastJob);
   const deferredFunnelMessages = members
     .map((member) => jobById.get(member.job_id))
