@@ -8,12 +8,13 @@ const migration = (name: string) =>
 const retryState = migration("20260914194500_retry_safe_customer_turn_state.sql");
 const stageBFence = migration("20260914200000_retry_safe_blocks_stage_b_fallback.sql");
 const retryOrder = migration("20260914203000_customer_turn_retry_order_fence.sql");
+const boundedRetry = migration("20260914211500_bound_customer_turn_safe_retries.sql");
 const runtimeBoundary = migration("20260914191500_safe_pre_runtime_customer_turn_recovery.sql");
 const lockOrder = migration("20260914182500_customer_turn_lock_order.sql");
 
 describe("Stage C zero-lost-turn static invariants", () => {
   it("uses the same conversation advisory-lock namespace", () => {
-    for (const sql of [lockOrder, retryState, stageBFence, retryOrder]) {
+    for (const sql of [lockOrder, retryState, stageBFence, retryOrder, boundedRetry]) {
       expect(sql).toContain("hashtextextended(v_conversation_id::text,31)");
     }
   });
@@ -29,6 +30,14 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(retryOrder).toContain("older.state='retry_safe'");
     expect(retryOrder).toContain("(older.created_at,older.id)<(t.created_at,t.id)");
     expect(retryOrder).toContain("t.state='collecting' AND t.last_received_at<=p_quiet_before");
+  });
+
+  it("bounds crash-only retries before the runtime boundary", () => {
+    expect(boundedRetry).toContain("safe_attempt_count integer NOT NULL DEFAULT 0");
+    expect(boundedRetry.match(/safe_attempt_count<5/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+    expect(boundedRetry).toContain("safe_attempt_count=t.safe_attempt_count+1");
+    expect(boundedRetry).toContain("max safe pre-runtime customer turn attempts exceeded");
+    expect(boundedRetry).toContain("ELSE 'needs_review' END");
   });
 
   it("keeps Stage B fallback behind semantic retry ownership", () => {
