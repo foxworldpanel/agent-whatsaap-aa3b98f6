@@ -9,8 +9,24 @@ export type AgentCustomerTurnMember = { turn_id:string; job_id:string; message_i
 
 export async function attachAgentInboundJobToCustomerTurn(s:any,jobId:string):Promise<string>{const {data,error}=await s.rpc("attach_agent_inbound_job_to_customer_turn",{p_job_id:jobId});if(error)throw error;if(typeof data!=="string"||!data)throw new Error(`Customer Turn attachment failed for job ${jobId}`);return data;}
 export async function attachPendingAgentInboundJobsToCustomerTurns(s:any,limit=50):Promise<number>{const {data,error}=await s.rpc("attach_pending_agent_inbound_jobs_to_customer_turns",{p_limit:limit});if(error)throw error;return Number(data||0);}
-export async function claimNextReadyCustomerTurn(s:any,holder:string,quietMs=AGENT_CUSTOMER_TURN_QUIET_MS):Promise<AgentCustomerTurn|null>{const {data,error}=await s.rpc("claim_next_agent_customer_turn",{p_holder:holder,p_quiet_before:new Date(Date.now()-quietMs).toISOString()});if(error)throw error;return Array.isArray(data)&&data.length?data[0] as AgentCustomerTurn:null;}
-export async function claimReadyCustomerTurnById(s:any,turnId:string,holder:string,quietMs=AGENT_CUSTOMER_TURN_QUIET_MS):Promise<AgentCustomerTurn|null>{const {data,error}=await s.rpc("claim_agent_customer_turn",{p_turn_id:turnId,p_holder:holder,p_quiet_before:new Date(Date.now()-quietMs).toISOString()});if(error)throw error;return Array.isArray(data)&&data.length?data[0] as AgentCustomerTurn:null;}
+
+async function readCustomerTurnClaimByHolder(s:any,holder:string,turnId?:string):Promise<AgentCustomerTurn|null>{let query=s.from("agent_customer_turns").select("*").eq("state","processing").eq("claimed_by",holder);if(turnId)query=query.eq("id",turnId);const {data,error}=await query.limit(1).maybeSingle();if(error)throw error;return data as AgentCustomerTurn|null;}
+
+export async function claimNextReadyCustomerTurn(s:any,holder:string,quietMs=AGENT_CUSTOMER_TURN_QUIET_MS):Promise<AgentCustomerTurn|null>{
+ const {data,error}=await s.rpc("claim_next_agent_customer_turn",{p_holder:holder,p_quiet_before:new Date(Date.now()-quietMs).toISOString()});
+ if(!error)return Array.isArray(data)&&data.length?data[0] as AgentCustomerTurn:null;
+ // The UPDATE can commit while the RPC response is lost. Holder values are unique
+ // per dispatch attempt, so a durable processing row owned by this holder proves
+ // exactly which turn was claimed and lets the same worker continue safely.
+ try{const claimed=await readCustomerTurnClaimByHolder(s,holder);if(claimed)return claimed;}catch(verifyError){console.error("[AGENT-CUSTOMER-TURN] failed to verify next-turn claim after RPC uncertainty",verifyError);}
+ throw error;
+}
+export async function claimReadyCustomerTurnById(s:any,turnId:string,holder:string,quietMs=AGENT_CUSTOMER_TURN_QUIET_MS):Promise<AgentCustomerTurn|null>{
+ const {data,error}=await s.rpc("claim_agent_customer_turn",{p_turn_id:turnId,p_holder:holder,p_quiet_before:new Date(Date.now()-quietMs).toISOString()});
+ if(!error)return Array.isArray(data)&&data.length?data[0] as AgentCustomerTurn:null;
+ try{const claimed=await readCustomerTurnClaimByHolder(s,holder,turnId);if(claimed)return claimed;}catch(verifyError){console.error("[AGENT-CUSTOMER-TURN] failed to verify specific-turn claim after RPC uncertainty",verifyError);}
+ throw error;
+}
 export async function loadCustomerTurnMembers(s:any,turnId:string):Promise<AgentCustomerTurnMember[]>{const {data,error}=await s.rpc("load_agent_customer_turn_members",{p_turn_id:turnId});if(error)throw error;return Array.isArray(data)?data as AgentCustomerTurnMember[]:[];}
 
 async function readCustomerTurnState(s:any,turnId:string):Promise<Pick<AgentCustomerTurn,"state"|"claimed_by">|null>{const {data,error}=await s.from("agent_customer_turns").select("state,claimed_by").eq("id",turnId).maybeSingle();if(error)throw error;return data?{state:data.state as AgentCustomerTurnState,claimed_by:data.claimed_by??null}:null;}
