@@ -11,6 +11,8 @@ const retryOrder = migration("20260914203000_customer_turn_retry_order_fence.sql
 const boundedRetry = migration("20260914211500_bound_customer_turn_safe_retries.sql");
 const generationFence = migration("20260914214500_unify_generation_lock_customer_turn_fence.sql");
 const stageBRecoveryFence = migration("20260914220000_unify_stage_b_recovery_customer_turn_fence.sql");
+const claimGenerationFence = migration("20260914224500_generation_lock_blocks_customer_turn_claims.sql");
+const insertGenerationFence = migration("20260914230000_generation_lock_insert_customer_turn_fence.sql");
 const runtimeBoundary = migration("20260914191500_safe_pre_runtime_customer_turn_recovery.sql");
 const lockOrder = migration("20260914182500_customer_turn_lock_order.sql");
 
@@ -21,6 +23,8 @@ describe("Stage C zero-lost-turn static invariants", () => {
     }
     expect(generationFence).toContain("hashtextextended(p_conversation_id::text,31)");
     expect(stageBRecoveryFence).toContain("hashtextextended(v_stale_conversation::text,31)");
+    expect(claimGenerationFence).toContain("hashtextextended(v_conversation_id::text,31)");
+    expect(insertGenerationFence).toContain("hashtextextended(NEW.conversation_id::text,31)");
   });
 
   it("keeps safe pre-runtime recovery sealed as retry_safe", () => {
@@ -54,6 +58,13 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(generationFence).toContain("CREATE OR REPLACE FUNCTION public.acquire_agent_conversation_lock");
     expect(generationFence.match(/t\.state IN \('processing_safe','processing'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
     expect(stageBRecoveryFence).toContain("active_turn.state IN ('processing_safe','processing')");
+  });
+
+  it("serializes Welcome Funnel generation ownership against Customer Turn claims", () => {
+    expect(claimGenerationFence.match(/public\.agent_generation_locks g/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(insertGenerationFence).toContain("CREATE OR REPLACE FUNCTION public.guard_agent_generation_lock_insert");
+    expect(insertGenerationFence).toContain("BEFORE INSERT ON public.agent_generation_locks");
+    expect(insertGenerationFence).toContain("t.state IN ('processing_safe','processing')");
   });
 
   it("has an explicit runtime side-effect boundary", () => {
