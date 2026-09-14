@@ -6,6 +6,7 @@ export type CustomerTurnMediaContext = {
   uazapiUrl: string;
   uazapiToken: string;
   openaiApiKey: string;
+  anthropicApiKey: string;
 };
 
 export async function resolveCustomerTurnMemberText(
@@ -15,12 +16,38 @@ export async function resolveCustomerTurnMemberText(
 ): Promise<string> {
   if (member.input_kind === "texto") return member.input_text.trim();
 
+  if (member.input_kind === "sticker") {
+    return member.input_text.trim() || "[figurinha recebida]";
+  }
+
+  const { uazapiResolveInboundMedia } = await import("@/lib/uazapi.server");
+
+  if (member.input_kind === "image") {
+    if (!context.anthropicApiKey) throw new Error("Customer Turn image requires Anthropic vision key");
+    const downloaded = await uazapiResolveInboundMedia({
+      creds: { uazapi_url: context.uazapiUrl, uazapi_token: context.uazapiToken },
+      webhookMessageId: member.external_id,
+      chatPhone: context.phone,
+      mediaKind: "image",
+    });
+    const media = downloaded.fileURL?.trim() || downloaded.fileData?.trim() || member.audio_url?.trim() || "";
+    if (!media) throw new Error(`Customer Turn image ${member.message_id} has no resolvable media`);
+    const { processImageV3 } = await import("@/lib/agent-v3/integrations/image-processor.server");
+    const description = await processImageV3(media, context.anthropicApiKey, downloaded.mimetype || member.input_mime);
+    const caption = member.input_text.trim();
+    const text = caption ? `${caption}\n[Imagem: ${description}]` : `[Imagem: ${description}]`;
+    const patch: Record<string,string> = { body: text, kind: "texto" };
+    if (downloaded.fileURL?.trim()) patch.audio_url = downloaded.fileURL.trim();
+    const { error } = await supabaseAdmin.from("messages").update(patch).eq("id", member.message_id);
+    if (error) throw error;
+    return text;
+  }
+
   if (member.input_kind !== "audio") {
     throw new Error(`Customer Turn media kind ${member.input_kind} is not resolved yet`);
   }
   if (!context.openaiApiKey) throw new Error("Customer Turn audio requires OpenAI transcription key");
 
-  const { uazapiResolveInboundMedia } = await import("@/lib/uazapi.server");
   const downloaded = await uazapiResolveInboundMedia({
     creds: { uazapi_url: context.uazapiUrl, uazapi_token: context.uazapiToken },
     webhookMessageId: member.external_id,
