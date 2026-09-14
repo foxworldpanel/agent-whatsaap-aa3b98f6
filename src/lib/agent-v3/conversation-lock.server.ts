@@ -1,4 +1,4 @@
-const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;
+export const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;
 
 async function readConversationLock(
   supabaseAdmin: any,
@@ -88,4 +88,16 @@ export async function releaseAgentConversationLock(
     if (error) throw error;
     throw verifyError;
   }
+}
+
+export async function recoverStaleAgentConversationLocks(
+  supabaseAdmin: any,
+  staleMs = DB_CONVERSATION_LOCK_STALE_MS,
+): Promise<number> {
+  const { data, error } = await supabaseAdmin.rpc(
+    "recover_stale_agent_generation_locks",
+    { p_stale_before: new Date(Date.now() - staleMs).toISOString() },
+  );
+  if (error) throw error;
+  return Number(data || 0);
 }
