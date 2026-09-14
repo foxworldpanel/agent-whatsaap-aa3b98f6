@@ -9,6 +9,7 @@ const retryState = migration("20260914194500_retry_safe_customer_turn_state.sql"
 const stageBFence = migration("20260914200000_retry_safe_blocks_stage_b_fallback.sql");
 const retryOrder = migration("20260914203000_customer_turn_retry_order_fence.sql");
 const boundedRetry = migration("20260914211500_bound_customer_turn_safe_retries.sql");
+const generationFence = migration("20260914214500_unify_generation_lock_customer_turn_fence.sql");
 const runtimeBoundary = migration("20260914191500_safe_pre_runtime_customer_turn_recovery.sql");
 const lockOrder = migration("20260914182500_customer_turn_lock_order.sql");
 
@@ -17,6 +18,7 @@ describe("Stage C zero-lost-turn static invariants", () => {
     for (const sql of [lockOrder, retryState, stageBFence, retryOrder, boundedRetry]) {
       expect(sql).toContain("hashtextextended(v_conversation_id::text,31)");
     }
+    expect(generationFence).toContain("hashtextextended(p_conversation_id::text,31)");
   });
 
   it("keeps safe pre-runtime recovery sealed as retry_safe", () => {
@@ -43,6 +45,12 @@ describe("Stage C zero-lost-turn static invariants", () => {
   it("keeps Stage B fallback behind semantic retry ownership", () => {
     expect(stageBFence.match(/t\.state IN \('retry_safe','processing_safe','processing'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
     expect(stageBFence).toContain("NOT EXISTS(SELECT 1 FROM public.agent_customer_turn_messages tm WHERE tm.job_id=j.id)");
+  });
+
+  it("prevents generation-lock cleanup while a Customer Turn owns runtime", () => {
+    expect(generationFence).toContain("CREATE OR REPLACE FUNCTION public.guard_agent_generation_lock_delete");
+    expect(generationFence).toContain("CREATE OR REPLACE FUNCTION public.acquire_agent_conversation_lock");
+    expect(generationFence.match(/t\.state IN \('processing_safe','processing'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 
   it("has an explicit runtime side-effect boundary", () => {
