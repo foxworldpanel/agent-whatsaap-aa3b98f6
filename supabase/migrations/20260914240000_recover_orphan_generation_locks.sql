@@ -23,7 +23,13 @@ BEGIN
   WHERE acquired_at<p_stale_before
   ORDER BY conversation_id
  LOOP
-  PERFORM pg_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31));
+  -- Recovery must never wait behind a live owner. A blocking advisory lock here
+  -- could make the cron transaction queue behind one busy conversation and delay
+  -- cleanup for every unrelated stale lock that follows it. Skip contention and
+  -- let the next recovery pass retry that conversation.
+  IF NOT pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31)) THEN
+    CONTINUE;
+  END IF;
 
   -- Revalidate the exact stale ownership under the shared conversation fence.
   -- Never remove a lock while a durable Stage B or Customer Turn runtime owner
