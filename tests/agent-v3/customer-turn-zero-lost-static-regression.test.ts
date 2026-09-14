@@ -16,6 +16,7 @@ const claimGenerationFence = migration("20260914224500_generation_lock_blocks_cu
 const insertGenerationFence = migration("20260914230000_generation_lock_insert_customer_turn_fence.sql");
 const readyProbeFence = migration("20260914233000_customer_turn_ready_probe_runtime_fences.sql");
 const claimFenceSkip = migration("20260914234500_customer_turn_claim_skips_fenced_conversations.sql");
+const orphanLockRecovery = migration("20260914240000_recover_orphan_generation_locks.sql");
 const runtimeBoundary = migration("20260914191500_safe_pre_runtime_customer_turn_recovery.sql");
 const lockOrder = migration("20260914182500_customer_turn_lock_order.sql");
 
@@ -29,6 +30,7 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(ownerSafeRelease).toContain("hashtextextended(p_conversation_id::text,31)");
     expect(claimGenerationFence).toContain("hashtextextended(v_conversation_id::text,31)");
     expect(insertGenerationFence).toContain("hashtextextended(NEW.conversation_id::text,31)");
+    expect(orphanLockRecovery).toContain("hashtextextended(v_candidate.conversation_id::text,31)");
   });
 
   it("keeps safe pre-runtime recovery sealed as retry_safe", () => {
@@ -93,6 +95,14 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(claimFenceSkip.match(/FROM public\.agent_generation_locks generation_lock/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
     expect(claimFenceSkip).toContain("PERFORM pg_advisory_xact_lock(hashtextextended(v_conversation_id::text,31))");
     expect(claimFenceSkip).toContain("Discovery filters are only an optimization");
+  });
+
+  it("recovers stale standalone generation locks without crossing active runtime ownership", () => {
+    expect(orphanLockRecovery).toContain("CREATE OR REPLACE FUNCTION public.recover_stale_agent_generation_locks");
+    expect(orphanLockRecovery).toContain("l.holder=v_candidate.holder");
+    expect(orphanLockRecovery).toContain("l.acquired_at=v_candidate.acquired_at");
+    expect(orphanLockRecovery).toContain("active_job.status IN ('processing_safe','processing')");
+    expect(orphanLockRecovery).toContain("active_turn.state IN ('processing_safe','processing')");
   });
 
   it("has an explicit runtime side-effect boundary", () => {
