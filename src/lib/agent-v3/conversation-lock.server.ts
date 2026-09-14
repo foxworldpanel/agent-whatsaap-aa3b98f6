@@ -38,8 +38,23 @@ export async function acquireAgentConversationLock(
     },
   );
 
-  if (error) throw error;
-  return data === true;
+  if (!error) return data === true;
+
+  // The transaction may have committed even when the RPC response was lost.
+  // Resolve that uncertainty from durable ownership so callers do not throw
+  // after actually acquiring the lock and strand it until stale recovery.
+  try {
+    const current = await readConversationLock(supabaseAdmin, conversationId);
+    if (current?.holder === holder) return true;
+    if (current && current.holder !== holder) return false;
+  } catch (verifyError) {
+    console.error(
+      "[AGENT-CONVERSATION-LOCK] failed to verify conversation lock acquisition",
+      verifyError,
+    );
+  }
+
+  throw error;
 }
 
 export async function releaseAgentConversationLock(
