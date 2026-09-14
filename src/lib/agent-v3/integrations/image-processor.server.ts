@@ -1,12 +1,19 @@
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
+const DEFAULT_VISION_MODEL = "claude-sonnet-4-5-20250929";
+const ALLOWED_IMAGE_MIME = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+function safeImageMime(value?: string | null): string {
+  const mime = String(value || "").toLowerCase().split(";")[0].trim();
+  return ALLOWED_IMAGE_MIME.has(mime) ? mime : "image/jpeg";
+}
 
 function normalizeImageSource(media: string, mimetype?: string | null): { type: "base64"; media_type: string; data: string } | { type: "url"; url: string } {
   const value = media.trim();
   const data = value.match(/^data:([^;]+);base64,(.+)$/s);
-  if (data) return { type: "base64", media_type: data[1], data: data[2].replace(/\s+/g, "") };
+  if (data) return { type: "base64", media_type: safeImageMime(data[1]), data: data[2].replace(/\s+/g, "") };
   if (/^https?:\/\//i.test(value)) return { type: "url", url: value };
   if (/^[A-Za-z0-9+/=\r\n]+$/.test(value) && value.length > 500) {
-    return { type: "base64", media_type: mimetype || "image/jpeg", data: value.replace(/\s+/g, "") };
+    return { type: "base64", media_type: safeImageMime(mimetype), data: value.replace(/\s+/g, "") };
   }
   throw new Error("Inbound image has unsupported media source");
 }
@@ -23,7 +30,7 @@ export async function processImageV3(media: string, anthropicApiKey: string, mim
       "x-api-key": apiKey,
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-5-20250929",
+      model: process.env.ANTHROPIC_VISION_MODEL?.trim() || DEFAULT_VISION_MODEL,
       max_tokens: 350,
       messages: [{
         role: "user",
