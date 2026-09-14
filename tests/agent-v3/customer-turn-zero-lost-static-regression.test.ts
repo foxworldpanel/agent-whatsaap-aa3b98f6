@@ -15,12 +15,13 @@ const ownerSafeRelease = migration("20260914223000_owner_safe_generation_lock_re
 const claimGenerationFence = migration("20260914224500_generation_lock_blocks_customer_turn_claims.sql");
 const insertGenerationFence = migration("20260914230000_generation_lock_insert_customer_turn_fence.sql");
 const readyProbeFence = migration("20260914233000_customer_turn_ready_probe_runtime_fences.sql");
+const claimFenceSkip = migration("20260914234500_customer_turn_claim_skips_fenced_conversations.sql");
 const runtimeBoundary = migration("20260914191500_safe_pre_runtime_customer_turn_recovery.sql");
 const lockOrder = migration("20260914182500_customer_turn_lock_order.sql");
 
 describe("Stage C zero-lost-turn static invariants", () => {
   it("uses the same conversation advisory-lock namespace", () => {
-    for (const sql of [lockOrder, retryState, stageBFence, retryOrder, boundedRetry]) {
+    for (const sql of [lockOrder, retryState, stageBFence, retryOrder, boundedRetry, claimFenceSkip]) {
       expect(sql).toContain("hashtextextended(v_conversation_id::text,31)");
     }
     expect(generationFence).toContain("hashtextextended(p_conversation_id::text,31)");
@@ -84,6 +85,14 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(readyProbeFence).toContain("active_job.status IN ('processing_safe','processing')");
     expect(readyProbeFence).toContain("FROM public.agent_generation_locks generation_lock");
     expect(readyProbeFence).toContain("generation_lock.conversation_id=t.conversation_id");
+  });
+
+  it("skips fenced conversations before choosing the next global candidate", () => {
+    expect(claimFenceSkip.match(/active_turn\.state IN \('processing_safe','processing'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(claimFenceSkip.match(/active_job\.status IN \('processing_safe','processing'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(claimFenceSkip.match(/FROM public\.agent_generation_locks generation_lock/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(claimFenceSkip).toContain("PERFORM pg_advisory_xact_lock(hashtextextended(v_conversation_id::text,31))");
+    expect(claimFenceSkip).toContain("Discovery filters are only an optimization");
   });
 
   it("has an explicit runtime side-effect boundary", () => {
