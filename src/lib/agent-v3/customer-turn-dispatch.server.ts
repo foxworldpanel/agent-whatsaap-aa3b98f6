@@ -103,12 +103,27 @@ export async function dispatchCustomerTurnBatch(
   let claimed = 0;
   let processed = 0;
   let needsReview = 0;
-  for (let index = 0; index < bounded; index += 1) {
+  let consecutiveIdleClaims = 0;
+
+  // A claim can legitimately return idle after selecting a candidate when a
+  // concurrent worker wins that conversation's advisory fence first. Do not
+  // abandon the whole batch on the first collision: retry a small bounded
+  // number of times so unrelated ready conversations still make progress.
+  const maxClaimAttempts = bounded + 3;
+  for (let attempt = 0; attempt < maxClaimAttempts && claimed < bounded; attempt += 1) {
     const result = await dispatchOneCustomerTurn(s, workerId);
-    if (result.status === "idle") return { attached, recovered, claimed, processed, needsReview, idle: true };
+    if (result.status === "idle") {
+      consecutiveIdleClaims += 1;
+      if (consecutiveIdleClaims >= 3) {
+        return { attached, recovered, claimed, processed, needsReview, idle: true };
+      }
+      continue;
+    }
+
+    consecutiveIdleClaims = 0;
     claimed += 1;
     if (result.status === "processed") processed += 1;
     if (result.status === "needs_review") needsReview += 1;
   }
-  return { attached, recovered, claimed, processed, needsReview, idle: false };
+  return { attached, recovered, claimed, processed, needsReview, idle: claimed < bounded };
 }
