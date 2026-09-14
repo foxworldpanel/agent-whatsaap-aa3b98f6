@@ -7,7 +7,7 @@ const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf
 const route = source("src/routes/api/public/hooks/agent-inbound-recovery.ts");
 const recoveryHelper = source("src/lib/agent-v3/inbound-recovery.server.ts");
 const lockHelper = source("src/lib/agent-v3/conversation-lock.server.ts");
-const orphanRecovery = source("supabase/migrations/20260914240000_recover_orphan_generation_locks.sql");
+const orphanRecovery = source("supabase/migrations/20260914263000_orphan_generation_lock_recovery_fairness.sql");
 
 describe("durable recovery endpoint", () => {
   it("authenticates before loading the service-role client", () => {
@@ -34,8 +34,10 @@ describe("durable recovery endpoint", () => {
     expect(lockHelper).toContain('"recover_stale_agent_generation_locks"');
   });
 
-  it("fences orphan-lock cleanup behind a nonblocking shared lock and active durable owners", () => {
+  it("fences orphan-lock cleanup behind a fair nonblocking shared lock and active durable owners", () => {
     expect(orphanRecovery).toContain("recover_stale_agent_generation_locks");
+    expect(orphanRecovery).toContain("LIMIT 500");
+    expect(orphanRecovery).toContain("EXIT WHEN v_locked>=100");
     expect(orphanRecovery).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
     expect(orphanRecovery).toContain("CONTINUE;");
     expect(orphanRecovery).not.toContain("PERFORM pg_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
