@@ -1,11 +1,12 @@
 import { timingSafeEqual } from "node:crypto";
 
-// Public cron endpoints must use a private scheduler secret. Supabase
-// publishable/anon keys identify a project/client but are intentionally public
-// credentials, so accepting one here would let any holder trigger privileged
-// dispatcher/recovery work through the service-role backend.
+// Public Agent V3 worker endpoints use their own private scheduler secret.
+// Do not fall back to a generic CRON_SECRET: sharing a credential with unrelated
+// scheduled jobs unnecessarily widens the authority able to trigger service-role
+// dispatcher/recovery work. Supabase publishable/anon keys are public credentials
+// and are intentionally never accepted here either.
 export function assertCronAuthorized(request: Request): Response | null {
-  const expected = process.env.AGENT_CRON_SECRET || process.env.CRON_SECRET || "";
+  const expected = process.env.AGENT_CRON_SECRET || "";
   if (!expected) {
     return new Response("cron auth not configured", { status: 500 });
   }
