@@ -14,6 +14,7 @@ const stageBRecoveryFence = migration("20260914220000_unify_stage_b_recovery_cus
 const ownerSafeRelease = migration("20260914223000_owner_safe_generation_lock_release.sql");
 const claimGenerationFence = migration("20260914224500_generation_lock_blocks_customer_turn_claims.sql");
 const insertGenerationFence = migration("20260914230000_generation_lock_insert_customer_turn_fence.sql");
+const readyProbeFence = migration("20260914233000_customer_turn_ready_probe_runtime_fences.sql");
 const runtimeBoundary = migration("20260914191500_safe_pre_runtime_customer_turn_recovery.sql");
 const lockOrder = migration("20260914182500_customer_turn_lock_order.sql");
 
@@ -75,6 +76,14 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(insertGenerationFence).toContain("CREATE OR REPLACE FUNCTION public.guard_agent_generation_lock_insert");
     expect(insertGenerationFence).toContain("BEFORE INSERT ON public.agent_generation_locks");
     expect(insertGenerationFence).toContain("t.state IN ('processing_safe','processing')");
+  });
+
+  it("reports ready work only when no runtime owner currently fences it", () => {
+    expect(readyProbeFence).toContain("CREATE OR REPLACE FUNCTION public.has_ready_agent_customer_turn");
+    expect(readyProbeFence).toContain("active_turn.state IN ('processing_safe','processing')");
+    expect(readyProbeFence).toContain("active_job.status IN ('processing_safe','processing')");
+    expect(readyProbeFence).toContain("FROM public.agent_generation_locks generation_lock");
+    expect(readyProbeFence).toContain("generation_lock.conversation_id=t.conversation_id");
   });
 
   it("has an explicit runtime side-effect boundary", () => {
