@@ -3,11 +3,9 @@ import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { normalizeTriggerText, removeAccents } from "@/lib/text-normalize";
 import { isConversationAgentEnabledV3 } from "@/lib/agent-v3/brain/config.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
-import {
-  beginWebhookAgentInboundRuntime,
-  finishWebhookAgentInboundRuntime,
-} from "@/lib/agent-v3/inbound-webhook-ownership.server";
-import { executeAgentV3Runtime } from "@/lib/agent-v3/runtime.server";
+import { beginWebhookAgentInboundRuntime } from "@/lib/agent-v3/inbound-webhook-ownership.server";
+import { AGENT_CUSTOMER_TURN_QUIET_MS } from "@/lib/agent-v3/customer-turn.server";
+import { dispatchReadyCustomerTurnById } from "@/lib/agent-v3/customer-turn-dispatch.server";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
@@ -1026,66 +1024,6 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       return new Response("ok (reaction only)");
     }
 
-    // DEBOUNCE DE MENSAGENS RÁPIDAS — V2, mais curto e monitorado.
-    // Corrige o cliente mandando várias mensagens curtas em sequência
-    // (comum no WhatsApp real) e cada uma disparando uma chamada de IA
-    // independente, gerando respostas fragmentadas e se contradizendo
-    // (achado em auditoria de conversa real, inclusive num caso de
-    // cliente já irritado reclamando de entrega — pior cenário possível
-    // pra receber mensagens confusas).
-    //
-    // V1 usava 6s e foi revertida por precaução (risco de timeout numa
-    // plataforma serverless — Cloudflare Workers). Essa versão usa só
-    // 1.5s: reduz bastante o risco de qualquer limite de tempo (da
-    // plataforma ou do provedor do WhatsApp esperando resposta rápida),
-    // e ainda pega a maioria das rajadas rápidas reais. Tem rastreamento
-    // pra detectar na hora se algo sair errado, em vez de silêncio total
-    // como aconteceu na V1.
-    if (content.kind === "texto" && conversationId) {
-      const DEBOUNCE_MS = 1500;
-      const debounceStartedAt = new Date().toISOString();
-
-      traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_entrada", { debounceMs: DEBOUNCE_MS });
-
-      await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS));
-
-      const { data: newerMsgs, error: newerMsgsErr } = await (supabaseAdmin as any)
-        .from("messages")
-        .select("id, body, created_at")
-        .eq("conversation_id", conversationId)
-        .eq("sender", "cliente")
-        .gt("created_at", debounceStartedAt)
-        .order("created_at", { ascending: true });
-
-      if (newerMsgsErr) {
-        console.warn("[DEBOUNCE-V2] Falha ao checar mensagens mais novas (seguindo sem agrupar):", newerMsgsErr);
-        traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_erro", { error: String(newerMsgsErr) });
-      } else if (newerMsgs && newerMsgs.length > 0) {
-        console.log(`[DEBOUNCE-V2] msgId ${msgId} abortando — ${newerMsgs.length} mensagem(ns) mais nova(s) chegou(ram) durante a espera.`);
-        traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_abortado", { mensagensMaisNovas: newerMsgs.length });
-        return new Response("ok (debounced v2, newer message will handle)");
-      } else {
-        const { data: burstMsgs } = await (supabaseAdmin as any)
-          .from("messages")
-          .select("body, created_at")
-          .eq("conversation_id", conversationId)
-          .eq("sender", "cliente")
-          .gte("created_at", new Date(Date.now() - DEBOUNCE_MS - 1000).toISOString())
-          .order("created_at", { ascending: true });
-
-        if (burstMsgs && burstMsgs.length > 1) {
-          const textoCombinado = (burstMsgs as any[]).map((m) => String(m.body || "").trim()).filter(Boolean).join("\n");
-          if (textoCombinado) {
-            console.log(`[DEBOUNCE-V2] msgId ${msgId} combinando ${burstMsgs.length} mensagens em uma só.`);
-            traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_combinado", { quantidade: burstMsgs.length });
-            content.text = textoCombinado;
-          }
-        } else {
-          traceFunnel(supabaseAdmin, msgId, phoneStr, "debounce_v2_seguiu_normal", {});
-        }
-      }
-    }
-
     // 3.4. FUNNEL GATE GLOBAL
     // SIMPLIFICADO pra bater com o schema real da tabela (confirmado via
     // information_schema): welcome_funnel_runs só tem funnel_id, contact_id,
@@ -1464,93 +1402,56 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       }
     }
 
-    // 5. AI PROCESSING (V3)
-    const inboundStartedAt = Date.now();
-    const lockKey = `${workspaceId}:${phoneStr}`;
-    console.log(`[UAZ-WEBHOOK] Iniciando processamento para ${phoneStr} (Lock: ${lockKey})`);
+    // 5. DURABLE CUSTOMER TURN INGRESS (Stage C+D)
+    if (!persistedMessageId || !conversationId) {
+      throw new Error("Agent V3 reached without persisted message/conversation id");
+    }
 
-    return await withConversationLock(lockKey, async () => {
-      if (!persistedMessageId || !conversationId) {
-        throw new Error("Agent V3 reached without persisted message/conversation id");
-      }
-
-      const lockHolder = `v3:${msgId}:${Date.now()}`;
-
-      const ownershipResult = await beginWebhookAgentInboundRuntime(supabaseAdmin, {
-        messageId: persistedMessageId,
-        conversationId,
-        workspaceId,
-        sendTarget,
-        inputText: deferredFunnelMessage || content.text || "",
-        inputKind: content.kind,
-        inputMime: content.mime,
-        deferredFunnel: Boolean(deferredFunnelMessage),
-        holder: lockHolder,
-      });
-
-      if (ownershipResult.status !== "claimed") {
-        console.log("[UAZ-WEBHOOK] Agent inbound não entrou no runtime síncrono", {
-          phone: phoneStr,
-          messageId: persistedMessageId,
-          status: ownershipResult.status,
-        });
-        return new Response(`ok (inbound ownership ${ownershipResult.status})`);
-      }
-
-      const runtimeOwnership = ownershipResult.ownership;
-      let runtimeNeedsReview = false;
-      let runtimeFailure: string | null = null;
-      try {
-          const runtimeResult = await executeAgentV3Runtime(supabaseAdmin, {
-            source: "webhook",
-            messageId: persistedMessageId,
-            externalMessageId: msgId,
-            conversationId,
-            workspaceId,
-            userId: num.user_id,
-            whatsappNumberId: num.id,
-            contactId,
-            contactSource,
-            phone: phoneStr,
-            sendTarget,
-            content: { ...content },
-            deferredFunnelMessage,
-            instance: {
-              uazapiUrl: num.uazapi_url ?? "",
-              uazapiToken: instanceToken,
-            },
-          });
-
-          if (runtimeResult.class === "operational_attention") {
-            runtimeNeedsReview = true;
-            runtimeFailure = `Agent V3 operational attention: ${runtimeResult.reason}`;
-            console.warn("[AGENT-INBOUND] runtime terminou com atenção operacional", {
-              jobId: runtimeOwnership.jobId,
-              reason: runtimeResult.reason,
-            });
-          }
-
-          return new Response("ok (agent runtime — " + runtimeResult.reason + ")");
-      } finally {
-        // A mesma fronteira terminal usada pelo dispatcher resolve o job antes
-        // de liberar a geração. Falha após entrada no runtime nunca volta para
-        // pending/replay automático.
-        try {
-          await finishWebhookAgentInboundRuntime(
-            supabaseAdmin,
-            runtimeOwnership,
-            runtimeNeedsReview
-              ? { status: "needs_review", error: `Agent V3 critical error: ${runtimeFailure || "erro desconhecido"}` }
-              : { status: "ok" },
-          );
-        } catch (ownershipFinalizeError) {
-          console.error(
-            "[UAZ-WEBHOOK] Falha ao finalizar ownership durável; mantendo estado seguro para recovery/review:",
-            ownershipFinalizeError,
-          );
-        }
-      }
+    const ownershipResult = await beginWebhookAgentInboundRuntime(supabaseAdmin, {
+      messageId: persistedMessageId,
+      conversationId,
+      workspaceId,
+      sendTarget,
+      inputText: deferredFunnelMessage || content.text || "",
+      inputKind: content.kind,
+      inputMime: content.mime,
+      deferredFunnel: Boolean(deferredFunnelMessage),
+      holder: `turn-ingress:${msgId}:${Date.now()}`,
     });
+
+    console.log("[AGENT-CUSTOMER-TURN] inbound anexado ao turno durável", {
+      phone: phoneStr,
+      messageId: persistedMessageId,
+      jobId: ownershipResult.jobId,
+      turnId: ownershipResult.turnId,
+      duplicate: ownershipResult.duplicate,
+    });
+
+    // Durable-first fast path: wait for natural silence only after the inbound is
+    // persisted. Concurrent requests may race here, but the DB claim allows
+    // exactly one worker to seal this specific turn. If a newer message arrived,
+    // last_received_at moved forward and this attempt returns idle safely.
+    await new Promise((resolve) => setTimeout(resolve, AGENT_CUSTOMER_TURN_QUIET_MS));
+    try {
+      const fastResult = await dispatchReadyCustomerTurnById(
+        supabaseAdmin,
+        ownershipResult.turnId,
+        `webhook:${msgId}`,
+      );
+      console.log("[AGENT-CUSTOMER-TURN] fast path", {
+        turnId: ownershipResult.turnId,
+        status: fastResult.status,
+      });
+    } catch (fastError) {
+      // The durable turn is already committed. Never convert a fast-path failure
+      // into webhook loss: the dispatcher/recovery path remains authoritative.
+      console.error("[AGENT-CUSTOMER-TURN] fast path falhou; turno permanece durável", {
+        turnId: ownershipResult.turnId,
+        error: fastError instanceof Error ? fastError.message : String(fastError),
+      });
+    }
+
+    return new Response("ok (agent customer turn durable)");
 }
 
 export const Route = createFileRoute("/api/public/hooks/uazapi-webhook")({

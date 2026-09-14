@@ -2,6 +2,7 @@ import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
 import type { AgentV3RuntimeExecutor } from "@/lib/agent-v3/inbound-runtime-contract.server";
 import { runtimeTerminal } from "@/lib/agent-v3/inbound-runtime-result.server";
+import { detectCriticalHumanEscalation, isHumanHandoffRequest, isStopRequest, shouldReplyWithAudio, traceFunnel } from "@/lib/agent-v3/runtime-support.server";
 
 // Generated from the audited effectful webhook boundary. The webhook owns the
 // outer catch/finally so durable ownership is finalized in one place.
@@ -25,6 +26,18 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
   const inboundStartedAt = Date.now();
   const traceId = generateTraceId();
 
+  let contactTemperature = null;
+  let customerMemory = null;
+  let customerMemoryContext = "";
+  if (contactId) {
+    const { data: contactRow, error: contactError } = await supabaseAdmin.from("contacts").select("perfil, temperatura").eq("id", contactId).eq("workspace_id", workspaceId).maybeSingle();
+    if (contactError) console.warn("[CUSTOMER-MEMORY] contact load failed:", contactError);
+    contactTemperature = contactRow?.temperatura ?? null;
+    const memoryModule = await import("@/lib/agent-v3/memory/customer-memory.server");
+    customerMemory = await memoryModule.loadCustomerCommercialMemory({ supabaseAdmin, workspaceId, contactId, contactTemperature, contactProfile: contactRow?.perfil ?? null });
+    customerMemoryContext = memoryModule.customerMemoryPromptContext(customerMemory);
+  }
+
       const { data: integ, error: integErr } = await supabaseAdmin
         .from("integrations")
         .select("anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id")
@@ -39,10 +52,10 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             .from("conversations")
             .update({
               needs_review: true,
-              review_reason: "falha ao carregar integrações de IA",
+              review_reason: "falha ao carregar integraÃ§Ãµes de IA",
             })
             .eq("id", conversationId)
-            .then(({ error }) => {
+            .then(({ error }: { error: any }) => {
               if (error) console.error("[UAZ-WEBHOOK] Failed to flag integration error for review:", error);
             });
         }
@@ -63,13 +76,13 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       let finalMsgText = deferredFunnelMessage || content.text || "";
       if (content.kind === "audio") {
         if (!openaiApiKey) {
-          console.error("[AUDIO-V3] Whisper indisponível: OPENAI_API_KEY ausente");
+          console.error("[AUDIO-V3] Whisper indisponÃ­vel: OPENAI_API_KEY ausente");
           if (conversationId) {
             await supabaseAdmin
               .from("conversations")
               .update({
                 needs_review: true,
-                review_reason: "áudio recebido sem chave OpenAI para transcrição",
+                review_reason: "Ã¡udio recebido sem chave OpenAI para transcriÃ§Ã£o",
               })
               .eq("id", conversationId);
           }
@@ -77,15 +90,15 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         }
 
         try {
-          console.log("[AUDIO-V3] 1/5 áudio inbound detectado", {
+          console.log("[AUDIO-V3] 1/5 Ã¡udio inbound detectado", {
             msgId,
             mime: content.mime || null,
             webhookMediaUrl: !!content.mediaUrl,
           });
 
-          // Caminho principal: a própria Uazapi baixa/descriptografa a mídia e
-          // pede ao Whisper a transcrição. Isso evita depender de mediaUrl temporária
-          // ou de campos diferentes entre versões do webhook.
+          // Caminho principal: a prÃ³pria Uazapi baixa/descriptografa a mÃ­dia e
+          // pede ao Whisper a transcriÃ§Ã£o. Isso evita depender de mediaUrl temporÃ¡ria
+          // ou de campos diferentes entre versÃµes do webhook.
           const { uazapiResolveInboundMedia } = await import("@/lib/uazapi.server");
 
           const downloaded = await uazapiResolveInboundMedia({
@@ -104,19 +117,19 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
 
           finalMsgText = downloaded.transcription?.trim() || "";
 
-          console.log("[AUDIO-V3] /message/download concluído", {
+          console.log("[AUDIO-V3] /message/download concluÃ­do", {
             hasTranscription: !!finalMsgText,
             hasUrl: !!downloaded.fileURL,
             hasData: !!downloaded.fileData,
             mimetype: downloaded.mimetype,
           });
 
-          // Fallback: se a Uazapi não retornou a transcrição, usamos nosso
-          // processador Whisper diretamente com a mídia resolvida.
+          // Fallback: se a Uazapi nÃ£o retornou a transcriÃ§Ã£o, usamos nosso
+          // processador Whisper diretamente com a mÃ­dia resolvida.
           if (!finalMsgText) {
             if (!inboundAudioUrl) {
               throw new Error(
-                "Uazapi não retornou transcrição nem mídia utilizável para o áudio",
+                "Uazapi nÃ£o retornou transcriÃ§Ã£o nem mÃ­dia utilizÃ¡vel para o Ã¡udio",
               );
             }
 
@@ -131,15 +144,15 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
           }
 
           if (!finalMsgText) {
-            throw new Error("Whisper retornou transcrição vazia");
+            throw new Error("Whisper retornou transcriÃ§Ã£o vazia");
           }
 
-          console.log("[AUDIO-V3] 2/5 Whisper concluído", {
+          console.log("[AUDIO-V3] 2/5 Whisper concluÃ­do", {
             chars: finalMsgText.length,
           });
 
-          // Se a Uazapi disponibilizou uma URL reproduzível, salva no CRM também.
-          // Assim o player da conversa deixa de exibir 0:00 quando houver mídia pública.
+          // Se a Uazapi disponibilizou uma URL reproduzÃ­vel, salva no CRM tambÃ©m.
+          // Assim o player da conversa deixa de exibir 0:00 quando houver mÃ­dia pÃºblica.
           if (conversationId && downloaded.fileURL) {
             const { error: audioUrlPersistErr } = await supabaseAdmin
               .from("messages")
@@ -149,15 +162,15 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
 
             if (audioUrlPersistErr) {
               console.warn(
-                "[AUDIO-V3] Falha ao salvar URL reproduzível do áudio:",
+                "[AUDIO-V3] Falha ao salvar URL reproduzÃ­vel do Ã¡udio:",
                 audioUrlPersistErr,
               );
             }
           }
 
-          // A mensagem inbound foi persistida antes da transcrição para garantir
-          // deduplicação. Agora substituímos "[áudio recebido]" pelo texto real
-          // do Whisper para o CRM, histórico e tela de Conversas mostrarem o conteúdo.
+          // A mensagem inbound foi persistida antes da transcriÃ§Ã£o para garantir
+          // deduplicaÃ§Ã£o. Agora substituÃ­mos "[Ã¡udio recebido]" pelo texto real
+          // do Whisper para o CRM, histÃ³rico e tela de Conversas mostrarem o conteÃºdo.
           if (conversationId && finalMsgText) {
             const { error: transcriptPersistErr } = await supabaseAdmin
               .from("messages")
@@ -169,7 +182,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               .eq("external_id", msgId);
 
             if (transcriptPersistErr) {
-              console.error("[AUDIO-V3] Whisper funcionou, mas falhou ao salvar transcrição no CRM:", transcriptPersistErr);
+              console.error("[AUDIO-V3] Whisper funcionou, mas falhou ao salvar transcriÃ§Ã£o no CRM:", transcriptPersistErr);
             }
 
             const { error: previewPersistErr } = await supabaseAdmin
@@ -191,7 +204,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               .from("conversations")
               .update({
                 needs_review: true,
-                review_reason: "falha ao transcrever áudio recebido",
+                review_reason: "falha ao transcrever Ã¡udio recebido",
               })
               .eq("id", conversationId);
             if (reviewErr) {
@@ -253,7 +266,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
           }
 
           if (!resolvedImageSource) {
-            throw new Error("Imagem resolvida pela Uazapi, mas sem bytes utilizáveis");
+            throw new Error("Imagem resolvida pela Uazapi, mas sem bytes utilizÃ¡veis");
           }
 
           finalMsgText =
@@ -272,7 +285,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               .from("conversations")
               .update({
                 needs_review: true,
-                review_reason: "falha ao carregar imagem para análise visual",
+                review_reason: "falha ao carregar imagem para anÃ¡lise visual",
               })
               .eq("id", conversationId);
           }
@@ -294,7 +307,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       if (criticalEscalation.escalate) {
         const nowIso = new Date().toISOString();
         const handoffReply =
-          "Entendi. Como seu caso precisa de uma análise mais detalhada, vou pausar por aqui e encaminhar para o setor responsável. Assim que possível, a equipe dará continuidade ao seu atendimento.";
+          "Entendi. Como seu caso precisa de uma anÃ¡lise mais detalhada, vou pausar por aqui e encaminhar para o setor responsÃ¡vel. Assim que possÃ­vel, a equipe darÃ¡ continuidade ao seu atendimento.";
 
         try {
           if (conversationId) {
@@ -303,18 +316,18 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               .update({
                 agent_enabled: false,
                 needs_review: true,
-                review_reason: criticalEscalation.reason || "suporte humano necessário",
+                review_reason: criticalEscalation.reason || "suporte humano necessÃ¡rio",
                 auto_paused_at: nowIso,
                 status: "aguardando",
                 internal_note:
-                  `Escalação automática para humano. Motivo: ${criticalEscalation.reason || "caso crítico de suporte"}.`,
+                  `EscalaÃ§Ã£o automÃ¡tica para humano. Motivo: ${criticalEscalation.reason || "caso crÃ­tico de suporte"}.`,
               })
               .eq("id", conversationId);
 
             if (criticalConvErr) throw criticalConvErr;
           }
 
-          // Mantém o Lead Intelligence coerente com o handoff crítico.
+          // MantÃ©m o Lead Intelligence coerente com o handoff crÃ­tico.
           await supabaseAdmin.from("agent_logs").insert({
             user_id: num.user_id,
             workspace_id: workspaceId,
@@ -322,7 +335,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             conversation_id: conversationId,
             type: "agent_v3_turn",
             level: "warning",
-            summary: "Agent V3 escalou caso crítico para revisão humana",
+            summary: "Agent V3 escalou caso crÃ­tico para revisÃ£o humana",
             response: handoffReply,
             metadata: {
               human_escalation: true,
@@ -330,17 +343,17 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               intelligence: {
                 temperature: "frio",
                 confidence: "Muito alta",
-                intent: "Reclamação",
-                stage: "Pós-venda",
+                intent: "ReclamaÃ§Ã£o",
+                stage: "PÃ³s-venda",
                 purchase_probability: 20,
                 sentiment: "Negativo",
                 urgency: "Alta",
-                recommended_action: "Atendimento humano obrigatório antes de novas tentativas automáticas.",
-                reasoning: criticalEscalation.reason || "Caso crítico de suporte.",
+                recommended_action: "Atendimento humano obrigatÃ³rio antes de novas tentativas automÃ¡ticas.",
+                reasoning: criticalEscalation.reason || "Caso crÃ­tico de suporte.",
               },
             },
           }).then(({ error }: any) => {
-            if (error) console.warn("[HUMAN-ESCALATION] Falha ao salvar inteligência:", error);
+            if (error) console.warn("[HUMAN-ESCALATION] Falha ao salvar inteligÃªncia:", error);
           });
 
           const sendResult = await sendAgentTextGuarded(
@@ -379,10 +392,10 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             phoneStr,
             workspaceId,
           ).catch((error) => {
-            console.warn("[HUMAN-ESCALATION] Falha ao limpar memória V3:", error);
+            console.warn("[HUMAN-ESCALATION] Falha ao limpar memÃ³ria V3:", error);
           });
 
-          console.warn("[HUMAN-ESCALATION] Atendimento automático pausado", {
+          console.warn("[HUMAN-ESCALATION] Atendimento automÃ¡tico pausado", {
             conversationId,
             phone: phoneStr,
             reason: criticalEscalation.reason,
@@ -397,7 +410,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
 
       if (isHumanHandoffRequest(finalMsgText)) {
         const handoffReply =
-          "Claro. Vou pausar por aqui e encaminhar seu atendimento para o setor responsável. Assim que possível, a equipe dará continuidade por aqui.";
+          "Claro. Vou pausar por aqui e encaminhar seu atendimento para o setor responsÃ¡vel. Assim que possÃ­vel, a equipe darÃ¡ continuidade por aqui.";
 
         try {
           if (conversationId) {
@@ -410,7 +423,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
                 auto_paused_at: new Date().toISOString(),
                 status: "aguardando",
                 internal_note:
-                  "Cliente solicitou atendimento humano pelo WhatsApp. Agent V3 pausado até reativação manual.",
+                  "Cliente solicitou atendimento humano pelo WhatsApp. Agent V3 pausado atÃ© reativaÃ§Ã£o manual.",
               })
               .eq("id", conversationId);
 
@@ -418,7 +431,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
           }
 
           // Confirma UMA vez e encerra o turno. Depois disso agent_enabled=false
-          // impede novas respostas automáticas até reativação manual no painel.
+          // impede novas respostas automÃ¡ticas atÃ© reativaÃ§Ã£o manual no painel.
           const sendResult = await sendAgentTextGuarded(
             creds,
             sendTarget,
@@ -444,14 +457,14 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
 
             if (handoffMessageErr) {
               console.error(
-                "[HUMAN-HANDOFF] Confirmação enviada, mas falhou ao persistir:",
+                "[HUMAN-HANDOFF] ConfirmaÃ§Ã£o enviada, mas falhou ao persistir:",
                 handoffMessageErr,
               );
             }
           }
 
-          // Limpa a memória operacional do Agent V3. Quando o operador decidir
-          // reativar a conversa, o agente não retoma um estado comercial antigo.
+          // Limpa a memÃ³ria operacional do Agent V3. Quando o operador decidir
+          // reativar a conversa, o agente nÃ£o retoma um estado comercial antigo.
           const { clearConversationStateV3 } = await import(
             "@/lib/agent-v3/memory/conversation-state.server"
           );
@@ -460,7 +473,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             phoneStr,
             workspaceId,
           ).catch((error) => {
-            console.warn("[HUMAN-HANDOFF] Falha ao limpar memória V3:", error);
+            console.warn("[HUMAN-HANDOFF] Falha ao limpar memÃ³ria V3:", error);
           });
 
           console.log("[HUMAN-HANDOFF] Agent V3 pausado para atendimento humano", {
@@ -488,7 +501,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
                 needs_review: true,
                 review_reason: "opt-out solicitado pelo contato",
                 auto_paused_at: nowIso,
-                internal_note: "Contato pediu para não receber novas mensagens automáticas.",
+                internal_note: "Contato pediu para nÃ£o receber novas mensagens automÃ¡ticas.",
               })
               .eq("id", conversationId),
           );
@@ -542,7 +555,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         .maybeSingle();
 
       if (humanizationError) {
-        console.warn("[UAZ-WEBHOOK] Falha ao carregar configuração de humanização; usando padrão:", humanizationError);
+        console.warn("[UAZ-WEBHOOK] Falha ao carregar configuraÃ§Ã£o de humanizaÃ§Ã£o; usando padrÃ£o:", humanizationError);
       }
 
       const legacyModules =
@@ -573,8 +586,8 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
                   : DEFAULT_AGENT_HUMANIZATION.typing_enabled,
             },
       );
-      // Enquanto o modelo prepara uma resposta em texto, já exibimos "digitando...".
-      // A espera final considera o tempo já gasto pelo processamento para não deixar
+      // Enquanto o modelo prepara uma resposta em texto, jÃ¡ exibimos "digitando...".
+      // A espera final considera o tempo jÃ¡ gasto pelo processamento para nÃ£o deixar
       // o atendimento artificialmente lento.
       if (
         humanization.enabled &&
@@ -587,7 +600,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
           sendTarget,
           humanization.max_response_delay_ms,
         ).catch((error) => {
-          console.warn("[UAZ-WEBHOOK] Não foi possível sinalizar digitando:", error);
+          console.warn("[UAZ-WEBHOOK] NÃ£o foi possÃ­vel sinalizar digitando:", error);
         });
       }
 
@@ -597,12 +610,12 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         phoneStr,
         workspaceId,
       );
-      console.log(`[UAZ-WEBHOOK] [AUDIT] Histórico recuperado: ${history?.length || 0} mensagens. Telemetria: ${JSON.stringify(historyTelemetry || {})}`);
+      console.log(`[UAZ-WEBHOOK] [AUDIT] HistÃ³rico recuperado: ${history?.length || 0} mensagens. Telemetria: ${JSON.stringify(historyTelemetry || {})}`);
 
-      // O histórico V3 não contém necessariamente as peças automáticas do funil.
-      // Consulte o runtime do funil para impedir uma segunda apresentação da Júlia.
-      // SIMPLIFICADO: sem coluna status na tabela real, existência da linha
-      // já significa "esse funil já rodou pra esse contato" (síncrono).
+      // O histÃ³rico V3 nÃ£o contÃ©m necessariamente as peÃ§as automÃ¡ticas do funil.
+      // Consulte o runtime do funil para impedir uma segunda apresentaÃ§Ã£o da JÃºlia.
+      // SIMPLIFICADO: sem coluna status na tabela real, existÃªncia da linha
+      // jÃ¡ significa "esse funil jÃ¡ rodou pra esse contato" (sÃ­ncrono).
       let funnelAlreadyCompleted = false;
       if (contactId) {
         const { data: completedFunnelRun } = await (supabaseAdmin as any)
@@ -614,20 +627,20 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
           .maybeSingle();
         funnelAlreadyCompleted = Boolean(completedFunnelRun);
       }
-      // Diagnóstico real — achado em conversa de produção em 10/08/2026
-      // onde a Júlia cumprimentou de novo mesmo com o funil já concluído
-      // (violando a regra PÓS-FUNIL). O código de cálculo parece correto
-      // lendo, então isso registra o valor real computado toda vez, pra
-      // confirmar com dado se é timing/corrida ou outra causa, em vez de
-      // suposição.
+      // DiagnÃ³stico real â€” achado em conversa de produÃ§Ã£o em 10/08/2026
+      // onde a JÃºlia cumprimentou de novo mesmo com o funil jÃ¡ concluÃ­do
+      // (violando a regra PÃ“S-FUNIL). O cÃ³digo de cÃ¡lculo parece correto
+      // lendo, entÃ£o isso registra o valor real computado toda vez, pra
+      // confirmar com dado se Ã© timing/corrida ou outra causa, em vez de
+      // suposiÃ§Ã£o.
       traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_already_completed_check", {
         contactId: contactId ?? null,
         workspaceId,
         funnelAlreadyCompleted,
       });
 
-      // Agrupa rajadas curtas do mesmo cliente (ex.: "Inscritos" + "E comentário").
-      // Isso evita responder à primeira metade como se ela fosse a intenção completa.
+      // Agrupa rajadas curtas do mesmo cliente (ex.: "Inscritos" + "E comentÃ¡rio").
+      // Isso evita responder Ã  primeira metade como se ela fosse a intenÃ§Ã£o completa.
       let effectiveAgentMessage = finalMsgText;
       if (conversationId && content.kind === "texto") {
         const burstSince = new Date(Date.now() - 12_000).toISOString();
@@ -649,12 +662,12 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       }
 
       // ============================================================
-      // SMART ROUTER — agora encapsulado dentro de executeAgent(), junto
+      // SMART ROUTER â€” agora encapsulado dentro de executeAgent(), junto
       // com a chamada condicional ao Claude. Ver o bloco logo abaixo,
-      // próximo de "RETURN-PONTO: chegou na V3". Mantido aqui como
-      // comentário histórico: antes disso, o webhook tinha sua própria
-      // cópia dessa checagem — unificado agora pra Playground e WhatsApp
-      // usarem exatamente o mesmo ponto de decisão.
+      // prÃ³ximo de "RETURN-PONTO: chegou na V3". Mantido aqui como
+      // comentÃ¡rio histÃ³rico: antes disso, o webhook tinha sua prÃ³pria
+      // cÃ³pia dessa checagem â€” unificado agora pra Playground e WhatsApp
+      // usarem exatamente o mesmo ponto de decisÃ£o.
       // ============================================================
 
       const {
@@ -692,9 +705,9 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       });
 
       // ============================================================
-      // MODO SOMBRA — buildAgentExecutionContext() rodando em paralelo,
-      // só pra comparação. NÃO influencia a resposta real, que continua
-      // vindo 100% do pipeline antigo acima. Qualquer erro aqui é só
+      // MODO SOMBRA â€” buildAgentExecutionContext() rodando em paralelo,
+      // sÃ³ pra comparaÃ§Ã£o. NÃƒO influencia a resposta real, que continua
+      // vindo 100% do pipeline antigo acima. Qualquer erro aqui Ã© sÃ³
       // logado, nunca interrompe o atendimento.
       // ============================================================
       try {
@@ -708,8 +721,8 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
           customerLifecycle: customerMemory?.lifecycle ?? null,
           previousBusinessDecision,
           rememberedContext: {
-            platform: customerMemory?.preferredPlatform ?? null,
-            product: customerMemory?.preferredProduct ?? null,
+            platform: ((customerMemory?.preferredPlatform ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["platform"]),
+            product: ((customerMemory?.preferredProduct ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["product"]),
           },
         });
 
@@ -735,15 +748,15 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             `BusinessDecision.risk: antigo="${businessDecision.risk}" novo="${shadowContext.businessDecision.risk}"`,
           );
         }
-        // extraContext é comparado por tamanho E por hash — hash detecta
-        // qualquer diferença de conteúdo, mesmo que o tamanho bata por
-        // coincidência.
+        // extraContext Ã© comparado por tamanho E por hash â€” hash detecta
+        // qualquer diferenÃ§a de conteÃºdo, mesmo que o tamanho bata por
+        // coincidÃªncia.
         const oldExtraContextChars = (oldExtraContext || "").length;
         const newExtraContextChars = (shadowContext.extraContext || "").length;
         const extraContextCharsDiff = newExtraContextChars - oldExtraContextChars;
         if (Math.abs(extraContextCharsDiff) > 50) {
           diffs.push(
-            `extraContext.length: antigo=${oldExtraContextChars} novo=${newExtraContextChars} (diferença: ${extraContextCharsDiff > 0 ? "+" : ""}${extraContextCharsDiff} chars)`,
+            `extraContext.length: antigo=${oldExtraContextChars} novo=${newExtraContextChars} (diferenÃ§a: ${extraContextCharsDiff > 0 ? "+" : ""}${extraContextCharsDiff} chars)`,
           );
         }
 
@@ -753,9 +766,9 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         const newExtraContextHash = hashOf(shadowContext.extraContext || "");
         const extraContextHashMatches = oldExtraContextHash === newExtraContextHash;
         if (!extraContextHashMatches && !diffs.some(d => d.startsWith("extraContext"))) {
-          // Tamanho bateu mas conteúdo é diferente — hash pegou o que o
-          // tamanho sozinho não pegaria.
-          diffs.push(`extraContext.hash: antigo=${oldExtraContextHash} novo=${newExtraContextHash} (conteúdo diferente apesar do tamanho parecido)`);
+          // Tamanho bateu mas conteÃºdo Ã© diferente â€” hash pegou o que o
+          // tamanho sozinho nÃ£o pegaria.
+          diffs.push(`extraContext.hash: antigo=${oldExtraContextHash} novo=${newExtraContextHash} (conteÃºdo diferente apesar do tamanho parecido)`);
         }
 
         // Nota percentual: cada checagem vale igual, simples e transparente.
@@ -770,17 +783,17 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
 
         console.log(`
 =============================
-PARIDADE (modo sombra — não afeta a resposta)
+PARIDADE (modo sombra â€” nÃ£o afeta a resposta)
 =============================
-${checks.map(c => `${c.name}: ${c.ok ? "✓ Igual" : "✗ Diferente"}`).join("\n")}
+${checks.map(c => `${c.name}: ${c.ok ? "âœ“ Igual" : "âœ— Diferente"}`).join("\n")}
 -----------------------------
 PARIDADE: ${score}%
 =============================
-${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhuma divergência encontrada."}
+${diffs.length > 0 ? "DETALHES DAS DIVERGÃŠNCIAS:\n" + diffs.join("\n") : "Nenhuma divergÃªncia encontrada."}
 =============================`);
 
         // Persiste pra consulta posterior (SELECT * WHERE equal = false).
-        // Best-effort — falha aqui não afeta nada.
+        // Best-effort â€” falha aqui nÃ£o afeta nada.
         await (supabaseAdmin as any).from("agent_parity_runs").insert({
           workspace_id: workspaceId,
           phone: phoneStr,
@@ -804,10 +817,10 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           },
         } as any);
       } catch (shadowModeError) {
-        console.warn("[PARIDADE] Falha no modo sombra (não bloqueia o fluxo):", shadowModeError);
+        console.warn("[PARIDADE] Falha no modo sombra (nÃ£o bloqueia o fluxo):", shadowModeError);
       }
 
-      console.log("[BUSINESS-STATE-V3] decisão antes do LLM", {
+      console.log("[BUSINESS-STATE-V3] decisÃ£o antes do LLM", {
         conversationId,
         state: businessDecision.state,
         risk: businessDecision.risk,
@@ -832,11 +845,11 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       }
 
       // ============================================================
-      // FLOW ENGINE — checagem ANTECIPADA (antes da IA), só pra
+      // FLOW ENGINE â€” checagem ANTECIPADA (antes da IA), sÃ³ pra
       // permitir que uma FlowAction ligada por feature flag influencie
       // a resposta. Enquanto NENHUMA flag estiver ligada (estado atual),
-      // "anyFlowActionEnabled()" é false e nada além dessa checagem
-      // síncrona acontece — zero custo extra, zero leitura de banco.
+      // "anyFlowActionEnabled()" Ã© false e nada alÃ©m dessa checagem
+      // sÃ­ncrona acontece â€” zero custo extra, zero leitura de banco.
       // ============================================================
       let flowActionHint: { version: number; action: string; reasonCode: string; reason: string; payload: unknown } | null = null;
       try {
@@ -908,8 +921,8 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
         },
         skipRouter: !(content.kind === "texto" && !deferredFunnelMessage),
         rememberedContext: {
-          platform: customerMemory?.preferredPlatform ?? null,
-          product: customerMemory?.preferredProduct ?? null,
+          platform: ((customerMemory?.preferredPlatform ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["platform"]),
+          product: ((customerMemory?.preferredProduct ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["product"]),
         },
         extraContext: [
           customerMemoryContext,
@@ -917,10 +930,10 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
         ].filter(Boolean).join("\n\n") || undefined,
         businessDecision,
         funnelAlreadyCompleted,
-        // Cliente originado de disparo (abordagem fria) vs orgânico
-        // (Meta Ads/interesse espontâneo). contacts.source="disparo" já
-        // era gravado há tempos, só nunca era lido de volta pra mudar o
-        // comportamento da Júlia — achado em 09/08/2026.
+        // Cliente originado de disparo (abordagem fria) vs orgÃ¢nico
+        // (Meta Ads/interesse espontÃ¢neo). contacts.source="disparo" jÃ¡
+        // era gravado hÃ¡ tempos, sÃ³ nunca era lido de volta pra mudar o
+        // comportamento da JÃºlia â€” achado em 09/08/2026.
         isOutboundReply: contactSource === "disparo",
         customerLifecycle: customerMemory?.lifecycle,
         repurchasePotential: customerMemory?.repurchasePotential,
@@ -983,17 +996,17 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           return runtimeTerminal("smart_router_completed");
         } catch (routerSendError) {
           // Falha ao enviar a resposta do router: loga e segue o fluxo,
-          // não deixa a mensagem cair no limbo sem resposta nenhuma.
+          // nÃ£o deixa a mensagem cair no limbo sem resposta nenhuma.
           console.error("[SMART-ROUTER] Falha ao enviar resposta:", routerSendError);
           return runtimeTerminal("smart_router_send_failed");
         }
       }
 
-      // route === "claude": segue o fluxo normal, extenso, já existente,
-      // que processa v3Response (memória, CRM, humanização, envio, etc.)
+      // route === "claude": segue o fluxo normal, extenso, jÃ¡ existente,
+      // que processa v3Response (memÃ³ria, CRM, humanizaÃ§Ã£o, envio, etc.)
       const v3Response = execResult.agentResult!;
 
-      if (contactId) {
+      if (contactId && customerMemory) {
         try {
           const { persistCustomerCommercialMemory } = await import(
             "@/lib/agent-v3/memory/customer-memory.server"
@@ -1020,8 +1033,9 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           });
 
           if (
-            customerMemory.lifecycle === "cliente" ||
-            customerMemory.lifecycle === "cliente_recorrente"
+            customerMemory &&
+            (customerMemory.lifecycle === "cliente" ||
+              customerMemory.lifecycle === "cliente_recorrente")
           ) {
             if (conversationId) {
               await supabaseAdmin
@@ -1031,11 +1045,11 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
                 .eq("workspace_id", workspaceId);
             }
 
-            // Memória de cliente NÃO força todo novo turno para Pós-venda.
+            // MemÃ³ria de cliente NÃƒO forÃ§a todo novo turno para PÃ³s-venda.
             // Um cliente antigo pode estar fazendo uma nova compra e deve permanecer
-            // em Compra/Pagamento até que o pedido atual seja confirmado.
+            // em Compra/Pagamento atÃ© que o pedido atual seja confirmado.
             const currentIntent = String((v3Response.modules.selection_context as any)?.intent || "");
-            const confirmedNow = /\b((?:j[aá]\s+)?(?:comprei|paguei)(?:\s+hoje|\s+ontem)?|j[aá]\s+fiz\s+o\s+pedido|pedido\s+(?:feito|realizado)|pagamento\s+(?:feito|realizado))\b/i.test(finalMsgText);
+            const confirmedNow = /\b((?:j[aÃ¡]\s+)?(?:comprei|paguei)(?:\s+hoje|\s+ontem)?|j[aÃ¡]\s+fiz\s+o\s+pedido|pedido\s+(?:feito|realizado)|pagamento\s+(?:feito|realizado))\b/i.test(finalMsgText);
             if (confirmedNow || currentIntent === "pos_compra" || currentIntent === "suporte") {
               v3Response.intelligence.temperature = confirmedNow ? "quente" : v3Response.intelligence.temperature;
               v3Response.intelligence.intent = currentIntent === "suporte" ? "suporte" : "pos_compra";
@@ -1049,18 +1063,18 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
                 if (v3Response.intelligence.temperature === "frio") v3Response.intelligence.temperature = "morno";
               }
               v3Response.intelligence.recommended_action =
-                `Cliente existente. Potencial de recompra: ${customerMemory.repurchasePotential}. Não reiniciar qualificação.`;
+                `Cliente existente. Potencial de recompra: ${customerMemory.repurchasePotential}. NÃ£o reiniciar qualificaÃ§Ã£o.`;
             }
           }
         } catch (memoryPersistError) {
-          console.warn("[CUSTOMER-MEMORY] Falha ao atualizar memória comercial:", memoryPersistError);
+          console.warn("[CUSTOMER-MEMORY] Falha ao atualizar memÃ³ria comercial:", memoryPersistError);
         }
       }
 
       // ============================================================
-      // ORDER CONTEXT + FLOW ENGINE (fase de observação) — NÃO
-      // influenciam a resposta. Só derivam, avaliam e logam, pra
-      // validar antes de qualquer decisão real depender disso.
+      // ORDER CONTEXT + FLOW ENGINE (fase de observaÃ§Ã£o) â€” NÃƒO
+      // influenciam a resposta. SÃ³ derivam, avaliam e logam, pra
+      // validar antes de qualquer decisÃ£o real depender disso.
       // ============================================================
       try {
         const { deriveOrderContextV3, loadOrderContextV3, saveOrderContextV3 } = await import(
@@ -1081,7 +1095,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
         const flowResult = evaluateFlow(newOrderContext, businessDecision);
 
-        console.log("[ORDER-CONTEXT] Evolução do pedido:", {
+        console.log("[ORDER-CONTEXT] EvoluÃ§Ã£o do pedido:", {
           phone: phoneStr,
           mensagem: effectiveAgentMessage.slice(0, 80),
           antes: {
@@ -1101,7 +1115,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           },
         });
 
-        console.log("[FLOW-ENGINE] Decisão determinística (modo sombra — não influencia a resposta):", {
+        console.log("[FLOW-ENGINE] DecisÃ£o determinÃ­stica (modo sombra â€” nÃ£o influencia a resposta):", {
           phone: phoneStr,
           nextAction: flowResult.action,
           reason: flowResult.reason,
@@ -1111,8 +1125,8 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           missingFields: flowResult.requiredFields,
         });
 
-        // Registra a decisão pra medir precisão por ação depois (revisão
-        // manual), critério de promoção individual via feature flag.
+        // Registra a decisÃ£o pra medir precisÃ£o por aÃ§Ã£o depois (revisÃ£o
+        // manual), critÃ©rio de promoÃ§Ã£o individual via feature flag.
         await (supabaseAdmin as any).from("flow_action_decisions").insert({
           workspace_id: workspaceId,
           phone: phoneStr,
@@ -1129,12 +1143,12 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
         await saveOrderContextV3(phoneStr, workspaceId, num.user_id, newOrderContext);
       } catch (orderContextError) {
-        console.warn("[ORDER-CONTEXT/FLOW-ENGINE] Falha ao processar (não bloqueia o fluxo):", orderContextError);
+        console.warn("[ORDER-CONTEXT/FLOW-ENGINE] Falha ao processar (nÃ£o bloqueia o fluxo):", orderContextError);
       }
 
       // Sincroniza a caixa Frio/Morno/Quente/Cliente do CRM.
-      // Ela é persistente e usa evidências objetivas do funil comercial, em vez
-      // de depender somente da classificação de uma mensagem isolada.
+      // Ela Ã© persistente e usa evidÃªncias objetivas do funil comercial, em vez
+      // de depender somente da classificaÃ§Ã£o de uma mensagem isolada.
       if (contactId) {
         try {
           const { syncPersistentContactTemperatureV3 } = await import(
@@ -1153,7 +1167,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           let purchaseProbability = v3Response?.intelligence?.purchase_probability;
           let intelligenceTemperature = v3Response?.intelligence?.temperature;
 
-          // Se não houver resposta do Claude (Smart Router), derivamos da inteligência de vendas
+          // Se nÃ£o houver resposta do Claude (Smart Router), derivamos da inteligÃªncia de vendas
           if (purchaseProbability === undefined || intelligenceTemperature === undefined) {
             const baseProb = calculateBasePurchaseProbability({
               intent: selectionContextForTemperature.intent || "desconhecido",
@@ -1195,7 +1209,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           });
         } catch (temperatureSyncError) {
           console.warn(
-            "[CONTACT-TEMPERATURE-V3] Falha não bloqueante:",
+            "[CONTACT-TEMPERATURE-V3] Falha nÃ£o bloqueante:",
             temperatureSyncError,
           );
         }
@@ -1207,9 +1221,9 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
             "@/lib/agent-v3/memory/business-state-memory.server"
           );
 
-          // Usa a decisão pré-LLM como estado autoritativo. A inteligência serve
-          // como telemetria/visão comercial, mas não pode empurrar a conversa
-          // para trás no funil.
+          // Usa a decisÃ£o prÃ©-LLM como estado autoritativo. A inteligÃªncia serve
+          // como telemetria/visÃ£o comercial, mas nÃ£o pode empurrar a conversa
+          // para trÃ¡s no funil.
           await persistBusinessStateV3({
             supabaseAdmin,
             userId: num.user_id,
@@ -1266,7 +1280,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
               sendTarget,
               Math.max(3000, remainingFirstReplyDelayMs),
             ).catch((error) => {
-              console.warn("[UAZ-WEBHOOK] Não foi possível sinalizar gravando áudio:", error);
+              console.warn("[UAZ-WEBHOOK] NÃ£o foi possÃ­vel sinalizar gravando Ã¡udio:", error);
             });
           }
 
@@ -1279,10 +1293,10 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           console.log("[AUDIO-V3] 4/5 ElevenLabs concluiu TTS", {
             chars: replyText.length,
             audioDataChars: audioBase64.length,
-            voiceId: `${elevenlabsVoiceId.slice(0, 4)}…`,
+            voiceId: `${elevenlabsVoiceId.slice(0, 4)}â€¦`,
           });
 
-          // O tempo de geração do Claude/TTS conta como parte da espera humana.
+          // O tempo de geraÃ§Ã£o do Claude/TTS conta como parte da espera humana.
           const remainingAudioDelayMs = Math.max(
             0,
             targetHumanDelayMs - (Date.now() - inboundStartedAt),
@@ -1294,9 +1308,9 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           await uazapiClearPresence(creds, sendTarget).catch(() => undefined);
           sentAsAudio = true;
 
-          // Registra explicitamente o outbound de áudio. O arquivo TTS é enviado
-          // como base64 e não possui URL persistente; o body mantém a transcrição
-          // exata usada para gerar o áudio e a memória conversacional.
+          // Registra explicitamente o outbound de Ã¡udio. O arquivo TTS Ã© enviado
+          // como base64 e nÃ£o possui URL persistente; o body mantÃ©m a transcriÃ§Ã£o
+          // exata usada para gerar o Ã¡udio e a memÃ³ria conversacional.
           if (conversationId) {
             const { error: audioPersistErr } = await supabaseAdmin
               .from("messages")
@@ -1309,13 +1323,13 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
                 body: replyText,
               });
             if (audioPersistErr) {
-              console.error("[UAZ-WEBHOOK] Áudio enviado, mas falhou ao persistir outbound no CRM:", audioPersistErr);
+              console.error("[UAZ-WEBHOOK] Ãudio enviado, mas falhou ao persistir outbound no CRM:", audioPersistErr);
             }
           }
 
-          console.log("[UAZ-WEBHOOK] Resposta do Agent V3 enviada por áudio");
+          console.log("[UAZ-WEBHOOK] Resposta do Agent V3 enviada por Ã¡udio");
         } catch (audioSendErr) {
-          console.error("[UAZ-WEBHOOK] Falha ao responder por áudio; usando texto:", audioSendErr);
+          console.error("[UAZ-WEBHOOK] Falha ao responder por Ã¡udio; usando texto:", audioSendErr);
         }
       }
 
@@ -1323,7 +1337,7 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
         replyWithAudio &&
         (!elevenlabsApiKey || !elevenlabsVoiceId)
       ) {
-        console.error("[AUDIO-V3] Resposta em áudio desativada por configuração incompleta", {
+        console.error("[AUDIO-V3] Resposta em Ã¡udio desativada por configuraÃ§Ã£o incompleta", {
           hasElevenLabsKey: !!elevenlabsApiKey,
           hasVoiceId: !!elevenlabsVoiceId,
         });
@@ -1336,9 +1350,9 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
           .slice(-3);
         const deliveredParts: string[] = [];
 
-        // Mensagens recebidas em sequência são serializadas pelo lock da conversa.
-        // O orchestrator já separa respostas longas/parágrafos em partes próprias.
-        // Enviar o join() como uma única mensagem anulava completamente o splitter.
+        // Mensagens recebidas em sequÃªncia sÃ£o serializadas pelo lock da conversa.
+        // O orchestrator jÃ¡ separa respostas longas/parÃ¡grafos em partes prÃ³prias.
+        // Enviar o join() como uma Ãºnica mensagem anulava completamente o splitter.
         for (let partIndex = 0; partIndex < replyParts.length; partIndex += 1) {
           const part = replyParts[partIndex];
 
@@ -1383,11 +1397,11 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
 
           deliveredParts.push(sendResult.transformed);
 
-          // O envio via Uazapi não garante que o webhook de eco fromMe será
+          // O envio via Uazapi nÃ£o garante que o webhook de eco fromMe serÃ¡
           // entregue. Persistimos cada parte confirmada aqui para que o CRM
-          // reflita exatamente o que o cliente recebeu. Não usamos external_id:
-          // se o provedor também ecoar a mensagem, o fluxo fromMe continua
-          // responsável por registrar o evento externo sem colisão artificial.
+          // reflita exatamente o que o cliente recebeu. NÃ£o usamos external_id:
+          // se o provedor tambÃ©m ecoar a mensagem, o fluxo fromMe continua
+          // responsÃ¡vel por registrar o evento externo sem colisÃ£o artificial.
           if (conversationId) {
             const { error: outboundPersistErr } = await supabaseAdmin
               .from("messages")
@@ -1411,20 +1425,20 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÊNCIAS:\n" + diffs.join("\n") : "Nenhu
       const nextHistory = [
         ...history,
         { role: "customer" as const, content: effectiveAgentMessage },
-        // Salva exatamente o texto que chegou ao cliente após humanização/emoji guard.
+        // Salva exatamente o texto que chegou ao cliente apÃ³s humanizaÃ§Ã£o/emoji guard.
         { role: "agent" as const, content: deliveredReplyText },
       ].slice(-100);
 
-      // Só persiste a resposta do agente depois que o envio foi confirmado.
-      // Antes, uma falha no WhatsApp deixava o histórico afirmando que o cliente
+      // SÃ³ persiste a resposta do agente depois que o envio foi confirmado.
+      // Antes, uma falha no WhatsApp deixava o histÃ³rico afirmando que o cliente
       // recebeu uma resposta que nunca foi entregue.
       console.log("----------------------------------------------------");
       console.log("Fluxo");
-      console.log("O código retornou após o funil? NÃO (seguindo para Agent V3)");
+      console.log("O cÃ³digo retornou apÃ³s o funil? NÃƒO (seguindo para Agent V3)");
       console.log("----------------------------------------------------");
       console.log("Resultado Final");
       console.log("FUNIL IGNORADO");
-      console.log("Motivo: Gatilho não identificado ou execução já completada.");
+      console.log("Motivo: Gatilho nÃ£o identificado ou execuÃ§Ã£o jÃ¡ completada.");
       console.log("==============================");
 
       await saveConversationStateV3(
