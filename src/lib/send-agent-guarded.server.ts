@@ -1,42 +1,41 @@
-// Wrapper centralizado de envio de texto do agente, aplicando os MESMOS
-// guards do fluxo principal do Claude a TODOS os caminhos canned de
-// resposta (funil de boas-vindas, teste grátis, verbose-loop farewell,
-// playlist-sales, etc.).
-//
-// Guards aplicados aqui (categoria "presentation" — valem pra qualquer
-// texto do agente, canned ou LLM):
-//   - limitEmojiFrequency  → nunca 2 mensagens seguidas com emoji
-//   - humanizePunctuation  → remove en/em-dash típicos de LLM (opt-in)
-//
-// NÃO entram aqui (categoria "LLM-only" — só faz sentido pra texto do
-// Claude, canned não precisa):
-//   - sanitizeSystemLeaks  → só o LLM pode ecoar bloco de sistema
-//   - enforceReengagementGreeting → só faz sentido quando o modo
-//     REENGAJAMENTO está ativo, que só existe no fluxo Claude
-//
-// O helper busca as últimas 3 mensagens do agente na conversa direto do
-// DB via supabaseAdmin (uma query barata). Isso garante que o histórico
-// usado pela trava de emoji inclui TODAS as mensagens enviadas antes,
-// independente de qual caminho as gerou.
+// Central outbound text guard. Presentation rules belong here so every text
+// path (LLM and canned/router replies) receives the same WhatsApp-safe shape.
 
 import { limitEmojiFrequency } from "@/lib/emoji-limiter";
-import { humanizePunctuationV3 } from "@/lib/agent-v3/brain/guards.server";
+import {
+  humanizePunctuationV3,
+  stripMarkdownFormattingV3,
+} from "@/lib/agent-v3/brain/guards.server";
 
 type UazapiCreds = Parameters<typeof import("@/lib/uazapi.server").uazapiSendText>[0];
 
 export interface SendAgentTextGuardedOptions {
   conversationId: string;
-  // Origem pra logs (welcome_funnel, free_trial_success, verbose_loop_farewell, etc).
   source: string;
-  // Ignora limitEmojiFrequency (raro — só pra abertura de disparo).
   isBlastOpening?: boolean;
-  // Aplica humanizePunctuation (default false — texto canned foi digitado
-  // pelo humano; só ligar quando a origem é LLM).
   applyHumanize?: boolean;
-  // Sobrescreve o histórico buscado do DB (útil pra testes).
   recentAgentBodiesOverride?: string[];
-  // Janela do limitEmojiFrequency. Default 3.
   emojiWindow?: number;
+}
+
+function normalizeWhatsAppPresentation(text: string): string {
+  let out = stripMarkdownFormattingV3(text ?? "");
+  out = out
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  // Modelos às vezes repetem a mesma pergunta como CTA em duas linhas.
+  // Remove somente duplicatas exatas consecutivas, sem resumir conteúdo.
+  const paragraphs = out.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const deduped: string[] = [];
+  for (const paragraph of paragraphs) {
+    const previous = deduped[deduped.length - 1];
+    if (previous && previous.toLocaleLowerCase("pt-BR") === paragraph.toLocaleLowerCase("pt-BR")) continue;
+    deduped.push(paragraph);
+  }
+  return deduped.join("\n\n").trim();
 }
 
 export async function sendAgentTextGuarded(
@@ -70,6 +69,12 @@ export async function sendAgentTextGuarded(
   let out = text ?? "";
   const original = out;
   if (opts.applyHumanize) out = humanizePunctuationV3(out);
+  out = normalizeWhatsAppPresentation(out);
+
+  if (!out) {
+    throw new Error(`[send-agent-guarded] resposta vazia após normalização (${opts.source})`);
+  }
+
   const beforeEmoji = out;
   out = limitEmojiFrequency(out, {
     recentAgentBodies: recent,
