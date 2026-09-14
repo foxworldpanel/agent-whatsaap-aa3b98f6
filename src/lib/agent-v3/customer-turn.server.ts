@@ -24,6 +24,7 @@ export async function claimReadyCustomerTurnById(s:any,turnId:string,holder:stri
  try{const claimed=await readCustomerTurnClaimByHolder(s,holder,turnId);if(claimed)return claimed;}catch(verifyError){console.error("[AGENT-CUSTOMER-TURN] failed to verify specific-turn claim after RPC uncertainty",verifyError);}
  throw error;
 }
+export async function hasReadyCustomerTurn(s:any,quietMs=AGENT_CUSTOMER_TURN_QUIET_MS):Promise<boolean>{const {data,error}=await s.rpc("has_ready_agent_customer_turn",{p_quiet_before:new Date(Date.now()-quietMs).toISOString()});if(error)throw error;return data===true;}
 export async function loadCustomerTurnMembers(s:any,turnId:string):Promise<AgentCustomerTurnMember[]>{const {data,error}=await s.rpc("load_agent_customer_turn_members",{p_turn_id:turnId});if(error)throw error;return Array.isArray(data)?data as AgentCustomerTurnMember[]:[];}
 
 export async function enterCustomerTurnRuntime(s:any,turnId:string,holder:string):Promise<boolean>{
