@@ -3,15 +3,17 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914243000_bound_orphan_generation_lock_recovery.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914263000_orphan_generation_lock_recovery_fairness.sql"),
   "utf8",
 );
 
 describe("orphan generation lock recovery bounds", () => {
-  it("bounds each recovery transaction and skips live conversation contention", () => {
+  it("looks beyond contention while bounding acquired conversation fences", () => {
     expect(migration).toContain("ORDER BY acquired_at,conversation_id");
-    expect(migration).toContain("LIMIT 100");
+    expect(migration).toContain("LIMIT 500");
+    expect(migration).toContain("EXIT WHEN v_locked>=100");
     expect(migration).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
+    expect(migration).toContain("v_locked:=v_locked+1");
   });
 
   it("revalidates exact stale ownership and preserves active durable owners", () => {
