@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { executeAgentV3Runtime } from "@/lib/agent-v3/runtime.server";
 import {
   attachPendingAgentInboundJobsToCustomerTurns,
@@ -32,8 +33,8 @@ async function executeClaimedCustomerTurn(s:any,turn:AgentCustomerTurn,holder:st
  return{status:"processed",turnId:turn.id,memberCount:runtime.members.length,reason:result.reason};
 }
 
-export async function dispatchReadyCustomerTurnById(s:any,turnId:string,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn-fast:${workerId}:${Date.now()}`;const turn=await claimReadyCustomerTurnById(s,turnId,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
-export async function dispatchOneCustomerTurn(s:any,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn:${workerId}:${Date.now()}`;const turn=await claimNextReadyCustomerTurn(s,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
+export async function dispatchReadyCustomerTurnById(s:any,turnId:string,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn-fast:${workerId}:${randomUUID()}`;const turn=await claimReadyCustomerTurnById(s,turnId,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
+export async function dispatchOneCustomerTurn(s:any,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn:${workerId}:${randomUUID()}`;const turn=await claimNextReadyCustomerTurn(s,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
 
 export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=20):Promise<{attached:number;recovered:number;quarantinedExhausted:number;claimed:number;processed:number;needsReview:number;idle:boolean}>{
  const recovered=await recoverStaleCustomerTurns(s);
