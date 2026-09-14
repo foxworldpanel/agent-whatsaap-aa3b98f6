@@ -26,9 +26,11 @@ describe("durable recovery endpoint", () => {
     expect(lockHelper).toContain('"recover_stale_agent_generation_locks"');
   });
 
-  it("fences orphan-lock cleanup behind the shared conversation lock and active durable owners", () => {
+  it("fences orphan-lock cleanup behind a nonblocking shared lock and active durable owners", () => {
     expect(orphanRecovery).toContain("recover_stale_agent_generation_locks");
-    expect(orphanRecovery).toContain("hashtextextended(v_candidate.conversation_id::text,31)");
+    expect(orphanRecovery).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
+    expect(orphanRecovery).toContain("CONTINUE;");
+    expect(orphanRecovery).not.toContain("PERFORM pg_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
     expect(orphanRecovery).toContain("active_job.status IN ('processing_safe','processing')");
     expect(orphanRecovery).toContain("active_turn.state IN ('processing_safe','processing')");
     expect(orphanRecovery).toContain("GRANT EXECUTE ON FUNCTION public.recover_stale_agent_generation_locks(timestamptz) TO service_role");
