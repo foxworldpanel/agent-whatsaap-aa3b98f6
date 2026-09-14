@@ -13,6 +13,7 @@ DECLARE
  v_requeued integer:=0;
  v_review integer:=0;
  v_changed integer:=0;
+ v_safe_review integer:=0;
 BEGIN
  IF p_max_attempts<1 THEN RAISE EXCEPTION 'p_max_attempts must be >= 1'; END IF;
 
@@ -44,9 +45,9 @@ BEGIN
   )
   SELECT count(*) FILTER(WHERE status='pending')::integer,
          count(*) FILTER(WHERE status='needs_review')::integer
-  INTO v_changed,v_candidate.claimed_at FROM changed;
+  INTO v_changed,v_safe_review FROM changed;
   v_requeued:=v_requeued+COALESCE(v_changed,0);
-  v_review:=v_review+COALESCE(v_candidate.claimed_at::text::integer,0);
+  v_review:=v_review+COALESCE(v_safe_review,0);
 
   WITH unsafe AS (
    UPDATE public.agent_inbound_jobs j
