@@ -12,6 +12,20 @@ export async function attachPendingAgentInboundJobsToCustomerTurns(s:any,limit=5
 export async function claimNextReadyCustomerTurn(s:any,holder:string,quietMs=AGENT_CUSTOMER_TURN_QUIET_MS):Promise<AgentCustomerTurn|null>{const {data,error}=await s.rpc("claim_next_agent_customer_turn",{p_holder:holder,p_quiet_before:new Date(Date.now()-quietMs).toISOString()});if(error)throw error;return Array.isArray(data)&&data.length?data[0] as AgentCustomerTurn:null;}
 export async function claimReadyCustomerTurnById(s:any,turnId:string,holder:string,quietMs=AGENT_CUSTOMER_TURN_QUIET_MS):Promise<AgentCustomerTurn|null>{const {data,error}=await s.rpc("claim_agent_customer_turn",{p_turn_id:turnId,p_holder:holder,p_quiet_before:new Date(Date.now()-quietMs).toISOString()});if(error)throw error;return Array.isArray(data)&&data.length?data[0] as AgentCustomerTurn:null;}
 export async function loadCustomerTurnMembers(s:any,turnId:string):Promise<AgentCustomerTurnMember[]>{const {data,error}=await s.rpc("load_agent_customer_turn_members",{p_turn_id:turnId});if(error)throw error;return Array.isArray(data)?data as AgentCustomerTurnMember[]:[];}
-export async function finishCustomerTurn(s:any,turnId:string,holder:string,outcome:{ok:true}|{ok:false;error:unknown}):Promise<void>{const errorText=outcome.ok?null:(outcome.error instanceof Error?outcome.error.message:String(outcome.error));const {data,error}=await s.rpc("finish_agent_customer_turn",{p_turn_id:turnId,p_holder:holder,p_ok:outcome.ok,p_error:errorText});if(error)throw error;if(data!==true)throw new Error(`Customer Turn terminal transition rejected for ${turnId}`);}
+
+async function readCustomerTurnState(s:any,turnId:string):Promise<Pick<AgentCustomerTurn,"state"|"claimed_by">|null>{const {data,error}=await s.from("agent_customer_turns").select("state,claimed_by").eq("id",turnId).maybeSingle();if(error)throw error;return data?{state:data.state as AgentCustomerTurnState,claimed_by:data.claimed_by??null}:null;}
+
+export async function finishCustomerTurn(s:any,turnId:string,holder:string,outcome:{ok:true}|{ok:false;error:unknown}):Promise<void>{
+ const errorText=outcome.ok?null:(outcome.error instanceof Error?outcome.error.message:String(outcome.error));
+ const terminalState:AgentCustomerTurnState=outcome.ok?"processed":"needs_review";
+ const {data,error}=await s.rpc("finish_agent_customer_turn",{p_turn_id:turnId,p_holder:holder,p_ok:outcome.ok,p_error:errorText});
+ if(!error&&data===true)return;
+ // The RPC can commit and its response can still be lost. Before declaring
+ // finalization uncertain, read the durable turn state. A matching terminal
+ // state with no claimant proves this holder's terminal transition completed.
+ try{const current=await readCustomerTurnState(s,turnId);if(current?.state===terminalState&&current.claimed_by===null)return;}catch(verifyError){console.error("[AGENT-CUSTOMER-TURN] failed to verify terminal state after RPC uncertainty",verifyError);}
+ if(error)throw error;
+ throw new Error(`Customer Turn terminal transition rejected for ${turnId}`);
+}
 export async function recoverStaleCustomerTurns(s:any,staleMs=AGENT_CUSTOMER_TURN_STALE_MS):Promise<number>{const {data,error}=await s.rpc("recover_stale_agent_customer_turns",{p_stale_before:new Date(Date.now()-staleMs).toISOString()});if(error)throw error;return Number(data||0);}
 export function renderCustomerTurnText(members:AgentCustomerTurnMember[]):string{return members.map(m=>{const text=m.input_text.trim();if(m.input_kind==="audio")return text||"[áudio recebido]";if(m.input_kind==="image")return text||"[imagem recebida]";if(m.input_kind==="sticker")return text||"[figurinha recebida]";return text;}).filter(Boolean).join("\n");}
