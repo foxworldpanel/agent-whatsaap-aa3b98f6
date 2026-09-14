@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { assertCronAuthorized } from "@/lib/cron-auth.server";
 import { AGENT_INBOUND_MAX_SAFE_ATTEMPTS } from "@/lib/agent-v3/inbound-jobs.server";
-import { recoverAgentInboundDispatcherClaims } from "@/lib/agent-v3/inbound-job-dispatch.server";
+import { recoverAgentInboundDispatcherClaims } from "@/lib/agent-v3/inbound-recovery.server";
 import { recoverStaleAgentConversationLocks } from "@/lib/agent-v3/conversation-lock.server";
 
 const DEFAULT_STALE_MS = 5 * 60 * 1000;
