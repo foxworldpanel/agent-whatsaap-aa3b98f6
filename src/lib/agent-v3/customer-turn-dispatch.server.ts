@@ -5,6 +5,7 @@ import {
   claimReadyCustomerTurnById,
   enterCustomerTurnRuntime,
   finishCustomerTurn,
+  quarantineExhaustedCustomerTurns,
   recoverStaleCustomerTurns,
   type AgentCustomerTurn,
 } from "@/lib/agent-v3/customer-turn.server";
@@ -96,8 +97,9 @@ export async function dispatchCustomerTurnBatch(
   s: any,
   workerId: string,
   maxPerRun = 20,
-): Promise<{ attached: number; recovered: number; claimed: number; processed: number; needsReview: number; idle: boolean }> {
+): Promise<{ attached: number; recovered: number; quarantinedExhausted: number; claimed: number; processed: number; needsReview: number; idle: boolean }> {
   const recovered = await recoverStaleCustomerTurns(s);
+  const quarantinedExhausted = await quarantineExhaustedCustomerTurns(s);
   const attached = await attachPendingAgentInboundJobsToCustomerTurns(s, Math.max(20, maxPerRun * 4));
   const bounded = Math.max(1, Math.min(maxPerRun, 20));
   let claimed = 0;
@@ -115,7 +117,7 @@ export async function dispatchCustomerTurnBatch(
     if (result.status === "idle") {
       consecutiveIdleClaims += 1;
       if (consecutiveIdleClaims >= 3) {
-        return { attached, recovered, claimed, processed, needsReview, idle: true };
+        return { attached, recovered, quarantinedExhausted, claimed, processed, needsReview, idle: true };
       }
       continue;
     }
@@ -125,5 +127,5 @@ export async function dispatchCustomerTurnBatch(
     if (result.status === "processed") processed += 1;
     if (result.status === "needs_review") needsReview += 1;
   }
-  return { attached, recovered, claimed, processed, needsReview, idle: claimed < bounded };
+  return { attached, recovered, quarantinedExhausted, claimed, processed, needsReview, idle: claimed < bounded };
 }
