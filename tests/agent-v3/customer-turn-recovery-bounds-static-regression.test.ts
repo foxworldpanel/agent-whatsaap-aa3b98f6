@@ -3,15 +3,17 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914244500_customer_turn_recovery_nonblocking.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914270000_customer_turn_recovery_fairness.sql"),
   "utf8",
 );
 
 describe("Customer Turn stale recovery", () => {
-  it("bounds each recovery transaction and skips live conversation contention", () => {
+  it("looks beyond contention while bounding acquired conversation fences", () => {
     expect(sql).toContain("ORDER BY claimed_at,id");
-    expect(sql).toContain("LIMIT 100");
+    expect(sql).toContain("LIMIT 500");
+    expect(sql).toContain("EXIT WHEN v_locked>=100");
     expect(sql).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
+    expect(sql).toContain("v_locked:=v_locked+1");
     expect(sql).toContain("CONTINUE;");
   });
 
