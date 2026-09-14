@@ -2,23 +2,41 @@
 -- Deployment remains a separate gate: this migration only takes effect when the
 -- branch migrations are explicitly applied to Supabase.
 --
--- The application endpoints validate the project's publishable/anon key via
--- assertCronAuthorized. pg_cron reads that key and the app base URL from Vault,
--- matching the existing project cron convention.
+-- Public worker endpoints require a private scheduler secret. Validate all
+-- Vault prerequisites before touching cron jobs so cutover fails closed.
 
 CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 
 DO $$
 DECLARE
- v_dispatcher_job bigint;
- v_recovery_job bigint;
+ v_base_url text;
+ v_cron_secret text;
 BEGIN
- SELECT jobid INTO v_dispatcher_job FROM cron.job WHERE jobname='agent-customer-turn-dispatcher';
- IF v_dispatcher_job IS NOT NULL THEN PERFORM cron.unschedule(v_dispatcher_job); END IF;
+ SELECT nullif(btrim(decrypted_secret),'') INTO v_base_url
+ FROM vault.decrypted_secrets WHERE name='app_base_url' LIMIT 1;
+ IF v_base_url IS NULL THEN
+  RAISE EXCEPTION 'Missing required Vault secret: app_base_url';
+ END IF;
+ IF v_base_url !~ '^https?://[^[:space:]]+$' THEN
+  RAISE EXCEPTION 'Vault secret app_base_url must be an absolute http(s) URL';
+ END IF;
 
- SELECT jobid INTO v_recovery_job FROM cron.job WHERE jobname='agent-inbound-recovery';
- IF v_recovery_job IS NOT NULL THEN PERFORM cron.unschedule(v_recovery_job); END IF;
+ SELECT nullif(btrim(decrypted_secret),'') INTO v_cron_secret
+ FROM vault.decrypted_secrets WHERE name='agent_cron_secret' LIMIT 1;
+ IF v_cron_secret IS NULL THEN
+  RAISE EXCEPTION 'Missing required Vault secret: agent_cron_secret';
+ END IF;
+END $$;
+
+DO $$
+DECLARE
+ v_job record;
+BEGIN
+ FOR v_job IN SELECT jobid FROM cron.job WHERE jobname='agent-customer-turn-dispatcher'
+ LOOP PERFORM cron.unschedule(v_job.jobid); END LOOP;
+ FOR v_job IN SELECT jobid FROM cron.job WHERE jobname='agent-inbound-recovery'
+ LOOP PERFORM cron.unschedule(v_job.jobid); END LOOP;
 END $$;
 
 -- One-minute cadence is the minimum pg_cron cadence and supplies the durable
@@ -29,13 +47,13 @@ SELECT cron.schedule(
  '* * * * *',
  $cron$
  SELECT net.http_post(
-   url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='app_base_url' LIMIT 1)
+   url := rtrim((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='app_base_url' LIMIT 1), '/')
           || '/api/public/hooks/agent-inbound-dispatcher',
    headers := jsonb_build_object(
      'Content-Type','application/json',
-     'apikey',(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='supabase_publishable_key' LIMIT 1)
+     'x-cron-secret',(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='agent_cron_secret' LIMIT 1)
    ),
-   body := '{}'::jsonb,
+   body := '{} '::jsonb,
    timeout_milliseconds := 55000
  );
  $cron$
@@ -50,13 +68,13 @@ SELECT cron.schedule(
  '*/5 * * * *',
  $cron$
  SELECT net.http_post(
-   url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='app_base_url' LIMIT 1)
+   url := rtrim((SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='app_base_url' LIMIT 1), '/')
           || '/api/public/hooks/agent-inbound-recovery',
    headers := jsonb_build_object(
      'Content-Type','application/json',
-     'apikey',(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='supabase_publishable_key' LIMIT 1)
+     'x-cron-secret',(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name='agent_cron_secret' LIMIT 1)
    ),
-   body := '{}'::jsonb,
+   body := '{} '::jsonb,
    timeout_milliseconds := 55000
  );
  $cron$
