@@ -3,14 +3,18 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914250000_stage_b_recovery_nonblocking.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914264500_stage_b_recovery_fairness.sql"),
   "utf8",
 );
 
 describe("Stage B stale recovery", () => {
-  it("bounds recovery and never waits behind a live conversation fence", () => {
-    expect(sql).toContain("LIMIT 100");
+  it("orders stale conversations by age and looks beyond lock contention", () => {
+    expect(sql).toContain("min(j.claimed_at) AS stale_at");
+    expect(sql).toContain("ORDER BY stale_at,conversation_id");
+    expect(sql).toContain("LIMIT 500");
+    expect(sql).toContain("EXIT WHEN v_locked>=100");
     expect(sql).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
+    expect(sql).toContain("v_locked:=v_locked+1");
     expect(sql).toContain("CONTINUE;");
     expect(sql).not.toContain("PERFORM pg_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
   });
