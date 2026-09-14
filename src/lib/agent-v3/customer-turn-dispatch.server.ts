@@ -3,6 +3,7 @@ import {
   attachPendingAgentInboundJobsToCustomerTurns,
   claimNextReadyCustomerTurn,
   claimReadyCustomerTurnById,
+  enterCustomerTurnRuntime,
   finishCustomerTurn,
   recoverStaleCustomerTurns,
   type AgentCustomerTurn,
@@ -34,19 +35,24 @@ async function executeClaimedCustomerTurn(
   try {
     runtime = await buildCustomerTurnRuntimeInput(s, turn.id);
   } catch (error) {
-    // No Agent V3 side effects have started yet, so a deterministic/transient
-    // preparation failure can be safely quarantined under the current holder.
+    // Deterministic preparation errors are quarantined explicitly. A process
+    // crash here is different: the durable state remains processing_safe and
+    // stale recovery can safely reopen the turn because runtime never started.
     return quarantineClaimedCustomerTurn(s, turn, holder, error);
+  }
+
+  // This is the durable external-side-effect boundary. Only after the complete
+  // semantic input exists do we mark the turn unsafe to replay. A lost RPC
+  // response is resolved by durable read-back in enterCustomerTurnRuntime.
+  const enteredRuntime = await enterCustomerTurnRuntime(s, turn.id, holder);
+  if (!enteredRuntime) {
+    throw new Error(`Customer Turn runtime transition rejected for ${turn.id}`);
   }
 
   let result;
   try {
     result = await executeAgentV3Runtime(s, runtime.input);
   } catch (error) {
-    // Runtime may already have produced external side effects. Move the turn to
-    // needs_review once. If that terminal transition is itself uncertain,
-    // finishCustomerTurn throws after durable read-back and we MUST propagate it
-    // instead of attempting a second contradictory terminal transition.
     return quarantineClaimedCustomerTurn(s, turn, holder, error);
   }
 
@@ -59,9 +65,6 @@ async function executeClaimedCustomerTurn(
     );
   }
 
-  // A successful runtime is already across the external side-effect boundary.
-  // Do not catch a finalization uncertainty and then try to rewrite the same turn
-  // as needs_review: that would hide whether the processed commit actually won.
   await finishCustomerTurn(s, turn.id, holder, { ok: true });
   return {
     status: "processed",
