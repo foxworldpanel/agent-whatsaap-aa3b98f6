@@ -1,5 +1,5 @@
 import type { AgentV3RuntimeInput } from "@/lib/agent-v3/inbound-runtime-contract.server";
-import { loadAgentInboundResumeContext } from "@/lib/agent-v3/inbound-job-context.server";
+import { loadAgentInboundResumeContext, type AgentInboundResumeContext } from "@/lib/agent-v3/inbound-job-context.server";
 import type { AgentInboundJob } from "@/lib/agent-v3/inbound-jobs.server";
 import { loadCustomerTurnMembers, type AgentCustomerTurnMember } from "@/lib/agent-v3/customer-turn.server";
 import { resolveCustomerTurnMemberText } from "@/lib/agent-v3/customer-turn-media.server";
@@ -24,40 +24,28 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
   const lastJob = jobById.get(last.job_id);
   if (!lastJob) throw new Error(`Customer Turn ${turnId} last inbound job is missing`);
 
-  // A Customer Turn is one semantic execution boundary. Never let a corrupted or
-  // cross-conversation membership collapse unrelated customers/workspaces into a
-  // single Claude execution. The database FKs prove row existence, not identity.
   for (const member of members) {
     const job = jobById.get(member.job_id);
     if (!job) throw new Error(`Customer Turn ${turnId} member ${member.message_id} has no inbound job`);
-    if (job.message_id !== member.message_id) {
-      throw new Error(`Customer Turn ${turnId} member/job message identity mismatch`);
-    }
-    if (job.conversation_id !== lastJob.conversation_id) {
-      throw new Error(`Customer Turn ${turnId} contains multiple conversations`);
-    }
-    if (job.workspace_id !== lastJob.workspace_id) {
-      throw new Error(`Customer Turn ${turnId} contains multiple workspaces`);
-    }
-    if (job.status !== "pending") {
-      throw new Error(`Customer Turn ${turnId} member ${member.message_id} is not pending`);
-    }
+    if (job.message_id !== member.message_id) throw new Error(`Customer Turn ${turnId} member/job message identity mismatch`);
+    if (job.conversation_id !== lastJob.conversation_id) throw new Error(`Customer Turn ${turnId} contains multiple conversations`);
+    if (job.workspace_id !== lastJob.workspace_id) throw new Error(`Customer Turn ${turnId} contains multiple workspaces`);
+    if (job.status !== "pending") throw new Error(`Customer Turn ${turnId} member ${member.message_id} is not pending`);
   }
 
-  // Validate every member against its persisted message/conversation/contact/
-  // WhatsApp identity, not only the final member. Otherwise a corrupted earlier
-  // job could contribute text/media to the Claude turn while the last job alone
-  // made the runtime context look valid.
-  const contexts = [];
+  // Validate every member against durable CRM/provider identity. Keep the
+  // resulting context per job: media resolution must use the credentials and
+  // phone proven for that exact member, not merely borrow them from the last one.
+  const contextByJobId = new Map<string, AgentInboundResumeContext>();
   for (const member of members) {
     const job = jobById.get(member.job_id)!;
     const memberContext = await loadAgentInboundResumeContext(supabaseAdmin, job);
     if (memberContext.conversationId !== lastJob.conversation_id || memberContext.workspaceId !== lastJob.workspace_id) {
       throw new Error(`Customer Turn ${turnId} durable member identity mismatch`);
     }
-    contexts.push(memberContext);
+    contextByJobId.set(member.job_id, memberContext);
   }
-  const context = contexts[contexts.length - 1];
+  const context = contextByJobId.get(last.job_id)!;
 
   const deferredFunnelMessages = members
     .map((member) => jobById.get(member.job_id))
@@ -74,11 +62,12 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
 
   const resolved: string[] = [];
   for (const member of members) {
+    const memberContext = contextByJobId.get(member.job_id)!;
     const text = await resolveCustomerTurnMemberText(supabaseAdmin, member, {
-      conversationId: context.conversationId,
-      phone: context.phone,
-      uazapiUrl: context.instance.uazapiUrl,
-      uazapiToken: context.instance.uazapiToken,
+      conversationId: memberContext.conversationId,
+      phone: memberContext.phone,
+      uazapiUrl: memberContext.instance.uazapiUrl,
+      uazapiToken: memberContext.instance.uazapiToken,
       openaiApiKey,
       anthropicApiKey,
     });
