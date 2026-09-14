@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 const route = source("src/routes/api/public/hooks/agent-inbound-recovery.ts");
+const recoveryHelper = source("src/lib/agent-v3/inbound-recovery.server.ts");
 const lockHelper = source("src/lib/agent-v3/conversation-lock.server.ts");
 const orphanRecovery = source("supabase/migrations/20260914240000_recover_orphan_generation_locks.sql");
 
@@ -18,11 +19,18 @@ describe("durable recovery endpoint", () => {
     expect(route).not.toContain("GET: async");
   });
 
-  it("recovers Stage B ownership and standalone generation locks without replaying runtime", () => {
+  it("recovers ownership through a recovery-only dependency graph", () => {
+    expect(route).toContain('from "@/lib/agent-v3/inbound-recovery.server"');
+    expect(route).not.toContain("inbound-job-dispatch.server");
     expect(route).toContain("recoverAgentInboundDispatcherClaims");
     expect(route).toContain("recoverStaleAgentConversationLocks");
     expect(route).not.toContain("executeAgentV3Runtime");
     expect(route).not.toContain("runAgentV3Turn");
+
+    expect(recoveryHelper).toContain("recoverStaleAgentInboundJobs");
+    expect(recoveryHelper).not.toContain("runtime.server");
+    expect(recoveryHelper).not.toContain("inbound-runtime-claim.server");
+    expect(recoveryHelper).not.toContain("dispatchOneAgentInbound");
     expect(lockHelper).toContain('"recover_stale_agent_generation_locks"');
   });
 
