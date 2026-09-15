@@ -22,6 +22,14 @@ async function persistResolvedText(supabaseAdmin:any,member:AgentCustomerTurnMem
   throw new Error(`Customer Turn member ${member.message_id} resolved text persistence was not confirmed`);
 }
 
+async function patchResolvedCrmMessage(supabaseAdmin:any,member:AgentCustomerTurnMember,patch:Record<string,string>):Promise<void>{
+  // CRM enrichment is secondary to the durable semantic snapshot. Once
+  // resolved_text is persisted, a CRM patch failure must not force a safe retry
+  // to repeat external transcription/vision work.
+  const {error}=await supabaseAdmin.from("messages").update(patch).eq("id",member.message_id);
+  if(error)console.warn(`[AGENT-CUSTOMER-TURN] durable media resolution persisted but CRM message patch failed for ${member.message_id}:`,error.message||error);
+}
+
 export async function resolveCustomerTurnMemberText(
   supabaseAdmin: any,
   member: AgentCustomerTurnMember,
@@ -53,9 +61,8 @@ export async function resolveCustomerTurnMemberText(
     const text = caption ? `${caption}\n[Imagem: ${description}]` : `[Imagem: ${description}]`;
     const patch: Record<string,string> = { body: text, kind: "texto" };
     if (downloaded.fileURL?.trim()) patch.audio_url = downloaded.fileURL.trim();
-    const { error } = await supabaseAdmin.from("messages").update(patch).eq("id", member.message_id);
-    if (error) throw error;
     await persistResolvedText(supabaseAdmin,member,text);
+    await patchResolvedCrmMessage(supabaseAdmin,member,patch);
     return text;
   }
 
@@ -83,8 +90,7 @@ export async function resolveCustomerTurnMemberText(
 
   const patch: Record<string,string> = { body: text, kind: "audio" };
   if (downloaded.fileURL?.trim()) patch.audio_url = downloaded.fileURL.trim();
-  const { error } = await supabaseAdmin.from("messages").update(patch).eq("id", member.message_id);
-  if (error) throw error;
   await persistResolvedText(supabaseAdmin,member,text);
+  await patchResolvedCrmMessage(supabaseAdmin,member,patch);
   return text;
 }
