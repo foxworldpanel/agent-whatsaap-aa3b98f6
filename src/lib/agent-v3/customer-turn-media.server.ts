@@ -10,8 +10,16 @@ export type CustomerTurnMediaContext = {
 };
 
 async function persistResolvedText(supabaseAdmin:any,member:AgentCustomerTurnMember,text:string):Promise<void>{
-  const {error}=await supabaseAdmin.from("agent_customer_turn_messages").update({resolved_text:text}).eq("turn_id",member.turn_id).eq("job_id",member.job_id).is("resolved_text",null);
+  const {data,error}=await supabaseAdmin.from("agent_customer_turn_messages").update({resolved_text:text}).eq("turn_id",member.turn_id).eq("job_id",member.job_id).is("resolved_text",null).select("resolved_text").maybeSingle();
   if(error)throw error;
+  if(data?.resolved_text===text)return;
+  // A concurrent/uncertain write may already have persisted the same semantic
+  // resolution. Read it back before deciding whether this is a real conflict.
+  const {data:current,error:readError}=await supabaseAdmin.from("agent_customer_turn_messages").select("resolved_text").eq("turn_id",member.turn_id).eq("job_id",member.job_id).maybeSingle();
+  if(readError)throw readError;
+  if(current?.resolved_text===text)return;
+  if(current?.resolved_text)throw new Error(`Customer Turn member ${member.message_id} resolved text conflict`);
+  throw new Error(`Customer Turn member ${member.message_id} resolved text persistence was not confirmed`);
 }
 
 export async function resolveCustomerTurnMemberText(
