@@ -3,16 +3,16 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914301500_quarantine_attached_members_with_incomplete_turn.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914311500_preserve_member_quarantine_with_retry_review_fence.sql"),
   "utf8",
 );
 
-describe("incomplete Customer Turn member quarantine", () => {
-  it("uses the shared nonblocking conversation fence before quarantine", () => {
+describe("effective incomplete Customer Turn member quarantine", () => {
+  it("uses the shared nonblocking conversation fence for collecting and retry-safe turns", () => {
     expect(sql).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
     expect(sql).toContain("t.state='collecting'");
-    expect(sql).toContain("j.status='needs_review'");
-    expect(sql).toContain("NOT EXISTS(SELECT 1 FROM public.agent_customer_turn_messages tm WHERE tm.job_id=j.id)");
+    expect(sql).toContain("t.state='retry_safe'");
+    expect(sql).toContain("agent_turn_has_blocking_unattached_review(t.conversation_id,t.sealed_at)");
   });
 
   it("moves already attached pending members to review with the quarantined turn", () => {
