@@ -3,12 +3,25 @@
 ALTER TABLE public.agent_customer_turn_messages
   ADD COLUMN IF NOT EXISTS contact_source text;
 
-UPDATE public.agent_customer_turn_messages tm
-SET contact_source=ct.source
-FROM public.agent_inbound_jobs j
-JOIN public.conversations c ON c.id=j.conversation_id
-JOIN public.contacts ct ON ct.id=c.contact_id
-WHERE tm.job_id=j.id AND tm.contact_source IS NULL;
+-- Rows sealed before this column existed have no historical source value. Reading
+-- contacts.source now would silently invent old semantics if CRM source changed.
+-- Fail closed for every nonterminal pre-migration turn instead of guessing. New
+-- members created after this migration are snapshotted by the trigger below.
+WITH legacy_active AS (
+ SELECT id FROM public.agent_customer_turns
+ WHERE state IN ('collecting','retry_safe','processing_safe','processing')
+), quarantined AS (
+ UPDATE public.agent_customer_turns t
+ SET state='needs_review',claimed_by=NULL,claimed_at=NULL,
+     last_error='legacy Customer Turn predates durable contact_source snapshot',updated_at=now()
+ FROM legacy_active a WHERE t.id=a.id
+ RETURNING t.id
+)
+UPDATE public.agent_inbound_jobs j
+SET status='needs_review',claimed_by=NULL,claimed_at=NULL,
+    last_error='Customer Turn predates durable contact_source snapshot',updated_at=now()
+FROM public.agent_customer_turn_messages tm JOIN quarantined q ON q.id=tm.turn_id
+WHERE tm.job_id=j.id AND j.status='pending';
 
 CREATE OR REPLACE FUNCTION public.snapshot_agent_customer_turn_member()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
