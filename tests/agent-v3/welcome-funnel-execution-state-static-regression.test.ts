@@ -11,4 +11,10 @@ describe("Welcome Funnel durable execution state",()=>{
   expect(migration).toContain("PRIMARY KEY(funnel_id,contact_id)");
   expect(migration).not.toContain("ALTER TABLE public.welcome_funnel_runs ADD COLUMN");
  });
+ it("makes terminal state structurally unambiguous",()=>{
+  expect(migration).toContain("welcome_funnel_execution_state_terminal_shape");
+  expect(migration).toContain("status='completed' AND completed_at IS NOT NULL AND error_message IS NULL");
+  expect(migration).toContain("status='needs_review' AND completed_at IS NULL");
+  expect(migration).toContain("status='running' AND completed_at IS NULL");
+ });
 });
