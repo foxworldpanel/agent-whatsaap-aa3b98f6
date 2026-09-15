@@ -1,5 +1,5 @@
 -- Harden snapshot creation itself: the CRM message used to populate external/media
--- identity must belong to the same durable conversation/workspace/user as the job.
+-- identity must belong to the same durable conversation/workspace as the job.
 -- This prevents a corrupted cross-tenant message reference from becoming a valid
 -- Customer Turn membership snapshot.
 
@@ -12,7 +12,7 @@ BEGIN
    RAISE EXCEPTION 'Customer Turn member/job identity mismatch';
  END IF;
 
- SELECT external_id,audio_url,conversation_id,workspace_id,user_id
+ SELECT external_id,audio_url,conversation_id,workspace_id
  INTO v_message
  FROM public.messages
  WHERE id=NEW.message_id;
