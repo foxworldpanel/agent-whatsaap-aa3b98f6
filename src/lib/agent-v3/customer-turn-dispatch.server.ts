@@ -16,6 +16,8 @@ import {
 import { buildCustomerTurnRuntimeInput } from "@/lib/agent-v3/customer-turn-runtime.server";
 import type { AgentV3RuntimeTerminalReason } from "@/lib/agent-v3/inbound-runtime-result.server";
 
+export const AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS = 35_000;
+
 export type AgentCustomerTurnDispatchResult =
   | { status: "idle" }
   | { status: "retry_safe"; turnId: string }
@@ -40,7 +42,9 @@ async function executeClaimedCustomerTurn(s:any,turn:AgentCustomerTurn,holder:st
 export async function dispatchReadyCustomerTurnById(s:any,turnId:string,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn-fast:${workerId}:${randomUUID()}`;const turn=await claimReadyCustomerTurnById(s,turnId,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
 export async function dispatchOneCustomerTurn(s:any,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn:${workerId}:${randomUUID()}`;const turn=await claimNextReadyCustomerTurn(s,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
 
-export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=20):Promise<{attached:number;recovered:number;quarantinedExhausted:number;quarantinedIncomplete:number;claimed:number;processed:number;needsReview:number;idle:boolean}>{
+export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=20,maxBatchMs=AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS):Promise<{attached:number;recovered:number;quarantinedExhausted:number;quarantinedIncomplete:number;claimed:number;processed:number;needsReview:number;idle:boolean}>{
+ const startedAt=Date.now();
+ const budgetMs=Math.max(1,Math.min(maxBatchMs,AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS));
  const recovered=await recoverStaleCustomerTurns(s);
  const quarantinedExhausted=await quarantineExhaustedCustomerTurns(s);
  const attached=await attachPendingAgentInboundJobsToCustomerTurns(s,Math.max(20,maxPerRun*4));
@@ -49,6 +53,7 @@ export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=
  let claimed=0,processed=0,needsReview=0,consecutiveIdleClaims=0;
  const maxClaimAttempts=bounded+3;
  for(let attempt=0;attempt<maxClaimAttempts&&claimed<bounded;attempt+=1){
+  if(Date.now()-startedAt>=budgetMs)break;
   const result=await dispatchOneCustomerTurn(s,workerId);
   if(result.status==="idle"){
    consecutiveIdleClaims+=1;
