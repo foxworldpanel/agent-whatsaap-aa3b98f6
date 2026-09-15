@@ -9,8 +9,8 @@ const sql = readFileSync(
 
 describe("Stage B stale recovery", () => {
   it("orders stale conversations by age and looks beyond lock contention", () => {
-    expect(sql).toContain("min(j.claimed_at) AS stale_at");
-    expect(sql).toContain("ORDER BY stale_at,conversation_id");
+    expect(sql).toContain("min(j.claimed_at) AS oldest_claimed_at");
+    expect(sql).toContain("ORDER BY grouped.oldest_claimed_at,grouped.conversation_id");
     expect(sql).toContain("LIMIT 500");
     expect(sql).toContain("EXIT WHEN v_locked>=100");
     expect(sql).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
