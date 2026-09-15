@@ -5,6 +5,10 @@ import { recoverAgentInboundDispatcherClaims } from "@/lib/agent-v3/inbound-reco
 import { recoverStaleAgentConversationLocks } from "@/lib/agent-v3/conversation-lock.server";
 
 const DEFAULT_STALE_MS = 5 * 60 * 1000;
+// Welcome Funnel is synchronous and may contain five independently configured
+// delays of up to 180s. Its standalone generation lock therefore needs a lease
+// horizon longer than the Stage B/Customer Turn stale-claim horizon.
+const GENERATION_LOCK_STALE_MS = 20 * 60 * 1000;
 
 /**
  * Stage B / shared conversation ownership recovery hook.
@@ -34,12 +38,13 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
           );
           const recoveredConversationLocks = await recoverStaleAgentConversationLocks(
             supabaseAdmin,
-            DEFAULT_STALE_MS,
+            GENERATION_LOCK_STALE_MS,
           );
 
           return Response.json({
             ok: true,
             staleBefore,
+            generationLockStaleBefore: new Date(Date.now() - GENERATION_LOCK_STALE_MS).toISOString(),
             maxSafeAttempts: AGENT_INBOUND_MAX_SAFE_ATTEMPTS,
             requeued: recovered.requeued,
             needsReview: recovered.review,
