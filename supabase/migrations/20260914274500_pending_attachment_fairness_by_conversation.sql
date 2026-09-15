@@ -1,6 +1,6 @@
 -- A job-count scan can be monopolized by many pending messages from a single
 -- contended conversation. Select the oldest pending unattached job per conversation
--- first, then scan a wider bounded conversation window. This keeps one hot chat
+-- first, then order those representatives globally by age. This keeps one hot chat
 -- from hiding unrelated conversations while preserving one semantic attachment at
 -- a time under the shared seed-31 fence.
 
@@ -14,11 +14,15 @@ DECLARE
  v_target integer:=greatest(1,least(coalesce(p_limit,50),200));
 BEGIN
  FOR v_job IN
-  SELECT DISTINCT ON (j.conversation_id) j.id,j.conversation_id,j.created_at
-  FROM public.agent_inbound_jobs j
-  WHERE j.status='pending'
-    AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turn_messages tm WHERE tm.job_id=j.id)
-  ORDER BY j.conversation_id,j.created_at,j.id
+  SELECT candidate.id,candidate.conversation_id,candidate.created_at
+  FROM (
+    SELECT DISTINCT ON (j.conversation_id) j.id,j.conversation_id,j.created_at
+    FROM public.agent_inbound_jobs j
+    WHERE j.status='pending'
+      AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turn_messages tm WHERE tm.job_id=j.id)
+    ORDER BY j.conversation_id,j.created_at,j.id
+  ) candidate
+  ORDER BY candidate.created_at,candidate.id
   LIMIT least(v_target*10,1000)
  LOOP
   EXIT WHEN v_count>=v_target;
@@ -30,19 +34,14 @@ BEGIN
   FROM public.agent_inbound_jobs
   WHERE id=v_job.id
   FOR UPDATE;
-  IF NOT FOUND OR v_locked_job.conversation_id<>v_job.conversation_id OR v_locked_job.status<>'pending' THEN
-   CONTINUE;
-  END IF;
+  IF NOT FOUND OR v_locked_job.conversation_id<>v_job.conversation_id OR v_locked_job.status<>'pending' THEN CONTINUE; END IF;
 
-  SELECT turn_id INTO v_turn
-  FROM public.agent_customer_turn_messages
-  WHERE job_id=v_job.id;
+  SELECT turn_id INTO v_turn FROM public.agent_customer_turn_messages WHERE job_id=v_job.id;
   IF FOUND THEN CONTINUE; END IF;
 
   IF EXISTS(
     SELECT 1 FROM public.agent_inbound_jobs active_job
-    WHERE active_job.conversation_id=v_job.conversation_id
-      AND active_job.id<>v_job.id
+    WHERE active_job.conversation_id=v_job.conversation_id AND active_job.id<>v_job.id
       AND active_job.status IN ('processing_safe','processing')
   ) OR EXISTS(
     SELECT 1 FROM public.agent_customer_turns active_turn
@@ -56,18 +55,13 @@ BEGIN
   SELECT id INTO v_turn
   FROM public.agent_customer_turns
   WHERE conversation_id=v_job.conversation_id AND state='collecting'
-  ORDER BY created_at DESC
-  LIMIT 1
-  FOR UPDATE;
+  ORDER BY created_at DESC LIMIT 1 FOR UPDATE;
 
   IF v_turn IS NULL THEN
    INSERT INTO public.agent_customer_turns(conversation_id,workspace_id)
-   VALUES(v_job.conversation_id,v_locked_job.workspace_id)
-   RETURNING id INTO v_turn;
+   VALUES(v_job.conversation_id,v_locked_job.workspace_id) RETURNING id INTO v_turn;
   ELSE
-   UPDATE public.agent_customer_turns
-   SET last_received_at=now(),updated_at=now()
-   WHERE id=v_turn;
+   UPDATE public.agent_customer_turns SET last_received_at=now(),updated_at=now() WHERE id=v_turn;
   END IF;
 
   INSERT INTO public.agent_customer_turn_messages(turn_id,job_id,message_id)
