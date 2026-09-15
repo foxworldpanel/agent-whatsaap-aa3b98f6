@@ -7,5 +7,6 @@ describe("Stage B ownership transition fence",()=>{
   expect((migration.match(/hashtextextended\(v_conversation_id::text,31\)/g)||[]).length).toBe(4);
   for(const rpc of ["release_agent_inbound_job_safe","review_agent_inbound_job_safe","complete_agent_inbound_job","review_agent_inbound_job_runtime"]){expect(migration).toContain(`FUNCTION public.${rpc}`);expect(source).toContain(`\"${rpc}\"`);}
  });
+ it("refuses direct Stage B finalization once a job belongs to a semantic Customer Turn",()=>{expect((migration.match(/NOT EXISTS\(SELECT 1 FROM public\.agent_customer_turn_messages tm WHERE tm\.job_id=agent_inbound_jobs\.id\)/g)||[]).length).toBe(4);});
  it("does not mutate Stage B ownership directly through REST updates",()=>{expect(source).not.toContain('.from("agent_inbound_jobs").update({status:');});
 });
