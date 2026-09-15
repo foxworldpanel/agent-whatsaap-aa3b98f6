@@ -7,6 +7,7 @@ import {
   enterCustomerTurnRuntime,
   finishCustomerTurn,
   hasReadyCustomerTurn,
+  quarantineCustomerTurnsWithUnattachedReview,
   quarantineExhaustedCustomerTurns,
   recoverStaleCustomerTurns,
   releaseCustomerTurnSafe,
@@ -39,10 +40,11 @@ async function executeClaimedCustomerTurn(s:any,turn:AgentCustomerTurn,holder:st
 export async function dispatchReadyCustomerTurnById(s:any,turnId:string,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn-fast:${workerId}:${randomUUID()}`;const turn=await claimReadyCustomerTurnById(s,turnId,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
 export async function dispatchOneCustomerTurn(s:any,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn:${workerId}:${randomUUID()}`;const turn=await claimNextReadyCustomerTurn(s,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
 
-export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=20):Promise<{attached:number;recovered:number;quarantinedExhausted:number;claimed:number;processed:number;needsReview:number;idle:boolean}>{
+export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=20):Promise<{attached:number;recovered:number;quarantinedExhausted:number;quarantinedIncomplete:number;claimed:number;processed:number;needsReview:number;idle:boolean}>{
  const recovered=await recoverStaleCustomerTurns(s);
  const quarantinedExhausted=await quarantineExhaustedCustomerTurns(s);
  const attached=await attachPendingAgentInboundJobsToCustomerTurns(s,Math.max(20,maxPerRun*4));
+ const quarantinedIncomplete=await quarantineCustomerTurnsWithUnattachedReview(s,Math.max(20,maxPerRun*4));
  const bounded=Math.max(1,Math.min(maxPerRun,20));
  let claimed=0,processed=0,needsReview=0,consecutiveIdleClaims=0;
  const maxClaimAttempts=bounded+3;
@@ -57,8 +59,6 @@ export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=
   if(result.status==="processed")processed+=1;
   if(result.status==="needs_review")needsReview+=1;
  }
- // Do not infer queue emptiness from claim collisions. A durable readiness
- // probe distinguishes true idle from ready work temporarily fenced elsewhere.
  const readyRemains=await hasReadyCustomerTurn(s);
- return{attached,recovered,quarantinedExhausted,claimed,processed,needsReview,idle:!readyRemains};
+ return{attached,recovered,quarantinedExhausted,quarantinedIncomplete,claimed,processed,needsReview,idle:!readyRemains};
 }
