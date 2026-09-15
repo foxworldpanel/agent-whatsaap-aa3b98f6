@@ -2,17 +2,24 @@
 -- the Customer Turn owner moves the whole turn through processing_safe/runtime.
 -- Enforce this at attachment time so direct Stage B ownership cannot leak into
 -- Stage C even if a future caller bypasses the current claim barriers.
+--
+-- Lock ordering is advisory-first. The first lookup is intentionally non-locking
+-- and is used only to discover the conversation key; authoritative identity and
+-- ownership are re-read after acquiring the canonical seed-31 fence.
 CREATE OR REPLACE FUNCTION public.guard_agent_customer_turn_member_pending_job()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_status text; v_claimed_by text; v_conversation_id uuid;
 BEGIN
- SELECT status,claimed_by,conversation_id INTO v_status,v_claimed_by,v_conversation_id
- FROM public.agent_inbound_jobs WHERE id=NEW.job_id AND message_id=NEW.message_id;
- IF NOT FOUND THEN RAISE EXCEPTION 'Customer Turn member inbound job missing or message identity mismatch'; END IF;
+ SELECT conversation_id INTO v_conversation_id
+ FROM public.agent_inbound_jobs WHERE id=NEW.job_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Customer Turn member inbound job missing'; END IF;
+
  PERFORM pg_advisory_xact_lock(hashtextextended(v_conversation_id::text,31));
+
  SELECT status,claimed_by INTO v_status,v_claimed_by
- FROM public.agent_inbound_jobs WHERE id=NEW.job_id AND message_id=NEW.message_id AND conversation_id=v_conversation_id;
- IF NOT FOUND THEN RAISE EXCEPTION 'Customer Turn member inbound job disappeared'; END IF;
+ FROM public.agent_inbound_jobs
+ WHERE id=NEW.job_id AND message_id=NEW.message_id AND conversation_id=v_conversation_id;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Customer Turn member inbound job identity mismatch or disappeared'; END IF;
  IF v_status<>'pending' OR v_claimed_by IS NOT NULL THEN
    RAISE EXCEPTION 'Customer Turn member requires unclaimed pending Stage B job, got %/%',v_status,coalesce(v_claimed_by,'unclaimed');
  END IF;
