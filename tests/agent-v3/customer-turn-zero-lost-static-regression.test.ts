@@ -2,19 +2,15 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const migration = (name: string) =>
-  readFileSync(resolve(process.cwd(), "supabase/migrations", name), "utf8");
-
+const migration = (name: string) => readFileSync(resolve(process.cwd(), "supabase/migrations", name), "utf8");
 const retryState = migration("20260914194500_retry_safe_customer_turn_state.sql");
-const stageBFence = migration("20260914200000_retry_safe_blocks_stage_b_fallback.sql");
+const stageBFence = migration("20260914281500_stage_b_claim_generation_lock_fence.sql");
 const retryOrder = migration("20260914203000_customer_turn_retry_order_fence.sql");
 const boundedRetry = migration("20260914211500_bound_customer_turn_safe_retries.sql");
 const generationFence = migration("20260914214500_unify_generation_lock_customer_turn_fence.sql");
 const ownerSafeRelease = migration("20260914223000_owner_safe_generation_lock_release.sql");
-const claimGenerationFence = migration("20260914224500_generation_lock_blocks_customer_turn_claims.sql");
 const insertGenerationFence = migration("20260914230000_generation_lock_insert_customer_turn_fence.sql");
-const readyProbeFence = migration("20260914233000_customer_turn_ready_probe_runtime_fences.sql");
-const effectiveClaim = migration("20260914273000_customer_turn_claim_retry_safe_revalidation_fix.sql");
+const effectiveClaim = migration("20260914283000_pending_inbound_blocks_customer_turn_claim.sql");
 const orphanLockRecovery = migration("20260914263000_orphan_generation_lock_recovery_fairness.sql");
 const stageBRecovery = migration("20260914264500_stage_b_recovery_fairness.sql");
 const customerTurnRecovery = migration("20260914270000_customer_turn_recovery_fairness.sql");
@@ -24,13 +20,10 @@ const lockOrder = migration("20260914182500_customer_turn_lock_order.sql");
 
 describe("Stage C zero-lost-turn static invariants", () => {
   it("uses the same conversation advisory-lock namespace in effective background ownership paths", () => {
-    for (const sql of [effectiveClaim, orphanLockRecovery, stageBRecovery, customerTurnRecovery, exhaustedQuarantine]) {
-      expect(sql).toContain("hashtextextended(v_candidate.conversation_id::text,31)");
-    }
+    for (const sql of [effectiveClaim, orphanLockRecovery, stageBRecovery, customerTurnRecovery, exhaustedQuarantine]) expect(sql).toContain("hashtextextended(v_candidate.conversation_id::text,31)");
     expect(lockOrder).toContain("hashtextextended(v_conversation_id::text,31)");
     expect(generationFence).toContain("hashtextextended(p_conversation_id::text,31)");
     expect(ownerSafeRelease).toContain("hashtextextended(p_conversation_id::text,31)");
-    expect(claimGenerationFence).toContain("hashtextextended(v_conversation_id::text,31)");
     expect(insertGenerationFence).toContain("hashtextextended(NEW.conversation_id::text,31)");
   });
 
@@ -48,6 +41,12 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(effectiveClaim).toContain("(older_retry.created_at,older_retry.id)<(current_turn.created_at,current_turn.id)");
   });
 
+  it("does not seal collecting work while same-conversation inbound remains unattached", () => {
+    expect(effectiveClaim).toContain("pending_job.status='pending'");
+    expect(effectiveClaim).toContain("agent_customer_turn_messages tm WHERE tm.job_id=pending_job.id");
+    expect(effectiveClaim).toContain("CREATE OR REPLACE FUNCTION public.has_ready_agent_customer_turn");
+  });
+
   it("bounds crash-only retries before the runtime boundary", () => {
     expect(boundedRetry).toContain("safe_attempt_count integer NOT NULL DEFAULT 0");
     expect(boundedRetry.match(/safe_attempt_count<5/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
@@ -56,9 +55,10 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(exhaustedQuarantine).toContain("SET state='needs_review'");
   });
 
-  it("keeps Stage B fallback behind semantic retry ownership", () => {
+  it("keeps Stage B fallback behind semantic and generation ownership", () => {
     expect(stageBFence.match(/t\.state IN \('retry_safe','processing_safe','processing'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
     expect(stageBFence).toContain("NOT EXISTS(SELECT 1 FROM public.agent_customer_turn_messages tm WHERE tm.job_id=j.id)");
+    expect(stageBFence).toContain("public.agent_generation_locks g");
   });
 
   it("prevents generation-lock cleanup while durable runtime owns the conversation", () => {
@@ -77,17 +77,10 @@ describe("Stage C zero-lost-turn static invariants", () => {
   });
 
   it("serializes Welcome Funnel generation ownership against Customer Turn claims", () => {
-    expect(claimGenerationFence.match(/public\.agent_generation_locks g/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(effectiveClaim.match(/public\.agent_generation_locks g/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
     expect(insertGenerationFence).toContain("CREATE OR REPLACE FUNCTION public.guard_agent_generation_lock_insert");
     expect(insertGenerationFence).toContain("BEFORE INSERT ON public.agent_generation_locks");
     expect(insertGenerationFence).toContain("t.state IN ('processing_safe','processing')");
-  });
-
-  it("reports ready work only when no runtime owner currently fences it", () => {
-    expect(readyProbeFence).toContain("CREATE OR REPLACE FUNCTION public.has_ready_agent_customer_turn");
-    expect(readyProbeFence).toContain("active_turn.state IN ('processing_safe','processing')");
-    expect(readyProbeFence).toContain("active_job.status IN ('processing_safe','processing')");
-    expect(readyProbeFence).toContain("FROM public.agent_generation_locks generation_lock");
   });
 
   it("skips contended ready turns rather than blocking or returning on the first collision", () => {
