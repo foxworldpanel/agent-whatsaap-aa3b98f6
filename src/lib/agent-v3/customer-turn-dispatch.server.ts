@@ -69,6 +69,9 @@ export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=
   if(result.status==="processed")processed+=1;
   if(result.status==="needs_review")needsReview+=1;
  }
- const readyRemains=await hasReadyCustomerTurn(s);
+ // Never spend the cron timeout margin on a nonessential readiness probe after
+ // the batch budget is already exhausted. Conservatively report non-idle so the
+ // scheduler will invoke the worker again instead of risking a 55s HTTP timeout.
+ const readyRemains=withinBudget()?await hasReadyCustomerTurn(s):true;
  return{attached,recovered,quarantinedExhausted,quarantinedIncomplete,quarantinedSnapshot,claimed,processed,needsReview,idle:!readyRemains};
 }
