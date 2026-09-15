@@ -4,7 +4,7 @@ export const AGENT_CUSTOMER_TURN_QUIET_MS = 2200;
 export const AGENT_CUSTOMER_TURN_STALE_MS = 5 * 60 * 1000;
 
 export type AgentCustomerTurnState = "collecting" | "retry_safe" | "processing_safe" | "processing" | "processed" | "needs_review";
-export type AgentCustomerTurn = { id:string; conversation_id:string; workspace_id:string; state:AgentCustomerTurnState; last_received_at:string; sealed_at:string|null; claimed_by:string|null; claimed_at:string|null; last_error:string|null; created_at:string; updated_at:string };
+export type AgentCustomerTurn = { id:string; conversation_id:string; workspace_id:string; state:AgentCustomerTurnState; last_received_at:string; sealed_at:string|null; claimed_by:string|null; claimed_at:string|null; safe_attempt_count:number; last_error:string|null; created_at:string; updated_at:string };
 export type AgentCustomerTurnMember = { turn_id:string; job_id:string; message_id:string; ordinal:number; external_id:string; input_text:string; input_kind:AgentInboundKind; input_mime:string|null; audio_url:string|null; created_at:string };
 
 export async function attachAgentInboundJobToCustomerTurn(s:any,jobId:string):Promise<string>{const {data,error}=await s.rpc("attach_agent_inbound_job_to_customer_turn",{p_job_id:jobId});if(error)throw error;if(typeof data!=="string"||!data)throw new Error(`Customer Turn attachment failed for job ${jobId}`);return data;}
