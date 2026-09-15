@@ -9,6 +9,7 @@ import {
   hasReadyCustomerTurn,
   quarantineCustomerTurnsWithUnattachedReview,
   quarantineExhaustedCustomerTurns,
+  quarantineIncompleteCustomerTurnSnapshots,
   recoverStaleCustomerTurns,
   releaseCustomerTurnSafe,
   type AgentCustomerTurn,
@@ -42,16 +43,17 @@ async function executeClaimedCustomerTurn(s:any,turn:AgentCustomerTurn,holder:st
 export async function dispatchReadyCustomerTurnById(s:any,turnId:string,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn-fast:${workerId}:${randomUUID()}`;const turn=await claimReadyCustomerTurnById(s,turnId,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
 export async function dispatchOneCustomerTurn(s:any,workerId:string):Promise<AgentCustomerTurnDispatchResult>{const holder=`customer-turn:${workerId}:${randomUUID()}`;const turn=await claimNextReadyCustomerTurn(s,holder);if(!turn)return{status:"idle"};return executeClaimedCustomerTurn(s,turn,holder);}
 
-export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=20,maxBatchMs=AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS):Promise<{attached:number;recovered:number;quarantinedExhausted:number;quarantinedIncomplete:number;claimed:number;processed:number;needsReview:number;idle:boolean}>{
+export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=20,maxBatchMs=AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS):Promise<{attached:number;recovered:number;quarantinedExhausted:number;quarantinedIncomplete:number;quarantinedSnapshot:number;claimed:number;processed:number;needsReview:number;idle:boolean}>{
  const startedAt=Date.now();
  const budgetMs=Math.max(1,Math.min(maxBatchMs,AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS));
  const withinBudget=()=>Date.now()-startedAt<budgetMs;
  const maintenanceLimit=Math.max(20,Math.min(maxPerRun,20)*4);
- let recovered=0,quarantinedExhausted=0,attached=0,quarantinedIncomplete=0;
+ let recovered=0,quarantinedExhausted=0,attached=0,quarantinedIncomplete=0,quarantinedSnapshot=0;
  if(withinBudget())recovered=await recoverStaleCustomerTurns(s);
  if(withinBudget())quarantinedExhausted=await quarantineExhaustedCustomerTurns(s);
  if(withinBudget())attached=await attachPendingAgentInboundJobsToCustomerTurns(s,maintenanceLimit);
  if(withinBudget())quarantinedIncomplete=await quarantineCustomerTurnsWithUnattachedReview(s,maintenanceLimit);
+ if(withinBudget())quarantinedSnapshot=await quarantineIncompleteCustomerTurnSnapshots(s,maintenanceLimit);
  const bounded=Math.max(1,Math.min(maxPerRun,20));
  let claimed=0,processed=0,needsReview=0,consecutiveIdleClaims=0;
  const maxClaimAttempts=bounded+3;
@@ -68,5 +70,5 @@ export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=
   if(result.status==="needs_review")needsReview+=1;
  }
  const readyRemains=await hasReadyCustomerTurn(s);
- return{attached,recovered,quarantinedExhausted,quarantinedIncomplete,claimed,processed,needsReview,idle:!readyRemains};
+ return{attached,recovered,quarantinedExhausted,quarantinedIncomplete,quarantinedSnapshot,claimed,processed,needsReview,idle:!readyRemains};
 }
