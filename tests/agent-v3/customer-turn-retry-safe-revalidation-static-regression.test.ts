@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914273000_customer_turn_claim_retry_safe_revalidation_fix.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914283000_pending_inbound_blocks_customer_turn_claim.sql"),
   "utf8",
 );
 
@@ -32,5 +32,11 @@ describe("Customer Turn retry_safe claim ordering", () => {
     expect(sql).toContain("LIMIT 32");
     expect(sql).toContain("CONTINUE;");
     expect(sql).toContain("IF FOUND THEN RETURN; END IF;");
+  });
+
+  it("keeps retry_safe sealed while pending inbound only blocks collecting", () => {
+    expect(sql).toContain("current_turn.state='collecting'");
+    expect(sql).toContain("pending_job.status='pending'");
+    expect(sql).toContain("t.state='retry_safe'");
   });
 });
