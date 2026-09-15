@@ -18,6 +18,10 @@ import { buildCustomerTurnRuntimeInput } from "@/lib/agent-v3/customer-turn-runt
 import type { AgentV3RuntimeTerminalReason } from "@/lib/agent-v3/inbound-runtime-result.server";
 
 export const AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS = 35_000;
+// pg_net gives the worker 55s. Do not claim fresh semantic work near the end of
+// the 35s batch window: once a turn crosses into runtime we must let it finish or
+// quarantine on a real failure, never abort it merely to satisfy the HTTP clock.
+export const AGENT_CUSTOMER_TURN_RUNTIME_START_RESERVE_MS = 15_000;
 
 export type AgentCustomerTurnDispatchResult =
   | { status: "idle" }
@@ -46,7 +50,9 @@ export async function dispatchOneCustomerTurn(s:any,workerId:string):Promise<Age
 export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=20,maxBatchMs=AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS):Promise<{attached:number;recovered:number;quarantinedExhausted:number;quarantinedIncomplete:number;quarantinedSnapshot:number;claimed:number;processed:number;needsReview:number;idle:boolean}>{
  const startedAt=Date.now();
  const budgetMs=Math.max(1,Math.min(maxBatchMs,AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS));
- const withinBudget=()=>Date.now()-startedAt<budgetMs;
+ const elapsedMs=()=>Date.now()-startedAt;
+ const withinBudget=()=>elapsedMs()<budgetMs;
+ const canStartRuntime=()=>budgetMs-elapsedMs()>AGENT_CUSTOMER_TURN_RUNTIME_START_RESERVE_MS;
  const maintenanceLimit=Math.max(20,Math.min(maxPerRun,20)*4);
  let recovered=0,quarantinedExhausted=0,attached=0,quarantinedIncomplete=0,quarantinedSnapshot=0;
  if(withinBudget())recovered=await recoverStaleCustomerTurns(s);
@@ -58,7 +64,9 @@ export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=
  let claimed=0,processed=0,needsReview=0,consecutiveIdleClaims=0;
  const maxClaimAttempts=bounded+3;
  for(let attempt=0;attempt<maxClaimAttempts&&claimed<bounded;attempt+=1){
-  if(!withinBudget())break;
+  // Claiming itself changes durable ownership. Stop before that point unless a
+  // useful runtime margin remains; leave the ready turn untouched for next run.
+  if(!canStartRuntime())break;
   const result=await dispatchOneCustomerTurn(s,workerId);
   if(result.status==="idle"){
    consecutiveIdleClaims+=1;
