@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914293000_drain_pending_attachment_by_conversation.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914294500_bound_pending_drain_per_conversation.sql"),
   "utf8",
 );
 
@@ -13,6 +13,7 @@ describe("pending Stage B to Customer Turn attachment sweep", () => {
     expect(sql).toContain("ORDER BY candidate.created_at,candidate.id");
     expect(sql).toContain("LIMIT least(v_target*10,1000)");
     expect(sql).toContain("EXIT WHEN v_count>=v_target");
+    expect(sql).toContain("EXIT WHEN v_count>=v_target OR v_conversation_count>=v_per_conversation");
     expect(sql).toContain("pg_try_advisory_xact_lock(hashtextextended(v_conversation.conversation_id::text,31))");
     expect(sql).toContain("CONTINUE;");
   });
