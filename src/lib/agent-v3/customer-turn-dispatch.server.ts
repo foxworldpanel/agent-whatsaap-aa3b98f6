@@ -9,6 +9,7 @@ import {
   hasReadyCustomerTurn,
   quarantineExhaustedCustomerTurns,
   recoverStaleCustomerTurns,
+  releaseCustomerTurnSafe,
   type AgentCustomerTurn,
 } from "@/lib/agent-v3/customer-turn.server";
 import { buildCustomerTurnRuntimeInput } from "@/lib/agent-v3/customer-turn-runtime.server";
@@ -16,6 +17,7 @@ import type { AgentV3RuntimeTerminalReason } from "@/lib/agent-v3/inbound-runtim
 
 export type AgentCustomerTurnDispatchResult =
   | { status: "idle" }
+  | { status: "retry_safe"; turnId: string }
   | { status: "processed"; turnId: string; memberCount: number; reason: AgentV3RuntimeTerminalReason }
   | { status: "needs_review"; turnId: string };
 
@@ -23,7 +25,7 @@ async function quarantineClaimedCustomerTurn(s:any,turn:AgentCustomerTurn,holder
 
 async function executeClaimedCustomerTurn(s:any,turn:AgentCustomerTurn,holder:string):Promise<AgentCustomerTurnDispatchResult>{
  let runtime;
- try{runtime=await buildCustomerTurnRuntimeInput(s,turn.id);}catch(error){return quarantineClaimedCustomerTurn(s,turn,holder,error);}
+ try{runtime=await buildCustomerTurnRuntimeInput(s,turn.id);}catch(error){const released=await releaseCustomerTurnSafe(s,turn.id,holder,error);return{status:released,turnId:turn.id};}
  const enteredRuntime=await enterCustomerTurnRuntime(s,turn.id,holder);
  if(!enteredRuntime)throw new Error(`Customer Turn runtime transition rejected for ${turn.id}`);
  let result;
