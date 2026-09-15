@@ -13,7 +13,12 @@ CREATE TABLE IF NOT EXISTS public.welcome_funnel_execution_state (
  started_at timestamptz NOT NULL DEFAULT now(),
  updated_at timestamptz NOT NULL DEFAULT now(),
  completed_at timestamptz NULL,
- PRIMARY KEY(funnel_id,contact_id)
+ PRIMARY KEY(funnel_id,contact_id),
+ CONSTRAINT welcome_funnel_execution_state_terminal_shape CHECK(
+   (status='completed' AND completed_at IS NOT NULL AND error_message IS NULL)
+   OR (status='needs_review' AND completed_at IS NULL AND nullif(btrim(coalesce(error_message,'')),'') IS NOT NULL)
+   OR (status='running' AND completed_at IS NULL)
+ )
 );
 
 CREATE INDEX IF NOT EXISTS welcome_funnel_execution_state_conversation_idx
