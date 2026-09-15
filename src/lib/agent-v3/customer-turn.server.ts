@@ -37,6 +37,15 @@ export async function enterCustomerTurnRuntime(s:any,turnId:string,holder:string
 
 async function readCustomerTurnState(s:any,turnId:string):Promise<Pick<AgentCustomerTurn,"state"|"claimed_by">|null>{const {data,error}=await s.from("agent_customer_turns").select("state,claimed_by").eq("id",turnId).maybeSingle();if(error)throw error;return data?{state:data.state as AgentCustomerTurnState,claimed_by:data.claimed_by??null}:null;}
 
+export async function releaseCustomerTurnSafe(s:any,turnId:string,holder:string,errorValue:unknown):Promise<"retry_safe"|"needs_review">{
+ const errorText=errorValue instanceof Error?errorValue.message:String(errorValue);
+ const {data,error}=await s.rpc("release_agent_customer_turn_safe",{p_turn_id:turnId,p_holder:holder,p_error:errorText});
+ if(!error&&(data==="retry_safe"||data==="needs_review"))return data;
+ try{const current=await readCustomerTurnState(s,turnId);if(current?.claimed_by===null&&(current.state==="retry_safe"||current.state==="needs_review"))return current.state;}catch(verifyError){console.error("[AGENT-CUSTOMER-TURN] failed to verify safe release after RPC uncertainty",verifyError);}
+ if(error)throw error;
+ throw new Error(`Customer Turn safe release rejected for ${turnId}`);
+}
+
 export async function finishCustomerTurn(s:any,turnId:string,holder:string,outcome:{ok:true}|{ok:false;error:unknown}):Promise<void>{
  const errorText=outcome.ok?null:(outcome.error instanceof Error?outcome.error.message:String(outcome.error));
  const terminalState:AgentCustomerTurnState=outcome.ok?"processed":"needs_review";
