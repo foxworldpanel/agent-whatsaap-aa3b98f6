@@ -5,12 +5,11 @@ import { describe, expect, it } from "vitest";
 const migration = (name: string) => readFileSync(resolve(process.cwd(), "supabase/migrations", name), "utf8");
 const retryState = migration("20260914194500_retry_safe_customer_turn_state.sql");
 const stageBFence = migration("20260914281500_stage_b_claim_generation_lock_fence.sql");
-const retryOrder = migration("20260914203000_customer_turn_retry_order_fence.sql");
 const boundedRetry = migration("20260914211500_bound_customer_turn_safe_retries.sql");
 const generationFence = migration("20260914214500_unify_generation_lock_customer_turn_fence.sql");
 const ownerSafeRelease = migration("20260914223000_owner_safe_generation_lock_release.sql");
 const insertGenerationFence = migration("20260914230000_generation_lock_insert_customer_turn_fence.sql");
-const effectiveClaim = migration("20260914283000_pending_inbound_blocks_customer_turn_claim.sql");
+const effectiveClaim = migration("20260914300000_unattached_review_blocks_customer_turn.sql");
 const orphanLockRecovery = migration("20260914263000_orphan_generation_lock_recovery_fairness.sql");
 const stageBRecovery = migration("20260914264500_stage_b_recovery_fairness.sql");
 const customerTurnRecovery = migration("20260914270000_customer_turn_recovery_fairness.sql");
@@ -19,7 +18,7 @@ const runtimeBoundary = migration("20260914191500_safe_pre_runtime_customer_turn
 const lockOrder = migration("20260914182500_customer_turn_lock_order.sql");
 
 describe("Stage C zero-lost-turn static invariants", () => {
-  it("uses the same conversation advisory-lock namespace in effective background ownership paths", () => {
+  it("uses the same conversation advisory-lock namespace in effective ownership paths", () => {
     for (const sql of [effectiveClaim, orphanLockRecovery, stageBRecovery, customerTurnRecovery, exhaustedQuarantine]) expect(sql).toContain("hashtextextended(v_candidate.conversation_id::text,31)");
     expect(lockOrder).toContain("hashtextextended(v_conversation_id::text,31)");
     expect(generationFence).toContain("hashtextextended(p_conversation_id::text,31)");
@@ -34,23 +33,25 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(customerTurnRecovery).toContain("state='processing'");
   });
 
-  it("prevents collecting work from overtaking retry_safe work without newer retry_safe blocking the oldest", () => {
-    expect(retryOrder).toContain("older.state='retry_safe'");
-    expect(effectiveClaim).toContain("current_turn.state='collecting' AND EXISTS(");
-    expect(effectiveClaim).toContain("current_turn.state='retry_safe' AND EXISTS(");
-    expect(effectiveClaim).toContain("(older_retry.created_at,older_retry.id)<(current_turn.created_at,current_turn.id)");
+  it("prevents collecting work from overtaking retry_safe work", () => {
+    expect(effectiveClaim).toContain("retry_owner.state='retry_safe'");
+    expect(effectiveClaim).toContain("older.state='retry_safe'");
+    expect(effectiveClaim).toContain("(older.created_at,older.id)<(t.created_at,t.id)");
+    expect(effectiveClaim).toContain("t.updated_at<=now()-interval '15 seconds'");
   });
 
-  it("does not seal collecting work while same-conversation inbound remains unattached", () => {
+  it("does not seal collecting work while semantic inbound remains unattached", () => {
     expect(effectiveClaim).toContain("pending_job.status='pending'");
+    expect(effectiveClaim).toContain("review_job.status='needs_review'");
     expect(effectiveClaim).toContain("agent_customer_turn_messages tm WHERE tm.job_id=pending_job.id");
+    expect(effectiveClaim).toContain("agent_customer_turn_messages tm WHERE tm.job_id=review_job.id");
     expect(effectiveClaim).toContain("CREATE OR REPLACE FUNCTION public.has_ready_agent_customer_turn");
   });
 
   it("bounds crash-only retries before the runtime boundary", () => {
     expect(boundedRetry).toContain("safe_attempt_count integer NOT NULL DEFAULT 0");
-    expect(boundedRetry.match(/safe_attempt_count<5/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
-    expect(boundedRetry).toContain("safe_attempt_count=t.safe_attempt_count+1");
+    expect(effectiveClaim.match(/safe_attempt_count<5/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+    expect(effectiveClaim).toContain("safe_attempt_count=t.safe_attempt_count+1");
     expect(exhaustedQuarantine).toContain("state='retry_safe' AND safe_attempt_count>=5");
     expect(exhaustedQuarantine).toContain("SET state='needs_review'");
   });
@@ -77,13 +78,13 @@ describe("Stage C zero-lost-turn static invariants", () => {
   });
 
   it("serializes Welcome Funnel generation ownership against Customer Turn claims", () => {
-    expect(effectiveClaim.match(/public\.agent_generation_locks g/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(effectiveClaim.match(/public\.agent_generation_locks/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
     expect(insertGenerationFence).toContain("CREATE OR REPLACE FUNCTION public.guard_agent_generation_lock_insert");
     expect(insertGenerationFence).toContain("BEFORE INSERT ON public.agent_generation_locks");
     expect(insertGenerationFence).toContain("t.state IN ('processing_safe','processing')");
   });
 
-  it("skips contended ready turns rather than blocking or returning on the first collision", () => {
+  it("skips contended ready turns rather than blocking on the first collision", () => {
     expect(effectiveClaim).toContain("FOR v_candidate IN");
     expect(effectiveClaim).toContain("LIMIT 32");
     expect(effectiveClaim).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
