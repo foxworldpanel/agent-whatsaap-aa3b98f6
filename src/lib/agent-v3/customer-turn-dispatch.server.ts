@@ -45,15 +45,18 @@ export async function dispatchOneCustomerTurn(s:any,workerId:string):Promise<Age
 export async function dispatchCustomerTurnBatch(s:any,workerId:string,maxPerRun=20,maxBatchMs=AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS):Promise<{attached:number;recovered:number;quarantinedExhausted:number;quarantinedIncomplete:number;claimed:number;processed:number;needsReview:number;idle:boolean}>{
  const startedAt=Date.now();
  const budgetMs=Math.max(1,Math.min(maxBatchMs,AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS));
- const recovered=await recoverStaleCustomerTurns(s);
- const quarantinedExhausted=await quarantineExhaustedCustomerTurns(s);
- const attached=await attachPendingAgentInboundJobsToCustomerTurns(s,Math.max(20,maxPerRun*4));
- const quarantinedIncomplete=await quarantineCustomerTurnsWithUnattachedReview(s,Math.max(20,maxPerRun*4));
+ const withinBudget=()=>Date.now()-startedAt<budgetMs;
+ const maintenanceLimit=Math.max(20,Math.min(maxPerRun,20)*4);
+ let recovered=0,quarantinedExhausted=0,attached=0,quarantinedIncomplete=0;
+ if(withinBudget())recovered=await recoverStaleCustomerTurns(s);
+ if(withinBudget())quarantinedExhausted=await quarantineExhaustedCustomerTurns(s);
+ if(withinBudget())attached=await attachPendingAgentInboundJobsToCustomerTurns(s,maintenanceLimit);
+ if(withinBudget())quarantinedIncomplete=await quarantineCustomerTurnsWithUnattachedReview(s,maintenanceLimit);
  const bounded=Math.max(1,Math.min(maxPerRun,20));
  let claimed=0,processed=0,needsReview=0,consecutiveIdleClaims=0;
  const maxClaimAttempts=bounded+3;
  for(let attempt=0;attempt<maxClaimAttempts&&claimed<bounded;attempt+=1){
-  if(Date.now()-startedAt>=budgetMs)break;
+  if(!withinBudget())break;
   const result=await dispatchOneCustomerTurn(s,workerId);
   if(result.status==="idle"){
    consecutiveIdleClaims+=1;
