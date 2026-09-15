@@ -9,11 +9,18 @@ export type CustomerTurnMediaContext = {
   anthropicApiKey: string;
 };
 
+async function persistResolvedText(supabaseAdmin:any,member:AgentCustomerTurnMember,text:string):Promise<void>{
+  const {error}=await supabaseAdmin.from("agent_customer_turn_messages").update({resolved_text:text}).eq("turn_id",member.turn_id).eq("job_id",member.job_id).is("resolved_text",null);
+  if(error)throw error;
+}
+
 export async function resolveCustomerTurnMemberText(
   supabaseAdmin: any,
   member: AgentCustomerTurnMember,
   context: CustomerTurnMediaContext,
 ): Promise<string> {
+  const cached=member.resolved_text?.trim();
+  if(cached)return cached;
   if (member.input_kind === "texto") return member.input_text.trim();
 
   if (member.input_kind === "sticker") {
@@ -40,6 +47,7 @@ export async function resolveCustomerTurnMemberText(
     if (downloaded.fileURL?.trim()) patch.audio_url = downloaded.fileURL.trim();
     const { error } = await supabaseAdmin.from("messages").update(patch).eq("id", member.message_id);
     if (error) throw error;
+    await persistResolvedText(supabaseAdmin,member,text);
     return text;
   }
 
@@ -69,5 +77,6 @@ export async function resolveCustomerTurnMemberText(
   if (downloaded.fileURL?.trim()) patch.audio_url = downloaded.fileURL.trim();
   const { error } = await supabaseAdmin.from("messages").update(patch).eq("id", member.message_id);
   if (error) throw error;
+  await persistResolvedText(supabaseAdmin,member,text);
   return text;
 }
