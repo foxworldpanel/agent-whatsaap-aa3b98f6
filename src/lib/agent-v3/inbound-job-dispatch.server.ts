@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   AGENT_INBOUND_MAX_SAFE_ATTEMPTS,
   claimNextAgentInboundJob,
@@ -32,7 +33,7 @@ export type AgentInboundDispatchResult =
   | { status: "needs_review" };
 
 export async function claimOneAgentInboundForRuntime(supabaseAdmin: any, workerId: string): Promise<ClaimedAgentInbound | null> {
-  const queueHolder = `dispatcher-select:${workerId}:${Date.now()}`;
+  const queueHolder = `dispatcher-select:${workerId}:${randomUUID()}`;
   const job = await claimNextAgentInboundJob(supabaseAdmin, queueHolder);
   if (!job) return null;
 
@@ -54,7 +55,7 @@ export async function claimOneAgentInboundForRuntime(supabaseAdmin: any, workerI
     throw error;
   }
 
-  const holder = `dispatcher:${workerId}:${Date.now()}`;
+  const holder = `dispatcher:${workerId}:${randomUUID()}`;
   let transferred = false;
   try {
     transferred = await transferAgentInboundJobClaim(supabaseAdmin, job.message_id, queueHolder, holder);
