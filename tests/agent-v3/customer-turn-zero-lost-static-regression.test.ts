@@ -14,7 +14,7 @@ const ownerSafeRelease = migration("20260914223000_owner_safe_generation_lock_re
 const claimGenerationFence = migration("20260914224500_generation_lock_blocks_customer_turn_claims.sql");
 const insertGenerationFence = migration("20260914230000_generation_lock_insert_customer_turn_fence.sql");
 const readyProbeFence = migration("20260914233000_customer_turn_ready_probe_runtime_fences.sql");
-const effectiveClaim = migration("20260914253000_customer_turn_claim_skips_contended_candidates.sql");
+const effectiveClaim = migration("20260914273000_customer_turn_claim_retry_safe_revalidation_fix.sql");
 const orphanLockRecovery = migration("20260914263000_orphan_generation_lock_recovery_fairness.sql");
 const stageBRecovery = migration("20260914264500_stage_b_recovery_fairness.sql");
 const customerTurnRecovery = migration("20260914270000_customer_turn_recovery_fairness.sql");
@@ -41,10 +41,11 @@ describe("Stage C zero-lost-turn static invariants", () => {
     expect(customerTurnRecovery).toContain("state='processing'");
   });
 
-  it("prevents collecting work from overtaking retry_safe work", () => {
+  it("prevents collecting work from overtaking retry_safe work without newer retry_safe blocking the oldest", () => {
     expect(retryOrder).toContain("older.state='retry_safe'");
-    expect(retryOrder).toContain("(older.created_at,older.id)<(t.created_at,t.id)");
-    expect(retryOrder).toContain("t.state='collecting' AND t.last_received_at<=p_quiet_before");
+    expect(effectiveClaim).toContain("current_turn.state='collecting' AND EXISTS(");
+    expect(effectiveClaim).toContain("current_turn.state='retry_safe' AND EXISTS(");
+    expect(effectiveClaim).toContain("(older_retry.created_at,older_retry.id)<(current_turn.created_at,current_turn.id)");
   });
 
   it("bounds crash-only retries before the runtime boundary", () => {
