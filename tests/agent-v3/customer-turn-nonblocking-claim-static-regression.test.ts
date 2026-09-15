@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914283000_pending_inbound_blocks_customer_turn_claim.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914291500_customer_turn_safe_retry_cooldown.sql"),
   "utf8",
 );
 
@@ -26,5 +26,9 @@ describe("Customer Turn background claim contention", () => {
   it("does not claim collecting work while pending inbound remains unattached", () => {
     expect(migration).toContain("pending_job.status='pending'");
     expect(migration).toContain("agent_customer_turn_messages tm WHERE tm.job_id=pending_job.id");
+  });
+
+  it("backs off retry_safe claims after a transient pre-runtime failure", () => {
+    expect(migration).toContain("t.state='retry_safe' AND t.safe_attempt_count<5 AND t.updated_at<=now()-interval '15 seconds'");
   });
 });
