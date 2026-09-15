@@ -50,5 +50,5 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
   }
   const combinedText = resolved.join("\n").trim();
   if (!combinedText) throw new Error(`Customer Turn ${turnId} resolved to empty content`);
-  return {members,input:{source:"dispatcher",messageId:last.message_id,externalMessageId:last.external_id,conversationId:context.conversationId,contactId:last.contact_id,contactSource:context.contactSource,phone:last.contact_phone,userId:last.user_id,workspaceId:context.workspaceId,whatsappNumberId:last.whatsapp_number_id,sendTarget:last.send_target,instance:context.instance,content:{text:combinedText,kind:"texto"},deferredFunnelMessage}};
+  return {members,input:{source:"dispatcher",messageId:last.message_id,externalMessageId:last.external_id,conversationId:context.conversationId,contactId:last.contact_id,contactSource:last.contact_source,phone:last.contact_phone,userId:last.user_id,workspaceId:context.workspaceId,whatsappNumberId:last.whatsapp_number_id,sendTarget:last.send_target,instance:context.instance,content:{text:combinedText,kind:"texto"},deferredFunnelMessage}};
 }
