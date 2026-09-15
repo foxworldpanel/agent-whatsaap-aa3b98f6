@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914253000_customer_turn_claim_skips_contended_candidates.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914283000_pending_inbound_blocks_customer_turn_claim.sql"),
   "utf8",
 );
 
@@ -21,5 +21,10 @@ describe("Customer Turn claim fairness", () => {
     expect(sql).toContain("j.status IN ('processing_safe','processing')");
     expect(sql).toContain("FROM public.agent_generation_locks g");
     expect(sql).toContain("IF FOUND THEN RETURN; END IF;");
+  });
+
+  it("skips collecting candidates with pending unattached inbound", () => {
+    expect(sql).toContain("pending_job.status='pending'");
+    expect(sql).toContain("agent_customer_turn_messages tm WHERE tm.job_id=pending_job.id");
   });
 });
