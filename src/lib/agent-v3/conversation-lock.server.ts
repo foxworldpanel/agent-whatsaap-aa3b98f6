@@ -1,4 +1,4 @@
-export const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;
+export const DB_CONVERSATION_LOCK_STALE_MS = 20 * 60 * 1000;
 
 async function readConversationLock(
   supabaseAdmin: any,
@@ -18,7 +18,9 @@ async function readConversationLock(
  *
  * The RPC owns stale-lock cleanup and the active durable-owner check atomically.
  * The database function serializes this conversation with the same advisory
- * namespace used by Stage B and Customer Turns.
+ * namespace used by Stage B and Customer Turns. The stale horizon deliberately
+ * exceeds the longest expected Welcome Funnel delay; active owners can refresh
+ * acquired_at and must never be stolen by a normal competing acquisition.
  */
 export async function acquireAgentConversationLock(
   supabaseAdmin: any,
