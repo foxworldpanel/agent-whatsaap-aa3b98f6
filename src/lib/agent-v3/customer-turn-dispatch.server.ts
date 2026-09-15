@@ -22,12 +22,13 @@ export type AgentCustomerTurnDispatchResult =
   | { status: "needs_review"; turnId: string };
 
 async function quarantineClaimedCustomerTurn(s:any,turn:AgentCustomerTurn,holder:string,error:unknown):Promise<AgentCustomerTurnDispatchResult>{await finishCustomerTurn(s,turn.id,holder,{ok:false,error});return{status:"needs_review",turnId:turn.id};}
+async function releaseClaimedCustomerTurnSafe(s:any,turn:AgentCustomerTurn,holder:string,error:unknown):Promise<AgentCustomerTurnDispatchResult>{const released=await releaseCustomerTurnSafe(s,turn.id,holder,error);return{status:released,turnId:turn.id};}
 
 async function executeClaimedCustomerTurn(s:any,turn:AgentCustomerTurn,holder:string):Promise<AgentCustomerTurnDispatchResult>{
  let runtime;
- try{runtime=await buildCustomerTurnRuntimeInput(s,turn.id);}catch(error){const released=await releaseCustomerTurnSafe(s,turn.id,holder,error);return{status:released,turnId:turn.id};}
+ try{runtime=await buildCustomerTurnRuntimeInput(s,turn.id);}catch(error){return releaseClaimedCustomerTurnSafe(s,turn,holder,error);}
  const enteredRuntime=await enterCustomerTurnRuntime(s,turn.id,holder);
- if(!enteredRuntime)throw new Error(`Customer Turn runtime transition rejected for ${turn.id}`);
+ if(!enteredRuntime)return releaseClaimedCustomerTurnSafe(s,turn,holder,new Error(`Customer Turn runtime transition rejected for ${turn.id}`));
  let result;
  try{result=await executeAgentV3Runtime(s,runtime.input);}catch(error){return quarantineClaimedCustomerTurn(s,turn,holder,error);}
  if(result.class==="operational_attention")return quarantineClaimedCustomerTurn(s,turn,holder,new Error(`Agent V3 operational attention: ${result.reason}`));
