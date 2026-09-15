@@ -12,6 +12,11 @@ describe("Customer Turn contact-source snapshot",()=>{
   expect(migration).toContain("NEW.contact_source:=v_contact.source");
   expect(migration).toContain("NEW.contact_source IS DISTINCT FROM OLD.contact_source");
  });
+ it("quarantines legacy active turns under the canonical conversation fence instead of inventing history",()=>{
+  expect(migration).toContain("pg_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
+  expect(migration).toContain("legacy Customer Turn predates durable contact_source snapshot");
+  expect(migration).not.toContain("SET contact_source=ct.source");
+ });
  it("loads and executes the sealed value instead of mutable CRM source",()=>{
   expect(migration).toContain("tm.contact_source,tm.resolved_text");
   expect(turn).toContain("contact_source:string|null");
