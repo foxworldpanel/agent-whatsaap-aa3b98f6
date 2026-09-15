@@ -17,9 +17,7 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
     .in("id", members.map((member) => member.job_id));
   if (error) throw error;
 
-  const jobById = new Map<string, AgentInboundJob>(
-    (jobs || []).map((job: AgentInboundJob) => [job.id, job]),
-  );
+  const jobById = new Map<string, AgentInboundJob>((jobs || []).map((job: AgentInboundJob) => [job.id, job]));
   if (jobById.size !== members.length) throw new Error(`Customer Turn ${turnId} has missing inbound jobs`);
   const lastJob = jobById.get(last.job_id);
   if (!lastJob) throw new Error(`Customer Turn ${turnId} last inbound job is missing`);
@@ -31,11 +29,11 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
     if (job.conversation_id !== lastJob.conversation_id) throw new Error(`Customer Turn ${turnId} contains multiple conversations`);
     if (job.workspace_id !== lastJob.workspace_id) throw new Error(`Customer Turn ${turnId} contains multiple workspaces`);
     if (job.status !== "pending") throw new Error(`Customer Turn ${turnId} member ${member.message_id} is not pending`);
+    if (job.send_target !== member.send_target) throw new Error(`Customer Turn ${turnId} member send target drifted after attachment`);
   }
 
-  // Validate every member against durable CRM/provider identity. Keep the
-  // resulting context per job: media resolution must use the credentials and
-  // phone proven for that exact member, not merely borrow them from the last one.
+  // Current CRM/provider rows are still validated to obtain live credentials and
+  // routing entities, but sealed semantic input is taken from membership below.
   const contextByJobId = new Map<string, AgentInboundResumeContext>();
   for (const member of members) {
     const job = jobById.get(member.job_id)!;
@@ -43,16 +41,16 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
     if (memberContext.conversationId !== lastJob.conversation_id || memberContext.workspaceId !== lastJob.workspace_id) {
       throw new Error(`Customer Turn ${turnId} durable member identity mismatch`);
     }
+    if (memberContext.message.externalId !== member.external_id) throw new Error(`Customer Turn ${turnId} member external identity drifted after attachment`);
     contextByJobId.set(member.job_id, memberContext);
   }
   const context = contextByJobId.get(last.job_id)!;
 
-  const deferredFunnelMessages = members
-    .map((member) => jobById.get(member.job_id))
-    .filter((job): job is AgentInboundJob => Boolean(job?.deferred_funnel))
-    .map((job) => job.input_text.trim())
-    .filter(Boolean);
-  const deferredFunnelMessage = deferredFunnelMessages.length ? deferredFunnelMessages.join("\n") : null;
+  const deferredFunnelMessage = members
+    .filter((member) => member.deferred_funnel)
+    .map((member) => member.input_text.trim())
+    .filter(Boolean)
+    .join("\n") || null;
 
   const { data: integration, error: integrationError } = await supabaseAdmin.from("integrations")
     .select("openai_api_key, anthropic_api_key").eq("user_id", context.userId).eq("workspace_id", context.workspaceId).maybeSingle();
@@ -82,9 +80,8 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
       source: "dispatcher", messageId: last.message_id, externalMessageId: last.external_id,
       conversationId: context.conversationId, contactId: context.contactId, contactSource: context.contactSource,
       phone: context.phone, userId: context.userId, workspaceId: context.workspaceId,
-      whatsappNumberId: context.whatsappNumberId, sendTarget: context.sendTarget, instance: context.instance,
-      content: { text: combinedText, kind: "texto" },
-      deferredFunnelMessage,
+      whatsappNumberId: context.whatsappNumberId, sendTarget: last.send_target, instance: context.instance,
+      content: { text: combinedText, kind: "texto" }, deferredFunnelMessage,
     },
   };
 }
