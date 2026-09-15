@@ -21,4 +21,12 @@ describe("runtime ownership module isolation", () => {
     expect(turns).not.toContain("customer-turn-fast:${workerId}:${Date.now()}");
     expect(turns).not.toContain("customer-turn:${workerId}:${Date.now()}");
   });
+
+  it("uses collision-resistant ownership tokens even in the isolated legacy dispatcher", () => {
+    expect(legacy).toContain('import { randomUUID } from "node:crypto"');
+    expect(legacy).toContain("dispatcher-select:${workerId}:${randomUUID()}");
+    expect(legacy).toContain("dispatcher:${workerId}:${randomUUID()}");
+    expect(legacy).not.toContain("dispatcher-select:${workerId}:${Date.now()}");
+    expect(legacy).not.toContain("dispatcher:${workerId}:${Date.now()}");
+  });
 });
