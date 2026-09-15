@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914293000_drain_pending_attachment_by_conversation.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914294500_bound_pending_drain_per_conversation.sql"),
   "utf8",
 );
 
@@ -19,10 +19,11 @@ describe("pending Stage B attachment runtime fence", () => {
     expect(generation).toBeGreaterThan(turns);
   });
 
-  it("keeps catch-up bounded, per-conversation fair and nonblocking while draining bursts", () => {
+  it("keeps catch-up globally and per-conversation bounded while draining bursts", () => {
     expect(sql).toContain("SELECT DISTINCT ON (j.conversation_id)");
     expect(sql).toContain("LIMIT least(v_target*10,1000)");
-    expect(sql).toContain("EXIT WHEN v_count>=v_target");
+    expect(sql).toContain("v_per_conversation integer:=least(16,greatest(1,ceil(v_target::numeric/4)::integer))");
+    expect(sql).toContain("EXIT WHEN v_count>=v_target OR v_conversation_count>=v_per_conversation");
     expect(sql).toContain("CONTINUE;");
     expect(sql).toContain("FOR v_job IN");
     expect(sql).toContain("FOR UPDATE OF j SKIP LOCKED");
