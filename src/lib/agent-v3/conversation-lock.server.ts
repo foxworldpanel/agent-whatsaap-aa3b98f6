@@ -57,6 +57,29 @@ export async function acquireAgentConversationLock(
   throw error;
 }
 
+export async function refreshAgentConversationLock(
+  supabaseAdmin: any,
+  conversationId: string,
+  holder: string,
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.rpc(
+    "refresh_agent_conversation_lock",
+    { p_conversation_id: conversationId, p_holder: holder },
+  );
+  if (!error && data === true) return true;
+
+  // A lost refresh response is safe to resolve from durable ownership: if the
+  // exact holder still owns the row, the caller may continue and heartbeat again.
+  try {
+    const current = await readConversationLock(supabaseAdmin, conversationId);
+    if (current?.holder === holder) return true;
+    return false;
+  } catch (verifyError) {
+    if (error) throw error;
+    throw verifyError;
+  }
+}
+
 export async function releaseAgentConversationLock(
   supabaseAdmin: any,
   conversationId: string,
