@@ -2,7 +2,8 @@
 -- This is a compatibility marker, not an assertion that delivery completed.
 -- A legacy synchronous sequence can legitimately run for ~15 minutes (five steps
 -- with the configured 180s delay cap), so recent rows remain ambiguous and must
--- never be grandfathered as historical compatibility state.
+-- never be grandfathered as historical compatibility state. Likewise, any claim
+-- already represented by durable execution state is never legacy compatibility.
 CREATE TABLE IF NOT EXISTS public.welcome_funnel_legacy_claim_baseline(
  funnel_id uuid NOT NULL,
  contact_id uuid NOT NULL,
@@ -13,6 +14,10 @@ INSERT INTO public.welcome_funnel_legacy_claim_baseline(funnel_id,contact_id)
 SELECT r.funnel_id,r.contact_id
 FROM public.welcome_funnel_runs r
 WHERE r.fired_at < now() - interval '20 minutes'
+ AND NOT EXISTS(
+  SELECT 1 FROM public.welcome_funnel_execution_state s
+  WHERE s.funnel_id=r.funnel_id AND s.contact_id=r.contact_id
+ )
 ON CONFLICT(funnel_id,contact_id) DO NOTHING;
 ALTER TABLE public.welcome_funnel_legacy_claim_baseline ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.welcome_funnel_legacy_claim_baseline FROM PUBLIC,anon,authenticated;
