@@ -9,6 +9,18 @@ describe("Welcome Funnel durable orchestrator",()=>{
   expect(source).toContain("releaseAgentConversationLock");
   expect(source).toContain("randomUUID()");
  });
+ it("proves the lease before and after the external-side-effect window",()=>{
+  expect(source.match(/refreshAgentConversationLock/g)?.length).toBeGreaterThanOrEqual(3);
+  expect(source).toContain("leaseConfirmed");
+  expect(source).toContain("leaseStillOwned");
+  expect(source).toContain("if(leaseError) throw leaseError");
+ });
+ it("never upgrades historical compatibility into proof of delivery",()=>{
+  expect(source).toContain('status:"historical_compatible"');
+  expect(source).not.toContain('status:"already_completed",classification:initial};\n if(blocksAutomatic');
+  expect(source).toContain('initial==="legacy_compatible"');
+  expect(source).toContain('fenced==="legacy_compatible"');
+ });
  it("never treats uncertain durable states as permission to start",()=>{
   expect(source).toContain("blocksAutomaticAgentAfterFunnelClassification(initial)");
   expect(source).toContain("blocksAutomaticAgentAfterFunnelClassification(fenced)");
