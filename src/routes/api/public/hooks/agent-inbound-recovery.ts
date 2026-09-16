@@ -9,16 +9,15 @@ const DEFAULT_STALE_MS = 5 * 60 * 1000;
 // delays of up to 180s. Its standalone generation lock therefore needs a lease
 // horizon longer than the Stage B/Customer Turn stale-claim horizon.
 const GENERATION_LOCK_STALE_MS = 20 * 60 * 1000;
+const WELCOME_FUNNEL_STALE_MS = 20 * 60 * 1000;
 
 /**
  * Stage B / shared conversation ownership recovery hook.
  *
  * This endpoint intentionally performs only ownership recovery. It does not
- * replay `processing` work: once Agent V3 crossed the external side-effect
- * boundary, stale work is quarantined to needs_review by the SQL recovery RPC.
- * `processing_safe` work may be requeued because no runtime side effect has
- * started yet. Orphan generation locks are recovered independently because
- * synchronous flows such as Welcome Funnel can own one without a Stage B job.
+ * replay `processing` work: once Agent V3 or Welcome Funnel crossed an external
+ * side-effect boundary, stale work is quarantined to needs_review. `processing_safe`
+ * work may be requeued because no runtime side effect has started yet.
  */
 export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")({
   server: {
@@ -28,7 +27,10 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
         if (unauth) return unauth;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const staleBefore = new Date(Date.now() - DEFAULT_STALE_MS).toISOString();
+        const now = Date.now();
+        const staleBefore = new Date(now - DEFAULT_STALE_MS).toISOString();
+        const generationLockStaleBefore = new Date(now - GENERATION_LOCK_STALE_MS).toISOString();
+        const welcomeFunnelStaleBefore = new Date(now - WELCOME_FUNNEL_STALE_MS).toISOString();
 
         try {
           const recovered = await recoverAgentInboundDispatcherClaims(
@@ -36,6 +38,16 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
             DEFAULT_STALE_MS,
             AGENT_INBOUND_MAX_SAFE_ATTEMPTS,
           );
+          const { data: staleFunnelReview, error: staleFunnelError } = await supabaseAdmin.rpc(
+            "recover_stale_welcome_funnel_executions",
+            {
+              p_stale_before: welcomeFunnelStaleBefore,
+              p_generation_lock_stale_before: generationLockStaleBefore,
+              p_limit: 50,
+            },
+          );
+          if (staleFunnelError) throw staleFunnelError;
+
           const recoveredConversationLocks = await recoverStaleAgentConversationLocks(
             supabaseAdmin,
             GENERATION_LOCK_STALE_MS,
@@ -44,10 +56,12 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
           return Response.json({
             ok: true,
             staleBefore,
-            generationLockStaleBefore: new Date(Date.now() - GENERATION_LOCK_STALE_MS).toISOString(),
+            generationLockStaleBefore,
+            welcomeFunnelStaleBefore,
             maxSafeAttempts: AGENT_INBOUND_MAX_SAFE_ATTEMPTS,
             requeued: recovered.requeued,
             needsReview: recovered.review,
+            welcomeFunnelNeedsReview: Number(staleFunnelReview || 0),
             recoveredConversationLocks,
           });
         } catch (error) {
