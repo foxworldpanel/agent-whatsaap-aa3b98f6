@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { acquireAgentConversationLock,releaseAgentConversationLock } from "@/lib/agent-v3/conversation-lock.server";
+import { acquireAgentConversationLock,refreshAgentConversationLock,releaseAgentConversationLock } from "@/lib/agent-v3/conversation-lock.server";
 import { startAgentConversationLockHeartbeat } from "@/lib/agent-v3/conversation-lock-heartbeat.server";
 import { classifyWelcomeFunnelExecution,mayStartWelcomeFunnelExecution,blocksAutomaticAgentAfterFunnelClassification,type WelcomeFunnelExecutionClass } from "@/lib/welcome-funnel-execution-gate.server";
 import { runWelcomeFunnelSequence,type WelcomeFunnelRuntime } from "@/lib/welcome-funnel-runner.server";
 
 export type WelcomeFunnelOrchestrationResult=
  | {status:"completed";classification:"durable_completed"}
- | {status:"already_completed";classification:"durable_completed"|"legacy_compatible"}
+ | {status:"already_completed";classification:"durable_completed"}
+ | {status:"historical_compatible";classification:"legacy_compatible"}
  | {status:"blocked";classification:"durable_running"|"durable_needs_review"|"legacy_ambiguous"}
  | {status:"busy";classification:"unclaimed"};
 
@@ -15,7 +16,10 @@ export async function orchestrateWelcomeFunnel(params:{
  userId:string;workspaceId:string;phone:string;creds:{uazapi_url:string;uazapi_token:string};
 }):Promise<WelcomeFunnelOrchestrationResult>{
  const initial=await classifyWelcomeFunnelExecution(params.supabaseAdmin,params.funnel.id,params.contactId);
- if(initial==="durable_completed"||initial==="legacy_compatible") return {status:"already_completed",classification:initial};
+ if(initial==="durable_completed") return {status:"already_completed",classification:initial};
+ // Baseline rows are compatibility evidence only. They let normal Agent work
+ // continue, but must never be reported as proof that Funnel delivery completed.
+ if(initial==="legacy_compatible") return {status:"historical_compatible",classification:initial};
  if(blocksAutomaticAgentAfterFunnelClassification(initial)) return {status:"blocked",classification:initial};
  if(!mayStartWelcomeFunnelExecution(initial)) throw new Error(`Unhandled Welcome Funnel classification: ${initial}`);
 
@@ -29,10 +33,16 @@ export async function orchestrateWelcomeFunnel(params:{
   onOwnershipLost:error=>{leaseError=error;},
  });
  try{
+  // Confirm exact-holder ownership before any Funnel side effect. Acquisition can
+  // be followed by an uncertain transport result; refresh is the durable proof.
+  const leaseConfirmed=await refreshAgentConversationLock(params.supabaseAdmin,params.conversationId,holder);
+  if(!leaseConfirmed) throw new Error(`Welcome Funnel conversation lock ownership was not confirmed for ${params.conversationId}`);
+
   // Reclassify after taking the conversation lock. Another owner may have
   // completed/quarantined the same funnel between the first read and acquisition.
   const fenced=await classifyWelcomeFunnelExecution(params.supabaseAdmin,params.funnel.id,params.contactId);
-  if(fenced==="durable_completed"||fenced==="legacy_compatible") return {status:"already_completed",classification:fenced};
+  if(fenced==="durable_completed") return {status:"already_completed",classification:fenced};
+  if(fenced==="legacy_compatible") return {status:"historical_compatible",classification:fenced};
   if(blocksAutomaticAgentAfterFunnelClassification(fenced)) return {status:"blocked",classification:fenced};
   if(!mayStartWelcomeFunnelExecution(fenced)) throw new Error(`Unhandled fenced Welcome Funnel classification: ${fenced}`);
 
@@ -42,6 +52,11 @@ export async function orchestrateWelcomeFunnel(params:{
    phone:params.phone,creds:params.creds,initiatedBy:"trigger",
   });
   if(leaseError) throw leaseError;
+  // Reconfirm ownership after the long external-side-effect window. If ownership
+  // became uncertain, durable completed/needs_review state remains authoritative
+  // and prevents an automatic replay by another webhook.
+  const leaseStillOwned=await refreshAgentConversationLock(params.supabaseAdmin,params.conversationId,holder);
+  if(!leaseStillOwned) throw new Error(`Welcome Funnel conversation lock ownership lost for ${params.conversationId}`);
   const terminal=await classifyWelcomeFunnelExecution(params.supabaseAdmin,params.funnel.id,params.contactId);
   if(terminal!=="durable_completed") throw new Error(`Welcome Funnel returned without durable completion: ${terminal}`);
   return {status:"completed",classification:"durable_completed"};
