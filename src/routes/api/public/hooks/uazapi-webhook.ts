@@ -938,7 +938,9 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
               ? funnelGate.orchestration.status
               : funnelGate.status === "conversation_blocked"
                 ? funnelGate.barrier
-                : funnelGate.error,
+                : funnelGate.status === "query_unavailable"
+                  ? funnelGate.error
+                  : null,
         });
         return new Response(
           funnelGate.status === "query_unavailable"
