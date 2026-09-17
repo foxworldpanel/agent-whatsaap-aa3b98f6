@@ -45,7 +45,8 @@ async function callAgentV3(opts: {
   process.env.ANTHROPIC_API_KEY = "test-key";
   
   const res = await runAgentV3Turn({
-    userId: "test-workspace",
+    userId: "test-user",
+    workspaceId: "test-workspace",
     message: opts.message,
     history: opts.history,
     customModules: opts.modules || DEFAULT_MODULES,
