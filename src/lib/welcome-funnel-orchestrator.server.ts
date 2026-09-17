@@ -83,7 +83,7 @@ export async function orchestrateWelcomeFunnel(params: {
     await runWelcomeFunnelSequence({
       supabase: params.supabaseAdmin, funnel: params.funnel, contactId: params.contactId,
       conversationId: params.conversationId, userId: params.userId, workspaceId: params.workspaceId,
-      phone: params.phone, creds: params.creds, initiatedBy: "trigger",
+      phone: params.phone, creds: params.creds, initiatedBy: "trigger", holder, assertExecutionOwnership,
     });
     await assertExecutionOwnership();
     const terminal = await classifyWelcomeFunnelExecution(params.supabaseAdmin, params.funnel.id, params.contactId);
