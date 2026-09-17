@@ -2,14 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { assertCronAuthorized } from "@/lib/cron-auth.server";
 import { AGENT_INBOUND_MAX_SAFE_ATTEMPTS } from "@/lib/agent-v3/inbound-jobs.server";
 import { recoverAgentInboundDispatcherClaims } from "@/lib/agent-v3/inbound-recovery.server";
-import { recoverStaleAgentConversationLocks } from "@/lib/agent-v3/conversation-lock.server";
+import { DB_CONVERSATION_LOCK_STALE_MS,recoverStaleAgentConversationLocks } from "@/lib/agent-v3/conversation-lock.server";
 
 const DEFAULT_STALE_MS = 5 * 60 * 1000;
 // Welcome Funnel is synchronous and may contain five independently configured
-// delays of up to 180s. Its standalone generation lock therefore needs a lease
-// horizon longer than the Stage B/Customer Turn stale-claim horizon.
-const GENERATION_LOCK_STALE_MS = 20 * 60 * 1000;
-const WELCOME_FUNNEL_STALE_MS = 20 * 60 * 1000;
+// delays of up to 180s. Its runtime and generation-lock recovery deliberately
+// share the canonical conversation-lock lease horizon.
+const GENERATION_LOCK_STALE_MS = DB_CONVERSATION_LOCK_STALE_MS;
+const WELCOME_FUNNEL_STALE_MS = DB_CONVERSATION_LOCK_STALE_MS;
 
 /**
  * Stage B / shared conversation ownership recovery hook.
