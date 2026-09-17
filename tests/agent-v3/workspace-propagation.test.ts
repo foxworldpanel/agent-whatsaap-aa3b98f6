@@ -6,7 +6,7 @@ const read = (relativePath: string) =>
   readFileSync(resolve(process.cwd(), relativePath), "utf8");
 
 describe("Agent V3 workspace propagation", () => {
-  it("passes the current workspace from playground to the orchestrator", () => {
+  it("passes the current workspace from playground through the canonical executor", () => {
     const source = read("src/lib/agent-v3/admin/playground.functions.ts");
     expect(source).toMatch(/runAgentV3Turn\(\{[\s\S]*?workspaceId,/);
   });
@@ -19,10 +19,11 @@ describe("Agent V3 workspace propagation", () => {
     expect(source).toContain("phone: input.phone");
   });
 
-  it("keeps the public test webhook disabled unless explicitly enabled", () => {
+  it("keeps the historical public test webhook permanently tombstoned", () => {
     const source = read("src/routes/api/public/hooks/v3-test-webhook.ts");
-    expect(source).toContain('process.env.V3_TEST_WEBHOOK_ENABLED !== "true"');
-    expect(source).toContain('.select("user_id, workspace_id")');
-    expect(source).toContain("workspaceId: num?.workspace_id ?? undefined");
+    expect(source).toContain('new Response("not found", { status: 404 })');
+    expect(source).not.toContain("V3_TEST_WEBHOOK_ENABLED");
+    expect(source).not.toContain("runAgentV3Turn");
+    expect(source).not.toContain("executeAgent");
   });
 });
