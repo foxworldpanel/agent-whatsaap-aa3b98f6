@@ -1,35 +1,38 @@
 import { describe, expect, it } from "vitest";
-import fs from "node:fs";
+import { readFileSync } from "node:fs";
 
-const webhook = fs.readFileSync(
-  "src/routes/api/public/hooks/uazapi-webhook.ts",
+const gate = readFileSync(
+  "src/lib/welcome-funnel-webhook-gate.server.ts",
   "utf8",
 );
-const runner = fs.readFileSync(
+const orchestrator = readFileSync(
+  "src/lib/welcome-funnel-orchestrator.server.ts",
+  "utf8",
+);
+const runner = readFileSync(
   "src/lib/welcome-funnel-runner.server.ts",
   "utf8",
 );
 
 describe("Welcome Funnel -> Agent V3 runtime", () => {
-  it("consulta os funis ativos pelo numero antes do Agent V3", () => {
-    const funnelQuery = webhook.indexOf('.from("welcome_funnels")');
-    const agentTurn = webhook.indexOf("runAgentV3Turn({");
-    expect(funnelQuery).toBeGreaterThan(-1);
-    expect(agentTurn).toBeGreaterThan(funnelQuery);
+  it("loads scoped enabled funnels and delegates durable ownership", () => {
+    expect(gate).toContain('.from("welcome_funnels")');
+    expect(gate).toContain('.eq("enabled",true)');
+    expect(gate).toContain("orchestrateWelcomeFunnel");
   });
 
-  it("bloqueia a IA enquanto uma execucao do funil ainda esta ativa", () => {
-    expect(webhook).toContain('.in("status", ["running", "paused", "failed"])');
-    expect(webhook).toContain("agent deferred");
+  it("blocks Agent runtime behind running and needs_review", () => {
+    expect(gate).toContain("getWelcomeFunnelConversationBarrier");
+    expect(gate).toContain('status:"conversation_blocked"');
+    expect(gate).toContain('status==="blocked"');
   });
 
-  it("executa texto, audio, painel, video e servicos na ordem da V3", () => {
+  it("executes text, audio, panel, video and services in canonical order", () => {
     const welcome = runner.indexOf('"welcome_text"');
     const audio = runner.indexOf('"audio"', welcome + 1);
     const panel = runner.indexOf('"panel_text"', audio + 1);
     const video = runner.indexOf('"video"', panel + 1);
     const services = runner.indexOf('"services_text"', video + 1);
-
     expect(welcome).toBeGreaterThan(-1);
     expect(audio).toBeGreaterThan(welcome);
     expect(panel).toBeGreaterThan(audio);
@@ -37,18 +40,25 @@ describe("Welcome Funnel -> Agent V3 runtime", () => {
     expect(services).toBeGreaterThan(video);
   });
 
-  it("marca completed somente depois de percorrer todas as etapas", () => {
-    const loop = runner.indexOf("for (let fixedIndex = 0; fixedIndex < ORDER.length");
-    const completed = runner.indexOf('status: "completed"', loop);
-    expect(loop).toBeGreaterThan(-1);
-    expect(completed).toBeGreaterThan(loop);
-    expect(webhook).toContain("ok (welcome funnel completed)");
+  it("proves durable completion after the external side-effect window", () => {
+    const sequence = orchestrator.indexOf("await runWelcomeFunnelSequence");
+    const ownership = orchestrator.indexOf(
+      "await assertExecutionOwnership()",
+      sequence,
+    );
+    const terminal = orchestrator.indexOf(
+      'terminal !== "durable_completed"',
+      ownership,
+    );
+    expect(sequence).toBeGreaterThan(-1);
+    expect(ownership).toBeGreaterThan(sequence);
+    expect(terminal).toBeGreaterThan(ownership);
   });
 
-  it("usa claim persistente para evitar disparo duplicado", () => {
-    expect(webhook).toContain('.from("welcome_funnel_runs")');
-    expect(webhook).toContain('status: "running"');
-    expect(webhook).toContain('claimErr.code === "23505"');
-    expect(webhook).toContain("ok (welcome funnel claimed elsewhere)");
+  it("uses exact-holder shared locking instead of legacy claims", () => {
+    expect(orchestrator).toContain("acquireAgentConversationLock");
+    expect(orchestrator).toContain("releaseAgentConversationLock");
+    expect(orchestrator).toContain("randomUUID()");
+    expect(orchestrator).not.toContain('.from("welcome_funnel_runs")');
   });
 });
