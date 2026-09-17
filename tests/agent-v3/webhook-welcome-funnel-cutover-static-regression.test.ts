@@ -27,6 +27,15 @@ describe("UAZAPI webhook durable Welcome Funnel cutover", () => {
     expect(webhook).not.toContain("queuedBody");
   });
 
+  it("retries instead of losing a turn when Agent eligibility is unavailable", () => {
+    expect(webhook).toContain(
+      'new Response("retry (agent gate unavailable)", { status: 503 })',
+    );
+    expect(webhook).not.toContain(
+      'new Response("ok (agent gate unavailable)")',
+    );
+  });
+
   it("rechecks the Funnel barrier before Customer Turn attachment", () => {
     expect(webhook).toContain("enqueueWebhookInboundAroundWelcomeFunnel");
     expect(webhook).toContain('ownershipResult.status === "pending_behind_funnel"');
