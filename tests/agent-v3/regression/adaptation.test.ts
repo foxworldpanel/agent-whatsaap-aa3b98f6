@@ -35,6 +35,7 @@ async function callAgent(opts: {
 
   const res = await runAgentV3Turn({
     userId: "bd59fa41-3a6d-4767-8334-a69076f8e434",
+    workspaceId: "test-workspace",
     message: lastMessage,
     history: historyForV3,
     enabledModules: Object.keys(DEFAULT_MODULES),
