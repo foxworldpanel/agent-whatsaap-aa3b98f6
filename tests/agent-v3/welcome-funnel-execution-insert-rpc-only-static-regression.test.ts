@@ -1,17 +1,20 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync("supabase/migrations/20260914431500_welcome_funnel_execution_insert_rpc_only.sql", "utf8");
+const insertFence = readFileSync("supabase/migrations/20260914431500_welcome_funnel_execution_insert_rpc_only.sql", "utf8");
+const finalFence = readFileSync("supabase/migrations/20260914490000_welcome_funnel_execution_final_privilege_fence.sql", "utf8");
 const runner = readFileSync("src/lib/welcome-funnel-runner.server.ts", "utf8");
 const startRpc = readFileSync("supabase/migrations/20260914430000_welcome_funnel_start_exact_holder.sql", "utf8");
 const quarantineRpc = readFileSync("supabase/migrations/20260914424500_welcome_funnel_quarantine_exact_holder.sql", "utf8");
 
 describe("Welcome Funnel durable execution insert authority", () => {
-  it("removes direct service-role INSERT authority without reviving DELETE", () => {
-    expect(sql).toContain("REVOKE INSERT ON public.welcome_funnel_execution_state FROM service_role");
-    expect(sql).toContain("GRANT SELECT, UPDATE ON public.welcome_funnel_execution_state TO service_role");
-    expect(sql).not.toContain("GRANT SELECT, UPDATE, DELETE");
-    expect(sql).not.toContain("GRANT DELETE");
+  it("removes direct service-role INSERT authority and ends the migration chain read-only", () => {
+    expect(insertFence).toContain("REVOKE INSERT ON public.welcome_funnel_execution_state FROM service_role");
+    expect(finalFence).toContain("REVOKE INSERT, UPDATE, DELETE ON public.welcome_funnel_execution_state FROM service_role");
+    expect(finalFence).toContain("GRANT SELECT ON public.welcome_funnel_execution_state TO service_role");
+    expect(finalFence).not.toContain("GRANT INSERT");
+    expect(finalFence).not.toContain("GRANT UPDATE");
+    expect(finalFence).not.toContain("GRANT DELETE");
   });
 
   it("starts normal execution only through the exact-holder RPC", () => {
