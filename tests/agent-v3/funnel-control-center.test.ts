@@ -1,45 +1,46 @@
 import { describe, expect, it } from "vitest";
-import fs from "node:fs";
+import { readFileSync } from "node:fs";
 
-const control = fs.readFileSync("src/lib/funnel-control.functions.ts", "utf8");
-const runner = fs.readFileSync("src/lib/welcome-funnel-runner.server.ts", "utf8");
-const webhook = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
-const page = fs.readFileSync("src/routes/_authenticated/funis.tsx", "utf8");
-const menu = fs.readFileSync("src/components/AppShell.tsx", "utf8");
+const control = readFileSync("src/lib/funnel-control.functions.ts", "utf8");
+const page = readFileSync("src/routes/_authenticated/funis.tsx", "utf8");
+const menu = readFileSync("src/components/AppShell.tsx", "utf8");
 
 describe("Central do Funil", () => {
-  it("mantém falha persistente com motivo para auditoria", () => {
-    expect(webhook).not.toContain('delete()\\n                    .eq("funnel_id", matchingFunnel.id)');
-    expect(runner).toContain('status: "failed"');
-    expect(runner).toContain("last_error_at");
+  it("uses durable execution state as the operational authority", () => {
+    expect(control).toContain('.from("welcome_funnel_execution_state")');
+    expect(control).toContain("last_completed_step");
+    expect(control).toContain('classification: `durable_${row.status}`');
+    expect(control).not.toContain("conversations.funnel_status");
   });
 
-  it("Agent V3 fica bloqueado em running, paused e failed", () => {
-    expect(webhook).toContain('.in("status", ["running", "paused", "failed"])');
-    expect(webhook).toContain("a IA só entra depois de status=completed");
+  it("keeps historical compatibility distinct from proven completion", () => {
+    expect(control).toContain('"legacy_compatible"');
+    expect(control).toContain('"legacy_ambiguous"');
+    expect(control).toContain('status: compatible ? "historical" : "failed"');
+    expect(control).toContain("completion_proven: false");
+    expect(page).toContain('"historical"');
+    expect(page).toContain("Histórico (não comprovado)");
   });
 
-  it("retry retoma depois da última etapa, evitando duplicar mensagens", () => {
-    expect(control).toContain("resumeAfterStep: ctx.run.last_step");
-    expect(runner).toContain("if (fixedIndex <= resumeIndex) continue");
+  it("never rewrites legacy claims or replays uncertain sends", () => {
+    expect(control).not.toContain('.from("welcome_funnel_runs")\n      .delete()');
+    expect(control).not.toContain("runWelcomeFunnelSequence");
+    expect(control).not.toContain("executeFromControlCenter");
+    expect(control).toContain("unsupportedControlAction");
+    expect(control).toContain(
+      "Retry, resume e pause exigem uma transição manual auditada",
+    );
   });
 
-  it("permite pausar e retomar", () => {
-    expect(control).toContain("pauseFunnelRun");
-    expect(control).toContain("resumeFunnelRun");
-    expect(runner).toContain("WELCOME_FUNNEL_PAUSED");
+  it("reports durable review and ambiguous claims as alerts", () => {
+    expect(control).toContain('row.status === "failed" || row.stale');
+    expect(control).toContain('error_category: compatible ? null : "legacy_ambiguous"');
+    expect(control).toContain('"needs_review"');
   });
 
-  it("painel possui métricas, filtros, timeline e ações", () => {
+  it("keeps the control page and navigation available for inspection", () => {
     expect(page).toContain("Central do Funil");
-    expect(page).toContain("Sucesso 24h");
-    expect(page).toContain("Reenviar falhos");
     expect(page).toContain("Linha do tempo");
-    expect(page).toContain("Pausar");
-    expect(page).toContain("Retomar");
-  });
-
-  it("menu mostra alerta de falhas/travamentos", () => {
     expect(menu).toContain('to: "/funis"');
     expect(menu).toContain("funnelAlertCount");
   });
