@@ -126,7 +126,7 @@ async function loadFunnelControlRows(context: ControlContext): Promise<any[]> {
       funnel_id: row.funnel_id,
       contact_id: row.contact_id,
       conversation_id: null,
-      status: compatible ? "completed" : "failed",
+      status: compatible ? "historical" : "failed",
       durable_status: null,
       classification: compatible
         ? "legacy_compatible"
@@ -219,6 +219,7 @@ export const getFunnelControlOverview = createServerFn({ method: "GET" })
       total: runs.length,
       running: runs.filter((row) => row.status === "running").length,
       completed: runs.filter((row) => row.status === "completed").length,
+      historical: runs.filter((row) => row.status === "historical").length,
       failed: runs.filter((row) => row.status === "failed").length,
       paused: 0,
       stale: runs.filter((row) => row.stale).length,
