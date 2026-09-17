@@ -1,0 +1,10 @@
+import{readFileSync}from"node:fs";import{describe,expect,it}from"vitest";
+const read=(p:string)=>readFileSync(p,"utf8");
+const webhook=read("src/routes/api/public/hooks/uazapi-webhook.ts");const ingress=read("src/lib/agent-v3/customer-turn-ingress.server.ts");const dispatch=read("src/lib/agent-v3/customer-turn-dispatch.server.ts");const recovery=read("src/routes/api/public/hooks/agent-inbound-recovery.ts");const funnel=read("src/lib/welcome-funnel-orchestrator.server.ts");const locks=read("src/lib/agent-v3/conversation-lock.server.ts");
+describe("Zero Lost Turn final cross-layer contract",()=>{
+ it("webhook persists exact inbound ownership before semantic runtime",()=>{expect(webhook).toContain("enqueueWebhookInboundAroundWelcomeFunnel");expect(ingress.indexOf("ensureAgentInboundJob")).toBeLessThan(ingress.indexOf("attachAgentInboundJobToCustomerTurn"));});
+ it("Customer Turn crosses processing boundary only after input construction",()=>{expect(dispatch.indexOf("buildCustomerTurnRuntimeInput")).toBeLessThan(dispatch.indexOf("enterCustomerTurnRuntime"));expect(dispatch.indexOf("enterCustomerTurnRuntime")).toBeLessThan(dispatch.indexOf("executeAgentV3Runtime"));expect(dispatch).toContain("quarantineClaimedCustomerTurn");});
+ it("Funnel owns exact generation lease and verifies durable completion",()=>{expect(funnel).toContain("acquireAgentConversationLock");expect(funnel).toContain("assertExecutionOwnership");expect(funnel).toContain('terminal!=="durable_completed"');});
+ it("recovery shares the canonical Funnel/generation stale horizon and never replays uncertain Funnel runtime",()=>{expect(recovery).toContain("GENERATION_LOCK_STALE_MS = DB_CONVERSATION_LOCK_STALE_MS");expect(recovery).toContain("WELCOME_FUNNEL_STALE_MS = DB_CONVERSATION_LOCK_STALE_MS");expect(recovery).toContain("recover_stale_welcome_funnel_executions");});
+ it("generation lock contract keeps canonical 20 minute horizon",()=>expect(locks).toContain("20 * 60 * 1000"));
+});
