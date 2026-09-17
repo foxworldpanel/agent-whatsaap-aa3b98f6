@@ -2,57 +2,10 @@ import { normalizeTriggerText } from "@/lib/text-normalize";
 import { orchestrateWelcomeFunnel,type WelcomeFunnelOrchestrationResult } from "@/lib/welcome-funnel-orchestrator.server";
 import type { WelcomeFunnelRuntime } from "@/lib/welcome-funnel-runner.server";
 import { getWelcomeFunnelConversationBarrier,type WelcomeFunnelConversationBarrier } from "@/lib/welcome-funnel-conversation-barrier.server";
-
 type FunnelRow=WelcomeFunnelRuntime&{trigger_keywords:string;sort_order?:number|null};
-export type WelcomeFunnelWebhookGateResult=
- | {status:"no_match"}
- | {status:"conversation_blocked";barrier:Exclude<WelcomeFunnelConversationBarrier,"clear">}
- | {status:"query_unavailable";error:string}
- | {status:"matched";funnelId:string;orchestration:WelcomeFunnelOrchestrationResult};
-
-function matches(triggerKeywords:string,message:string):boolean{
- const normalizedMessage=normalizeTriggerText(message);
- if(!normalizedMessage)return false;
- const generic=new Set(["oi","ola","bom dia","boa tarde","boa noite"]);
- return String(triggerKeywords||"").split(",").map(v=>normalizeTriggerText(v.trim())).filter(Boolean)
-  .some(trigger=>!generic.has(trigger)&&(normalizedMessage===trigger||normalizedMessage.includes(trigger)));
-}
-
-export async function runWelcomeFunnelWebhookGate(params:{
- supabaseAdmin:any;userId:string;workspaceId:string;whatsappNumberId:string;
- contactId:string;conversationId:string;phone:string;text:string;
- creds:{uazapi_url:string;uazapi_token:string};
-}):Promise<WelcomeFunnelWebhookGateResult>{
- // The conversation-wide durable state is checked before trigger discovery. A
- // message arriving while any Funnel owns this conversation must never fall
- // through merely because that new message does not itself match a trigger.
- let barrier:WelcomeFunnelConversationBarrier;
- try{
-  barrier=await getWelcomeFunnelConversationBarrier(params.supabaseAdmin,params.conversationId);
- }catch(error){
-  return {status:"query_unavailable",error:error instanceof Error?error.message:String(error)};
- }
- if(barrier!=="clear")return {status:"conversation_blocked",barrier};
-
- const {data,error}=await params.supabaseAdmin.from("welcome_funnels")
-  .select("id,name,delay_seconds,trigger_keywords,steps,sort_order")
-  .eq("user_id",params.userId).eq("workspace_id",params.workspaceId)
-  .eq("whatsapp_number_id",params.whatsappNumberId).eq("enabled",true)
-  .order("sort_order",{ascending:true}).order("created_at",{ascending:true});
- if(error)return {status:"query_unavailable",error:error.message||String(error)};
- const funnel=((data||[]) as FunnelRow[]).find(row=>matches(row.trigger_keywords,params.text));
- if(!funnel)return {status:"no_match"};
- const orchestration=await orchestrateWelcomeFunnel({
-  supabaseAdmin:params.supabaseAdmin,funnel,contactId:params.contactId,
-  conversationId:params.conversationId,userId:params.userId,workspaceId:params.workspaceId,
-  phone:params.phone,creds:params.creds,
- });
- return {status:"matched",funnelId:funnel.id,orchestration};
-}
-
-export function webhookGateMustStopAgent(result:WelcomeFunnelWebhookGateResult):boolean{
- // Any ownership uncertainty or durable conversation barrier fails closed.
- if(result.status==="query_unavailable"||result.status==="conversation_blocked")return true;
- if(result.status!=="matched")return false;
- return result.orchestration.status==="completed"||result.orchestration.status==="blocked"||result.orchestration.status==="busy";
-}
+export type WelcomeFunnelWebhookGateResult=|{status:"no_match"}|{status:"conversation_blocked";barrier:Exclude<WelcomeFunnelConversationBarrier,"clear">}|{status:"query_unavailable";error:string}|{status:"matched";funnelId:string;orchestration:WelcomeFunnelOrchestrationResult};
+function matches(triggerKeywords:string,message:string):boolean{const normalizedMessage=normalizeTriggerText(message);if(!normalizedMessage)return false;const generic=new Set(["oi","ola","bom dia","boa tarde","boa noite"]);return String(triggerKeywords||"").split(",").map(v=>normalizeTriggerText(v.trim())).filter(Boolean).some(trigger=>!generic.has(trigger)&&(normalizedMessage===trigger||normalizedMessage.includes(trigger)));}
+export async function runWelcomeFunnelWebhookGate(params:{supabaseAdmin:any;userId:string;workspaceId:string;whatsappNumberId:string;contactId:string;conversationId:string;phone:string;text:string;creds:{uazapi_url:string;uazapi_token:string}}):Promise<WelcomeFunnelWebhookGateResult>{
+ let barrier:WelcomeFunnelConversationBarrier;try{barrier=await getWelcomeFunnelConversationBarrier(params.supabaseAdmin,params.conversationId,params.workspaceId);}catch(error){return{status:"query_unavailable",error:error instanceof Error?error.message:String(error)};}if(barrier!=="clear")return{status:"conversation_blocked",barrier};
+ const{data,error}=await params.supabaseAdmin.from("welcome_funnels").select("id,name,delay_seconds,trigger_keywords,steps,sort_order").eq("user_id",params.userId).eq("workspace_id",params.workspaceId).eq("whatsapp_number_id",params.whatsappNumberId).eq("enabled",true).order("sort_order",{ascending:true}).order("created_at",{ascending:true});if(error)return{status:"query_unavailable",error:error.message||String(error)};const funnel=((data||[])as FunnelRow[]).find(row=>matches(row.trigger_keywords,params.text));if(!funnel)return{status:"no_match"};const orchestration=await orchestrateWelcomeFunnel({supabaseAdmin:params.supabaseAdmin,funnel,contactId:params.contactId,conversationId:params.conversationId,userId:params.userId,workspaceId:params.workspaceId,phone:params.phone,creds:params.creds});return{status:"matched",funnelId:funnel.id,orchestration};}
+export function webhookGateMustStopAgent(result:WelcomeFunnelWebhookGateResult):boolean{if(result.status==="query_unavailable"||result.status==="conversation_blocked")return true;if(result.status!=="matched")return false;return result.orchestration.status==="completed"||result.orchestration.status==="blocked"||result.orchestration.status==="busy";}
