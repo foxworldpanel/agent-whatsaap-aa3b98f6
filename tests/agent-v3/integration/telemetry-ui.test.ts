@@ -6,6 +6,7 @@ test('Orchestrator should include telemetry and comparison', async () => {
   const result = await runAgentV3Turn({
     message,
     userId: 'f8da521a-e8db-4efe-8c9b-9bd69749c0a7',
+    workspaceId: 'test-workspace',
     history: [],
     inputKind: 'texto',
     messageId: 'test-msg-id',
