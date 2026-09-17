@@ -3,7 +3,10 @@ import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { normalizeTriggerText, removeAccents } from "@/lib/text-normalize";
 import { isConversationAgentEnabledV3 } from "@/lib/agent-v3/brain/config.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
-import { beginWebhookAgentInboundRuntime } from "@/lib/agent-v3/inbound-webhook-ownership.server";
+import { persistWebhookAgentInboundJob } from "@/lib/agent-v3/inbound-webhook-ownership.server";
+import { enqueueWebhookInboundAroundWelcomeFunnel } from "@/lib/agent-v3/inbound-welcome-funnel-gate.server";
+import { buildFallbackInboundMessageId } from "@/lib/agent-v3/inbound-message-identity.server";
+import { runWelcomeFunnelWebhookGate, webhookGateMustStopAgent } from "@/lib/welcome-funnel-webhook-gate.server";
 import { AGENT_CUSTOMER_TURN_QUIET_MS } from "@/lib/agent-v3/customer-turn.server";
 import { dispatchReadyCustomerTurnById } from "@/lib/agent-v3/customer-turn-dispatch.server";
 
@@ -33,53 +36,6 @@ async function withConversationLock<T>(key: string, task: () => Promise<T>): Pro
     if (conversationLocks.get(key) === tail) conversationLocks.delete(key);
   }
 }
-
-// Lock persistente por conversation_id para proteger também ambientes com
-// múltiplas instâncias/processos. A PK da tabela torna a aquisição atômica.
-const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;
-
-async function acquireConversationDbLock(
-  supabaseAdmin: any,
-  conversationId: string,
-  holder: string,
-): Promise<boolean> {
-  const { error } = await supabaseAdmin
-    .from("agent_generation_locks")
-    .insert({ conversation_id: conversationId, holder, acquired_at: new Date().toISOString() });
-
-  if (!error) return true;
-  if (error.code !== "23505") throw error;
-
-  // Recuperação defensiva de lock órfão após crash.
-  const staleBefore = new Date(Date.now() - DB_CONVERSATION_LOCK_STALE_MS).toISOString();
-  await supabaseAdmin
-    .from("agent_generation_locks")
-    .delete()
-    .eq("conversation_id", conversationId)
-    .lt("acquired_at", staleBefore);
-
-  const { error: retryError } = await supabaseAdmin
-    .from("agent_generation_locks")
-    .insert({ conversation_id: conversationId, holder, acquired_at: new Date().toISOString() });
-
-  if (!retryError) return true;
-  if (retryError.code === "23505") return false;
-  throw retryError;
-}
-
-async function releaseConversationDbLock(
-  supabaseAdmin: any,
-  conversationId: string,
-  holder: string,
-): Promise<void> {
-  const { error } = await supabaseAdmin
-    .from("agent_generation_locks")
-    .delete()
-    .eq("conversation_id", conversationId)
-    .eq("holder", holder);
-  if (error) console.error("[UAZ-WEBHOOK] Falha ao liberar lock persistente:", error);
-}
-
 
 // Deduplicação em memória por messageId. O TTL evita crescimento permanente do
 // mapa e cobre as retransmissões normais do provedor. A proteção definitiva
@@ -332,15 +288,6 @@ function extractMessageId(p: UazapiPayload): string | null {
   return null;
 }
 
-function buildFallbackMessageId(phone: string, content: string): string {
-  const bucket = Math.floor(Date.now() / 10000); // 10s
-  let hash = 0;
-  for (let i = 0; i < content.length; i++) {
-    hash = ((hash << 5) - hash + content.charCodeAt(i)) | 0;
-  }
-  return `fb:${phone}:${bucket}:${(hash >>> 0).toString(36)}`;
-}
-
 const STOP_PATTERNS = [
   // "cancelar" sozinho é ambíguo: normalmente pode significar cancelar um pedido,
   // não retirar consentimento para mensagens. Só bloqueamos pedidos inequívocos.
@@ -377,7 +324,7 @@ const HUMAN_HANDOFF_PATTERNS = [
 function normalizeEscalationText(value: string): string {
   // Mesma lógica de normalizeFunnelText (eram implementações idênticas
   // duplicadas) — delega em vez de repetir, sem mudar nenhum call site.
-  return normalizeFunnelText(value);
+  return normalizeTriggerText(value);
 }
 
 async function detectCriticalHumanEscalation(params: {
@@ -553,117 +500,6 @@ export function isHumanHandoffRequest(text: string): boolean {
   return HUMAN_HANDOFF_PATTERNS.some((re) => re.test(normalized));
 }
 
-type WelcomeFunnelStep = {
-  enabled?: boolean;
-  text?: string;
-  caption?: string;
-  url?: string;
-  delay_seconds?: number;
-};
-
-type WelcomeFunnelSteps = {
-  welcome_text?: WelcomeFunnelStep;
-  audio?: WelcomeFunnelStep;
-  panel_text?: WelcomeFunnelStep;
-  video?: WelcomeFunnelStep;
-  services_text?: WelcomeFunnelStep;
-};
-
-type WelcomeFunnelRow = {
-  id: string;
-  name: string;
-  delay_seconds: number;
-  trigger_keywords: string;
-  steps: WelcomeFunnelSteps | null;
-  sort_order: number;
-};
-
-const WELCOME_FUNNEL_REPEAT_TEST_PHONES = new Set([
-  "5511970116430",
-]);
-
-function normalizeFunnelPhone(value: string): string {
-  return String(value || "").replace(/\D/g, "");
-}
-
-function canRepeatWelcomeFunnelForTest(phone: string): boolean {
-  return WELCOME_FUNNEL_REPEAT_TEST_PHONES.has(normalizeFunnelPhone(phone));
-}
-
-// O funil não é cancelado por mensagens recebidas durante a sequência.
-// Essas mensagens ficam registradas e o Agent V3 só é liberado após a conclusão.
-
-function normalizeFunnelText(value: string): string {
-  return normalizeTriggerText(value);
-}
-
-export function funnelMatchesMessage(triggerKeywords: string, message: string): boolean {
-  const normalizedMessage = normalizeFunnelText(message);
-  if (!normalizedMessage) return false;
-
-  const genericGreetings = new Set(["oi", "ola", "bom dia", "boa tarde", "boa noite"]);
-  const triggers = String(triggerKeywords || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  for (const rawTrigger of triggers) {
-    const normalizedTrigger = normalizeFunnelText(rawTrigger);
-    
-    // Segurança: uma saudação genérica jamais pode disparar o funil sozinha.
-    if (!normalizedTrigger || genericGreetings.has(normalizedTrigger)) continue;
-
-    const isMatch = normalizedMessage === normalizedTrigger || normalizedMessage.includes(normalizedTrigger);
-
-    // Telemetria para auditoria de disparo (logamos matches ou tentativas em mensagens que parecem gatilhos)
-    const isPromising = message.toLowerCase().includes("interesse") || message.toLowerCase().includes("divulgar") || message.length > 20;
-    
-    if (isMatch || isPromising) {
-      console.log(`[WELCOME-FUNNEL-AUDIT] ${isMatch ? "MATCH" : "NO MATCH"}`, {
-        triggerOriginal: rawTrigger,
-        triggerNormalizado: normalizedTrigger,
-        mensagemOriginal: message,
-        mensagemNormalizada: normalizedMessage,
-        resultado: isMatch ? "MATCH" : "NO MATCH"
-      });
-    }
-
-    if (isMatch) return true;
-  }
-
-  return false;
-}
-
-async function executeWelcomeFunnel(params: {
-  supabaseAdmin: any;
-  funnel: WelcomeFunnelRow;
-  contactId: string;
-  conversationId: string;
-  userId: string;
-  workspaceId: string;
-  phone: string;
-  creds: { uazapi_url: string; uazapi_token: string };
-  resumeAfterStep?: string | null;
-  initiatedBy?: "trigger" | "retry" | "resume";
-}): Promise<void> {
-  const { runWelcomeFunnelSequence } = await import(
-    "@/lib/welcome-funnel-runner.server"
-  );
-
-  await runWelcomeFunnelSequence({
-    supabase: params.supabaseAdmin,
-    funnel: params.funnel,
-    contactId: params.contactId,
-    conversationId: params.conversationId,
-    userId: params.userId,
-    workspaceId: params.workspaceId,
-    phone: params.phone,
-    creds: params.creds,
-    resumeAfterStep: params.resumeAfterStep,
-    initiatedBy: params.initiatedBy ?? "trigger",
-  });
-}
-
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const msgLocal = payload.message ?? payload.data ?? {};
@@ -718,8 +554,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
     // persistência: se houver uma falha transitória no CRM, o provedor precisa
     // conseguir retransmitir a mensagem em vez de ela ficar perdida por 24h.
     const extractedId = extractMessageId(payload);
-    const fallbackIdentity = [content.kind, content.text, content.mediaUrl ?? ""].join(":");
-    const msgId: string = extractedId ?? buildFallbackMessageId(phoneStr, fallbackIdentity);
+    const msgId: string = extractedId ?? buildFallbackInboundMessageId(phoneStr);
 
     // IMPORTANTE (correção de regressão do Welcome Funnel, parte 2): esta
     // checagem em memória acontece ANTES até da criação do contato — mais
@@ -1013,368 +848,33 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       customerMemoryContext = customerMemoryPromptContext(customerMemory);
     }
 
-    // Mensagem textual recebida enquanto o funil estava em execução.
-    // O webhook que iniciou o funil poderá retomá-la somente após a última etapa.
-    let deferredFunnelMessage: string | null = null;
-
-    // Reações simples não precisam consumir Claude nem gerar "qualquer coisa chama".
-    // A mensagem continua salva no CRM, apenas não há resposta automática.
+    // Reações simples não precisam consumir o Agent V3. A mensagem continua
+    // registrada no CRM, mas não cria trabalho durável para o runtime.
     if (content.kind === "texto" && isReactionOnlyMessage(content.text)) {
       console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: reaction only para msgId ${msgId}`);
       return new Response("ok (reaction only)");
     }
 
-    // 3.4. FUNNEL GATE GLOBAL
-    // SIMPLIFICADO pra bater com o schema real da tabela (confirmado via
-    // information_schema): welcome_funnel_runs só tem funnel_id, contact_id,
-    // user_id, fired_at, workspace_id. Não existe status/updated_at/
-    // completed_at — por isso o INSERT vinha falhando com PGRST204 desde
-    // sempre, e o funil nunca completava. Como o funil roda síncrono
-    // (start a finish numa chamada só, confirmado no código de
-    // executeWelcomeFunnel), a mera EXISTÊNCIA de uma linha já significa
-    // "esse contato já recebeu esse funil" — não precisa de estado.
-    traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_entry", {
-      contactId: contactId ?? null,
-      conversationId: conversationId ?? null,
+    if (!persistedMessageId || !conversationId) {
+      throw new Error("Agent V3 reached without persisted message/conversation id");
+    }
+
+    const inboundOwnershipInput = {
+      messageId: persistedMessageId,
+      conversationId,
       workspaceId,
-    });
-    if (contactId && conversationId) {
-      console.log(`[UAZ-WEBHOOK] [AUDIT] Verificando gate global para ${phoneStr} (${contactId})`);
-      const { data: runningFunnel, error: runningFunnelErr } = await (supabaseAdmin as any)
-        .from("welcome_funnel_runs")
-        .select("funnel_id, contact_id, fired_at")
-        .eq("contact_id", contactId)
-        .eq("workspace_id", workspaceId)
-        .order("fired_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      sendTarget,
+      inputText: content.text || "",
+      inputKind: content.kind,
+      inputMime: content.mime,
+      deferredFunnel: false,
+      holder: `turn-ingress:${msgId}:${Date.now()}`,
+    } as const;
 
-      if (runningFunnelErr) {
-        console.warn("[WELCOME-FUNNEL] [AUDIT] Não foi possível verificar run em andamento:", runningFunnelErr);
-        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_error", { error: String(runningFunnelErr) });
-      } else if (runningFunnel) {
-        // Já existe run pra esse contato — funil roda síncrono, então já
-        // terminou. Não bloqueia, deixa o Agent V3 seguir normalmente.
-        console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (run já existe, funil síncrono já concluiu)`);
-        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "existing_run_ja_concluido" });
-      } else {
-        console.log(`[UAZ-WEBHOOK] [AUDIT] Gate global: LIBERANDO Agent V3 (nenhuma run encontrada)`);
-        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_liberado", { reason: "no_existing_run" });
-      }
-    } else {
-      traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_gate_skipped", { reason: "contactId_ou_conversationId_ausente" });
-    }
-
-
-    // 3.5. WELCOME FUNNEL — independente do liga/desliga do Agent V3.
-    // IMPORTANTE: primeiro verificamos se a mensagem realmente bate em um gatilho.
-    // Mensagens comuns NÃO consultam welcome_funnel_runs e nunca ficam dependentes
-    // de migrations novas do funil.
-    // O gatilho vale para qualquer contato. Cliente antigo ou contato já marcado
-    // como ativo também deve receber o funil se NUNCA recebeu aquele funil.
-    // A tabela welcome_funnel_runs garante "uma vez por contato"; o número de teste
-    // continua sendo a única exceção com repetição livre.
-    if (
-      contactId &&
-      conversationId &&
-      content.kind === "texto"
-    ) {
-      const normalizedMessage = normalizeTriggerText(content.text);
-      console.log("====================================================");
-      console.log("[WELCOME-FUNNEL-TRACE]");
-      console.log("Mensagem original:", content.text);
-      console.log("Mensagem normalizada:", normalizedMessage);
-      console.log("Workspace:", workspaceId);
-      console.log("WhatsApp Number:", num.id);
-      console.log("User:", num.user_id);
-      console.log("----------------------------------------------------");
-      traceFunnel(supabaseAdmin, msgId, phoneStr, "welcome_funnel_entry", {
-        mensagemOriginal: content.text,
-        mensagemNormalizada: normalizedMessage,
-        workspaceId,
-        whatsappNumberId: num.id,
-        userId: num.user_id,
-      });
-
-      const { data: funnelRows, error: funnelErr } = await (supabaseAdmin as any)
-        .from("welcome_funnels")
-        .select("id, name, delay_seconds, trigger_keywords, steps, sort_order, enabled")
-        .eq("user_id", num.user_id)
-        .eq("workspace_id", workspaceId)
-        .eq("whatsapp_number_id", num.id)
-        .eq("enabled", true)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: true });
-
-      if (funnelErr) {
-        // FAIL-OPEN: problema no subsistema do funil não pode derrubar o atendimento.
-        console.error("[WELCOME-FUNNEL] Falha ao carregar funis; seguindo para Agent V3:", funnelErr);
-        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnels_query_error", { error: String(funnelErr) });
-      } else {
-        const rowCount = funnelRows?.length || 0;
-        console.log("Funis carregados:");
-        console.log("Quantidade:", rowCount);
-        if (rowCount > 0) {
-          (funnelRows as any[]).forEach(f => {
-            console.log(`- id: ${f.id}`);
-            console.log(`  nome: ${f.name}`);
-            console.log(`  enabled: ${f.enabled}`);
-            console.log(`  trigger original: "${f.trigger_keywords}"`);
-            console.log(`  trigger normalizado: "${normalizeTriggerText(f.trigger_keywords)}"`);
-          });
-        }
-        console.log("----------------------------------------------------");
-        traceFunnel(supabaseAdmin, msgId, phoneStr, "funnels_loaded", {
-          quantidade: rowCount,
-          funis: (funnelRows as any[] || []).map(f => ({ id: f.id, nome: f.name, trigger: f.trigger_keywords })),
-        });
-
-        const matchingFunnel = ((funnelRows || []) as WelcomeFunnelRow[]).find((row) => {
-          const isMatch = funnelMatchesMessage(row.trigger_keywords, content.text);
-          const rowTriggerNorm = normalizeTriggerText(row.trigger_keywords);
-          if (!isMatch) {
-             // Silencioso no loop, reportamos o final
-          }
-          return isMatch;
-        });
-
-        console.log("Resultado do matching:", matchingFunnel ? "SIM" : "NÃO");
-        if (!matchingFunnel && rowCount > 0) {
-          console.log("Motivo da falha: Nenhuma correspondência exata entre mensagem normalizada e gatilhos normalizados.");
-        }
-        console.log("----------------------------------------------------");
-        traceFunnel(supabaseAdmin, msgId, phoneStr, "matching_result", {
-          matched: Boolean(matchingFunnel),
-          matchingFunnelId: matchingFunnel?.id ?? null,
-          matchingFunnelName: matchingFunnel?.name ?? null,
-        });
-
-        if (matchingFunnel) {
-
-          // SIMPLIFICADO — mesmo motivo do Funnel Gate acima: a tabela real
-          // só tem 5 colunas (funnel_id, contact_id, user_id, fired_at,
-          // workspace_id). Sem status, não dá pra distinguir "falhou" de
-          // "completou" — e como o funil roda síncrono, a existência da
-          // linha JÁ significa que rodou (com sucesso ou não, mas rodou).
-          // Retry automático de "failed" não é possível com esse schema.
-          const { data: existingRun, error: existingRunErr } = await (supabaseAdmin as any)
-            .from("welcome_funnel_runs")
-            .select("funnel_id, contact_id, fired_at")
-            .eq("funnel_id", matchingFunnel.id)
-            .eq("contact_id", contactId)
-            .maybeSingle();
-
-          if (existingRunErr) {
-            // FAIL-OPEN: melhor a Júlia responder do que silenciar todos os clientes.
-            console.error("[WELCOME-FUNNEL] Falha ao verificar histórico; seguindo para Agent V3:", existingRunErr);
-          } else {
-            const repeatForTest = canRepeatWelcomeFunnelForTest(phoneStr);
-
-            if (existingRun && !repeatForTest) {
-              console.log("[WELCOME-FUNNEL] Run já existe pra esse contato; funil síncrono já concluiu, Agent V3 assume", {
-                phone: phoneStr,
-                funnelId: matchingFunnel.id,
-              });
-            }
-
-            if (existingRun && repeatForTest) {
-              // Número pessoal de teste pode repetir indefinidamente.
-              const { error: deleteTestRunErr } = await (supabaseAdmin as any)
-                .from("welcome_funnel_runs")
-                .delete()
-                .eq("funnel_id", matchingFunnel.id)
-                .eq("contact_id", contactId);
-
-              if (deleteTestRunErr) {
-                console.error("[WELCOME-FUNNEL] Falha ao liberar repetição do número de teste; seguindo para Agent V3:", deleteTestRunErr);
-              }
-            }
-
-            if (!existingRun || repeatForTest) {
-              // Claim atômico baseado na PK original (funnel_id, contact_id).
-              // Só as 5 colunas que realmente existem na tabela.
-              console.log("Claim");
-              console.log("claimWelcomeFunnel executou? SIM");
-              const { error: claimErr } = await (supabaseAdmin as any)
-                .from("welcome_funnel_runs")
-                .insert({
-                  funnel_id: matchingFunnel.id,
-                  contact_id: contactId,
-                  user_id: num.user_id,
-                  workspace_id: workspaceId,
-                  fired_at: new Date().toISOString(),
-                });
-
-              console.log("Resultado:", claimErr ? "erro" : "true");
-              traceFunnel(supabaseAdmin, msgId, phoneStr, "claim_run_result", {
-                sucesso: !claimErr,
-                errorCode: claimErr?.code ?? null,
-                errorMessage: claimErr?.message ?? null,
-                funnelId: matchingFunnel.id,
-              });
-
-
-              if (claimErr) {
-                if (claimErr.code === "23505") {
-                  // Outra instância ganhou o claim. Não mande IA junto com o funil.
-                  traceFunnel(supabaseAdmin, msgId, phoneStr, "claim_conflict", { funnelId: matchingFunnel.id });
-                  return new Response("ok (welcome funnel claimed elsewhere)");
-                }
-                console.error("[WELCOME-FUNNEL] Falha ao reservar execução; seguindo para Agent V3:", claimErr);
-              } else {
-                // Usa o lock persistente já existente da conversa para impedir que
-                // outra mensagem acorde a IA enquanto o funil está enviando.
-                const funnelLockHolder = `funnel:${matchingFunnel.id}:${Date.now()}`;
-                let funnelLockAcquired = false;
-                try {
-                  funnelLockAcquired = await acquireConversationDbLock(
-                    supabaseAdmin,
-                    conversationId,
-                    funnelLockHolder,
-                  );
-
-                  if (!funnelLockAcquired) {
-                    traceFunnel(supabaseAdmin, msgId, phoneStr, "lock_nao_adquirido", { funnelId: matchingFunnel.id });
-                    await (supabaseAdmin as any)
-                      .from("welcome_funnel_runs")
-                      .delete()
-                      .eq("funnel_id", matchingFunnel.id)
-                      .eq("contact_id", contactId);
-                    return new Response("ok (conversation busy)");
-                  }
-                  traceFunnel(supabaseAdmin, msgId, phoneStr, "lock_adquirido_enviando", { funnelId: matchingFunnel.id });
-
-                  const creds = {
-                    uazapi_url: num.uazapi_url ?? "",
-                    uazapi_token: instanceToken,
-                  };
-
-                  console.log("Execução");
-                  console.log("executeWelcomeFunnel executou? SIM");
-                  await executeWelcomeFunnel({
-                    supabaseAdmin,
-                    funnel: matchingFunnel,
-                    contactId,
-                    conversationId,
-                    userId: num.user_id,
-                    workspaceId,
-                    phone: sendTarget,
-                    creds,
-                  });
-
-                  console.log("----------------------------------------------------");
-                  console.log("Fluxo");
-                  console.log("O código retornou após o funil? SIM");
-                  console.log("executeAgent foi chamado? NÃO");
-                  console.log("----------------------------------------------------");
-                  console.log("Resultado Final");
-                  console.log("FUNIL DISPARADO");
-                  console.log("==============================");
-
-
-                  // O runner compartilhado é a única fonte de verdade para
-                  // status/progresso/completion do funil.
-                  console.log(`[WELCOME-FUNNEL] Funil "${matchingFunnel.name}" concluído; Agent V3 liberado`);
-
-                  // Se o cliente falou DURANTE o funil, a mensagem já foi salva por
-                  // outro webhook que ficou bloqueado pelo status=running. Agora,
-                  // somente após a última etapa, retomamos a mensagem mais recente.
-                  const { data: queuedInbound } = await (supabaseAdmin as any)
-                    .from("messages")
-                    .select("body, kind, created_at")
-                    .eq("conversation_id", conversationId)
-                    .eq("sender", "cliente")
-                    .gt("created_at", new Date(Date.now() - 15 * 60_000).toISOString())
-                    .order("created_at", { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
-
-                  const queuedBody = String((queuedInbound as any)?.body || "").trim();
-                  const originalTrigger = normalizeFunnelText(content.text);
-                  if (
-                    queuedBody &&
-                    normalizeFunnelText(queuedBody) !== originalTrigger &&
-                    (queuedInbound as any)?.kind === "texto"
-                  ) {
-                    console.log("[WELCOME-FUNNEL] Retomando mensagem que aguardou o funil:", {
-                      phone: phoneStr,
-                      chars: queuedBody.length,
-                    });
-                    deferredFunnelMessage = queuedBody;
-                    // NÃO retorna: segue pelo runtime e chama Agent V3 agora, depois do funil.
-                  } else {
-                    return new Response("ok (welcome funnel completed)");
-                  }
-                } catch (funnelSendErr) {
-                  console.error("[WELCOME-FUNNEL] Falha durante envio:", funnelSendErr);
-
-                  // Pausa solicitada pelo painel é estado operacional, não falha.
-                  if (
-                    funnelSendErr instanceof Error &&
-                    funnelSendErr.message === "WELCOME_FUNNEL_PAUSED"
-                  ) {
-                    console.log("[WELCOME-FUNNEL] Execução pausada pelo operador", {
-                      funnelId: matchingFunnel.id,
-                      contactId,
-                    });
-                    return new Response("ok (welcome funnel paused)");
-                  }
-
-                  const { markFunnelRunFailed } = await import(
-                    "@/lib/welcome-funnel-runner.server"
-                  );
-                  await markFunnelRunFailed({
-                    supabase: supabaseAdmin,
-                    funnelId: matchingFunnel.id,
-                    contactId,
-                    userId: num.user_id,
-                    workspaceId,
-                    error: funnelSendErr,
-                  });
-
-                  // Mantém o run com status=failed para a Central do Funil mostrar
-                  // o motivo e permitir reenvio exatamente do ponto que falhou.
-                  if (conversationId) {
-                    await supabaseAdmin
-                      .from("conversations")
-                      .update({
-                        needs_review: true,
-                        review_reason: "falha no funil de boas-vindas",
-                      })
-                      .eq("id", conversationId);
-                  }
-
-                  // Não derruba o WhatsApp inteiro: encerra somente o turno do gatilho.
-                  return new Response("ok (welcome funnel failed; available for retry)");
-                } finally {
-                  if (funnelLockAcquired) {
-                    await releaseConversationDbLock(
-                      supabaseAdmin,
-                      conversationId,
-                      funnelLockHolder,
-                    );
-                  }
-                }
-              }
-            }
-
-            // existingRun normal = cliente já recebeu este funil; segue para Agent V3.
-          }
-        }
-      }
-    }
-
-
-    // Duplicata do provedor não prova que o Agent V3 já processou a mensagem.
-    // Depois de todos os gates de elegibilidade, o job durável é a fonte de
-    // verdade: retry pode reparar o crash entre persistir messages e criar job.
-    if (isDuplicateInMemory || isDuplicateDelivery) {
-      console.log(`[UAZ-WEBHOOK] [AUDIT] Retry elegível seguirá até ownership durável: ${msgId}`);
-    }
-
-    // 4. AGENT GATES — aplicados DEPOIS do funil.
-    // A chave global desliga/liga a IA em todas as conversas; a chave individual
-    // permite exceção manual por conversa. O recebimento continua sincronizado no CRM.
+    // Resolve Agent eligibility before the Funnel gate, but do not let an Agent
+    // switch suppress the independent Welcome Funnel. If the Funnel owns the
+    // conversation, eligible Agent work is persisted as pending Stage B first.
+    let agentGateResponse: Response | null = null;
     const { data: agentConfig, error: agentConfigErr } = await supabaseAdmin
       .from("agent_config")
       .select("agent_enabled")
@@ -1384,40 +884,99 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     if (agentConfigErr) {
       console.error("[UAZ-WEBHOOK] Failed to read global agent gate:", agentConfigErr);
-      return new Response("ok (agent gate unavailable)");
+      agentGateResponse = new Response("ok (agent gate unavailable)");
+    } else if (agentConfig?.agent_enabled === false) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Agent disabled globally para workspace ${workspaceId}`);
+      agentGateResponse = new Response("ok (agent disabled globally)");
+    } else if (!(await isConversationAgentEnabledV3(supabaseAdmin, conversationId))) {
+      console.log("RETURN-PONTO: agent-disabled", { phone: phoneStr });
+      agentGateResponse = new Response("ok (agent disabled for conversation)");
     }
 
-    // Sem registro ainda = comportamento padrão ON, igual ao painel.
-    // Somente `agent_enabled = false` desliga explicitamente o master switch.
-    if (agentConfig?.agent_enabled === false) {
-      console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: agent disabled globally para workspace ${workspaceId}`);
-      return new Response("ok (agent disabled globally)");
-    }
+    if (contactId && content.kind === "texto") {
+      let funnelGate;
+      try {
+        funnelGate = await runWelcomeFunnelWebhookGate({
+          supabaseAdmin,
+          userId: num.user_id,
+          workspaceId,
+          whatsappNumberId: num.id,
+          contactId,
+          conversationId,
+          phone: sendTarget,
+          text: content.text,
+          creds: {
+            uazapi_url: num.uazapi_url ?? "",
+            uazapi_token: instanceToken,
+          },
+        });
+      } catch (funnelError) {
+        // The durable runner quarantines uncertain post-send failures as
+        // needs_review. Keep this exact inbound pending behind that review fence.
+        if (!agentGateResponse) {
+          await persistWebhookAgentInboundJob(supabaseAdmin, inboundOwnershipInput);
+        }
+        console.error("[WELCOME-FUNNEL] Durable orchestration failed closed:", funnelError);
+        return new Response("ok (welcome funnel needs review)");
+      }
 
-    if (conversationId) {
-      const isAgentEnabled = await isConversationAgentEnabledV3(supabaseAdmin, conversationId);
-      if (!isAgentEnabled) {
-        console.log("RETURN-PONTO: agent-disabled", { phone: phoneStr });
-        return new Response("ok (agent disabled for conversation)");
+      if (webhookGateMustStopAgent(funnelGate)) {
+        // A different customer message received while the Funnel is running or
+        // quarantined must keep its own message_id/text pair as pending Stage B.
+        // The trigger message itself is consumed only after durable completion.
+        const completedTrigger =
+          funnelGate.status === "matched" &&
+          funnelGate.orchestration.status === "completed";
+        if (!agentGateResponse && !completedTrigger) {
+          await persistWebhookAgentInboundJob(supabaseAdmin, inboundOwnershipInput);
+        }
+
+        console.log("[WELCOME-FUNNEL] Agent V3 bloqueado pelo gate durável", {
+          status: funnelGate.status,
+          detail:
+            funnelGate.status === "matched"
+              ? funnelGate.orchestration.status
+              : funnelGate.status === "conversation_blocked"
+                ? funnelGate.barrier
+                : funnelGate.error,
+        });
+        return new Response(
+          funnelGate.status === "query_unavailable"
+            ? "retry (welcome funnel gate unavailable)"
+            : "ok (welcome funnel gate)",
+          { status: funnelGate.status === "query_unavailable" ? 503 : 200 },
+        );
       }
     }
 
-    // 5. DURABLE CUSTOMER TURN INGRESS (Stage C+D)
-    if (!persistedMessageId || !conversationId) {
-      throw new Error("Agent V3 reached without persisted message/conversation id");
+    if (agentGateResponse) return agentGateResponse;
+
+
+    // Duplicata do provedor não prova que o Agent V3 já processou a mensagem.
+    // Depois de todos os gates de elegibilidade, o job durável é a fonte de
+    // verdade: retry pode reparar o crash entre persistir messages e criar job.
+    if (isDuplicateInMemory || isDuplicateDelivery) {
+      console.log(`[UAZ-WEBHOOK] [AUDIT] Retry elegível seguirá até ownership durável: ${msgId}`);
     }
 
-    const ownershipResult = await beginWebhookAgentInboundRuntime(supabaseAdmin, {
-      messageId: persistedMessageId,
-      conversationId,
-      workspaceId,
-      sendTarget,
-      inputText: deferredFunnelMessage || content.text || "",
-      inputKind: content.kind,
-      inputMime: content.mime,
-      deferredFunnel: Boolean(deferredFunnelMessage),
-      holder: `turn-ingress:${msgId}:${Date.now()}`,
-    });
+    // 5. DURABLE CUSTOMER TURN INGRESS (Stage C+D). Recheck the durable
+    // Funnel barrier atomically close to attachment: a newly running/review
+    // Funnel leaves this exact message as pending Stage B instead of losing it.
+    const ownershipResult = await enqueueWebhookInboundAroundWelcomeFunnel(
+      supabaseAdmin,
+      inboundOwnershipInput,
+    );
+
+    if (ownershipResult.status === "pending_behind_funnel") {
+      console.log("[AGENT-CUSTOMER-TURN] inbound durável aguardando Welcome Funnel", {
+        phone: phoneStr,
+        messageId: persistedMessageId,
+        jobId: ownershipResult.jobId,
+        barrier: ownershipResult.barrier,
+        duplicate: ownershipResult.duplicate,
+      });
+      return new Response("ok (agent inbound pending behind welcome funnel)");
+    }
 
     console.log("[AGENT-CUSTOMER-TURN] inbound anexado ao turno durável", {
       phone: phoneStr,
