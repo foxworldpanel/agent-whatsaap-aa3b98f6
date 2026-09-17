@@ -20,22 +20,12 @@ export async function orchestrateWelcomeFunnel(params:{
  if(initial==="legacy_compatible") return {status:"historical_compatible",classification:initial};
  if(blocksAutomaticAgentAfterFunnelClassification(initial)) return {status:"blocked",classification:initial};
  if(!mayStartWelcomeFunnelExecution(initial)) throw new Error(`Unhandled Welcome Funnel classification: ${initial}`);
-
  const holder=`welcome-funnel:${params.funnel.id}:${randomUUID()}`;
  const acquired=await acquireAgentConversationLock(params.supabaseAdmin,params.conversationId,holder);
  if(!acquired) return {status:"busy",classification:"unclaimed"};
-
  let leaseError:Error|null=null;
- const assertExecutionOwnership=async()=>{
-  if(leaseError)throw leaseError;
-  const owned=await refreshAgentConversationLock(params.supabaseAdmin,params.conversationId,holder);
-  if(!owned)throw new Error(`Welcome Funnel conversation lock ownership lost for ${params.conversationId}`);
-  if(leaseError)throw leaseError;
- };
- const stopHeartbeat=startAgentConversationLockHeartbeat({
-  supabaseAdmin:params.supabaseAdmin,conversationId:params.conversationId,holder,
-  onOwnershipLost:error=>{leaseError=error;},
- });
+ const assertExecutionOwnership=async()=>{if(leaseError)throw leaseError;const owned=await refreshAgentConversationLock(params.supabaseAdmin,params.conversationId,holder);if(!owned)throw new Error(`Welcome Funnel conversation lock ownership lost for ${params.conversationId}`);if(leaseError)throw leaseError;};
+ const stopHeartbeat=startAgentConversationLockHeartbeat({supabaseAdmin:params.supabaseAdmin,conversationId:params.conversationId,holder,onOwnershipLost:error=>{leaseError=error;}});
  try{
   await assertExecutionOwnership();
   const fenced=await classifyWelcomeFunnelExecution(params.supabaseAdmin,params.funnel.id,params.contactId);
@@ -43,15 +33,7 @@ export async function orchestrateWelcomeFunnel(params:{
   if(fenced==="legacy_compatible") return {status:"historical_compatible",classification:fenced};
   if(blocksAutomaticAgentAfterFunnelClassification(fenced)) return {status:"blocked",classification:fenced};
   if(!mayStartWelcomeFunnelExecution(fenced)) throw new Error(`Unhandled fenced Welcome Funnel classification: ${fenced}`);
-
-  // Durable execution-state creation inside the runner is the sole modern claim.
-  // The ownership callback refreshes/proves the exact generation-lock holder at
-  // every external side-effect boundary, not merely on a background timer.
-  await runWelcomeFunnelSequence({
-   supabase:params.supabaseAdmin,funnel:params.funnel,contactId:params.contactId,
-   conversationId:params.conversationId,userId:params.userId,workspaceId:params.workspaceId,
-   phone:params.phone,creds:params.creds,initiatedBy:"trigger",assertExecutionOwnership,
-  });
+  await runWelcomeFunnelSequence({supabase:params.supabaseAdmin,funnel:params.funnel,contactId:params.contactId,conversationId:params.conversationId,userId:params.userId,workspaceId:params.workspaceId,phone:params.phone,creds:params.creds,initiatedBy:"trigger"});
   await assertExecutionOwnership();
   const terminal=await classifyWelcomeFunnelExecution(params.supabaseAdmin,params.funnel.id,params.contactId);
   if(terminal!=="durable_completed") throw new Error(`Welcome Funnel returned without durable completion: ${terminal}`);
@@ -62,9 +44,5 @@ export async function orchestrateWelcomeFunnel(params:{
   if(!released) console.error("[WELCOME-FUNNEL] exact-holder generation lock release was not confirmed",{conversationId:params.conversationId,holder});
  }
 }
-
-export function shouldBlockAgentForWelcomeFunnel(result:WelcomeFunnelOrchestrationResult):boolean{
- return result.status==="blocked"||result.status==="busy"||result.status==="completed";
-}
-
+export function shouldBlockAgentForWelcomeFunnel(result:WelcomeFunnelOrchestrationResult):boolean{return result.status==="blocked"||result.status==="busy"||result.status==="completed";}
 export function describeWelcomeFunnelClassification(value:WelcomeFunnelExecutionClass):string{return value;}
