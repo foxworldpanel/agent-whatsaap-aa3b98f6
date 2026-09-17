@@ -942,11 +942,15 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
                   ? funnelGate.error
                   : null,
         });
+        const funnelRetryRequired =
+          funnelGate.status === "query_unavailable" ||
+          (funnelGate.status === "matched" &&
+            funnelGate.orchestration.status === "busy");
         return new Response(
-          funnelGate.status === "query_unavailable"
-            ? "retry (welcome funnel gate unavailable)"
+          funnelRetryRequired
+            ? "retry (welcome funnel gate unavailable or busy)"
             : "ok (welcome funnel gate)",
-          { status: funnelGate.status === "query_unavailable" ? 503 : 200 },
+          { status: funnelRetryRequired ? 503 : 200 },
         );
       }
     }
