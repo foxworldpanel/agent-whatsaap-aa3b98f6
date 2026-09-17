@@ -15,7 +15,8 @@ export async function enqueueWebhookInboundAroundWelcomeFunnel(
  supabaseAdmin:any,input:WebhookInboundOwnershipInput,
 ):Promise<FunnelAwareInboundResult>{
  const barrier=await getWelcomeFunnelConversationBarrier(supabaseAdmin,input.conversationId);
- if(welcomeFunnelBlocksAgentRuntime(barrier)){
+ if(barrier!=="clear"){
+  if(!welcomeFunnelBlocksAgentRuntime(barrier))throw new Error(`Welcome Funnel barrier invariant violated: ${barrier}`);
   const ensured=await persistWebhookAgentInboundJob(supabaseAdmin,input);
   return {status:"pending_behind_funnel",jobId:ensured.job.id,duplicate:ensured.duplicate,barrier};
  }
