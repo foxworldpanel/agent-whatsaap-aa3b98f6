@@ -11,7 +11,8 @@ describe("Welcome Funnel webhook gate",()=>{
   expect(source).not.toContain("welcome_funnel_runs");
   expect(source).not.toContain("agent_generation_locks");
  });
- it("never lets a newly completed, busy or quarantined funnel fall through to Agent",()=>{
+ it("never lets a newly completed, busy, quarantined or uncertain funnel fall through to Agent",()=>{
+  expect(source).toContain('status==="query_unavailable"');
   expect(source).toContain('status==="completed"');
   expect(source).toContain('status==="blocked"');
   expect(source).toContain('status==="busy"');
