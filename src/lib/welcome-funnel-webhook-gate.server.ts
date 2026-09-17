@@ -1,10 +1,12 @@
 import { normalizeTriggerText } from "@/lib/text-normalize";
 import { orchestrateWelcomeFunnel,type WelcomeFunnelOrchestrationResult } from "@/lib/welcome-funnel-orchestrator.server";
 import type { WelcomeFunnelRuntime } from "@/lib/welcome-funnel-runner.server";
+import { getWelcomeFunnelConversationBarrier,type WelcomeFunnelConversationBarrier } from "@/lib/welcome-funnel-conversation-barrier.server";
 
 type FunnelRow=WelcomeFunnelRuntime&{trigger_keywords:string;sort_order?:number|null};
 export type WelcomeFunnelWebhookGateResult=
  | {status:"no_match"}
+ | {status:"conversation_blocked";barrier:Exclude<WelcomeFunnelConversationBarrier,"clear">}
  | {status:"query_unavailable";error:string}
  | {status:"matched";funnelId:string;orchestration:WelcomeFunnelOrchestrationResult};
 
@@ -21,6 +23,17 @@ export async function runWelcomeFunnelWebhookGate(params:{
  contactId:string;conversationId:string;phone:string;text:string;
  creds:{uazapi_url:string;uazapi_token:string};
 }):Promise<WelcomeFunnelWebhookGateResult>{
+ // The conversation-wide durable state is checked before trigger discovery. A
+ // message arriving while any Funnel owns this conversation must never fall
+ // through merely because that new message does not itself match a trigger.
+ let barrier:WelcomeFunnelConversationBarrier;
+ try{
+  barrier=await getWelcomeFunnelConversationBarrier(params.supabaseAdmin,params.conversationId);
+ }catch(error){
+  return {status:"query_unavailable",error:error instanceof Error?error.message:String(error)};
+ }
+ if(barrier!=="clear")return {status:"conversation_blocked",barrier};
+
  const {data,error}=await params.supabaseAdmin.from("welcome_funnels")
   .select("id,name,delay_seconds,trigger_keywords,steps,sort_order")
   .eq("user_id",params.userId).eq("workspace_id",params.workspaceId)
@@ -38,9 +51,8 @@ export async function runWelcomeFunnelWebhookGate(params:{
 }
 
 export function webhookGateMustStopAgent(result:WelcomeFunnelWebhookGateResult):boolean{
- // An unavailable funnel query is an ownership uncertainty, not proof that no
- // funnel matches. Fail closed so Agent V3 cannot race a funnel during outages.
- if(result.status==="query_unavailable")return true;
+ // Any ownership uncertainty or durable conversation barrier fails closed.
+ if(result.status==="query_unavailable"||result.status==="conversation_blocked")return true;
  if(result.status!=="matched")return false;
  return result.orchestration.status==="completed"||result.orchestration.status==="blocked"||result.orchestration.status==="busy";
 }
