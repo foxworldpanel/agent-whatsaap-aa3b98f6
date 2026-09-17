@@ -884,7 +884,7 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
 
     if (agentConfigErr) {
       console.error("[UAZ-WEBHOOK] Failed to read global agent gate:", agentConfigErr);
-      agentGateResponse = new Response("ok (agent gate unavailable)");
+      agentGateResponse = new Response("retry (agent gate unavailable)", { status: 503 });
     } else if (agentConfig?.agent_enabled === false) {
       console.log(`[UAZ-WEBHOOK] [AUDIT] Agent disabled globally para workspace ${workspaceId}`);
       agentGateResponse = new Response("ok (agent disabled globally)");
