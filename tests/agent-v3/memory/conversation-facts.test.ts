@@ -20,6 +20,7 @@ describe("Agent V3 structured conversation facts", () => {
     );
 
     expect(facts).toEqual({
+      ...EMPTY_CONVERSATION_FACTS_V3,
       customerName: "Lucas",
       artistName: "LKS",
       musicTitle: "Noite Azul",
@@ -29,6 +30,7 @@ describe("Agent V3 structured conversation facts", () => {
 
   it("does not erase remembered facts when the next message omits them", () => {
     const current = {
+      ...EMPTY_CONVERSATION_FACTS_V3,
       customerName: "Ana",
       artistName: "Analu",
       musicTitle: "Horizonte",
