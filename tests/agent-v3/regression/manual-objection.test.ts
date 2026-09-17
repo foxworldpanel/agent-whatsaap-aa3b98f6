@@ -19,6 +19,7 @@ describe("Teste Manual V3: Objeção 'Não é golpe?'", () => {
     
     const res = await runAgentV3Turn({
       userId: "bd59fa41-3a6d-4767-8334-a69076f8e434",
+      workspaceId: "test-workspace",
       message: "isso não é golpe?",
       history: [
           { sender: "agente", body: "No Instagram temos seguidores a partir de R$ 10. Quer dar uma olhada?" }
