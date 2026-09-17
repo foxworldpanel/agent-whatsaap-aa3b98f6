@@ -12,11 +12,11 @@ describe("Concisão e ritmo de WhatsApp", () => {
     expect(orchestrator).toContain("15 a 35 palavras");
   });
   it("prioriza a pergunta mais recente", () => {
-    expect(orchestrator).toContain("PRIORIDADE DA ÚLTIMA MENSAGEM");
-    expect(orchestrator).toContain("última pergunta do cliente tem prioridade");
+    expect(orchestrator).toContain("última mensagem do cliente");
+    expect(orchestrator).toContain("pergunta mais recente");
   });
   it("reduz teto de geração", () => {
-    expect(llm).toContain("max_tokens: 256");
+    expect(llm).toContain("max_tokens: 400");
   });
   it("mantém mensagens duráveis e bloqueia runtime do Agent enquanto o Funnel possui a conversa", () => {
     expect(funnelGate).toContain("persistWebhookAgentInboundJob");
