@@ -2,6 +2,14 @@ import { readFileSync } from "node:fs";
 import { describe,expect,it } from "vitest";
 const source=readFileSync("src/lib/welcome-funnel-webhook-gate.server.ts","utf8");
 describe("Welcome Funnel webhook gate",()=>{
+ it("checks the durable conversation barrier before trigger discovery",()=>{
+  const barrier=source.indexOf("getWelcomeFunnelConversationBarrier");
+  const query=source.indexOf('from("welcome_funnels")');
+  expect(barrier).toBeGreaterThanOrEqual(0);
+  expect(query).toBeGreaterThan(barrier);
+  expect(source).toContain('status:"conversation_blocked"');
+  expect(source).toContain('result.status==="query_unavailable"||result.status==="conversation_blocked"');
+ });
  it("loads only scoped enabled funnels and delegates ownership to durable orchestrator",()=>{
   expect(source).toContain('.eq("user_id",params.userId)');
   expect(source).toContain('.eq("workspace_id",params.workspaceId)');
