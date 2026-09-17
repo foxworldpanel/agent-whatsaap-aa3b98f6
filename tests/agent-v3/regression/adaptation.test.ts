@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
+vi.mock("@/lib/agent-v3/brain/modules.server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/agent-v3/brain/modules.server")>();
+  return {
+    ...actual,
+    loadEnabledModulesV3: vi.fn(async () => ({})),
+  };
+});
+
 
 // Mock do fetch da Anthropic — devolve reply como resposta canônica com metadados V3
 function mockAnthropicV3(reply: string) {
