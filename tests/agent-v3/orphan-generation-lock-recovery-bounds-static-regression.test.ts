@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914263000_orphan_generation_lock_recovery_fairness.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260914450000_generation_lock_recovery_fairness_with_funnel.sql"),
   "utf8",
 );
 
@@ -16,10 +16,11 @@ describe("orphan generation lock recovery bounds", () => {
     expect(migration).toContain("v_locked:=v_locked+1");
   });
 
-  it("revalidates exact stale ownership and preserves active durable owners", () => {
+  it("revalidates exact stale ownership and preserves every active durable owner", () => {
     expect(migration).toContain("l.holder=v_candidate.holder");
     expect(migration).toContain("l.acquired_at=v_candidate.acquired_at");
     expect(migration).toContain("active_job.status IN ('processing_safe','processing')");
     expect(migration).toContain("active_turn.state IN ('processing_safe','processing')");
+    expect(migration).toContain("funnel.status='running'");
   });
 });
