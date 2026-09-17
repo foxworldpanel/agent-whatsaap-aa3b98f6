@@ -1,6 +1,12 @@
 -- A conversation can have at most one active Welcome Funnel execution. Historical
 -- duplicate running rows are intrinsically ambiguous, so quarantine every member
 -- of such a duplicate set before installing the structural invariant.
+--
+-- Hold writers across cleanup + index installation. Without this migration-level
+-- fence a concurrent start could insert another running row after cleanup but
+-- before CREATE UNIQUE INDEX and make the safety migration fail nondeterministically.
+LOCK TABLE public.welcome_funnel_execution_state IN SHARE ROW EXCLUSIVE MODE;
+
 WITH duplicate_conversations AS (
   SELECT conversation_id
   FROM public.welcome_funnel_execution_state
