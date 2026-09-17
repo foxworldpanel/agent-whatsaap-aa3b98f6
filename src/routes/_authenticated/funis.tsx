@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_authenticated/funis")({
   component: FunnelControlCenter,
 });
 
-type FunnelStatus = "running" | "completed" | "failed" | "paused";
+type FunnelStatus = "running" | "completed" | "historical" | "failed" | "paused";
 
 type Run = {
   funnel_id: string;
@@ -84,6 +84,7 @@ type Overview = {
     total: number;
     running: number;
     completed: number;
+    historical: number;
     failed: number;
     paused: number;
     stale: number;
@@ -101,8 +102,12 @@ const statusMeta: Record<FunnelStatus, { label: string; cls: string }> = {
     cls: "border-blue-200 bg-blue-50 text-blue-700",
   },
   completed: {
-    label: "Enviado",
+    label: "Concluído",
     cls: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  },
+  historical: {
+    label: "Histórico (não comprovado)",
+    cls: "border-slate-200 bg-slate-50 text-slate-700",
   },
   failed: {
     label: "Falhou",
@@ -325,7 +330,10 @@ function FunnelControlCenter() {
               Em andamento {data?.counts.running ?? 0}
             </FilterButton>
             <FilterButton active={status === "completed"} onClick={() => setStatus("completed")}>
-              Enviados {data?.counts.completed ?? 0}
+              Concluídos {data?.counts.completed ?? 0}
+            </FilterButton>
+            <FilterButton active={status === "historical"} onClick={() => setStatus("historical")}>
+              Históricos {data?.counts.historical ?? 0}
             </FilterButton>
             <FilterButton active={status === "failed"} onClick={() => setStatus("failed")}>
               Falhas {data?.counts.failed ?? 0}
