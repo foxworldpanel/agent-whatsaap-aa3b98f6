@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const sql = readFileSync("supabase/migrations/20260914430000_welcome_funnel_start_exact_holder.sql", "utf8");
+const sql = readFileSync("supabase/migrations/20260914493000_welcome_funnel_start_single_running_fence.sql", "utf8");
 const runner = readFileSync("src/lib/welcome-funnel-runner.server.ts", "utf8");
 const orchestrator = readFileSync("src/lib/welcome-funnel-orchestrator.server.ts", "utf8");
 
@@ -11,6 +11,11 @@ describe("Welcome Funnel exact-holder start and lease fence", () => {
     expect(sql).toContain("conversation_id = p_conversation_id AND holder = p_holder");
     expect(sql).toContain("exact generation lock ownership");
     expect(sql).toContain("TO service_role");
+  });
+
+  it("also refuses a second active Funnel in the same conversation", () => {
+    expect(sql).toContain("WHERE conversation_id = p_conversation_id AND status = 'running'");
+    expect(sql).toContain("Welcome Funnel start blocked by active Funnel execution");
   });
 
   it("routes durable start through the exact-holder RPC instead of a direct insert", () => {
