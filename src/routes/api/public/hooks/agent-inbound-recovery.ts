@@ -38,6 +38,15 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
             DEFAULT_STALE_MS,
             AGENT_INBOUND_MAX_SAFE_ATTEMPTS,
           );
+
+          // Lock recovery is the sole authority for removing stale generation
+          // ownership. Funnel recovery runs afterwards and only quarantines a
+          // stale running execution once no generation-lock row remains.
+          const recoveredConversationLocks = await recoverStaleAgentConversationLocks(
+            supabaseAdmin,
+            GENERATION_LOCK_STALE_MS,
+          );
+
           const { data: staleFunnelReview, error: staleFunnelError } = await supabaseAdmin.rpc(
             "recover_stale_welcome_funnel_executions",
             {
@@ -47,11 +56,6 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
             },
           );
           if (staleFunnelError) throw staleFunnelError;
-
-          const recoveredConversationLocks = await recoverStaleAgentConversationLocks(
-            supabaseAdmin,
-            GENERATION_LOCK_STALE_MS,
-          );
 
           return Response.json({
             ok: true,
