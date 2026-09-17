@@ -1,41 +1,45 @@
 import { describe, expect, it } from "vitest";
-import fs from "node:fs";
+import { readFileSync } from "node:fs";
 
-const webhook = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
+const webhook = readFileSync(
+  "src/routes/api/public/hooks/uazapi-webhook.ts",
+  "utf8",
+);
+const gate = readFileSync(
+  "src/lib/welcome-funnel-webhook-gate.server.ts",
+  "utf8",
+);
+const inbound = readFileSync(
+  "src/lib/agent-v3/inbound-welcome-funnel-gate.server.ts",
+  "utf8",
+);
 
-describe("Welcome funnel -> Agent V3 ordering", () => {
-  it("não cancela o funil quando o cliente fala durante a sequência", () => {
-    expect(webhook).not.toContain("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_MESSAGE");
-    expect(webhook).toContain("welcome funnel running; agent deferred");
+describe("Welcome Funnel -> Agent V3 ordering", () => {
+  it("checks the conversation-wide durable barrier before trigger discovery", () => {
+    expect(gate.indexOf("getWelcomeFunnelConversationBarrier")).toBeLessThan(
+      gate.indexOf('.from("welcome_funnels")'),
+    );
+    expect(gate).toContain('status:"conversation_blocked"');
   });
 
-  it("bloqueia o agente por status running independentemente do gatilho da nova mensagem", () => {
-    const globalGate = webhook.indexOf("// 3.4. FUNNEL GATE GLOBAL");
-    const matchLookup = webhook.indexOf("const matchingFunnel", globalGate);
-    const agentCall = webhook.indexOf("runAgentV3Turn({", globalGate);
-
-    expect(globalGate).toBeGreaterThan(-1);
-    expect(matchLookup).toBeGreaterThan(globalGate);
-    expect(agentCall).toBeGreaterThan(matchLookup);
-    expect(webhook).toContain('.eq("status", "running")');
+  it("persists later messages instead of manually replaying another body", () => {
+    expect(webhook).toContain("persistWebhookAgentInboundJob");
+    expect(webhook).not.toContain("queuedInbound");
+    expect(webhook).not.toContain("queuedBody");
+    expect(webhook).not.toContain("deferredFunnelMessage");
   });
 
-  it("marca running antes do envio e completed somente ao terminar", () => {
-    expect(webhook).toContain('status: "running"');
-    expect(webhook).toContain('status: "completed"');
-    expect(webhook).toContain("completed_at: completedAt");
+  it("rechecks the barrier immediately before Customer Turn attachment", () => {
+    expect(inbound).toContain("getWelcomeFunnelConversationBarrier");
+    expect(inbound).toContain("persistWebhookAgentInboundJob");
+    expect(inbound.indexOf("barrier!==\"clear\"")).toBeLessThan(
+      inbound.indexOf("beginWebhookAgentInboundRuntime"),
+    );
   });
 
-  it("retoma mensagem textual recebida durante o funil somente após conclusão", () => {
-    const completed = webhook.indexOf('status: "completed"');
-    const queueRead = webhook.indexOf("queuedInbound", completed);
-    const agentCall = webhook.indexOf("runAgentV3Turn({", queueRead);
-    expect(queueRead).toBeGreaterThan(completed);
-    expect(agentCall).toBeGreaterThan(queueRead);
-  });
-
-  it("gatilho vale para cliente antigo também; run persistente garante uma vez", () => {
-    expect(webhook).toContain("O gatilho vale para qualquer contato");
-    expect(webhook).not.toContain("(!isKnownCustomer || canRepeatWelcomeFunnelForTest(phoneStr))");
+  it("never uses a test-number replay bypass", () => {
+    expect(webhook).not.toContain("canRepeatWelcomeFunnelForTest");
+    expect(webhook).not.toContain("WELCOME_FUNNEL_REPEAT_TEST_PHONES");
+    expect(webhook).not.toContain("5511970116430");
   });
 });
