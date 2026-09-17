@@ -1,0 +1,29 @@
+-- Background claim/readiness paths must mirror the DB runtime barrier: any durable
+-- Funnel row for the conversation with a different workspace is a routing-integrity
+-- barrier, even when that Funnel row is terminal.
+CREATE OR REPLACE FUNCTION public.has_welcome_funnel_agent_barrier(p_conversation_id uuid,p_workspace_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
+ SELECT EXISTS(SELECT 1 FROM public.welcome_funnel_execution_state s WHERE s.conversation_id=p_conversation_id AND (s.workspace_id IS DISTINCT FROM p_workspace_id OR s.status IN ('running','needs_review')));
+$$;
+REVOKE ALL ON FUNCTION public.has_welcome_funnel_agent_barrier(uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.has_welcome_funnel_agent_barrier(uuid,uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.claim_next_agent_customer_turn(p_holder text,p_quiet_before timestamptz)
+RETURNS SETOF public.agent_customer_turns LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
+DECLARE v_candidate record;
+BEGIN
+ FOR v_candidate IN SELECT q.id,q.conversation_id,q.workspace_id,q.ready_at FROM(
+  SELECT t.id,t.conversation_id,t.workspace_id,t.created_at ready_at FROM public.agent_customer_turns t WHERE t.state='retry_safe' AND t.safe_attempt_count<5 AND NOT public.has_welcome_funnel_agent_barrier(t.conversation_id,t.workspace_id) AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turns o WHERE o.conversation_id=t.conversation_id AND o.state='retry_safe' AND(o.created_at,o.id)<(t.created_at,t.id)) AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turns a WHERE a.conversation_id=t.conversation_id AND a.id<>t.id AND a.state IN('processing_safe','processing')) AND NOT EXISTS(SELECT 1 FROM public.agent_inbound_jobs j WHERE j.conversation_id=t.conversation_id AND j.status IN('processing_safe','processing')) AND NOT EXISTS(SELECT 1 FROM public.agent_generation_locks g WHERE g.conversation_id=t.conversation_id)
+  UNION ALL SELECT t.id,t.conversation_id,t.workspace_id,t.last_received_at FROM public.agent_customer_turns t WHERE t.state='collecting' AND t.last_received_at<=p_quiet_before AND t.safe_attempt_count<5 AND NOT public.has_welcome_funnel_agent_barrier(t.conversation_id,t.workspace_id) AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turns r WHERE r.conversation_id=t.conversation_id AND r.state='retry_safe') AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turns a WHERE a.conversation_id=t.conversation_id AND a.id<>t.id AND a.state IN('processing_safe','processing')) AND NOT EXISTS(SELECT 1 FROM public.agent_inbound_jobs j WHERE j.conversation_id=t.conversation_id AND j.status IN('processing_safe','processing')) AND NOT EXISTS(SELECT 1 FROM public.agent_generation_locks g WHERE g.conversation_id=t.conversation_id)
+ )q ORDER BY q.ready_at,q.id LIMIT 32 LOOP
+  IF NOT pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31)) THEN CONTINUE;END IF;
+  IF public.has_welcome_funnel_agent_barrier(v_candidate.conversation_id,v_candidate.workspace_id) OR EXISTS(SELECT 1 FROM public.agent_customer_turns a WHERE a.conversation_id=v_candidate.conversation_id AND a.id<>v_candidate.id AND a.state IN('processing_safe','processing')) OR EXISTS(SELECT 1 FROM public.agent_inbound_jobs j WHERE j.conversation_id=v_candidate.conversation_id AND j.status IN('processing_safe','processing')) OR EXISTS(SELECT 1 FROM public.agent_generation_locks g WHERE g.conversation_id=v_candidate.conversation_id) THEN CONTINUE;END IF;
+  RETURN QUERY UPDATE public.agent_customer_turns t SET state='processing_safe',sealed_at=coalesce(t.sealed_at,now()),claimed_by=p_holder,claimed_at=now(),safe_attempt_count=t.safe_attempt_count+1,updated_at=now() WHERE t.id=v_candidate.id AND t.safe_attempt_count<5 AND NOT public.has_welcome_funnel_agent_barrier(t.conversation_id,t.workspace_id) AND ((t.state='retry_safe' AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turns o WHERE o.conversation_id=t.conversation_id AND o.state='retry_safe' AND(o.created_at,o.id)<(t.created_at,t.id))) OR(t.state='collecting' AND t.last_received_at<=p_quiet_before AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turns r WHERE r.conversation_id=t.conversation_id AND r.state='retry_safe'))) RETURNING t.*;
+  IF FOUND THEN RETURN;END IF;
+ END LOOP;
+END$$;
+
+CREATE OR REPLACE FUNCTION public.has_ready_agent_customer_turn(p_quiet_before timestamptz)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT EXISTS(SELECT 1 FROM public.agent_customer_turns t WHERE t.safe_attempt_count<5 AND ((t.state='retry_safe' AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turns o WHERE o.conversation_id=t.conversation_id AND o.state='retry_safe' AND(o.created_at,o.id)<(t.created_at,t.id))) OR(t.state='collecting' AND t.last_received_at<=p_quiet_before AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turns o WHERE o.conversation_id=t.conversation_id AND o.state='retry_safe'))) AND NOT public.has_welcome_funnel_agent_barrier(t.conversation_id,t.workspace_id) AND NOT EXISTS(SELECT 1 FROM public.agent_customer_turns a WHERE a.conversation_id=t.conversation_id AND a.id<>t.id AND a.state IN('processing_safe','processing')) AND NOT EXISTS(SELECT 1 FROM public.agent_inbound_jobs j WHERE j.conversation_id=t.conversation_id AND j.status IN('processing_safe','processing')) AND NOT EXISTS(SELECT 1 FROM public.agent_generation_locks g WHERE g.conversation_id=t.conversation_id));$$;
+REVOKE ALL ON FUNCTION public.claim_next_agent_customer_turn(text,timestamptz) FROM PUBLIC,anon,authenticated;GRANT EXECUTE ON FUNCTION public.claim_next_agent_customer_turn(text,timestamptz) TO service_role;
+REVOKE ALL ON FUNCTION public.has_ready_agent_customer_turn(timestamptz) FROM PUBLIC,anon,authenticated;GRANT EXECUTE ON FUNCTION public.has_ready_agent_customer_turn(timestamptz) TO service_role;
