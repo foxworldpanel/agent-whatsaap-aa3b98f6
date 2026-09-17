@@ -38,6 +38,9 @@ export async function runWelcomeFunnelWebhookGate(params:{
 }
 
 export function webhookGateMustStopAgent(result:WelcomeFunnelWebhookGateResult):boolean{
+ // An unavailable funnel query is an ownership uncertainty, not proof that no
+ // funnel matches. Fail closed so Agent V3 cannot race a funnel during outages.
+ if(result.status==="query_unavailable")return true;
  if(result.status!=="matched")return false;
  return result.orchestration.status==="completed"||result.orchestration.status==="blocked"||result.orchestration.status==="busy";
 }
