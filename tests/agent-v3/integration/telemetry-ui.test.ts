@@ -1,5 +1,13 @@
-import { test, expect } from 'vitest';
+import { test, expect, vi } from 'vitest';
 import { runAgentV3Turn } from '@/lib/agent-v3/orchestrator.server';
+vi.mock("@/lib/agent-v3/brain/modules.server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/agent-v3/brain/modules.server")>();
+  return {
+    ...actual,
+    loadEnabledModulesV3: vi.fn(async () => ({})),
+  };
+});
+
 
 test('Orchestrator should include telemetry and comparison', async () => {
   const message = "quero comprar plays";
