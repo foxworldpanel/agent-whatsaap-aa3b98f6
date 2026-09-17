@@ -17,8 +17,6 @@ export async function orchestrateWelcomeFunnel(params:{
 }):Promise<WelcomeFunnelOrchestrationResult>{
  const initial=await classifyWelcomeFunnelExecution(params.supabaseAdmin,params.funnel.id,params.contactId);
  if(initial==="durable_completed") return {status:"already_completed",classification:initial};
- // Baseline rows are compatibility evidence only. They let normal Agent work
- // continue, but must never be reported as proof that Funnel delivery completed.
  if(initial==="legacy_compatible") return {status:"historical_compatible",classification:initial};
  if(blocksAutomaticAgentAfterFunnelClassification(initial)) return {status:"blocked",classification:initial};
  if(!mayStartWelcomeFunnelExecution(initial)) throw new Error(`Unhandled Welcome Funnel classification: ${initial}`);
@@ -28,39 +26,33 @@ export async function orchestrateWelcomeFunnel(params:{
  if(!acquired) return {status:"busy",classification:"unclaimed"};
 
  let leaseError:Error|null=null;
+ const assertExecutionOwnership=async()=>{
+  if(leaseError)throw leaseError;
+  const owned=await refreshAgentConversationLock(params.supabaseAdmin,params.conversationId,holder);
+  if(!owned)throw new Error(`Welcome Funnel conversation lock ownership lost for ${params.conversationId}`);
+  if(leaseError)throw leaseError;
+ };
  const stopHeartbeat=startAgentConversationLockHeartbeat({
   supabaseAdmin:params.supabaseAdmin,conversationId:params.conversationId,holder,
   onOwnershipLost:error=>{leaseError=error;},
  });
  try{
-  // Confirm exact-holder ownership before any Funnel side effect. Acquisition can
-  // be followed by an uncertain transport result; refresh is the durable proof.
-  const leaseConfirmed=await refreshAgentConversationLock(params.supabaseAdmin,params.conversationId,holder);
-  if(!leaseConfirmed) throw new Error(`Welcome Funnel conversation lock ownership was not confirmed for ${params.conversationId}`);
-
-  // Reclassify after taking the conversation lock. Another owner may have
-  // completed/quarantined the same funnel between the first read and acquisition.
+  await assertExecutionOwnership();
   const fenced=await classifyWelcomeFunnelExecution(params.supabaseAdmin,params.funnel.id,params.contactId);
   if(fenced==="durable_completed") return {status:"already_completed",classification:fenced};
   if(fenced==="legacy_compatible") return {status:"historical_compatible",classification:fenced};
   if(blocksAutomaticAgentAfterFunnelClassification(fenced)) return {status:"blocked",classification:fenced};
   if(!mayStartWelcomeFunnelExecution(fenced)) throw new Error(`Unhandled fenced Welcome Funnel classification: ${fenced}`);
 
-  // Modern execution never writes welcome_funnel_runs. That table is historical
-  // compatibility evidence only. The runner's durable execution-state INSERT is
-  // the sole modern claim, under the exact-holder generation lock. This removes
-  // the crash window where a legacy row existed before durable ownership started.
+  // Durable execution-state creation inside the runner is the sole modern claim.
+  // The ownership callback refreshes/proves the exact generation-lock holder at
+  // every external side-effect boundary, not merely on a background timer.
   await runWelcomeFunnelSequence({
    supabase:params.supabaseAdmin,funnel:params.funnel,contactId:params.contactId,
    conversationId:params.conversationId,userId:params.userId,workspaceId:params.workspaceId,
-   phone:params.phone,creds:params.creds,initiatedBy:"trigger",
+   phone:params.phone,creds:params.creds,initiatedBy:"trigger",assertExecutionOwnership,
   });
-  if(leaseError) throw leaseError;
-  // Reconfirm ownership after the long external-side-effect window. If ownership
-  // became uncertain, durable completed/needs_review state remains authoritative
-  // and prevents an automatic replay by another webhook.
-  const leaseStillOwned=await refreshAgentConversationLock(params.supabaseAdmin,params.conversationId,holder);
-  if(!leaseStillOwned) throw new Error(`Welcome Funnel conversation lock ownership lost for ${params.conversationId}`);
+  await assertExecutionOwnership();
   const terminal=await classifyWelcomeFunnelExecution(params.supabaseAdmin,params.funnel.id,params.contactId);
   if(terminal!=="durable_completed") throw new Error(`Welcome Funnel returned without durable completion: ${terminal}`);
   return {status:"completed",classification:"durable_completed"};
