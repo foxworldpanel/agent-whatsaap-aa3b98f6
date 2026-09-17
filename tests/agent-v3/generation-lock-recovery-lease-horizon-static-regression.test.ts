@@ -3,12 +3,14 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const recovery = readFileSync(resolve(process.cwd(), "src/routes/api/public/hooks/agent-inbound-recovery.ts"), "utf8");
+const lock = readFileSync(resolve(process.cwd(), "src/lib/agent-v3/conversation-lock.server.ts"), "utf8");
 const funnel = readFileSync(resolve(process.cwd(), "src/lib/welcome-funnel-runner.server.ts"), "utf8");
 
 describe("generation lock recovery lease horizon", () => {
-  it("keeps durable Stage B recovery at five minutes but gives synchronous generation owners a longer lease", () => {
+  it("keeps durable Stage B recovery at five minutes but gives synchronous generation owners the canonical longer lease", () => {
     expect(recovery).toContain("const DEFAULT_STALE_MS = 5 * 60 * 1000");
-    expect(recovery).toContain("const GENERATION_LOCK_STALE_MS = 20 * 60 * 1000");
+    expect(lock).toContain("DB_CONVERSATION_LOCK_STALE_MS = 20 * 60 * 1000");
+    expect(recovery).toContain("const GENERATION_LOCK_STALE_MS = DB_CONVERSATION_LOCK_STALE_MS");
     expect(recovery).toContain("recoverAgentInboundDispatcherClaims(\n            supabaseAdmin,\n            DEFAULT_STALE_MS");
     expect(recovery).toContain("recoverStaleAgentConversationLocks(\n            supabaseAdmin,\n            GENERATION_LOCK_STALE_MS");
   });
