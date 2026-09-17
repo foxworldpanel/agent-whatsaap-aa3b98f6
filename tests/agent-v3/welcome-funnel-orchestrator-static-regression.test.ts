@@ -15,6 +15,12 @@ describe("Welcome Funnel durable orchestrator",()=>{
   expect(source).toContain("leaseStillOwned");
   expect(source).toContain("if(leaseError) throw leaseError");
  });
+ it("keeps legacy runs as append-only history without making them execution authority",()=>{
+  expect(source).toContain("createLegacyHistoryClaim");
+  expect(source).toContain('.from("welcome_funnel_runs").insert');
+  expect(source).not.toContain('.from("welcome_funnel_runs").delete');
+  expect(source.indexOf("await createLegacyHistoryClaim")).toBeLessThan(source.indexOf("await runWelcomeFunnelSequence"));
+ });
  it("never upgrades historical compatibility into proof of delivery",()=>{
   expect(source).toContain('status:"historical_compatible"');
   expect(source).not.toContain('status:"already_completed",classification:initial};\n if(blocksAutomatic');
