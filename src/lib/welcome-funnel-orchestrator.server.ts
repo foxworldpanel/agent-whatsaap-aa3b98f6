@@ -11,6 +11,14 @@ export type WelcomeFunnelOrchestrationResult=
  | {status:"blocked";classification:"durable_running"|"durable_needs_review"|"legacy_ambiguous"}
  | {status:"busy";classification:"unclaimed"};
 
+async function createLegacyHistoryClaim(params:{supabaseAdmin:any;funnelId:string;contactId:string;userId:string;workspaceId:string}):Promise<void>{
+ const {error}=await params.supabaseAdmin.from("welcome_funnel_runs").insert({
+  funnel_id:params.funnelId,contact_id:params.contactId,user_id:params.userId,
+  workspace_id:params.workspaceId,fired_at:new Date().toISOString(),
+ });
+ if(error)throw new Error(`Welcome Funnel legacy history claim failed: ${error.message||String(error)}`);
+}
+
 export async function orchestrateWelcomeFunnel(params:{
  supabaseAdmin:any;funnel:WelcomeFunnelRuntime;contactId:string;conversationId:string;
  userId:string;workspaceId:string;phone:string;creds:{uazapi_url:string;uazapi_token:string};
@@ -45,6 +53,15 @@ export async function orchestrateWelcomeFunnel(params:{
   if(fenced==="legacy_compatible") return {status:"historical_compatible",classification:fenced};
   if(blocksAutomaticAgentAfterFunnelClassification(fenced)) return {status:"blocked",classification:fenced};
   if(!mayStartWelcomeFunnelExecution(fenced)) throw new Error(`Unhandled fenced Welcome Funnel classification: ${fenced}`);
+
+  // Keep the legacy table only as append-only history/UI compatibility. The row
+  // is created after exact-holder ownership and before durable execution state.
+  // A crash in this narrow gap becomes legacy_ambiguous on the next delivery and
+  // therefore fails closed instead of being mistaken for successful delivery.
+  await createLegacyHistoryClaim({
+   supabaseAdmin:params.supabaseAdmin,funnelId:params.funnel.id,contactId:params.contactId,
+   userId:params.userId,workspaceId:params.workspaceId,
+  });
 
   await runWelcomeFunnelSequence({
    supabase:params.supabaseAdmin,funnel:params.funnel,contactId:params.contactId,
