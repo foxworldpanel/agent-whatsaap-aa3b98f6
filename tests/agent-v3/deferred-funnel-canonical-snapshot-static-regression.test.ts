@@ -8,7 +8,9 @@ const webhook = source("src/routes/api/public/hooks/uazapi-webhook.ts");
 
 describe("deferred Welcome Funnel durable snapshot", () => {
   it("never lets a newer conversation body replace another persisted message identity", () => {
-    expect(webhook).toContain("deferredFunnelMessage = queuedBody");
+    expect(webhook).not.toContain("deferredFunnelMessage = queuedBody");
+    expect(webhook).not.toContain("deferredFunnelMessage || content.text");
+    expect(webhook).not.toContain("Boolean(deferredFunnelMessage)");
     expect(jobs).toContain("canonicalizeDeferredFunnelSnapshot");
     expect(jobs).toContain('.from("messages").select("body")');
     expect(jobs).toContain('.eq("id",input.messageId)');
