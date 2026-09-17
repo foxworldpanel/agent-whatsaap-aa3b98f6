@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
+vi.mock("@/lib/agent-v3/brain/modules.server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/agent-v3/brain/modules.server")>();
+  return {
+    ...actual,
+    loadEnabledModulesV3: vi.fn(async () => ({})),
+  };
+});
+
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 
