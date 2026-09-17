@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { runAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
 import { DEFAULT_MODULES } from "@/lib/agent-modules";
+vi.mock("@/lib/agent-v3/brain/modules.server", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/agent-v3/brain/modules.server")>();
+  return {
+    ...actual,
+    loadEnabledModulesV3: vi.fn(async () => ({})),
+  };
+});
+
 
 describe("Teste Manual V3: Objeção 'Não é golpe?'", () => {
   it("deve responder tranquilizando o cliente em vez de tratar como recusa", async () => {
