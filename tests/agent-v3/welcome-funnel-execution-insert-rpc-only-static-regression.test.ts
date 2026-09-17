@@ -7,9 +7,11 @@ const startRpc = readFileSync("supabase/migrations/20260914430000_welcome_funnel
 const quarantineRpc = readFileSync("supabase/migrations/20260914424500_welcome_funnel_quarantine_exact_holder.sql", "utf8");
 
 describe("Welcome Funnel durable execution insert authority", () => {
-  it("removes direct service-role INSERT authority", () => {
+  it("removes direct service-role INSERT authority without reviving DELETE", () => {
     expect(sql).toContain("REVOKE INSERT ON public.welcome_funnel_execution_state FROM service_role");
-    expect(sql).toContain("GRANT SELECT, UPDATE, DELETE ON public.welcome_funnel_execution_state TO service_role");
+    expect(sql).toContain("GRANT SELECT, UPDATE ON public.welcome_funnel_execution_state TO service_role");
+    expect(sql).not.toContain("GRANT SELECT, UPDATE, DELETE");
+    expect(sql).not.toContain("GRANT DELETE");
   });
 
   it("starts normal execution only through the exact-holder RPC", () => {
