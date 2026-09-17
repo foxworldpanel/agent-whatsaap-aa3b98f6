@@ -36,6 +36,16 @@ describe("UAZAPI webhook durable Welcome Funnel cutover", () => {
     );
   });
 
+  it("retries when Funnel ownership is transiently busy", () => {
+    expect(webhook).toContain("funnelRetryRequired");
+    expect(webhook).toContain(
+      'funnelGate.orchestration.status === "busy"',
+    );
+    expect(webhook).toContain(
+      '"retry (welcome funnel gate unavailable or busy)"',
+    );
+  });
+
   it("rechecks the Funnel barrier before Customer Turn attachment", () => {
     expect(webhook).toContain("enqueueWebhookInboundAroundWelcomeFunnel");
     expect(webhook).toContain('ownershipResult.status === "pending_behind_funnel"');
