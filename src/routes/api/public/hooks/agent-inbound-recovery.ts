@@ -39,9 +39,10 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
             AGENT_INBOUND_MAX_SAFE_ATTEMPTS,
           );
 
-          // Lock recovery is the sole authority for removing stale generation
-          // ownership. Funnel recovery runs afterwards and only quarantines a
-          // stale running execution once no generation-lock row remains.
+          // Generic lock recovery handles ordinary orphan ownership but skips a
+          // running Funnel. Funnel recovery then owns that coupled case: under
+          // the same fence it quarantines uncertainty before removing a stale
+          // Funnel lock. Fresh generation ownership always blocks quarantine.
           const recoveredConversationLocks = await recoverStaleAgentConversationLocks(
             supabaseAdmin,
             GENERATION_LOCK_STALE_MS,
