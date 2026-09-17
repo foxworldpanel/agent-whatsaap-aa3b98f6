@@ -3,7 +3,7 @@ import { getWelcomeFunnelConversationBarrier,welcomeFunnelBlocksAgentRuntime,typ
 export type FunnelAwareInboundResult=|{status:"queued_turn";jobId:string;turnId:string;duplicate:boolean;barrier:"clear"}|{status:"pending_behind_funnel";jobId:string;duplicate:boolean;barrier:Exclude<WelcomeFunnelConversationBarrier,"clear">};
 /** Every eligible message is durable before it can wait behind a Funnel barrier. */
 export async function enqueueWebhookInboundAroundWelcomeFunnel(supabaseAdmin:any,input:WebhookInboundOwnershipInput):Promise<FunnelAwareInboundResult>{
- const barrier=await getWelcomeFunnelConversationBarrier(supabaseAdmin,input.conversationId,input.workspaceId);
+ const barrier=await getWelcomeFunnelConversationBarrier(supabaseAdmin,input.conversationId,input.userId,input.workspaceId);
  if(barrier!=="clear"){if(!welcomeFunnelBlocksAgentRuntime(barrier))throw new Error(`Welcome Funnel barrier invariant violated: ${barrier}`);const ensured=await persistWebhookAgentInboundJob(supabaseAdmin,input);return{status:"pending_behind_funnel",jobId:ensured.job.id,duplicate:ensured.duplicate,barrier};}
  const queued=await beginWebhookAgentInboundRuntime(supabaseAdmin,input);return{...queued,barrier:"clear"};
 }
