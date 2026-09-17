@@ -56,7 +56,9 @@ describe("Agent V3 platform routing regression", () => {
 
     const result = selectModulesV3("qual o preço do spotify?", [], modules);
 
-    expect(result.selectedModules).toContain("spotify");
+    // A fonte comercial específica é autoritativa; o módulo amplo legado é removido
+    // para não colocar duas fontes Spotify concorrentes no mesmo prompt.
+    expect(result.selectedModules).not.toContain("spotify");
     expect(result.selectedModules).toContain("spotify_precos");
     expect(result.selectedModules).not.toContain("youtube");
   });
