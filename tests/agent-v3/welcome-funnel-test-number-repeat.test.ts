@@ -19,6 +19,8 @@ describe("Welcome funnel repeat safety", () => {
 
   it("falha parcial vai para revisão durável em vez de reset/replay automático", () => {
     expect(runner).toContain('operation:"needs_review"');
+    expect(runner).toContain("await markExecutionNeedsReview");
+    expect(runner).not.toContain("reset_welcome_funnel");
     expect(runner).toContain("manual review required");
   });
 });
