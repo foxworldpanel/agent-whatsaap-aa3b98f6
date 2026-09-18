@@ -4,6 +4,7 @@ import fs from "node:fs";
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
 const selector = fs.readFileSync("src/lib/agent-v3/selector/module-selector.server.ts", "utf8");
 const guards = fs.readFileSync("src/lib/agent-v3/brain/guards.server.ts", "utf8");
+const conditional = fs.readFileSync("src/lib/agent-v3/prompt/prompt-conditional.server.ts", "utf8");
 
 describe("Autoridade comercial multiplataforma", () => {
   it("não deixa matemática de preço não-Spotify por conta do LLM", () => {
@@ -18,7 +19,7 @@ describe("Autoridade comercial multiplataforma", () => {
   });
 
   it("conhece plataformas habilitadas sem inventar indisponibilidade", () => {
-    expect(orchestrator).toContain("PLATAFORMAS DISPONÍVEIS NO CMS");
+    expect(conditional).toContain("PLATAFORMAS DISPONÍVEIS");
     expect(orchestrator).toContain("Falsa indisponibilidade de plataforma bloqueada");
   });
 
@@ -28,7 +29,7 @@ describe("Autoridade comercial multiplataforma", () => {
   });
 
   it("silencia ok/beleza simples", () => {
-    expect(guards).toContain("simpleAcknowledgement");
+    expect(guards).toContain("shouldStaySilentForNaturalConversation");
   });
 
   it("não reinicia apresentação no meio da conversa", () => {
