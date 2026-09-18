@@ -1,5 +1,6 @@
 import { test, expect, vi } from 'vitest';
 import { runAgentV3Turn } from '@/lib/agent-v3/orchestrator.server';
+import { DEFAULT_MODULES } from "@/lib/agent-modules";
 vi.mock("@/lib/agent-v3/brain/modules.server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/agent-v3/brain/modules.server")>();
   return {
@@ -18,7 +19,9 @@ test('Orchestrator should include telemetry and comparison', async () => {
     history: [],
     inputKind: 'texto',
     messageId: 'test-msg-id',
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY
+    anthropicApiKey: 'test-key',
+    customModules: DEFAULT_MODULES,
+    enabledModules: Object.keys(DEFAULT_MODULES)
   });
   
   expect(result.modulesTelemetry).toBeDefined();
