@@ -3,11 +3,12 @@ import fs from "node:fs";
 
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
 const memory = fs.readFileSync("src/lib/agent-v3/memory/customer-memory.server.ts", "utf8");
+const conditional = fs.readFileSync("src/lib/agent-v3/prompt/prompt-conditional.server.ts", "utf8");
 
 describe("Final operational guards", () => {
   it("define cadastro real da Mind sem reconhecimento facial", () => {
-    expect(orchestrator).toContain("CADASTRO DO PAINEL — VERDADE OPERACIONAL CRÍTICA");
-    expect(orchestrator).toContain("O cadastro NÃO exige reconhecimento facial");
+    expect(conditional).toContain("CADASTRO DO PAINEL — VERDADE OPERACIONAL");
+    expect(conditional).toContain("NUNCA exige biometria, selfie, documento");
     expect(orchestrator).toContain("AGENT-V3-OPERATIONAL-GUARD");
   });
 
@@ -24,8 +25,8 @@ describe("Final operational guards", () => {
   });
 
   it("não aceita 'já consegui' como confirmação genérica de compra", () => {
-    expect(memory).not.toContain('ja (?:fiz|comprei|paguei|consegui)');
-    expect(memory).toContain('ja (?:comprei|paguei)');
-    expect(orchestrator).toContain("Isso NÃO confirma compra, pagamento ou pedido por si só");
+    expect(memory).not.toContain('(?:fiz|comprei|paguei|consegui)');
+    expect(memory).toContain('(?:comprei|paguei)');
+    expect(memory).toContain("isConfirmedPurchaseMessage");
   });
 });
