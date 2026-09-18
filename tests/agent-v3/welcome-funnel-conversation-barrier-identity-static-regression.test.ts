@@ -3,5 +3,5 @@ const sql=readFileSync("supabase/migrations/20260914503000_welcome_funnel_conver
 describe("Welcome Funnel conversation barrier identity",()=>{
  it("fails closed on workspace mismatch",()=>{expect(sql).toContain("workspace_id IS DISTINCT FROM p_workspace_id");expect(sql).toContain("identity_mismatch");expect(barrier).toContain('"identity_mismatch"');});
  it("retires the one-argument barrier for service role",()=>{expect(sql).toContain("get_welcome_funnel_conversation_barrier(uuid) FROM PUBLIC,anon,authenticated,service_role");});
- it("passes workspace through webhook and pre-attachment recheck",()=>{expect(webhook).toContain("params.conversationId,params.workspaceId");expect(inbound).toContain("input.conversationId,input.workspaceId");});
+ it("passes workspace through webhook and pre-attachment recheck",()=>{expect(webhook).toContain("params.conversationId,params.userId,params.workspaceId");expect(inbound).toContain("input.conversationId,userId,input.workspaceId");});
 });
