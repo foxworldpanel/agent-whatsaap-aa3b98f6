@@ -39,7 +39,10 @@ async function callAgent(opts: {
     ? opts.history[opts.history.length - 1].body 
     : "olá";
   
-  const historyForV3 = opts.history.slice(0, -1);
+  const historyForV3 = opts.history.slice(0, -1).map((item) => ({
+    role: item.sender === "agente" ? "agent" as const : "customer" as const,
+    content: item.body,
+  }));
 
   const res = await runAgentV3Turn({
     userId: "bd59fa41-3a6d-4767-8334-a69076f8e434",
@@ -53,9 +56,9 @@ async function callAgent(opts: {
 
   return { 
     text: res.replies.join(" ") , 
-    temperature: res.temperature,
-    intent: res.intent,
-    stage: res.stage,
+    temperature: res.intelligence.temperature,
+    intent: res.intelligence.intent,
+    stage: res.intelligence.stage,
     model: "claude-3-haiku-20240307", 
     fetchMock 
   };
