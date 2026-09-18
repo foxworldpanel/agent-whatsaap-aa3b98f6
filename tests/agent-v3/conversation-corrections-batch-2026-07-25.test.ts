@@ -5,7 +5,7 @@ const orch=fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts","utf8");
 describe("correções consolidadas das conversas reais",()=>{
  it("handoff inclui pedido sem robô",()=>{ expect(webhook).toContain("sem\\s+ser"); expect(webhook).toContain("agent_enabled: false"); });
  it("detecta venda bloqueada por problema técnico",()=>{ expect(webhook).toContain("venda bloqueada por problema técnico no cadastro/pagamento"); });
- it("mantém trava persistente do funil",()=>{ expect(webhook).toContain("welcome_funnel_runs"); expect(webhook).toContain("23505"); });
+ it("mantém trava persistente do funil",()=>{ const gate=fs.readFileSync("src/lib/welcome-funnel-webhook-gate.server.ts","utf8"); const orchestrator=fs.readFileSync("src/lib/welcome-funnel-orchestrator.server.ts","utf8"); expect(gate).toContain("getWelcomeFunnelConversationBarrier"); expect(orchestrator).toContain("acquireAgentConversationLock"); expect(orchestrator).not.toContain('.from(\"welcome_funnel_runs\")'); });
  it("proíbe validar comprovante por banco/recebedor",()=>{ expect(orch).toContain("COMPROVANTE DE PAGAMENTO — REGRA CRÍTICA"); expect(orch).toContain("esse banco não é nosso"); });
  it("diferencia publicação de divulgação",()=>{ expect(orch).toContain("publicação/distribuição de divulgação"); });
  it("proíbe alegar ser humana",()=>{ expect(orch).toContain("Nunca afirme \"sou humana\""); expect(orch).toContain("Guard determinístico"); });
