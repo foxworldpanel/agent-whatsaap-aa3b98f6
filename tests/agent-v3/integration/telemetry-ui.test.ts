@@ -11,6 +11,12 @@ vi.mock("@/lib/agent-v3/brain/modules.server", async (importOriginal) => {
 
 
 test('Orchestrator should include telemetry and comparison', async () => {
+  vi.stubGlobal("fetch", vi.fn(async () =>
+    new Response(
+      JSON.stringify({ content: [{ type: "text", text: "Claro, me diz em qual plataforma você quer os plays." }] }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    ),
+  ));
   const message = "quero comprar plays";
   const result = await runAgentV3Turn({
     message,
