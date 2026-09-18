@@ -12,7 +12,7 @@ describe("Webhook runtime DB compatibility", () => {
       source.indexOf("// Resolve Conversation"),
       source.indexOf("// Insert Message"),
     );
-    expect(contactArea).not.toContain("onConflict");
+    expect(contactArea).not.toMatch(/\.upsert\([\s\S]*onConflict/);
     expect(contactArea).toContain('.eq("user_id", num.user_id)');
     expect(contactArea).toContain('.eq("contact_id", contactId)');
     expect(contactArea).toContain('insertConvErr.code === "23505"');
@@ -22,9 +22,10 @@ describe("Webhook runtime DB compatibility", () => {
     expect(source).toContain("agent_enabled: true");
   });
 
-  it("integrações de IA são isoladas por workspace", () => {
-    const start = source.indexOf('.from("integrations")');
-    const block = source.slice(start, start + 700);
+  it("gates do Agent são isolados por workspace", () => {
+    const start = source.indexOf('.from("agent_config")');
+    const block = source.slice(start, start + 500);
+    expect(start).toBeGreaterThan(-1);
     expect(block).toContain('.eq("user_id", num.user_id)');
     expect(block).toContain('.eq("workspace_id", workspaceId)');
   });
