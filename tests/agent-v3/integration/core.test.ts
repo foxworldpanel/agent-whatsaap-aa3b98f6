@@ -57,6 +57,7 @@ async function callAgentV3(opts: {
     workspaceId: "test-workspace",
     message: opts.message,
     history: opts.history,
+    anthropicApiKey: "test-key",
     customModules: opts.modules || DEFAULT_MODULES,
     enabledModules: opts.enabledModules || Object.keys(DEFAULT_MODULES),
   });
@@ -92,7 +93,7 @@ describe("V3 Integration: Core Flows (110 Scenarios Emulated)", () => {
     });
 
     expect(res.text).toBeTruthy();
-    expect(res.temperature).toBe("quente");
-    expect(res.intent).toBe("compra");
+    expect(res.intelligence.temperature).toBe("quente");
+    expect(res.intelligence.intent).toBe("compra");
   });
 });
