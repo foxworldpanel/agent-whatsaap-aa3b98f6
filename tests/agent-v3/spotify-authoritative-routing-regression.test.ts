@@ -56,7 +56,8 @@ describe("Spotify authoritative routing", () => {
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
 it("tem guard que impede preço Spotify sem autoridade", () => {
   expect(orchestrator).toContain("Bloqueado preço Spotify sem módulo autoritativo");
-  expect(orchestrator).toContain("Nunca transforme R$ 15 por 1.000");
+  expect(orchestrator).toContain("hasValidatedCommercialOfferV3");
+  expect(orchestrator).toContain("Preciso confirmar o valor correto desse serviço antes de te passar.");
 });
 
 it("valida preço gerado contra conteúdo vivo do spotify_precos", () => {
