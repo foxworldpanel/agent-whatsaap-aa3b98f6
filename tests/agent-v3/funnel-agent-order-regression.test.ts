@@ -29,16 +29,18 @@ describe("Welcome Funnel -> Agent V3 ordering", () => {
     expect(webhook).not.toContain("deferredFunnelMessage");
   });
 
-  it("rechecks the barrier immediately before Customer Turn attachment", () => {
-    expect(inbound).toContain("getWelcomeFunnelConversationBarrier");
-    expect(inbound).toContain("persistWebhookAgentInboundJob");
-    const barrier = inbound.indexOf('if(barrier!=="clear")');
-    const beginCall = inbound.indexOf(
-      "await beginWebhookAgentInboundRuntime",
-      barrier,
-    );
-    expect(barrier).toBeGreaterThan(-1);
-    expect(beginCall).toBeGreaterThan(barrier);
+  it("resolves full routing identity and rechecks the barrier immediately before Customer Turn attachment", () => {
+    const body = inbound.slice(inbound.indexOf("export async function enqueueWebhookInboundAroundWelcomeFunnel"));
+    const user = body.indexOf("await resolveInboundUserId");
+    const barrierCall = body.indexOf("await getWelcomeFunnelConversationBarrier", user);
+    const blocked = body.indexOf('if(barrier!=="clear")', barrierCall);
+    const persist = body.indexOf("await persistWebhookAgentInboundJob", blocked);
+    const beginCall = body.indexOf("await beginWebhookAgentInboundRuntime", blocked);
+    expect(user).toBeGreaterThanOrEqual(0);
+    expect(barrierCall).toBeGreaterThan(user);
+    expect(blocked).toBeGreaterThan(barrierCall);
+    expect(persist).toBeGreaterThan(blocked);
+    expect(beginCall).toBeGreaterThan(blocked);
   });
 
   it("never uses a test-number replay bypass", () => {
