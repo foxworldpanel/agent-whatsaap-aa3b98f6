@@ -25,13 +25,11 @@ describe("Agent V3 conversation style", () => {
   });
 
   it("mantém fluxo comercial progressivo no system prompt", () => {
-    const source = fs.readFileSync(
-      "src/lib/agent-v3/orchestrator.server.ts",
-      "utf8",
-    );
-    expect(source).toContain("rede/plataforma → serviço → quantidade → valor → link/pedido/pagamento");
-    expect(source).toContain("Não despeje tabela, preços ou catálogo");
-    expect(source).toContain("Não peça o link antes de saber o serviço");
-    expect(source).toContain("Faça no máximo UMA pergunta por mensagem");
+    const p1 = fs.readFileSync("src/lib/agent-v3/prompt/prompt-p1.server.ts", "utf8");
+    const p2 = fs.readFileSync("src/lib/agent-v3/prompt/prompt-p2.server.ts", "utf8");
+    expect(p1).toContain("CONTEXTO ANTES DE PERGUNTAR");
+    expect(p1).toContain("NUNCA envie o catálogo completo");
+    expect(p1).toContain("NUNCA pede o link da música/vídeo");
+    expect(p2).toContain("terminando com só 1 pergunta simples");
   });
 });
