@@ -12,9 +12,9 @@ describe("Welcome Funnel ambiguous quarantine exact-holder ownership", () => {
   });
 
   it("passes the same holder acquired by the orchestrator into quarantine", () => {
-    expect(orchestrator).toContain("const holder = `welcome-funnel:${params.funnel.id}:${randomUUID()}`");
-    expect(orchestrator).toContain("p_holder: params.holder");
-    expect(orchestrator).toContain("workspaceId: params.workspaceId, holder");
+    expect(orchestrator).toContain("const holder=`welcome-funnel:${p.funnel.id}:${randomUUID()}`");
+    expect(orchestrator).toContain("p_holder:p.holder");
+    expect(orchestrator).toContain("workspaceId:p.workspaceId,holder");
   });
 
   it("removes the old five-argument RPC surface", () => {
