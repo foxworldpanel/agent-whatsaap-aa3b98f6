@@ -5,6 +5,10 @@ const webhook = fs.readFileSync(
   "src/routes/api/public/hooks/uazapi-webhook.ts",
   "utf8",
 );
+const runtime = fs.readFileSync(
+  "src/lib/agent-v3/runtime.server.ts",
+  "utf8",
+);
 const orchestrator = fs.readFileSync(
   "src/lib/agent-v3/orchestrator.server.ts",
   "utf8",
@@ -32,7 +36,7 @@ describe("Human handoff + initial greeting", () => {
   });
 
   it("limpa a memória operacional do V3 no handoff", () => {
-    expect(webhook).toContain("clearConversationStateV3");
+    expect(runtime).toContain("clearConversationStateV3");
   });
 
   it("padroniza saudação inicial sem emoji", () => {
