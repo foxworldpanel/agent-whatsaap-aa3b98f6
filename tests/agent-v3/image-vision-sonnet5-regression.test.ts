@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 
-const webhook = fs.readFileSync(
-  "src/routes/api/public/hooks/uazapi-webhook.ts",
+const runtime = fs.readFileSync(
+  "src/lib/agent-v3/runtime.server.ts",
   "utf8",
 );
 const orchestrator = fs.readFileSync(
@@ -12,13 +12,13 @@ const orchestrator = fs.readFileSync(
 
 describe("Agent V3 image vision", () => {
   it("resolve a mídia real da imagem antes do Claude", () => {
-    expect(webhook).toContain("[IMAGE-V3] 1/3 imagem inbound detectada");
-    expect(webhook).toContain("uazapiDownloadMedia(creds, msgId)");
-    expect(webhook).toContain("resolvedImageSource");
+    expect(runtime).toContain("[IMAGE-V3] 1/3 imagem inbound detectada");
+    expect(runtime).toContain("uazapiResolveInboundMedia");
+    expect(runtime).toContain("resolvedImageSource");
   });
 
   it("passa a imagem real ao orchestrator", () => {
-    expect(webhook).toContain("imageSource: resolvedImageSource");
+    expect(runtime).toContain("imageSource: resolvedImageSource");
     expect(orchestrator).toContain("imageSource?:");
   });
 
