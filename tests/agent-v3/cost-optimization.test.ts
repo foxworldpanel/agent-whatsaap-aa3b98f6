@@ -13,12 +13,13 @@ describe("Agent V3 cost safeguards", () => {
     const source = read("src/lib/agent-v3/orchestrator.server.ts");
     expect(source).not.toContain("LEAD INTELLIGENCE (Obrigatório em toda resposta)");
     expect(source).not.toContain("[FEEDBACK:Item 1|Item 2|...]");
-    expect(source).toContain("Gere somente a mensagem que será enviada ao cliente");
+    const p0 = read("src/lib/agent-v3/prompt/prompt-p0.server.ts");
+    expect(p0).toContain("Gere somente a mensagem para o cliente");
   });
 
   it("caps Anthropic output for short WhatsApp replies", () => {
     const source = read("src/lib/agent-v3/integrations/llm-client.server.ts");
-    expect(source).toContain("max_tokens: 384");
+    expect(source).toContain("max_tokens: 400");
   });
 
   it("limits playground history to the last 10 stored messages", () => {
