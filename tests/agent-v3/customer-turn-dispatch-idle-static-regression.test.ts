@@ -10,7 +10,7 @@ const readiness = source("supabase/migrations/20260914283000_pending_inbound_blo
 describe("Agent V3 Customer Turn dispatcher idle semantics", () => {
   it("reports idle from durable claimability rather than claim-loop collisions", () => {
     expect(dispatcher).toContain("hasReadyCustomerTurn");
-    expect(dispatcher).toContain("const readyRemains=await hasReadyCustomerTurn(s)");
+    expect(dispatcher).toContain("const readyRemains=withinBudget()?await hasReadyCustomerTurn(s):true");
     expect(dispatcher).toContain("idle:!readyRemains");
     expect(dispatcher).not.toContain("idle: claimed < bounded");
   });
