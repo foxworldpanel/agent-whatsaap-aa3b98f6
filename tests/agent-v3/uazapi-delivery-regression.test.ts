@@ -2,6 +2,8 @@ import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { normalizeUazapiRecipient } from "@/lib/uazapi.server";
 
+const webhookSource = () => fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
+
 describe("Uazapi delivery regression", () => {
   it("preserves supported private JIDs and normalizes regular phones", () => {
     expect(normalizeUazapiRecipient("+55 (11) 99999-9999")).toBe("5511999999999");
@@ -22,9 +24,10 @@ describe("Uazapi delivery regression", () => {
     expect(webhook).not.toContain("Resposta antiga suprimida");
   });
 
-  it("persists the concrete delivery error for operational diagnosis", () => {
-    const webhook = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
-    expect(webhook).toContain("criticalErrorMessage");
-    expect(webhook).toContain("falha crítica no Agent V3:");
+  it("keeps delivery ownership inside the durable Agent V3 runtime", () => {
+    const runtime = fs.readFileSync("src/lib/agent-v3/runtime.server.ts", "utf8");
+    expect(runtime).toContain("await sendAgentTextGuarded");
+    expect(runtime).toContain("await uazapiSendAudio");
+    expect(webhookSource()).not.toContain("criticalErrorMessage");
   });
 });
