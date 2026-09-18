@@ -52,9 +52,10 @@ describe("Customer Commercial Memory", () => {
     expect(ctx).toContain("Não reinicie qualificação");
   });
 
-  it("bloqueia funil para cliente conhecido", () => {
-    expect(webhook).toContain("isKnownCustomer");
-    expect(webhook).toContain("!isKnownCustomer || canRepeatWelcomeFunnelForTest(phoneStr)");
+  it("não mantém bypass legado de repetição do funil por número de teste", () => {
+    expect(webhook).not.toContain("canRepeatWelcomeFunnelForTest");
+    expect(webhook).not.toContain("WELCOME_FUNNEL_REPEAT_TEST_PHONES");
+    expect(webhook).toContain("runWelcomeFunnelWebhookGate");
   });
 
   it("não responde automaticamente a reação simples", () => {
