@@ -30,14 +30,14 @@ describe("Teste Manual V3: Objeção 'Não é golpe?'", () => {
       workspaceId: "test-workspace",
       message: "isso não é golpe?",
       history: [
-          { sender: "agente", body: "No Instagram temos seguidores a partir de R$ 10. Quer dar uma olhada?" }
+          { role: "agent", content: "No Instagram temos seguidores a partir de R$ 10. Quer dar uma olhada?" }
       ],
       enabledModules: Object.keys(DEFAULT_MODULES),
       customModules: DEFAULT_MODULES,
       anthropicApiKey: "test-key"
     });
     
-    console.log("RESPOSTA REAL GERADA (Simulada):", res.text);
-    expect(res.text).toMatch(/empresa séria|ficar tranquilo|garantida/i);
+    console.log("RESPOSTA REAL GERADA (Simulada):", res.response);
+    expect(res.response).toMatch(/empresa séria|ficar tranquilo|garantida/i);
   });
 });
