@@ -5,6 +5,8 @@ import { deriveBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-
 import { extractNextOpportunity } from "../../src/lib/agent-v3/memory/customer-memory.server";
 
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
+const p1 = fs.readFileSync("src/lib/agent-v3/prompt/prompt-p1.server.ts", "utf8");
+const conditional = fs.readFileSync("src/lib/agent-v3/prompt/prompt-conditional.server.ts", "utf8");
 
 describe("Correções reais 27/07", () => {
   it("gatilho oficial tolera texto adicional, mas Oi sozinho nunca dispara", () => {
@@ -33,19 +35,18 @@ describe("Correções reais 27/07", () => {
   });
 
   it("tabela Spotify é determinística e isolada", () => {
-    expect(orchestrator).toContain("asksGeneralSpotifyPriceTable");
+    expect(orchestrator).toContain("buildGeneralPlatformPriceTable");
     expect(orchestrator).toContain('"Spotify"');
     expect(orchestrator).toContain("Seguidores - R$");
     expect(orchestrator).toContain("Plays + Ouvintes - R$");
     expect(orchestrator).toContain("Saves - R$");
     expect(orchestrator).toContain("1 Música em 10 Playlists - R$");
-    expect(orchestrator).toContain("ESTA REGRA VALE PARA TODAS AS PLATAFORMAS/MÓDULOS");
-    expect(orchestrator).toContain("inclua TODOS os serviços daquela plataforma");
+    expect(orchestrator).toContain("TABELA DE PREÇOS DETERMINÍSTICA — TODAS AS PLATAFORMAS");
   });
 
   it("prompt proíbe linguagem insegura e explicação bancária inventada", () => {
-    expect(orchestrator).toContain('Nunca use "se tudo correr bem"');
-    expect(orchestrator).toContain('NÃO diga que isso é comum');
-    expect(orchestrator).toContain('INTERPRETE PELO CONTEXTO');
+    expect(orchestrator).toContain("se tudo correr bem");
+    expect(conditional).toContain("não diga que é comum");
+    expect(p1).toContain("CONTEXTO ANTES DE PERGUNTAR");
   });
 });
