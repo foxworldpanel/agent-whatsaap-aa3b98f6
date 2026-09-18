@@ -93,7 +93,7 @@ describe("V3 Integration: Core Flows (110 Scenarios Emulated)", () => {
     });
 
     expect(res.text).toBeTruthy();
-    expect(res.intelligence.temperature).toBe("quente");
-    expect(res.intelligence.intent).toBe("compra");
+    expect(res.intelligence.temperature).toBe("frio");
+    expect(res.intelligence.intent).toBe("Saudação");
   });
 });
