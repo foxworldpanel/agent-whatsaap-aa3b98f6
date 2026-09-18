@@ -106,7 +106,7 @@ export async function callAnthropicV3(params: {
 
     try {
       if (metadata?.traceId) {
-        await logExecutionTrace({
+        void logExecutionTrace({
           traceId: metadata.traceId,
           step: "claude_call_start",
           details: { attempt, model: anthropicModel }
@@ -197,7 +197,7 @@ export async function callAnthropicV3(params: {
       );
 
       if (metadata?.traceId) {
-        await logExecutionTrace({
+        void logExecutionTrace({
           traceId: metadata.traceId,
           step: "claude_call_end",
           durationMs: Date.now() - startAt,
