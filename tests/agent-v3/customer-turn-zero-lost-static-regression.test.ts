@@ -11,7 +11,7 @@ const ownerSafeRelease = migration("20260914223000_owner_safe_generation_lock_re
 const insertGenerationFence = migration("20260914230000_generation_lock_insert_customer_turn_fence.sql");
 const effectiveClaim = migration("20260914300000_unattached_review_blocks_customer_turn.sql");
 const orphanLockRecovery = migration("20260914263000_orphan_generation_lock_recovery_fairness.sql");
-const stageBRecovery = migration("20260914264500_stage_b_recovery_fairness.sql");
+const stageBRecovery = migration("20260914541500_stage_b_recovery_ownership_separation.sql");
 const customerTurnRecovery = migration("20260914270000_customer_turn_recovery_fairness.sql");
 const exhaustedQuarantine = migration("20260914271500_exhausted_turn_quarantine_fairness.sql");
 const runtimeBoundary = migration("20260914191500_safe_pre_runtime_customer_turn_recovery.sql");
@@ -65,8 +65,9 @@ describe("Stage C zero-lost-turn static invariants", () => {
   it("prevents generation-lock cleanup while durable runtime owns the conversation", () => {
     expect(generationFence).toContain("CREATE OR REPLACE FUNCTION public.guard_agent_generation_lock_delete");
     expect(generationFence).toContain("CREATE OR REPLACE FUNCTION public.acquire_agent_conversation_lock");
-    expect(stageBRecovery).toContain("active_turn.state IN ('processing_safe','processing')");
-    expect(stageBRecovery).toContain("active.status IN ('processing_safe','processing')");
+    expect(stageBRecovery).toContain("j.status='processing_safe'");
+    expect(stageBRecovery).toContain("j.status='processing'");
+    expect(stageBRecovery).not.toMatch(/DELETE\s+FROM\s+public\.agent_generation_locks/i);
   });
 
   it("allows only the exact generation-lock owner to release under the shared fence", () => {
