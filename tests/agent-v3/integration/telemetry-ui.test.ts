@@ -24,15 +24,11 @@ test('Orchestrator should include telemetry and comparison', async () => {
     enabledModules: Object.keys(DEFAULT_MODULES)
   });
   
-  expect(result.modulesTelemetry).toBeDefined();
-  expect(result.modulesTelemetry?.length).toBeGreaterThan(0);
-  expect(result.promptComparison).toBeDefined();
-  
-  console.log('Telemetry keys:', result.modulesTelemetry?.map(t => t.key));
-  console.log('Comparison:', JSON.stringify(result.promptComparison));
-  
-  const hasCommercial = result.modulesTelemetry?.some(t => 
-    ["psicologia_vendas", "qualificacao_lead", "fluxo_vendas"].includes(t.key)
+  expect(result.modules).toBeDefined();
+  expect(result.modules.selected_keys.length).toBeGreaterThan(0);
+  expect(result.modules.estimated_tokens_by_module).toBeDefined();
+  expect(result.modules.prompt_tokens_with_commercial).toBeGreaterThanOrEqual(
+    result.modules.prompt_tokens_without_commercial,
   );
-  console.log('Has commercial modules:', hasCommercial);
+  expect(result.modules.commercial_tokens_added).toBeGreaterThanOrEqual(0);
 });
