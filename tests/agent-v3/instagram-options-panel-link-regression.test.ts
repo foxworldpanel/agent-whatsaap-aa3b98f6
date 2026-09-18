@@ -6,6 +6,10 @@ const orchestrator = fs.readFileSync(
   "src/lib/agent-v3/orchestrator.server.ts",
   "utf8",
 );
+const selector = fs.readFileSync(
+  "src/lib/agent-v3/selector/module-selector.server.ts",
+  "utf8",
+);
 
 const baseRouting = {
   alwaysLoad: false,
@@ -60,14 +64,15 @@ describe("Instagram follower options + panel link", () => {
   });
 
   it("prompt manda mostrar todas as variantes e não inventar diferença", () => {
-    expect(orchestrator).toContain("apresente TODAS as opções relevantes");
-    expect(orchestrator).toContain("não omita uma opção promocional");
-    expect(orchestrator).toContain('Não invente "perfil mais qualificado"');
+    expect(selector).toContain("carregamos TODAS as fontes");
+    expect(selector).toContain("instagramCommercialCandidates");
+    expect(orchestrator).toContain("Instagram Global + Brasil Promo");
+    expect(orchestrator).toContain("não escolhemos por conta própria");
   });
 
   it("painel deve ser enviado como mensagem isolada", () => {
-    expect(orchestrator).toContain("LINK DO PAINEL:");
-    expect(orchestrator).toContain("https://mindsmmpanel.com");
-    expect(orchestrator).toContain("URLs do painel devem chegar como mensagem isolada");
+    expect(orchestrator).toContain("ISOLAMENTO DO LINK DO PAINEL");
+    expect(orchestrator).toContain('const panelUrl = "https://mindsmmpanel.com"');
+    expect(orchestrator).toContain("===SPLIT===");
   });
 });
