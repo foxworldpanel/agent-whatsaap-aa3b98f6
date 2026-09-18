@@ -33,6 +33,11 @@ export async function logExecutionTrace(params: TraceLogParams) {
       if (error) {
         console.warn("[EXECUTION-TRACER] Failed to log trace:", error);
       }
+    })
+    .catch((error) => {
+      // Promise rejections happen after the synchronous try/catch boundary.
+      // Telemetry is observational only and must never reject into Agent V3.
+      console.warn("[EXECUTION-TRACER] Trace backend unavailable:", error);
     });
   } catch (error) {
     console.warn("[EXECUTION-TRACER] Trace backend unavailable:", error);
