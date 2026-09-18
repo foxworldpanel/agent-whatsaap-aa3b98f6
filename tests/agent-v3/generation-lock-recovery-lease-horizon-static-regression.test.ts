@@ -16,7 +16,7 @@ describe("generation lock recovery lease horizon", () => {
   });
 
   it("keeps the recovery horizon above the configured maximum aggregate funnel delay", () => {
-    expect(funnel).toContain("Math.min(180, sec)");
+    expect(funnel).toMatch(/Math\.min\(180,\s*sec\)/);
     expect(funnel).toContain('"welcome_text"');
     expect(funnel).toContain('"audio"');
     expect(funnel).toContain('"panel_text"');
