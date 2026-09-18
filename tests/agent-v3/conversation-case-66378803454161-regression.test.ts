@@ -3,6 +3,9 @@ import fs from "node:fs";
 import { detectConversationContext } from "../../src/lib/agent-v3/selector/module-selector.server";
 
 const webhook = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
+const inboundGate = fs.readFileSync("src/lib/agent-v3/inbound-welcome-funnel-gate.server.ts", "utf8");
+const funnelGate = fs.readFileSync("src/lib/welcome-funnel-webhook-gate.server.ts", "utf8");
+const funnelOrchestrator = fs.readFileSync("src/lib/welcome-funnel-orchestrator.server.ts", "utf8");
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
 
 describe("Caso real: funil, link e inteligência acumulada", () => {
@@ -28,14 +31,15 @@ describe("Caso real: funil, link e inteligência acumulada", () => {
     expect(orchestrator).toContain("Não oriente usar link de usuário/perfil");
   });
 
-  it("interrompe etapas restantes se cliente pedir para falar depois", () => {
-    expect(webhook).toContain("isConversationDeferralMessage");
+  it("mensagem durante Funnel permanece durável atrás da barreira em vez de cancelar/replay", () => {
     expect(webhook).not.toContain("WELCOME_FUNNEL_CANCELLED_BY_CUSTOMER_DEFERRAL");
-    expect(webhook).toContain("welcome funnel paused by customer");
+    expect(inboundGate).toContain("persistWebhookAgentInboundJob");
+    expect(inboundGate).toContain('status:"pending_behind_funnel"');
   });
 
-  it("mantém funil uma vez para cliente normal", () => {
-    expect(webhook).toContain("existingRun normal = cliente já recebeu este funil; segue para Agent V3");
-    expect(webhook).toContain("WELCOME_FUNNEL_REPEAT_TEST_PHONES");
+  it("mantém execução única por estado durável sem bypass por número", () => {
+    expect(funnelGate).toContain("getWelcomeFunnelConversationBarrier");
+    expect(funnelOrchestrator).toContain('if(initial==="durable_completed")return{status:"already_completed"');
+    expect(webhook).not.toContain("WELCOME_FUNNEL_REPEAT_TEST_PHONES");
   });
 });
