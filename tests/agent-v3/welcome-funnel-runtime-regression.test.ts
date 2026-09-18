@@ -47,7 +47,7 @@ describe("Welcome Funnel -> Agent V3 runtime", () => {
       sequence,
     );
     const terminal = orchestrator.indexOf(
-      'terminal !== "durable_completed"',
+      'terminal!=="durable_completed"',
       ownership,
     );
     expect(sequence).toBeGreaterThan(-1);
