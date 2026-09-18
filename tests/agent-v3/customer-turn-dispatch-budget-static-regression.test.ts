@@ -25,7 +25,7 @@ describe("Customer Turn cron dispatch runtime budget", () => {
   });
 
   it("still reports durable readiness after a budget stop", () => {
-    expect(dispatcher).toContain("const readyRemains=await hasReadyCustomerTurn(s)");
+    expect(dispatcher).toContain("const readyRemains=withinBudget()?await hasReadyCustomerTurn(s):true");
     expect(dispatcher).toContain("idle:!readyRemains");
   });
 });
