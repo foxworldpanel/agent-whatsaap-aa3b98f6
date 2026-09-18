@@ -44,7 +44,7 @@ describe("Welcome Funnel -> Agent V3 runtime", () => {
     const sequence = orchestrator.indexOf("await runWelcomeFunnelSequence");
     const ownership = orchestrator.indexOf(
       "await assertExecutionOwnership()",
-      sequence,
+      sequence + "await runWelcomeFunnelSequence".length,
     );
     const terminal = orchestrator.indexOf(
       'terminal!=="durable_completed"',
