@@ -14,8 +14,10 @@ export interface TraceLogParams {
 export async function logExecutionTrace(params: TraceLogParams) {
   const { traceId, step, status, details, durationMs, messageId, conversationId, phone } = params;
   
-  // Fire and forget trace
-  supabaseAdmin
+  // Fire and forget trace. Telemetria nunca pode bloquear o turno quando
+  // o backend de observabilidade estiver indisponível ou não configurado.
+  try {
+    supabaseAdmin
     .from("agent_execution_traces")
     .insert({
       trace_id: traceId,
@@ -32,6 +34,9 @@ export async function logExecutionTrace(params: TraceLogParams) {
         console.warn("[EXECUTION-TRACER] Failed to log trace:", error);
       }
     });
+  } catch (error) {
+    console.warn("[EXECUTION-TRACER] Trace backend unavailable:", error);
+  }
     
   // Also log to console for immediate visibility in dev
   console.log(`[TRACE][${traceId}][${step}]`, {
