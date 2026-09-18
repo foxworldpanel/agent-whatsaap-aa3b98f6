@@ -11,16 +11,17 @@ describe("deferred Welcome Funnel durable snapshot", () => {
     expect(webhook).not.toContain("deferredFunnelMessage = queuedBody");
     expect(webhook).not.toContain("deferredFunnelMessage || content.text");
     expect(webhook).not.toContain("Boolean(deferredFunnelMessage)");
-    expect(jobs).toContain("canonicalizeDeferredFunnelSnapshot");
-    expect(jobs).toContain('.from("messages").select("body")');
+    expect(jobs).toContain("canonicalizeInboundMessageSnapshot");
+    expect(jobs).toContain('.from("messages").select("body,workspace_id,conversation_id")');
     expect(jobs).toContain('.eq("id",input.messageId)');
     expect(jobs).toContain('.eq("conversation_id",input.conversationId)');
+    expect(jobs).toContain('.eq("workspace_id",input.workspaceId)');
     expect(jobs).toContain('inputText:String(data.body??"")');
     expect(jobs).toContain("deferredFunnel:false");
   });
 
-  it("uses the canonicalized snapshot for both insert and duplicate comparison", () => {
-    expect(jobs).toContain("const canonicalInput=await canonicalizeDeferredFunnelSnapshot(s,input)");
+  it("uses the canonicalized full-routing snapshot for both insert and duplicate comparison", () => {
+    expect(jobs).toContain("const canonicalInput=await canonicalizeInboundMessageSnapshot(s,input)");
     expect(jobs).toContain("sameInboundSnapshot(existing,canonicalInput)");
     expect(jobs).not.toContain("sameInboundSnapshot(existing,input)");
   });
