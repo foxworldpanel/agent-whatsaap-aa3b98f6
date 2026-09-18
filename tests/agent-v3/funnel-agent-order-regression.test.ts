@@ -32,9 +32,13 @@ describe("Welcome Funnel -> Agent V3 ordering", () => {
   it("rechecks the barrier immediately before Customer Turn attachment", () => {
     expect(inbound).toContain("getWelcomeFunnelConversationBarrier");
     expect(inbound).toContain("persistWebhookAgentInboundJob");
-    expect(inbound.indexOf("barrier!==\"clear\"")).toBeLessThan(
-      inbound.indexOf("beginWebhookAgentInboundRuntime"),
+    const barrier = inbound.indexOf('if(barrier!=="clear")');
+    const beginCall = inbound.indexOf(
+      "await beginWebhookAgentInboundRuntime",
+      barrier,
     );
+    expect(barrier).toBeGreaterThan(-1);
+    expect(beginCall).toBeGreaterThan(barrier);
   });
 
   it("never uses a test-number replay bypass", () => {
