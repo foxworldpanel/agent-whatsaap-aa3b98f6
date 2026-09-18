@@ -1,21 +1,18 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 
+const lock = fs.readFileSync("src/lib/agent-v3/conversation-lock.server.ts", "utf8");
+const dispatch = fs.readFileSync("src/lib/agent-v3/customer-turn-dispatch.server.ts", "utf8");
+
 describe("Agent V3 persistent conversation lock", () => {
-  it("usa agent_generation_locks antes de executar o turno", () => {
-    const source = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
-    expect(source).toContain('.from("agent_generation_locks")');
-    expect(source).toContain("acquireConversationDbLock");
-    expect(source).toContain("releaseConversationDbLock");
-    expect(source).toContain("finally");
+  it("mantém o lock persistente encapsulado no helper canônico", () => {
+    expect(lock).toContain('.from("agent_generation_locks")');
+    expect(lock).toContain("acquireAgentConversationLock");
+    expect(lock).toContain("releaseAgentConversationLock");
+    expect(dispatch).not.toContain('.from("agent_generation_locks")');
   });
-  it("não considera um turno saudável como lock órfão após poucos segundos", () => {
-    const source = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
-    expect(source).toContain(
-      "const DB_CONVERSATION_LOCK_STALE_MS = 5 * 60 * 1000;",
-    );
-    expect(source).not.toContain(
-      "const DB_CONVERSATION_LOCK_STALE_MS = 20 * 1000;",
-    );
+  it("usa o horizonte canônico de 20 minutos para owner ativo", () => {
+    expect(lock).toContain("DB_CONVERSATION_LOCK_STALE_MS = 20 * 60 * 1000");
+    expect(lock).not.toContain("DB_CONVERSATION_LOCK_STALE_MS = 20 * 1000");
   });
 });
