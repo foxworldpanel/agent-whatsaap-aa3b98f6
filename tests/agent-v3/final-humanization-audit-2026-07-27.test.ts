@@ -3,6 +3,8 @@ import fs from "node:fs";
 const webhook = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
 const funnelGate = fs.readFileSync("src/lib/welcome-funnel-webhook-gate.server.ts", "utf8");
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
+const p1 = fs.readFileSync("src/lib/agent-v3/prompt/prompt-p1.server.ts", "utf8");
+const p2 = fs.readFileSync("src/lib/agent-v3/prompt/prompt-p2.server.ts", "utf8");
 
 describe("auditoria final de humanização e consistência", () => {
   it("não mantém lógica antiga que cancela funil quando cliente fala", () => {
@@ -21,9 +23,9 @@ describe("auditoria final de humanização e consistência", () => {
     expect(orchestrator).toContain("1 Música em 10 Playlists - R$");
   });
   it("mantém concisão, contexto, pós-venda e não reapresentação", () => {
-    expect(orchestrator).toContain("Mire normalmente em 15 a 35 palavras");
-    expect(orchestrator).toContain("INTERPRETE PELO CONTEXTO");
-    expect(orchestrator).toContain('Nunca use "se tudo correr bem"');
+    expect(p2).toContain("15–35 palavras");
+    expect(p1).toContain("CONTEXTO ANTES DE PERGUNTAR");
+    expect(orchestrator).toContain("se tudo correr bem");
     expect(orchestrator).toContain("funnelAlreadyCompleted");
   });
 });
