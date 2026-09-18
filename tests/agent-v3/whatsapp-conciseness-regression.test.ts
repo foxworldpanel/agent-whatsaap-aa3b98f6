@@ -12,8 +12,8 @@ describe("Concisão e ritmo de WhatsApp", () => {
     expect(orchestrator).toContain("15 a 35 palavras");
   });
   it("prioriza a pergunta mais recente", () => {
-    expect(orchestrator).toContain("última mensagem do cliente");
-    expect(orchestrator).toContain("pergunta mais recente");
+    expect(orchestrator).toContain("Responda apenas ao último pedido do cliente");
+    expect(orchestrator).toContain("pergunta factual específica");
   });
   it("reduz teto de geração", () => {
     expect(llm).toContain("max_tokens: 400");
