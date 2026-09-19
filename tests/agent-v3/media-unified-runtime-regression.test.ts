@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 
-const webhook = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
+const runtime = fs.readFileSync("src/lib/agent-v3/runtime.server.ts", "utf8");
 const uazapi = fs.readFileSync("src/lib/uazapi.server.ts", "utf8");
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
 
 describe("Unified inbound media runtime", () => {
   it("usa o mesmo resolver Uazapi para áudio e imagem", () => {
     expect(uazapi).toContain("uazapiResolveInboundMedia");
-    expect(webhook).toContain('mediaKind: "audio"');
-    expect(webhook).toContain('mediaKind: "image"');
+    expect(runtime).toContain('mediaKind: "audio"');
+    expect(runtime).toContain('mediaKind: "image"');
   });
 
   it("recupera mídia real via message/find quando necessário", () => {
@@ -18,12 +18,12 @@ describe("Unified inbound media runtime", () => {
   });
 
   it("áudio segue para Whisper", () => {
-    expect(webhook).toContain("downloaded.transcription");
-    expect(webhook).toContain("processAudioV3");
+    expect(runtime).toContain("downloaded.transcription");
+    expect(runtime).toContain("processAudioV3");
   });
 
   it("imagem real segue ao Claude", () => {
-    expect(webhook).toContain("imageSource: resolvedImageSource");
+    expect(runtime).toContain("imageSource: resolvedImageSource");
     expect(orchestrator).toContain('type: "image"');
     expect(orchestrator).toContain('"claude-sonnet-5"');
   });
