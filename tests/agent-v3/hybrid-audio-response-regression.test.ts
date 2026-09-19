@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 
-const webhook = fs.readFileSync(
-  "src/routes/api/public/hooks/uazapi-webhook.ts",
-  "utf8",
-);
+const runtime = fs.readFileSync("src/lib/agent-v3/runtime.server.ts", "utf8");\nconst support = fs.readFileSync("src/lib/agent-v3/runtime-support.server.ts", "utf8");
 const orchestrator = fs.readFileSync(
   "src/lib/agent-v3/orchestrator.server.ts",
   "utf8",
@@ -12,20 +9,20 @@ const orchestrator = fs.readFileSync(
 
 describe("Hybrid audio reply policy", () => {
   it("não força áudio só porque o cliente mandou áudio", () => {
-    expect(webhook).toContain("function shouldReplyWithAudio");
-    expect(webhook).toContain('if (params.inputKind !== "audio") return false');
-    expect(webhook).toContain("replyMode: replyWithAudio ? \"audio\" : \"texto\"");
+    expect(support).toContain("function shouldReplyWithAudio");
+    expect(support).toContain('if (params.inputKind !== "audio") return false');
+    expect(runtime).toContain("replyMode: replyWithAudio ? \"audio\" : \"texto\"");
   });
 
   it("usa critérios determinísticos de complexidade", () => {
-    expect(webhook).toContain("text.length >= 260");
-    expect(webhook).toContain("sentenceCount >= 4");
-    expect(webhook).toContain("complexIntent");
-    expect(webhook).toContain("hasStepByStepLanguage");
+    expect(support).toContain("text.length >= 260");
+    expect(support).toContain("sentenceCount >= 4");
+    expect(support).toContain("complexIntent");
+    expect(support).toContain("hasStepByStepLanguage");
   });
 
   it("só chama ElevenLabs quando replyWithAudio for verdadeiro", () => {
-    expect(webhook).toContain(
+    expect(support).toContain(
       "if (replyWithAudio && elevenlabsApiKey && elevenlabsVoiceId)",
     );
   });
