@@ -12,9 +12,10 @@ const orchestrator = fs.readFileSync(
 
 describe("Agent V3 image vision", () => {
   it("resolve a mídia real da imagem antes do Claude", () => {
-    expect(runtime).toContain("[IMAGE-V3] 1/3 imagem inbound detectada");
+    expect(runtime).toContain('if (content.kind === "image")');
     expect(runtime).toContain("uazapiResolveInboundMedia");
     expect(runtime).toContain("resolvedImageSource");
+    expect(runtime).toContain("[IMAGE-V3] imagem pronta para Claude Vision");
   });
 
   it("passa a imagem real ao orchestrator", () => {
