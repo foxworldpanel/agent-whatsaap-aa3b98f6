@@ -1,4 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-const migration=readFileSync("supabase/migrations/20260914400000_pending_attachment_welcome_funnel_fairness.sql","utf8");
-describe("pending attachment Welcome Funnel fairness",()=>{it("skips funnel-owned conversations before and after seed-31 acquisition",()=>{expect(migration.match(/welcome_funnel_execution_state/g)?.length??0).toBeGreaterThanOrEqual(2);expect(migration).toContain("s.status IN ('running','needs_review')");expect(migration).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");expect(migration).toContain("DISTINCT ON (j.conversation_id)");});});
+const historical=readFileSync("supabase/migrations/20260914400000_pending_attachment_welcome_funnel_fairness.sql","utf8");
+const attachment=readFileSync("supabase/migrations/20260914530000_pending_attachment_workspace_quarantine.sql","utf8");
+const finalBarrier=readFileSync("supabase/migrations/20260914543000_background_funnel_user_identity_barrier.sql","utf8");
+describe("pending attachment Welcome Funnel fairness",()=>{
+ it("historically skips funnel-owned conversations before and after seed-31 acquisition",()=>{expect(historical.match(/welcome_funnel_execution_state/g)?.length??0).toBeGreaterThanOrEqual(2);expect(historical).toContain("s.status IN ('running','needs_review')");expect(historical).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");expect(historical).toContain("DISTINCT ON (j.conversation_id)");});
+ it("keeps the final pending drain on the identity-aware Funnel barrier and quarantines corrupt workspace turns",()=>{expect(attachment).toContain("pg_try_advisory_xact_lock(hashtextextended(v_conversation.conversation_id::text,31))");expect(attachment.match(/public\.has_welcome_funnel_agent_barrier/g)?.length??0).toBeGreaterThanOrEqual(3);expect(attachment).toContain("state='needs_review'");expect(attachment).toContain("collecting Customer Turn workspace mismatch during pending attachment");expect(finalBarrier).toContain("s.user_id IS DISTINCT FROM v_user_id");expect(finalBarrier).toContain("s.workspace_id IS DISTINCT FROM p_workspace_id");});
+});
