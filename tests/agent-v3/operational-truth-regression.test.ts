@@ -3,7 +3,7 @@ import { MIND_OPERATIONAL_TRUTH_V3 } from "../../src/lib/agent-v3/brain/operatio
 import fs from "node:fs";
 
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
-const webhook = fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts", "utf8");
+const runtime = fs.readFileSync("src/lib/agent-v3/runtime.server.ts", "utf8");
 const conversations = fs.readFileSync("src/routes/_authenticated/conversas.tsx", "utf8");
 
 describe("Operational truth + structural state", () => {
@@ -19,9 +19,12 @@ describe("Operational truth + structural state", () => {
   });
 
   it("business decision happens before the LLM call", () => {
-    expect(webhook.indexOf("deriveBusinessDecisionV3({"))
-      .toBeLessThan(webhook.indexOf("runAgentV3Turn({"));
-    expect(webhook).toContain("businessDecisionToPromptV3(businessDecision)");
+    const decision = runtime.indexOf("deriveBusinessDecisionV3({");
+    const prompt = runtime.indexOf("businessDecisionToPromptV3(businessDecision)", decision);
+    const agent = runtime.indexOf("executeAgent(", prompt);
+    expect(decision).toBeGreaterThanOrEqual(0);
+    expect(prompt).toBeGreaterThan(decision);
+    expect(agent).toBeGreaterThan(prompt);
   });
 
   it("conversation screen exposes state/risk/action filters", () => {
