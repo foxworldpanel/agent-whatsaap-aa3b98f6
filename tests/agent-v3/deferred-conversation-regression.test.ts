@@ -1,28 +1,8 @@
-import { describe, expect, it } from "vitest";
-import fs from "node:fs";
-
-const orchestrator = fs.readFileSync(
-  "src/lib/agent-v3/orchestrator.server.ts",
-  "utf8",
-);
-
-describe("Adiamento natural da conversa", () => {
-  it("não qualifica quando cliente pede para falar depois", () => {
-    expect(orchestrator).toContain("ADIAMENTO E PAUSA NATURAL DA CONVERSA:");
-    expect(orchestrator).toContain("NÃO faça nova pergunta comercial naquele turno");
-    expect(orchestrator).toContain('Não pergunte "Como posso te ajudar?"');
-  });
-
-  it("respeita horário informado sem prometer contato ativo", () => {
-    expect(orchestrator).toContain("Se o cliente informar um horário específico");
-    expect(orchestrator).toContain("não prometa que você irá iniciar contato sozinho");
-  });
-
-  it("não reinicia atendimento por saudação em conversa existente", () => {
-    expect(orchestrator).toContain("NÃO deve reiniciar o atendimento nem fazer nova apresentação");
-  });
-
-  it("não corrige nome parecido sem necessidade", () => {
-    expect(orchestrator).toContain('como "Juliana", não interrompa a conversa para corrigi-lo');
-  });
+import { describe,expect,it } from "vitest";import fs from "node:fs";
+const p1=fs.readFileSync("src/lib/agent-v3/prompt/prompt-p1.server.ts","utf8");const guards=fs.readFileSync("src/lib/agent-v3/brain/guards.server.ts","utf8");
+describe("Adiamento natural da conversa",()=>{
+ it("não qualifica quando cliente adia",()=>{expect(p1).toContain('Cliente adiando ("depois", "ocupado")');expect(p1).toContain("NÃO faz nova pergunta comercial no mesmo turno")});
+ it("silêncio natural é determinístico e perguntas/problemas não são silenciados",()=>{expect(guards).toContain("shouldStaySilentForNaturalConversation");expect(guards).toContain('if (!raw || raw.includes("?")) return false');expect(guards).toContain("nao consegui")});
+ it("saudação em conversa existente não reinicia atendimento",()=>{expect(p1).toContain("Saudação em conversa já iniciada NUNCA reinicia o atendimento");expect(p1).toContain("Júlia apresentada → nunca diga")});
+ it("não inventa retomada ativa: apenas reconhece adiamento no turno atual",()=>{expect(p1).toContain('Cliente adiando ("depois", "ocupado")');expect(p1).not.toContain("vou te chamar depois")});
 });
