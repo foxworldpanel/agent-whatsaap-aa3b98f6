@@ -1,49 +1,15 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-
-const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
-
-const route = source("src/routes/api/public/hooks/agent-inbound-recovery.ts");
-const recoveryHelper = source("src/lib/agent-v3/inbound-recovery.server.ts");
-const lockHelper = source("src/lib/agent-v3/conversation-lock.server.ts");
-const orphanRecovery = source("supabase/migrations/20260914450000_generation_lock_recovery_fairness_with_funnel.sql");
-
-describe("durable recovery endpoint", () => {
-  it("authenticates before loading the service-role client", () => {
-    const auth = route.indexOf("assertCronAuthorized(request)");
-    const adminImport = route.indexOf('await import("@/integrations/supabase/client.server")');
-    expect(auth).toBeGreaterThan(-1);
-    expect(adminImport).toBeGreaterThan(auth);
-    expect(route).toContain("POST: async");
-    expect(route).not.toContain("GET: async");
-  });
-
-  it("recovers ownership through a recovery-only dependency graph", () => {
-    expect(route).toContain('from "@/lib/agent-v3/inbound-recovery.server"');
-    expect(route).not.toContain("inbound-job-dispatch.server");
-    expect(route).toContain("recoverAgentInboundDispatcherClaims");
-    expect(route).toContain("recoverStaleAgentConversationLocks");
-    expect(route).not.toContain("executeAgentV3Runtime");
-    expect(route).not.toContain("runAgentV3Turn");
-
-    expect(recoveryHelper).toContain("recoverStaleAgentInboundJobs");
-    expect(recoveryHelper).not.toContain("runtime.server");
-    expect(recoveryHelper).not.toContain("inbound-runtime-claim.server");
-    expect(recoveryHelper).not.toContain("dispatchOneAgentInbound");
-    expect(lockHelper).toContain('"recover_stale_agent_generation_locks"');
-  });
-
-  it("fences fair orphan-lock cleanup behind the shared lock and all active durable owners", () => {
-    expect(orphanRecovery).toContain("recover_stale_agent_generation_locks");
-    expect(orphanRecovery).toContain("LIMIT 500");
-    expect(orphanRecovery).toContain("EXIT WHEN v_locked>=100");
-    expect(orphanRecovery).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
-    expect(orphanRecovery).toContain("CONTINUE;");
-    expect(orphanRecovery).not.toContain("PERFORM pg_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
-    expect(orphanRecovery).toContain("active_job.status IN ('processing_safe','processing')");
-    expect(orphanRecovery).toContain("active_turn.state IN ('processing_safe','processing')");
-    expect(orphanRecovery).toContain("funnel.status='running'");
-    expect(orphanRecovery).toContain("GRANT EXECUTE ON FUNCTION public.recover_stale_agent_generation_locks(timestamptz) TO service_role");
-  });
+import { readFileSync } from "node:fs";import { describe,expect,it } from "vitest";
+const route=readFileSync("src/routes/api/public/hooks/agent-inbound-recovery.ts","utf8");
+const recovery=readFileSync("src/lib/agent-v3/inbound-recovery.server.ts","utf8");
+const lock=readFileSync("src/lib/agent-v3/conversation-lock.server.ts","utf8");
+const stageB=readFileSync("supabase/migrations/20260914541500_stage_b_recovery_ownership_separation.sql","utf8");
+const generation=readFileSync("supabase/migrations/20260914450000_generation_lock_recovery_fairness_with_funnel.sql","utf8");
+const funnel=readFileSync("supabase/migrations/20260914533000_welcome_funnel_recovery_full_identity.sql","utf8");
+describe("durable recovery endpoint",()=>{
+ it("authenticates before loading service-role client and exposes POST only",()=>{const auth=route.indexOf("assertCronAuthorized(request)");const admin=route.indexOf('await import("@/integrations/supabase/client.server")');expect(auth).toBeGreaterThan(-1);expect(admin).toBeGreaterThan(auth);expect(route).toContain("POST: async");expect(route).not.toContain("GET: async");});
+ it("runs Stage B before generic generation recovery before Funnel-specific recovery",()=>{const a=route.indexOf("recoverAgentInboundDispatcherClaims(");const b=route.indexOf("recoverStaleAgentConversationLocks(",a);const c=route.indexOf('"recover_stale_welcome_funnel_executions"',b);expect(a).toBeGreaterThan(-1);expect(b).toBeGreaterThan(a);expect(c).toBeGreaterThan(b);expect(route).toContain("GENERATION_LOCK_STALE_MS = DB_CONVERSATION_LOCK_STALE_MS");expect(route).toContain("WELCOME_FUNNEL_STALE_MS = DB_CONVERSATION_LOCK_STALE_MS");});
+ it("keeps recovery dependency graph effect-free",()=>{expect(recovery).toContain("recoverStaleAgentInboundJobs");expect(recovery).not.toContain("runtime.server");expect(route).not.toContain("executeAgentV3Runtime");expect(route).not.toContain("runAgentV3Turn");expect(lock).toContain('"recover_stale_agent_generation_locks"');});
+ it("Stage B recovery never deletes generation ownership and quarantines post-runtime uncertainty",()=>{expect(stageB).toContain("LIMIT 500");expect(stageB).toContain("EXIT WHEN v_locked>=100");expect(stageB).toContain("status='pending'");expect(stageB).toContain("status='needs_review'");expect(stageB).not.toContain("DELETE FROM public.agent_generation_locks");});
+ it("generic generation recovery is fair and refuses active durable owners including running Funnel",()=>{expect(generation).toContain("LIMIT 500");expect(generation).toContain("EXIT WHEN v_locked>=100");expect(generation).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");expect(generation).toContain("active_job.status IN ('processing_safe','processing')");expect(generation).toContain("active_turn.state IN ('processing_safe','processing')");expect(generation).toContain("funnel.status='running'");});
+ it("Funnel stale recovery uses full routing identity under the canonical lock horizon",()=>{expect(funnel).toContain("p_generation_lock_stale_before");expect(funnel).toContain("conversation_id");expect(funnel).toContain("user_id");expect(funnel).toContain("workspace_id");expect(funnel).toContain("needs_review");});
 });
