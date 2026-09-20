@@ -7,8 +7,8 @@ import {
   enforceReengagementGreeting, 
   limitEmojiFrequency,
   humanizePunctuationV3 as humanizePunctuation
-} from "../src/lib/agent-v3/guards.server";
-import { autoSplitLongPartsV3 as autoSplitLongParts } from "../src/lib/agent-v3/audio-processor.server";
+} from "../src/lib/agent-v3/brain/guards.server";
+import { autoSplitLongPartsV3 as autoSplitLongParts } from "../src/lib/agent-v3/integrations/audio-processor.server";
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 
@@ -49,6 +49,7 @@ async function callAgent(opts: any) {
 
   const res = await realRunAgentV3Turn({
     userId: "bd59fa41-3a6d-4767-8334-a69076f8e434",
+    workspaceId: "test-workspace",
     message: lastMessage,
     history: historyForV3,
     enabledModules: Object.keys(DEFAULT_MODULES),
