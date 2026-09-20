@@ -3,59 +3,12 @@ import { detectConversationContext, selectModulesV3 } from "@/lib/agent-v3/selec
 import type { LoadedModuleV3, ModuleRoutingV3 } from "@/lib/agent-v3/brain/modules.server";
 
 const routing = (patch: Partial<ModuleRoutingV3> = {}): ModuleRoutingV3 => ({
-  alwaysLoad: false,
-  intents: [],
-  stages: [],
-  platforms: [],
-  products: [],
-  triggers: [],
-  dependencies: [],
-  conflicts: [],
-  priority: 0,
-  ...patch,
-  it("não transforma plataforma ausente do CMS em categoria genérica hardcoded", () => {
-    expect(detectConversationContext("vocês trabalham com Telegram?", []).platform).toBeNull();
-    expect(detectConversationContext("tem serviço para Twitch?", []).platform).toBeNull();
-  });
-
-  it("gatilhos do CMS respeitam palavra/frase inteira e não substring", () => {
-    const modules: Record<string, LoadedModuleV3> = {
-      identidade: module({ alwaysLoad: true, priority: 100 }),
-      especial: module({ triggers: ["face"], priority: 50 }),
-    };
-
-    const falsePositive = selectModulesV3("essa interface está dando erro", [], modules);
-    expect(falsePositive.selectedModules).not.toContain("especial");
-
-    const exactTrigger = selectModulesV3("quero face agora", [], modules);
-    expect(exactTrigger.selectedModules).toContain("especial");
-  });
-
+  alwaysLoad: false, intents: [], stages: [], platforms: [], products: [], triggers: [],
+  dependencies: [], conflicts: [], priority: 0, ...patch,
 });
 
 const module = (patch: Partial<ModuleRoutingV3> = {}): LoadedModuleV3 => ({
-  content: "Conteúdo de teste",
-  source: "database",
-  version: 1,
-  routing: routing(patch),
-  it("não transforma plataforma ausente do CMS em categoria genérica hardcoded", () => {
-    expect(detectConversationContext("vocês trabalham com Telegram?", []).platform).toBeNull();
-    expect(detectConversationContext("tem serviço para Twitch?", []).platform).toBeNull();
-  });
-
-  it("gatilhos do CMS respeitam palavra/frase inteira e não substring", () => {
-    const modules: Record<string, LoadedModuleV3> = {
-      identidade: module({ alwaysLoad: true, priority: 100 }),
-      especial: module({ triggers: ["face"], priority: 50 }),
-    };
-
-    const falsePositive = selectModulesV3("essa interface está dando erro", [], modules);
-    expect(falsePositive.selectedModules).not.toContain("especial");
-
-    const exactTrigger = selectModulesV3("quero face agora", [], modules);
-    expect(exactTrigger.selectedModules).toContain("especial");
-  });
-
+  content: "Conteúdo de teste", source: "database", version: 1, routing: routing(patch),
 });
 
 const enabled: Record<string, LoadedModuleV3> = {
@@ -85,62 +38,43 @@ describe("Module Selector V3 contextual", () => {
     expect(result.context.product).toBe("visualizacoes");
     expect(result.selectedModules).toEqual(expect.arrayContaining(["youtube", "tabela_precos", "fluxo_vendas"]));
   });
-
   it("prioriza contexto recente do cliente e ignora plataformas citadas pelo agente", () => {
     const context = detectConversationContext("quanto fica 1000?", [
       { role: "agent", content: "Temos Instagram, YouTube e Spotify." },
       { role: "customer", content: "Quero inscritos no YouTube" },
     ]);
-    expect(context.platform).toBe("youtube");
-    expect(context.product).toBe("inscritos");
+    expect(context.platform).toBe("youtube"); expect(context.product).toBe("inscritos");
   });
-
   it("distingue dúvida de pagamento de pós-compra", () => {
     expect(detectConversationContext("Como pagar no Pix?", []).intent).toBe("pagamento");
     expect(detectConversationContext("Já paguei e o saldo não caiu", []).intent).toBe("pos_compra");
   });
-
   it("não reativa módulo explicitamente ausente da lista habilitada", () => {
     const { spotify: _removed, ...withoutSpotify } = enabled;
-    const result = selectModulesV3("Quanto custa no Spotify?", [], withoutSpotify);
-    expect(result.selectedModules).not.toContain("spotify");
+    expect(selectModulesV3("Quanto custa no Spotify?", [], withoutSpotify).selectedModules).not.toContain("spotify");
   });
   it("não confunde intenção de compra com suporte só por conter a palavra pedido", () => {
     const context = detectConversationContext("quero fazer um pedido de 1000 seguidores", []);
-    expect(context.intent).toBe("compra");
-    expect(context.hasSupportSignal).toBe(false);
+    expect(context.intent).toBe("compra"); expect(context.hasSupportSignal).toBe(false);
   });
-
   it("continua reconhecendo suporte quando pedido aparece em contexto de pós-venda", () => {
     expect(detectConversationContext("meu pedido está pendente", []).intent).toBe("suporte");
     expect(detectConversationContext("qual o status do pedido?", []).intent).toBe("suporte");
   });
-
   it("não trata pergunta de prazo como consulta de preço só pela palavra quanto", () => {
     expect(detectConversationContext("quanto tempo demora para entregar?", []).intent).not.toBe("consulta_preco");
     expect(detectConversationContext("quanto custa 1000 plays?", []).intent).toBe("consulta_preco");
   });
-
   it("não detecta plataforma por substring dentro de outra palavra", () => {
     expect(detectConversationContext("essa interface está dando erro", []).platform).toBeNull();
   });
-
   it("não transforma plataforma ausente do CMS em categoria genérica hardcoded", () => {
     expect(detectConversationContext("vocês trabalham com Telegram?", []).platform).toBeNull();
     expect(detectConversationContext("tem serviço para Twitch?", []).platform).toBeNull();
   });
-
   it("gatilhos do CMS respeitam palavra/frase inteira e não substring", () => {
-    const modules: Record<string, LoadedModuleV3> = {
-      identidade: module({ alwaysLoad: true, priority: 100 }),
-      especial: module({ triggers: ["face"], priority: 50 }),
-    };
-
-    const falsePositive = selectModulesV3("essa interface está dando erro", [], modules);
-    expect(falsePositive.selectedModules).not.toContain("especial");
-
-    const exactTrigger = selectModulesV3("quero face agora", [], modules);
-    expect(exactTrigger.selectedModules).toContain("especial");
+    const modules: Record<string, LoadedModuleV3> = { identidade: module({ alwaysLoad: true, priority: 100 }), especial: module({ triggers: ["face"], priority: 50 }) };
+    expect(selectModulesV3("essa interface está dando erro", [], modules).selectedModules).not.toContain("especial");
+    expect(selectModulesV3("quero face agora", [], modules).selectedModules).toContain("especial");
   });
-
 });
