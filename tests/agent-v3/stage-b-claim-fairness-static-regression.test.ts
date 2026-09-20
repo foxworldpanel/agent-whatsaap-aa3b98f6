@@ -1,32 +1,10 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-
-const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914284500_stage_b_claim_fairness_by_conversation.sql"),
-  "utf8",
-);
-
-describe("legacy Stage B background claim fairness", () => {
-  it("selects one oldest representative per conversation before global age ordering", () => {
-    expect(sql).toContain("SELECT DISTINCT ON (j.conversation_id) j.id,j.conversation_id,j.created_at");
-    expect(sql).toContain("ORDER BY j.conversation_id,j.created_at,j.id");
-    expect(sql).toContain("ORDER BY candidate.created_at,candidate.id");
-    expect(sql).toContain("LIMIT 64");
-  });
-
-  it("skips contended conversations instead of blocking the whole queue", () => {
-    expect(sql).toContain("FOR v_candidate IN");
-    expect(sql).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
-    expect(sql).toContain("CONTINUE;");
-    expect(sql).not.toContain("PERFORM pg_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");
-  });
-
-  it("preserves all durable conversation ownership fences", () => {
-    expect(sql.match(/t\.state IN \('retry_safe','processing_safe','processing'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
-    expect(sql.match(/active\.status IN \('processing_safe','processing'\)/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
-    expect(sql.match(/public\.agent_generation_locks g/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
-    expect(sql).toContain("NOT EXISTS(SELECT 1 FROM public.agent_customer_turn_messages tm WHERE tm.job_id=j.id)");
-    expect(sql).toContain("IF FOUND THEN RETURN; END IF;");
-  });
+import { readFileSync } from "node:fs";import { describe,expect,it } from "vitest";
+const historical=readFileSync("supabase/migrations/20260914284500_stage_b_claim_fairness_by_conversation.sql","utf8");
+const finalClaim=readFileSync("supabase/migrations/20260914511500_stage_b_claim_funnel_workspace_identity.sql","utf8");
+const barrier=readFileSync("supabase/migrations/20260914543000_background_funnel_user_identity_barrier.sql","utf8");
+describe("Stage B background claim fairness",()=>{
+ it("historically establishes per-conversation nonblocking fairness",()=>{expect(historical).toContain("SELECT DISTINCT ON (j.conversation_id)");expect(historical).toContain("ORDER BY candidate.created_at,candidate.id");expect(historical).toContain("LIMIT 64");expect(historical).toContain("pg_try_advisory_xact_lock(hashtextextended(v_candidate.conversation_id::text,31))");});
+ it("final claimant preserves fairness and real attempt bounds",()=>{expect(finalClaim).toContain("SELECT DISTINCT ON(j.conversation_id)");expect(finalClaim.match(/LIMIT 64/g)?.length??0).toBeGreaterThanOrEqual(2);expect(finalClaim.match(/pg_try_advisory_xact_lock\(hashtextextended\(v_candidate.conversation_id::text,31\)\)/g)?.length??0).toBeGreaterThanOrEqual(2);expect(finalClaim).toContain("j.attempt_count>=p_max_attempts");expect(finalClaim).toContain("j.attempt_count<p_max_attempts");expect(finalClaim).not.toContain("2147483647");});
+ it("final claimant revalidates every durable owner after the conversation fence",()=>{expect(finalClaim).toContain("t.state IN('retry_safe','processing_safe','processing')");expect(finalClaim).toContain("a.status IN('processing_safe','processing')");expect(finalClaim).toContain("agent_generation_locks g");expect(finalClaim).toContain("public.has_welcome_funnel_agent_barrier(v_candidate.conversation_id,v_candidate.workspace_id)");});
+ it("final Funnel helper resolves current user and fails closed on routing drift",()=>{expect(barrier).toContain("SELECT c.user_id INTO v_user_id");expect(barrier).toContain("IF NOT FOUND OR v_user_id IS NULL THEN RETURN true");expect(barrier).toContain("s.workspace_id IS DISTINCT FROM p_workspace_id");expect(barrier).toContain("s.user_id IS DISTINCT FROM v_user_id");});
 });
