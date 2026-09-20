@@ -35,6 +35,6 @@ describe("Agent V3 image vision", () => {
 
   it("não manda mais o agente negar capacidade visual", () => {
     expect(orchestrator).not.toContain("avise que não consegue ver no momento");
-    expect(orchestrator).toContain("Analise a imagem diretamente antes de responder");
+    expect(orchestrator).toContain("Analise a imagem enviada e responda de acordo com o contexto da conversa.");
   });
 });
