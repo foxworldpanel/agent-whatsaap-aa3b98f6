@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";import { describe,expect,it } from "vitest";
-const source=readFileSync("src/lib/agent-v3/inbound-webhook-ownership.server.ts","utf8");
-const ingress=readFileSync("src/lib/agent-v3/inbound-jobs.server.ts","utf8");
+const ownership=readFileSync("src/lib/agent-v3/inbound-webhook-ownership.server.ts","utf8");
+const ingress=readFileSync("src/lib/agent-v3/customer-turn-ingress.server.ts","utf8");
+const jobs=readFileSync("src/lib/agent-v3/inbound-jobs.server.ts","utf8");
 describe("webhook Stage B durability before Customer Turn attachment",()=>{
- it("can persist canonical pending Stage B without attaching it",()=>{expect(source).toContain("persistWebhookAgentInboundJob");expect(source).toContain("return ensureAgentInboundJob(supabaseAdmin,durableInput(input))");});
- it("normal eligible ingress ensures Stage B before Stage C attachment",()=>{const fn=source.slice(source.indexOf("export async function beginWebhookAgentInboundRuntime"),source.indexOf("export async function persistWebhookAgentInboundJob"));expect(fn).toContain("enqueueAgentInboundIntoCustomerTurn");const enqueue=source.slice(source.indexOf("async function enqueueAgentInboundIntoCustomerTurn"));expect(enqueue.indexOf("await ensureAgentInboundJob")).toBeGreaterThan(-1);expect(enqueue.indexOf("await attachAgentInboundJobToCustomerTurn")).toBeGreaterThan(enqueue.indexOf("await ensureAgentInboundJob"));});
- it("Stage B durable input is canonicalized and duplicate acceptance cannot silently drift",()=>{expect(ingress).toContain("canonical");expect(ingress).toContain("messageId");expect(ingress).toContain("conversationId");expect(ingress).toContain("workspaceId");});
+ it("can persist canonical pending Stage B without attaching it",()=>{expect(ownership).toContain("persistWebhookAgentInboundJob");expect(ownership).toContain("return ensureAgentInboundJob(supabaseAdmin,durableInput(input))");});
+ it("normal eligible ingress delegates to canonical Stage B then Stage C enqueue",()=>{expect(ownership).toContain("await enqueueAgentInboundIntoCustomerTurn");const fn=ingress.slice(ingress.indexOf("export async function enqueueAgentInboundIntoCustomerTurn"));const ensure=fn.indexOf("await ensureAgentInboundJob");const attach=fn.indexOf("await attachAgentInboundJobToCustomerTurn");expect(ensure).toBeGreaterThan(-1);expect(attach).toBeGreaterThan(ensure);});
+ it("Stage B durable input is canonicalized and duplicate acceptance cannot silently drift",()=>{expect(jobs).toContain("canonical");expect(jobs).toContain("messageId");expect(jobs).toContain("conversationId");expect(jobs).toContain("workspaceId");});
 });
