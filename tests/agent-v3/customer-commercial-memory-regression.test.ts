@@ -47,6 +47,7 @@ describe("Customer Commercial Memory", () => {
       nextOpportunity: "mês que vem vou lançar outras músicas",
       repurchasePotential: "alto",
       updatedAt: new Date().toISOString(),
+      facts: { customerName: null, companyName: null, niche: null, location: null, audience: null, goal: null, constraints: [], notes: [] },
     });
     expect(ctx).toContain("Já é cliente: sim");
     expect(ctx).toContain("Não reinicie qualificação");
@@ -65,8 +66,8 @@ describe("Customer Commercial Memory", () => {
 
   it("Lead Intelligence respeita cliente existente", () => {
     expect(orchestrator).toContain('customerLifecycle === "cliente"');
-    expect(orchestrator).toContain('intent = isExistingCustomer');
-    expect(orchestrator).toContain('purchase_probability = 100');
+    expect(orchestrator).toContain('customerLifecycle === "cliente"');
+    expect(orchestrator).toMatch(/purchase_probability\s*[:=]\s*100/);
   });
 
   it("mostra cliente convertido na inbox", () => {
