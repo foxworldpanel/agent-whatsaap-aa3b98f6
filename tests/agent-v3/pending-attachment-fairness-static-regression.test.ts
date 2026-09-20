@@ -1,29 +1,8 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
-
-const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260914294500_bound_pending_drain_per_conversation.sql"),
-  "utf8",
-);
-
-describe("pending Stage B to Customer Turn attachment sweep", () => {
-  it("keeps fairness between conversations while scanning beyond contention", () => {
-    expect(sql).toContain("SELECT DISTINCT ON (j.conversation_id) j.conversation_id,j.created_at,j.id");
-    expect(sql).toContain("ORDER BY candidate.created_at,candidate.id");
-    expect(sql).toContain("LIMIT least(v_target*10,1000)");
-    expect(sql).toContain("EXIT WHEN v_count>=v_target");
-    expect(sql).toContain("EXIT WHEN v_count>=v_target OR v_conversation_count>=v_per_conversation");
-    expect(sql).toContain("pg_try_advisory_xact_lock(hashtextextended(v_conversation.conversation_id::text,31))");
-    expect(sql).toContain("CONTINUE;");
-  });
-
-  it("locks pending jobs and attaches them idempotently to one collecting turn", () => {
-    expect(sql).toContain("FOR UPDATE OF j SKIP LOCKED");
-    expect(sql).toContain("WHERE conversation_id=v_conversation.conversation_id AND state='collecting'");
-    expect(sql).toContain("INSERT INTO public.agent_customer_turn_messages(turn_id,job_id,message_id)");
-    expect(sql).toContain("ON CONFLICT (job_id) DO NOTHING");
-    expect(sql).toContain("IF FOUND THEN");
-    expect(sql).toContain("SET last_received_at=now(),updated_at=now()");
-  });
+import { readFileSync } from "node:fs";import { describe,expect,it } from "vitest";
+const sql=readFileSync("supabase/migrations/20260914530000_pending_attachment_workspace_quarantine.sql","utf8");
+const barrier=readFileSync("supabase/migrations/20260914543000_background_funnel_user_identity_barrier.sql","utf8");
+describe("pending Stage B to Customer Turn attachment sweep",()=>{
+ it("keeps fairness between conversations while scanning beyond contention",()=>{expect(sql).toContain("SELECT DISTINCT ON(j.conversation_id)");expect(sql).toContain("ORDER BY c.created_at,c.id");expect(sql).toContain("LIMIT least(v_target*10,1000)");expect(sql).toContain("EXIT WHEN v_count>=v_target");expect(sql).toContain("EXIT WHEN v_count>=v_target OR v_conversation_count>=v_per_conversation");expect(sql).toContain("pg_try_advisory_xact_lock(hashtextextended(v_conversation.conversation_id::text,31))");});
+ it("locks pending jobs and attaches them idempotently to one collecting turn",()=>{expect(sql).toContain("FOR UPDATE OF j SKIP LOCKED");expect(sql).toContain("state='collecting'");expect(sql).toContain("INSERT INTO public.agent_customer_turn_messages(turn_id,job_id,message_id)");expect(sql).toContain("ON CONFLICT(job_id)DO NOTHING");expect(sql).toContain("SET last_received_at=now(),updated_at=now()");});
+ it("rechecks runtime and final Funnel routing barriers while the conversation fence is held",()=>{expect(sql).toContain("a.status IN('processing_safe','processing')");expect(sql).toContain("t.state IN('retry_safe','processing_safe','processing')");expect(sql).toContain("agent_generation_locks g");expect(sql).toContain("public.has_welcome_funnel_agent_barrier(v_job.conversation_id,v_job.workspace_id)");expect(barrier).toContain("s.user_id IS DISTINCT FROM v_user_id");});
 });
