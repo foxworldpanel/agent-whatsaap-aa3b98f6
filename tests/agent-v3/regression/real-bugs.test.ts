@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentV3Turn as realRunAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
-import { DEFAULT_MODULES } from "../src/lib/agent-modules";
+import { DEFAULT_MODULES } from "../../../src/lib/agent-modules";
 import { 
   sanitizeSystemLeaks, 
   detectVerboseLoop, 
@@ -49,6 +49,7 @@ async function callAgent(opts: any) {
 
   const res = await realRunAgentV3Turn({
     userId: "bd59fa41-3a6d-4767-8334-a69076f8e434",
+    workspaceId: "test-workspace",
     message: lastMessage,
     history: historyForV3,
     enabledModules: Object.keys(DEFAULT_MODULES),
