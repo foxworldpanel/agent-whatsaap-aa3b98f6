@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 
-const runtime = fs.readFileSync("src/lib/agent-v3/runtime.server.ts", "utf8");\nconst support = fs.readFileSync("src/lib/agent-v3/runtime-support.server.ts", "utf8");
+const runtime = fs.readFileSync("src/lib/agent-v3/runtime.server.ts", "utf8");
+const support = fs.readFileSync("src/lib/agent-v3/runtime-support.server.ts", "utf8");
 const orchestrator = fs.readFileSync(
   "src/lib/agent-v3/orchestrator.server.ts",
   "utf8",
