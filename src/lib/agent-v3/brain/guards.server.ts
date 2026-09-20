@@ -221,7 +221,7 @@ export function shouldStaySilentForNaturalConversation(params: {
   const text = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toLowerCase().replace(/\s+/g, " ").trim();
 
-  if (/\b(nao consegui|erro|problema|ajuda|como|onde|quanto|pix|pagar|pagamento|comprei|pedido|fiz aqui|ja consegui|plays|spotify|seguidores|youtube|ver|olhar|mandei)\b/i.test(text)) {
+  if (/\b(nao consegui|erro|problema|ajuda|como|onde|quanto|pix|pagar|pagamento|comprei|pedido|fiz aqui|ja consegui|plays|spotify|seguidores|youtube|mandei)\b/i.test(text)) {
     return false;
   }
 
