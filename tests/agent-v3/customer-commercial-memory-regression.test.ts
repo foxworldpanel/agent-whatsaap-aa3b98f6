@@ -47,7 +47,7 @@ describe("Customer Commercial Memory", () => {
       nextOpportunity: "mês que vem vou lançar outras músicas",
       repurchasePotential: "alto",
       updatedAt: new Date().toISOString(),
-      facts: { customerName: null, companyName: null, niche: null, location: null, audience: null, goal: null, constraints: [], notes: [] },
+      facts: { customerName: null, musicTitle: null, artistName: null, objective: null, lastTopic: null, salesIntent: null, budgetMentioned: null, objectionType: null },
     });
     expect(ctx).toContain("Já é cliente: sim");
     expect(ctx).toContain("Não reinicie qualificação");
