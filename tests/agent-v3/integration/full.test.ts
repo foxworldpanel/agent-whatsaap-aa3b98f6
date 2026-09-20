@@ -1,7 +1,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentV3Turn as realRunAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
-import { DEFAULT_MODULES } from "../src/lib/agent-modules";
+import { DEFAULT_MODULES } from "../../../src/lib/agent-modules";
 import { 
   sanitizeSystemLeaks, 
   detectVerboseLoop, 
