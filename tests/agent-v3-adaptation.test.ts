@@ -4,17 +4,38 @@ import { DEFAULT_MODULES } from "@/lib/agent-modules";
 
 // Mock do fetch da Anthropic — devolve reply como resposta canônica com metadados V3
 function mockAnthropicV3(reply: string) {
-  return vi.fn(async (url: RequestInfo | URL) => {
+  const anthropicMock = vi.fn(async () => {
     return new Response(
-      JSON.stringify({ 
-        content: [{ 
-          type: "text", 
-          text: `[TEMP:quente] [INTENT:compra] [STAGE:vendas] ${reply}` 
-        }] 
+      JSON.stringify({
+        content: [{
+          type: "text",
+          text: `[TEMP:quente] [INTENT:compra] [STAGE:vendas] ${reply}`
+        }]
       }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
   });
+
+  const fetchMock = (async (input: any, init?: any) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : String(input?.url || input || "");
+
+    if (url.includes("supabase.co")) {
+      return new Response("[]", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    return anthropicMock(input, init);
+  }) as typeof fetch & { mock: typeof anthropicMock.mock };
+
+  fetchMock.mock = anthropicMock.mock;
+  return fetchMock;
 }
 
 async function callAgent(opts: {
