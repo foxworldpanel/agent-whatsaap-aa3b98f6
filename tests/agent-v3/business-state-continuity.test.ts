@@ -25,7 +25,7 @@ describe("Business State V3 continuity", () => {
     const reconciled = reconcileBusinessDecisionV3({ previous, current, message: "como funciona?" });
 
     expect(reconciled.state).toBe("fechamento");
-    expect(reconciled.nextAction).toContain("continuar o fechamento");
+    expect(reconciled.nextAction).toContain("avançar para pagamento");
   });
 
   it("allows an explicit new purchase to start a new commercial decision", () => {
