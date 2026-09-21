@@ -2,6 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runAgentV3Turn as realRunAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
 import { DEFAULT_MODULES } from "../../../src/lib/agent-modules";
+import { P0_TEXT } from "../../../src/lib/agent-v3/prompt/prompt-p0.server";
+import { buildP1Text } from "../../../src/lib/agent-v3/prompt/prompt-p1.server";
+import { buildP2Text } from "../../../src/lib/agent-v3/prompt/prompt-p2.server";
 import { 
   sanitizeSystemLeaks, 
   detectVerboseLoop, 
@@ -90,23 +93,7 @@ async function callAgent(opts: any) {
 function baseAgent() { return {}; }
 function baseContact() { return {}; }
 
-const buildSystemPrompt = (opts: any) => {
-    return [
-      { text: "ANTI-INVENÇÃO: NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse." },
-      { text: "YouTube → \"views\", NUNCA \"plays\". TikTok → \"views\", NUNCA \"plays\"." },
-      { text: "CONFIRMAÇÃO de interesse, nunca despedida." },
-      { text: "exemplo_disparo" },
-      { text: "não é golpe?" },
-      { text: "NUNCA são recusa real" },
-      { text: "CATEGORIAS DE INTERESSE" },
-      { text: "REAPRESENTE A ISCA" },
-      { text: "Como posso ajudar" },
-      { text: "REGRA DE SPLIT" },
-      { text: "CADA BOLHA CURTA" }
-    ];
-};
-const guardFreeTrialOffer = (opts: any) => ({ replaced: false, text: opts.reply });
-const guardSpotifyUnavailableOffer = (opts: any) => ({ replaced: false, text: opts.reply });
+const buildSystemPrompt = (_opts: any) => [{ text: `${P0_TEXT}\n\n${buildP1Text({ funnelAlreadyCompleted: false, mentionsOwnMusic: false })}\n\n${buildP2Text({ isAudioInput: false, isImageInput: false, isStickerInput: false, greetingAlreadyPerformed: false })}` }];
 const isReengagementGreeting = (text: string) => false;
 const isNeutralGreetingAfterBlastOpening = (text: string) => false;
 const isMeaningfulPart = (text: string) => true;
