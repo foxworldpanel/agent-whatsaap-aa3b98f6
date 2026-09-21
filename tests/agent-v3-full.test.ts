@@ -1537,7 +1537,8 @@ describe("Verbose loop guard — trava de custo", () => {
       { sender: "agente" as const, body: "Sem problema! Se preferir eu te explico com calma. É só criar sua conta no nosso painel, colocar saldo via PIX e escolher a plataforma." },
       { sender: "cliente" as const, body: "mas o que é esse painel mesmo" },
     ];
-    const det = detectVerboseLoop(layman);\n    expect(det).toBe(true);
+    const det = detectVerboseLoop(layman);
+    expect(det).toBe(true);
   });
 
   it("conversa LONGA mas PROGREDINDO (cliente faz perguntas novas, cita valores) NÃO dispara", () => {
@@ -1558,7 +1559,8 @@ describe("Verbose loop guard — trava de custo", () => {
       { sender: "agente" as const, body: "Fechado! Qualquer coisa me chama." },
       { sender: "cliente" as const, body: "só uma dúvida: aceita cripto?" },
     ];
-    const det = detectVerboseLoop(engaged);\n    expect(det).toBe(false);
+    const det = detectVerboseLoop(engaged);
+    expect(det).toBe(false);
   });
 
   it("cliente volta com AÇÃO CONCRETA (link do Spotify) — reativa", () => {
@@ -1578,7 +1580,8 @@ describe("Verbose loop guard — trava de custo", () => {
       { sender: "agente" as const, body: "Oi! Como posso ajudar?" },
       { sender: "cliente" as const, body: "sou meio leigo, me explica como funciona" },
     ];
-    const det = detectVerboseLoop(shortLayman);\n    expect(det).toBe(false);
+    const det = detectVerboseLoop(shortLayman);
+    expect(det).toBe(false);
   });
 
 });
