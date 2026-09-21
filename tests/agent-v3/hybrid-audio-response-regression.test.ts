@@ -23,17 +23,14 @@ describe("Hybrid audio reply policy", () => {
   });
 
   it("só chama ElevenLabs quando replyWithAudio for verdadeiro", () => {
-    expect(support).toContain(
+    expect(runtime).toContain(
       "if (replyWithAudio && elevenlabsApiKey && elevenlabsVoiceId)",
     );
   });
 
   it("prompt deixa claro que áudio inbound pode receber texto", () => {
-    expect(orchestrator).toContain(
-      "isso NÃO significa que a resposta também será em áudio",
-    );
-    expect(orchestrator).toContain(
-      "O runtime decide automaticamente se envia texto ou nota de voz",
-    );
+    const p2 = fs.readFileSync("src/lib/agent-v3/prompt/prompt-p2.server.ts", "utf8");
+    expect(p2).toContain("Respostas simples, preços, confirmações e perguntas objetivas devem funcionar bem em texto");
+    expect(p2).toContain("O runtime decide automaticamente se envia texto ou nota de voz");
   });
 });
