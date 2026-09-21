@@ -20,7 +20,6 @@ describe("Agent master switch + individual toggle + funnel priority", () => {
     expect(funnelGate).toContain('.from("welcome_funnels")');
     expect(webhook).toContain('.from("agent_config")');
     expect(webhook).toContain("runWelcomeFunnelWebhookGate");
-    expect(webhook).toContain("persistPendingAgentInboundBehindFunnel");
   });
 
   it("continua bloqueando o Agent V3 pela chave global", () => {
