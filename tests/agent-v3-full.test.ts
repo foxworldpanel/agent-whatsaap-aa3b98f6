@@ -101,7 +101,21 @@ async function generateAgentReplyWithMeta(opts: any) {
     customModules: DEFAULT_MODULES,
     anthropicApiKey: "test-key",
     isInbound: opts.isInbound !== undefined ? opts.isInbound : true,
-    extraContext: opts.extraContext || opts.imageMediaType
+    isOutboundReply: opts.isInbound === false,
+    extraContext: opts.extraContext,
+    inputKind: opts.inputKind === "audio"
+      ? "audio"
+      : opts.imageBase64 || opts.imageMediaType
+        ? "image"
+        : opts.inputKind === "sticker"
+          ? "sticker"
+          : "texto",
+    imageSource: opts.imageBase64 || opts.imageMediaType
+      ? {
+          data: opts.imageBase64 || "fake-base64-data",
+          mediaType: opts.imageMediaType || "image/jpeg",
+        }
+      : undefined,
   });
 
   globalThis.__last_agent_payload = { system: res.rawPrompt }; 
@@ -122,7 +136,10 @@ async function callAgent(opts: any) {
   const res = await generateAgentReplyWithMeta({
     history: opts.history,
     isInbound: opts.isInbound ?? false,
-    extraContext: opts.extraContext
+    extraContext: opts.extraContext,
+    inputKind: opts.inputKind,
+    imageBase64: opts.imageBase64,
+    imageMediaType: opts.imageMediaType,
   });
   return { ...res, fetchMock };
 }
