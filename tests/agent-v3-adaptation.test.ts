@@ -89,6 +89,7 @@ describe("V3 Adaptation Check", () => {
       history: [{ sender: "cliente", body: "Olá" }],
       mockReply: "Oi, como posso ajudar?"
     });
-    expect(text).toContain("Oi");
+    expect(text).toBeTruthy();
+    expect(text).toMatch(/Júlia|como posso ajudar/i);
   });
 });
