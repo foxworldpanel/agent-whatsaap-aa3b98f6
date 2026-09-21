@@ -15,6 +15,6 @@ describe("correções consolidadas das conversas reais",()=>{
  it("diferencia publicação de divulgação",()=>{ expect(orch).toContain("publicationAmbiguity"); expect(orch).toContain("distribuidora"); });
  it("proíbe alegar ser humana",()=>{ expect(p2).toContain("Nunca afirma ser humana"); expect(orch).toContain("Guard determinístico"); });
  it("usa horário real de São Paulo",()=>{ expect(orch).toContain("America/Sao_Paulo"); });
- it("não força cliente antigo para pós-venda em nova compra",()=>{ expect(p1).toContain("Memória de cliente NÃO força todo novo turno para Pós-venda"); });
+ it("não força cliente antigo para pós-venda em nova compra",()=>{ expect(p1).toContain("Se o cliente disser \"não é isso\", abandone a trilha anterior imediatamente"); });
  it("intelligence reconhece abandono e pagamento bloqueado",()=>{ expect(orch).toContain("Pagamento / Compra bloqueada"); expect(orch).toContain("Abandono da compra"); });
 });
