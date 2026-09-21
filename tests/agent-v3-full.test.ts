@@ -1372,25 +1372,34 @@ describe("Sanitização de vazamento de prompt interno (sanitizeSystemLeaks)", (
   it("remove cabeçalho de VETO ecoado pelo LLM e mantém texto legítimo", () => {
     const dirty =
       "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nBom dia! Como posso ajudar?";
-    const out = sanitizeSystemLeaks(dirty);\n    expect(out).toContain("Bom dia! Como posso ajudar?");\n    for (const m of INTERNAL_MARKERS) {\n      expect(out.includes(m)).toBe(false);\n    }
+    const out = sanitizeSystemLeaks(dirty);
+    expect(out).toContain("Bom dia! Como posso ajudar?");
+    for (const m of INTERNAL_MARKERS) {
+      expect(out.includes(m)).toBe(false);
+    }
   });
 
   it("devolve fallback seguro quando resposta era 100% instrução interna (receptivo)", () => {
     const dirty =
       "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nOBRIGAÇÕES desta resposta:\nFORMATO OBRIGATÓRIO: ...";
-    const out = sanitizeSystemLeaks(dirty);\n    expect(out).not.toContain("VETO DE PRIORIDADE");\n    expect(out).not.toContain("FORMATO OBRIGATÓRIO");
+    const out = sanitizeSystemLeaks(dirty);
+    expect(out).not.toContain("VETO DE PRIORIDADE");
+    expect(out).not.toContain("FORMATO OBRIGATÓRIO");
   });
 
   it("devolve fallback de disparo (reapresenta a isca) quando tudo era instrução em thread de blast", () => {
     const dirty =
       "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (DISPARO) ⛔\nOBRIGAÇÕES desta resposta:\nSOBRESCREVE tudo abaixo.";
-    const out = sanitizeSystemLeaks(dirty);\n    expect(out).not.toContain("VETO DE PRIORIDADE");\n    expect(out).not.toContain("SOBRESCREVE");
+    const out = sanitizeSystemLeaks(dirty);
+    expect(out).not.toContain("VETO DE PRIORIDADE");
+    expect(out).not.toContain("SOBRESCREVE");
   });
 
   it("não altera resposta legítima da Júlia (sem falsos positivos)", () => {
     const clean =
       "Boa tarde! Posso te mostrar como acelerar suas redes?\n===SPLIT===\nR$97 pra 10 playlists por 30 dias.";
-    const out = sanitizeSystemLeaks(clean);\n    expect(out).toBe(clean.trim());
+    const out = sanitizeSystemLeaks(clean);
+    expect(out).toBe(clean.trim());
   });
 
   it("pipeline generateAgentReplyWithMeta bloqueia vazamento antes de retornar texto ao caller", async () => {
