@@ -7,6 +7,7 @@ const inboundGate = fs.readFileSync("src/lib/agent-v3/inbound-welcome-funnel-gat
 const funnelGate = fs.readFileSync("src/lib/welcome-funnel-webhook-gate.server.ts", "utf8");
 const funnelOrchestrator = fs.readFileSync("src/lib/welcome-funnel-orchestrator.server.ts", "utf8");
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
+const p1 = fs.readFileSync("src/lib/agent-v3/prompt/prompt-p1.server.ts", "utf8");
 
 describe("Caso real: funil, link e inteligência acumulada", () => {
   it("preserva fechamento em mensagem curta após Spotify + plays + quantidade", () => {
@@ -27,8 +28,8 @@ describe("Caso real: funil, link e inteligência acumulada", () => {
   });
 
   it("valida track vs user no Spotify", () => {
-    expect(orchestrator).toContain("open.spotify.com/track/");
-    expect(orchestrator).toContain("Não oriente usar link de usuário/perfil");
+    expect(p1).toContain("valide o formato (track vs playlist, etc)");
+    expect(p1).toContain("nunca diga que \"vai seguir com o pedido\"");
   });
 
   it("mensagem durante Funnel permanece durável atrás da barreira em vez de cancelar/replay", () => {
