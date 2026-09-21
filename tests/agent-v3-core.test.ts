@@ -43,7 +43,16 @@ function mockAnthropic(reply: string) {
           : String(input?.url || input || "");
 
     if (url.includes("supabase.co")) {
-      return new Response("[]", {
+      const body = url.includes("/rest/v1/agent_modules_v3")
+        ? JSON.stringify([{
+            key: "__test_cms_seed",
+            content: "Test-only CMS seed used to satisfy the real fail-closed module loader.",
+            enabled: true,
+            priority: -1,
+            always_load: false,
+          }])
+        : "[]";
+      return new Response(body, {
         status: 200,
         headers: { "content-type": "application/json" },
       });
