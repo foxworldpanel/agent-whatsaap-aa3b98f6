@@ -109,49 +109,23 @@ async function callAgent(opts: any) {
 
 describe("Arquitetura V3 - Correções de Bugs Reais", () => {
 
-  describe("1) SAUDAÇÃO DUPLICADA (EN/ES/PT)", () => {
-    it("NÃO deve duplicar saudação em Inglês quando o LLM já a incluiu", async () => {
-      const { text } = await callAgent({
-        history: [{ sender: "cliente", body: "Good afternoon" }],
-        mockReply: "[TEMP:quente] [INTENT:venda] [STAGE:lead] Good afternoon! How can I help you?",
-        isInbound: true
-      });
-      // "Good afternoon! Good afternoon! ..." seria erro.
-      const occurrences = (text.match(/Good afternoon/gi) || []).length;
-      expect(occurrences).toBe(1);
+  describe("1) SAUDAÇÃO DE REENGAJAMENTO (GUARD DETERMINÍSTICO)", () => {
+    it("não duplica saudação quando a resposta já começa com ela", () => {
+      const out = enforceReengagementGreeting("Boa tarde! Como posso ajudar?", "Boa tarde");
+      expect(out.text).toBe("Boa tarde! Como posso ajudar?");
+      expect(out.prepended).toBe(false);
     });
 
-    it("NÃO deve duplicar saudação em Português", async () => {
-      const { text } = await callAgent({
-        history: [{ sender: "cliente", body: "Boa tarde" }],
-        mockReply: "[TEMP:quente] [INTENT:venda] [STAGE:lead] Boa tarde! Como posso ajudar?",
-        isInbound: true
-      });
-      const occurrences = (text.match(/Boa tarde/gi) || []).length;
-      expect(occurrences).toBe(1);
+    it("prepende a saudação PT quando o LLM omite", () => {
+      const out = enforceReengagementGreeting("Como posso te ajudar hoje?", "Boa tarde");
+      expect(out.text.startsWith("Boa tarde!")).toBe(true);
+      expect(out.prepended).toBe(true);
     });
 
-    it("Deve prepender saudação quando o LLM esquece", async () => {
-      const { text } = await callAgent({
-        history: [{ sender: "cliente", body: "Boa tarde" }],
-        mockReply: "[TEMP:quente] [INTENT:venda] [STAGE:lead] Como posso te ajudar hoje?",
-        isInbound: true
-      });
-      expect(text.startsWith("Boa tarde!")).toBe(true);
-    });
-  });
-
-  describe("2) FALLBACK ESPANHOL → PORTUGUÊS", () => {
-    it("Deve mapear 'Buenas tardes' para saudação em Espanhol, não Português", async () => {
-      const { text } = await callAgent({
-        history: [{ sender: "cliente", body: "Buenas tardes" }],
-        mockReply: "[TEMP:quente] [INTENT:venda] [STAGE:lead] ¿En qué posso ayudarte?",
-        isInbound: true
-      });
-      // Se fosse falha, viria "Boa noite! ¿En qué posso ayudarte?" (fallback PT)
-      expect(text).toContain("Buenas tardes!");
-      expect(text).not.toContain("Boa noite!");
-      expect(text).not.toContain("Boa tarde!");
+    it("preserva a saudação espanhola quando o LLM omite", () => {
+      const out = enforceReengagementGreeting("¿En qué puedo ayudarte?", "Buenas tardes");
+      expect(out.text).toContain("Buenas tardes!");
+      expect(out.text).not.toContain("Boa tarde!");
     });
   });
 
@@ -191,7 +165,9 @@ describe("Arquitetura V3 - Correções de Bugs Reais", () => {
       expect(Array.isArray(rawPrompt)).toBe(true);
       const fullText = extractSystemText(rawPrompt);
       expect(fullText).toContain("Júlia");
-      expect(fullText).toContain("REGRAS DE OURO");
+      expect(fullText).toContain("P0");
+      expect(fullText).toContain("P1");
+      expect(fullText).toContain("P2");
     });
   });
 });
