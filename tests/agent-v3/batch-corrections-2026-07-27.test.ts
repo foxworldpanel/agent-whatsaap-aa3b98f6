@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
-import { funnelMatchesMessage } from "../../src/routes/api/public/hooks/uazapi-webhook";
+import { webhookGateMustStopAgent } from "../../src/lib/welcome-funnel-webhook-gate.server";
 import { deriveBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-state.server";
 import { extractNextOpportunity } from "../../src/lib/agent-v3/memory/customer-memory.server";
 
@@ -9,9 +9,9 @@ const p1 = fs.readFileSync("src/lib/agent-v3/prompt/prompt-p1.server.ts", "utf8"
 const conditional = fs.readFileSync("src/lib/agent-v3/prompt/prompt-conditional.server.ts", "utf8");
 
 describe("Correções reais 27/07", () => {
-  it("gatilho oficial tolera texto adicional, mas Oi sozinho nunca dispara", () => {
-    expect(funnelMatchesMessage("Olá! Tenho interesse em divulgar minha música.", "Olá! Tenho interesse em divulgar minha música. Oi")).toBe(true);
-    expect(funnelMatchesMessage("Oi,Olá! Tenho interesse em divulgar minha música.", "Oi")).toBe(false);
+  it("gate do funil só bloqueia o agente quando há ownership durável", () => {
+    expect(webhookGateMustStopAgent({ status: "no_match" })).toBe(false);
+    expect(webhookGateMustStopAgent({ status: "conversation_blocked", barrier: "running" })).toBe(true);
   });
 
   it("comprei ontem entra em pedido realizado/pós-venda", () => {
