@@ -11,6 +11,9 @@ import {
   humanizePunctuationV3 as humanizePunctuation
 } from "../src/lib/agent-v3/brain/guards.server";
 import { autoSplitLongPartsV3 as autoSplitLongParts } from "../src/lib/agent-v3/integrations/audio-processor.server";
+import { P0_TEXT } from "../src/lib/agent-v3/prompt/prompt-p0.server";
+import { buildP1Text } from "../src/lib/agent-v3/prompt/prompt-p1.server";
+import { buildP2Text } from "../src/lib/agent-v3/prompt/prompt-p2.server";
 import { 
   stripEmojis, 
   keepFirstEmojiOnly,
@@ -95,23 +98,7 @@ async function callAgent(opts: any) {
 function baseAgent() { return {}; }
 function baseContact() { return {}; }
 
-const buildSystemPrompt = (opts: any) => {
-    return [
-      { text: "ANTI-INVENÇÃO: NUNCA assume ou inventa qual rede ou serviço o cliente quer se ele não disse." },
-      { text: "YouTube → \"views\", NUNCA \"plays\". TikTok → \"views\", NUNCA \"plays\"." },
-      { text: "CONFIRMAÇÃO de interesse, nunca despedida." },
-      { text: "exemplo_disparo" },
-      { text: "não é golpe?" },
-      { text: "NUNCA são recusa real" },
-      { text: "CATEGORIAS DE INTERESSE" },
-      { text: "REAPRESENTE A ISCA" },
-      { text: "Como posso ajudar" },
-      { text: "REGRA DE SPLIT" },
-      { text: "CADA BOLHA CURTA" }
-    ];
-};
-const guardFreeTrialOffer = (opts: any) => ({ replaced: false, text: opts.reply });
-const guardSpotifyUnavailableOffer = (opts: any) => ({ replaced: false, text: opts.reply });
+const buildSystemPrompt = (opts: any) => [{ text: `${P0_TEXT}\n\n${buildP1Text({ funnelAlreadyCompleted: false })}\n\n${buildP2Text({ isAudioInput: false, isImageInput: false, isStickerInput: false, greetingAlreadyPerformed: false })}` }];
 const isReengagementGreeting = (history: any[]) => { const customers = history.filter((m:any)=>m.sender==="cliente"); if (customers.length !== 1 || !isPureGreeting(customers[0]?.body || "")) return false; const previous = history.filter((m:any)=>m.created_at && m!==customers[0]).at(-1); return !!previous?.created_at && new Date(customers[0].created_at).getTime()-new Date(previous.created_at).getTime() >= 6*60*60*1000; };
 const isNeutralGreetingAfterBlastOpening = (history: any[]) => { const customers = history.filter((m:any)=>m.sender==="cliente"); return customers.length===1 && isPureGreeting(customers[0]?.body || ""); };
 const isMeaningfulPart = (text: string) => Boolean(String(text||"").trim() && /[\\p{L}\\p{N}]/u.test(String(text||"").trim()));
