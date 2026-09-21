@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 const webhook=fs.readFileSync("src/routes/api/public/hooks/uazapi-webhook.ts","utf8");
+const runtime=fs.readFileSync("src/lib/agent-v3/runtime.server.ts","utf8");
+const support=fs.readFileSync("src/lib/agent-v3/runtime-support.server.ts","utf8");
 const orch=fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts","utf8");
+const p0=fs.readFileSync("src/lib/agent-v3/prompt/prompt-p0.server.ts","utf8");
+const p1=fs.readFileSync("src/lib/agent-v3/prompt/prompt-p1.server.ts","utf8");
+const p2=fs.readFileSync("src/lib/agent-v3/prompt/prompt-p2.server.ts","utf8");
 describe("correções consolidadas das conversas reais",()=>{
  it("handoff inclui pedido sem robô",()=>{ expect(support).toContain("sem\\s+ser"); expect(runtime).toContain("agent_enabled: false"); });
  it("detecta venda bloqueada por problema técnico",()=>{ expect(support).toContain("venda bloqueada por problema técnico no cadastro/pagamento"); });
  it("mantém trava persistente do funil",()=>{ const gate=fs.readFileSync("src/lib/welcome-funnel-webhook-gate.server.ts","utf8"); const orchestrator=fs.readFileSync("src/lib/welcome-funnel-orchestrator.server.ts","utf8"); expect(gate).toContain("getWelcomeFunnelConversationBarrier"); expect(orchestrator).toContain("acquireAgentConversationLock"); expect(orchestrator).not.toContain('.from(\"welcome_funnel_runs\")'); });
  it("proíbe validar comprovante por banco/recebedor",()=>{ expect(p0).toContain("COMPROVANTE DE PAGAMENTO — REGRA CRÍTICA"); expect(p0).toContain("esse banco não é nosso"); });
- it("diferencia publicação de divulgação",()=>{ expect(orch).toContain("publicação/distribuição de divulgação"); });
- it("proíbe alegar ser humana",()=>{ expect(orch).toContain("Nunca afirme \"sou humana\""); expect(orch).toContain("Guard determinístico"); });
+ it("diferencia publicação de divulgação",()=>{ expect(orch).toContain("publicationAmbiguity"); expect(orch).toContain("distribuidora"); });
+ it("proíbe alegar ser humana",()=>{ expect(p2).toContain("Nunca afirma ser humana"); expect(orch).toContain("Guard determinístico"); });
  it("usa horário real de São Paulo",()=>{ expect(orch).toContain("America/Sao_Paulo"); });
  it("não força cliente antigo para pós-venda em nova compra",()=>{ expect(p1).toContain("Memória de cliente NÃO força todo novo turno para Pós-venda"); });
  it("intelligence reconhece abandono e pagamento bloqueado",()=>{ expect(orch).toContain("Pagamento / Compra bloqueada"); expect(orch).toContain("Abandono da compra"); });
