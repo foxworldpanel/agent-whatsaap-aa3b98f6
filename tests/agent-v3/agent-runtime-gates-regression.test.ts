@@ -13,13 +13,11 @@ describe("Agent V3 runtime gates", () => {
   });
 
   it("needs_review não funciona como kill switch oculto", () => {
-    expect(webhook).toContain("conversationGate?.agent_enabled === false");
-    expect(webhook).not.toContain(
-      "conversationGate?.agent_enabled === false || conversationGate?.needs_review === true",
-    );
+    expect(webhook).toContain("isConversationAgentEnabledV3(supabaseAdmin, conversationId)");
+    expect(webhook).not.toContain("conversationGate?.needs_review === true");
   });
 
-  it("ainda consulta needs_review para telemetria/UI sem usá-lo para desligar", () => {
-    expect(webhook).toContain('.select("agent_enabled, needs_review")');
+  it("não usa needs_review como gate do webhook", () => {
+    expect(webhook).not.toContain("conversationGate?.needs_review");
   });
 });
