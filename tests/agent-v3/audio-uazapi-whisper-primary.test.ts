@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 
-const webhook = fs.readFileSync(
-  "src/routes/api/public/hooks/uazapi-webhook.ts",
+const runtime = fs.readFileSync(
+  "src/lib/agent-v3/runtime.server.ts",
   "utf8",
 );
 const uazapi = fs.readFileSync("src/lib/uazapi.server.ts", "utf8");
