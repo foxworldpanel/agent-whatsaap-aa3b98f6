@@ -13,12 +13,39 @@ import { limitEmojiFrequency } from "@/lib/emoji-limiter";
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 
 function mockAnthropic(reply: string) {
-  return vi.fn(async (url: any) => {
+  const anthropicMock = vi.fn(async () => {
     return new Response(
       JSON.stringify({ content: [{ type: "text", text: reply }] }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
   });
+
+  // Estes testes exercitam o orchestrator real com módulos customizados.
+  // O mock global de fetch deve interceptar apenas a chamada ao Claude; se ele
+  // responder também ao Supabase, o client interpreta o payload da Anthropic
+  // como resultado PostgREST e loadEnabledModulesV3 recebe um objeto em vez de
+  // uma lista. Mantemos as chamadas Supabase isoladas e vazias, enquanto
+  // fetchMock.mock.calls continua representando somente as chamadas ao Claude.
+  const fetchMock = (async (input: any, init?: any) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : String(input?.url || input || "");
+
+    if (url.includes("supabase.co")) {
+      return new Response("[]", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    return anthropicMock(input, init);
+  }) as typeof fetch & { mock: typeof anthropicMock.mock };
+
+  fetchMock.mock = anthropicMock.mock;
+  return fetchMock;
 }
 
 function extractSystemText(s: any): string {
