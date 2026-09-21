@@ -97,7 +97,7 @@ const buildSystemPrompt = (opts: any) => [{ text: `${P0_TEXT}\n\n${buildP1Text({
 const isReengagementGreeting = (history: any[]) => { const customers = history.filter((m:any)=>m.sender==="cliente"); if (customers.length !== 1 || !isPureGreeting(customers[0]?.body || "")) return false; const previous = history.filter((m:any)=>m.created_at && m!==customers[0]).at(-1); return !!previous?.created_at && new Date(customers[0].created_at).getTime()-new Date(previous.created_at).getTime() >= 6*60*60*1000; };
 const isNeutralGreetingAfterBlastOpening = (history: any[]) => { const customers = history.filter((m:any)=>m.sender==="cliente"); return customers.length===1 && isPureGreeting(customers[0]?.body || ""); };
 const isMeaningfulPart = (text: string) => Boolean(String(text||"").trim() && /[\\p{L}\\p{N}]/u.test(String(text||"").trim()));
-const looksLikeConcreteAction = (text: string) => /https?:\\/\\/|\\b(?:quero comprar|id do pedido)\\b/i.test(String(text||""));
+const looksLikeConcreteAction = (text: string) => String(text || "").includes("http") || String(text || "").toLowerCase().includes("quero comprar") || String(text || "").toLowerCase().includes("id do pedido");
 
 describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)", () => {
   it.each(["blz", "certo", "pode falar", "sim", "manda", "bora"])(
