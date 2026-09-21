@@ -97,7 +97,7 @@ function baseContact() { return {}; }
 const buildSystemPrompt = (_opts: any) => [{ text: `${P0_TEXT}\n\n${buildP1Text({ funnelAlreadyCompleted: false, mentionsOwnMusic: false })}\n\n${buildP2Text({ isAudioInput: false, isImageInput: false, isStickerInput: false, greetingAlreadyPerformed: false })}` }];
 const isReengagementGreeting = (text: string) => false;
 const isNeutralGreetingAfterBlastOpening = (text: string) => false;
-const isMeaningfulPart = (text: string) => true;
+const isMeaningfulPart = (text: string) => Boolean(String(text || "").trim() && /[\p{L}\p{N}]/u.test(String(text || "").trim()));
 const containsEmoji = (text: string) => false;
 const countEmojis = (text: string) => 0;
 const looksLikeConcreteAction = (text: string) => String(text || "").includes("http") || String(text || "").toLowerCase().includes("quero comprar") || String(text || "").toLowerCase().includes("id do pedido");
