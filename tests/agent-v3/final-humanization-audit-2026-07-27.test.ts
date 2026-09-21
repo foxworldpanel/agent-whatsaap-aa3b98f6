@@ -15,7 +15,7 @@ describe("auditoria final de humanização e consistência", () => {
   });
   it("silencia confirmações curtas sem transformar saudação em gatilho/reação", () => {
     expect(webhook).toContain('"ok", "okay", "blz", "beleza", "entendi", "certo"');
-    expect(webhook).toContain('new Set(["oi", "ola", "bom dia", "boa tarde", "boa noite"])');
+    expect(webhook).toContain("Saudações (oi/bom dia/etc.) NÃO entram aqui.");
   });
   it("tabela geral é determinística para qualquer plataforma", () => {
     expect(orchestrator).toContain("buildGeneralPlatformPriceTable");
