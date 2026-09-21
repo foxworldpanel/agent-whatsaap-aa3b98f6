@@ -19,7 +19,8 @@ describe("Agent master switch + individual toggle + funnel priority", () => {
     expect(webhook).toContain("runWelcomeFunnelWebhookGate");
     expect(funnelGate).toContain('.from("welcome_funnels")');
     expect(webhook).toContain('.from("agent_config")');
-    expect(webhook).toContain("If the Funnel owns the conversation, eligible Agent work is persisted as pending Stage B first");
+    expect(webhook).toContain("runWelcomeFunnelWebhookGate");
+    expect(webhook).toContain("persistPendingAgentInboundBehindFunnel");
   });
 
   it("continua bloqueando o Agent V3 pela chave global", () => {
