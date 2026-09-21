@@ -18,7 +18,7 @@ describe("complete Customer Turn execution snapshot", () => {
 
   it("executes deferred funnel and outbound target from sealed membership", () => {
     expect(runtime).toContain(".filter((member) => member.deferred_funnel)");
-    expect(runtime).toContain("sendTarget: last.send_target");
+    expect(runtime).toMatch(/sendTarget\s*:\s*last\.send_target/);
     expect(runtime).not.toContain("job?.deferred_funnel");
   });
 
