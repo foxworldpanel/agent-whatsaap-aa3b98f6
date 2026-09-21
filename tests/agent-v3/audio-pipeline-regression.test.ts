@@ -20,7 +20,7 @@ describe("Agent V3 audio pipeline", () => {
   it("responde áudio inbound com ElevenLabs quando key e voice id existem", () => {
     expect(runtime).toContain("replyWithAudio && elevenlabsApiKey && elevenlabsVoiceId");
     expect(runtime).toContain("textToSpeechV3");
-    expect(runtime).toContain("uazapiSendAudio(creds, phoneStr, audioBase64)");
+    expect(runtime).toContain("uazapiSendAudio(creds, sendTarget, audioBase64)");
   });
 
   it("envia nota de voz PTT pela Uazapi", () => {
