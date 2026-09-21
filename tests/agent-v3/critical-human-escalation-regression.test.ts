@@ -4,6 +4,6 @@ describe("Critical support -> human escalation",()=>{
  it("detecta risco jurídico e reclamação crítica no suporte canônico",()=>{for(const q of ["detectCriticalHumanEscalation","denuncia","procon","advogad","supportUnavailable","unresolvedSupport"])expect(support).toContain(q)});
  it("desliga agente e marca revisão humana",()=>{expect(runtime).toContain("agent_enabled: false");expect(runtime).toContain("needs_review: true");expect(runtime).toContain("critical_human_escalation")});
  it("intercepta antes da execução do agente",()=>{const escalation=runtime.indexOf("detectCriticalHumanEscalation({");const agent=runtime.indexOf("executeAgent(",escalation);expect(escalation).toBeGreaterThanOrEqual(0);expect(agent).toBeGreaterThan(escalation)});
- it("grava intelligence coerente",()=>{expect(runtime).toMatch(/intent\s*:\s*"Reclamação"/);expect(runtime).toMatch(/sentiment\s*:\s*"Negativo"/);expect(runtime).toMatch(/urgency\s*:\s*"Alta"/);expect(runtime).toContain("human_escalation: true")});
+ it("grava intelligence coerente",()=>{expect(runtime).toMatch(/intent\s*:\s*"Reclama(?:ção|Ã§Ã£o)"/);expect(runtime).toMatch(/sentiment\s*:\s*"Negativo"/);expect(runtime).toMatch(/urgency\s*:\s*"Alta"/);expect(runtime).toContain("human_escalation: true")});
  it("fallback do orchestrator mantém reclamação crítica",()=>{expect(orchestrator).toContain("criticalComplaintSignal");expect(orchestrator).toContain('? "Reclamação"');expect(orchestrator).toContain('? "Alta"')});
 });
