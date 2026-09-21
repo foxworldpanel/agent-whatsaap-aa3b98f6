@@ -22,12 +22,38 @@ function baseContact() {
 }
 
 function mockAnthropic(reply: string) {
-  return vi.fn(async (url: RequestInfo | URL, opts: any) => {
+  const anthropicMock = vi.fn(async () => {
     return new Response(
-      JSON.stringify({ content: [{ type: "text", text: `[TEMP:quente] [INTENT:compra] [STAGE:fechamento] ${reply}` }] }),
+      JSON.stringify({
+        content: [{
+          type: "text",
+          text: `[TEMP:quente] [INTENT:compra] [STAGE:fechamento] ${reply}`
+        }]
+      }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
   });
+
+  const fetchMock = (async (input: any, init?: any) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : String(input?.url || input || "");
+
+    if (url.includes("supabase.co")) {
+      return new Response("[]", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
+    return anthropicMock(input, init);
+  }) as typeof fetch & { mock: typeof anthropicMock.mock };
+
+  fetchMock.mock = anthropicMock.mock;
+  return fetchMock;
 }
 
 /**
