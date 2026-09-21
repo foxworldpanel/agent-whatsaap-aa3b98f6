@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const migration = readFileSync("supabase/migrations/20260914350000_customer_turn_snapshot_source_presence.sql", "utf8");
+const migration = readFileSync("supabase/migrations/20260914333000_complete_snapshot_quarantine_and_constraints.sql", "utf8");
 
 describe("Customer Turn durable snapshot structural constraints", () => {
   it("rejects empty execution identity on new membership rows without invalidating legacy deployment", () => {
