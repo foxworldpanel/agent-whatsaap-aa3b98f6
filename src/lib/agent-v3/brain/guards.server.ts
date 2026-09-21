@@ -12,7 +12,7 @@ export function sanitizeSystemLeaks(text: string): string {
 
   // 2. Marcadores clássicos da V1 que podem vazar via transferência de blocos
   const patterns = [
-    /⛔/,
+    /⛔/g,
     /VETO DE PRIORIDADE/i,
     /PRIORIDADE M[ÁA]XIMA/i,
     /MODO REENGAJAMENTO/i,
