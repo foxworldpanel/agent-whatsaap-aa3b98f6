@@ -14,17 +14,17 @@ describe("Uazapi-native Whisper transcription", () => {
   });
 
   it("usa transcrição retornada pela Uazapi como caminho principal", () => {
-    expect(webhook).toContain("downloaded.transcription?.trim()");
-    expect(webhook).toContain("hasTranscription");
+    expect(runtime).toContain("downloaded.transcription?.trim()");
+    expect(runtime).toContain("hasTranscription");
   });
 
   it("mantém Whisper direto como fallback", () => {
-    expect(webhook).toContain("processAudioV3(");
-    expect(webhook).toContain("if (!finalMsgText)");
+    expect(runtime).toContain("processAudioV3(");
+    expect(runtime).toContain("if (!finalMsgText)");
   });
 
   it("persiste a transcrição real no CRM", () => {
-    expect(webhook).toContain("body: finalMsgText");
-    expect(webhook).toContain('kind: "audio"');
+    expect(runtime).toContain("body: finalMsgText");
+    expect(runtime).toContain('kind: "audio"');
   });
 });
