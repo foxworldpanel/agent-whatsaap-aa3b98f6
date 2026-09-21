@@ -5,10 +5,10 @@ import {
   sanitizeSystemLeaks, 
   detectVerboseLoop, 
   enforceReengagementGreeting, 
-  limitEmojiFrequency,
   humanizePunctuationV3 as humanizePunctuation
 } from "../src/lib/agent-v3/brain/guards.server";
 import { autoSplitLongPartsV3 as autoSplitLongParts } from "../src/lib/agent-v3/integrations/audio-processor.server";
+import { limitEmojiFrequency } from "../src/lib/emoji-limiter";
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 
@@ -120,12 +120,12 @@ describe("Arquitetura V3 - Correções de Bugs Reais", () => {
 
   describe("3) GUARD DE EMOJI QUEBRADO", () => {
     it("Deve tratar histórico vazio sem dar TypeError", () => {
-      const result = limitEmojiFrequency("Oi 😊", []);
+      const result = limitEmojiFrequency("Oi 😊", { recentAgentBodies: [] });
       expect(result).toBe("Oi 😊");
     });
 
     it("Deve tratar histórico nulo sem dar TypeError", () => {
-      const result = limitEmojiFrequency("Oi 😊", null as any);
+      const result = limitEmojiFrequency("Oi 😊", { recentAgentBodies: [] });
       expect(result).toBe("Oi 😊");
     });
   });
