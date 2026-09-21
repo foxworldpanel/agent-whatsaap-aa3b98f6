@@ -84,7 +84,9 @@ export function deriveBusinessDecisionV3(params: {
   const newPurchase = /\b(quero comprar|quero fazer|vou comprar|vou fazer|manda o pix|qual o pix|quero pagar|onde pago|mais \d+|novo pedido|outra compra)\b/.test(current);
   const paymentTopic = /\b(cadastro|cadastrar|pix|pagamento|recarga|saldo|finalizar|pedido|comprar)\b/.test(context);
   const currentProblem = /\b(nao funciona|nao abre|nao aparece|nao completa|nao consigo|nao avanca|nao finaliza|erro|trav|muito complicado|volta|alto risco|transacao de alto risco)\b/.test(current);
-  const priorTroubleshooting = (context.match(/\b(cache|cookie|navegador|ticket|atualiz|tente novamente|cadastro|pagamento)\b/g) || []).length >= 3;
+  const troubleshootingSignals = (context.match(/\b(cache|cookies?|navegador|ticket|atualiz\w*|tente novamente|cadastro|pagamento|pix)\b/g) || []).length;
+  const repeatedFailureSignals = (context.match(/\b(nao consigo|nao aparece|nao funciona|erro|trav\w*)\b/g) || []).length;
+  const priorTroubleshooting = troubleshootingSignals >= 3 || (troubleshootingSignals >= 2 && repeatedFailureSignals >= 2);
 
   if (!resolution && !newPurchase && paymentTopic && currentProblem && priorTroubleshooting) return { state: "compra_bloqueada", risk: "humano_obrigatorio", reason: "venda bloqueada por problema técnico persistente", nextAction: "pausar e encaminhar ao setor responsável", allowQualification: false, shouldHandoff: true };
   if (!resolution && paymentTopic && currentProblem) return { state: "compra_bloqueada", risk: "alto", reason: "cliente tentando comprar com problema técnico", nextAction: "dar uma única orientação simples; se persistir, encaminhar", allowQualification: false, shouldHandoff: false };
