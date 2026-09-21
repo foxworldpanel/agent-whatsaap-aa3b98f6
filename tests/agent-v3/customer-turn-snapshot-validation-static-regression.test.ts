@@ -5,7 +5,7 @@ const migration=readFileSync("supabase/migrations/20260914351500_customer_turn_s
 
 describe("Customer Turn snapshot constraint validation",()=>{
  it("validates clean historical dimensions without making dirty legacy rows block deployment",()=>{
-  expect(migration).toContain("IF NOT EXISTS");
+  expect(migration).toContain("IF EXISTS");
   expect(migration).toContain("VALIDATE CONSTRAINT agent_customer_turn_member_user_present");
   expect(migration).toContain("VALIDATE CONSTRAINT agent_customer_turn_member_external_id_present");
   expect(migration).toContain("VALIDATE CONSTRAINT agent_customer_turn_member_input_kind_valid");
