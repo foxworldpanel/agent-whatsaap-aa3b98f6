@@ -5,6 +5,10 @@ const webhook = fs.readFileSync(
   "src/routes/api/public/hooks/uazapi-webhook.ts",
   "utf8",
 );
+const funnelGate = fs.readFileSync(
+  "src/lib/welcome-funnel-webhook-gate.server.ts",
+  "utf8",
+);
 const agentFunctions = fs.readFileSync(
   "src/lib/agent.functions.ts",
   "utf8",
@@ -12,10 +16,10 @@ const agentFunctions = fs.readFileSync(
 
 describe("Agent master switch + individual toggle + funnel priority", () => {
   it("executa o funil antes de avaliar a chave global do agente", () => {
-    const funnel = webhook.indexOf('.from("welcome_funnels")');
-    const globalGate = webhook.indexOf('.from("agent_config")');
-    expect(funnel).toBeGreaterThan(-1);
-    expect(globalGate).toBeGreaterThan(funnel);
+    expect(webhook).toContain("runWelcomeFunnelWebhookGate");
+    expect(funnelGate).toContain('.from("welcome_funnels")');
+    expect(webhook).toContain('.from("agent_config")');
+    expect(webhook).toContain("If the Funnel owns the conversation, eligible Agent work is persisted as pending Stage B first");
   });
 
   it("continua bloqueando o Agent V3 pela chave global", () => {
@@ -24,7 +28,7 @@ describe("Agent master switch + individual toggle + funnel priority", () => {
 
   it("continua bloqueando o Agent V3 pela chave individual", () => {
     expect(webhook).toContain("ok (agent disabled for conversation)");
-    expect(webhook).toContain('.select("agent_enabled, needs_review")');
+    expect(webhook).toContain("isConversationAgentEnabledV3(supabaseAdmin, conversationId)");
   });
 
   it("toggle global não sobrescreve os toggles individuais", () => {
