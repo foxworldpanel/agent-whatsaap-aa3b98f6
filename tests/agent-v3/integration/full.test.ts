@@ -58,6 +58,7 @@ async function generateAgentReplyWithMeta(opts: any) {
 
   const res = await realRunAgentV3Turn({
     userId: "bd59fa41-3a6d-4767-8334-a69076f8e434",
+    workspaceId: "00000000-0000-0000-0000-000000000001",
     message: lastMessage,
     history: historyForV3,
     enabledModules: Object.keys(DEFAULT_MODULES),
