@@ -6,13 +6,17 @@ import {
   sanitizeSystemLeaks, 
   detectVerboseLoop, 
   enforceReengagementGreeting, 
-  limitEmojiFrequency,
+  pickReengagementGreeting,
+  isPureGreeting,
   humanizePunctuationV3 as humanizePunctuation
 } from "../src/lib/agent-v3/brain/guards.server";
 import { autoSplitLongPartsV3 as autoSplitLongParts } from "../src/lib/agent-v3/integrations/audio-processor.server";
 import { 
   stripEmojis, 
-  keepFirstEmojiOnly 
+  keepFirstEmojiOnly,
+  containsEmoji,
+  countEmojis,
+  limitEmojiFrequency
 } from "../src/lib/emoji-limiter";
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
@@ -108,12 +112,10 @@ const buildSystemPrompt = (opts: any) => {
 };
 const guardFreeTrialOffer = (opts: any) => ({ replaced: false, text: opts.reply });
 const guardSpotifyUnavailableOffer = (opts: any) => ({ replaced: false, text: opts.reply });
-const isReengagementGreeting = (text: string) => false;
-const isNeutralGreetingAfterBlastOpening = (text: string) => false;
-const isMeaningfulPart = (text: string) => true;
-const containsEmoji = (text: string) => false;
-const countEmojis = (text: string) => 0;
-const looksLikeConcreteAction = (text: string) => true;
+const isReengagementGreeting = (history: any[]) => { const customers = history.filter((m:any)=>m.sender==="cliente"); if (customers.length !== 1 || !isPureGreeting(customers[0]?.body || "")) return false; const previous = history.filter((m:any)=>m.created_at && m!==customers[0]).at(-1); return !!previous?.created_at && new Date(customers[0].created_at).getTime()-new Date(previous.created_at).getTime() >= 6*60*60*1000; };
+const isNeutralGreetingAfterBlastOpening = (history: any[]) => { const customers = history.filter((m:any)=>m.sender==="cliente"); return customers.length===1 && isPureGreeting(customers[0]?.body || ""); };
+const isMeaningfulPart = (text: string) => Boolean(String(text||"").trim() && /[\\p{L}\\p{N}]/u.test(String(text||"").trim()));
+const looksLikeConcreteAction = (text: string) => /https?:\\/\\/|\\b(?:quero comprar|id do pedido)\\b/i.test(String(text||""));
 
 describe("1) Reconhecimento de interesse pós-abertura de disparo (via Claude)", () => {
   it.each(["blz", "certo", "pode falar", "sim", "manda", "bora"])(
@@ -495,7 +497,7 @@ describe("8c) Reengajamento respeita burst de mensagens (saudação + pergunta r
 describe("9) Auto-split de mensagens com \\n\\n", () => {
   it("resposta sem \\n\\n NÃO divide", () => {
     const single = "Show, qual seu objetivo?";
-    const parts = autoSplitLongParts([single]);
+    const parts = autoSplitLongParts(single);
     expect(
       parts.length >= 1,
       `FALHOU: mensagem sem \\n\\n foi dividida em ${parts.length} partes — deveria continuar como 1`,
@@ -505,7 +507,7 @@ describe("9) Auto-split de mensagens com \\n\\n", () => {
   it("resposta curta com \\n\\n DIVIDE (sinal do modelo basta, sem limite de chars)", () => {
     const msg =
       "Perfeito! Seu pedido já está sendo entregue agora! 😊\n\nOs 10.000 plays + ouvintes já estão chegando na sua música. Você pode acompanhar a evolução direto pelo painel, e o status vai atualizando conforme entrega.\n\nQualquer coisa me chama!";
-    const parts = autoSplitLongParts([msg]);
+    const parts = autoSplitLongParts(msg);
     expect(
       parts.length >= 2,
       `FALHOU: resposta com 3 parágrafos deveria virar 3 mensagens; virou ${parts.length}`,
@@ -519,7 +521,7 @@ describe("9) Auto-split de mensagens com \\n\\n", () => {
       "No YouTube o que mais pesa hoje é a combinação de views, inscritos e horas de exibição — views mostram que o vídeo tá performando, inscritos consolidam a base de audiência recorrente e horas de exibição são o que destrava monetização e alcance orgânico. Cada um puxa o outro e o algoritmo entende que o canal tá relevante." +
       "\n\n" +
       "Qual seu objetivo hoje: crescer em views, ganhar inscritos ou já mirar direto na monetização?";
-    const parts = autoSplitLongParts([long]);
+    const parts = autoSplitLongParts(long);
     expect(
       parts.length >= 2,
       `FALHOU: resposta com 2 parágrafos deveria virar 2 mensagens; virou ${parts.length}`,
@@ -531,7 +533,7 @@ describe("9) Auto-split de mensagens com \\n\\n", () => {
       "Explicação sobre views no YouTube: elas mostram performance e ajudam no algoritmo." +
       "\n\n" +
       "Quer priorizar views, inscritos ou horas de exibição?";
-    const parts = autoSplitLongParts([part, "www.mindsmmpanel.com"]);
+    const parts = autoSplitLongParts(`${part}===SPLIT===www.mindsmmpanel.com`);
     expect(
       parts.length >= 2,
       `FALHOU: esperava 3 partes (2 do split automático + 1 do link), veio ${parts.length}`,
@@ -559,7 +561,7 @@ describe("9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)", ()
   });
 
   it("autoSplitLongParts remove partes só com reticências / pontuação / vazias", () => {
-    const parts = autoSplitLongParts(["Bom dia!", "...", "   ", "…", "Como posso ajudar?"]);
+    const parts = autoSplitLongParts("Bom dia!===SPLIT===...===SPLIT===   ===SPLIT===…===SPLIT===Como posso ajudar?");
     expect(
       parts.length >= 2,
       `FALHOU: esperava 2 partes válidas, veio ${parts.length}: ${JSON.stringify(parts)}`,
@@ -569,7 +571,7 @@ describe("9b) Filtro anti bolha-fantasma (reticências/pontuação sozinha)", ()
 
   it("autoSplitLongParts remove parágrafo-fantasma dentro de bloco com \\n\\n", () => {
     const msg = "Bom dia!\n\n...\n\nComo posso te ajudar hoje?";
-    const parts = autoSplitLongParts([msg]);
+    const parts = autoSplitLongParts(msg);
     expect(
       parts.length === 2,
       `FALHOU: parágrafo só com "..." deveria ser descartado; veio ${parts.length} partes`,
