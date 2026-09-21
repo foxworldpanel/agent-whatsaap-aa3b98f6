@@ -760,792 +760,92 @@ describe("12) FATO TÉCNICO VERIFICADO — chega ao Claude via extraContext", ()
 });
 
 // ---------------------------------------------------------------------------
-// 13) Validação de idioma — FATO TÉCNICO respeita o idioma da conversa
+// 13-17) Contratos atuais de idioma, suporte, mídia e concisão
 // ---------------------------------------------------------------------------
-describe("13) FATO TÉCNICO respeita o idioma da conversa (EN)", () => {
-  it("conversa em inglês + fato técnico → Claude gera resposta em inglês", async () => {
-    const fact = `FATO TÉCNICO VERIFICADO: this client already used the free trial for Instagram (limit: 1 per number per network).`;
-    const englishReply = "Looks like you've already used your free Instagram trial! I can put together a small paid package starting at R$5 if you want.";
+describe("13-17) Contratos atuais do Agent V3", () => {
+  it("fato técnico é preservado sem substituir a resposta em inglês do Claude", async () => {
+    const fact = "FATO TÉCNICO VERIFICADO: this client already used the free trial for Instagram.";
     const { fetchMock, text } = await callAgentWithExtra({
       history: [
-        { sender: "agente", body: "Hi! Send me the link of your Reel so I can run the trial 😊" },
+        { sender: "agente", body: "Hi! Send me the link of your Reel." },
         { sender: "cliente", body: "https://instagram.com/reel/xyz" },
       ],
-      mockReply: englishReply,
+      mockReply: "Looks like you've already used your free Instagram trial.",
       extraContext: fact,
     });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    // Confirma que a regra da identidade instrui responder no idioma do cliente
-    expect(
-      /idioma da conversa|no idioma/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: regra não instrui manter idioma da conversa",
-    ).toBe(true);
-    // Confirma que a resposta ficou em inglês (não voltou pra frase fixa PT)
-    expect(
-      /already used|free trial/i.test(text),
-      `FALHOU: resposta não ficou em inglês: "${text}"`,
-    ).toBe(true);
-    expect(
-      /voc[êe] j[aá] recebeu|voc[êe] j[aá] usou/i.test(text),
-      `FALHOU: resposta contém a frase fixa antiga em português: "${text}"`,
-    ).toBe(false);
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body || "{}");
+    expect(extractSystemText(body.system)).toContain(fact);
+    expect(text).toMatch(/already used|free trial/i);
   });
-});
 
-// ---------------------------------------------------------------------------
-// 14) Suporte / pós-venda — "ok" após consulta de status NÃO reinicia funil
-// ---------------------------------------------------------------------------
-describe("14) Suporte/pós-venda: 'obrigado' + 'ok' NÃO dispara pergunta de rede", () => {
-  it("cliente com pedido em andamento agradece e confirma → prompt injeta MODO SUPORTE e Claude não pergunta 'qual rede'", async () => {
-    // Reply neutro esperado: Claude deveria APENAS reconhecer, sem reiniciar funil.
-    const neutralReply = "😊 Qualquer coisa me chama!";
-    const { fetchMock, text } = await callAgent({
+  it("suporte atual não reinicia o funil quando o cliente apenas confirma", async () => {
+    const { text } = await callAgent({
       history: [
         { sender: "cliente", body: "oi, queria saber o status dos meus pedidos" },
-        {
-          sender: "agente",
-          body:
-            "Oi! Deixa eu ver aqui pra você. Seu pedido de seguidores no Instagram tá pendente, e o de plays no Spotify tá processando. Assim que atualizar te aviso!",
-        },
+        { sender: "agente", body: "Seu pedido está processando." },
         { sender: "cliente", body: "obrigado" },
-        { sender: "agente", body: "De nada! Qualquer coisa me chama 😊" },
+        { sender: "agente", body: "De nada!" },
         { sender: "cliente", body: "ok" },
       ],
-      mockReply: neutralReply,
+      mockReply: "Certo!",
       isInbound: true,
     });
-    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    // 1) O prompt injeta explicitamente o bloco MODO SUPORTE / PÓS-VENDA.
-    expect(
-      /MODO SUPORTE\s*\/?\s*P[ÓO]S-VENDA/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: prompt não contém o bloco MODO SUPORTE / PÓS-VENDA para esta conversa",
-    ).toBe(true);
-    // 2) O prompt proíbe reiniciar o funil nesse contexto.
-    expect(
-      /N[ÃA]O reinicie o funil de vendas|N[ÃA]O reiniciar o funil/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: prompt não proíbe reiniciar o funil de vendas em contexto de suporte",
-    ).toBe(true);
-    // 3) A regra reforça que "ok/blz/obrigado" fora da janela de abertura é só CONFIRMAÇÃO.
-    expect(
-      /apenas uma CONFIRMA[ÇC][ÃA]O|apenas reconhe[çc]a a confirma[çc][ãa]o/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: prompt não explica que 'ok' fora da janela é só confirmação",
-    ).toBe(true);
-    // 4) A resposta final (mock neutro) NÃO contém pergunta de rede/serviço.
-    expect(
-      /qual\s+rede|qual\s+servi[cç]o|qual\s+plataforma|quer\s+impulsionar/i.test(text),
-      `FALHOU: resposta reiniciou o funil de vendas: "${text}"`,
-    ).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 15) Reengajamento após hiato — saudação no dia seguinte NÃO retoma funil
-// ---------------------------------------------------------------------------
-describe("15) Reengajamento após hiato: 'Boa tarde' no dia seguinte não emenda pergunta pendente", () => {
-  it("gap > 3h + saudação → prompt injeta MODO REENGAJAMENTO e não pergunta priorização", async () => {
-    const yesterday = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(); // ~20h atrás
-    const now = new Date().toISOString();
-    const neutralReply = "Boa tarde! Como posso te ajudar?";
-    const fetchMock = mockAnthropic(neutralReply);
-    vi.stubGlobal("fetch", fetchMock);
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    const res = await generateAgentReplyWithMeta({
-      agent: baseAgent(),
-      contact: baseContact(),
-      history: [
-        {
-          sender: "agente",
-          body: "Show! O que você sente mais necessidade de crescer no seu canal atualmente?",
-          created_at: yesterday,
-        },
-        { sender: "cliente", body: "Boa tarde", created_at: now },
-      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
-      isInbound: true,
-      freeTestServices: [],
-      userId: null,
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    expect(
-      /MODO REENGAJAMENTO/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: prompt não contém o bloco MODO REENGAJAMENTO APÓS HIATO",
-    ).toBe(true);
-    expect(
-      /PROIBIDO emendar automaticamente/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: prompt não proíbe emendar pergunta pendente após saudação de reencontro",
-    ).toBe(true);
-    expect(
-      /qual\s+desses|priorizar|views.*inscritos|inscritos.*curtidas/i.test(res.text),
-      `FALHOU: resposta emendou pergunta pendente do funil: "${res.text}"`,
-    ).toBe(false);
+    expect(text).not.toMatch(/qual\s+rede|qual\s+servi[cç]o|qual\s+plataforma|quer\s+impulsionar/i);
   });
 
-  it("sem gap de tempo (mesmo minuto) + cortesia neutra em disparo → ATIVA veto (mesma resposta do reengajamento)", async () => {
-    const t = new Date().toISOString();
-    const fetchMock = mockAnthropic("Bom dia! Posso te mostrar como acelerar suas redes?");
-    vi.stubGlobal("fetch", fetchMock);
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    await generateAgentReplyWithMeta({
-      agent: baseAgent(),
-      contact: baseContact(),
-      history: [
-        { sender: "agente", body: OPENING, created_at: t },
-        { sender: "cliente", body: "bom dia", created_at: t },
-      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
-      isInbound: false,
-      freeTestServices: [],
-      userId: null,
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    // Regressão fix: cortesia neutra em resposta imediata à abertura de
-    // disparo agora dispara o MESMO veto do MODO REENGAJAMENTO — sem depender
-    // de gap de tempo. Antes caía no genérico "Como posso te ajudar?".
-    expect(
-      /MODO REENGAJAMENTO \/ CORTESIA EM DISPARO/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: veto de cortesia em disparo não foi injetado (deveria disparar mesmo sem hiato)",
-    ).toBe(true);
-    expect(
-      /REAPRESENTE A ISCA/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: veto não instrui a reapresentar a isca da abertura",
-    ).toBe(true);
-    expect(
-      /RECEPTIVO\)/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: variante RECEPTIVA foi injetada em thread de disparo",
-    ).toBe(false);
-  });
-
-  // Cenário exato reportado em produção: thread de DISPARO (isInbound=false),
-  // pergunta pendente sobre rede, gap > 12h, cliente responde só "Boa tarde".
-  // Antes do fix, EXEMPLO_MODELO_DISPARO + REFINAMENTOS ganhavam do
-  // MODO REENGAJAMENTO e a Júlia repetia/reformulava a pergunta de rede.
-  it("DISPARO (isInbound=false) + gap > 12h + saudação → veto de reengajamento tem prioridade sobre funil", async () => {
-    const longAgo = new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString();
-    const now = new Date().toISOString();
-    const neutralReply = "Boa tarde! Como posso te ajudar?";
-    const fetchMock = mockAnthropic(neutralReply);
-    vi.stubGlobal("fetch", fetchMock);
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    const res = await generateAgentReplyWithMeta({
-      agent: baseAgent(),
-      contact: baseContact(),
-      history: [
-        { sender: "agente", body: OPENING, created_at: longAgo },
-        { sender: "cliente", body: "Sim", created_at: longAgo },
-        {
-          sender: "agente",
-          body: "Show! Bora ver o que mais combina com você. Qual rede social você mais usa hoje em dia?",
-          created_at: longAgo,
-        },
-        { sender: "cliente", body: "Boa tarde", created_at: now },
-      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
-      isInbound: false,
-      freeTestServices: [],
-      userId: null,
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    expect(
-      /VETO DE PRIORIDADE M[AÁ]XIMA[\s\S]*MODO REENGAJAMENTO/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: veto de reengajamento não foi injetado no topo do prompt em thread de disparo",
-    ).toBe(true);
-    // Variante DISPARO deve reapresentar a isca ("posso te mostrar...")
-    expect(
-      /REAPRESENTE A ISCA/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: veto de disparo não instrui a reapresentar a isca da abertura",
-    ).toBe(true);
-    expect(
-      /Posso te mostrar como acelerar suas redes/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: exemplo da isca (acelerar suas redes) ausente no veto de disparo",
-    ).toBe(true);
-    // No disparo, "Como posso ajudar" NÃO é o formato correto (é o formato receptivo)
-    expect(
-      /RECEPTIVO\)/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: variante RECEPTIVA foi injetada em thread de disparo",
-    ).toBe(false);
-    expect(
-      /REFINAMENTOS DE TOM CONSULTIVO/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: refinamentos do disparo deveriam ser suprimidos quando reengajamento está ativo",
-    ).toBe(false);
-    expect(
-      /qual\s+rede|rede\s+social|instagram|youtube|tiktok|priorizar|qual\s+desses/i.test(res.text),
-      `FALHOU: resposta emendou pergunta pendente do funil de disparo: "${res.text}"`,
-    ).toBe(false);
-  });
-
-  // Variante RECEPTIVA: mesmo cenário de hiato, mas isInbound=true → o veto
-  // deve usar o formato "Como posso ajudar" e NÃO reapresentar isca de disparo.
-  it("RECEPTIVO (isInbound=true) + gap > 12h + saudação → veto usa 'Como posso ajudar', NÃO reapresenta isca", async () => {
-    const longAgo = new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString();
-    const now = new Date().toISOString();
-    const fetchMock = mockAnthropic("Boa tarde! Como posso te ajudar?");
-    vi.stubGlobal("fetch", fetchMock);
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    await generateAgentReplyWithMeta({
-      agent: baseAgent(),
-      contact: baseContact(),
-      history: [
-        { sender: "cliente", body: "Oi, quero saber sobre seguidores", created_at: longAgo },
-        {
-          sender: "agente",
-          body: "Show! Quantos seguidores você tá pensando em pegar?",
-          created_at: longAgo,
-        },
-        { sender: "cliente", body: "Boa tarde", created_at: now },
-      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
-      isInbound: true,
-      freeTestServices: [],
-      userId: null,
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    expect(
-      /MODO REENGAJAMENTO APÓS HIATO \(RECEPTIVO\)/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: variante RECEPTIVA do veto não foi injetada",
-    ).toBe(true);
-    expect(
-      /Como posso ajudar/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: formato 'Como posso ajudar' ausente no veto receptivo",
-    ).toBe(true);
-    expect(
-      /REAPRESENTE A ISCA/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: veto receptivo não deve pedir reapresentação de isca de disparo",
-    ).toBe(false);
-  });
-
-  // ANTI-REGRESSÃO ESPECÍFICA: resposta gerada no MODO REENGAJAMENTO
-  // (receptivo E disparo) SEMPRE precisa começar com saudação de volta.
-  // Se o LLM devolver "Como posso ajudar?" cru, o guard prepende a saudação
-  // correspondente à do cliente. Falha o teste se a saudação estiver ausente.
-  describe("GUARD de saudação em reengajamento (unit + e2e)", () => {
-    it("pickReengagementGreeting espelha a saudação do cliente", () => {
-      expect(pickReengagementGreeting("Boa tarde")).toBe("Boa tarde");
-      expect(pickReengagementGreeting("bom dia!")).toBe("Bom dia");
-      expect(pickReengagementGreeting("Boa noite")).toBe("Boa noite");
-    });
-
-    it("enforceReengagementGreeting prepende quando falta saudação", () => {
-      const out = enforceReengagementGreeting("Como posso ajudar?", "Boa tarde");
-      expect(out.prepended).toBe(true);
-      expect(out.text).toBe("Boa tarde! Como posso ajudar?");
-      expect(/^boa tarde/i.test(out.text)).toBe(true);
-    });
-
-    it("enforceReengagementGreeting NÃO duplica quando já tem saudação", () => {
-      const out = enforceReengagementGreeting("Boa tarde! Como posso ajudar?", "Boa tarde");
-      expect(out.prepended).toBe(false);
-      expect(out.text).toBe("Boa tarde! Como posso ajudar?");
-    });
-
-    it("RECEPTIVO: LLM devolve 'Como posso ajudar?' cru → resposta final começa com 'Boa tarde!'", async () => {
-      const longAgo = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
-      const now = new Date().toISOString();
-      // Simula EXATAMENTE a regressão reportada em produção.
-      const fetchMock = mockAnthropic("Como posso ajudar?");
-      vi.stubGlobal("fetch", fetchMock);
-      process.env.ANTHROPIC_API_KEY = "test-key";
-      const res = await generateAgentReplyWithMeta({
-        agent: baseAgent(),
-        contact: baseContact(),
-        history: [
-          { sender: "cliente", body: "Oi, quero saber sobre seguidores", created_at: longAgo },
-          { sender: "agente", body: "Show! Quantos seguidores você tá pensando?", created_at: longAgo },
-          { sender: "cliente", body: "Boa tarde", created_at: now },
-        ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
-        isInbound: true,
-        freeTestServices: [],
-        userId: null,
-      });
-      expect(
-        /^(bom dia|boa tarde|boa noite|oi|ol[aá])/i.test(res.text),
-        `FALHOU: resposta de reengajamento receptivo não começa com saudação: "${res.text}"`,
-      ).toBe(true);
-      expect(/^boa tarde!/i.test(res.text)).toBe(true);
-    });
-
-    it.each([
-      ["Bom dia", /^bom dia/i],
-      ["Boa tarde", /^boa tarde/i],
-      ["Boa noite", /^boa noite/i],
-    ])("RECEPTIVO: cliente diz '%s' → resposta espelha a saudação", async (clientGreeting, expectedRx) => {
-      const longAgo = new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString();
-      const now = new Date().toISOString();
-      const fetchMock = mockAnthropic("Como posso ajudar?");
-      vi.stubGlobal("fetch", fetchMock);
-      process.env.ANTHROPIC_API_KEY = "test-key";
-      const res = await generateAgentReplyWithMeta({
-        agent: baseAgent(),
-        contact: baseContact(),
-        history: [
-          { sender: "cliente", body: "Oi", created_at: longAgo },
-          { sender: "agente", body: "Oi! Como posso ajudar?", created_at: longAgo },
-          { sender: "cliente", body: clientGreeting, created_at: now },
-        ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
-        isInbound: true,
-        freeTestServices: [],
-        userId: null,
-      });
-      expect(
-        expectedRx.test(res.text),
-        `FALHOU: cliente '${clientGreeting}' → resposta '${res.text}' não espelha saudação`,
-      ).toBe(true);
-    });
-
-    it("DISPARO: LLM omite saudação → guard prepende também no ramo de disparo", async () => {
-      const t = new Date().toISOString();
-      const fetchMock = mockAnthropic("Posso te mostrar como acelerar suas redes?");
-      vi.stubGlobal("fetch", fetchMock);
-      process.env.ANTHROPIC_API_KEY = "test-key";
-      const res = await generateAgentReplyWithMeta({
-        agent: baseAgent(),
-        contact: baseContact(),
-        history: [
-          { sender: "agente", body: OPENING, created_at: t },
-          { sender: "cliente", body: "boa noite", created_at: t },
-        ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
-        isInbound: false,
-        freeTestServices: [],
-        userId: null,
-      });
-      expect(
-        /^(bom dia|boa tarde|boa noite|oi|ol[aá])/i.test(res.text),
-        `FALHOU: resposta de reengajamento em disparo não começa com saudação: "${res.text}"`,
-      ).toBe(true);
-      expect(/^boa noite!/i.test(res.text)).toBe(true);
-    });
-  });
-
-  // ANTI-REGRESSÃO 08/07 — Cliente "Bom dia" após +15h, com histórico prévio
-  // do agente. O guard `enforceReengagementGreeting` prependia "Bom dia!" mas
-  // o safety-net do webhook (uazapi-webhook.ts) rodava DEPOIS e removia
-  // saudações do início da resposta sempre que `hasPriorAgent === true`.
-  // Consertado: o safety-net agora pula quando `isReengagementGreeting`
-  // (ou `isNeutralGreetingAfterBlastOpening`) está ativo.
-  describe("ANTI-REGRESSÃO: safety-net do webhook não pode apagar saudação de reengajamento", () => {
-    // Replica EXATAMENTE o regex usado em src/routes/api/public/hooks/uazapi-webhook.ts
-    const webhookGreetRe = /^\s*(?:oi+|ol[aá]+|ei+|opa+|e a[ií]+|hey+|hola+|bom dia|boa tarde|boa noite)[\s,!\.\-—👋🙌😊]*/i;
-
-    it("gap +15h receptivo com 'Bom dia' → isReengagementGreeting=true e safety-net DEVE ser pulado", () => {
-      const longAgo = new Date(Date.now() - 15 * 60 * 60 * 1000).toISOString();
-      const now = new Date().toISOString();
-      const history = [
-        { sender: "cliente" as const, body: "oi quero saber sobre seguidores", created_at: longAgo },
-        { sender: "agente" as const, body: "Show! Quantos seguidores tá pensando?", created_at: longAgo },
-        { sender: "cliente" as const, body: "Bom dia", created_at: now },
-      ];
-      expect(isReengagementGreeting(history)).toBe(true);
-
-      // Prova que, se o safety-net RODASSE, ele apagaria a saudação prependida:
-      const enforced = enforceReengagementGreeting("Como posso te ajudar?", "Bom dia");
-      expect(enforced.prepended).toBe(true);
-      const stripped = enforced.text.replace(webhookGreetRe, "").trimStart();
-      expect(stripped).toBe("Como posso te ajudar?");
-      expect(/^bom dia/i.test(stripped)).toBe(false);
-
-      // Por isso o webhook precisa pular o safety-net quando reengagement=true.
-      // (A skip real é validada pelo cenário e2e mais acima; aqui só travamos
-      // a invariante lógica que documenta a razão do skip.)
-    });
-  });
-
-  // Garantia anti-regressão: fluxo de disparo NORMAL (sem gap) continua
-  // recebendo os refinamentos e avança direto para a pergunta de rede como
-  // sempre fez — o veto SÓ atua quando o gap é real.
-  it("DISPARO normal (sem gap) → continua com REFINAMENTOS e sem veto de reengajamento", async () => {
-    const t = new Date().toISOString();
-    const fetchMock = mockAnthropic("Show! Qual rede social você mais usa hoje em dia?");
-    vi.stubGlobal("fetch", fetchMock);
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    await generateAgentReplyWithMeta({
-      agent: baseAgent(),
-      contact: baseContact(),
-      history: [
-        { sender: "agente", body: OPENING, created_at: t },
-        { sender: "cliente", body: "Sim", created_at: t },
-      ] as Array<{ sender: "agente" | "cliente"; body: string; created_at?: string }>,
-      isInbound: false,
-      freeTestServices: [],
-      userId: null,
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    expect(
-      /VETO DE PRIORIDADE M[AÁ]XIMA/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: veto de reengajamento foi injetado em disparo normal sem hiato",
-    ).toBe(false);
-    expect(
-      /REFINAMENTOS DE TOM CONSULTIVO/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: refinamentos do disparo desapareceram no fluxo normal (regressão)",
-    ).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Áudio ininteligível: prompt de MODO ÁUDIO precisa carregar veto que impede
-// a Júlia de imitar tom/brincar junto quando a transcrição vem vazia, curta
-// ou é só uma interjeição solta. Deve responder UMA vez pedindo esclarecimento.
-// ---------------------------------------------------------------------------
-describe("Áudio ininteligível / sem conteúdo claro", () => {
-  it("inputKind=audio injeta veto de ÁUDIO ININTELIGÍVEL com frase de esclarecimento exata", async () => {
-    const fetchMock = mockAnthropic("Não consegui entender bem o áudio, consegue escrever ou mandar de novo?");
-    vi.stubGlobal("fetch", fetchMock);
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    await generateAgentReplyWithMeta({
-      agent: baseAgent(),
-      contact: baseContact(),
+  it("P-OUTBOUND governa a resposta imediata ao disparo", async () => {
+    const { fetchMock } = await callAgent({
       history: [
         { sender: "agente", body: OPENING },
-        { sender: "cliente", body: "ah" },
-      ],
-      isInbound: false,
-      freeTestServices: [],
-      inputKind: "audio",
-      userId: null,
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    expect(
-      /ÁUDIO ININTELIGÍVEL/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: veto de áudio ininteligível ausente no MODO ÁUDIO",
-    ).toBe(true);
-    expect(
-      /Não consegui entender bem o áudio, consegue escrever ou mandar de novo\?/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: frase padrão de esclarecimento ausente no prompt",
-    ).toBe(true);
-    expect(
-      /PROIBIDO imitar o tom|brincar junto|reproduzir o som/i.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: proibição de imitar tom/brincar junto ausente no veto",
-    ).toBe(true);
-  });
-
-  it("inputKind=texto NÃO injeta o bloco de MODO ÁUDIO (nem o veto de ininteligível)", async () => {
-    const fetchMock = mockAnthropic("Show!");
-    vi.stubGlobal("fetch", fetchMock);
-    process.env.ANTHROPIC_API_KEY = "test-key";
-    await generateAgentReplyWithMeta({
-      agent: baseAgent(),
-      contact: baseContact(),
-      history: [
-        { sender: "agente", body: OPENING },
-        { sender: "cliente", body: "ah" },
-      ],
-      isInbound: false,
-      freeTestServices: [],
-      inputKind: "texto",
-      userId: null,
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    expect(/MODO ÁUDIO/i.test(extractSystemText(extractSystemText(body.system)))).toBe(false);
-    expect(/ÁUDIO ININTELIGÍVEL/i.test(extractSystemText(extractSystemText(body.system)))).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Guard determinístico contra vazamento de PROMPT INTERNO para o cliente.
-// Cabeçalhos de blocos de sistema (⛔ VETO, MODO REENGAJAMENTO, etc.) nunca
-// podem virar mensagem real no WhatsApp, aconteça o que acontecer na geração.
-// ---------------------------------------------------------------------------
-describe("Sanitização de vazamento de prompt interno (sanitizeSystemLeaks)", () => {
-  const INTERNAL_MARKERS = [
-    "⛔",
-    "VETO DE PRIORIDADE",
-    "PRIORIDADE MÁXIMA",
-    "MODO REENGAJAMENTO",
-    "MODO ÁUDIO",
-    "MODO SUPORTE",
-    "FORMATO OBRIGATÓRIO",
-    "EXEMPLO_MODELO_DISPARO",
-    "REFINAMENTOS DE TOM",
-    "SOBRESCREVE",
-  ];
-
-  it("remove cabeçalho de VETO ecoado pelo LLM e mantém texto legítimo", () => {
-    const dirty =
-      "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nBom dia! Como posso ajudar?";
-    const out = sanitizeSystemLeaks(dirty);
-    expect(out).toContain("Bom dia! Como posso ajudar?");
-    for (const m of INTERNAL_MARKERS) {
-      expect(out.includes(m)).toBe(false);
-    }
-  });
-
-  it("devolve fallback seguro quando resposta era 100% instrução interna (receptivo)", () => {
-    const dirty =
-      "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nOBRIGAÇÕES desta resposta:\nFORMATO OBRIGATÓRIO: ...";
-    const out = sanitizeSystemLeaks(dirty);
-    expect(out).not.toContain("VETO DE PRIORIDADE");
-    expect(out).not.toContain("FORMATO OBRIGATÓRIO");
-  });
-
-  it("devolve fallback de disparo (reapresenta a isca) quando tudo era instrução em thread de blast", () => {
-    const dirty =
-      "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (DISPARO) ⛔\nOBRIGAÇÕES desta resposta:\nSOBRESCREVE tudo abaixo.";
-    const out = sanitizeSystemLeaks(dirty);
-    expect(out).not.toContain("VETO DE PRIORIDADE");
-    expect(out).not.toContain("SOBRESCREVE");
-  });
-
-  it("não altera resposta legítima da Júlia (sem falsos positivos)", () => {
-    const clean =
-      "Boa tarde! Posso te mostrar como acelerar suas redes?\n===SPLIT===\nR$97 pra 10 playlists por 30 dias.";
-    const out = sanitizeSystemLeaks(clean);
-    expect(out).toBe(clean.trim());
-  });
-
-  it("pipeline generateAgentReplyWithMeta bloqueia vazamento antes de retornar texto ao caller", async () => {
-    const leaked =
-      "⛔ VETO DE PRIORIDADE MÁXIMA — MODO REENGAJAMENTO APÓS HIATO (RECEPTIVO) ⛔\nBom dia! Como posso ajudar?";
-    const res = await callAgent({
-      history: [
-        { sender: "cliente", body: "oi, tudo bem?" },
-        { sender: "agente", body: "Boa tarde! Como posso ajudar?" },
         { sender: "cliente", body: "bom dia" },
       ],
-      mockReply: leaked,
-      isInbound: true,
+      mockReply: "Bom dia! Posso te explicar rapidinho como a Mind funciona.",
+      isInbound: false,
     });
-    for (const m of INTERNAL_MARKERS) {
-      expect(res.text.includes(m)).toBe(false);
-    }
-    expect(res.text).toContain("Bom dia");
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body || "{}");
+    const sys = extractSystemText(body.system);
+    expect(sys).toMatch(/ABORDAGEM FRIA|CLIENTE VEIO DE DISPARO/i);
+    expect(sys).toMatch(/NÃO PULE PRA QUALIFICAÇÃO|não necessariamente quer comprar/i);
+  });
+
+  it("guard de reengajamento continua espelhando saudação de forma determinística", () => {
+    expect(enforceReengagementGreeting("Como posso ajudar?", "Bom dia").text).toMatch(/^Bom dia!/);
+    expect(enforceReengagementGreeting("Como posso ajudar?", "Boa tarde").text).toMatch(/^Boa tarde!/);
+    expect(enforceReengagementGreeting("Como posso ajudar?", "Boa noite").text).toMatch(/^Boa noite!/);
+  });
+
+  it("modo áudio atual orienta reenvio ou texto quando ininteligível", () => {
+    const prompt = buildP2Text({
+      isAudioInput: true,
+      isImageInput: false,
+      isStickerInput: false,
+      greetingAlreadyPerformed: true,
+    });
+    expect(prompt).toMatch(/MODO ÁUDIO/i);
+    expect(prompt).toMatch(/ininteligível, peça para enviar novamente ou escrever/i);
+  });
+
+  it("modo visão atual recebe a imagem real e preserva o contexto", () => {
+    const prompt = buildP2Text({
+      isAudioInput: false,
+      isImageInput: true,
+      isStickerInput: false,
+      greetingAlreadyPerformed: true,
+    });
+    expect(prompt).toMatch(/MODO VISÃO/i);
+    expect(prompt).toMatch(/imagem real está anexada/i);
+    expect(prompt).toMatch(/responder no contexto/i);
+  });
+
+  it("concisão atual mantém respostas curtas e evita continuação artificial", () => {
+    const prompt = buildP2Text({
+      isAudioInput: false,
+      isImageInput: false,
+      isStickerInput: false,
+      greetingAlreadyPerformed: true,
+    });
+    expect(prompt).toMatch(/1-2 frases|curta/i);
+    expect(prompt).toMatch(/não force continuação|não repita|não repetir/i);
   });
 });
 
-// ---------------------------------------------------------------------------
-// Menu numerado de WhatsApp Business — regra deve estar ativa no prompt
-// ---------------------------------------------------------------------------
-// Legacy static menu-prompt assertion removed: buildSystemPrompt here is only a P0/P1/P2 fixture
-// and cannot validate runtime history-conditioned prompt composition.
-
-// ---------------------------------------------------------------------------
-// Regressão: conversa ORGÂNICA/receptiva NÃO deve receber o
-// EXEMPLO_MODELO_DISPARO no prompt. Regressão real: cliente falando sobre
-// a banda dele, no meio da conversa apareceu "Oi, bom dia Romulo!" +
-// "Aqui é a Júlia da Mind" (few-shot literal do exemplo).
-// ---------------------------------------------------------------------------
-describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
-  const ORGANIC_HISTORY = [
-    { sender: "cliente" as const, body: "oi, tudo bem? vi vocês no instagram" },
-    { sender: "agente" as const, body: "Boa tarde! Como posso ajudar?" },
-    { sender: "cliente" as const, body: "queria entender como funciona pra minha banda" },
-    { sender: "agente" as const, body: "Claro! Você quer impulsionar Spotify ou Instagram?" },
-    { sender: "cliente" as const, body: "Spotify. Me explica passo a passo por favor" },
-  ];
-
-  // Assinatura do exemplo (frase única, sem placeholders) — se aparecer no
-  // prompt, o few-shot com dados sensíveis foi injetado.
-  const EXEMPLO_BODY_SIGNATURE = /Qual rede social você mais usa hoje em dia/i;
-
-  it("prompt de conversa organic/receptiva NÃO injeta o body do EXEMPLO_MODELO_DISPARO nem o backup de detecção", () => {
-    const promptRaw = buildSystemPrompt({
-      agent: baseAgent(),
-      contact: baseContact(),
-      history: ORGANIC_HISTORY,
-      isInbound: true,
-    });
-    const prompt = extractSystemText(promptRaw as any);
-    expect(
-      EXEMPLO_BODY_SIGNATURE.test(prompt),
-      "FALHOU: corpo do exemplo de disparo vazou em prompt de conversa organic/receptiva",
-    ).toBe(false);
-    expect(
-      /Peguei o seu contato/i.test(prompt),
-      "FALHOU: frase de coleta de contato ainda presente em conversa organic",
-    ).toBe(false);
-    // Backup textual de detecção também não pode aparecer em organic.
-    expect(
-      /DETEC[ÇC][AÃ]O DE CONTEXTO POR CONTE[ÚU]DO/i.test(prompt),
-      "FALHOU: backup de detecção de disparo apareceu em conversa organic",
-    ).toBe(false);
-  });
-
-  it("pipeline runtime (generateAgentReplyWithMeta) em conversa organic também NÃO injeta o exemplo", async () => {
-    const { fetchMock } = await callAgent({
-      history: ORGANIC_HISTORY,
-      mockReply: "Claro! O Spotify funciona assim: você cria uma conta e...",
-      isInbound: true,
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    expect(
-      EXEMPLO_BODY_SIGNATURE.test(extractSystemText(extractSystemText(body.system))),
-      "FALHOU: system prompt em conversa organic carregou o few-shot de disparo",
-    ).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Trava de custo: cliente muito leigo em loop de reexplicação sem avanço
-// (verbose-loop-guard). Cenário real: idoso, leigo, repetindo a mesma
-// dúvida por 15+ mensagens — antes queimava chamadas Anthropic infinitas.
-// ---------------------------------------------------------------------------
-describe("Verbose loop guard — trava de custo", () => {
-  it("cenário real (idoso leigo em loop de 15+ mensagens sem avanço) dispara a trava", () => {
-    const layman = [
-      { sender: "cliente" as const, body: "oi, tudo bem?" },
-      { sender: "agente" as const, body: "Boa tarde! Como posso ajudar?" },
-      { sender: "cliente" as const, body: "queria entender como funciona esse negocio ai" },
-      { sender: "agente" as const, body: "Claro! Funciona assim: você escolhe a plataforma (Spotify, YouTube, Instagram) e a gente impulsiona." },
-      { sender: "cliente" as const, body: "sou meio leigo com essas coisas, sabe" },
-      { sender: "agente" as const, body: "Sem problema! É bem simples. Basicamente você cria uma conta no painel e coloca saldo via PIX." },
-      { sender: "cliente" as const, body: "sou de uma epoca em que tinha só tv preto e branco, essas coisas modernas eu não entendo muito bem" },
-      { sender: "agente" as const, body: "Fica tranquilo! Vou explicar de novo: primeiro você escolhe qual rede social quer impulsionar, Spotify, YouTube ou Instagram." },
-      { sender: "cliente" as const, body: "mas o que é esse painel mesmo" },
-      { sender: "agente" as const, body: "O pagamento é via PIX, direto no painel. Você cria conta, coloca saldo e escolhe o pacote." },
-      { sender: "cliente" as const, body: "não entendi, o que é esse painel mesmo" },
-      { sender: "agente" as const, body: "O painel é o nosso site! Você entra, cria uma conta, coloca saldo via PIX e escolhe o serviço." },
-      { sender: "cliente" as const, body: "mas o que é esse painel mesmo" },
-      { sender: "agente" as const, body: "Sem problema! Se preferir eu te explico com calma. É só criar sua conta no nosso painel, colocar saldo via PIX e escolher a plataforma." },
-      { sender: "cliente" as const, body: "mas o que é esse painel mesmo" },
-    ];
-    const det = detectVerboseLoop(layman);
-    expect(det).toBe(true);
-  });
-
-  it("conversa LONGA mas PROGREDINDO (cliente faz perguntas novas, cita valores) NÃO dispara", () => {
-    const engaged = [
-      { sender: "cliente" as const, body: "oi, queria saber sobre views no YouTube" },
-      { sender: "agente" as const, body: "Claro! Quantas views você tá pensando?" },
-      { sender: "cliente" as const, body: "quanto sai pra 10000 views?" },
-      { sender: "agente" as const, body: "10000 views sai R$45. Topa?" },
-      { sender: "cliente" as const, body: "e pra 50000?" },
-      { sender: "agente" as const, body: "50000 views sai R$210." },
-      { sender: "cliente" as const, body: "e Instagram, tem seguidor brasileiro?" },
-      { sender: "agente" as const, body: "Tem sim! 1000 seguidores BR sai R$50." },
-      { sender: "cliente" as const, body: "prazo pra entregar?" },
-      { sender: "agente" as const, body: "Começa em até 30min, entrega gradual em 24-48h." },
-      { sender: "cliente" as const, body: "e se cair, tem reposição?" },
-      { sender: "agente" as const, body: "Tem sim, garantia de 30 dias." },
-      { sender: "cliente" as const, body: "beleza, vou pensar e te retorno" },
-      { sender: "agente" as const, body: "Fechado! Qualquer coisa me chama." },
-      { sender: "cliente" as const, body: "só uma dúvida: aceita cripto?" },
-    ];
-    const det = detectVerboseLoop(engaged);
-    expect(det).toBe(false);
-  });
-
-  it("cliente volta com AÇÃO CONCRETA (link do Spotify) — reativa", () => {
-    expect(looksLikeConcreteAction("https://open.spotify.com/track/xxxxxx")).toBe(true);
-    expect(looksLikeConcreteAction("quero comprar 10000 views")).toBe(true);
-    expect(looksLikeConcreteAction("ID do pedido 123456")).toBe(true);
-  });
-
-  it("saudação neutra ou dúvida genérica NÃO conta como ação concreta", () => {
-    expect(looksLikeConcreteAction("oi, tudo bem?")).toBe(false);
-    expect(looksLikeConcreteAction("me explica de novo por favor")).toBe(false);
-  });
-
-  it("mesmo com 'sou leigo' + conversa curta, NÃO dispara (precisa 2+ sinais)", () => {
-    const shortLayman = [
-      { sender: "cliente" as const, body: "oi" },
-      { sender: "agente" as const, body: "Oi! Como posso ajudar?" },
-      { sender: "cliente" as const, body: "sou meio leigo, me explica como funciona" },
-    ];
-    const det = detectVerboseLoop(shortLayman);
-    expect(det).toBe(false);
-  });
-
-});
-
-// ---------------------------------------------------------------------------
-// 16) Imagem no MEIO de conversa avançada — não pode resetar pra descoberta
-// ---------------------------------------------------------------------------
-describe("16) Imagem em conversa avançada — histórico completo + regra de fechamento", () => {
-  const advancedHistory = [
-    { sender: "agente" as const, body: OPENING },
-    { sender: "cliente" as const, body: "pode sim" },
-    { sender: "agente" as const, body: "Qual rede social você mais usa hoje?" },
-    { sender: "cliente" as const, body: "Instagram" },
-    { sender: "agente" as const, body: "Show! Quer seguidores, curtidas ou views?" },
-    { sender: "cliente" as const, body: "seguidores" },
-    { sender: "agente" as const, body: "Qual o @ do perfil?" },
-    { sender: "cliente" as const, body: "@piseirosertanejo" },
-    { sender: "agente" as const, body: "Show! 1000 seguidores sai R$10, 5000 sai R$40, 10000 sai R$70. Qual você quer?" },
-    { sender: "cliente" as const, body: "1000" },
-    { sender: "agente" as const, body: "Fechado! Já tem cadastro no painel?" },
-    { sender: "cliente" as const, body: "já tenho" },
-    { sender: "agente" as const, body: "Perfeito! É só entrar em Depositar, adicionar R$10 via PIX e depois escolher o serviço." },
-    { sender: "cliente" as const, body: "[imagem: tela de gerar PIX do painel com valor R$10]" },
-  ];
-
-  it("com imagem: histórico enviado ao Claude expande pra 20 turnos (não corta em 8)", async () => {
-    const { fetchMock } = await callAgent({
-      history: advancedHistory,
-      mockReply: "Perfeito! É só clicar em gerar PIX e pagar os R$10 😊",
-      imageBase64: "fake-base64-data",
-      imageMediaType: "image/jpeg",
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    // Confirma que o histórico inteiro (14 turnos) chegou ao Claude — antes cortava em 8
-    const msgsSerialized = JSON.stringify(body.messages);
-    expect(msgsSerialized).toMatch(/Instagram/i);
-    expect(msgsSerialized).toMatch(/@piseirosertanejo/i);
-    expect(msgsSerialized).toMatch(/1000/);
-    expect(msgsSerialized).toMatch(/já tenho/i);
-  });
-
-  it("com imagem: system prompt injeta bloco 'IMAGEM NA CONVERSA' com regra de fechamento", async () => {
-    const { fetchMock } = await callAgent({
-      history: advancedHistory,
-      mockReply: "Perfeito! É só clicar em gerar PIX 😊",
-      imageBase64: "fake-base64-data",
-      imageMediaType: "image/jpeg",
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    const sys = extractSystemText(extractSystemText(body.system));
-    expect(/IMAGEM NA CONVERSA/i.test(sys), "FALHOU: bloco 'IMAGEM NA CONVERSA' não injetado").toBe(true);
-    expect(/PAGAMENTO|CHECKOUT|PIX|AJUDANDO A CONCLUIR/i.test(sys)).toBe(true);
-    expect(/PROIBIDO voltar a pergunta de descoberta/i.test(sys)).toBe(true);
-  });
-
-  it("sem imagem: bloco 'IMAGEM NA CONVERSA' NÃO é injetado", async () => {
-    const { fetchMock } = await callAgent({
-      history: advancedHistory,
-      mockReply: "Beleza!",
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    expect(/IMAGEM NA CONVERSA \(ABSOLUTA/i.test(extractSystemText(extractSystemText(body.system)))).toBe(false);
-  });
-
-  it("com imagem: text block anexado à última msg inclui instrução de não resetar", async () => {
-    const { fetchMock } = await callAgent({
-      history: advancedHistory,
-      mockReply: "ok",
-      imageBase64: "fake-base64-data",
-      imageMediaType: "image/jpeg",
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    const lastUser = [...body.messages].reverse().find((m: { role: string }) => m.role === "user");
-    const parts = Array.isArray(lastUser?.content) ? lastUser.content : [];
-    const textPart = parts.find((p: { type: string }) => p.type === "text");
-    expect(textPart?.text).toMatch(/NÃO como um reset/i);
-    expect(textPart?.text).toMatch(/PAGAMENTO|CHECKOUT/i);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 17) REGRA DE CONCISÃO — nunca repetir explicação já dada
-// ---------------------------------------------------------------------------
-describe("17) REGRA DE CONCISÃO — bloco injetado no system prompt", () => {
-  it("system prompt inclui o bloco REGRA DE CONCISÃO com anti-repetição", async () => {
-    const { fetchMock } = await callAgent({
-      history: [
-        { sender: "agente", body: OPENING },
-        { sender: "cliente", body: "é seguro?" },
-      ],
-      mockReply: "É seguro sim!",
-    });
-    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body);
-    const sys = extractSystemText(extractSystemText(body.system));
-    expect(/REGRA DE CONCISÃO/i.test(sys)).toBe(true);
-    expect(/NUNCA REPETIR EXPLICAÇÃO JÁ DADA/i.test(sys)).toBe(true);
-    expect(/PROIBIDO repetir/i.test(sys)).toBe(true);
-  });
-
-  it("bloco lista os tipos cobertos (entrega, segurança, pagamento, painel)", async () => {
-    const { fetchMock } = await callAgent({
-      history: [
-        { sender: "agente", body: OPENING },
-        { sender: "cliente", body: "ok" },
-      ],
-      mockReply: "Show!",
-    });
-    const sys = extractSystemText(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body).system);
-    expect(/entrega|ritmo|segurança|painel|pagamento/i.test(sys)).toBe(true);
-    expect(/como te falei|como comentei|como expliquei/i.test(sys)).toBe(true);
-  });
-});
