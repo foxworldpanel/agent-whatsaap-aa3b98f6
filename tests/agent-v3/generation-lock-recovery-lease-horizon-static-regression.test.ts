@@ -11,8 +11,8 @@ describe("generation lock recovery lease horizon", () => {
     expect(recovery).toContain("const DEFAULT_STALE_MS = 5 * 60 * 1000");
     expect(lock).toContain("DB_CONVERSATION_LOCK_STALE_MS = 20 * 60 * 1000");
     expect(recovery).toContain("const GENERATION_LOCK_STALE_MS = DB_CONVERSATION_LOCK_STALE_MS");
-    expect(recovery).toContain("recoverAgentInboundDispatcherClaims(\n            supabaseAdmin,\n            DEFAULT_STALE_MS");
-    expect(recovery).toContain("recoverStaleAgentConversationLocks(\n            supabaseAdmin,\n            GENERATION_LOCK_STALE_MS");
+    expect(recovery).toMatch(/recoverAgentInboundDispatcherClaims\(\s*supabaseAdmin,\s*DEFAULT_STALE_MS/);
+    expect(recovery).toMatch(/recoverStaleAgentConversationLocks\(\s*supabaseAdmin,\s*GENERATION_LOCK_STALE_MS/);
   });
 
   it("keeps the recovery horizon above the configured maximum aggregate funnel delay", () => {
