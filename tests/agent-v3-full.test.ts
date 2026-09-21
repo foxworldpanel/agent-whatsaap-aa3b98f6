@@ -23,11 +23,6 @@ import {
 } from "../src/lib/emoji-limiter";
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
-const SPOTIFY_UNAVAILABLE_SAFE_REPLY = "Atualmente não temos esse serviço disponível.";
-
-const MIND_BRAND_TEMPLATE = {};
-const MIND_BRAND_BLOCKS = {};
-
 function mockAnthropic(reply: string) {
   return vi.fn(async (url: any) => {
     return new Response(
@@ -213,7 +208,6 @@ describe("5) Terminologia por rede (YouTube/TikTok = views)", () => {
       agent: baseAgent(),
       contact: baseContact(),
       history: [{ sender: "cliente", body: "quero views no youtube" }],
-      identity: MIND_BRAND_TEMPLATE,
     });
     const prompt = extractSystemText(promptRaw as any);
     expect(
@@ -303,7 +297,6 @@ describe("8) Fechamento não prematuro (não se despede antes do painel)", () =>
       // o EXEMPLO_MODELO_DISPARO (onde MODO FECHAMENTO vive) é suprimido do
       // prompt — comportamento correto para conversas orgânicas/receptivas.
       isInbound: false,
-      identity: MIND_BRAND_TEMPLATE,
     });
     const prompt = extractSystemText(promptRaw as any);
     expect(
@@ -332,7 +325,6 @@ describe("8b) Não repete descoberta após 'já tem cadastro?'", () => {
       // Cenário RECEPTIVO (cliente iniciou) — regra precisa valer mesmo aqui,
       // onde o EXEMPLO_MODELO_DISPARO está suprimido.
       isInbound: true,
-      identity: MIND_BRAND_TEMPLATE,
     });
     const prompt = extractSystemText(promptRaw as any);
     expect(
@@ -1396,7 +1388,6 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
       contact: baseContact(),
       history: ORGANIC_HISTORY,
       isInbound: true,
-      identity: MIND_BRAND_TEMPLATE,
     });
     const prompt = extractSystemText(promptRaw as any);
     expect(
@@ -1423,7 +1414,6 @@ describe("Regressão: EXEMPLO_MODELO_DISPARO só em thread de disparo", () => {
         { sender: "cliente", body: "sim" },
       ],
       isInbound: false,
-      identity: MIND_BRAND_TEMPLATE,
     });
     const prompt = extractSystemText(promptRaw as any);
     expect(EXEMPLO_BODY_SIGNATURE.test(prompt)).toBe(true);
