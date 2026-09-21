@@ -13,7 +13,7 @@ import { autoSplitLongPartsV3 as autoSplitLongParts } from "@/lib/agent-v3/integ
 import { 
   stripEmojis, 
   keepFirstEmojiOnly 
-} from "../src/lib/emoji-limiter";
+} from "../../../src/lib/emoji-limiter";
 
 const OPENING = "Oi, bom dia! Aqui é a Júlia da Mind. Faz um tempo que você chegou até a gente, ainda tem interesse em impulsionar suas redes?";
 const SPOTIFY_UNAVAILABLE_SAFE_REPLY = "Atualmente não temos esse serviço disponível.";
