@@ -19,7 +19,7 @@ describe("Hybrid audio reply policy", () => {
     expect(support).toContain("text.length >= 260");
     expect(support).toContain("sentenceCount >= 4");
     expect(support).toContain("complexIntent");
-    expect(support).toContain("hasStepByStepLanguage");
+    expect(support).toContain("hasSteps");
   });
 
   it("só chama ElevenLabs quando replyWithAudio for verdadeiro", () => {
