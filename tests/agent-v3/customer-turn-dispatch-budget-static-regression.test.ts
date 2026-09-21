@@ -15,7 +15,8 @@ describe("Customer Turn cron dispatch runtime budget", () => {
   it("keeps the claim loop below the scheduler request timeout", () => {
     expect(dispatcher).toContain("AGENT_CUSTOMER_TURN_BATCH_BUDGET_MS = 35_000");
     expect(dispatcher).toContain("const startedAt=Date.now()");
-    expect(dispatcher).toContain("if(Date.now()-startedAt>=budgetMs)break");
+    expect(dispatcher).toContain("const canStartRuntime=()=>budgetMs-elapsedMs()>AGENT_CUSTOMER_TURN_RUNTIME_START_RESERVE_MS");
+    expect(dispatcher).toContain("if(!canStartRuntime())break");
     expect(scheduler).toContain("timeout_milliseconds := 55000");
   });
 
