@@ -4,5 +4,5 @@ describe("Audio transcription persistence",()=>{
  it("aceita mídia aninhada do payload Uazapi no ingresso",()=>{expect(webhook).toContain("findMediaReference");expect(webhook).toContain("findMediaReference(m.audioMessage)");expect(webhook).toContain("findMediaReference(m.pttMessage)")});
  it("runtime usa URL ou base64 retornado pelo resolver",()=>{expect(runtime).toContain("downloaded.fileURL");expect(runtime).toContain("downloaded.fileData");expect(uazapi).toContain("fileData: string | null")});
  it("runtime atualiza CRM com transcrição real",()=>{expect(runtime).toContain("body: finalMsgText");expect(runtime).toContain('.eq("external_id", msgId)');expect(runtime).toContain("last_message_preview: finalMsgText.slice(0, 120)")});
- it("Whisper aceita URL e data URI/base64",()=>{expect(audioProcessor).toContain('/^data:audio\\\\//i');expect(audioProcessor).toContain('Buffer.from(match[2], "base64")');expect(audioProcessor).toContain('form.append("model", "whisper-1")')});
+ it("Whisper aceita URL e data URI/base64",()=>{expect(audioProcessor).toContain('/^data:audio\\//i');expect(audioProcessor).toContain('Buffer.from(match[2], "base64")');expect(audioProcessor).toContain('form.append("model", "whisper-1")')});
 });
