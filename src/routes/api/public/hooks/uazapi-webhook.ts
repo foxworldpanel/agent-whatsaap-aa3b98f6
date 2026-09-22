@@ -7,8 +7,6 @@ import { persistWebhookAgentInboundJob } from "@/lib/agent-v3/inbound-webhook-ow
 import { enqueueWebhookInboundAroundWelcomeFunnel } from "@/lib/agent-v3/inbound-welcome-funnel-gate.server";
 import { buildFallbackInboundMessageId } from "@/lib/agent-v3/inbound-message-identity.server";
 import { runWelcomeFunnelWebhookGate, webhookGateMustStopAgent } from "@/lib/welcome-funnel-webhook-gate.server";
-import { AGENT_CUSTOMER_TURN_QUIET_MS } from "@/lib/agent-v3/customer-turn.server";
-import { dispatchReadyCustomerTurnById } from "@/lib/agent-v3/customer-turn-dispatch.server";
 
 // Uazapi webhook receiver.
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
@@ -992,30 +990,10 @@ async function processWebhook(payload: UazapiPayload): Promise<Response> {
       duplicate: ownershipResult.duplicate,
     });
 
-    // Durable-first fast path: wait for natural silence only after the inbound is
-    // persisted. Concurrent requests may race here, but the DB claim allows
-    // exactly one worker to seal this specific turn. If a newer message arrived,
-    // last_received_at moved forward and this attempt returns idle safely.
-    await new Promise((resolve) => setTimeout(resolve, AGENT_CUSTOMER_TURN_QUIET_MS));
-    try {
-      const fastResult = await dispatchReadyCustomerTurnById(
-        supabaseAdmin,
-        ownershipResult.turnId,
-        `webhook:${msgId}`,
-      );
-      console.log("[AGENT-CUSTOMER-TURN] fast path", {
-        turnId: ownershipResult.turnId,
-        status: fastResult.status,
-      });
-    } catch (fastError) {
-      // The durable turn is already committed. Never convert a fast-path failure
-      // into webhook loss: the dispatcher/recovery path remains authoritative.
-      console.error("[AGENT-CUSTOMER-TURN] fast path falhou; turno permanece durável", {
-        turnId: ownershipResult.turnId,
-        error: fastError instanceof Error ? fastError.message : String(fastError),
-      });
-    }
-
+    // Acknowledge the provider immediately after durable ownership is committed.
+    // Customer Turn quiet-period aggregation and Agent V3 execution belong to the
+    // dispatcher/recovery workers; keeping them on the webhook request path can
+    // exceed the provider timeout and cause unnecessary redelivery.
     return new Response("ok (agent customer turn durable)");
 }
 
