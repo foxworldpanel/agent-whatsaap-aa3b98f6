@@ -126,9 +126,10 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         isFirstTurn: history.length === 0,
         funnelAlreadyCompleted,
       },
-      // Pós-Funnel não pode cair numa resposta determinística de saudação:
-      // a apresentação já aconteceu. Mídia também segue direto ao Claude.
-      skipRouter: inputKind !== "texto" || funnelAlreadyCompleted,
+      // Mesmo contrato do runtime real: texto comum passa pelo Smart Router.
+      // Só mídia ou uma mensagem explicitamente retomada atrás do Funnel
+      // deve pular o Router. "Funnel concluído" por si só não é motivo.
+      skipRouter: inputKind !== "texto",
       isOutboundReply: isOutbound,
       funnelAlreadyCompleted,
     });
