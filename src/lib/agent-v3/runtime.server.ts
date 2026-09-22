@@ -670,13 +670,9 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       // usarem exatamente o mesmo ponto de decisÃ£o.
       // ============================================================
 
-      const {
-        deriveBusinessDecisionV3,
-        businessDecisionToPromptV3,
-        enrichBusinessDecisionV3,
-        reconcileBusinessDecisionV3,
-      } = await import("@/lib/agent-v3/brain/business-state.server");
-
+      // Fonte única de preparação da inteligência conversacional.
+      // Playground e WhatsApp passam pelo mesmo builder antes de executeAgent().
+      // O WhatsApp acrescenta apenas estado/memória persistidos do canal.
       let previousBusinessDecision: any = null;
       if (conversationId) {
         const { loadSingleBusinessStateV3 } = await import(
@@ -689,136 +685,21 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         });
       }
 
-      const derivedBusinessDecision = enrichBusinessDecisionV3(deriveBusinessDecisionV3({
+      const { buildAgentExecutionContext } = await import(
+        "@/lib/agent-v3/core/agent-execution-context.server"
+      );
+      const executionContext = buildAgentExecutionContext({
+        mode: "whatsapp",
         message: effectiveAgentMessage,
-        recentCustomerMessages: history
-          .filter((item) => item.role === "customer")
-          .slice(-6)
-          .map((item) => item.content),
+        history: history.map((h) => ({ role: h.role, content: h.content })),
         customerLifecycle: customerMemory?.lifecycle ?? null,
-      }), effectiveAgentMessage);
-
-      const businessDecision = reconcileBusinessDecisionV3({
-        previous: previousBusinessDecision,
-        current: derivedBusinessDecision,
-        message: effectiveAgentMessage,
+        previousBusinessDecision,
+        rememberedContext: {
+          platform: ((customerMemory?.preferredPlatform ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["platform"]),
+          product: ((customerMemory?.preferredProduct ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["product"]),
+        },
       });
-
-      // ============================================================
-      // MODO SOMBRA â€” buildAgentExecutionContext() rodando em paralelo,
-      // sÃ³ pra comparaÃ§Ã£o. NÃƒO influencia a resposta real, que continua
-      // vindo 100% do pipeline antigo acima. Qualquer erro aqui Ã© sÃ³
-      // logado, nunca interrompe o atendimento.
-      // ============================================================
-      try {
-        const { buildAgentExecutionContext } = await import(
-          "@/lib/agent-v3/core/agent-execution-context.server"
-        );
-        const shadowContext = buildAgentExecutionContext({
-          mode: "whatsapp",
-          message: effectiveAgentMessage,
-          history: history.map((h) => ({ role: h.role, content: h.content })),
-          customerLifecycle: customerMemory?.lifecycle ?? null,
-          previousBusinessDecision,
-          rememberedContext: {
-            platform: ((customerMemory?.preferredPlatform ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["platform"]),
-            product: ((customerMemory?.preferredProduct ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["product"]),
-          },
-        });
-
-        const oldExtraContext = [
-          customerMemoryContext,
-          businessDecisionToPromptV3(businessDecision),
-        ].filter(Boolean).join("\n\n") || undefined;
-
-        const diffs: string[] = [];
-
-        if (shadowContext.businessDecision.state !== businessDecision.state) {
-          diffs.push(
-            `BusinessDecision.state: antigo="${businessDecision.state}" novo="${shadowContext.businessDecision.state}"`,
-          );
-        }
-        if (shadowContext.businessDecision.nextAction !== businessDecision.nextAction) {
-          diffs.push(
-            `BusinessDecision.nextAction: antigo="${businessDecision.nextAction}" novo="${shadowContext.businessDecision.nextAction}"`,
-          );
-        }
-        if (shadowContext.businessDecision.risk !== businessDecision.risk) {
-          diffs.push(
-            `BusinessDecision.risk: antigo="${businessDecision.risk}" novo="${shadowContext.businessDecision.risk}"`,
-          );
-        }
-        // extraContext Ã© comparado por tamanho E por hash â€” hash detecta
-        // qualquer diferenÃ§a de conteÃºdo, mesmo que o tamanho bata por
-        // coincidÃªncia.
-        const oldExtraContextChars = (oldExtraContext || "").length;
-        const newExtraContextChars = (shadowContext.extraContext || "").length;
-        const extraContextCharsDiff = newExtraContextChars - oldExtraContextChars;
-        if (Math.abs(extraContextCharsDiff) > 50) {
-          diffs.push(
-            `extraContext.length: antigo=${oldExtraContextChars} novo=${newExtraContextChars} (diferenÃ§a: ${extraContextCharsDiff > 0 ? "+" : ""}${extraContextCharsDiff} chars)`,
-          );
-        }
-
-        const { createHash } = await import("node:crypto");
-        const hashOf = (text: string) => createHash("sha256").update(text).digest("hex").slice(0, 16);
-        const oldExtraContextHash = hashOf(oldExtraContext || "");
-        const newExtraContextHash = hashOf(shadowContext.extraContext || "");
-        const extraContextHashMatches = oldExtraContextHash === newExtraContextHash;
-        if (!extraContextHashMatches && !diffs.some(d => d.startsWith("extraContext"))) {
-          // Tamanho bateu mas conteÃºdo Ã© diferente â€” hash pegou o que o
-          // tamanho sozinho nÃ£o pegaria.
-          diffs.push(`extraContext.hash: antigo=${oldExtraContextHash} novo=${newExtraContextHash} (conteÃºdo diferente apesar do tamanho parecido)`);
-        }
-
-        // Nota percentual: cada checagem vale igual, simples e transparente.
-        const checks = [
-          { name: "BusinessDecision.state", ok: !diffs.some(d => d.startsWith("BusinessDecision.state")) },
-          { name: "BusinessDecision.nextAction", ok: !diffs.some(d => d.startsWith("BusinessDecision.nextAction")) },
-          { name: "BusinessDecision.risk", ok: !diffs.some(d => d.startsWith("BusinessDecision.risk")) },
-          { name: "extraContext", ok: extraContextHashMatches },
-        ];
-        const score = Math.round((checks.filter(c => c.ok).length / checks.length) * 1000) / 10;
-        const allEqual = checks.every(c => c.ok);
-
-        console.log(`
-=============================
-PARIDADE (modo sombra â€” nÃ£o afeta a resposta)
-=============================
-${checks.map(c => `${c.name}: ${c.ok ? "âœ“ Igual" : "âœ— Diferente"}`).join("\n")}
------------------------------
-PARIDADE: ${score}%
-=============================
-${diffs.length > 0 ? "DETALHES DAS DIVERGÃŠNCIAS:\n" + diffs.join("\n") : "Nenhuma divergÃªncia encontrada."}
-=============================`);
-
-        // Persiste pra consulta posterior (SELECT * WHERE equal = false).
-        // Best-effort â€” falha aqui nÃ£o afeta nada.
-        await (supabaseAdmin as any).from("agent_parity_runs").insert({
-          workspace_id: workspaceId,
-          phone: phoneStr,
-          conversation_id: conversationId ?? null,
-          equal: allEqual,
-          score,
-          differences: diffs,
-          old_snapshot: {
-            state: businessDecision.state,
-            nextAction: businessDecision.nextAction,
-            risk: businessDecision.risk,
-            extraContextHash: oldExtraContextHash,
-            extraContextChars: oldExtraContextChars,
-          },
-          new_snapshot: {
-            state: shadowContext.businessDecision.state,
-            nextAction: shadowContext.businessDecision.nextAction,
-            risk: shadowContext.businessDecision.risk,
-            extraContextHash: newExtraContextHash,
-            extraContextChars: newExtraContextChars,
-          },
-        } as any);
-      } catch (shadowModeError) {
-        console.warn("[PARIDADE] Falha no modo sombra (nÃ£o bloqueia o fluxo):", shadowModeError);
-      }
+      const businessDecision = executionContext.businessDecision;
 
       console.log("[BUSINESS-STATE-V3] decisÃ£o antes do LLM", {
         conversationId,
@@ -920,13 +801,10 @@ ${diffs.length > 0 ? "DETALHES DAS DIVERGÃŠNCIAS:\n" + diffs.join("\n") : "Nen
           funnelAlreadyCompleted,
         },
         skipRouter: !(content.kind === "texto" && !deferredFunnelMessage),
-        rememberedContext: {
-          platform: ((customerMemory?.preferredPlatform ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["platform"]),
-          product: ((customerMemory?.preferredProduct ?? null) as import("@/lib/agent-v3/selector/module-selector.server").ConversationContext["product"]),
-        },
+        rememberedContext: executionContext.rememberedContext as any,
         extraContext: [
           customerMemoryContext,
-          businessDecisionToPromptV3(businessDecision),
+          executionContext.extraContext,
         ].filter(Boolean).join("\n\n") || undefined,
         businessDecision,
         funnelAlreadyCompleted,
