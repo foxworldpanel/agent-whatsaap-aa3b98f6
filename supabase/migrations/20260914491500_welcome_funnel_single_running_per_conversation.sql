@@ -5,6 +5,8 @@
 -- Hold writers across cleanup + index installation. Without this migration-level
 -- fence a concurrent start could insert another running row after cleanup but
 -- before CREATE UNIQUE INDEX and make the safety migration fail nondeterministically.
+BEGIN;
+
 LOCK TABLE public.welcome_funnel_execution_state IN SHARE ROW EXCLUSIVE MODE;
 
 WITH duplicate_conversations AS (
@@ -26,3 +28,5 @@ WHERE s.conversation_id=d.conversation_id
 CREATE UNIQUE INDEX IF NOT EXISTS welcome_funnel_execution_one_running_per_conversation
 ON public.welcome_funnel_execution_state(conversation_id)
 WHERE status='running';
+
+COMMIT;
