@@ -3,17 +3,12 @@
 // WhatsApp — pertence ao núcleo, pra qualquer canal (Playground, WhatsApp,
 // e futuros como Instagram/Telegram/Widget) usar a mesma fonte.
 //
-// ESTADO ATUAL (deliberadamente incremental):
-// - O parâmetro `mode` já existe na assinatura, preparado pro futuro.
-// - Modo "whatsapp" ainda NÃO é chamado pelo webhook real — o webhook
-//   continua com sua lógica própria por enquanto (decisão de segurança:
-//   evitar mexer no fluxo que acabou de estabilizar depois de um dia
-//   inteiro de correções críticas).
-// - Modo "playground" é o único em uso ativo nesta entrega.
-// - Quando o WhatsApp for migrado pra usar esta função (sprint futura,
-//   feita com cautela e testada em paralelo antes de substituir o fluxo
-//   real), o modo "whatsapp" ativa reconcile() com o estado anterior
-//   persistido — algo que sessões de Playground não têm.
+// FONTE ÚNICA DE CONTEXTO CONVERSACIONAL:
+// - Playground e WhatsApp chamam esta função antes de executeAgent().
+// - O modo "whatsapp" acrescenta reconcile() com o estado persistido.
+// - O Playground continua determinístico para o contexto que simula.
+// - Diferenças de transporte (Uazapi, persistência, typing, delivery) ficam
+//   fora deste núcleo e não criam uma segunda inteligência conversacional.
 
 import {
   deriveBusinessDecisionV3,
