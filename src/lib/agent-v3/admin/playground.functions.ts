@@ -35,7 +35,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     const messages = recentMessages || [];
     const nextSequence = Number(messages[0]?.sequence || 0) + 1;
     const history = [...messages].reverse().map(m => ({
-      role: (m.role === "assistant" ? "agent" : "customer") as "agent" | "customer",
+      role: (m.role === "agent" || m.role === "assistant" ? "agent" : "customer") as "agent" | "customer",
       content: m.content
     }));
 
@@ -73,7 +73,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       rememberedContext: executionContext.rememberedContext as any,
       routerContext: {
         isFirstTurn: history.length === 0,
-        funnelAlreadyCompleted: false, // campo do router, propósito diferente do de nível principal abaixo
+        funnelAlreadyCompleted,
       },
       // Mesma lógica exata do webhook: só pula o router quando NÃO é
       // texto puro (áudio/imagem) — mantém o Playground se comportando
