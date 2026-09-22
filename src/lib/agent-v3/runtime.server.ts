@@ -612,29 +612,31 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       );
       console.log(`[UAZ-WEBHOOK] [AUDIT] HistÃ³rico recuperado: ${history?.length || 0} mensagens. Telemetria: ${JSON.stringify(historyTelemetry || {})}`);
 
-      // O histÃ³rico V3 nÃ£o contÃ©m necessariamente as peÃ§as automÃ¡ticas do funil.
-      // Consulte o runtime do funil para impedir uma segunda apresentaÃ§Ã£o da JÃºlia.
-      // SIMPLIFICADO: sem coluna status na tabela real, existÃªncia da linha
-      // jÃ¡ significa "esse funil jÃ¡ rodou pra esse contato" (sÃ­ncrono).
+      // Pós-Funnel precisa significar conclusão durável real, não apenas
+      // "existe alguma linha". Uma execução running/needs_review nunca pode
+      // fazer o Agent presumir que a apresentação terminou.
       let funnelAlreadyCompleted = false;
-      if (contactId) {
-        const { data: completedFunnelRun } = await (supabaseAdmin as any)
-          .from("welcome_funnel_runs")
-          .select("funnel_id")
-          .eq("contact_id", contactId)
-          .eq("workspace_id", workspaceId)
-          .limit(1)
-          .maybeSingle();
+      if (contactId && conversationId) {
+        const { data: completedFunnelRun, error: completedFunnelRunError } =
+          await (supabaseAdmin as any)
+            .from("welcome_funnel_runs")
+            .select("funnel_id,status")
+            .eq("contact_id", contactId)
+            .eq("conversation_id", conversationId)
+            .eq("workspace_id", workspaceId)
+            .eq("status", "completed")
+            .limit(1)
+            .maybeSingle();
+        if (completedFunnelRunError) {
+          throw new Error(
+            `Welcome Funnel completion state unavailable: ${completedFunnelRunError.message || String(completedFunnelRunError)}`,
+          );
+        }
         funnelAlreadyCompleted = Boolean(completedFunnelRun);
       }
-      // DiagnÃ³stico real â€” achado em conversa de produÃ§Ã£o em 10/08/2026
-      // onde a JÃºlia cumprimentou de novo mesmo com o funil jÃ¡ concluÃ­do
-      // (violando a regra PÃ“S-FUNIL). O cÃ³digo de cÃ¡lculo parece correto
-      // lendo, entÃ£o isso registra o valor real computado toda vez, pra
-      // confirmar com dado se Ã© timing/corrida ou outra causa, em vez de
-      // suposiÃ§Ã£o.
       traceFunnel(supabaseAdmin, msgId, phoneStr, "funnel_already_completed_check", {
         contactId: contactId ?? null,
+        conversationId: conversationId ?? null,
         workspaceId,
         funnelAlreadyCompleted,
       });
