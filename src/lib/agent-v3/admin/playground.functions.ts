@@ -72,12 +72,34 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     const previousBusinessDecision =
       (previousRun?.conversation_feedback as any)?.businessDecision ?? null;
 
+    // Memória simulada derivada da própria sessão. Não lê/escreve memória de
+    // cliente real, mas fornece ao núcleo o mesmo tipo de contexto que o
+    // WhatsApp persiste entre turnos.
+    const previousFeedback = (previousRun?.conversation_feedback as any) ?? {};
+    const previousIntelligence = previousFeedback?.intelligence ?? {};
+    const simulatedLifecycle =
+      previousIntelligence?.lifecycle ??
+      previousFeedback?.customerLifecycle ??
+      "novo_lead";
+    const simulatedRememberedContext = {
+      platform:
+        previousIntelligence?.platform ??
+        previousFeedback?.rememberedContext?.platform ??
+        null,
+      product:
+        previousIntelligence?.product ??
+        previousFeedback?.rememberedContext?.product ??
+        null,
+    };
+
     const { buildAgentExecutionContext } = await import("../core/agent-execution-context.server");
     const executionContext = buildAgentExecutionContext({
       mode: "playground",
       message,
       history,
+      customerLifecycle: simulatedLifecycle,
       previousBusinessDecision,
+      rememberedContext: simulatedRememberedContext,
     });
 
     const { executeAgent } = await import("../core/execute-agent.server");
