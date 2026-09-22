@@ -178,7 +178,16 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
 
   // Conversation Facts Engine — Extração e persistência pós-execução (Fase 2)
   // Garante que o estado do pedido seja atualizado com a resposta final do agente (ex: link enviado, ou pergunta de quantidade)
-  if (input.phone && input.workspaceId && input.userId) {
+  // Persistência de Facts pertence ao canal/runtime real. O Playground usa
+  // telefone sintético e deve exercitar o mesmo cérebro sem criar memória
+  // durável fora da própria sessão.
+  const shouldPersistConversationFacts =
+    input.phone &&
+    input.workspaceId &&
+    input.userId &&
+    !input.phone.startsWith("playground:");
+
+  if (shouldPersistConversationFacts) {
     (async () => {
       try {
         const historyWithReply = [
