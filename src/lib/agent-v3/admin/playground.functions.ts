@@ -117,10 +117,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         isFirstTurn: history.length === 0,
         funnelAlreadyCompleted,
       },
-      // Mesma lógica exata do webhook: só pula o router quando NÃO é
-      // texto puro (áudio/imagem) — mantém o Playground se comportando
-      // igual ao WhatsApp real pra mensagem de texto comum.
-      skipRouter: inputKind !== "texto",
+      // Pós-Funnel não pode cair numa resposta determinística de saudação:
+      // a apresentação já aconteceu. Mídia também segue direto ao Claude.
+      skipRouter: inputKind !== "texto" || funnelAlreadyCompleted,
       isOutboundReply: isOutbound,
       funnelAlreadyCompleted,
     });
