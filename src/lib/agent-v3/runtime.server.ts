@@ -641,27 +641,12 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         funnelAlreadyCompleted,
       });
 
-      // Agrupa rajadas curtas do mesmo cliente (ex.: "Inscritos" + "E comentÃ¡rio").
-      // Isso evita responder Ã  primeira metade como se ela fosse a intenÃ§Ã£o completa.
-      let effectiveAgentMessage = finalMsgText;
-      if (conversationId && content.kind === "texto") {
-        const burstSince = new Date(Date.now() - 12_000).toISOString();
-        const { data: burstRows } = await supabaseAdmin
-          .from("messages")
-          .select("body, created_at")
-          .eq("conversation_id", conversationId)
-          .eq("sender", "cliente")
-          .gte("created_at", burstSince)
-          .order("created_at", { ascending: true })
-          .limit(4);
-
-        const burstBodies = (burstRows || [])
-          .map((row: any) => String(row?.body || "").trim())
-          .filter(Boolean);
-        if (burstBodies.length > 1) {
-          effectiveAgentMessage = burstBodies.join("\n");
-        }
-      }
+      // O Customer Turn já é a unidade semântica autoritativa de entrada.
+      // buildCustomerTurnRuntimeInput() agrega, ordena e resolve todos os membros
+      // antes de chegar aqui. Não releia a tabela messages por janela de tempo:
+      // isso poderia duplicar membros do turno ou incorporar uma mensagem que
+      // pertence ao próximo Customer Turn, quebrando a paridade com o Playground.
+      const effectiveAgentMessage = finalMsgText;
 
       // ============================================================
       // SMART ROUTER â€” agora encapsulado dentro de executeAgent(), junto
