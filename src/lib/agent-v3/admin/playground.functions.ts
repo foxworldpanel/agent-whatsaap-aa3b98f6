@@ -53,11 +53,25 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     if (!userMsg) throw new Error("Falha ao salvar mensagem do usuário");
 
+    // Recupera a decisão comercial do turno anterior da própria sessão.
+    // Assim o Playground exercita a mesma reconciliação de estado usada no
+    // WhatsApp, em vez de recalcular cada turno como se fosse uma conversa nova.
+    const { data: previousRun } = await context.supabase
+      .from("agent_playground_runs")
+      .select("conversation_feedback")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const previousBusinessDecision =
+      (previousRun?.conversation_feedback as any)?.businessDecision ?? null;
+
     const { buildAgentExecutionContext } = await import("../core/agent-execution-context.server");
     const executionContext = buildAgentExecutionContext({
       mode: "playground",
       message,
       history,
+      previousBusinessDecision,
     });
 
     const { executeAgent } = await import("../core/execute-agent.server");
