@@ -17,10 +17,17 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       // que essa regra lê nunca era passado — achado em auditoria de
       // paridade Playground x WhatsApp em 09/08/2026.
       funnelAlreadyCompleted: z.boolean().optional(),
+      // Um Customer Turn pode conter uma rajada já agregada pelo pipeline real.
+      // Cada item vira uma linha, na mesma ordem usada por buildCustomerTurnRuntimeInput().
+      customerTurnMessages: z.array(z.string().min(1)).max(20).optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
-    const { sessionId, message, inputKind = "texto", isOutbound = false, funnelAlreadyCompleted = false } = data;
+    const { sessionId, message, inputKind = "texto", isOutbound = false, funnelAlreadyCompleted = false, customerTurnMessages } = data;
+    const effectiveMessage = (customerTurnMessages?.length
+      ? customerTurnMessages.map((part) => part.trim()).filter(Boolean).join("\n")
+      : message
+    ).trim();
     const { userId, workspaceId } = context;
 
     // Estados impossíveis no WhatsApp real não podem existir no Playground:
@@ -28,6 +35,8 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     if (isOutbound && funnelAlreadyCompleted) {
       throw new Error("Cenário inválido: Disparo e pós-Funnel não podem estar ativos ao mesmo tempo.");
     }
+
+    if (!effectiveMessage) throw new Error("Customer Turn vazio.");
 
     const start = Date.now();
 
@@ -50,7 +59,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       .insert({
         session_id: sessionId,
         role: "user",
-        content: message,
+        content: effectiveMessage,
         sequence: nextSequence,
         input_kind: inputKind
       })
@@ -95,7 +104,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     const { buildAgentExecutionContext } = await import("../core/agent-execution-context.server");
     const executionContext = buildAgentExecutionContext({
       mode: "playground",
-      message,
+      message: effectiveMessage,
       history,
       customerLifecycle: simulatedLifecycle,
       previousBusinessDecision,
@@ -104,7 +113,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     const { executeAgent } = await import("../core/execute-agent.server");
     const execResult = await executeAgent({
-      message,
+      message: effectiveMessage,
       userId,
       history,
       anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
@@ -229,7 +238,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       selected_modules: modules.selected_keys,
       system_prompt_chars: execResult.agentResult ? JSON.stringify(execResult.agentResult.rawPrompt).length : 0,
       history_chars: JSON.stringify(history).length,
-      message_chars: message.length,
+      message_chars: effectiveMessage.length,
       response_chars: agentMsg.content.length,
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
@@ -259,6 +268,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         route: execResult.route,
         router_reason: execResult.routerReason,
         claude_called: execResult.claudeCalled,
+        customer_turn_messages: customerTurnMessages?.length ? customerTurnMessages : [effectiveMessage],
       }
     };
 
