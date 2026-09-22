@@ -335,30 +335,9 @@ export const startOutboundSimulation = createServerFn({ method: "POST" })
     const { sessionId, instagramHandle } = data;
     const { userId, workspaceId } = context;
 
-    // Cria (ou atualiza) um contato de teste com source="disparo" — sem
-    // isso, o Playground simulava a abertura só como texto solto, sem
-    // nenhum registro real em `contacts`. Se algum dia uma regra passar
-    // a ler contacts.source diretamente (em vez de só o parâmetro
-    // isOutboundReply que já passamos manualmente), o Playground ficaria
-    // defasado sem ninguém perceber. Telefone é determinístico por
-    // sessão (mesma sessão = mesmo contato de teste, sem duplicar).
-    // Achado em auditoria de paridade em 17/08/2026.
-    const fakeTestPhone = `5500${sessionId.replace(/-/g, "").slice(0, 8)}`;
-    await context.supabase.from("contacts").upsert(
-      {
-        user_id: userId,
-        workspace_id: workspaceId,
-        telefone: fakeTestPhone,
-        nome: "Teste Playground",
-        instagram: instagramHandle,
-        perfil: "frio",
-        status: "em_conversa",
-        source: "disparo",
-        source_ref: `playground:${sessionId}`,
-      },
-      { onConflict: "user_id,telefone" },
-    );
-
+    // O Playground não cria contato operacional. A origem outbound é parte
+    // explícita do cenário (isOutboundReply) e a sessão é a memória de teste.
+    // Assim a bancada exercita o mesmo cérebro sem poluir contacts/CRM.
     const { montarMensagemDisparo } = await import("@/lib/blast-variations");
     const { _toTemplates } = await import("@/lib/opening-templates.functions");
 
@@ -367,20 +346,6 @@ export const startOutboundSimulation = createServerFn({ method: "POST" })
       .select("*")
       .eq("user_id", userId)
       .maybeSingle();
-
-    // Diagnóstico temporário — achado em 17/08/2026: Playground mostrando
-    // abertura padrão do código em vez do template customizado salvo pelo
-    // usuário. toTemplates() e montarMensagemDisparo() parecem corretos
-    // na leitura estática — precisa confirmar com dado real se tplRow
-    // veio null/vazio, ou se veio certo e o problema é depois.
-    console.error("[PLAYGROUND-DISPARO-DIAGNOSTICO]", {
-      userId,
-      workspaceId,
-      tplRowIsNull: tplRow === null,
-      tplRowKeys: tplRow ? Object.keys(tplRow) : null,
-      linha2Length: (tplRow as any)?.linha2?.length ?? "n/a",
-      linha2Preview: (tplRow as any)?.linha2?.[0]?.slice(0, 50) ?? "n/a",
-    });
 
     const templates = _toTemplates(tplRow as any);
     const pick = montarMensagemDisparo("Teste", instagramHandle, { templates });
