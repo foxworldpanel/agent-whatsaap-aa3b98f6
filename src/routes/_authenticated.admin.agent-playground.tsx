@@ -50,6 +50,7 @@ function AgentPlaygroundPage() {
   const queryClient = useQueryClient();
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [customerTurnMode, setCustomerTurnMode] = useState(false);
   const [isScenarioOpen, setIsScenarioOpen] = useState(false);
   const [isHistoryEditorOpen, setIsHistoryEditorOpen] = useState(false);
   const [isTestScenarioBarOpen, setIsTestScenarioBarOpen] = useState(false);
@@ -202,6 +203,9 @@ function AgentPlaygroundPage() {
           inputKind: "texto",
           isOutbound: isOutboundMode,
           funnelAlreadyCompleted,
+          customerTurnMessages: customerTurnMode
+            ? text.split("\n").map((part) => part.trim()).filter(Boolean)
+            : undefined,
         }
       });
     },
@@ -498,6 +502,20 @@ function AgentPlaygroundPage() {
                         ? "Funnel já apresentou a Júlia — sem nova saudação/apresentação"
                         : "Nenhum gatilho de Funnel disparou — atendimento normal"}
                   </Badge>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <Checkbox
+                      checked={customerTurnMode}
+                      onCheckedChange={(v) => setCustomerTurnMode(Boolean(v))}
+                    />
+                    <span className={cn("font-medium", customerTurnMode && "text-primary")}>
+                      Simular rajada / Customer Turn
+                    </span>
+                  </label>
+                  {customerTurnMode && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Uma linha = uma mensagem do cliente. Todas entram juntas e na ordem em um único Customer Turn.
+                    </span>
+                  )}
                   
                   <Input 
                     className="h-7 w-40 text-[10px]" 
@@ -561,7 +579,7 @@ function AgentPlaygroundPage() {
                   <Settings2 className="h-4 w-4" />
                 </Button>
                 <textarea
-                  placeholder="Digite uma mensagem para testar o agente..."
+                  placeholder={customerTurnMode ? "Uma mensagem por linha. Ex.:\nQuero Spotify\n10 mil plays\nE saves também" : "Digite uma mensagem para testar o agente..."}
                   className="flex-1 bg-background border rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px] resize-none shadow-inner"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
@@ -582,7 +600,7 @@ function AgentPlaygroundPage() {
                 </Button>
               </div>
               <div className="flex justify-between items-center text-[10px] text-muted-foreground px-1">
-                <span>Enter para enviar, Shift + Enter para nova linha</span>
+                <span>{customerTurnMode ? "Customer Turn: cada linha representa uma mensagem da mesma rajada" : "Enter para enviar, Shift + Enter para nova linha"}</span>
                 <div className="flex gap-2">
                   <Badge variant="outline" className="text-[9px]">Input: Texto</Badge>
                   <Badge variant="outline" className="text-[9px]">Model: Haiku 4.5</Badge>
