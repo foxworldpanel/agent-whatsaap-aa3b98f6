@@ -56,7 +56,8 @@ function AgentPlaygroundPage() {
   const [isOutboundMode, setIsOutboundMode] = useState(false);
   const [customerPersona, setCustomerPersona] = useState("curioso");
   const [testInstagramHandle, setTestInstagramHandle] = useState("perfilteste");
-  const [funnelAlreadyCompleted, setFunnelAlreadyCompleted] = useState(false);
+  const [inboundContext, setInboundContext] = useState<"sem_funil" | "pos_funil">("sem_funil");
+  const funnelAlreadyCompleted = !isOutboundMode && inboundContext === "pos_funil";
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Queries
@@ -247,6 +248,7 @@ function AgentPlaygroundPage() {
       });
     },
     onSuccess: () => {
+      setInboundContext("sem_funil");
       setIsOutboundMode(true);
       queryClient.invalidateQueries({ queryKey: ["playground_messages", activeSessionId] });
       toast.success("Abordagem de disparo enviada — modo Outbound ativado automaticamente");
@@ -456,22 +458,46 @@ function AgentPlaygroundPage() {
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <Checkbox
                       checked={isOutboundMode}
-                      onCheckedChange={(v) => setIsOutboundMode(Boolean(v))}
+                      onCheckedChange={(v) => {
+                        const outbound = Boolean(v);
+                        setIsOutboundMode(outbound);
+                        if (outbound) setInboundContext("sem_funil");
+                      }}
                     />
                     <span className={cn("font-medium", isOutboundMode && "text-primary")}>
-                      Modo Disparo
+                      Disparo / Outbound
                     </span>
                   </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <Checkbox
-                      checked={funnelAlreadyCompleted}
-                      onCheckedChange={(v) => setFunnelAlreadyCompleted(Boolean(v))}
-                    />
-                    <span className={cn("font-medium", funnelAlreadyCompleted && "text-primary")}>
-                      Funil já concluído
-                    </span>
-                  </label>
+                  {!isOutboundMode && (
+                    <div className="flex items-center gap-1 rounded-md border p-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={inboundContext === "sem_funil" ? "default" : "ghost"}
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => setInboundContext("sem_funil")}
+                      >
+                        Meta Ads sem Funnel
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={inboundContext === "pos_funil" ? "default" : "ghost"}
+                        className="h-6 px-2 text-[10px]"
+                        onClick={() => setInboundContext("pos_funil")}
+                      >
+                        Meta Ads pós-Funnel
+                      </Button>
+                    </div>
+                  )}
+                  <Badge variant="outline" className="text-[9px]">
+                    {isOutboundMode
+                      ? "Cliente respondendo a um disparo"
+                      : funnelAlreadyCompleted
+                        ? "Funnel já apresentou a Júlia — sem nova saudação/apresentação"
+                        : "Nenhum gatilho de Funnel disparou — atendimento normal"}
+                  </Badge>
                   
                   <Input 
                     className="h-7 w-40 text-[10px]" 
