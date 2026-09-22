@@ -33,8 +33,8 @@ export function buildAgentExecutionContext(params: {
   message: string;
   history: ChatMessageLike[];
   customerLifecycle?: string | null;
-  // Só usado no modo "whatsapp" — decisão anterior persistida, pra
-  // reconcile() suavizar a transição de estado. Playground não tem isso.
+  // Decisão anterior, quando o canal possui estado persistido/simulado.
+  // Playground e WhatsApp podem fornecê-la para manter a mesma transição.
   previousBusinessDecision?: BusinessDecisionV3 | null;
   // Só usado no modo "whatsapp" — memória real do cliente (telefone
   // conhecido). Playground não tem contato real associado à sessão.
@@ -62,9 +62,9 @@ export function buildAgentExecutionContext(params: {
 
   let businessDecision = enrichBusinessDecisionV3(rawDecision, message);
 
-  // Reconcile só faz sentido quando existe estado anterior persistido —
-  // hoje isso só está disponível de verdade no fluxo do WhatsApp.
-  if (mode === "whatsapp" && previousBusinessDecision) {
+  // A transição comercial é igual em qualquer canal. A diferença é apenas
+  // de onde vem o estado anterior (produção no WhatsApp, sessão no Playground).
+  if (previousBusinessDecision) {
     businessDecision = reconcileBusinessDecisionV3({
       previous: previousBusinessDecision,
       current: businessDecision,
