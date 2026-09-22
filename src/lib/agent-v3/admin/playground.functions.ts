@@ -23,6 +23,12 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     const { sessionId, message, inputKind = "texto", isOutbound = false, funnelAlreadyCompleted = false } = data;
     const { userId, workspaceId } = context;
 
+    // Estados impossíveis no WhatsApp real não podem existir no Playground:
+    // Disparo/outbound não é uma conversa Meta Ads pós-Welcome-Funnel.
+    if (isOutbound && funnelAlreadyCompleted) {
+      throw new Error("Cenário inválido: Disparo e pós-Funnel não podem estar ativos ao mesmo tempo.");
+    }
+
     const start = Date.now();
 
     const { data: recentMessages } = await context.supabase
