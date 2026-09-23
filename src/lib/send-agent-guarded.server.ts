@@ -18,7 +18,7 @@ export interface SendAgentTextGuardedOptions {
   emojiWindow?: number;
 }
 
-function normalizeWhatsAppPresentation(text: string): string {
+export function normalizeAgentTextPresentation(text: string): string {
   let out = stripMarkdownFormattingV3(text ?? "");
   out = out
     .replace(/\r\n/g, "\n")
@@ -36,6 +36,33 @@ function normalizeWhatsAppPresentation(text: string): string {
     deduped.push(paragraph);
   }
   return deduped.join("\n\n").trim();
+}
+
+export function finalizeAgentText(
+  text: string,
+  opts: {
+    applyHumanize?: boolean;
+    recentAgentBodies?: string[];
+    emojiWindow?: number;
+    isBlastOpening?: boolean;
+  } = {},
+): { transformed: string; original: string; strippedEmoji: boolean } {
+  let out = text ?? "";
+  const original = out;
+  if (opts.applyHumanize) out = humanizePunctuationV3(out);
+  out = normalizeAgentTextPresentation(out);
+
+  if (!out) {
+    return { transformed: "", original, strippedEmoji: false };
+  }
+
+  const beforeEmoji = out;
+  out = limitEmojiFrequency(out, {
+    recentAgentBodies: opts.recentAgentBodies ?? [],
+    window: opts.emojiWindow ?? 3,
+    isBlastOpening: opts.isBlastOpening,
+  });
+  return { transformed: out, original, strippedEmoji: beforeEmoji !== out };
 }
 
 export async function sendAgentTextGuarded(
@@ -66,22 +93,22 @@ export async function sendAgentTextGuarded(
     }
   }
 
-  let out = text ?? "";
-  const original = out;
-  if (opts.applyHumanize) out = humanizePunctuationV3(out);
-  out = normalizeWhatsAppPresentation(out);
+  const finalized = finalizeAgentText(text, {
+    applyHumanize: opts.applyHumanize,
+    recentAgentBodies: recent,
+    emojiWindow: opts.emojiWindow,
+    isBlastOpening: opts.isBlastOpening,
+  });
+  const { original, strippedEmoji } = finalized;
+  const out = finalized.transformed;
 
   if (!out) {
     throw new Error(`[send-agent-guarded] resposta vazia após normalização (${opts.source})`);
   }
 
-  const beforeEmoji = out;
-  out = limitEmojiFrequency(out, {
-    recentAgentBodies: recent,
-    window: opts.emojiWindow ?? 3,
-    isBlastOpening: opts.isBlastOpening,
-  });
-  const strippedEmoji = beforeEmoji !== out;
+  const beforeEmoji = normalizeAgentTextPresentation(
+    opts.applyHumanize ? humanizePunctuationV3(text ?? "") : (text ?? ""),
+  );
   if (strippedEmoji) {
     console.info("[send-agent-guarded] emoji normalizado", {
       source: opts.source,
