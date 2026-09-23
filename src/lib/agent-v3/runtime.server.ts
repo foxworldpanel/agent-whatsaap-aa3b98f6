@@ -566,51 +566,10 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         nextAction: businessDecision.nextAction,
       });
 
-      // ============================================================
-      // FLOW ENGINE â€” checagem ANTECIPADA (antes da IA), sÃ³ pra
-      // permitir que uma FlowAction ligada por feature flag influencie
-      // a resposta. Enquanto NENHUMA flag estiver ligada (estado atual),
-      // "anyFlowActionEnabled()" Ã© false e nada alÃ©m dessa checagem
-      // sÃ­ncrona acontece â€” zero custo extra, zero leitura de banco.
-      // ============================================================
-      let flowActionHint: { version: number; action: string; reasonCode: string; reason: string; payload: unknown } | null = null;
-      try {
-        const { anyFlowActionEnabled, isFlowActionEnabled } = await import(
-          "@/lib/agent-v3/flow/flow-action-flags.server"
-        );
-        if (anyFlowActionEnabled()) {
-          const { deriveOrderContextV3, loadOrderContextV3 } = await import(
-            "@/lib/agent-v3/memory/order-context.server"
-          );
-          const { evaluateFlow } = await import("@/lib/agent-v3/flow/flow-engine.server");
-
-          const earlyPreviousOrderContext = await loadOrderContextV3(phoneStr, workspaceId);
-          const earlyHistory = history.map((m) => ({
-            role: m.role === "agent" ? ("agent" as const) : ("customer" as const),
-            content: m.content,
-          }));
-          const earlyOrderContext = deriveOrderContextV3(
-            effectiveAgentMessage,
-            earlyHistory,
-            earlyPreviousOrderContext,
-          );
-          const earlyFlowDecision = evaluateFlow(earlyOrderContext, businessDecision);
-
-          if (isFlowActionEnabled(earlyFlowDecision.action)) {
-            flowActionHint = {
-              version: earlyFlowDecision.version,
-              action: earlyFlowDecision.action,
-              reasonCode: earlyFlowDecision.reasonCode,
-              reason: earlyFlowDecision.reason,
-              payload: earlyFlowDecision.payload,
-            };
-            console.log("[FLOW-ENGINE] FlowAction LIGADA influenciando a resposta:", flowActionHint);
-          }
-        }
-      } catch (earlyFlowError) {
-        console.warn("[FLOW-ENGINE] Falha na checagem antecipada (seguindo sem hint, Claude decide normalmente):", earlyFlowError);
-        flowActionHint = null;
-      }
+      // O runtime carrega apenas o snapshot persistido. A decisão do Flow
+      // Engine é calculada dentro de executeAgent(), igual ao Playground.
+      const { loadOrderContextV3 } = await import("@/lib/agent-v3/memory/order-context.server");
+      const previousOrderContext = await loadOrderContextV3(phoneStr, workspaceId);
 
       console.log("RETURN-PONTO: chegou na V3", { phone: phoneStr });
 
@@ -629,7 +588,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       const execResult = await executeAgent({
         traceId, // Pass traceId to executeAgent
         userId: num.user_id,
-        flowActionHint,
+        previousOrderContext,
         workspaceId,
         conversationId: conversationId ?? undefined,
         phone: phoneStr,
