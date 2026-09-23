@@ -1,9 +1,10 @@
 import { sleepMs } from "@/lib/agent-v3/humanization.server";
 import { uazapiClearPresence,uazapiSendAudio,uazapiSendMedia,uazapiSendRecording,uazapiSendText,uazapiSendTyping } from "@/lib/uazapi.server";
+import { WELCOME_FUNNEL_STEP_ORDER as ORDER, type WelcomeFunnelStepKey as FunnelStepKey } from "@/lib/welcome-funnel-plan";
 type Step={enabled?:boolean;text?:string;caption?:string;url?:string;delay_seconds?:number};
 export type WelcomeFunnelRuntime={id:string;name?:string|null;delay_seconds?:number|null;steps?:{welcome_text?:Step;audio?:Step;panel_text?:Step;video?:Step;services_text?:Step}|null};
 export class FunnelPausedError extends Error{constructor(){super("WELCOME_FUNNEL_PAUSED");this.name="FunnelPausedError";}}
-const ORDER=["welcome_text","audio","panel_text","video","services_text"] as const;type FunnelStepKey=(typeof ORDER)[number];
+
 function stepDelayMs(step:Step|undefined,fallbackSec:number|null|undefined){const sec=Number.isFinite(Number(step?.delay_seconds))?Number(step?.delay_seconds):Number(fallbackSec||0);return Math.max(0,Math.min(180,sec))*1000;}
 function resolveResumeIndex(resumeAfterStep:string|null|undefined):number{if(!resumeAfterStep)return -1;const index=ORDER.indexOf(resumeAfterStep as FunnelStepKey);if(index<0)throw new Error(`Invalid Welcome Funnel resume checkpoint: ${resumeAfterStep}`);return index;}
 function requireStepPayload(key:FunnelStepKey,step:Step):{text?:string;url?:string;caption?:string}{if(key==="welcome_text"||key==="panel_text"||key==="services_text"){const text=step.text?.trim();if(!text)throw new Error(`Enabled Welcome Funnel step ${key} has empty text`);return{text};}const url=step.url?.trim();if(!url)throw new Error(`Enabled Welcome Funnel step ${key} has empty url`);return{url,caption:step.caption?.trim()||undefined};}
