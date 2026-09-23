@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe,expect,it } from "vitest";
 const source=readFileSync("src/lib/welcome-funnel-webhook-gate.server.ts","utf8");
+const plan=readFileSync("src/lib/welcome-funnel-plan.ts","utf8");
 describe("Welcome Funnel webhook gate",()=>{
  it("checks the durable conversation barrier before trigger discovery",()=>{
   const barrier=source.indexOf("getWelcomeFunnelConversationBarrier");
@@ -26,6 +27,7 @@ describe("Welcome Funnel webhook gate",()=>{
   expect(source).toContain('status==="busy"');
  });
  it("does not treat generic greetings as funnel triggers",()=>{
-  expect(source).toContain('new Set(["oi","ola","bom dia","boa tarde","boa noite"])');
+  expect(source).toContain("matchesWelcomeFunnelTrigger");
+  expect(plan).toContain('new Set(["oi", "ola", "bom dia", "boa tarde", "boa noite"])');
  });
 });
