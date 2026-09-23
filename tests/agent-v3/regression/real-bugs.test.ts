@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // fetch is stubbed lets these unit/regression tests exercise the real runtime
 // without requiring production MIND_SUPABASE_* secrets.
 let realRunAgentV3Turn: typeof import("@/lib/agent-v3/orchestrator.server").runAgentV3Turn;
+const TEST_SUPABASE_URL = "https://unit-test.supabase.co";
+const TEST_SUPABASE_KEY = "test-secret-key";
 import { DEFAULT_MODULES } from "../../../src/lib/agent-modules";
 import { 
   sanitizeSystemLeaks, 
@@ -79,6 +81,11 @@ function extractSystemText(s: any): string {
 }
 
 async function callAgent(opts: any) {
+  // The privileged client is lazy, but its first property access still requires
+  // configuration. Use non-secret test-only values so the suite never depends
+  // on developer/production Supabase credentials.
+  process.env.MIND_SUPABASE_URL ??= TEST_SUPABASE_URL;
+  process.env.MIND_SUPABASE_SECRET_KEY ??= TEST_SUPABASE_KEY;
   const fetchMock = mockAnthropic(opts.mockReply);
   vi.stubGlobal("fetch", fetchMock);
   if (!realRunAgentV3Turn) {
