@@ -2,7 +2,7 @@ import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
 import type { AgentV3RuntimeExecutor } from "@/lib/agent-v3/inbound-runtime-contract.server";
 import { runtimeTerminal } from "@/lib/agent-v3/inbound-runtime-result.server";
-import { detectCriticalHumanEscalation, isHumanHandoffRequest, isStopRequest, shouldReplyWithAudio, traceFunnel } from "@/lib/agent-v3/runtime-support.server";
+import { detectCriticalHumanEscalation, shouldReplyWithAudio, traceFunnel } from "@/lib/agent-v3/runtime-support.server";
 
 // Generated from the audited effectful webhook boundary. The webhook owns the
 // outer catch/finally so durable ownership is finalized in one place.
@@ -408,136 +408,6 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         }
       }
 
-      if (isHumanHandoffRequest(finalMsgText)) {
-        const handoffReply =
-          "Claro. Vou pausar por aqui e encaminhar seu atendimento para o setor responsÃ¡vel. Assim que possÃ­vel, a equipe darÃ¡ continuidade por aqui.";
-
-        try {
-          if (conversationId) {
-            const { error: handoffConvErr } = await supabaseAdmin
-              .from("conversations")
-              .update({
-                agent_enabled: false,
-                needs_review: true,
-                review_reason: "cliente solicitou atendimento humano",
-                auto_paused_at: new Date().toISOString(),
-                status: "aguardando",
-                internal_note:
-                  "Cliente solicitou atendimento humano pelo WhatsApp. Agent V3 pausado atÃ© reativaÃ§Ã£o manual.",
-              })
-              .eq("id", conversationId);
-
-            if (handoffConvErr) throw handoffConvErr;
-          }
-
-          // Confirma UMA vez e encerra o turno. Depois disso agent_enabled=false
-          // impede novas respostas automÃ¡ticas atÃ© reativaÃ§Ã£o manual no painel.
-          const sendResult = await sendAgentTextGuarded(
-            creds,
-            sendTarget,
-            handoffReply,
-            {
-              conversationId: conversationId as string,
-              source: "human_handoff",
-            },
-          );
-
-
-          if (conversationId) {
-            const { error: handoffMessageErr } = await supabaseAdmin
-              .from("messages")
-              .insert({
-                conversation_id: conversationId,
-                user_id: num.user_id,
-                workspace_id: workspaceId,
-                sender: "agente",
-                kind: "texto",
-                body: sendResult.transformed,
-              });
-
-            if (handoffMessageErr) {
-              console.error(
-                "[HUMAN-HANDOFF] ConfirmaÃ§Ã£o enviada, mas falhou ao persistir:",
-                handoffMessageErr,
-              );
-            }
-          }
-
-          // Limpa a memÃ³ria operacional do Agent V3. Quando o operador decidir
-          // reativar a conversa, o agente nÃ£o retoma um estado comercial antigo.
-          const { clearConversationStateV3 } = await import(
-            "@/lib/agent-v3/memory/conversation-state.server"
-          );
-          await clearConversationStateV3(
-            num.user_id,
-            phoneStr,
-            workspaceId,
-          ).catch((error) => {
-            console.warn("[HUMAN-HANDOFF] Falha ao limpar memÃ³ria V3:", error);
-          });
-
-          console.log("[HUMAN-HANDOFF] Agent V3 pausado para atendimento humano", {
-            conversationId,
-            phone: phoneStr,
-          });
-
-          return runtimeTerminal("human_handoff");
-        } catch (handoffErr) {
-          console.error("[HUMAN-HANDOFF] Falha no handoff:", handoffErr);
-          return runtimeTerminal("human_handoff_failed");
-        }
-      }
-
-      if (isStopRequest(finalMsgText)) {
-        const nowIso = new Date().toISOString();
-        const persistenceTasks: PromiseLike<unknown>[] = [];
-
-        if (conversationId) {
-          persistenceTasks.push(
-            supabaseAdmin
-              .from("conversations")
-              .update({
-                agent_enabled: false,
-                needs_review: true,
-                review_reason: "opt-out solicitado pelo contato",
-                auto_paused_at: nowIso,
-                internal_note: "Contato pediu para nÃ£o receber novas mensagens automÃ¡ticas.",
-              })
-              .eq("id", conversationId),
-          );
-        }
-
-        if (contactId) {
-          persistenceTasks.push(
-            supabaseAdmin
-              .from("contacts")
-              .update({
-                status: "bloqueado",
-                temperatura: "bloqueado",
-                temperatura_updated_at: nowIso,
-              })
-              .eq("id", contactId),
-          );
-        }
-
-        const stopResults = await Promise.all(persistenceTasks);
-        for (const result of stopResults) {
-          const error = (result as { error?: unknown }).error;
-          if (error) console.error("[UAZ-WEBHOOK] Failed to persist stop request:", error);
-        }
-
-        const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
-        await clearConversationStateV3(
-          num.user_id,
-          phoneStr,
-          workspaceId,
-        ).catch((error) => {
-          console.error("[UAZ-WEBHOOK] Failed to clear V3 state after stop request:", error);
-        });
-
-        return runtimeTerminal("stop_request");
-      }
-
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
       const {
         DEFAULT_AGENT_HUMANIZATION,
@@ -790,6 +660,63 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         imageSource: resolvedImageSource,
         messageId: msgId
       });
+
+      if (execResult.routerReason === "HUMAN_HANDOFF_REQUEST") {
+        try {
+          if (conversationId) {
+            const { error } = await supabaseAdmin.from("conversations").update({
+              agent_enabled: false,
+              needs_review: true,
+              review_reason: "cliente solicitou atendimento humano",
+              auto_paused_at: new Date().toISOString(),
+              status: "aguardando",
+              internal_note: "Cliente solicitou atendimento humano. Agent V3 pausado até reativação manual.",
+            }).eq("id", conversationId);
+            if (error) throw error;
+          }
+          const sendResult = await sendAgentTextGuarded(creds, sendTarget, execResult.reply, {
+            conversationId: conversationId as string,
+            source: "human_handoff",
+          });
+          if (conversationId) {
+            await supabaseAdmin.from("messages").insert({
+              conversation_id: conversationId,
+              user_id: num.user_id,
+              workspace_id: workspaceId,
+              sender: "agente",
+              kind: "texto",
+              body: sendResult.transformed,
+            });
+          }
+          const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
+          await clearConversationStateV3(num.user_id, phoneStr, workspaceId).catch(() => undefined);
+          return runtimeTerminal("human_handoff");
+        } catch (error) {
+          console.error("[HUMAN-HANDOFF] Falha no handoff:", error);
+          return runtimeTerminal("human_handoff_failed");
+        }
+      }
+
+      if (execResult.routerReason === "STOP_REQUEST") {
+        const nowIso = new Date().toISOString();
+        const tasks: PromiseLike<unknown>[] = [];
+        if (conversationId) tasks.push(supabaseAdmin.from("conversations").update({
+          agent_enabled: false,
+          needs_review: true,
+          review_reason: "opt-out solicitado pelo contato",
+          auto_paused_at: nowIso,
+          internal_note: "Contato pediu para não receber novas mensagens automáticas.",
+        }).eq("id", conversationId));
+        if (contactId) tasks.push(supabaseAdmin.from("contacts").update({
+          status: "bloqueado",
+          temperatura: "bloqueado",
+          temperatura_updated_at: nowIso,
+        }).eq("id", contactId));
+        await Promise.all(tasks);
+        const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
+        await clearConversationStateV3(num.user_id, phoneStr, workspaceId).catch(() => undefined);
+        return runtimeTerminal("stop_request");
+      }
 
       if (execResult.routerReason === "NATURAL_CONVERSATIONAL_SILENCE") {
         console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: natural conversational silence para conversa ${conversationId}`);
