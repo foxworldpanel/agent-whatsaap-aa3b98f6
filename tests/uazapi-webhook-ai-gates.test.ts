@@ -7,29 +7,34 @@ const source = readFileSync(
   "utf8",
 );
 
-describe("Uazapi webhook — AI safety gates", () => {
-  it("respects the global agent toggle", () => {
+describe("Uazapi webhook — durable AI safety gates", () => {
+  it("respects the global agent toggle before durable ownership", () => {
     expect(source).toContain('.from("agent_config")');
-    expect(source).toContain('agentConfig.agent_enabled === false');
+    expect(source).toContain("agentConfig?.agent_enabled === false");
+    expect(source).toContain('new Response("ok (agent disabled globally)")');
   });
 
-  it("respects per-conversation pause and review state", () => {
-    expect(source).toContain('.select("agent_enabled, needs_review")');
-    expect(source).toContain('conversationGate?.agent_enabled === false');
-    expect(source).toContain('conversationGate?.needs_review === true');
+  it("delegates the per-conversation pause/review decision to the shared Agent V3 gate", () => {
+    expect(source).toContain("isConversationAgentEnabledV3(supabaseAdmin, conversationId)");
+    expect(source).toContain('new Response("ok (agent disabled for conversation)")');
   });
 
-  it("does not send placeholder audio text to the LLM after transcription failure", () => {
-    expect(source).toContain('return new Response("ok (audio transcription failed)")');
-    expect(source).toContain('return new Response("ok (audio unavailable)")');
+  it("keeps audio as durable inbound data instead of transcribing or invoking the LLM inline", () => {
+    expect(source).toContain("audio_url: content.mediaUrl || undefined");
+    expect(source).toContain("inputKind: content.kind");
+    expect(source).toContain("inputMime: content.mime");
+    expect(source).not.toContain("transcribeAudio");
+    expect(source).not.toContain("runAgentV3Turn(");
+    expect(source).not.toContain("executeAgent(");
   });
 
-  it("never invokes AI when inbound CRM persistence failed", () => {
-    const persistenceGuard = source.indexOf('if (!messagePersistedInDb)');
-    const aiProcessing = source.indexOf('// 4. AI PROCESSING (V3)');
+  it("never acknowledges Agent ownership when inbound CRM persistence failed", () => {
+    const persistenceGuard = source.indexOf("if (!messagePersistedInDb && !duplicateMessageInDb)");
+    const durableOwnership = source.indexOf("enqueueWebhookInboundAroundWelcomeFunnel(");
 
     expect(persistenceGuard).toBeGreaterThan(-1);
     expect(source).toContain('return new Response("retry (crm sync incomplete)", { status: 503 })');
-    expect(aiProcessing).toBeGreaterThan(persistenceGuard);
+    expect(durableOwnership).toBeGreaterThan(persistenceGuard);
+    expect(source).toContain('return new Response("ok (agent customer turn durable)")');
   });
 });
