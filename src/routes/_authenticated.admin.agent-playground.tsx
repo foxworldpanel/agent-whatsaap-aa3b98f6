@@ -38,7 +38,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { runPlaygroundTurn, generateSimulatedCustomerReply, CUSTOMER_PERSONAS, startOutboundSimulation } from "@/lib/agent-v3/admin/playground.functions";
+import { runPlaygroundTurn, generateSimulatedCustomerReply, CUSTOMER_PERSONAS, startOutboundSimulation, listPlaygroundWelcomeFunnels } from "@/lib/agent-v3/admin/playground.functions";
 import { ScenarioGenerator } from "@/components/agent-playground/ScenarioGenerator";
 import { HistoryEditor } from "@/components/agent-playground/HistoryEditor";
 
@@ -58,10 +58,17 @@ function AgentPlaygroundPage() {
   const [customerPersona, setCustomerPersona] = useState("curioso");
   const [testInstagramHandle, setTestInstagramHandle] = useState("perfilteste");
   const [inboundContext, setInboundContext] = useState<"sem_funil" | "pos_funil">("sem_funil");
+  const [welcomeFunnelId, setWelcomeFunnelId] = useState("");
   const funnelAlreadyCompleted = !isOutboundMode && inboundContext === "pos_funil";
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Queries
+  const listFunnels = useServerFn(listPlaygroundWelcomeFunnels);
+  const { data: playgroundFunnels = [] } = useQuery({
+    queryKey: ["playground_welcome_funnels"],
+    queryFn: async () => await listFunnels(),
+  });
+
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
     queryKey: ["playground_sessions"],
     queryFn: async () => {
@@ -203,6 +210,9 @@ function AgentPlaygroundPage() {
           inputKind: "texto",
           isOutbound: isOutboundMode,
           funnelAlreadyCompleted,
+          welcomeFunnelId: !isOutboundMode && inboundContext === "sem_funil" && welcomeFunnelId
+            ? welcomeFunnelId
+            : undefined,
           customerTurnMessages: customerTurnMode
             ? text.split("\n").map((part) => part.trim()).filter(Boolean)
             : undefined,
@@ -502,6 +512,21 @@ function AgentPlaygroundPage() {
                         ? "Funnel já apresentou a Júlia — sem nova saudação/apresentação"
                         : "Nenhum gatilho de Funnel disparou — atendimento normal"}
                   </Badge>
+                  {!isOutboundMode && inboundContext === "sem_funil" && playgroundFunnels.length > 0 && (
+                    <select
+                      value={welcomeFunnelId}
+                      onChange={(event) => setWelcomeFunnelId(event.target.value)}
+                      className="h-7 max-w-[280px] rounded-md border bg-background px-2 text-[10px]"
+                      title="Welcome Funnel real usado para testar os gatilhos"
+                    >
+                      <option value="">Sem Funnel selecionado</option>
+                      {playgroundFunnels.map((funnel: any) => (
+                        <option key={funnel.id} value={funnel.id}>
+                          {funnel.whatsapp_number_name} — {funnel.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <Checkbox
                       checked={customerTurnMode}
