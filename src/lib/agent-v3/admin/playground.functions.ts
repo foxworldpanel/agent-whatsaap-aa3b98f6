@@ -90,6 +90,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       previousIntelligence?.lifecycle ??
       previousFeedback?.customerLifecycle ??
       "novo_lead";
+    const simulatedPreviousOrderContext =
+      previousFeedback?.orderContext ?? null;
+
     const simulatedRememberedContext = {
       platform:
         previousIntelligence?.platform ??
@@ -132,6 +135,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       skipRouter: inputKind !== "texto",
       isOutboundReply: isOutbound,
       funnelAlreadyCompleted,
+      previousOrderContext: simulatedPreviousOrderContext,
     });
 
     const reply = execResult.reply;
@@ -154,6 +158,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
           businessDecision: executionContext.businessDecision,
           rememberedContext: executionContext.rememberedContext,
           customerLifecycle: simulatedLifecycle,
+          orderContext: execResult.orderContext ?? simulatedPreviousOrderContext,
           customer_turn_messages: customerTurnMessages ?? null,
         } as any,
       });
@@ -306,6 +311,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         score: score,
         cost: cost,
         businessDecision: executionContext.businessDecision,
+        orderContext: execResult.orderContext ?? simulatedPreviousOrderContext,
         extraContext: executionContext.extraContext,
         route: execResult.route,
         router_reason: execResult.routerReason,
