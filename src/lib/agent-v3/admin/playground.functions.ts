@@ -189,17 +189,34 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         ? execResult.agentResult.replies
         : [reply];
 
+    // O Playground exibe a forma FINAL que o WhatsApp entregaria, não a
+    // saída crua do modelo. A transformação é pura e compartilhada com o
+    // sender real; só o transporte Uazapi fica fora da bancada.
+    const { finalizeAgentText } = await import("../../send-agent-guarded.server");
+    const recentAgentBodies = history
+      .filter((item) => item.role === "agent")
+      .map((item) => item.content)
+      .slice(-3);
+    const finalizedReplyParts: string[] = [];
+    for (const part of replyParts) {
+      const finalized = finalizeAgentText(part, {
+        applyHumanize: true,
+        recentAgentBodies: [...recentAgentBodies, ...finalizedReplyParts].slice(-3),
+      });
+      if (finalized.transformed) finalizedReplyParts.push(finalized.transformed);
+    }
+
     let agentMsg: any = null;
-    for (let i = 0; i < replyParts.length; i += 1) {
+    for (let i = 0; i < finalizedReplyParts.length; i += 1) {
       const { data: savedPart } = await context.supabase
         .from("agent_playground_messages")
         .insert({
           session_id: sessionId,
           role: "agent",
-          content: replyParts[i],
+          content: finalizedReplyParts[i],
           sequence: nextSequence + 1 + i,
           metadata:
-            i === replyParts.length - 1
+            i === finalizedReplyParts.length - 1
               ? ({
                   ...(execResult.agentResult?.intelligence || {}),
                   route: execResult.route,
