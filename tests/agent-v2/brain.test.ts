@@ -12,6 +12,6 @@ describe("Legacy Agent V2 retirement", () => {
 
   it("active execution is owned by the shared Agent V3 core", () => {
     expect(executor).toContain("runAgentV3Turn");
-    expect(executor).toContain("resolvePreExecutionDecision");
+    expect(executor).toContain("decideSharedPreExecution");
   });
 });
