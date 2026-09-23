@@ -235,6 +235,15 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       if (finalized.transformed) finalizedReplyParts.push(finalized.transformed);
     }
 
+    const finalizedReplyText = finalizedReplyParts.join("\n\n");
+    const { shouldReplyWithAudio } = await import("../runtime-support.server");
+    const simulatedDeliveryMode = shouldReplyWithAudio({
+      inputKind: inputKind as any,
+      replyText: finalizedReplyText,
+      intent: execResult.agentResult?.intelligence?.intent,
+      stage: execResult.agentResult?.intelligence?.stage,
+    }) ? "audio" : "texto";
+
     let agentMsg: any = null;
     for (let i = 0; i < finalizedReplyParts.length; i += 1) {
       const { data: savedPart } = await context.supabase
@@ -316,6 +325,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         route: execResult.route,
         router_reason: execResult.routerReason,
         claude_called: execResult.claudeCalled,
+        delivery_mode: simulatedDeliveryMode,
         customer_turn_messages: customerTurnMessages?.length ? customerTurnMessages : [effectiveMessage],
       }
     };
@@ -348,7 +358,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     });
 
     return {
-      reply,
+      reply: finalizedReplyText,
       run: (savedRun || insertData) as any,
       usage: execResult.usage,
       cost: execResult.cost,
