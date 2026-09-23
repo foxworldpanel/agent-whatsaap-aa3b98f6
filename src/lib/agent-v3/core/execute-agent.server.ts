@@ -14,7 +14,9 @@ import {
   type SalesIntelligenceResult,
 } from "../sales-intelligence/sales-intelligence-engine.server";
 import { logExecutionTrace } from "../telemetry/execution-tracer.server";
-import { saveOrderContextV3, deriveOrderContextV3, loadOrderContextV3 } from "../memory/order-context.server";
+import { saveOrderContextV3, deriveOrderContextV3, loadOrderContextV3, EMPTY_ORDER_CONTEXT, type OrderContext } from "../memory/order-context.server";
+import { evaluateFlow } from "../flow/flow-engine.server";
+import { anyFlowActionEnabled, isFlowActionEnabled } from "../flow/flow-action-flags.server";
 import { normalizeConversationFactsV3 } from "../memory/conversation-facts.server";
 import { decideSharedPreExecution } from "./pre-execution-decision.server";
 
@@ -26,6 +28,7 @@ export type ExecuteAgentInput = OrchestratorInput & {
   // que já vêm de um funil adiado, exatamente como o comportamento
   // original antes da unificação.
   skipRouter?: boolean;
+  previousOrderContext?: OrderContext | null;
 };
 
 export type ExecuteAgentResult = {
@@ -159,9 +162,31 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     });
   }
 
+  // Flow Engine também pertence ao cérebro compartilhado. O canal fornece
+  // apenas o snapshot anterior; derivação, decisão e feature flag são únicas.
+  const derivedOrderContext = deriveOrderContextV3(
+    input.message,
+    input.history,
+    input.previousOrderContext ?? EMPTY_ORDER_CONTEXT,
+  );
+  let sharedFlowActionHint = input.flowActionHint ?? null;
+  if (!sharedFlowActionHint && anyFlowActionEnabled() && input.businessDecision) {
+    const flowDecision = evaluateFlow(derivedOrderContext, input.businessDecision);
+    if (isFlowActionEnabled(flowDecision.action)) {
+      sharedFlowActionHint = {
+        version: flowDecision.version,
+        action: flowDecision.action,
+        reasonCode: flowDecision.reasonCode,
+        reason: flowDecision.reason,
+        payload: flowDecision.payload,
+      };
+    }
+  }
+
   const engineStartAt = Date.now();
   const agentResult = await runAgentV3Turn({
     ...input,
+    flowActionHint: sharedFlowActionHint,
     offerEligibility: salesIntelligence.offerEligibility,
     objections: salesIntelligence.objections,
     recoveryStatus: salesIntelligence.recoveryStatus,
