@@ -306,9 +306,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         ? execResult.agentResult.replies
         : [reply];
 
-    // O Playground exibe a forma FINAL que o WhatsApp entregaria, não a
-    // saída crua do modelo. A transformação é pura e compartilhada com o
-    // sender real; só o transporte Uazapi fica fora da bancada.
+    // O sender real humaniza somente a rota Claude. Respostas determinísticas
+    // do Smart Router usam normalização/emoji guard sem humanizePunctuationV3.
+    // O Playground precisa espelhar exatamente essa diferença.
     const { finalizeAgentText } = await import("../../send-agent-guarded.server");
     const recentAgentBodies = history
       .filter((item) => item.role === "agent")
@@ -317,7 +317,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     const finalizedReplyParts: string[] = [];
     for (const part of replyParts) {
       const finalized = finalizeAgentText(part, {
-        applyHumanize: true,
+        applyHumanize: execResult.route === "claude",
         recentAgentBodies: [...recentAgentBodies, ...finalizedReplyParts].slice(-3),
       });
       if (finalized.transformed) finalizedReplyParts.push(finalized.transformed);
