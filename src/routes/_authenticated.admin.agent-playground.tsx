@@ -224,6 +224,10 @@ function AgentPlaygroundPage() {
     },
     onSuccess: (response) => {
       console.log("[PLAYGROUND API RESPONSE]", response);
+      if ((response as any)?.terminalDecision === "WELCOME_FUNNEL_COMPLETED") {
+        setInboundContext("pos_funil");
+        toast.success("Welcome Funnel disparado. Próximo turno entra no Agent como pós-Funnel.");
+      }
       if (response && typeof response === 'object' && 'run' in response) {
         console.log("[PLAYGROUND RUN RECEIVED]", (response as any).run);
       }
