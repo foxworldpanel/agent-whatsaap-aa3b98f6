@@ -529,7 +529,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             source: "critical_human_escalation",
           });
           if (conversationId) {
-            await supabaseAdmin.from("messages").insert({
+            const { error: persistError } = await supabaseAdmin.from("messages").insert({
               conversation_id: conversationId,
               user_id: num.user_id,
               workspace_id: workspaceId,
@@ -537,13 +537,16 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               kind: "texto",
               body: sendResult.transformed,
             });
+            if (persistError) {
+              throw new Error(`critical escalation sent but persistence failed: ${persistError.message || String(persistError)}`);
+            }
           }
           const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
           await clearConversationStateV3(num.user_id, phoneStr, workspaceId).catch(() => undefined);
           return runtimeTerminal("critical_human_escalation");
         } catch (error) {
-          console.error("[HUMAN-ESCALATION] Falha ao aplicar escalada:", error);
-          return runtimeTerminal("critical_escalation_failed");
+          console.error("[HUMAN-ESCALATION] Falha/resultado externo incerto; runtime deve ser quarantined:", error);
+          throw error;
         }
       }
 
@@ -565,7 +568,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             source: "human_handoff",
           });
           if (conversationId) {
-            await supabaseAdmin.from("messages").insert({
+            const { error: persistError } = await supabaseAdmin.from("messages").insert({
               conversation_id: conversationId,
               user_id: num.user_id,
               workspace_id: workspaceId,
@@ -573,35 +576,47 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               kind: "texto",
               body: sendResult.transformed,
             });
+            if (persistError) {
+              throw new Error(`human handoff sent but persistence failed: ${persistError.message || String(persistError)}`);
+            }
           }
           const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
           await clearConversationStateV3(num.user_id, phoneStr, workspaceId).catch(() => undefined);
           return runtimeTerminal("human_handoff");
         } catch (error) {
-          console.error("[HUMAN-HANDOFF] Falha no handoff:", error);
-          return runtimeTerminal("human_handoff_failed");
+          console.error("[HUMAN-HANDOFF] Falha/resultado externo incerto; runtime deve ser quarantined:", error);
+          throw error;
         }
       }
 
       if (execResult.routerReason === "STOP_REQUEST") {
-        const nowIso = new Date().toISOString();
-        const tasks: PromiseLike<unknown>[] = [];
-        if (conversationId) tasks.push(supabaseAdmin.from("conversations").update({
-          agent_enabled: false,
-          needs_review: true,
-          review_reason: "opt-out solicitado pelo contato",
-          auto_paused_at: nowIso,
-          internal_note: "Contato pediu para não receber novas mensagens automáticas.",
-        }).eq("id", conversationId));
-        if (contactId) tasks.push(supabaseAdmin.from("contacts").update({
-          status: "bloqueado",
-          temperatura: "bloqueado",
-          temperatura_updated_at: nowIso,
-        }).eq("id", contactId));
-        await Promise.all(tasks);
-        const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
-        await clearConversationStateV3(num.user_id, phoneStr, workspaceId).catch(() => undefined);
-        return runtimeTerminal("stop_request");
+        try {
+          const nowIso = new Date().toISOString();
+          if (conversationId) {
+            const { error } = await supabaseAdmin.from("conversations").update({
+              agent_enabled: false,
+              needs_review: true,
+              review_reason: "opt-out solicitado pelo contato",
+              auto_paused_at: nowIso,
+              internal_note: "Contato pediu para não receber novas mensagens automáticas.",
+            }).eq("id", conversationId);
+            if (error) throw error;
+          }
+          if (contactId) {
+            const { error } = await supabaseAdmin.from("contacts").update({
+              status: "bloqueado",
+              temperatura: "bloqueado",
+              temperatura_updated_at: nowIso,
+            }).eq("id", contactId);
+            if (error) throw error;
+          }
+          const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
+          await clearConversationStateV3(num.user_id, phoneStr, workspaceId).catch(() => undefined);
+          return runtimeTerminal("stop_request");
+        } catch (error) {
+          console.error("[STOP-REQUEST] Falha ao persistir opt-out; runtime deve ser quarantined:", error);
+          throw error;
+        }
       }
 
       if (execResult.routerReason === "NATURAL_CONVERSATIONAL_SILENCE") {
