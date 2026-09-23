@@ -1,4 +1,4 @@
-import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
+import { finalizeAgentText, sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
 import type { AgentV3RuntimeExecutor } from "@/lib/agent-v3/inbound-runtime-contract.server";
 import { runtimeTerminal } from "@/lib/agent-v3/inbound-runtime-result.server";
@@ -855,7 +855,19 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
 
       console.log("RETURN-PONTO: V3 respondeu", { phone: phoneStr });
       const replyParts = v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response];
-      const replyText = replyParts.join("\n\n");
+      const recentAgentBodiesForFinalization = history
+        .filter((item) => item.role === "agent")
+        .map((item) => item.content)
+        .slice(-3);
+      const finalizedReplyParts: string[] = [];
+      for (const part of replyParts) {
+        const finalized = finalizeAgentText(part, {
+          applyHumanize: true,
+          recentAgentBodies: [...recentAgentBodiesForFinalization, ...finalizedReplyParts].slice(-3),
+        });
+        if (finalized.transformed) finalizedReplyParts.push(finalized.transformed);
+      }
+      const replyText = finalizedReplyParts.join("\n\n");
 
       const replyWithAudio = shouldReplyWithAudio({
         inputKind: content.kind,
@@ -969,8 +981,8 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         // Mensagens recebidas em sequÃªncia sÃ£o serializadas pelo lock da conversa.
         // O orchestrator jÃ¡ separa respostas longas/parÃ¡grafos em partes prÃ³prias.
         // Enviar o join() como uma Ãºnica mensagem anulava completamente o splitter.
-        for (let partIndex = 0; partIndex < replyParts.length; partIndex += 1) {
-          const part = replyParts[partIndex];
+        for (let partIndex = 0; partIndex < finalizedReplyParts.length; partIndex += 1) {
+          const part = finalizedReplyParts[partIndex];
 
           if (humanization.enabled) {
             if (partIndex === 0) {
@@ -993,7 +1005,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             {
               conversationId: finalConvId,
               source: "agent_v3",
-              applyHumanize: true,
+              applyHumanize: false,
               recentAgentBodiesOverride: [...recentAgentBodies, ...deliveredParts].slice(-3),
             },
           );
