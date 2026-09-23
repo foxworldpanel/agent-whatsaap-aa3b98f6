@@ -29,7 +29,8 @@ const CRITICAL_MARKERS: Array<{ block: string; marker: string; text: string }> =
   { block: "P2", marker: "ZERO emoji, sem exceção", text: buildP2Text({ isAudioInput: false, isImageInput: false, isStickerInput: false }) },
   { block: "P2", marker: "PROIBIDO usar \"qualquer dúvida é só chamar\"", text: buildP2Text({ isAudioInput: false, isImageInput: false, isStickerInput: false }) },
   { block: "P2", marker: "NUNCA prometa enviar áudio", text: buildP2Text({ isAudioInput: false, isImageInput: false, isStickerInput: false }) },
-  { block: "P2", marker: "1 serviço por linha, nunca corte um item", text: buildP2Text({ isAudioInput: false, isImageInput: false, isStickerInput: false }) },
+  { block: "P2", marker: "cada serviço numa linha própria", text: buildP2Text({ isAudioInput: false, isImageInput: false, isStickerInput: false }) },
+  { block: "P2", marker: "Nunca corte um item no meio entre uma mensagem e outra", text: buildP2Text({ isAudioInput: false, isImageInput: false, isStickerInput: false }) },
   { block: "OPERATIONAL_TRUTH", marker: "RECLAMAÇÃO DE ENTREGA", text: MIND_OPERATIONAL_TRUTH_V3 },
 ];
 
