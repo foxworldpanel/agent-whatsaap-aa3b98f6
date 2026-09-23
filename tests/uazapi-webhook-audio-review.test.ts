@@ -7,16 +7,19 @@ const source = fs.readFileSync(
   "utf8",
 );
 
-describe("Uazapi webhook - audio failure visibility", () => {
-  it("flags audio without media URL or OpenAI key for human review", () => {
-    expect(source).toContain('review_reason: !content.mediaUrl');
-    expect(source).toContain('"áudio recebido sem URL de mídia"');
-    expect(source).toContain('"áudio recebido sem chave OpenAI para transcrição"');
-    expect(source).toContain('ok (audio unavailable; flagged for review)');
+describe("Uazapi webhook - audio durable ownership", () => {
+  it("persiste a referência do áudio antes de reconhecer ownership durável", () => {
+    expect(source).toContain("audio_url: content.mediaUrl || undefined");
+    expect(source).toContain("messageId: persistedMessageId");
+    expect(source).toContain("inputKind: content.kind");
+    expect(source).toContain("inputMime: content.mime");
+    expect(source).toContain("enqueueWebhookInboundAroundWelcomeFunnel(");
   });
 
-  it("flags transcription errors for human review", () => {
-    expect(source).toContain('review_reason: "falha ao transcrever áudio recebido"');
-    expect(source).toContain('ok (audio transcription failed; flagged for review)');
+  it("não transcreve nem executa Agent V3 inline no webhook público", () => {
+    expect(source).not.toContain("transcribeAudio");
+    expect(source).not.toContain("runAgentV3Turn(");
+    expect(source).not.toContain("executeAgent(");
+    expect(source).toContain('return new Response("ok (agent customer turn durable)")');
   });
 });
