@@ -663,9 +663,9 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               body: sendResult.transformed,
             });
             if (persistErr) {
-              console.error("[SMART-ROUTER] Resposta enviada, mas falhou ao persistir:", persistErr);
+              throw new Error(`smart router sent but persistence failed: ${persistErr.message || String(persistErr)}`);
             }
-            await supabaseAdmin
+            const { error: conversationUpdateError } = await supabaseAdmin
               .from("conversations")
               .update({
                 last_message_preview: sendResult.transformed.slice(0, 120),
@@ -673,14 +673,19 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
                 status: "aguardando",
               })
               .eq("id", conversationId);
+            if (conversationUpdateError) {
+              throw new Error(`smart router sent but conversation update failed: ${conversationUpdateError.message || String(conversationUpdateError)}`);
+            }
           }
 
           return runtimeTerminal("smart_router_completed");
         } catch (routerSendError) {
-          // Falha ao enviar a resposta do router: loga e segue o fluxo,
-          // nÃ£o deixa a mensagem cair no limbo sem resposta nenhuma.
-          console.error("[SMART-ROUTER] Falha ao enviar resposta:", routerSendError);
-          return runtimeTerminal("smart_router_send_failed");
+          // Depois que o runtime entrou em processing, uma falha de envio ou
+          // persistência pode ter acontecido após efeito externo. Propague para
+          // o Customer Turn owner quarantinar em needs_review; nunca marque como
+          // terminal processado nem tente replay cego.
+          console.error("[SMART-ROUTER] Falha/resultado externo incerto; runtime deve ser quarantined:", routerSendError);
+          throw routerSendError;
         }
       }
 
