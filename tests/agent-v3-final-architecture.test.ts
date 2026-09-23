@@ -53,22 +53,23 @@ describe("Agent V3 final architecture invariants", () => {
     expect(playground).toContain("shouldReplyWithAudio({");
     expect(runtime).toContain("shouldReplyWithAudio({");
     expect(playground).toContain("execResult.agentResult?.replies");
-    expect(runtime).toContain("execResult.agentResult?.replies");
+    expect(runtime).toContain("v3Response.replies.length > 0 ? v3Response.replies : [v3Response.response]");
   });
 
   it("keeps durable dispatcher/recovery ownership outside the public webhook", () => {
-    expect(dispatcher).toContain("dispatchReadyCustomerTurnBatch");
+    expect(dispatcher).toContain("dispatchCustomerTurnBatch");
     expect(recovery).toContain("processing_safe");
     expect(recovery).toContain("needs_review");
-    expect(webhook).not.toContain("dispatchReadyCustomerTurnBatch");
+    expect(webhook).not.toContain("dispatchCustomerTurnBatch");
   });
 
   it("keeps Welcome Funnel plan shared and starts durable execution before resolving payloads", () => {
     expect(funnelPlan).toContain("WELCOME_FUNNEL_STEP_ORDER");
     expect(playground).toContain("resolveWelcomeFunnelPayloads");
     expect(funnelRunner).toContain("resolveWelcomeFunnelPayloads");
-    const startIndex = funnelRunner.indexOf("startExecutionState(");
-    const resolveIndex = funnelRunner.indexOf("resolveWelcomeFunnelPayloads");
+    const sequenceIndex = funnelRunner.indexOf("export async function runWelcomeFunnelSequence");
+    const startIndex = funnelRunner.indexOf("await startExecutionState(", sequenceIndex);
+    const resolveIndex = funnelRunner.indexOf("resolveWelcomeFunnelPayloads(", sequenceIndex);
     expect(startIndex).toBeGreaterThanOrEqual(0);
     expect(resolveIndex).toBeGreaterThan(startIndex);
   });
