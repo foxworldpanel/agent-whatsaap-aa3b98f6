@@ -1,25 +1,17 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
-import { describe, it } from "vitest";
-import { loadAgentIdentity } from "@/lib/agent-identity.server";
-import { loadAgentConfigV3 } from "@/lib/agent-v3/brain/config.server";
-import { selectRelevantModules, buildPromptFromModules } from "@/lib/agent-v3/selector/module-selector.server";
+describe("Agent V3 data integrity contract", () => {
+  it("requires workspace-scoped CMS module loading", () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/agent-v3/brain/modules.server.ts"), "utf8");
+    expect(src).toContain('from("agent_modules_v3")');
+    expect(src).toContain("workspace_id");
+  });
 
-describe("Data Integrity", () => {
-  it("check Mind data", async () => {
-    const userId = "f8da521a-e8db-4efe-8c9b-9bd69749c0a7";
-    const identity = await loadAgentIdentity(userId);
-    const config = await loadAgentConfigV3(userId);
-    
-    console.log("IDENTITY PERSONA:", identity.persona.substring(0, 100));
-    console.log("MODULES ENABLED:", Object.keys(config.modules_enabled).filter(k => config.modules_enabled[k]));
-    
-    const modules = selectRelevantModules("quero comprar plays", Object.keys(config.modules_enabled).filter(k => config.modules_enabled[k]));
-    console.log("SELECTED MODULES FOR 'plays':", modules);
-    
-    const prompt = buildPromptFromModules(modules, config.brand_blocks);
-    console.log("PROMPT HAS SPOTIFY:", prompt.includes("SPOTIFY"));
-    if (modules.includes("spotify")) {
-        console.log("SPOTIFY MODULE CONTENT:", config.brand_blocks["spotify"]?.substring(0, 200) || "MISSING IN BRAND_BLOCKS");
-    }
+  it("does not require live Supabase credentials for this static regression", () => {
+    const orchestrator = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
+    expect(orchestrator).toContain("workspaceId");
+    expect(orchestrator).toContain("loadEnabledModulesV3");
   });
 });
