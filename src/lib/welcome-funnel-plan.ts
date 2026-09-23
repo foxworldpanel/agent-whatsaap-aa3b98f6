@@ -44,3 +44,43 @@ export function matchesWelcomeFunnelTrigger(triggerKeywords: string, message: st
         (normalizedMessage === trigger || normalizedMessage.includes(trigger)),
     );
 }
+
+export type WelcomeFunnelResolvedPayload = {
+  key: WelcomeFunnelStepKey;
+  kind: "texto" | "audio" | "video";
+  text?: string;
+  url?: string;
+  caption?: string;
+  delaySeconds: number;
+};
+
+export function resolveWelcomeFunnelPayloads(
+  steps: WelcomeFunnelSteps | null | undefined,
+  fallbackDelaySeconds = 0,
+): WelcomeFunnelResolvedPayload[] {
+  return resolveWelcomeFunnelPlan(steps).map(({ key, step }) => {
+    const delaySeconds = Math.max(
+      0,
+      Math.min(
+        180,
+        Number.isFinite(Number(step.delay_seconds))
+          ? Number(step.delay_seconds)
+          : Number(fallbackDelaySeconds || 0),
+      ),
+    );
+    if (key === "welcome_text" || key === "panel_text" || key === "services_text") {
+      const text = step.text?.trim();
+      if (!text) throw new Error(`Enabled Welcome Funnel step ${key} has empty text`);
+      return { key, kind: "texto" as const, text, delaySeconds };
+    }
+    const url = step.url?.trim();
+    if (!url) throw new Error(`Enabled Welcome Funnel step ${key} has empty url`);
+    return {
+      key,
+      kind: key === "audio" ? "audio" as const : "video" as const,
+      url,
+      caption: step.caption?.trim() || undefined,
+      delaySeconds,
+    };
+  });
+}
