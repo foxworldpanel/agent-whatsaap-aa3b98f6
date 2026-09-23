@@ -1018,7 +1018,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             phone: phoneStr,
             details: {
               partIndex,
-              totalParts: replyParts.length,
+              totalParts: finalizedReplyParts.length,
               textPreview: part.slice(0, 100)
             }
           });
