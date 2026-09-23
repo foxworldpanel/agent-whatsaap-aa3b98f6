@@ -738,79 +738,28 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         }
       }
 
-      // ============================================================
-      // ORDER CONTEXT + FLOW ENGINE (fase de observaÃ§Ã£o) â€” NÃƒO
-      // influenciam a resposta. SÃ³ derivam, avaliam e logam, pra
-      // validar antes de qualquer decisÃ£o real depender disso.
-      // ============================================================
-      try {
-        const { deriveOrderContextV3, loadOrderContextV3, saveOrderContextV3 } = await import(
-          "@/lib/agent-v3/memory/order-context.server"
-        );
-        const { evaluateFlow } = await import("@/lib/agent-v3/flow/flow-engine.server");
-
-        const previousOrderContext = await loadOrderContextV3(phoneStr, workspaceId);
-        const agentHistoryForOrderContext = history.map((m) => ({
-          role: m.role === "agent" ? ("agent" as const) : ("customer" as const),
-          content: m.content,
-        }));
-        const newOrderContext = deriveOrderContextV3(
-          effectiveAgentMessage,
-          agentHistoryForOrderContext,
-          previousOrderContext,
-        );
-
-        const flowResult = evaluateFlow(newOrderContext, businessDecision);
-
-        console.log("[ORDER-CONTEXT] EvoluÃ§Ã£o do pedido:", {
-          phone: phoneStr,
-          mensagem: effectiveAgentMessage.slice(0, 80),
-          antes: {
-            platform: previousOrderContext.platform,
-            service: previousOrderContext.service,
-            quantity: previousOrderContext.quantity,
-            missingFields: previousOrderContext.missingFields,
-          },
-          depois: {
-            platform: newOrderContext.platform,
-            service: newOrderContext.service,
-            quantity: newOrderContext.quantity,
-            missingFields: newOrderContext.missingFields,
-            readyForQuote: newOrderContext.readyForQuote,
-            readyForPayment: newOrderContext.readyForPayment,
-            confidence: newOrderContext.confidence,
-          },
-        });
-
-        console.log("[FLOW-ENGINE] DecisÃ£o determinÃ­stica (modo sombra â€” nÃ£o influencia a resposta):", {
-          phone: phoneStr,
-          nextAction: flowResult.action,
-          reason: flowResult.reason,
-          canQuote: flowResult.canQuote,
-          canCheckout: flowResult.canCheckout,
-          canFinish: flowResult.canFinish,
-          missingFields: flowResult.requiredFields,
-        });
-
-        // Registra a decisÃ£o pra medir precisÃ£o por aÃ§Ã£o depois (revisÃ£o
-        // manual), critÃ©rio de promoÃ§Ã£o individual via feature flag.
-        await (supabaseAdmin as any).from("flow_action_decisions").insert({
-          workspace_id: workspaceId,
-          phone: phoneStr,
-          conversation_id: conversationId ?? null,
-          action: flowResult.action,
-          reason: flowResult.reason,
-          order_context_snapshot: {
-            platform: newOrderContext.platform,
-            service: newOrderContext.service,
-            quantity: newOrderContext.quantity,
-            missingFields: newOrderContext.missingFields,
-          },
-        } as any);
-
-        await saveOrderContextV3(phoneStr, workspaceId, num.user_id, newOrderContext);
-      } catch (orderContextError) {
-        console.warn("[ORDER-CONTEXT/FLOW-ENGINE] Falha ao processar (nÃ£o bloqueia o fluxo):", orderContextError);
+      // Persistência/telemetria do Order Context calculado pelo cérebro
+      // compartilhado. O runtime não deriva nem decide Flow novamente.
+      if (execResult.orderContext) {
+        try {
+          const { saveOrderContextV3 } = await import("@/lib/agent-v3/memory/order-context.server");
+          await (supabaseAdmin as any).from("flow_action_decisions").insert({
+            workspace_id: workspaceId,
+            phone: phoneStr,
+            conversation_id: conversationId ?? null,
+            action: (v3Response as any)?.flowActionHint?.action ?? "observe",
+            reason: (v3Response as any)?.flowActionHint?.reason ?? "shared_core_order_context",
+            order_context_snapshot: {
+              platform: execResult.orderContext.platform,
+              service: execResult.orderContext.service,
+              quantity: execResult.orderContext.quantity,
+              missingFields: execResult.orderContext.missingFields,
+            },
+          } as any);
+          await saveOrderContextV3(phoneStr, workspaceId, num.user_id, execResult.orderContext);
+        } catch (orderContextError) {
+          console.warn("[ORDER-CONTEXT] Falha ao persistir snapshot compartilhado:", orderContextError);
+        }
       }
 
       // Sincroniza a caixa Frio/Morno/Quente/Cliente do CRM.
