@@ -3,6 +3,32 @@ import { withWorkspaceScope } from "@/lib/workspace-scope-middleware";
 import { z } from "zod";
 import { normalizeHumanizationSettings, calculateHumanResponseTargetMs, sleepMs } from "../humanization.server";
 
+export const listPlaygroundWelcomeFunnels = createServerFn({ method: "GET" })
+  .middleware([withWorkspaceScope])
+  .handler(async ({ context }) => {
+    const { data: numbers, error: numbersError } = await context.supabase
+      .from("whatsapp_numbers")
+      .select("id, nome")
+      .eq("workspace_id", context.workspaceId);
+    if (numbersError) throw new Error(numbersError.message);
+    const ids = (numbers ?? []).map((row: any) => row.id);
+    if (!ids.length) return [];
+    const { data: funnels, error } = await context.supabase
+      .from("welcome_funnels")
+      .select("id, name, whatsapp_number_id, trigger_keywords, steps, sort_order")
+      .eq("user_id", context.userId)
+      .eq("workspace_id", context.workspaceId)
+      .eq("enabled", true)
+      .in("whatsapp_number_id", ids)
+      .order("sort_order", { ascending: true });
+    if (error) throw new Error(error.message);
+    const names = new Map((numbers ?? []).map((row: any) => [row.id, row.nome]));
+    return (funnels ?? []).map((row: any) => ({
+      ...row,
+      whatsapp_number_name: names.get(row.whatsapp_number_id) ?? "WhatsApp",
+    }));
+  });
+
 export const runPlaygroundTurn = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => 
@@ -17,13 +43,14 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       // que essa regra lê nunca era passado — achado em auditoria de
       // paridade Playground x WhatsApp em 09/08/2026.
       funnelAlreadyCompleted: z.boolean().optional(),
+      welcomeFunnelId: z.string().uuid().optional(),
       // Um Customer Turn pode conter uma rajada já agregada pelo pipeline real.
       // Cada item vira uma linha, na mesma ordem usada por buildCustomerTurnRuntimeInput().
       customerTurnMessages: z.array(z.string().min(1)).max(20).optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
-    const { sessionId, message, inputKind = "texto", isOutbound = false, funnelAlreadyCompleted = false, customerTurnMessages } = data;
+    const { sessionId, message, inputKind = "texto", isOutbound = false, funnelAlreadyCompleted: requestedFunnelCompleted = false, welcomeFunnelId, customerTurnMessages } = data;
     const effectiveMessage = (customerTurnMessages?.length
       ? customerTurnMessages.map((part) => part.trim()).filter(Boolean).join("\n")
       : message
@@ -32,7 +59,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
 
     // Estados impossíveis no WhatsApp real não podem existir no Playground:
     // Disparo/outbound não é uma conversa Meta Ads pós-Welcome-Funnel.
-    if (isOutbound && funnelAlreadyCompleted) {
+    if (isOutbound && requestedFunnelCompleted) {
       throw new Error("Cenário inválido: Disparo e pós-Funnel não podem estar ativos ao mesmo tempo.");
     }
 
@@ -85,6 +112,66 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     // cliente real, mas fornece ao núcleo o mesmo tipo de contexto que o
     // WhatsApp persiste entre turnos.
     const previousFeedback = (previousRun?.conversation_feedback as any) ?? {};
+    const funnelAlreadyCompleted =
+      !isOutbound &&
+      (requestedFunnelCompleted || previousFeedback?.welcomeFunnelCompleted === true);
+
+    // No cenário Meta Ads, o próprio Playground executa a mesma regra pura de
+    // gatilho do WhatsApp. Se casar, o turno NÃO chega ao Agent.
+    if (!isOutbound && !funnelAlreadyCompleted && welcomeFunnelId) {
+      const { data: funnel, error: funnelError } = await context.supabase
+        .from("welcome_funnels")
+        .select("id, name, trigger_keywords, steps")
+        .eq("id", welcomeFunnelId)
+        .eq("user_id", userId)
+        .eq("workspace_id", workspaceId)
+        .eq("enabled", true)
+        .maybeSingle();
+      if (funnelError) throw new Error(funnelError.message);
+      if (funnel) {
+        const { matchesWelcomeFunnelTrigger, resolveWelcomeFunnelPlan } = await import("../../welcome-funnel-plan");
+        if (matchesWelcomeFunnelTrigger(String((funnel as any).trigger_keywords || ""), effectiveMessage)) {
+          const plan = resolveWelcomeFunnelPlan((funnel as any).steps || {});
+          let sequence = nextSequence + 1;
+          for (const item of plan) {
+            const step = item.step;
+            const content =
+              item.key === "audio"
+                ? (step.caption || "🔊 Áudio do Welcome Funnel")
+                : item.key === "video"
+                  ? (step.caption || "🎥 Vídeo do Welcome Funnel")
+                  : (step.text || step.caption || "");
+            if (!content) continue;
+            await context.supabase.from("agent_playground_messages").insert({
+              session_id: sessionId,
+              role: "agent",
+              content,
+              sequence: sequence++,
+              metadata: {
+                welcome_funnel: true,
+                funnel_id: (funnel as any).id,
+                step: item.key,
+                media_url: step.url || null,
+              } as any,
+            });
+          }
+          await context.supabase.from("agent_playground_runs").insert({
+            session_id: sessionId,
+            user_message: effectiveMessage,
+            agent_response: "",
+            latency_ms: Date.now() - start,
+            route: "code",
+            conversation_feedback: {
+              terminalDecision: "WELCOME_FUNNEL_COMPLETED",
+              welcomeFunnelCompleted: true,
+              welcomeFunnelId: (funnel as any).id,
+              welcomeFunnelPlan: plan.map((item) => item.key),
+            } as any,
+          });
+          return { message: null, terminalDecision: "WELCOME_FUNNEL_COMPLETED", funnelPlan: plan.map((item) => item.key) };
+        }
+      }
+    }
     const previousIntelligence = previousFeedback?.intelligence ?? {};
     const simulatedLifecycle =
       previousIntelligence?.lifecycle ??
