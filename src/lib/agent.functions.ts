@@ -446,7 +446,23 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
   .middleware([withWorkspaceScope])
   .inputValidator((d: unknown) => z.object({ enabled: z.boolean() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { data: saved, error } = await context.supabase
+    // A chave mãe é uma operação administrativa do workspace. Usamos o client
+    // de serviço depois que o middleware já autenticou e resolveu o workspace,
+    // evitando que RLS do client do usuário deixe o painel visualmente preso
+    // em OFF ou atualize só parte das conversas.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existingConfig, error: existingConfigError } = await supabaseAdmin
+      .from("agent_config")
+      .select("agent_enabled")
+      .eq("user_id", context.userId)
+      .eq("workspace_id", context.workspaceId)
+      .maybeSingle();
+    if (existingConfigError) throw new Error(existingConfigError.message);
+
+    const previousEnabled = existingConfig?.agent_enabled !== false;
+
+    const { data: saved, error } = await supabaseAdmin
       .from("agent_config")
       .upsert(
         { user_id: context.userId, workspace_id: context.workspaceId, agent_enabled: data.enabled },
@@ -456,18 +472,14 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
-    // Chave mãe: o estado global também é propagado para TODAS as conversas
-    // do workspace. Depois de ligar globalmente, conversas específicas podem
-    // ser desligadas novamente pelo toggle individual.
-    const { error: conversationsError } = await context.supabase
+    const { error: conversationsError } = await supabaseAdmin
       .from("conversations")
       .update({ agent_enabled: data.enabled })
       .eq("workspace_id", context.workspaceId);
     if (conversationsError) {
-      // Mantém config e conversas consistentes se a propagação falhar.
-      const { error: rollbackError } = await context.supabase
+      const { error: rollbackError } = await supabaseAdmin
         .from("agent_config")
-        .update({ agent_enabled: !data.enabled })
+        .update({ agent_enabled: previousEnabled })
         .eq("user_id", context.userId)
         .eq("workspace_id", context.workspaceId);
       if (rollbackError) {
