@@ -747,8 +747,8 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
             workspace_id: workspaceId,
             phone: phoneStr,
             conversation_id: conversationId ?? null,
-            action: (v3Response as any)?.flowActionHint?.action ?? "observe",
-            reason: (v3Response as any)?.flowActionHint?.reason ?? "shared_core_order_context",
+            action: execResult.flowActionHint?.action ?? "observe",
+            reason: execResult.flowActionHint?.reason ?? "shared_core_order_context",
             order_context_snapshot: {
               platform: execResult.orderContext.platform,
               service: execResult.orderContext.service,
