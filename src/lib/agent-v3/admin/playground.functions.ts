@@ -229,6 +229,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     const terminalNoReply =
       execResult.routerReason === "NATURAL_CONVERSATIONAL_SILENCE" ||
       execResult.routerReason === "STOP_REQUEST";
+    const terminalWithReply =
+      execResult.routerReason === "HUMAN_HANDOFF_REQUEST" ||
+      execResult.routerReason.startsWith("CRITICAL_HUMAN_ESCALATION:");
 
     // Playground é a bancada do cérebro: decisões terminais sem resposta
     // precisam aparecer como estado do turno, sem inventar uma mensagem.
@@ -251,6 +254,64 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         } as any,
       });
       return { message: null, terminalDecision: execResult.routerReason };
+    }
+
+    // Handoff e escalada crítica possuem uma mensagem determinística antes
+    // do efeito operacional (pausar/encaminhar). O Playground deve mostrar
+    // essa mesma mensagem e encerrar o turno, sem fingir que o Agent segue.
+    if (terminalWithReply) {
+      const { finalizeAgentText } = await import("../../send-agent-guarded.server");
+      const recentAgentBodies = history
+        .filter((item) => item.role === "agent")
+        .map((item) => item.content)
+        .slice(-3);
+      const finalized = finalizeAgentText(execResult.reply, {
+        applyHumanize: false,
+        recentAgentBodies,
+      });
+      const { data: savedTerminalMessage, error: terminalMessageError } = await context.supabase
+        .from("agent_playground_messages")
+        .insert({
+          session_id: sessionId,
+          role: "agent",
+          content: finalized.transformed,
+          sequence: nextSequence + 1,
+          metadata: {
+            route: execResult.route,
+            router_reason: execResult.routerReason,
+            terminal_decision: true,
+          } as any,
+        })
+        .select()
+        .single();
+      if (terminalMessageError || !savedTerminalMessage) {
+        throw new Error(terminalMessageError?.message || "Falha ao salvar resposta terminal do agente");
+      }
+      const latencyMs = Date.now() - start;
+      await context.supabase.from("agent_playground_runs").insert({
+        session_id: sessionId,
+        message_id: savedTerminalMessage.id,
+        user_message: effectiveMessage,
+        agent_response: finalized.transformed,
+        latency_ms: latencyMs,
+        route: execResult.route,
+        conversation_feedback: {
+          terminalDecision: execResult.routerReason,
+          businessDecision: executionContext.businessDecision,
+          rememberedContext: executionContext.rememberedContext,
+          customerLifecycle: simulatedLifecycle,
+          orderContext: execResult.orderContext ?? simulatedPreviousOrderContext,
+          flowActionHint: execResult.flowActionHint ?? null,
+          customer_turn_messages: customerTurnMessages ?? null,
+        } as any,
+      });
+      return {
+        message: savedTerminalMessage,
+        reply: finalized.transformed,
+        terminalDecision: execResult.routerReason,
+        route: execResult.route,
+        claudeCalled: false,
+      };
     }
 
     const { data: humanizationConfigRow } = await (context.supabase as any)
