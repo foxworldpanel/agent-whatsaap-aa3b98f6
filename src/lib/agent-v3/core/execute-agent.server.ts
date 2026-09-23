@@ -45,6 +45,7 @@ export type ExecuteAgentResult = {
   // sales-intelligence-engine.server.ts.
   salesIntelligence: SalesIntelligenceResult;
   orderContext?: OrderContext;
+  flowActionHint?: OrchestratorInput["flowActionHint"];
 };
 
 const ZERO_COST = { input_usd: 0, output_usd: 0, cache_usd: 0, total_usd: 0 };
@@ -275,5 +276,6 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     agentResult,
     salesIntelligence,
     orderContext: derivedOrderContext,
+    flowActionHint: sharedFlowActionHint ?? undefined,
   };
 }
