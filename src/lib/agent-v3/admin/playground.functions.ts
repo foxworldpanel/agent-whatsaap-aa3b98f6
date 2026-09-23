@@ -129,19 +129,17 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         .maybeSingle();
       if (funnelError) throw new Error(funnelError.message);
       if (funnel) {
-        const { matchesWelcomeFunnelTrigger, resolveWelcomeFunnelPlan } = await import("../../welcome-funnel-plan");
+        const { matchesWelcomeFunnelTrigger, resolveWelcomeFunnelPayloads } = await import("../../welcome-funnel-plan");
         if (matchesWelcomeFunnelTrigger(String((funnel as any).trigger_keywords || ""), effectiveMessage)) {
-          const plan = resolveWelcomeFunnelPlan((funnel as any).steps || {});
+          const plan = resolveWelcomeFunnelPayloads((funnel as any).steps || {});
           let sequence = nextSequence + 1;
           for (const item of plan) {
-            const step = item.step;
             const content =
-              item.key === "audio"
-                ? (step.caption || "🔊 Áudio do Welcome Funnel")
-                : item.key === "video"
-                  ? (step.caption || "🎥 Vídeo do Welcome Funnel")
-                  : (step.text || step.caption || "");
-            if (!content) continue;
+              item.kind === "audio"
+                ? (item.caption || "🔊 Áudio do Welcome Funnel")
+                : item.kind === "video"
+                  ? (item.caption || "🎥 Vídeo do Welcome Funnel")
+                  : (item.text || "");
             await context.supabase.from("agent_playground_messages").insert({
               session_id: sessionId,
               role: "agent",
@@ -151,7 +149,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
                 welcome_funnel: true,
                 funnel_id: (funnel as any).id,
                 step: item.key,
-                media_url: step.url || null,
+                media_url: item.url || null,
+                media_kind: item.kind,
+                delay_seconds: item.delaySeconds,
               } as any,
             });
           }
