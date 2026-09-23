@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { isStopRequest } from "@/routes/api/public/hooks/uazapi-webhook";
+import { isStopRequest } from "@/lib/agent-v3/runtime-support.server";
 
-describe("uazapi webhook stop requests", () => {
+describe("Agent V3 shared stop requests", () => {
   it.each([
     "pare",
     "Por favor, não me mande mais mensagens",
