@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { runAgentV3Turn as realRunAgentV3Turn } from "@/lib/agent-v3/orchestrator.server";
+
+// Keep this regression suite hermetic: modules.server imports the privileged
+// Supabase client at module load time. Importing the orchestrator lazily after
+// fetch is stubbed lets these unit/regression tests exercise the real runtime
+// without requiring production MIND_SUPABASE_* secrets.
+let realRunAgentV3Turn: typeof import("@/lib/agent-v3/orchestrator.server").runAgentV3Turn;
 import { DEFAULT_MODULES } from "../../../src/lib/agent-modules";
 import { 
   sanitizeSystemLeaks, 
@@ -76,6 +81,9 @@ function extractSystemText(s: any): string {
 async function callAgent(opts: any) {
   const fetchMock = mockAnthropic(opts.mockReply);
   vi.stubGlobal("fetch", fetchMock);
+  if (!realRunAgentV3Turn) {
+    ({ runAgentV3Turn: realRunAgentV3Turn } = await import("@/lib/agent-v3/orchestrator.server"));
+  }
   
   const history = opts.history || [];
   const lastMessage = history[history.length - 1]?.body || history[history.length - 1]?.content || "";
