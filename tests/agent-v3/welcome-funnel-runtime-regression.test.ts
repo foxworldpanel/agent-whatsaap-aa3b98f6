@@ -13,6 +13,10 @@ const runner = readFileSync(
   "src/lib/welcome-funnel-runner.server.ts",
   "utf8",
 );
+const plan = readFileSync(
+  "src/lib/welcome-funnel-plan.ts",
+  "utf8",
+);
 
 describe("Welcome Funnel -> Agent V3 runtime", () => {
   it("loads scoped enabled funnels and delegates durable ownership", () => {
@@ -28,16 +32,18 @@ describe("Welcome Funnel -> Agent V3 runtime", () => {
   });
 
   it("executes text, audio, panel, video and services in canonical order", () => {
-    const welcome = runner.indexOf('"welcome_text"');
-    const audio = runner.indexOf('"audio"', welcome + 1);
-    const panel = runner.indexOf('"panel_text"', audio + 1);
-    const video = runner.indexOf('"video"', panel + 1);
-    const services = runner.indexOf('"services_text"', video + 1);
+    const welcome = plan.indexOf('"welcome_text"');
+    const audio = plan.indexOf('"audio"', welcome + 1);
+    const panel = plan.indexOf('"panel_text"', audio + 1);
+    const video = plan.indexOf('"video"', panel + 1);
+    const services = plan.indexOf('"services_text"', video + 1);
     expect(welcome).toBeGreaterThan(-1);
     expect(audio).toBeGreaterThan(welcome);
     expect(panel).toBeGreaterThan(audio);
     expect(video).toBeGreaterThan(panel);
     expect(services).toBeGreaterThan(video);
+    expect(runner).toContain("WELCOME_FUNNEL_STEP_ORDER as ORDER");
+    expect(runner).toContain("resolveWelcomeFunnelPayloads");
   });
 
   it("proves durable completion after the external side-effect window", () => {
