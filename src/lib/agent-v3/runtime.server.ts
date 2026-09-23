@@ -2,7 +2,7 @@ import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
 import type { AgentV3RuntimeExecutor } from "@/lib/agent-v3/inbound-runtime-contract.server";
 import { runtimeTerminal } from "@/lib/agent-v3/inbound-runtime-result.server";
-import { detectCriticalHumanEscalation, shouldReplyWithAudio, traceFunnel } from "@/lib/agent-v3/runtime-support.server";
+import { shouldReplyWithAudio, traceFunnel } from "@/lib/agent-v3/runtime-support.server";
 
 // Generated from the audited effectful webhook boundary. The webhook owns the
 // outer catch/finally so durable ownership is finalized in one place.
@@ -298,116 +298,6 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       }
 
 
-      const criticalEscalation = await detectCriticalHumanEscalation({
-        supabaseAdmin,
-        conversationId,
-        currentText: finalMsgText,
-      });
-
-      if (criticalEscalation.escalate) {
-        const nowIso = new Date().toISOString();
-        const handoffReply =
-          "Entendi. Como seu caso precisa de uma anÃ¡lise mais detalhada, vou pausar por aqui e encaminhar para o setor responsÃ¡vel. Assim que possÃ­vel, a equipe darÃ¡ continuidade ao seu atendimento.";
-
-        try {
-          if (conversationId) {
-            const { error: criticalConvErr } = await supabaseAdmin
-              .from("conversations")
-              .update({
-                agent_enabled: false,
-                needs_review: true,
-                review_reason: criticalEscalation.reason || "suporte humano necessÃ¡rio",
-                auto_paused_at: nowIso,
-                status: "aguardando",
-                internal_note:
-                  `EscalaÃ§Ã£o automÃ¡tica para humano. Motivo: ${criticalEscalation.reason || "caso crÃ­tico de suporte"}.`,
-              })
-              .eq("id", conversationId);
-
-            if (criticalConvErr) throw criticalConvErr;
-          }
-
-          // MantÃ©m o Lead Intelligence coerente com o handoff crÃ­tico.
-          await supabaseAdmin.from("agent_logs").insert({
-            user_id: num.user_id,
-            workspace_id: workspaceId,
-            phone: phoneStr,
-            conversation_id: conversationId,
-            type: "agent_v3_turn",
-            level: "warning",
-            summary: "Agent V3 escalou caso crÃ­tico para revisÃ£o humana",
-            response: handoffReply,
-            metadata: {
-              human_escalation: true,
-              escalation_reason: criticalEscalation.reason,
-              intelligence: {
-                temperature: "frio",
-                confidence: "Muito alta",
-                intent: "ReclamaÃ§Ã£o",
-                stage: "PÃ³s-venda",
-                purchase_probability: 20,
-                sentiment: "Negativo",
-                urgency: "Alta",
-                recommended_action: "Atendimento humano obrigatÃ³rio antes de novas tentativas automÃ¡ticas.",
-                reasoning: criticalEscalation.reason || "Caso crÃ­tico de suporte.",
-              },
-            },
-          }).then(({ error }: any) => {
-            if (error) console.warn("[HUMAN-ESCALATION] Falha ao salvar inteligÃªncia:", error);
-          });
-
-          const sendResult = await sendAgentTextGuarded(
-            creds,
-            sendTarget,
-            handoffReply,
-            {
-              conversationId: conversationId as string,
-              source: "critical_human_escalation",
-            },
-          );
-
-
-          if (conversationId) {
-            const { error: persistErr } = await supabaseAdmin
-              .from("messages")
-              .insert({
-                conversation_id: conversationId,
-                user_id: num.user_id,
-                workspace_id: workspaceId,
-                sender: "agente",
-                kind: "texto",
-                body: sendResult.transformed,
-              });
-
-            if (persistErr) {
-              console.error("[HUMAN-ESCALATION] Handoff enviado, mas falhou ao persistir:", persistErr);
-            }
-          }
-
-          const { clearConversationStateV3 } = await import(
-            "@/lib/agent-v3/memory/conversation-state.server"
-          );
-          await clearConversationStateV3(
-            num.user_id,
-            phoneStr,
-            workspaceId,
-          ).catch((error) => {
-            console.warn("[HUMAN-ESCALATION] Falha ao limpar memÃ³ria V3:", error);
-          });
-
-          console.warn("[HUMAN-ESCALATION] Atendimento automÃ¡tico pausado", {
-            conversationId,
-            phone: phoneStr,
-            reason: criticalEscalation.reason,
-          });
-
-          return runtimeTerminal("critical_human_escalation");
-        } catch (criticalErr) {
-          console.error("[HUMAN-ESCALATION] Falha ao escalar conversa:", criticalErr);
-          return runtimeTerminal("critical_escalation_failed");
-        }
-      }
-
       const { getConversationStateV3, saveConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
       const {
         DEFAULT_AGENT_HUMANIZATION,
@@ -619,6 +509,43 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         imageSource: resolvedImageSource,
         messageId: msgId
       });
+
+      if (execResult.routerReason.startsWith("CRITICAL_HUMAN_ESCALATION:")) {
+        const reason = execResult.routerReason.slice("CRITICAL_HUMAN_ESCALATION:".length) || "suporte humano necessário";
+        try {
+          if (conversationId) {
+            const { error } = await supabaseAdmin.from("conversations").update({
+              agent_enabled: false,
+              needs_review: true,
+              review_reason: reason,
+              auto_paused_at: new Date().toISOString(),
+              status: "aguardando",
+              internal_note: `Escalação automática para humano. Motivo: ${reason}.`,
+            }).eq("id", conversationId);
+            if (error) throw error;
+          }
+          const sendResult = await sendAgentTextGuarded(creds, sendTarget, execResult.reply, {
+            conversationId: conversationId as string,
+            source: "critical_human_escalation",
+          });
+          if (conversationId) {
+            await supabaseAdmin.from("messages").insert({
+              conversation_id: conversationId,
+              user_id: num.user_id,
+              workspace_id: workspaceId,
+              sender: "agente",
+              kind: "texto",
+              body: sendResult.transformed,
+            });
+          }
+          const { clearConversationStateV3 } = await import("@/lib/agent-v3/memory/conversation-state.server");
+          await clearConversationStateV3(num.user_id, phoneStr, workspaceId).catch(() => undefined);
+          return runtimeTerminal("critical_human_escalation");
+        } catch (error) {
+          console.error("[HUMAN-ESCALATION] Falha ao aplicar escalada:", error);
+          return runtimeTerminal("critical_escalation_failed");
+        }
+      }
 
       if (execResult.routerReason === "HUMAN_HANDOFF_REQUEST") {
         try {
