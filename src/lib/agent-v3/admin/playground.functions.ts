@@ -135,6 +135,30 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     });
 
     const reply = execResult.reply;
+    const terminalNoReply =
+      execResult.routerReason === "NATURAL_CONVERSATIONAL_SILENCE" ||
+      execResult.routerReason === "STOP_REQUEST";
+
+    // Playground é a bancada do cérebro: decisões terminais sem resposta
+    // precisam aparecer como estado do turno, sem inventar uma mensagem.
+    if (terminalNoReply) {
+      const latencyMs = Date.now() - start;
+      await context.supabase.from("agent_playground_runs").insert({
+        session_id: sessionId,
+        user_message: effectiveMessage,
+        agent_response: "",
+        latency_ms: latencyMs,
+        route: execResult.route,
+        conversation_feedback: {
+          terminalDecision: execResult.routerReason,
+          businessDecision: executionContext.businessDecision,
+          rememberedContext: executionContext.rememberedContext,
+          customerLifecycle: simulatedLifecycle,
+          customer_turn_messages: customerTurnMessages ?? null,
+        } as any,
+      });
+      return { message: null, terminalDecision: execResult.routerReason };
+    }
 
     const { data: humanizationConfigRow } = await (context.supabase as any)
       .from("agent_config")
