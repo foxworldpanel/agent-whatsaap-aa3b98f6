@@ -1,14 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { AgentBrainV2 } from '@/lib/agent-v2/brain';
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
+describe("Legacy Agent V2 retirement", () => {
+  const webhook = readFileSync(join(process.cwd(), "src/routes/api/public/hooks/uazapi-webhook.ts"), "utf8");
+  const executor = readFileSync(join(process.cwd(), "src/lib/agent-v3/core/execute-agent.server.ts"), "utf8");
 
-describe('AgentBrainV2', () => {
-  it('should initialize in shadow mode and return stub response', async () => {
-    const brain = new AgentBrainV2();
-    const result = await brain.process("Olá", "test-conv");
-    
-    expect(result.state.version).toBe('v2');
-    expect(result.state.mode).toBe('shadow');
-    expect(result.response).toContain('Shadow Mode');
+  it("public webhook no longer imports or executes Agent V2", () => {
+    expect(webhook).not.toMatch(/agent-v2|AgentBrainV2|resolveAgentBrainVersion/);
+  });
+
+  it("active execution is owned by the shared Agent V3 core", () => {
+    expect(executor).toContain("runAgentV3Turn");
+    expect(executor).toContain("resolvePreExecutionDecision");
   });
 });
