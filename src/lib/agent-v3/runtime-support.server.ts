@@ -56,22 +56,12 @@ export async function traceFunnel(
   }
 }
 
-export async function detectCriticalHumanEscalation(params: {
-  supabaseAdmin: any;
-  conversationId?: string | null;
+export function evaluateCriticalHumanEscalation(params: {
   currentText: string;
-}): Promise<{ escalate: boolean; reason?: string }> {
-  const { supabaseAdmin, conversationId, currentText } = params;
-  let recentCustomerText = "";
-  if (conversationId) {
-    const { data, error } = await supabaseAdmin.from("messages").select("body, created_at")
-      .eq("conversation_id", conversationId).eq("sender", "cliente")
-      .order("created_at", { ascending: false }).limit(20);
-    if (error) console.warn("[HUMAN-ESCALATION] Falha ao ler histórico recente:", error);
-    else recentCustomerText = (data || []).map((row: any) => String(row?.body || "")).reverse().join(" ");
-  }
-  const current = normalizeEscalationText(currentText);
-  const journey = normalizeEscalationText(`${recentCustomerText} ${currentText}`);
+  recentCustomerText?: string;
+}): { escalate: boolean; reason?: string } {
+  const current = normalizeEscalationText(params.currentText);
+  const journey = normalizeEscalationText(`${params.recentCustomerText || ""} ${params.currentText}`);
   const legalRisk = /\b(denuncia|denunciar|procon|advogad[oa]|processo|processar|acao judicial|justica|boletim de ocorrencia|policia|reclamacao formal|chargeback|contestacao do pagamento)\b/.test(journey);
   if (legalRisk) return { escalate: true, reason: "risco de denúncia, contestação ou escalada jurídica" };
   const supportUnavailable = /\b(nao consigo (?:abrir|acessar|falar com) (?:o )?suporte|sem acesso (?:ao|a) suporte|suporte (?:esta )?bloqueado|bloquead[oa].{0,45}suporte|nao tenho acesso ao suporte|nao da.{0,30}(?:ticket|suporte)|ticket.{0,30}(?:bloqueado|nao abre|nao funciona)|volta (?:a|para) pagina inicial)\b/.test(journey);
@@ -87,6 +77,22 @@ export async function detectCriticalHumanEscalation(params: {
   const troubleshootingLoop = (journey.match(/\b(cache|cookies?|outro navegador|ticket|tente novamente|atualiz|cadastro|pagamento)\b/g) || []).length >= 3;
   if (buyingJourney && technicalBlock && troubleshootingLoop) return { escalate: true, reason: "venda bloqueada por problema técnico no cadastro/pagamento" };
   return { escalate: false };
+}
+
+export async function detectCriticalHumanEscalation(params: {
+  supabaseAdmin: any;
+  conversationId?: string | null;
+  currentText: string;
+}): Promise<{ escalate: boolean; reason?: string }> {
+  let recentCustomerText = "";
+  if (params.conversationId) {
+    const { data, error } = await params.supabaseAdmin.from("messages").select("body, created_at")
+      .eq("conversation_id", params.conversationId).eq("sender", "cliente")
+      .order("created_at", { ascending: false }).limit(20);
+    if (error) console.warn("[HUMAN-ESCALATION] Falha ao ler histórico recente:", error);
+    else recentCustomerText = (data || []).map((row: any) => String(row?.body || "")).reverse().join(" ");
+  }
+  return evaluateCriticalHumanEscalation({ currentText: params.currentText, recentCustomerText });
 }
 
 export function shouldReplyWithAudio(params: {
