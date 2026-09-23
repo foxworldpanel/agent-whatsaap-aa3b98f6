@@ -35,6 +35,7 @@ describe("Agent master switch + individual toggle + funnel priority", () => {
     const start = agentFunctions.indexOf("export const setAgentGlobalEnabled");
     const end = agentFunctions.indexOf("export const setConversationAgentEnabled", start);
     const block = agentFunctions.slice(start, end);
+    expect(block).toContain('const { supabaseAdmin } = await import("@/integrations/supabase/client.server")');
     expect(block).toContain('from("agent_config")');
     expect(block).toContain('from("conversations")');
     expect(block).toContain(".update({ agent_enabled: data.enabled })");
