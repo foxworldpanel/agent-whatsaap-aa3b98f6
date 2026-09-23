@@ -14,7 +14,7 @@ describe("Legacy conversation helpers after Agent V3 CMS cutover", () => {
 
   it("keeps deterministic punctuation and split helpers stable", () => {
     expect(humanizePunctuation("Show — vamos combinar assim.")).not.toContain("—");
-    expect(autoSplitLongParts("Oi! Como posso te ajudar hoje?")).toHaveLength(1);
+    expect(autoSplitLongParts(["Oi! Como posso te ajudar hoje?"])).toEqual(["Oi! Como posso te ajudar hoje?"]);
   });
 
   it("does not classify greeting + real question burst as pure reengagement", () => {
