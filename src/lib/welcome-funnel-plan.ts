@@ -1,3 +1,5 @@
+import { normalizeTriggerText } from "@/lib/text-normalize";
+
 export type WelcomeFunnelStep = {
   enabled?: boolean;
   text?: string;
@@ -24,5 +26,21 @@ export function resolveWelcomeFunnelPlan(steps: WelcomeFunnelSteps | null | unde
     .filter(
       (item): item is { key: WelcomeFunnelStepKey; step: WelcomeFunnelStep } =>
         Boolean(item.step?.enabled),
+    );
+}
+
+const GENERIC_WELCOME_TRIGGERS = new Set(["oi", "ola", "bom dia", "boa tarde", "boa noite"]);
+
+export function matchesWelcomeFunnelTrigger(triggerKeywords: string, message: string): boolean {
+  const normalizedMessage = normalizeTriggerText(message);
+  if (!normalizedMessage) return false;
+  return String(triggerKeywords || "")
+    .split(",")
+    .map((value) => normalizeTriggerText(value.trim()))
+    .filter(Boolean)
+    .some(
+      (trigger) =>
+        !GENERIC_WELCOME_TRIGGERS.has(trigger) &&
+        (normalizedMessage === trigger || normalizedMessage.includes(trigger)),
     );
 }
