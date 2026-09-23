@@ -80,6 +80,11 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
       cost: ZERO_COST,
       claudeCalled: false,
       salesIntelligence,
+      orderContext: deriveOrderContextV3(
+        input.message,
+        input.history,
+        input.previousOrderContext ?? EMPTY_ORDER_CONTEXT,
+      ),
     };
   }
 
@@ -154,6 +159,11 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
       cost: ZERO_COST,
       claudeCalled: false,
       salesIntelligence,
+      orderContext: deriveOrderContextV3(
+        input.message,
+        input.history,
+        input.previousOrderContext ?? EMPTY_ORDER_CONTEXT,
+      ),
     };
   }
 
