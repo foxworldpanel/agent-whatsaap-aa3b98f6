@@ -210,9 +210,6 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       workspaceId,
       inputKind: inputKind as any,
       businessDecision: executionContext.businessDecision,
-      orderContext: execResult.orderContext ?? simulatedPreviousOrderContext,
-      flowActionHint: execResult.flowActionHint ?? null,
-      deliveryMode: simulatedDeliveryMode,
       extraContext: executionContext.extraContext,
       rememberedContext: executionContext.rememberedContext as any,
       routerContext: {
