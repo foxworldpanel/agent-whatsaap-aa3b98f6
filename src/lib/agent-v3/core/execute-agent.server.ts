@@ -70,7 +70,9 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
           ? "NATURAL_CONVERSATIONAL_SILENCE"
           : preDecision.kind === "human_handoff"
             ? "HUMAN_HANDOFF_REQUEST"
-            : "STOP_REQUEST",
+            : preDecision.kind === "critical_handoff"
+              ? `CRITICAL_HUMAN_ESCALATION:${preDecision.reason}`
+              : "STOP_REQUEST",
       reply: preDecision.reply ?? "",
       usage: { input_tokens: 0, output_tokens: 0 },
       cost: ZERO_COST,
