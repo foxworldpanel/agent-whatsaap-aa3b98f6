@@ -49,6 +49,7 @@ describe("UAZAPI webhook durable Welcome Funnel cutover", () => {
   it("rechecks the Funnel barrier before Customer Turn attachment", () => {
     expect(webhook).toContain("enqueueWebhookInboundAroundWelcomeFunnel");
     expect(webhook).toContain('ownershipResult.status === "pending_behind_funnel"');
-    expect(webhook).toContain("dispatchReadyCustomerTurnById");
+    // Execution is intentionally asynchronous after durable ownership; the webhook must not dispatch inline.
+    expect(webhook).not.toContain("dispatchReadyCustomerTurnById");
   });
 });
