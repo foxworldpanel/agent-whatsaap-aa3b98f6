@@ -696,22 +696,6 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         nextAction: businessDecision.nextAction,
       });
 
-      const { shouldStaySilentForNaturalConversation } = await import(
-        "@/lib/agent-v3/brain/guards.server"
-      );
-      const naturalSilence = shouldStaySilentForNaturalConversation({
-        message: effectiveAgentMessage,
-        history: history.map((item) => ({
-          sender: item.role === "agent" ? "agente" : "cliente",
-          body: item.content,
-        })),
-      });
-
-      if (content.kind === "texto" && naturalSilence) {
-        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: natural conversational silence para conversa ${conversationId}`);
-        return runtimeTerminal("natural_conversational_silence");
-      }
-
       // ============================================================
       // FLOW ENGINE â€” checagem ANTECIPADA (antes da IA), sÃ³ pra
       // permitir que uma FlowAction ligada por feature flag influencie
@@ -806,6 +790,11 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         imageSource: resolvedImageSource,
         messageId: msgId
       });
+
+      if (execResult.routerReason === "NATURAL_CONVERSATIONAL_SILENCE") {
+        console.log(`[UAZ-WEBHOOK] [AUDIT] RETORNO: natural conversational silence para conversa ${conversationId}`);
+        return runtimeTerminal("natural_conversational_silence");
+      }
 
       const orchestratorDuration = Date.now() - orchestratorStartAt;
       await logExecutionTrace({
