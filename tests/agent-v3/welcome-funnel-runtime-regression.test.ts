@@ -32,16 +32,24 @@ describe("Welcome Funnel -> Agent V3 runtime", () => {
   });
 
   it("executes text, audio, panel, video and services in canonical order", () => {
-    const welcome = plan.indexOf('"welcome_text"');
-    const audio = plan.indexOf('"audio"', welcome + 1);
-    const panel = plan.indexOf('"panel_text"', audio + 1);
-    const video = plan.indexOf('"video"', panel + 1);
-    const services = plan.indexOf('"services_text"', video + 1);
-    expect(welcome).toBeGreaterThan(-1);
-    expect(audio).toBeGreaterThan(welcome);
-    expect(panel).toBeGreaterThan(audio);
-    expect(video).toBeGreaterThan(panel);
-    expect(services).toBeGreaterThan(video);
+    // The commercial plan belongs to the shared plan module. Extract only the
+    // canonical array so unrelated occurrences in type declarations cannot make
+    // this static regression brittle.
+    const orderMatch = plan.match(
+      /WELCOME_FUNNEL_STEP_ORDER\s*=\s*\[([\s\S]*?)\]\s*as const/,
+    );
+    expect(orderMatch).not.toBeNull();
+    const canonicalOrder = Array.from(
+      orderMatch![1].matchAll(/"(welcome_text|audio|panel_text|video|services_text)"/g),
+      (match) => match[1],
+    );
+    expect(canonicalOrder).toEqual([
+      "welcome_text",
+      "audio",
+      "panel_text",
+      "video",
+      "services_text",
+    ]);
     expect(runner).toContain("WELCOME_FUNNEL_STEP_ORDER as ORDER");
     expect(runner).toContain("resolveWelcomeFunnelPayloads");
   });
