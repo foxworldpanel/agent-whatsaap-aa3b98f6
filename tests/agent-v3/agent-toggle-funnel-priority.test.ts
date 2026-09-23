@@ -31,12 +31,14 @@ describe("Agent master switch + individual toggle + funnel priority", () => {
     expect(webhook).toContain("isConversationAgentEnabledV3(supabaseAdmin, conversationId)");
   });
 
-  it("toggle global não sobrescreve os toggles individuais", () => {
+  it("toggle global funciona como chave mãe e propaga para todas as conversas", () => {
     const start = agentFunctions.indexOf("export const setAgentGlobalEnabled");
     const end = agentFunctions.indexOf("export const setConversationAgentEnabled", start);
     const block = agentFunctions.slice(start, end);
     expect(block).toContain('from("agent_config")');
-    expect(block).not.toContain('from("conversations")');
+    expect(block).toContain('from("conversations")');
+    expect(block).toContain(".update({ agent_enabled: data.enabled })");
+    expect(block).toContain('.eq("workspace_id", context.workspaceId)');
   });
 
   it("toggle individual persiste agent_enabled na conversa", () => {
