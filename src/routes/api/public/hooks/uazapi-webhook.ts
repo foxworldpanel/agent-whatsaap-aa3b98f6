@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
-import { normalizeTriggerText, removeAccents } from "@/lib/text-normalize";
+import { normalizeTriggerText } from "@/lib/text-normalize";
 import { isConversationAgentEnabledV3 } from "@/lib/agent-v3/brain/config.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
 import { persistWebhookAgentInboundJob } from "@/lib/agent-v3/inbound-webhook-ownership.server";
@@ -12,28 +11,9 @@ import { runWelcomeFunnelWebhookGate, webhookGateMustStopAgent } from "@/lib/wel
 // Configure em Uazapi → Webhooks: POST {site}/api/public/hooks/uazapi-webhook
 // Eventos: messages (mensagens recebidas).
 
-// Serializa o processamento do agente por conversa dentro da mesma instância.
-// Isso evita que duas mensagens quase simultâneas leiam o mesmo histórico e
-// sobrescrevam uma à outra no saveConversationStateV3. Em ambientes com várias
-// instâncias, a garantia definitiva ainda deve ser feita no banco/queue.
-const conversationLocks = new Map<string, Promise<void>>();
-async function withConversationLock<T>(key: string, task: () => Promise<T>): Promise<T> {
-  const previous = conversationLocks.get(key) ?? Promise.resolve();
-  let release!: () => void;
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const tail = previous.catch(() => undefined).then(() => current);
-  conversationLocks.set(key, tail);
-
-  await previous.catch(() => undefined);
-  try {
-    return await task();
-  } finally {
-    release();
-    if (conversationLocks.get(key) === tail) conversationLocks.delete(key);
-  }
-}
+// O webhook é somente Stage B/C ingress. Serialização de execução pertence ao
+// Customer Turn no banco/dispatcher; nenhum lock em memória desta instância
+// participa da garantia ZERO LOST TURN.
 
 // Deduplicação em memória por messageId. O TTL evita crescimento permanente do
 // mapa e cobre as retransmissões normais do provedor. A proteção definitiva
@@ -325,149 +305,8 @@ function normalizeEscalationText(value: string): string {
   return normalizeTriggerText(value);
 }
 
-async function detectCriticalHumanEscalation(params: {
-  supabaseAdmin: any;
-  conversationId?: string | null;
-  currentText: string;
-}): Promise<{ escalate: boolean; reason?: string }> {
-  const { supabaseAdmin, conversationId, currentText } = params;
-
-  let recentCustomerText = "";
-  if (conversationId) {
-    const { data, error } = await supabaseAdmin
-      .from("messages")
-      .select("body, created_at")
-      .eq("conversation_id", conversationId)
-      .eq("sender", "cliente")
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (error) {
-      console.warn("[HUMAN-ESCALATION] Falha ao ler histórico recente:", error);
-    } else {
-      recentCustomerText = (data || [])
-        .map((row: any) => String(row?.body || ""))
-        .reverse()
-        .join(" ");
-    }
-  }
-
-  const current = normalizeEscalationText(currentText);
-  const journey = normalizeEscalationText(`${recentCustomerText} ${currentText}`);
-
-  // Risco jurídico/reputacional: humano imediatamente.
-  const legalRisk =
-    /\b(denuncia|denunciar|procon|advogad[oa]|processo|processar|acao judicial|justica|boletim de ocorrencia|policia|reclamacao formal|chargeback|contestacao do pagamento)\b/.test(journey);
-
-  if (legalRisk) {
-    return {
-      escalate: true,
-      reason: "risco de denúncia, contestação ou escalada jurídica",
-    };
-  }
-
-  const supportUnavailable =
-    /\b(nao consigo (?:abrir|acessar|falar com) (?:o )?suporte|sem acesso (?:ao|a) suporte|suporte (?:esta )?bloqueado|bloquead[oa].{0,45}suporte|nao tenho acesso ao suporte|nao da.{0,30}(?:ticket|suporte)|ticket.{0,30}(?:bloqueado|nao abre|nao funciona)|volta (?:a|para) pagina inicial)\b/.test(journey);
-
-  const unresolvedSupport =
-    /\b(nao resolvem|nao respondem|ninguem responde|ja reclamei|reclamei e|sem solucao|nao solucionaram|continuo com o problema)\b/.test(journey);
-
-  const operationalProblem =
-    /\b(pedido|id\s*:?\s*\d{5,}|seguidores?|plays?|ouvintes?|likes?|visualizacoes?|compra|saldo|credito|reposicao|garantia|caiu|perdi|parado|processando|nao chegou|nao recebi|faltam?|bloquead[oa]|restric|reembolso)\b/.test(journey);
-
-  const severeLossOrBlock =
-    /\b(perdi (?:quase )?todos|ficou (?:com )?menos de|me bloquearam|estou bloquead[oa]|conta bloqueada|restricao na conta)\b/.test(journey);
-
-  // Não escalar uma dúvida simples de suporte. A combinação precisa demonstrar
-  // que o canal normal não está disponível ou que já falhou.
-  if (operationalProblem && supportUnavailable) {
-    return {
-      escalate: true,
-      reason: "problema de pedido/conta com suporte inacessível",
-    };
-  }
-
-  if (operationalProblem && unresolvedSupport && severeLossOrBlock) {
-    return {
-      escalate: true,
-      reason: "reclamação crítica não resolvida",
-    };
-  }
-
-  // O próprio turno já pode conter a combinação completa.
-  const currentHasBlockedSupport =
-    /\b(bloquead[oa]|sem acesso|nao consigo)\b/.test(current) &&
-    /\b(suporte|ticket|reclam)\b/.test(current) &&
-    operationalProblem;
-
-  if (currentHasBlockedSupport) {
-    return {
-      escalate: true,
-      reason: "cliente sem canal funcional para resolver suporte",
-    };
-  }
-
-  // Venda já encaminhada, mas cadastro/recarga/pagamento está impedindo o fechamento.
-  // Uma dúvida técnica simples continua com a Júlia; repetição/persistência vai ao setor responsável.
-  const buyingJourney = /\b(compr|pagar|pagamento|pix|recarga|saldo|cadastro|cadastrar|pedido|1000|mil|r\$)\b/.test(journey);
-  const technicalBlock = /\b(n[aã]o funciona|n[aã]o abre|n[aã]o aparece|n[aã]o completa|n[aã]o consigo|n[aã]o avan[çc]a|erro|trav|volta (?:a|para) p[aá]gina|pagamento n[aã]o aparece|saldo n[aã]o aparece|cadastro n[aã]o)\b/.test(journey);
-  const troubleshootingLoop = (journey.match(/\b(cache|cookies?|outro navegador|ticket|tente novamente|atualiz|cadastro|pagamento)\b/g) || []).length >= 3;
-
-  if (buyingJourney && technicalBlock && troubleshootingLoop) {
-    return {
-      escalate: true,
-      reason: "venda bloqueada por problema técnico no cadastro/pagamento",
-    };
-  }
-
-  return { escalate: false };
-}
-
-function shouldReplyWithAudio(params: {
-  inputKind: "texto" | "audio" | "image" | "sticker";
-  replyText: string;
-  intent?: string;
-  stage?: string;
-}): boolean {
-  if (params.inputKind !== "audio") return false;
-
-  const text = String(params.replyText || "").trim();
-  if (!text) return false;
-
-  const sentenceCount = text
-    .split(/[.!?]+/)
-    .map((part) => part.trim())
-    .filter(Boolean).length;
-
-  const normalizedIntent = String(params.intent || "").toLowerCase();
-  const normalizedStage = String(params.stage || "").toLowerCase();
-
-  const complexIntent =
-    normalizedIntent.includes("tecnico") ||
-    normalizedIntent.includes("suporte") ||
-    normalizedIntent.includes("tutorial") ||
-    normalizedIntent.includes("explic") ||
-    normalizedIntent.includes("duvida_complexa");
-
-  const complexStage =
-    normalizedStage.includes("suporte") ||
-    normalizedStage.includes("resolucao") ||
-    normalizedStage.includes("diagnostico");
-
-  const hasStepByStepLanguage =
-    /\b(passo a passo|primeiro|depois|em seguida|acesse|vá até|clique|selecione|configure)\b/i.test(text);
-
-  // Regra híbrida:
-  // - respostas simples continuam em texto;
-  // - explicações realmente maiores/complexas viram nota de voz.
-  return (
-    text.length >= 260 ||
-    sentenceCount >= 4 ||
-    complexIntent ||
-    complexStage ||
-    (hasStepByStepLanguage && text.length >= 160)
-  );
-}
+// STOP, handoff, escalada crítica, silêncio natural e decisão de áudio vivem
+// no cérebro/runtime compartilhado. O webhook não mantém cópias dessas regras.
 
 function isReactionOnlyMessage(value: string): boolean {
   const text = String(value || "").trim();
@@ -488,14 +327,6 @@ function isReactionOnlyMessage(value: string): boolean {
     .replace(/[.!?,]+$/g, "")
     .trim();
   return new Set(["ok", "okay", "blz", "beleza", "entendi", "certo", "ta certo", "tá certo"]).has(normalized);
-}
-
-export function isHumanHandoffRequest(text: string): boolean {
-  const normalized = String(text || "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!normalized) return false;
-  return HUMAN_HANDOFF_PATTERNS.some((re) => re.test(normalized));
 }
 
 async function processWebhook(payload: UazapiPayload): Promise<Response> {
