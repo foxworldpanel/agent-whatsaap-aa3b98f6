@@ -1,34 +1,26 @@
-import { describe, it, expect, vi } from 'vitest';
-import { selectRelevantModules } from '@/lib/agent-v3/selector/module-selector.server';
+import { describe, expect, it } from "vitest";
+import { detectConversationContext } from "@/lib/agent-v3/selector/module-selector.server";
 
-describe('V3 Architectural Logic & Terminology', () => {
-  it('should explicitly confirm Spotify when "plays" is mentioned', () => {
-    const input = "quero comprar plays";
-    const enabledModules = ['spotify', 'youtube', 'instagram', 'fluxo_vendas'];
-    
-    const selectedKeys = selectRelevantModules(input, enabledModules);
-    
-    expect(selectedKeys).toContain('spotify');
-    expect(selectedKeys).toContain('fluxo_vendas');
-    // Note: 'plays' is mapped to spotify in KEYWORD_MAP, 
-    // and selectRelevantModules handles the addition.
+describe("Agent V3 terminology and context detection", () => {
+  it("does not infer Spotify from generic plays alone", () => {
+    const ctx = detectConversationContext("quero comprar plays");
+    expect(ctx.product).toBe("plays");
+    expect(ctx.platform).toBeNull();
   });
 
-  it('should explicitly confirm Spotify when "streams" or "ouvintes" is mentioned', () => {
-    const enabledModules = ['spotify', 'fluxo_vendas'];
-    
-    expect(selectRelevantModules("quero streams", enabledModules)).toContain('spotify');
-    expect(selectRelevantModules("ouvintes mensais", enabledModules)).toContain('spotify');
+  it("recognizes Spotify explicitly and exclusive Spotify products", () => {
+    expect(detectConversationContext("quero plays no spotify").platform).toBe("spotify");
+    expect(detectConversationContext("ouvintes mensais").platform).toBe("spotify");
+    expect(detectConversationContext("quero saves").platform).toBe("spotify");
   });
 
-  it('should not confuse "views" with Spotify if not enabled', () => {
-    const input = "quero comprar views";
-    const enabledModules = ['youtube', 'instagram', 'fluxo_vendas'];
-    
-    const selectedKeys = selectRelevantModules(input, enabledModules);
-    
-    expect(selectedKeys).not.toContain('spotify');
-    // It should pick youtube or instagram based on keywords
-    expect(selectedKeys.some(k => ['youtube', 'instagram'].includes(k))).toBe(true);
+  it("keeps generic views separate from Spotify", () => {
+    const ctx = detectConversationContext("quero comprar views");
+    expect(ctx.product).toBe("visualizacoes");
+    expect(ctx.platform).toBeNull();
+  });
+
+  it("recognizes support from the current Customer Turn", () => {
+    expect(detectConversationContext("meu pedido está atrasado").intent).toBe("suporte");
   });
 });
