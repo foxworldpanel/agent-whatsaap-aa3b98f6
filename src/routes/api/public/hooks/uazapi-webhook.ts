@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { normalizeTriggerText } from "@/lib/text-normalize";
 import { isConversationAgentEnabledV3 } from "@/lib/agent-v3/brain/config.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
 import { persistWebhookAgentInboundJob } from "@/lib/agent-v3/inbound-webhook-ownership.server";
@@ -264,45 +263,6 @@ function extractMessageId(p: UazapiPayload): string | null {
   }
 
   return null;
-}
-
-const STOP_PATTERNS = [
-  // "cancelar" sozinho é ambíguo: normalmente pode significar cancelar um pedido,
-  // não retirar consentimento para mensagens. Só bloqueamos pedidos inequívocos.
-  /^\s*(pare|parar|stop|unsubscribe)\s*[.!]?\s*$/i,
-  /\bn[aã]o\s+quero\s+mais\s+(mensagens?|contato|receber)/i,
-  /\bn[aã]o\s+me\s+(mande|manda|envie|mandar)\s+mais/i,
-  /\bpare\s+de\s+(mandar|enviar)/i,
-  /\bsai[ar]?\s+da\s+lista\b/i,
-  /\bdescadastr/i,
-  /\bme\s+tira\s+(daqui|da[ií]|da\s+lista|dos\s+contatos)/i,
-];
-
-export function isStopRequest(text: string): boolean {
-  if (!text) return false;
-  return STOP_PATTERNS.some((re) => re.test(text));
-}
-
-const HUMAN_HANDOFF_PATTERNS = [
-  /\bfalar\s+com\s+(?:um\s+|uma\s+)?(?:atendente\s+)?humano\b/i,
-  /\bfalar\s+com\s+(?:um\s+|uma\s+)?pessoa\b/i,
-  /\bquero\s+falar\s+com\s+(?:um\s+|uma\s+)?(?:atendente\s+)?humano\b/i,
-  /\bquero\s+falar\s+com\s+(?:uma\s+)?pessoa\b/i,
-  /\bquero\s+(?:um\s+|uma\s+)?atendente\b/i,
-  /\batendente\s+humano\b/i,
-  /\bpessoa\s+de\s+verdade\b/i,
-  /\bfalar\s+com\s+humano\b/i,
-  /\bsem\s+ser\s+(?:um\s+)?rob[oô]\b/i,
-  /\bsem\s+rob[oô]\b/i,
-  /\bn[aã]o\s+quero\s+(?:falar\s+)?com\s+(?:um\s+)?rob[oô]\b/i,
-  /\bquero\s+(?:falar\s+)?com\s+algu[eé]m\s+(?:de\s+verdade|da\s+equipe)\b/i,
-  /\bme\s+passa\s+(?:para|pra)\s+(?:um\s+|uma\s+)?atendente\b/i,
-];
-
-function normalizeEscalationText(value: string): string {
-  // Mesma lógica de normalizeFunnelText (eram implementações idênticas
-  // duplicadas) — delega em vez de repetir, sem mudar nenhum call site.
-  return normalizeTriggerText(value);
 }
 
 // STOP, handoff, escalada crítica, silêncio natural e decisão de áudio vivem
