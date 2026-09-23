@@ -16,6 +16,7 @@ import {
 import { logExecutionTrace } from "../telemetry/execution-tracer.server";
 import { saveOrderContextV3, deriveOrderContextV3, loadOrderContextV3 } from "../memory/order-context.server";
 import { normalizeConversationFactsV3 } from "../memory/conversation-facts.server";
+import { shouldStaySilentForNaturalConversation } from "../brain/guards.server";
 
 export type ExecuteAgentInput = OrchestratorInput & {
   traceId?: string; // New field
@@ -51,6 +52,32 @@ const BEHAVIOR_TELEMETRY_ENABLED =
   (typeof process !== "undefined" && process.env.BEHAVIOR_TELEMETRY_ENABLED === "true");
 
 export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAgentResult> {
+  // Silêncio conversacional é uma decisão do cérebro, não do transporte.
+  // Portanto precisa acontecer aqui para Playground e WhatsApp tomarem a
+  // mesma decisão para a mesma mensagem/histórico.
+  const naturalSilence =
+    input.inputKind === "texto" &&
+    shouldStaySilentForNaturalConversation({
+      message: input.message,
+      history: input.history.map((item) => ({
+        sender: item.role === "agent" ? "agente" : "cliente",
+        body: item.content,
+      })),
+    });
+
+  if (naturalSilence) {
+    const salesIntelligence = classifySalesIntelligence(input.message);
+    return {
+      route: "code",
+      routerReason: "NATURAL_CONVERSATIONAL_SILENCE",
+      reply: "",
+      usage: { input_tokens: 0, output_tokens: 0 },
+      cost: ZERO_COST,
+      claudeCalled: false,
+      salesIntelligence,
+    };
+  }
+
   // Sales Intelligence V1 — Fase A: classificação pura, calculada uma
   // vez, independente da rota escolhida pelo Router. Não influencia
   // NADA do que acontece depois — só acompanha o resultado final.
