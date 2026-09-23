@@ -1,44 +1,34 @@
-/**
- * Guardrail textual da REGRA_ESCOPO_RESPOSTA_BLOCK.
- *
- * Regressão real: cliente perguntou só sobre Spotify e a Júlia despejou
- * tabela completa (YouTube+Spotify+Instagram+TikTok) + parágrafo único
- * longo pra "tranquilizar cliente leigo".
- */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
-  REGRA_ESCOPO_RESPOSTA_BLOCK,
-  buildSharedRules,
   DEFAULT_IDENTITY,
+  MIND_BRAND_TEMPLATE,
+  buildSharedRules,
 } from "@/lib/agent-identity.server";
 
-describe("REGRA_ESCOPO_RESPOSTA_BLOCK — escopo e tamanho da resposta", () => {
-  it("proíbe despejar tabela de todas as redes quando cliente perguntou de uma só", () => {
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/ESCOPO = PERGUNTA/);
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/YouTube.*Spotify.*Instagram.*TikTok/);
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/PROIBIDO/);
+describe("Agent V3 CMS-owned commercial rules", () => {
+  it("legacy identity no longer injects commercial prompt rules", () => {
+    expect(DEFAULT_IDENTITY.persona).toBe("");
+    expect(MIND_BRAND_TEMPLATE.persona).toBe("");
+    expect(buildSharedRules(DEFAULT_IDENTITY)).toBe("");
   });
 
-  it("lista os gatilhos explícitos que liberam a tabela completa", () => {
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/manda a tabela/i);
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/tabela completa/i);
+  it("runtime loads prompt modules from agent_modules_v3", () => {
+    const modules = readFileSync(
+      join(process.cwd(), "src/lib/agent-v3/brain/modules.server.ts"),
+      "utf8",
+    );
+    expect(modules).toContain('from("agent_modules_v3")');
+    expect(modules).toContain("workspace_id");
   });
 
-  it("exige múltiplas bolhas via ===SPLIT=== em respostas de tranquilizar leigo", () => {
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/2-3 frases curtas/);
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/===SPLIT===/);
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/tranquilizar cliente leigo/i);
-  });
-
-  it("traz exemplo ERRADO (parágrafo único) e CERTO (bolhas curtas)", () => {
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/Exemplo ERRADO/);
-    expect(REGRA_ESCOPO_RESPOSTA_BLOCK).toMatch(/Exemplo CERTO/);
-    const splits = (REGRA_ESCOPO_RESPOSTA_BLOCK.match(/===SPLIT===/g) ?? []).length;
-    expect(splits).toBeGreaterThanOrEqual(2);
-  });
-
-  it("está incluído no system prompt montado por buildSharedRules", () => {
-    const shared = buildSharedRules(DEFAULT_IDENTITY);
-    expect(shared).toContain(REGRA_ESCOPO_RESPOSTA_BLOCK);
+  it("selector consumes LoadedModuleV3 routing instead of legacy identity constants", () => {
+    const selector = readFileSync(
+      join(process.cwd(), "src/lib/agent-v3/selector/module-selector.server.ts"),
+      "utf8",
+    );
+    expect(selector).toContain("LoadedModuleV3");
+    expect(selector).toContain("routing");
   });
 });
