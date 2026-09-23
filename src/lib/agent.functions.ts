@@ -448,14 +448,37 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: saved, error } = await context.supabase
       .from("agent_config")
-      .upsert({ user_id: context.userId, workspace_id: context.workspaceId, agent_enabled: data.enabled }, { onConflict: "user_id,workspace_id" })
+      .upsert(
+        { user_id: context.userId, workspace_id: context.workspaceId, agent_enabled: data.enabled },
+        { onConflict: "user_id,workspace_id" },
+      )
       .select("agent_enabled")
       .single();
     if (error) throw new Error(error.message);
 
-    // Master switch global: não sobrescreve os toggles individuais.
-    // Global OFF bloqueia toda resposta do Agent V3; Global ON volta a respeitar
-    // o estado salvo em cada conversa.
+    // Chave mãe: o estado global também é propagado para TODAS as conversas
+    // do workspace. Depois de ligar globalmente, conversas específicas podem
+    // ser desligadas novamente pelo toggle individual.
+    const { error: conversationsError } = await context.supabase
+      .from("conversations")
+      .update({ agent_enabled: data.enabled })
+      .eq("workspace_id", context.workspaceId);
+    if (conversationsError) {
+      // Mantém config e conversas consistentes se a propagação falhar.
+      const { error: rollbackError } = await context.supabase
+        .from("agent_config")
+        .update({ agent_enabled: !data.enabled })
+        .eq("user_id", context.userId)
+        .eq("workspace_id", context.workspaceId);
+      if (rollbackError) {
+        throw new Error(
+          `Falha ao atualizar todas as conversas (${conversationsError.message}) e ao restaurar a chave mãe (${rollbackError.message}).`,
+        );
+      }
+      throw new Error(`Falha ao atualizar todas as conversas: ${conversationsError.message}`);
+    }
+
+    invalidateAgentConfigCache(context.userId, context.workspaceId);
     return { ok: true, agent_enabled: saved.agent_enabled };
   });
 
