@@ -44,6 +44,7 @@ export type ExecuteAgentResult = {
   // NINGUÉM usa este campo pra decidir nada ainda — ver
   // sales-intelligence-engine.server.ts.
   salesIntelligence: SalesIntelligenceResult;
+  orderContext?: OrderContext;
 };
 
 const ZERO_COST = { input_usd: 0, output_usd: 0, cache_usd: 0, total_usd: 0 };
@@ -273,5 +274,6 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     claudeCalled: true,
     agentResult,
     salesIntelligence,
+    orderContext: derivedOrderContext,
   };
 }
