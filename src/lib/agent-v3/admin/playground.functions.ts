@@ -210,6 +210,9 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       workspaceId,
       inputKind: inputKind as any,
       businessDecision: executionContext.businessDecision,
+      orderContext: execResult.orderContext ?? simulatedPreviousOrderContext,
+      flowActionHint: execResult.flowActionHint ?? null,
+      deliveryMode: simulatedDeliveryMode,
       extraContext: executionContext.extraContext,
       rememberedContext: executionContext.rememberedContext as any,
       routerContext: {
@@ -246,6 +249,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
           rememberedContext: executionContext.rememberedContext,
           customerLifecycle: simulatedLifecycle,
           orderContext: execResult.orderContext ?? simulatedPreviousOrderContext,
+          flowActionHint: execResult.flowActionHint ?? null,
           customer_turn_messages: customerTurnMessages ?? null,
         } as any,
       });
@@ -408,6 +412,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         cost: cost,
         businessDecision: executionContext.businessDecision,
         orderContext: execResult.orderContext ?? simulatedPreviousOrderContext,
+        flowActionHint: execResult.flowActionHint ?? null,
         extraContext: executionContext.extraContext,
         route: execResult.route,
         router_reason: execResult.routerReason,
