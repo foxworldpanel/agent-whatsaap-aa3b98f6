@@ -40,6 +40,12 @@ describe("Agent master switch + individual toggle + funnel priority", () => {
     expect(block).toContain('from("conversations")');
     expect(block).toContain(".update({ agent_enabled: data.enabled })");
     expect(block).toContain('.eq("workspace_id", context.workspaceId)');
+    expect(block).toContain('.range(from, from + pageSize - 1)');
+    expect(block).toContain('.in("id", ids)');
+    expect(block).toContain('.select("id, agent_enabled")');
+    expect(block).toContain('.neq("agent_enabled", data.enabled)');
+    expect(block).toContain("conversationSnapshot");
+    expect(block).toContain("conversations_updated: conversationSnapshot.length");
   });
 
   it("toggle individual persiste agent_enabled na conversa", () => {
