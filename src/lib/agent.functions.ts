@@ -472,26 +472,102 @@ export const setAgentGlobalEnabled = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
-    const { error: conversationsError } = await supabaseAdmin
-      .from("conversations")
-      .update({ agent_enabled: data.enabled })
-      .eq("workspace_id", context.workspaceId);
-    if (conversationsError) {
+    // PostgREST pode limitar respostas grandes e um update sem readback não prova
+    // que todas as conversas foram realmente atingidas. Primeiro capturamos o
+    // conjunto exato do workspace, depois atualizamos em lotes e verificamos
+    // cada lote. Isso também impede o painel de declarar "Online" quando só a
+    // chave global foi persistida.
+    const conversationSnapshot: Array<{ id: string; agent_enabled: boolean }> = [];
+    const pageSize = 500;
+    for (let from = 0; ; from += pageSize) {
+      const { data: page, error: pageError } = await supabaseAdmin
+        .from("conversations")
+        .select("id, agent_enabled")
+        .eq("workspace_id", context.workspaceId)
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (pageError) {
+        await supabaseAdmin
+          .from("agent_config")
+          .update({ agent_enabled: previousEnabled })
+          .eq("user_id", context.userId)
+          .eq("workspace_id", context.workspaceId);
+        throw new Error(`Falha ao listar conversas para aplicar a chave mãe: ${pageError.message}`);
+      }
+      const rows = (page ?? []) as Array<{ id: string; agent_enabled: boolean }>;
+      conversationSnapshot.push(...rows);
+      if (rows.length < pageSize) break;
+    }
+
+    const chunkSize = 200;
+    const updatedIds: string[] = [];
+    try {
+      for (let offset = 0; offset < conversationSnapshot.length; offset += chunkSize) {
+        const ids = conversationSnapshot.slice(offset, offset + chunkSize).map((row) => row.id);
+        const { data: updated, error: conversationsError } = await supabaseAdmin
+          .from("conversations")
+          .update({ agent_enabled: data.enabled })
+          .eq("workspace_id", context.workspaceId)
+          .in("id", ids)
+          .select("id, agent_enabled");
+        if (conversationsError) throw new Error(conversationsError.message);
+
+        const confirmed = (updated ?? []) as Array<{ id: string; agent_enabled: boolean }>;
+        if (confirmed.length !== ids.length || confirmed.some((row) => row.agent_enabled !== data.enabled)) {
+          throw new Error(
+            `propagação incompleta: esperado ${ids.length}, confirmado ${confirmed.length} no lote`,
+          );
+        }
+        updatedIds.push(...confirmed.map((row) => row.id));
+      }
+
+      const { count: mismatchedCount, error: verifyError } = await supabaseAdmin
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", context.workspaceId)
+        .neq("agent_enabled", data.enabled);
+      if (verifyError) throw new Error(`falha na verificação final: ${verifyError.message}`);
+      if ((mismatchedCount ?? 0) !== 0) {
+        throw new Error(`propagação incompleta: ${mismatchedCount} conversa(s) ficaram em estado divergente`);
+      }
+    } catch (cause) {
+      // Restaura exatamente o estado individual anterior se algum lote falhar,
+      // preservando overrides por conversa em vez de forçar um booleano único.
+      for (let offset = 0; offset < updatedIds.length; offset += chunkSize) {
+        const ids = updatedIds.slice(offset, offset + chunkSize);
+        const enabledIds = conversationSnapshot
+          .filter((row) => ids.includes(row.id) && row.agent_enabled)
+          .map((row) => row.id);
+        const disabledIds = conversationSnapshot
+          .filter((row) => ids.includes(row.id) && !row.agent_enabled)
+          .map((row) => row.id);
+        if (enabledIds.length > 0) {
+          await supabaseAdmin.from("conversations").update({ agent_enabled: true }).in("id", enabledIds);
+        }
+        if (disabledIds.length > 0) {
+          await supabaseAdmin.from("conversations").update({ agent_enabled: false }).in("id", disabledIds);
+        }
+      }
       const { error: rollbackError } = await supabaseAdmin
         .from("agent_config")
         .update({ agent_enabled: previousEnabled })
         .eq("user_id", context.userId)
         .eq("workspace_id", context.workspaceId);
+      const reason = cause instanceof Error ? cause.message : String(cause);
       if (rollbackError) {
         throw new Error(
-          `Falha ao atualizar todas as conversas (${conversationsError.message}) e ao restaurar a chave mãe (${rollbackError.message}).`,
+          `Falha ao atualizar todas as conversas (${reason}) e ao restaurar a chave mãe (${rollbackError.message}).`,
         );
       }
-      throw new Error(`Falha ao atualizar todas as conversas: ${conversationsError.message}`);
+      throw new Error(`Falha ao atualizar todas as conversas: ${reason}`);
     }
 
     invalidateAgentConfigCache(context.userId, context.workspaceId);
-    return { ok: true, agent_enabled: saved.agent_enabled };
+    return {
+      ok: true,
+      agent_enabled: saved.agent_enabled,
+      conversations_updated: conversationSnapshot.length,
+    };
   });
 
 // Toggle agent on/off for a single conversation
