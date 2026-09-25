@@ -68,12 +68,17 @@ describe("Agent V3 outbound provenance end-to-end contract", () => {
 
   it("wires the same provenance through production and Playground", () => {
     const runtime = readFileSync(join(process.cwd(), "src/lib/agent-v3/runtime.server.ts"), "utf8");
+    const dispatcher = readFileSync(join(process.cwd(), "src/routes/api/public/hooks/blast-dispatcher.ts"), "utf8");
     const playground = readFileSync(join(process.cwd(), "src/lib/agent-v3/admin/playground.functions.ts"), "utf8");
     const orchestrator = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
 
     expect(runtime).toContain('from("lead_finder_leads")');
     expect(runtime).toContain("outboundLeadContext,");
     expect(runtime).toContain('source_data: {');
+    expect(dispatcher).toContain("buildOutboundBaseApproach");
+    expect(dispatcher).toContain('from("lead_finder_leads")');
+    expect(dispatcher).toContain("disparo sem @Instagram/segmento factual do Lead Finder");
+    expect(dispatcher).toContain('source: "disparo"');
     expect(playground).toContain("buildOutboundBaseApproach");
     expect(playground).toContain("outboundLeadContext");
     expect(playground).not.toContain('montarMensagemDisparo("Teste"');
