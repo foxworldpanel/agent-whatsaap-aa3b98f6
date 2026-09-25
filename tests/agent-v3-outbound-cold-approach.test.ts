@@ -3,7 +3,11 @@ import {
   decideSharedPreExecution,
   isOutboundColdDecline,
 } from "../src/lib/agent-v3/core/pre-execution-decision.server";
-import { OUTBOUND_TEXT } from "../src/lib/agent-v3/prompt/prompt-outbound.server";
+import {
+  OUTBOUND_TEXT,
+  OUTBOUND_BASE_APPROACH_TEMPLATE,
+  buildOutboundBaseApproach,
+} from "../src/lib/agent-v3/prompt/prompt-outbound.server";
 
 describe("Agent V3 outbound cold approach", () => {
   it.each([
@@ -61,6 +65,26 @@ describe("Agent V3 outbound cold approach", () => {
     });
     expect(decision.kind).toBe("stop_request");
     expect(decision.reply).toBeNull();
+  });
+
+  it("uses the same canonical opening structure for Playground and WhatsApp", () => {
+    expect(OUTBOUND_BASE_APPROACH_TEMPLATE).toBe(
+      "Oi! Tudo bem? Encontrei seu contato através do Instagram @{instagram}. Vi que você trabalha com {segmento} e queria te apresentar uma solução da Mind que pode ajudar na divulgação. Tem interesse em conhecer?",
+    );
+    expect(
+      buildOutboundBaseApproach({
+        instagram: "@joaomusico",
+        segment: "música",
+      }),
+    ).toBe(
+      "Oi! Tudo bem? Encontrei seu contato através do Instagram @joaomusico. Vi que você trabalha com música e queria te apresentar uma solução da Mind que pode ajudar na divulgação. Tem interesse em conhecer?",
+    );
+    expect(OUTBOUND_BASE_APPROACH_TEMPLATE).not.toContain("{nome}");
+  });
+
+  it("refuses to fabricate missing lead provenance", () => {
+    expect(() => buildOutboundBaseApproach({ instagram: "", segment: "música" })).toThrow();
+    expect(() => buildOutboundBaseApproach({ instagram: "@joao", segment: "" })).toThrow();
   });
 
   it("locks transparent, permission-based outbound progression in the prompt", () => {
