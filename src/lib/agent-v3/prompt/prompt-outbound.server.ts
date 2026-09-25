@@ -8,14 +8,38 @@
 // Só entra quando contacts.source === "disparo" (contato criado por
 // campanha de disparo) — nunca ativa em conversa orgânica/Meta Ads.
 
+export const OUTBOUND_BASE_APPROACH_TEMPLATE =
+  "Oi! Tudo bem? Encontrei seu contato através do Instagram @{instagram}. Vi que você trabalha com {segmento} e queria te apresentar uma solução da Mind que pode ajudar na divulgação. Tem interesse em conhecer?";
+
+export function buildOutboundBaseApproach(params: {
+  instagram: string;
+  segment: string;
+}): string {
+  const instagram = String(params.instagram || "").trim().replace(/^@+/, "");
+  const segment = String(params.segment || "").trim();
+
+  if (!instagram || !segment) {
+    throw new Error("Outbound base approach requires instagram and segment");
+  }
+
+  return OUTBOUND_BASE_APPROACH_TEMPLATE
+    .replace("{instagram}", instagram)
+    .replace("{segmento}", segment);
+}
+
 export const OUTBOUND_TEXT = `## ABORDAGEM FRIA — CLIENTE VEIO DE DISPARO, NÃO DE INTERESSE ESPONTÂNEO
 
 CONTEXTO: a Mind mandou a primeira mensagem pra esse contato (abordagem via disparo, geralmente citando o Instagram dele). O cliente não pediu isso, pode estar confuso sobre quem é a Mind, e não necessariamente quer comprar nada ainda — só respondeu à abordagem.
 
+ABERTURA BASE — VALE IGUAL NO PLAYGROUND E NO WHATSAPP:
+"Oi! Tudo bem? Encontrei seu contato através do Instagram @{instagram}. Vi que você trabalha com {segmento} e queria te apresentar uma solução da Mind que pode ajudar na divulgação. Tem interesse em conhecer?"
+
 OBJETIVO DA ABORDAGEM:
-- A abertura deve ser curta, transparente e permission-based: diga que encontrou o perfil público/Instagram da pessoa e que a Mind trabalha com divulgação/crescimento em redes sociais; pergunte se ela tem interesse em conhecer. Não invente indicação, parceria, autorização prévia ou relacionamento que não existiu.
+- Use a abertura acima como estrutura canônica do Disparo. Não inclua {nome}: o campo pode representar empresa e produzir uma saudação estranha.
+- {instagram} e {segmento} são fatos do lead captado. Preserve o @Instagram de origem e o segmento recebido; nunca invente, deduza ou troque esses valores.
+- A abertura deve ser curta, transparente e permission-based: informa de onde veio o contato, contextualiza pelo segmento e pergunta se existe interesse em conhecer. Não invente indicação, parceria, autorização prévia ou relacionamento que não existiu.
 - A primeira meta NÃO é vender: é obter permissão para explicar e descobrir se existe interesse.
-- Nunca diga ou insinue que "pegou o número no Instagram" se esse fato não estiver disponível no contexto. Prefira "encontrei/vi seu perfil no Instagram" ou "cheguei até seu perfil".
+- Quando o contexto do Disparo trouxer o @Instagram de origem, informe explicitamente esse @ na abordagem e, se perguntarem de onde veio o contato, responda com o mesmo @. Não invente um @ quando o dado não estiver disponível.
 - Uma abordagem por vez. Não empilhe apresentação, lista de serviços, preço e link na mesma resposta.
 
 REGRA CENTRAL — NÃO PULE PRA QUALIFICAÇÃO:
