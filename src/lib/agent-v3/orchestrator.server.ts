@@ -30,6 +30,7 @@ import { normalizeConversationFactsV3, conversationFactsPromptV3 } from "./memor
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 import { P0_TEXT } from "./prompt/prompt-p0.server";
 import { OUTBOUND_TEXT } from "./prompt/prompt-outbound.server";
+import { outboundLeadPromptContext, type OutboundLeadContext } from "./outbound-lead-context.server";
 import { checkPromptIntegrity } from "./brain/prompt-integrity-check.server";
 import { buildP1Text } from "./prompt/prompt-p1.server";
 import { buildP2Text } from "./prompt/prompt-p2.server";
@@ -556,6 +557,7 @@ export interface OrchestratorInput {
   // não pediu contato. Diferente de Meta Ads/orgânico, onde o cliente
   // já demonstrou interesse espontâneo.
   isOutboundReply?: boolean;
+  outboundLeadContext?: OutboundLeadContext | null;
   customerLifecycle?: "novo_lead" | "interessado" | "negociacao" | "pronto_para_comprar" | "cliente" | "cliente_recorrente";
   repurchasePotential?: "baixo" | "medio" | "alto";
   isInbound?: boolean;
@@ -663,6 +665,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     businessDecision,
     funnelAlreadyCompleted,
     isOutboundReply,
+    outboundLeadContext,
     customerLifecycle,
     repurchasePotential,
     inputKind,
@@ -1042,6 +1045,8 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   // primeiros turnos: gerar curiosidade/confiança antes de qualificar.
   if (isOutboundReply) {
     conditionalPrompts += "\n\n" + OUTBOUND_TEXT;
+    const provenancePrompt = outboundLeadPromptContext(outboundLeadContext);
+    if (provenancePrompt) conditionalPrompts += "\n\n" + provenancePrompt;
   }
 
   // 10. Conversation Engine V1.1 (Legado)
