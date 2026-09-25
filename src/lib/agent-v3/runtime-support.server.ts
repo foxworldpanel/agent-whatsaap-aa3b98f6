@@ -1,7 +1,7 @@
 const STOP_PATTERNS = [
   /^\s*(pare|parar|stop|unsubscribe)\s*[.!]?\s*$/i,
   /\bn[aã]o\s+quero\s+mais\s+(mensagens?|contato|receber)/i,
-  /\bn[aã]o\s+me\s+(mande|manda|envie|mandar)\s+mais/i,
+  /\bn[aã]o\s+me\s+(mande|manda|envie|mandar|chame|chama)\s+mais/i,
   /\bpare\s+de\s+(mandar|enviar)/i,
   /\bsai[ar]?\s+da\s+lista\b/i,
   /\bdescadastr/i,
