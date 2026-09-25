@@ -30,6 +30,8 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
         } = await import("@/lib/blast-variations");
         const { _toTemplates } = await import("@/lib/opening-templates.functions");
         const { getOpeningKind, templateParts } = await import("@/lib/opening-kinds");
+        const { buildOutboundBaseApproach } = await import("@/lib/agent-v3/prompt/prompt-outbound.server");
+        const { normalizeOutboundLeadContext } = await import("@/lib/agent-v3/outbound-lead-context.server");
 
         // Body opcional: { campaignId?, now?: boolean }
         let opts: { campaignId?: string; now?: boolean } = {};
@@ -335,14 +337,54 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                       templates.ddiMap ?? DEFAULT_DDI_LANGUAGE_MAP,
                     ))
               : "pt";
-            const pick = useVariacao
-              ? montarMensagemDisparo(next.contact.nome, next.contact.instagram, {
-                  avoidKey: next.contact.last_variation_key,
-                  avoidSaudacaoIdx,
-                  templates,
-                  language,
-                })
-              : null;
+            // Disparo frio do Lead Finder: a abertura canônica é a mesma do
+            // Playground e exige provenance factual. Se o @ ou segmento não
+            // estiver disponível, não enviamos uma abordagem inventada.
+            let coldLeadContext: ReturnType<typeof normalizeOutboundLeadContext> = null;
+            if (next.stage === "opening" && useVariacao && !kindHasOwnPack) {
+              const phoneDigitsForLead = String(next.contact.telefone || "").replace(/\D+/g, "");
+              const { data: leadRows, error: leadLookupError } = await supabaseAdmin
+                .from("lead_finder_leads")
+                .select("id, profile_username, profile_url, segment, phone")
+                .in("phone", [phoneDigitsForLead, `+${phoneDigitsForLead}`, next.contact.telefone])
+                .order("updated_at", { ascending: false })
+                .limit(1);
+              if (leadLookupError) throw new Error(`Lead Finder provenance lookup failed: ${leadLookupError.message}`);
+              const lead = leadRows?.[0];
+              coldLeadContext = normalizeOutboundLeadContext({
+                instagram: lead?.profile_username || next.contact.instagram,
+                segment: lead?.segment,
+              });
+              if (!coldLeadContext) {
+                await supabaseAdmin
+                  .from("blast_contacts")
+                  .update({
+                    status: "pulado",
+                    skip_reason: "disparo sem @Instagram/segmento factual do Lead Finder",
+                    updated_at: new Date().toISOString(),
+                  } as never)
+                  .eq("id", next.contact.id);
+                results.push({ campaign: camp.name, sent: 0, skipped: "Lead Finder sem @Instagram/segmento" });
+                continue;
+              }
+            }
+
+            const pick = coldLeadContext
+              ? {
+                  parts: [buildOutboundBaseApproach({
+                    instagram: coldLeadContext.instagram,
+                    segment: coldLeadContext.segment,
+                  })],
+                  key: "lead_finder:canonical",
+                }
+              : useVariacao
+                ? montarMensagemDisparo(next.contact.nome, next.contact.instagram, {
+                    avoidKey: next.contact.last_variation_key,
+                    avoidSaudacaoIdx,
+                    templates,
+                    language,
+                  })
+                : null;
             const messageParts: string[] = next.stage === "opening"
               ? useFixedKindTemplate
                 ? (() => {
@@ -412,6 +454,14 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                     telefone: phoneDigits,
                     nome: next.contact.nome ?? phoneDigits,
                     source: "disparo",
+                    instagram: coldLeadContext?.instagram || next.contact.instagram || null,
+                    source_data: coldLeadContext
+                      ? {
+                          provider: "lead_finder",
+                          instagram: coldLeadContext.instagram,
+                          segment: coldLeadContext.segment,
+                        }
+                      : null,
                     status: "em_conversa",
                     whatsapp_number_id: numberRow.id,
                   } as never)
