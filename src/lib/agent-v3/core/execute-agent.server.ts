@@ -62,6 +62,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     inputKind: input.inputKind,
     history: input.history,
     isOutboundReply: input.isOutboundReply,
+    outboundInstagram: input.outboundLeadContext?.instagram ?? null,
   });
 
   if (preDecision.kind !== "continue") {
@@ -73,6 +74,8 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
           ? "NATURAL_CONVERSATIONAL_SILENCE"
           : preDecision.kind === "outbound_decline"
             ? "OUTBOUND_DECLINE"
+          : preDecision.kind === "outbound_source"
+            ? "OUTBOUND_SOURCE"
           : preDecision.kind === "human_handoff"
             ? "HUMAN_HANDOFF_REQUEST"
             : preDecision.kind === "critical_handoff"
