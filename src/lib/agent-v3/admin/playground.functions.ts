@@ -112,6 +112,14 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     // cliente real, mas fornece ao núcleo o mesmo tipo de contexto que o
     // WhatsApp persiste entre turnos.
     const previousFeedback = (previousRun?.conversation_feedback as any) ?? {};
+    const { normalizeOutboundLeadContext } = await import("../outbound-lead-context.server");
+    const outboundContextFromOpening = [...messages]
+      .reverse()
+      .map((m: any) => normalizeOutboundLeadContext(m?.metadata?.outboundLeadContext))
+      .find(Boolean) ?? null;
+    const simulatedOutboundLeadContext =
+      normalizeOutboundLeadContext(previousFeedback?.outboundLeadContext) ??
+      outboundContextFromOpening;
     const funnelAlreadyCompleted =
       !isOutbound &&
       (requestedFunnelCompleted || previousFeedback?.welcomeFunnelCompleted === true);
@@ -221,6 +229,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       // deve pular o Router. "Funnel concluído" por si só não é motivo.
       skipRouter: inputKind !== "texto",
       isOutboundReply: isOutbound,
+      outboundLeadContext: isOutbound ? simulatedOutboundLeadContext : null,
       funnelAlreadyCompleted,
       previousOrderContext: simulatedPreviousOrderContext,
     });
@@ -252,6 +261,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
           orderContext: execResult.orderContext ?? simulatedPreviousOrderContext,
           flowActionHint: execResult.flowActionHint ?? null,
           customer_turn_messages: customerTurnMessages ?? null,
+          outboundLeadContext: isOutbound ? simulatedOutboundLeadContext : null,
         } as any,
       });
       return { message: null, terminalDecision: execResult.routerReason };
@@ -305,6 +315,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
           orderContext: execResult.orderContext ?? simulatedPreviousOrderContext,
           flowActionHint: execResult.flowActionHint ?? null,
           customer_turn_messages: customerTurnMessages ?? null,
+          outboundLeadContext: isOutbound ? simulatedOutboundLeadContext : null,
         } as any,
       });
       return {
@@ -480,6 +491,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         claude_called: execResult.claudeCalled,
         delivery_mode: simulatedDeliveryMode,
         customer_turn_messages: customerTurnMessages?.length ? customerTurnMessages : [effectiveMessage],
+        outboundLeadContext: isOutbound ? simulatedOutboundLeadContext : null,
       }
     };
 
@@ -539,26 +551,28 @@ export const startOutboundSimulation = createServerFn({ method: "POST" })
     z.object({
       sessionId: z.string(),
       instagramHandle: z.string().min(1).max(60),
+      segment: z.string().min(1).max(120).optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { sessionId, instagramHandle } = data;
+    const { sessionId, instagramHandle, segment = "música" } = data;
     const { userId, workspaceId } = context;
 
     // O Playground não cria contato operacional. A origem outbound é parte
     // explícita do cenário (isOutboundReply) e a sessão é a memória de teste.
     // Assim a bancada exercita o mesmo cérebro sem poluir contacts/CRM.
-    const { montarMensagemDisparo } = await import("@/lib/blast-variations");
-    const { _toTemplates } = await import("@/lib/opening-templates.functions");
-
-    const { data: tplRow } = await context.supabase
-      .from("opening_templates")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    const templates = _toTemplates(tplRow as any);
-    const pick = montarMensagemDisparo("Teste", instagramHandle, { templates });
+    const { buildOutboundBaseApproach } = await import("../prompt/prompt-outbound.server");
+    const { normalizeOutboundLeadContext } = await import("../outbound-lead-context.server");
+    const outboundLeadContext = normalizeOutboundLeadContext({
+      instagram: instagramHandle,
+      segment,
+    });
+    if (!outboundLeadContext) throw new Error("Disparo exige @Instagram e segmento reais.");
+    const opening = buildOutboundBaseApproach({
+      instagram: outboundLeadContext.instagram,
+      segment: outboundLeadContext.segment,
+    });
+    const pick = { parts: [opening] };
 
     const { data: existing } = await context.supabase
       .from("agent_playground_messages")
@@ -575,12 +589,12 @@ export const startOutboundSimulation = createServerFn({ method: "POST" })
         role: "agent",
         content: part,
         sequence: nextSequence,
-        metadata: { origem: "abertura_disparo_simulada" },
+        metadata: { origem: "abertura_disparo_simulada", outboundLeadContext },
       });
       nextSequence += 1;
     }
 
-    return { ok: true, parts: pick.parts };
+    return { ok: true, parts: pick.parts, outboundLeadContext };
   });
 
 // Personalidades pré-definidas do cliente IA — cobrem os cenários mais
