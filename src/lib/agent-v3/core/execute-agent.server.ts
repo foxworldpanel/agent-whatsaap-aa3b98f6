@@ -61,6 +61,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     message: input.message,
     inputKind: input.inputKind,
     history: input.history,
+    isOutboundReply: input.isOutboundReply,
   });
 
   if (preDecision.kind !== "continue") {
@@ -70,6 +71,8 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
       routerReason:
         preDecision.kind === "natural_silence"
           ? "NATURAL_CONVERSATIONAL_SILENCE"
+          : preDecision.kind === "outbound_decline"
+            ? "OUTBOUND_DECLINE"
           : preDecision.kind === "human_handoff"
             ? "HUMAN_HANDOFF_REQUEST"
             : preDecision.kind === "critical_handoff"
