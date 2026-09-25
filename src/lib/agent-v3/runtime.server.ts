@@ -27,12 +27,70 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
   const traceId = generateTraceId();
 
   let contactTemperature = null;
+  let outboundLeadContext: import("@/lib/agent-v3/outbound-lead-context.server").OutboundLeadContext | null = null;
   let customerMemory = null;
   let customerMemoryContext = "";
   if (contactId) {
-    const { data: contactRow, error: contactError } = await supabaseAdmin.from("contacts").select("perfil, temperatura").eq("id", contactId).eq("workspace_id", workspaceId).maybeSingle();
+    const { data: contactRow, error: contactError } = await supabaseAdmin.from("contacts").select("perfil, temperatura, instagram, source_data").eq("id", contactId).eq("workspace_id", workspaceId).maybeSingle();
     if (contactError) console.warn("[CUSTOMER-MEMORY] contact load failed:", contactError);
     contactTemperature = contactRow?.temperatura ?? null;
+
+    if (contactSource === "disparo") {
+      const { normalizeOutboundLeadContext } = await import("@/lib/agent-v3/outbound-lead-context.server");
+      outboundLeadContext = normalizeOutboundLeadContext(contactRow?.source_data);
+      if (!outboundLeadContext) {
+        const sourceData = contactRow?.source_data && typeof contactRow.source_data === "object"
+          ? contactRow.source_data as Record<string, unknown>
+          : {};
+        outboundLeadContext = normalizeOutboundLeadContext({
+          ...sourceData,
+          instagram: contactRow?.instagram,
+        });
+      }
+
+      // Compatibilidade com contatos de Disparo criados antes da persistência
+      // estruturada de provenance: recupera o Lead Finder sem alterar a base dele.
+      if (!outboundLeadContext) {
+        const candidates = [phoneStr, `+${phoneStr}`];
+        const { data: leadRows, error: leadError } = await supabaseAdmin
+          .from("lead_finder_leads")
+          .select("id, profile_username, profile_url, segment, phone")
+          .in("phone", candidates)
+          .order("updated_at", { ascending: false })
+          .limit(1);
+        if (leadError) {
+          console.warn("[OUTBOUND-PROVENANCE] Lead Finder lookup failed:", leadError);
+        } else {
+          const lead = leadRows?.[0];
+          outboundLeadContext = normalizeOutboundLeadContext({
+            instagram: lead?.profile_username,
+            segment: lead?.segment,
+          });
+          if (outboundLeadContext && contactId) {
+            const { error: provenancePersistError } = await supabaseAdmin
+              .from("contacts")
+              .update({
+                instagram: outboundLeadContext.instagram,
+                source_ref: lead?.id ?? null,
+                source_url: lead?.profile_url ?? null,
+                source_data: {
+                  provider: "lead_finder",
+                  lead_id: lead?.id ?? null,
+                  instagram: outboundLeadContext.instagram,
+                  segment: outboundLeadContext.segment,
+                  profile_url: lead?.profile_url ?? null,
+                },
+              })
+              .eq("id", contactId)
+              .eq("workspace_id", workspaceId);
+            if (provenancePersistError) {
+              console.warn("[OUTBOUND-PROVENANCE] Failed to persist contact provenance:", provenancePersistError);
+            }
+          }
+        }
+      }
+    }
+
     const memoryModule = await import("@/lib/agent-v3/memory/customer-memory.server");
     customerMemory = await memoryModule.loadCustomerCommercialMemory({ supabaseAdmin, workspaceId, contactId, contactTemperature, contactProfile: contactRow?.perfil ?? null });
     customerMemoryContext = memoryModule.customerMemoryPromptContext(customerMemory);
@@ -503,6 +561,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         // era gravado hÃ¡ tempos, sÃ³ nunca era lido de volta pra mudar o
         // comportamento da JÃºlia â€” achado em 09/08/2026.
         isOutboundReply: contactSource === "disparo",
+        outboundLeadContext,
         customerLifecycle: customerMemory?.lifecycle,
         repurchasePotential: customerMemory?.repurchasePotential,
         inputKind: content.kind,
