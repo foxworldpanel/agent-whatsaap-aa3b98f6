@@ -486,7 +486,7 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
                     },
                   } as never)
                   .eq("id", contactId)
-                  .eq("workspace_id", camp.workspace_id);
+                  .eq("user_id", mirrorUserId);
                 if (provenanceError) throw new Error(`mirror provenance persist failed: ${provenanceError.message}`);
               }
 
