@@ -7,7 +7,8 @@ export type SharedPreExecutionDecision =
   | { kind: "human_handoff"; reply: string }
   | { kind: "critical_handoff"; reply: string; reason: string }
   | { kind: "natural_silence"; reply: null }
-  | { kind: "outbound_decline"; reply: string };
+  | { kind: "outbound_decline"; reply: string }
+  | { kind: "outbound_source"; reply: string };
 
 const OUTBOUND_DECLINE_REPLY = "Tudo bem, sem problema. Obrigada pelo retorno!";
 
@@ -35,6 +36,7 @@ export function decideSharedPreExecution(params: {
   inputKind?: string;
   history: Array<{ role: "agent" | "customer"; content: string }>;
   isOutboundReply?: boolean;
+  outboundInstagram?: string | null;
 }): SharedPreExecutionDecision {
   const recentCustomerText = params.history
     .filter((item) => item.role === "customer")
@@ -60,6 +62,21 @@ export function decideSharedPreExecution(params: {
   }
   if (params.isOutboundReply && isOutboundColdDecline(params.message)) {
     return { kind: "outbound_decline", reply: OUTBOUND_DECLINE_REPLY };
+  }
+  if (params.isOutboundReply && params.outboundInstagram) {
+    const normalized = String(params.message || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+    const asksSource =
+      /\b(onde|aonde|como)\b.*\b(conseguiu|conseguiram|achou|acharam|encontrou|encontraram|pegou|pegaram|obteve|obtiveram)\b.*\b(contato|numero|telefone)\b/.test(normalized) ||
+      /\bde onde\b.*\b(contato|numero|telefone)\b/.test(normalized);
+    const handle = String(params.outboundInstagram).trim().replace(/^@+/, "");
+    if (asksSource && handle) {
+      return { kind: "outbound_source", reply: `Encontrei seu contato através do Instagram @${handle}.` };
+    }
   }
   if (
     params.inputKind === "texto" &&
