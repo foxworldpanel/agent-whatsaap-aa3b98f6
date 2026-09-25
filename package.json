@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:agent": "vitest run tests/agent-conversation.test.ts"
+    "test:agent": "vitest run tests/agent-conversation.test.ts",
+    "build:vps": "vite build --config vite.vps.config.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
