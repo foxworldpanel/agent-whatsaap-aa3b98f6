@@ -115,6 +115,20 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     });
   }
 
+  // A recuperação durável pode reabrir um Customer Turn antigo com a janela
+  // de history vazia/truncada. Isso não transforma uma conversa já persistida
+  // em "primeiro contato". O cérebro compartilhado usa a telemetria durável
+  // quando disponível, evitando reapresentar a Júlia após recovery/restart.
+  const durableStoredMessages = input.historyTelemetry?.total_messages_stored;
+  const effectiveRouterContext: SmartRouterContext = {
+    ...input.routerContext,
+    isFirstTurn:
+      input.routerContext.isFirstTurn &&
+      (durableStoredMessages == null
+        ? input.history.length === 0
+        : durableStoredMessages <= 1),
+  };
+
   const routerResult = input.skipRouter
     ? {
         handled: false,
@@ -122,7 +136,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
         route: "claude" as const,
         context: { routeReason: "ROUTER_PULADO_TIPO_NAO_TEXTO_OU_FUNIL" },
       }
-    : routeMessage(input.message, input.routerContext);
+    : routeMessage(input.message, effectiveRouterContext);
 
   // Log de diagnóstico — Pacote 5A (Behavior Engineering). Reaproveita
   // BEHAVIOR_TELEMETRY_ENABLED em vez de criar uma flag nova — evita
