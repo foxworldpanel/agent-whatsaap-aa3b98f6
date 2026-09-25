@@ -379,7 +379,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       if (contactId && conversationId) {
         const { data: completedFunnelRun, error: completedFunnelRunError } =
           await (supabaseAdmin as any)
-            .from("welcome_funnel_runs")
+            .from("welcome_funnel_execution_state")
             .select("funnel_id,status")
             .eq("contact_id", contactId)
             .eq("conversation_id", conversationId)
