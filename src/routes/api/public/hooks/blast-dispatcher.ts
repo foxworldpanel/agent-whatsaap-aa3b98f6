@@ -472,6 +472,24 @@ export const Route = createFileRoute("/api/public/hooks/blast-dispatcher")({
               }
 
               if (!contactId) throw new Error("mirror contact missing after lookup/insert");
+
+              if (coldLeadContext && contactId) {
+                const { error: provenanceError } = await supabaseAdmin
+                  .from("contacts")
+                  .update({
+                    source: "disparo",
+                    instagram: coldLeadContext.instagram,
+                    source_data: {
+                      provider: "lead_finder",
+                      instagram: coldLeadContext.instagram,
+                      segment: coldLeadContext.segment,
+                    },
+                  } as never)
+                  .eq("id", contactId)
+                  .eq("workspace_id", camp.workspace_id);
+                if (provenanceError) throw new Error(`mirror provenance persist failed: ${provenanceError.message}`);
+              }
+
               const { data: convRows, error: convErr } = await (supabaseAdmin as any).rpc(
                 "get_or_create_active_conversation",
                 {
