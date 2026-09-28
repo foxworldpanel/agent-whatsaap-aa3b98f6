@@ -37,6 +37,12 @@ function norm(value: string): string {
     .trim();
 }
 
+export function stripContinuityReasonPrefixV3(reason: string): string {
+  let out = String(reason || "").trim();
+  while (/^continuidade preservada:\s*/i.test(out)) out = out.replace(/^continuidade preservada:\s*/i, "").trim();
+  return out;
+}
+
 function isExistingCustomer(lifecycle?: string | null): boolean {
   return lifecycle === "cliente" || lifecycle === "cliente_recorrente";
 }
@@ -83,6 +89,10 @@ export function deriveBusinessDecisionV3(params: {
   const resolution = /\b(agora deu certo|agora funcionou|agora consegui|ja consegui|deu certo|funcionou|saldo apareceu|resolvido)\b/.test(current);
   const newPurchase = /\b(quero comprar|quero fazer|vou comprar|vou fazer|manda o pix|qual o pix|quero pagar|onde pago|mais \d+|novo pedido|outra compra)\b/.test(current);
   const paymentTopic = /\b(cadastro|cadastrar|pix|pagamento|recarga|saldo|finalizar|pedido|comprar)\b/.test(context);
+  const asksPanelLink = /\b(site|link|painel|cadastro|cadastrar|criar conta|acessar|acesso)\b/.test(current) && /\b(site|link|painel|cadastro|cadastrar|criar conta|acessar|acesso|manda|mande|passa|envia)\b/.test(current);
+  if (asksPanelLink) return { state: "fechamento", risk: "normal", reason: "cliente pediu acesso/link do painel", nextAction: "enviar o link oficial do painel imediatamente, sem nova qualificação antes do link", allowQualification: false, shouldHandoff: false };
+  const saysUsedBefore = /\b(ja usei|ja utilizei|usei antes|utilizei antes|ja fui cliente|sou cliente|ja conheco o sistema|ja conheco a plataforma)\b/.test(current);
+  if (saysUsedBefore) return { state: "descoberta", risk: "normal", reason: "cliente informou que já utilizou o sistema", nextAction: "reconhecer como cliente anterior e perguntar somente o que deseja impulsionar agora", allowQualification: true, shouldHandoff: false };
   const currentProblem = /\b(nao funciona|nao abre|nao aparece|nao completa|nao consigo|nao avanca|nao finaliza|erro|trav|muito complicado|volta|alto risco|transacao de alto risco)\b/.test(current);
   const troubleshootingSignals = (context.match(/\b(cache|cookies?|navegador|ticket|atualiz\w*|tente novamente|cadastro|pagamento|pix)\b/g) || []).length;
   const repeatedFailureSignals = (context.match(/\b(nao consigo|nao aparece|nao funciona|erro|trav\w*)\b/g) || []).length;
@@ -148,7 +158,7 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
   const previousRank = salesRank[previous.state];
   const currentRank = salesRank[current.state];
   const ambiguousCurrent = current.reason === "estado inicial/indefinido";
-  if (previousRank !== undefined && currentRank !== undefined && currentRank < previousRank && (ambiguousCurrent || /^(ok|sim|certo|beleza|entendi|e agora|como assim|pode ser|isso)$/i.test(message))) return { ...previous, reason: `continuidade preservada: ${previous.reason}`, waitingCustomer: false };
+  if (previousRank !== undefined && currentRank !== undefined && currentRank < previousRank && (ambiguousCurrent || /^(ok|sim|certo|beleza|entendi|e agora|como assim|pode ser|isso)$/i.test(message))) return { ...previous, reason: `continuidade preservada: ${stripContinuityReasonPrefixV3(previous.reason)}`, waitingCustomer: false };
 
   if ((previous.state === "pagamento" || previous.state === "fechamento") && ["novo_lead", "descoberta", "orcamento"].includes(current.state) && /\b(como|onde|qual|pix|painel|cadastro|saldo|recarga|demora|prazo|garantia|seguro|funciona)\b/.test(message)) {
     return { ...previous, reason: `continuidade de ${previous.state}: dúvida operacional do cliente`, nextAction: previous.state === "pagamento" ? "responder a dúvida e manter o cliente no pagamento/painel" : "responder a dúvida e continuar o fechamento sem repetir qualificação", waitingCustomer: false };
