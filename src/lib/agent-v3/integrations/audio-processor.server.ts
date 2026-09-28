@@ -158,23 +158,10 @@ export function autoSplitLongPartsV3(text: string, threshold = LONG_MESSAGE_THRE
 
     const sentences = splitSentences(clean);
     if (sentences.length <= 1) {
-      const words = clean.split(/\s+/);
-      const targetParts = clean.length > threshold * 2 ? 3 : 2;
-      const targetSize = Math.ceil(clean.length / targetParts);
-      const parts: string[] = [];
-      let current = "";
-
-      for (const word of words) {
-        const candidate = current ? `${current} ${word}` : word;
-        if (current && candidate.length > targetSize && parts.length < targetParts - 1) {
-          parts.push(current.trim());
-          current = word;
-        } else {
-          current = candidate;
-        }
-      }
-      if (current.trim()) parts.push(current.trim());
-      return parts.filter(isMeaningfulPart).slice(0, 3);
+      // Sem fronteira de frase segura, não corte no meio de uma construção.
+      // Uma mensagem um pouco maior é preferível a "Sim, é" separado do
+      // complemento, que soa quebrado no WhatsApp.
+      return [clean];
     }
 
     const targetParts = clean.length > threshold * 2 ? 3 : 2;
