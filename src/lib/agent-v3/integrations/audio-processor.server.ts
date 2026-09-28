@@ -148,7 +148,7 @@ export function autoSplitLongPartsV3(text: string, threshold = LONG_MESSAGE_THRE
     if (!normalized) return [];
 
     // Protege pontos internos de URLs/domínios antes de detectar fim de frase.
-    // Ex.: mindsmmpanel.com não pode virar "mindsmmpanel." + "com ...".
+    // Ex.: um domínio como painel.exemplo não pode virar "painel." + "exemplo ...".
     const urls: string[] = [];
     const protectedValue = normalized.replace(
       /(?:https?:\/\/|www\.)[^\s]+|\b[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+(?:\/[^\s]*)?/giu,
