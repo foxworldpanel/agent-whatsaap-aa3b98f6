@@ -32,6 +32,7 @@ import { P0_TEXT } from "./prompt/prompt-p0.server";
 import { OUTBOUND_TEXT } from "./prompt/prompt-outbound.server";
 import { outboundLeadPromptContext, type OutboundLeadContext } from "./outbound-lead-context.server";
 import { checkPromptIntegrity } from "./brain/prompt-integrity-check.server";
+import { saysPreviouslyUsedMindV3, isLowInformationSocialMessageV3 } from "./core/commercial-response-guards.server";
 import { buildP1Text } from "./prompt/prompt-p1.server";
 import { buildP2Text } from "./prompt/prompt-p2.server";
 import { 
@@ -1634,6 +1635,26 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
             : selectionContext.intent === "compra"
               ? "Conduzir para o próximo passo da compra sem repetir informações."
               : "Responder diretamente ao último pedido do cliente.";
+
+  // Cliente que declara já ter usado a Mind não é lead frio desconhecido.
+  // Reações isoladas (ex.: 🙏) não devem rebaixar uma classificação já
+  // estabelecida por evidência comercial mais forte.
+  const previousCustomerEvidence = history
+    .filter((item) => item.role === "customer")
+    .slice(-8)
+    .map((item) => item.content);
+  const priorCustomerSignal = [message, ...previousCustomerEvidence].some(saysPreviouslyUsedMindV3);
+  if (priorCustomerSignal && selectionContext.intent !== "suporte" && selectionContext.intent !== "pos_compra") {
+    purchase_probability = Math.max(purchase_probability, 45);
+    if (temperature === "frio") temperature = "morno";
+    if (intent === "Outro") intent = "Informação";
+    if (stage === "Qualificação") stage = "Reativação";
+    recommended_action = "Cliente informou que já utilizou a Mind; reconhecer o histórico e descobrir apenas o que deseja impulsionar agora.";
+  }
+  if (isLowInformationSocialMessageV3(message) && priorCustomerSignal) {
+    purchase_probability = Math.max(purchase_probability, 45);
+    if (temperature === "frio") temperature = "morno";
+  }
 
   // LEAD INTELLIGENCE AUTORITATIVO
   // Evidências comerciais objetivas prevalecem sobre uma classificação semântica
