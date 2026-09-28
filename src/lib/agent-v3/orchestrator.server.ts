@@ -693,6 +693,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     message,
     history,
     sessionTimeoutHours: 24,
+    greetingAlreadyPerformed: Boolean(funnelAlreadyCompleted),
   });
 
   console.log(`[V3-ORCHESTRATOR] Conversation Engine V1.1 [${runId}]:`, {
@@ -1050,7 +1051,11 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   }
 
   // 10. Conversation Engine V1.1 (Legado)
-  const convState = detectConversationState({ message, history });
+  const convState = detectConversationState({
+    message,
+    history,
+    greetingAlreadyPerformed: Boolean(funnelAlreadyCompleted),
+  });
   const conversationPrompt = conversationStateToPrompt(convState);
 
   // 11. Perfil do cliente — antes fazia uma chamada extra ao Sonnet
@@ -1082,7 +1087,7 @@ ${P0_TEXT}
 
 ${buildP1Text({ businessDecisionState: businessDecision?.state, mentionsOwnMusic, funnelAlreadyCompleted: funnelAlreadyCompleted || convState.greetingAlreadyDone })}
 
-${buildP2Text({ isAudioInput, isImageInput, isStickerInput, greetingAlreadyPerformed: convState.greetingAlreadyDone })}`,
+${buildP2Text({ isAudioInput, isImageInput, isStickerInput, greetingAlreadyPerformed: convState.greetingAlreadyDone || Boolean(funnelAlreadyCompleted) })}`,
       cache_control: { type: "ephemeral" }
     },
     {
@@ -1104,7 +1109,9 @@ ${conditionalPrompts}
 ${conversationPrompt}${customerProfilePrompt}
 
 HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
-Se for cumprimentar agora, a saudação certa pra esse horário é "${saudacaoCorretaV3}" — não infira sozinho lendo a hora, use exatamente essa.
+${funnelAlreadyCompleted
+  ? "WELCOME FUNNEL JÁ CONCLUÍDO: a saudação/apresentação já aconteceu no funil. PROIBIDO iniciar esta resposta com oi, olá, bom dia, boa tarde, boa noite, apresentação da Júlia/Mind ou nova recepção. Continue diretamente do pedido pendente do cliente."
+  : `Se for cumprimentar agora, a saudação certa pra esse horário é "${saudacaoCorretaV3}" — não infira sozinho lendo a hora, use exatamente essa.`}
 
 ESTADO DA CONVERSA:
 ${modulePrompt}
@@ -1747,6 +1754,15 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   // Post-processing
   finalContent = humanizePunctuationV3(finalContent);
   finalContent = stripMarkdownFormattingV3(finalContent).trim();
+
+  // O Welcome Funnel já contém a saudação/apresentação. Mesmo se o modelo
+  // ignorar o prompt, o primeiro turno pós-funil nunca reabre a conversa.
+  if (funnelAlreadyCompleted) {
+    finalContent = finalContent
+      .replace(/^\s*(?:oi|ol[aá]|bom\s+dia|boa\s+tarde|boa\s+noite)[!,.\s😊🙂👋-]*/iu, "")
+      .replace(/^\s*(?:aqui\s+[ée]\s+a\s+j[uú]lia[^.!?]*[.!?]\s*)/iu, "")
+      .trim();
+  }
 
   // Guard determinístico: a atendente nunca deve alegar ser humana para impedir handoff.
   if (/\b(?:eu\s+)?sou\s+humana\b/i.test(finalContent) || /\bn[aã]o\s+sou\s+(?:um\s+)?rob[oô]\b/i.test(finalContent)) {
