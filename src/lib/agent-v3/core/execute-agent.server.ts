@@ -76,6 +76,8 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
             ? "OUTBOUND_DECLINE"
           : preDecision.kind === "outbound_source"
             ? "OUTBOUND_SOURCE"
+          : preDecision.kind === "panel_link"
+            ? "PANEL_LINK_REQUEST"
           : preDecision.kind === "human_handoff"
             ? "HUMAN_HANDOFF_REQUEST"
             : preDecision.kind === "critical_handoff"
