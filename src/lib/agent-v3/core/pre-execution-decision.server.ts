@@ -1,3 +1,4 @@
+import { isExplicitPanelLinkRequestV3, panelLinkReplyV3 } from "./commercial-response-guards.server";
 import { evaluateCriticalHumanEscalation, isHumanHandoffRequest, isStopRequest } from "../runtime-support.server";
 import { shouldStaySilentForNaturalConversation } from "../brain/guards.server";
 
@@ -8,7 +9,8 @@ export type SharedPreExecutionDecision =
   | { kind: "critical_handoff"; reply: string; reason: string }
   | { kind: "natural_silence"; reply: null }
   | { kind: "outbound_decline"; reply: string }
-  | { kind: "outbound_source"; reply: string };
+  | { kind: "outbound_source"; reply: string }
+  | { kind: "panel_link"; reply: string };
 
 const OUTBOUND_DECLINE_REPLY = "Tudo bem, sem problema. Obrigada pelo retorno!";
 
@@ -63,6 +65,10 @@ export function decideSharedPreExecution(params: {
   if (params.isOutboundReply && isOutboundColdDecline(params.message)) {
     return { kind: "outbound_decline", reply: OUTBOUND_DECLINE_REPLY };
   }
+  if (isExplicitPanelLinkRequestV3(params.message)) {
+    return { kind: "panel_link", reply: panelLinkReplyV3() };
+  }
+
   if (params.isOutboundReply && params.outboundInstagram) {
     const normalized = String(params.message || "")
       .normalize("NFD")
