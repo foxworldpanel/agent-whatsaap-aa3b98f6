@@ -16,8 +16,9 @@ export function detectConversationState(params: {
   history: Array<{ role: "agent" | "customer"; content: string; timestamp?: string }>;
   previousState?: ConversationStateV1;
   sessionTimeoutHours?: number;
+  greetingAlreadyPerformed?: boolean;
 }): ConversationStateV1 {
-  const { message, history, previousState, sessionTimeoutHours = 24 } = params;
+  const { message, history, previousState, sessionTimeoutHours = 24, greetingAlreadyPerformed = false } = params;
   const agentMessages = history.filter(m => m.role === "agent");
   const lastMsgTimestamp = history.length > 0 && history[history.length - 1].timestamp
     ? new Date(history[history.length - 1].timestamp as string).getTime()
@@ -27,7 +28,7 @@ export function detectConversationState(params: {
     : 0;
   const idleTimeHours = (Date.now() - lastMsgTimestamp) / (1000 * 60 * 60);
   const sessionRestart = idleTimeHours > sessionTimeoutHours;
-  const greetingAlreadyDone = agentMessages.length > 0 && !sessionRestart;
+  const greetingAlreadyDone = greetingAlreadyPerformed || (agentMessages.length > 0 && !sessionRestart);
   const lastAgentAction = agentMessages.length > 0
     ? (agentMessages[agentMessages.length - 1].content || "").slice(0, 200)
     : null;
