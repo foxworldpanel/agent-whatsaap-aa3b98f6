@@ -151,6 +151,17 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
 
   const explicitNewPurchase = /\b(quero comprar|quero fazer|vou comprar|vou fazer|novo pedido|outra compra|mais \d+|agora consegui|agora funcionou)\b/.test(message);
   const explicitPostSale = /\b(ja comprei|ja paguei|fiz o pedido|pedido feito|pedido realizado|pagamento feito|pagamento realizado)\b/.test(message);
+  const postSaleQuestion = /\b(impulsionamento|pedido|compra|servico|plays|ouvintes|spotify).{0,80}\b(prejudic|risco|segur|cancel|demora|comeca|resultado|prazo)\b|\b(prejudic|risco|segur|cancel|demora|comeca|resultado|prazo).{0,80}\b(impulsionamento|pedido|compra|servico|plays|ouvintes|spotify)\b/.test(message);
+  if ((previous.state === "pedido_realizado" || previous.state === "pos_venda") && postSaleQuestion) {
+    return {
+      ...previous,
+      state: "pos_venda",
+      reason: "continuidade de pós-venda: cliente tirando dúvida sobre serviço já comprado",
+      nextAction: "responder a dúvida atual sem voltar para descoberta ou qualificação",
+      allowQualification: false,
+      waitingCustomer: false,
+    };
+  }
   const explicitDeferral = /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|deixa pra la|desisti)\b/.test(message);
   if (explicitNewPurchase || explicitPostSale || explicitDeferral) return current;
 
