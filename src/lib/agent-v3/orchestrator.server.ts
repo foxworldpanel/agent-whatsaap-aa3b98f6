@@ -814,6 +814,41 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   const selectionContext = selection.context;
   const selectionReasons = { ...selection.selectionReasons };
 
+  // Pagamento/saldo é um ponto operacional crítico: quando o cliente pergunta
+  // como depositar, pagar via Pix, adicionar saldo ou usar cripto, o runtime
+  // precisa garantir que a fonte operacional do CMS entre no prompt. Não
+  // duplicamos o procedimento no código: procuramos entre os módulos habilitados
+  // aquele que declara pagamento/fechamento/gatilhos compatíveis OU cujo próprio
+  // conteúdo cadastrado documenta depósito + meios de pagamento. Assim o menu
+  // AGENTE IA continua sendo a fonte única da instrução factual.
+  if (selectionContext.intent === "pagamento" || selectionContext.hasPaymentSignal) {
+    for (const [key, module] of Object.entries(selectableModules) as Array<[string, LoadedModuleV3]>) {
+      if (selectedKeys.includes(key)) continue;
+      const routing = module.routing;
+      const normalizedContent = (module.content || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+      const declaresPayment =
+        routing.intents.includes("pagamento") ||
+        routing.stages.includes("fechamento") ||
+        routing.triggers.some((trigger) =>
+          ["pix", "pagamento", "pagar", "saldo", "recarga", "depositar", "deposito", "cripto", "criptomoeda", "criptomoedas"]
+            .includes(trigger.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()),
+        );
+      const documentsDepositFlow =
+        /depositar|deposito/.test(normalizedContent) &&
+        /pix/.test(normalizedContent) &&
+        /cripto|criptomoeda/.test(normalizedContent);
+
+      if (!declaresPayment && !documentsDepositFlow) continue;
+      selectedKeys.push(key);
+      selectionReasons[key] = documentsDepositFlow
+        ? "Autoridade operacional do CMS para depósito/saldo e meios de pagamento"
+        : "Autoridade operacional do CMS para intenção de pagamento";
+    }
+  }
+
   // Módulos autoritativos obrigatórios. Se o contexto já sabe que é Spotify +
   // produto/preço, nunca deixamos o LLM responder sem a fonte correta.
   const spotifyPriceProducts = new Set(["plays", "ouvintes", "saves", "seguidores", "playlist"]);
