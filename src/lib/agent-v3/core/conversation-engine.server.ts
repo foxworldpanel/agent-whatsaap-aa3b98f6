@@ -7,6 +7,7 @@ export interface ConversationStateV1 {
   currentIntent: "compra" | "pagamento" | "suporte" | "dúvida" | "reclamação" | "orçamento" | "desconhecido";
   pendingQuestion: string | null;
   sessionRestart: boolean;
+  resumedWithGreeting?: boolean;
   conversationAgeHours: number;
   currentTopicSource: "detected" | "persisted" | "none";
 }
@@ -28,7 +29,23 @@ export function detectConversationState(params: {
     : 0;
   const idleTimeHours = (Date.now() - lastMsgTimestamp) / (1000 * 60 * 60);
   const sessionRestart = idleTimeHours > sessionTimeoutHours;
-  const greetingAlreadyDone = greetingAlreadyPerformed || (agentMessages.length > 0 && !sessionRestart);
+  const customerGreetingNow = /^(?:oi|ol[áa]|bom\s+dia|boa\s+tarde|boa\s+noite)\b/i.test(message.trim());
+  const previousTimestamp = history.length > 0 && history[history.length - 1].timestamp
+    ? new Date(history[history.length - 1].timestamp as string)
+    : null;
+  const currentTimestamp = new Date();
+  const crossedCalendarDay = Boolean(
+    previousTimestamp &&
+    (previousTimestamp.getFullYear() !== currentTimestamp.getFullYear() ||
+      previousTimestamp.getMonth() !== currentTimestamp.getMonth() ||
+      previousTimestamp.getDate() !== currentTimestamp.getDate()),
+  );
+  // Funnel bloqueia apenas a saudação redundante da continuação imediata.
+  // Se o próprio cliente reabre em outro dia com uma saudação, corresponder
+  // naturalmente é legítimo sem reapresentar Júlia/Mind.
+  const resumedWithGreeting = customerGreetingNow && crossedCalendarDay;
+  const greetingAlreadyDone =
+    !resumedWithGreeting && (greetingAlreadyPerformed || (agentMessages.length > 0 && !sessionRestart));
   const lastAgentAction = agentMessages.length > 0
     ? (agentMessages[agentMessages.length - 1].content || "").slice(0, 200)
     : null;
@@ -85,6 +102,7 @@ export function detectConversationState(params: {
     currentIntent,
     pendingQuestion,
     sessionRestart,
+    resumedWithGreeting,
     conversationAgeHours,
     currentTopicSource
   };
@@ -109,7 +127,7 @@ export function conversationStateToPrompt(state: ConversationStateV1): string {
   return `
 [CONVERSATION CONTEXT]
 Greeting Already Done: ${state.greetingAlreadyDone}
-Session Restart: ${state.sessionRestart}
+Session Restart: ${state.sessionRestart}\nResumed On New Day With Customer Greeting: ${Boolean(state.resumedWithGreeting)}
 Conversation Age: ${state.conversationAgeHours.toFixed(1)}h
 Last Agent Action: ${state.lastAgentAction || "None"}
 Current Topic: ${state.currentTopic || "Unknown"} (Source: ${state.currentTopicSource})
