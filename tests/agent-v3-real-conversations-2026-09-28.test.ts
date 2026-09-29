@@ -64,7 +64,7 @@ describe("real conversation regressions 2026-09-28", () => {
   it("keeps a hard post-funnel no-greeting guard in the shared orchestrator", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
     expect(source).toContain("WELCOME FUNNEL JÁ CONCLUÍDO");
-    expect(source).toContain("if (funnelAlreadyCompleted)");
+    expect(source).toContain("if (funnelAlreadyCompleted && !convState.resumedWithGreeting)");
     expect(source).toContain("PROIBIDO iniciar esta resposta");
   });
   it("allows a greeting when the customer reopens on a new calendar day", () => {
