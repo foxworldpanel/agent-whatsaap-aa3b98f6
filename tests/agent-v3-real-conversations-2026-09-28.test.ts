@@ -98,3 +98,25 @@ describe("real conversation regressions 2026-09-28", () => {
     expect(source).toContain("isso não é garantia de resultado do algoritmo");
   });
 });
+
+
+describe("Agent V3 — autoridade operacional de pagamento", () => {
+  it("obriga o runtime a carregar do CMS a fonte de depósito/Pix/cripto", async () => {
+    const source = await readFile(
+      resolve(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"),
+      "utf8",
+    );
+    expect(source).toContain('selectionContext.intent === "pagamento" || selectionContext.hasPaymentSignal');
+    expect(source).toContain("documentsDepositFlow");
+    expect(source).toContain("Autoridade operacional do CMS para depósito/saldo e meios de pagamento");
+  });
+
+  it("proíbe inventar menu de saldo e não oferece mínimo sem o cliente pedir", async () => {
+    const source = await readFile(
+      resolve(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"),
+      "utf8",
+    );
+    expect(source).toContain('Não invente nomes de menus como "Recarga" ou "Adicionar Saldo"');
+    expect(source).toContain("Informe o mínimo somente se ele perguntar");
+  });
+});
