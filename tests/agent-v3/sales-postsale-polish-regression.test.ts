@@ -11,7 +11,9 @@ describe("Lapidação de venda e pós-venda",()=>{
  it("mantém pós-venda autoritativo no módulo canônico",()=>{
   expect(p1).toContain("POS_VENDA_PROMPT");
   expect(postSale).toContain("PÓS-VENDA (cliente já comprou");
-  expect(postSale).toContain("Direcione IMEDIATAMENTE pro Suporte");
+  expect(postSale).toContain("Não encaminhe automaticamente ao humano");
+  expect(postSale).toContain("NÃO é motivo para handoff");
+  expect(postSale).toContain("Encaminhe quando houver algo que exija ação");
   expect(postSale).toContain("Se o cliente quiser comprar algo NOVO");
  });
  it("não usa link enviado como prova de pedido e mantém painel como executor",()=>{
