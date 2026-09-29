@@ -1110,8 +1110,7 @@ ${conditionalPrompts}
 ${conversationPrompt}${customerProfilePrompt}
 
 HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
-${funnelAlreadyCompleted
-  ? "WELCOME FUNNEL JÁ CONCLUÍDO: a saudação/apresentação já aconteceu no funil. PROIBIDO iniciar esta resposta com oi, olá, bom dia, boa tarde, boa noite, apresentação da Júlia/Mind ou nova recepção. Continue diretamente do pedido pendente do cliente."
+${funnelAlreadyCompleted && !convState.resumedWithGreeting\n  ? "WELCOME FUNNEL JÁ CONCLUÍDO: a saudação/apresentação já aconteceu no funil. PROIBIDO iniciar esta resposta com oi, olá, bom dia, boa tarde, boa noite, apresentação da Júlia/Mind ou nova recepção. Continue diretamente do pedido pendente do cliente."
   : `Se for cumprimentar agora, a saudação certa pra esse horário é "${saudacaoCorretaV3}" — não infira sozinho lendo a hora, use exatamente essa.`}
 
 ESTADO DA CONVERSA:
@@ -1778,8 +1777,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
 
   // O Welcome Funnel já contém a saudação/apresentação. Mesmo se o modelo
   // ignorar o prompt, o primeiro turno pós-funil nunca reabre a conversa.
-  if (funnelAlreadyCompleted) {
-    finalContent = finalContent
+  if (funnelAlreadyCompleted && !convState.resumedWithGreeting) {\n    finalContent = finalContent
       .replace(/^\s*(?:oi|ol[aá]|bom\s+dia|boa\s+tarde|boa\s+noite)[!,.\s😊🙂👋-]*/iu, "")
       .replace(/^\s*(?:aqui\s+[ée]\s+a\s+j[uú]lia[^.!?]*[.!?]\s*)/iu, "")
       .trim();
@@ -2107,7 +2105,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   // conversas de 12 a 17/08/2026). Só não mexe se for o primeiro turno
   // (saudação esperada) ou se o cliente mandou só uma saudação (aí
   // ecoar de volta é legítimo).
-  if (!isFirstTurn && !greetingOnly) {
+  if (!isFirstTurn && !greetingOnly && !convState.resumedWithGreeting) {
     const saudacaoNoMeioPattern = /^(bom\s+dia|boa\s+tarde|boa\s+noite|oi|ol[áa])[,!.]?\s*/i;
     if (saudacaoNoMeioPattern.test(finalContent)) {
       const semSaudacao = finalContent.replace(saudacaoNoMeioPattern, "");
