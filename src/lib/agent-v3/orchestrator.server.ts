@@ -1788,6 +1788,32 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
     finalContent = "Claro. Vou encaminhar seu atendimento para o setor responsável.";
   }
 
+  // Orientação conservadora para dúvida de risco em Spotify Plays/Ouvintes.
+  // Regra comercial definida a partir de atendimento real: conta nova/sem
+  // engajamento deve começar em faixa moderada e variar a quantidade diária.
+  const spotifySafetyQuestion =
+    /\b(spotify|plays?|ouvintes?|impulsionamento|musica)\b/i.test(message) &&
+    /\b(prejudic|risco|segur|penal|ban|consequ|receio|insegur)\b/i.test(message);
+  const recentSpotifyPurchase = history
+    .filter((m) => m.role === "customer")
+    .slice(-12)
+    .some((m) => /\b(spotify|plays?|ouvintes?|comprei|paguei|feito)\b/i.test(m.content));
+
+  if (spotifySafetyQuestion && (recentSpotifyPurchase || selectionContext.platform === "spotify")) {
+    finalContent =
+      "Entendo seu receio. Não é correto garantir risco zero. Se a conta for nova ou ainda tiver pouco engajamento, a orientação é começar de forma gradual, entre 500 e 650 plays por dia, variando a quantidade — por exemplo, 500 em um dia, 520 em outro e 600 em outro — em vez de repetir volumes altos. A ideia do serviço é estimular o alcance de forma gradual, mas isso não é garantia de resultado do algoritmo. Evite abusar do volume ou fazer aumentos bruscos.";
+  }
+
+  // Guard adicional: fora da resposta determinística acima, nunca deixe passar
+  // garantia absoluta de segurança/algoritmo em contexto Spotify.
+  if (
+    /\b(spotify|plays?|ouvintes?|impulsionamento)\b/i.test(message) &&
+    /\b(n[aã]o prejudica nada|n[aã]o prejudica|risco zero|sem risco|n[aã]o penaliza|vai aumentar o alcance|dar mais credibilidade|algoritmo.*(?:vai|garant))\b/i.test(finalContent)
+  ) {
+    finalContent =
+      "Não consigo garantir risco zero nem resultado do algoritmo. Para conta nova ou com pouco engajamento, a orientação é trabalhar gradualmente entre 500 e 650 plays por dia, variando a quantidade e evitando aumentos bruscos.";
+  }
+
   // Guard operacional do cadastro: mesmo que o modelo ignore o prompt, nunca pode
   // confirmar reconhecimento facial/biometria/documentos como requisito da Mind.
   const customerMentionsUnknownIdentityStep =
