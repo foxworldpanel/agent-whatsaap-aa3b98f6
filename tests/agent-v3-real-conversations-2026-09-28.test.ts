@@ -114,3 +114,34 @@ describe("Agent V3 — autoridade operacional de pagamento", () => {
     expect(source).toContain("Informe o mínimo somente se ele perguntar");
   });
 });
+
+
+describe("real conversation 244989649010936 — explicit order-status support", () => {
+  it("classifies 'saber se caiu pq pedi' as post-sale even before durable lifecycle conversion", async () => {
+    const { deriveBusinessDecisionV3 } = await import("../src/lib/agent-v3/brain/business-state.server");
+    const d = deriveBusinessDecisionV3({
+      message: "Bom dia como\nSaber se caiu pq pedi",
+      recentCustomerMessages: ["Olá! Tenho interesse em divulgar minha música."],
+      customerLifecycle: "novo_lead",
+    });
+    expect(d.state).toBe("pos_venda");
+    expect(d.allowQualification).toBe(false);
+    expect(d.nextAction).not.toMatch(/preço pago|quanto pagou/i);
+  });
+
+  it("preserves post-sale across the customer's Spotify/service details", async () => {
+    const { deriveBusinessDecisionV3, enrichBusinessDecisionV3, reconcileBusinessDecisionV3 } = await import("../src/lib/agent-v3/brain/business-state.server");
+    const previous = enrichBusinessDecisionV3(deriveBusinessDecisionV3({
+      message: "Bom dia como saber se caiu pq pedi",
+      customerLifecycle: "novo_lead",
+    }), "Bom dia como saber se caiu pq pedi");
+    const current = enrichBusinessDecisionV3(deriveBusinessDecisionV3({
+      message: "500 play 200 seguidores",
+      recentCustomerMessages: ["Bom dia como saber se caiu pq pedi", "Spoitofy"],
+      customerLifecycle: "novo_lead",
+    }), "500 play 200 seguidores");
+    const reconciled = reconcileBusinessDecisionV3({ previous, current, message: "500 play 200 seguidores" });
+    expect(reconciled.state).toBe("pos_venda");
+    expect(reconciled.allowQualification).toBe(false);
+  });
+});
