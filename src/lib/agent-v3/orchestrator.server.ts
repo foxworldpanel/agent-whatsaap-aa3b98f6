@@ -1110,7 +1110,8 @@ ${conditionalPrompts}
 ${conversationPrompt}${customerProfilePrompt}
 
 HORÁRIO DE REFERÊNCIA DO ATENDIMENTO (Brasil / America/Sao_Paulo): ${currentBrazilDateTime}
-${funnelAlreadyCompleted && !convState.resumedWithGreeting\n  ? "WELCOME FUNNEL JÁ CONCLUÍDO: a saudação/apresentação já aconteceu no funil. PROIBIDO iniciar esta resposta com oi, olá, bom dia, boa tarde, boa noite, apresentação da Júlia/Mind ou nova recepção. Continue diretamente do pedido pendente do cliente."
+${funnelAlreadyCompleted && !convState.resumedWithGreeting
+  ? "WELCOME FUNNEL JÁ CONCLUÍDO: a saudação/apresentação já aconteceu no funil. PROIBIDO iniciar esta resposta com oi, olá, bom dia, boa tarde, boa noite, apresentação da Júlia/Mind ou nova recepção. Continue diretamente do pedido pendente do cliente."
   : `Se for cumprimentar agora, a saudação certa pra esse horário é "${saudacaoCorretaV3}" — não infira sozinho lendo a hora, use exatamente essa.`}
 
 ESTADO DA CONVERSA:
