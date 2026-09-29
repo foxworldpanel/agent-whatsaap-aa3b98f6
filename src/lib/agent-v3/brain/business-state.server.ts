@@ -50,13 +50,13 @@ function isExistingCustomer(lifecycle?: string | null): boolean {
 /** Incidente de um pedido/pagamento já feito. A Júlia não investiga isso no WhatsApp. */
 function isPostSaleIncident(message: string, lifecycle?: string | null): boolean {
   const current = norm(message);
-  const explicitCompletedPurchase = /\b(ja (?:comprei|paguei)|fiz o pedido|pedido (?:feito|realizado)|pagamento (?:feito|realizado)|depois que (?:comprei|paguei)|minha compra|meu pedido|(?:como )?saber se (?:ja )?caiu(?: porque| pq)? pedi|ver se (?:ja )?caiu(?: porque| pq)? pedi|caiu(?: porque| pq) pedi)\b/.test(current);
+  const explicitStatusIncident = /\b((?:como )?saber se (?:ja )?caiu(?: porque| pq)? pedi|ver se (?:ja )?caiu(?: porque| pq)? pedi|caiu(?: porque| pq) pedi)\b/.test(current);
   const operationalProblem = /\b(nao (?:caiu|entrou|chegou|creditou|iniciou|entregou|completou|finalizou)|pendente|atrasad|demora|processando|incomplet|cancelad|reposicao|refill|estorno|reembolso|saldo|recarga|pedido|pagamento|pix|caiu)\b/.test(current);
   const strongIncident =
     /\b(?:saldo|recarga|pagamento|pix).{0,55}(?:nao (?:caiu|entrou|chegou|creditou)|pendente|estorno|reembolso|problema|erro)\b/.test(current) ||
     /\b(?:pedido|ordem).{0,55}(?:nao (?:chegou|iniciou|entregou|completou|finalizou)|pendente|atrasad|processando|incomplet|cancelad|reposicao|refill|estorno|reembolso|problema|erro)\b/.test(current) ||
     /\b(?:reposicao|refill|estorno|reembolso).{0,55}(?:pedido|ordem|pagamento|pix|saldo|recarga)\b/.test(current);
-  return strongIncident || explicitCompletedPurchase;
+  return strongIncident || explicitStatusIncident;
 }
 
 export function deriveBusinessDecisionV3(params: {
@@ -80,7 +80,7 @@ export function deriveBusinessDecisionV3(params: {
       state: "pos_venda",
       risk: "atencao",
       reason: "incidente de pedido/pagamento já realizado",
-      nextAction: "tratar como pós-compra; responder como conferir o pedido somente com o procedimento operacional carregado e, se houver incidente/erro, orientar SUPORTE no painel; não pedir preço pago para validar a compra",
+      nextAction: "tratar como pós-compra; responder como conferir o pedido somente com o procedimento operacional carregado e, se houver incidente/erro, orientar SUPORTE no painel; não solicitar valor da compra para validar o pedido",
       allowQualification: false,
       shouldHandoff: false,
     };
@@ -104,7 +104,7 @@ export function deriveBusinessDecisionV3(params: {
   if (/\b(deixa pra la|deixa para la|desisti|nao quero mais|vou deixar pra outra hora|vou deixar para outra hora)\b/.test(current)) return { state: "abandono", risk: paymentTopic ? "alto" : "atencao", reason: "cliente interrompeu o avanço da compra", nextAction: "encerrar sem pressionar e registrar abandono/adiamento", allowQualification: false, shouldHandoff: false };
   if (/\b(mais tarde|depois eu volto|depois das \d|amanha|agora nao posso|estou trabalhando|vou ver depois|mais pra frente|mais para frente)\b/.test(current)) return { state: "adiado", risk: "normal", reason: "cliente pediu para continuar depois", nextAction: "responder curto e não fazer nova pergunta comercial", allowQualification: false, shouldHandoff: false };
 
-  if (/\b(ja comprei|ja paguei|comprei ontem|comprei hoje|comprei|paguei|fiz o pedido|pedido feito|pedido realizado|pagamento feito|pagamento realizado)\b/.test(current)) return { state: "pedido_realizado", risk: "normal", reason: "cliente confirmou compra/pedido", nextAction: "entrar em pós-venda e responder apenas a dúvida atual", allowQualification: false, shouldHandoff: false };
+  if (/\b(ja comprei|ja paguei|comprei ontem|comprei hoje|comprei|paguei|fiz o pedido|pedido feito|pedido realizado|pedido confirmado|pagamento feito|pagamento realizado)\b/.test(current)) return { state: "pedido_realizado", risk: "normal", reason: "cliente confirmou compra/pedido", nextAction: "entrar em pós-venda e responder apenas a dúvida atual", allowQualification: false, shouldHandoff: false };
 
   if (/\b(pedido|nao chegou|caiu|reposicao|garantia|demora|quanto tempo|concluido|processando)\b/.test(current) && isExistingCustomer(params.customerLifecycle)) {
     return { state: "pos_venda", risk: currentProblem ? "atencao" : "normal", reason: "cliente existente tratando de pedido/entrega", nextAction: "se houver problema de pedido/pagamento, direcionar ao ticket de SUPORTE sem investigar; caso contrário, responder só a dúvida atual", allowQualification: false, shouldHandoff: false };
