@@ -1778,7 +1778,8 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
 
   // O Welcome Funnel já contém a saudação/apresentação. Mesmo se o modelo
   // ignorar o prompt, o primeiro turno pós-funil nunca reabre a conversa.
-  if (funnelAlreadyCompleted && !convState.resumedWithGreeting) {\n    finalContent = finalContent
+  if (funnelAlreadyCompleted && !convState.resumedWithGreeting) {
+    finalContent = finalContent
       .replace(/^\s*(?:oi|ol[aá]|bom\s+dia|boa\s+tarde|boa\s+noite)[!,.\s😊🙂👋-]*/iu, "")
       .replace(/^\s*(?:aqui\s+[ée]\s+a\s+j[uú]lia[^.!?]*[.!?]\s*)/iu, "")
       .trim();
