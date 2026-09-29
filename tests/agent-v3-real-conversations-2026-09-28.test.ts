@@ -162,3 +162,39 @@ describe("business-state semantic boundary — completed order vs support incide
     expect(d.nextAction).not.toMatch(/quanto pagou|preço pago/i);
   });
 });
+
+
+describe("conversa real 244989649010936 — print de pedido no pós-venda", () => {
+  it("classifica print enriquecido de pedido como pos_venda sem handoff", async () => {
+    const { deriveBusinessDecisionV3 } = await import("../src/lib/agent-v3/brain/business-state.server");
+    const d = deriveBusinessDecisionV3({
+      message: `[imagem recebida]
+[Imagem: Histórico de Pedido
+ID: 1123513
+Data: 29/09/2026
+Hora: 00:59:34
+Status: In progress
+912 - Spotify - Plays + Ouvintes [BRASIL] [LENTO: 50 - 100 POR DIA]
+Quantidade: 500
+Valor: R$ 7,50
+Contagem Inicial: 1
+Restante: 492]`,
+      customerLifecycle: "novo_lead",
+      recentCustomerMessages: ["Bom dia como saber se caiu pq pedi", "Spoitofy", "500 play 200 seguidores"],
+    });
+    expect(d.state).toBe("pos_venda");
+    expect(d.shouldHandoff).toBe(false);
+    expect(d.allowQualification).toBe(false);
+    expect(d.nextAction).toMatch(/campos visíveis|regras operacionais/i);
+  });
+
+  it("mantém no prompt que print legível normal não vai para revisão automática", () => {
+    const postSale = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-post-sale.server.ts"), "utf8");
+    const vision = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p2.server.ts"), "utf8");
+    expect(postSale).toContain("NÃO é motivo para handoff");
+    expect(postSale).toContain("até 24h");
+    expect(postSale).toContain("até 72h");
+    expect(vision).toContain("print do histórico de pedido");
+    expect(vision).toContain("não encaminhe para revisão só por ser pós-venda");
+  });
+});
