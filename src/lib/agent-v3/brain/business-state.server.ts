@@ -65,6 +65,7 @@ export function deriveBusinessDecisionV3(params: {
   customerLifecycle?: string | null;
 }): BusinessDecisionV3 {
   const current = norm(params.message);
+  const imageOrderEvidence = /\[imagem recebida\]/.test(current) && /\b(id\s*:?\s*\d{5,}|status\s*:?|in progress|em progresso|quantidade\s*:?|restante\s*:?|contagem inicial\s*:?)\b/.test(current);
   const recent = (params.recentCustomerMessages || []).slice(-6).map(norm);
   const context = [...recent, current].filter(Boolean).join(" ");
 
@@ -73,6 +74,20 @@ export function deriveBusinessDecisionV3(params: {
 
   const legalRisk = /\b(denuncia|procon|advogad|processo|processar|justica|chargeback|contestacao|fraude|golpe)\b/.test(current);
   if (legalRisk) return { state: "reclamacao", risk: "humano_obrigatorio", reason: "risco jurídico ou reputacional", nextAction: "encaminhar imediatamente ao setor responsável", allowQualification: false, shouldHandoff: true };
+
+  // Evidência visual de um pedido existente é pós-venda, não qualificação.
+  // O conteúdo enriquecido da imagem pode trazer ID/status/data/quantidade;
+  // isso não autoriza consulta ao banco, apenas usar o que o cliente mostrou.
+  if (imageOrderEvidence) {
+    return {
+      state: "pos_venda",
+      risk: "normal",
+      reason: "cliente forneceu print legível de pedido existente",
+      nextAction: "analisar os campos visíveis do pedido e explicar o status usando somente a imagem e as regras operacionais carregadas; encaminhar apenas se houver exceção que exija ação humana",
+      allowQualification: false,
+      shouldHandoff: false,
+    };
+  }
 
   // Tem prioridade sobre o fluxo de pagamento. "Meu Pix não caiu" não é uma nova venda.
   if (isPostSaleIncident(current, params.customerLifecycle)) {
@@ -130,7 +145,7 @@ export function enrichBusinessDecisionV3(decision: BusinessDecisionV3, message: 
     : decision.state === "orcamento"
       ? "informar preço e conduzir ao próximo passo"
       : decision.state === "pos_venda" || decision.state === "pedido_realizado"
-        ? "proteger o cliente no pós-venda e encaminhar incidentes ao Suporte do painel sem investigar no WhatsApp"
+        ? "resolver no WhatsApp o pós-venda que puder ser explicado por evidência do cliente + regras operacionais carregadas; encaminhar somente exceções que exijam ação humana"
         : decision.state === "reclamacao" || decision.state === "aguardando_setor"
           ? "proteger a experiência e encaminhar para atendimento humano"
           : decision.state === "adiado" ? "aguardar o cliente sem pressionar" : "entender a necessidade com no máximo uma pergunta";
