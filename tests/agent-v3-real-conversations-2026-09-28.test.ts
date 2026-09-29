@@ -67,4 +67,34 @@ describe("real conversation regressions 2026-09-28", () => {
     expect(source).toContain("if (funnelAlreadyCompleted)");
     expect(source).toContain("PROIBIDO iniciar esta resposta");
   });
+  it("allows a greeting when the customer reopens on a new calendar day", () => {
+    const yesterday = new Date(Date.now() - 12 * 60 * 60 * 1000);
+    yesterday.setDate(new Date().getDate() - 1);
+    const state = detectConversationState({
+      message: "Bom dia! Tenho uma dúvida",
+      history: [{ role: "agent", content: "Qualquer dúvida é só chamar.", timestamp: yesterday.toISOString() }],
+      greetingAlreadyPerformed: true,
+    });
+    expect(state.resumedWithGreeting).toBe(true);
+    expect(state.greetingAlreadyDone).toBe(false);
+  });
+
+  it("preserves post-sale when a purchased-service safety question arrives", () => {
+    const previous = deriveBusinessDecisionV3({ message: "Feito, já comprei", recentCustomerMessages: [] });
+    const current = deriveBusinessDecisionV3({
+      message: "Esse impulsionamento do Spotify pode me prejudicar?",
+      recentCustomerMessages: [],
+    });
+    const result = reconcileBusinessDecisionV3({ previous, current, message: "Esse impulsionamento do Spotify pode me prejudicar?" });
+    expect(result.state).toBe("pos_venda");
+    expect(result.allowQualification).toBe(false);
+    expect(result.reason).toContain("pós-venda");
+  });
+
+  it("locks conservative Spotify safety guidance in the shared orchestrator", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
+    expect(source).toContain("entre 500 e 650 plays por dia");
+    expect(source).toContain("Não é correto garantir risco zero");
+    expect(source).toContain("isso não é garantia de resultado do algoritmo");
+  });
 });
