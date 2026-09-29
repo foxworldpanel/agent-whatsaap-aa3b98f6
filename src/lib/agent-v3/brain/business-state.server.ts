@@ -51,12 +51,12 @@ function isExistingCustomer(lifecycle?: string | null): boolean {
 function isPostSaleIncident(message: string, lifecycle?: string | null): boolean {
   const current = norm(message);
   const explicitCompletedPurchase = /\b(ja (?:comprei|paguei)|fiz o pedido|pedido (?:feito|realizado)|pagamento (?:feito|realizado)|depois que (?:comprei|paguei)|minha compra|meu pedido|(?:como )?saber se (?:ja )?caiu(?: porque| pq)? pedi|ver se (?:ja )?caiu(?: porque| pq)? pedi|caiu(?: porque| pq) pedi)\b/.test(current);
-  const operationalProblem = /\b(nao (?:caiu|entrou|chegou|creditou|iniciou|entregou|completou|finalizou)|pendente|atrasad|demora|processando|incomplet|cancelad|reposicao|refill|estorno|reembolso|saldo|recarga|pedido|pagamento|pix)\b/.test(current);
+  const operationalProblem = /\b(nao (?:caiu|entrou|chegou|creditou|iniciou|entregou|completou|finalizou)|pendente|atrasad|demora|processando|incomplet|cancelad|reposicao|refill|estorno|reembolso|saldo|recarga|pedido|pagamento|pix|caiu)\b/.test(current);
   const strongIncident =
     /\b(?:saldo|recarga|pagamento|pix).{0,55}(?:nao (?:caiu|entrou|chegou|creditou)|pendente|estorno|reembolso|problema|erro)\b/.test(current) ||
     /\b(?:pedido|ordem).{0,55}(?:nao (?:chegou|iniciou|entregou|completou|finalizou)|pendente|atrasad|processando|incomplet|cancelad|reposicao|refill|estorno|reembolso|problema|erro)\b/.test(current) ||
     /\b(?:reposicao|refill|estorno|reembolso).{0,55}(?:pedido|ordem|pagamento|pix|saldo|recarga)\b/.test(current);
-  return strongIncident || (explicitCompletedPurchase && operationalProblem);
+  return strongIncident || explicitCompletedPurchase;
 }
 
 export function deriveBusinessDecisionV3(params: {
@@ -150,7 +150,7 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
   if (current.state === "pos_venda" && current.reason.includes("incidente")) return current;
 
   const explicitNewPurchase = /\b(quero comprar|quero fazer|vou comprar|vou fazer|novo pedido|outra compra|mais \d+|agora consegui|agora funcionou)\b/.test(message);
-  const explicitPostSale = /\b(ja comprei|ja paguei|fiz o pedido|pedido feito|pedido realizado|pagamento feito|pagamento realizado|(?:como )?saber se (?:ja )?caiu(?: porque| pq)? pedi|ver se (?:ja )?caiu(?: porque| pq)? pedi|caiu(?: porque| pq) pedi)\b/.test(message);
+  const explicitPostSaleIncident = /\b((?:como )?saber se (?:ja )?caiu(?: porque| pq)? pedi|ver se (?:ja )?caiu(?: porque| pq)? pedi|caiu(?: porque| pq) pedi)\b/.test(message);
   const postSaleQuestion = /\b(impulsionamento|pedido|compra|servico|plays|ouvintes|spotify).{0,80}\b(prejudic\w*|risco\w*|segur\w*|cancel\w*|demor\w*|comec\w*|resultad\w*|praz\w*)\b|\b(prejudic\w*|risco\w*|segur\w*|cancel\w*|demor\w*|comec\w*|resultad\w*|praz\w*).{0,80}\b(impulsionamento|pedido|compra|servico|plays|ouvintes|spotify)\b/.test(message);
   if ((previous.state === "pedido_realizado" || previous.state === "pos_venda") && postSaleQuestion) {
     return {
@@ -163,7 +163,7 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
     };
   }
   const explicitDeferral = /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|deixa pra la|desisti)\b/.test(message);
-  if (explicitNewPurchase || explicitPostSale || explicitDeferral) return current;
+  if (explicitNewPurchase || explicitPostSaleIncident || explicitDeferral) return current;
 
   const salesRank: Partial<Record<BusinessStateV3, number>> = { novo_lead: 0, descoberta: 1, orcamento: 2, fechamento: 3, pagamento: 4, pedido_realizado: 5, pos_venda: 6 };
   const previousRank = salesRank[previous.state];
