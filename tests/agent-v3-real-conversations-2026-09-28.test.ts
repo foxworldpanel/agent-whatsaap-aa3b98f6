@@ -145,3 +145,20 @@ describe("real conversation 244989649010936 — explicit order-status support", 
     expect(reconciled.allowQualification).toBe(false);
   });
 });
+
+
+describe("business-state semantic boundary — completed order vs support incident", () => {
+  it("keeps a plain completed-order confirmation as pedido_realizado", async () => {
+    const { deriveBusinessDecisionV3 } = await import("../src/lib/agent-v3/brain/business-state.server");
+    expect(deriveBusinessDecisionV3({ message: "pedido confirmado", customerLifecycle: "novo_lead" }).state).toBe("pedido_realizado");
+    expect(deriveBusinessDecisionV3({ message: "já paguei", customerLifecycle: "novo_lead" }).state).toBe("pedido_realizado");
+  });
+
+  it("treats an order-status problem as pos_venda without requiring cliente lifecycle", async () => {
+    const { deriveBusinessDecisionV3 } = await import("../src/lib/agent-v3/brain/business-state.server");
+    const d = deriveBusinessDecisionV3({ message: "Bom dia como saber se caiu pq pedi", customerLifecycle: "novo_lead" });
+    expect(d.state).toBe("pos_venda");
+    expect(d.allowQualification).toBe(false);
+    expect(d.nextAction).not.toMatch(/quanto pagou|preço pago/i);
+  });
+});
