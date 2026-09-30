@@ -6,7 +6,7 @@ describe("Welcome Funnel recovered execution resume",()=>{
   const orchestrator=fs.readFileSync("src/lib/welcome-funnel-orchestrator.server.ts","utf8");
   const runner=fs.readFileSync("src/lib/welcome-funnel-runner.server.ts","utf8");
   expect(orchestrator).toContain("resumeRecoveredWelcomeFunnel");
-  expect(orchestrator).toContain("arm_recovered_welcome_funnel_execution");
+  expect(orchestrator).toContain("arm_recovered_welcome_funnel_execution");expect(orchestrator).toContain("acquire_recovered_welcome_funnel_lock");
   expect(orchestrator).toContain('before!=="durable_running"');
   expect(orchestrator).toContain("skipExecutionStart:true");
   expect(runner).toContain("skipExecutionStart?:boolean");
