@@ -20,4 +20,5 @@ describe("Welcome Funnel recovered execution resume",()=>{
   expect(sql).toContain("m.sender='agente'");
   expect(sql).toContain("grant execute on function");
  });
+ it("recovery worker actually consumes safely recovered running funnels",()=>{const worker=fs.readFileSync("src/routes/api/public/hooks/agent-inbound-recovery.ts","utf8");expect(worker).toContain("resumeZeroEffectRecoveredFunnels");expect(worker).toContain("resumeRecoveredWelcomeFunnel");expect(worker).toContain("resumedWelcomeFunnels");expect(worker).toContain(".eq(\"status\",\"running\").is(\"last_completed_step\",null)");});
 });
