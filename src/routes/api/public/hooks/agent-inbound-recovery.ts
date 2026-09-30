@@ -14,6 +14,13 @@ const WELCOME_FUNNEL_STALE_MS = DB_CONVERSATION_LOCK_STALE_MS;
 const WELCOME_FUNNEL_RESUME_LIMIT = 20;
 
 async function resumeZeroEffectRecoveredFunnels(supabaseAdmin:any){
+ // First convert only the exact zero-effect stale quarantine back to running.
+ // The RPC is the safety fence: it verifies exact identity, no checkpoint,
+ // no historical baseline and no Agent outbound evidence before recovery.
+ const {data:reviewRows,error:reviewError}=await supabaseAdmin.from("welcome_funnel_execution_state").select("funnel_id,contact_id,conversation_id,user_id,workspace_id").eq("status","needs_review").is("last_completed_step",null).eq("error_message","stale Welcome Funnel runtime recovered after uncertain external side effects").limit(WELCOME_FUNNEL_RESUME_LIMIT);if(reviewError)throw reviewError;
+ let recovered=0,recoveryRejected=0;
+ for(const row of reviewRows||[]){const {data,error}=await supabaseAdmin.rpc("recover_zero_effect_stale_welcome_funnel",{p_funnel_id:row.funnel_id,p_contact_id:row.contact_id,p_conversation_id:row.conversation_id,p_user_id:row.user_id,p_workspace_id:row.workspace_id});if(error)throw error;if(data===true)recovered+=1;else recoveryRejected+=1;}
+
  const {data:rows,error}=await supabaseAdmin.from("welcome_funnel_execution_state").select("funnel_id,contact_id,conversation_id,user_id,workspace_id,status,last_completed_step,error_message").eq("status","running").is("last_completed_step",null).limit(WELCOME_FUNNEL_RESUME_LIMIT);if(error)throw error;
  let completed=0,busy=0,failed=0;
  for(const row of rows||[]){try{
@@ -22,7 +29,7 @@ async function resumeZeroEffectRecoveredFunnels(supabaseAdmin:any){
   const {data:number,error:numberError}=await supabaseAdmin.from("whatsapp_numbers").select("uazapi_url,uazapi_token").eq("id",funnel.whatsapp_number_id).eq("workspace_id",row.workspace_id).maybeSingle();if(numberError)throw numberError;if(!number?.uazapi_url||!number?.uazapi_token)continue;
   const result=await resumeRecoveredWelcomeFunnel({supabaseAdmin,funnel,contactId:row.contact_id,conversationId:row.conversation_id,userId:row.user_id,workspaceId:row.workspace_id,phone:contact.telefone,creds:{uazapi_url:number.uazapi_url,uazapi_token:number.uazapi_token}});if(result.status==="completed")completed+=1;else if(result.status==="busy")busy+=1;
  }catch(error){failed+=1;console.error("[WELCOME-FUNNEL-RECOVERY] safe resume failed",{conversationId:row.conversation_id,error});}}
- return{completed,busy,failed};
+ return{recovered,recoveryRejected,completed,busy,failed};
 }
 
 /**
@@ -62,8 +69,6 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
             GENERATION_LOCK_STALE_MS,
           );
 
-          const resumedWelcomeFunnels = await resumeZeroEffectRecoveredFunnels(supabaseAdmin);
-
           const { data: staleFunnelReview, error: staleFunnelError } = await supabaseAdmin.rpc(
             "recover_stale_welcome_funnel_executions",
             {
@@ -73,6 +78,11 @@ export const Route = createFileRoute("/api/public/hooks/agent-inbound-recovery")
             },
           );
           if (staleFunnelError) throw staleFunnelError;
+
+          // Run the exact zero-effect repair after stale quarantine so funnels
+          // quarantined in this same cron pass can be safely resumed immediately.
+          // Partial/checkpointed executions remain needs_review and are never replayed.
+          const resumedWelcomeFunnels = await resumeZeroEffectRecoveredFunnels(supabaseAdmin);
 
           return Response.json({
             ok: true,
