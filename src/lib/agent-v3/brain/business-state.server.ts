@@ -128,7 +128,7 @@ export function deriveBusinessDecisionV3(params: {
   const sentPlatformLink = /https?:\/\/(?:open\.)?spotify\.com\/(?:track|album|artist|playlist)\//.test(current) || /https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\//.test(current) || /https?:\/\/(?:www\.)?instagram\.com\//.test(current) || /https?:\/\/(?:www\.)?tiktok\.com\//.test(current);
   const priorServiceChoice = /\b(playlist|playlists|plays|ouvintes|seguidores|saves|visualizacoes|likes|curtidas|inscritos|spotify|youtube|instagram|tiktok)\b/.test(context);
   if (sentPlatformLink && priorServiceChoice) return { state: "fechamento", risk: "normal", reason: "cliente já escolheu o serviço e enviou o link necessário", nextAction: "validar o tipo de link quando necessário e avançar para painel/pagamento sem voltar a qualificar", allowQualification: false, shouldHandoff: false };
-  if (/\b(manda o pix|qual o pix|quero pagar|onde pago|vou pagar|pagamento)\b/.test(current)) return { state: "pagamento", risk: "normal", reason: "cliente demonstrou intenção clara de pagamento", nextAction: "conduzir diretamente ao pagamento/painel", allowQualification: false, shouldHandoff: false };
+  if (/\b(manda o pix|qual o pix|quero pagar|onde pago|vou pagar|como (?:eu )?pago|como fazer o pagamento|fazer o pagamento|finalizar (?:o )?pagamento)\b/.test(current)) return { state: "pagamento", risk: "normal", reason: "cliente demonstrou intenção operacional clara de pagamento", nextAction: "resolver qualquer bloqueador ou pré-requisito explícito e então conduzir ao pagamento/painel", allowQualification: false, shouldHandoff: false };
   if (/\b(preco|valor|quanto custa|quanto fica|pacote)\b/.test(current)) return { state: "orcamento", risk: "normal", reason: "cliente pesquisando preço/pacote", nextAction: "responder apenas com dados do módulo autoritativo", allowQualification: false, shouldHandoff: false };
   if (/\b(quero \d|mil|500|1000|2000|seguidores|visualizacoes|plays|likes|curtidas)\b/.test(current) && /\b(quero|vou fazer|fica|quanto|preco|valor)\b/.test(context)) return { state: "fechamento", risk: "normal", reason: "cliente já definiu produto/quantidade ou está fechando", nextAction: "calcular/confirmar valor e avançar para pagamento", allowQualification: false, shouldHandoff: false };
   if (/\b(spotify|youtube|instagram|tiktok|kwai|facebook|divulgar|divulgacao|musica|video)\b/.test(current)) return { state: "descoberta", risk: "normal", reason: "cliente explorando plataforma/necessidade", nextAction: "entender o objetivo com no máximo uma pergunta", allowQualification: true, shouldHandoff: false };
@@ -177,16 +177,17 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
       waitingCustomer: false,
     };
   }
-  const explicitDeferral = /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|deixa pra la|desisti)\b/.test(message);
+  const explicitDeferral = /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|vou ver quanto|ver quanto vai me sobrar|quando cair (?:o )?(?:dinheiro|pagamento)|quando receber|semana que vem|deixa pra la|desisti)\b/.test(message);
   if (explicitNewPurchase || explicitPostSaleIncident || explicitDeferral) return current;
 
   const salesRank: Partial<Record<BusinessStateV3, number>> = { novo_lead: 0, descoberta: 1, orcamento: 2, fechamento: 3, pagamento: 4, pedido_realizado: 5, pos_venda: 6 };
   const previousRank = salesRank[previous.state];
   const currentRank = salesRank[current.state];
   const ambiguousCurrent = current.reason === "estado inicial/indefinido";
+  if (previous.state === "fechamento" && /^(sim|confirmo|pode ser|quero|fechado)$/i.test(message)) return { ...current, state: "pagamento", risk: "normal", reason: "cliente confirmou explicitamente o fechamento", nextAction: "conduzir ao painel/pagamento preservando plataforma, serviço, quantidade e preço já confirmados", allowQualification: false, shouldHandoff: false, waitingCustomer: false };
   if (previousRank !== undefined && currentRank !== undefined && currentRank < previousRank && (ambiguousCurrent || /^(ok|sim|certo|beleza|entendi|e agora|como assim|pode ser|isso)$/i.test(message))) return { ...previous, reason: `continuidade preservada: ${stripContinuityReasonPrefixV3(previous.reason)}`, waitingCustomer: false };
 
-  if ((previous.state === "pagamento" || previous.state === "fechamento") && ["novo_lead", "descoberta", "orcamento"].includes(current.state) && /\b(como|onde|qual|pix|painel|cadastro|saldo|recarga|demora|prazo|garantia|seguro|funciona)\b/.test(message)) {
+  if ((previous.state === "pagamento" || previous.state === "fechamento") && ["novo_lead", "descoberta", "orcamento"].includes(current.state) && /\b(onde (?:pago|fica)|qual (?:pix|forma de pagamento)|pix|painel|cadastro|saldo|recarga|finalizar|checkout|erro no pagamento|pagamento nao)\b/.test(message)) {
     return { ...previous, reason: `continuidade de ${previous.state}: dúvida operacional do cliente`, nextAction: previous.state === "pagamento" ? "responder a dúvida e manter o cliente no pagamento/painel" : "responder a dúvida e continuar o fechamento sem repetir qualificação", waitingCustomer: false };
   }
   return current;
