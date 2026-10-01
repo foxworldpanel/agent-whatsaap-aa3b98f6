@@ -50,7 +50,7 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
     expect(source).toContain("nunca decomponha \"Plays + Ouvintes\"");
     expect(source).toContain("não criar tier, mínimo, desconto ou quantidade intermediária");
-    expect(source).toContain("não traduza \"vitalício\"");
+    expect(source).toContain("nunca traduza \"vitalício\"");
     expect(source).toContain("SPOTIFY/ALGORITMO/RENDA");
     expect(source).toContain("intenção de pagar não elimina pré-requisitos");
     expect(source).toContain("Short não é Live");
