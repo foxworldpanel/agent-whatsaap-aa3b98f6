@@ -48,7 +48,7 @@ describe("real conversations batch 2026-09-29/30", () => {
   it("locks commercial authority rules into P1", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
-    expect(source).toContain("não decomponha \"Plays + Ouvintes\"");
+    expect(source).toContain("nunca decomponha \"Plays + Ouvintes\"");
     expect(source).toContain("não criar tier, mínimo, desconto ou quantidade intermediária");
     expect(source).toContain("não traduza \"vitalício\"");
     expect(source).toContain("SPOTIFY/ALGORITMO/RENDA");
