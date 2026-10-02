@@ -160,6 +160,71 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(source).toContain("OrderContext agora entra no prompt");
   });
 
+  it("02/10 case 44835247550658: published-later callback becomes waiting/adiado", () => {
+    const d = deriveBusinessDecisionV3({
+      message: "Ótimo. Terminando de gravar o clipe. Assim que subir falo com vcs",
+    });
+    expect(d.state).toBe("adiado");
+    expect(d.allowQualification).toBe(false);
+    expect(d.waitingCustomer).toBe(true);
+  });
+
+  it("02/10 case 95361276346534: studying now pauses qualification and polite thanks does not reopen it", () => {
+    const deferred = deriveBusinessDecisionV3({ message: "Então estamos estudando ainda" });
+    expect(deferred.state).toBe("adiado");
+    const thanks = deriveBusinessDecisionV3({ message: "Mas agradeço" });
+    const reconciled = reconcileBusinessDecisionV3({
+      previous: deferred,
+      current: thanks,
+      message: "Mas agradeço",
+    });
+    expect(reconciled.state).toBe("adiado");
+    expect(reconciled.allowQualification).toBe(false);
+    expect(reconciled.waitingCustomer).toBe(true);
+  });
+
+  it("02/10 case 215470187774134: scheduled continuation after 19h is operationally deferred", () => {
+    const previous = deriveBusinessDecisionV3({
+      message: "Ok só preciso me organizar financeiramente",
+    });
+    const current = deriveBusinessDecisionV3({
+      message: "Ok então continuamos hoje após as 19 horas e muito obrigado",
+    });
+    const d = reconcileBusinessDecisionV3({
+      previous,
+      current,
+      message: "Ok então continuamos hoje após as 19 horas e muito obrigado",
+    });
+    expect(d.state).toBe("adiado");
+    expect(d.allowQualification).toBe(false);
+    expect(applyBusinessDecisionToIntelligence({ state: d.state, currentProb: 80 })).toMatchObject({
+      temperature: "frio",
+      purchase_probability: 39,
+    });
+  });
+
+  it("02/10 case 49035691978975: tomorrow callback wins over qualification and social close stays deferred", () => {
+    const deferred = deriveBusinessDecisionV3({ message: "Eu vou ver até amanhã. Aí eu te falo" });
+    expect(deferred.state).toBe("adiado");
+    const social = deriveBusinessDecisionV3({ message: "Beleza obrigado eu vou olhar aqui direitinho e te falo" });
+    const d = reconcileBusinessDecisionV3({
+      previous: deferred,
+      current: social,
+      message: "Beleza obrigado eu vou olhar aqui direitinho e te falo",
+    });
+    expect(d.state).toBe("adiado");
+    expect(d.allowQualification).toBe(false);
+    expect(d.waitingCustomer).toBe(true);
+  });
+
+  it("locks direct-question, pause and complete-closing behavior into the shared P1 brain", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
+    expect(source).toContain("DÚVIDA DE PAGAMENTO NÃO EXIGE QUALIFICAÇÃO PRÉVIA");
+    expect(source).toContain("ADIAMENTO/PAUSA É SOBERANO NO TURNO");
+    expect(source).toContain("FECHAMENTO SINTÁTICO");
+    expect(source).toContain("Não reabra a venda nem a qualificação");
+  });
+
   it("locks commercial authority rules into P1", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
