@@ -1825,30 +1825,26 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
     finalContent = "Claro. Vou encaminhar seu atendimento para o setor responsável.";
   }
 
-  // Orientação conservadora para dúvida de risco em Spotify Plays/Ouvintes.
-  // Regra comercial definida a partir de atendimento real: conta nova/sem
-  // engajamento deve começar em faixa moderada e variar a quantidade diária.
+  // Risco/algoritmo: resposta determinística conservadora, sem inventar
+  // faixa diária, velocidade ou quantidade que não esteja na autoridade carregada.
   const spotifySafetyQuestion =
     /\b(spotify|plays?|ouvintes?|impulsionamento|musica)\b/i.test(message) &&
     /\b(prejudic|risco|segur|penal|ban|consequ|receio|insegur)\b/i.test(message);
-  const recentSpotifyPurchase = history
-    .filter((m) => m.role === "customer")
-    .slice(-12)
-    .some((m) => /\b(spotify|plays?|ouvintes?|comprei|paguei|feito)\b/i.test(m.content));
 
-  if (spotifySafetyQuestion && (recentSpotifyPurchase || selectionContext.platform === "spotify")) {
+  if (spotifySafetyQuestion && selectionContext.platform === "spotify") {
     finalContent =
-      "Entendo seu receio. Não é correto garantir risco zero. Se a conta for nova ou ainda tiver pouco engajamento, a orientação é começar de forma gradual, entre 500 e 650 plays por dia, variando a quantidade — por exemplo, 500 em um dia, 520 em outro e 600 em outro — em vez de repetir volumes altos. A ideia do serviço é estimular o alcance de forma gradual, mas isso não é garantia de resultado do algoritmo. Evite abusar do volume ou fazer aumentos bruscos.";
+      "Não é correto garantir risco zero, ausência de penalização ou resultado do algoritmo. Posso te passar somente as condições do serviço que estão confirmadas no catálogo.";
   }
 
-  // Guard adicional: fora da resposta determinística acima, nunca deixe passar
-  // garantia absoluta de segurança/algoritmo em contexto Spotify.
+  // Fora da resposta acima, nunca deixe passar promessa absoluta de segurança,
+  // alcance ou algoritmo. O guard não cria uma recomendação comercial nova.
   if (
     /\b(spotify|plays?|ouvintes?|impulsionamento)\b/i.test(message) &&
-    /\b(n[aã]o prejudica nada|n[aã]o prejudica|risco zero|sem risco|n[aã]o penaliza|vai aumentar o alcance|dar mais credibilidade|algoritmo.*(?:vai|garant))\b/i.test(finalContent)
+    /\b(n[aã]o prejudica nada|n[aã]o prejudica|risco zero|sem risco|n[aã]o penaliza|vai aumentar o alcance|dar mais credibilidade|algoritmo.*(?:vai|garant|ativa|impulsiona))\b/i.test(finalContent)
   ) {
+    console.error("[AGENT-V3-AUTHORITY] Promessa absoluta de risco/algoritmo bloqueada", { response: finalContent });
     finalContent =
-      "Não consigo garantir risco zero nem resultado do algoritmo. Para conta nova ou com pouco engajamento, a orientação é trabalhar gradualmente entre 500 e 650 plays por dia, variando a quantidade e evitando aumentos bruscos.";
+      "Não é correto garantir risco zero, ausência de penalização ou resultado do algoritmo. Posso te passar somente as condições do serviço que estão confirmadas no catálogo.";
   }
 
   // Guard operacional do cadastro: mesmo que o modelo ignore o prompt, nunca pode
@@ -2296,28 +2292,80 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       .trim();
   }
 
-  // COMMERCIAL GUARD (fase 1 — detecção, sem correção automática ainda):
-  // Extrai todo valor "R$ X" mencionado na resposta e confere se existe
-  // literalmente no texto dos módulos carregados. Isso não pega proporções
-  // calculadas corretamente (ex: "500 = R$7,50" a partir de "1000 = R$15"),
-  // só serve pra sinalizar quando a IA citou um valor que não vem de
-  // nenhuma fonte carregada — provável alucinação.
+  // COMMERCIAL GUARD — FAIL CLOSED:
+  // Todo preço que sair para o cliente precisa existir literalmente na autoridade
+  // comercial carregada. Não aceitamos proporção inferida (ex.: 1000=R$15 ->
+  // 500=R$7,50), porque isso cria tier/quantidade que o catálogo não autorizou.
   {
     const priceRegex = /R\$\s?\d{1,3}(?:\.\d{3})*(?:,\d{2})?/g;
     const pricesInResponse = [...finalContent.matchAll(priceRegex)].map((m) => m[0]);
     if (pricesInResponse.length > 0) {
-      const normalizeSpacing = (s: string) => s.replace(/\s+/g, "");
-      const moduleTextNormalized = normalizeSpacing(String(modulePrompt || ""));
+      const normalizeCommercialLiteral = (s: string) =>
+        s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, "");
+      const authorityText = effectiveSelectedKeys
+        .map((key) => mergedModulesMap[key]?.content || "")
+        .join("\n");
+      const authorityNormalized = normalizeCommercialLiteral(authorityText);
       const suspiciousPrices = pricesInResponse.filter(
-        (p) => !moduleTextNormalized.includes(normalizeSpacing(p)),
+        (p) => !authorityNormalized.includes(normalizeCommercialLiteral(p)),
       );
       if (suspiciousPrices.length > 0) {
-        console.warn("[COMMERCIAL-GUARD] Preço(s) mencionado(s) na resposta NÃO encontrado(s) literalmente nos módulos carregados — possível alucinação (pode ser proporção calculada corretamente, revisar manualmente):", {
+        console.error("[COMMERCIAL-GUARD] Preço sem autoridade literal bloqueado", {
           suspiciousPrices,
           allPricesInResponse: pricesInResponse,
+          selected: effectiveSelectedKeys,
           responsePreview: finalContent.slice(0, 200),
         });
+        finalContent =
+          "Preciso confirmar o valor exato desse serviço no catálogo antes de te passar um preço.";
       }
+    }
+  }
+
+  // AUTORIDADE DE PERMANÊNCIA / SKU / ALGORITMO:
+  // "vitalício" não autoriza expandir para "nunca cai", "nunca some" ou
+  // "reposição para sempre". Também não permitimos decompor um SKU combinado
+  // nem prometer ativação/impulso algorítmico sem fonte literal selecionada.
+  {
+    const authorityText = effectiveSelectedKeys
+      .map((key) => mergedModulesMap[key]?.content || "")
+      .join("\n")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    const normalizedResponse = finalContent
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+    const absolutePermanenceClaim =
+      /\b(nunca (?:cai|some|desaparece)|nao (?:cai|some|desaparece) nunca|reposi(?:cao|ções) para sempre|refill (?:para sempre|eterno))\b/.test(normalizedResponse);
+    const authoritySupportsAbsolutePermanence =
+      /\b(nunca (?:cai|some|desaparece)|reposi(?:cao|coes) para sempre|refill (?:para sempre|eterno))\b/.test(authorityText);
+
+    const decomposesCombinedSpotifySku =
+      selectionContext.platform === "spotify" &&
+      /plays\s*\+\s*ouvintes/.test(authorityText) &&
+      /\b(?:so|somente|apenas) (?:plays|ouvintes)\b/.test(normalizedResponse) &&
+      !/\b(?:so|somente|apenas) (?:plays|ouvintes)\b/.test(authorityText);
+
+    const algorithmPromise =
+      /\b(?:ativa|ativar|impulsiona|impulsionar|garante|garantir|faz o) (?:o )?algoritmo\b|\balgoritmo[^.!?]{0,40}\b(?:ativa|impulsiona|garante|vai entregar)\b/.test(normalizedResponse);
+    const authoritySupportsAlgorithmPromise =
+      /\b(?:ativa|ativar|impulsiona|impulsionar|garante|garantir|faz o) (?:o )?algoritmo\b|\balgoritmo[^.!?]{0,40}\b(?:ativa|impulsiona|garante|vai entregar)\b/.test(authorityText);
+
+    if (absolutePermanenceClaim && !authoritySupportsAbsolutePermanence) {
+      console.error("[AGENT-V3-AUTHORITY] Expansão absoluta de permanência bloqueada", { response: finalContent });
+      finalContent =
+        "Posso afirmar somente a condição de garantia ou permanência que estiver escrita no serviço do catálogo, sem prometer que métricas nunca cairão ou desaparecerão.";
+    } else if (decomposesCombinedSpotifySku) {
+      console.error("[AGENT-V3-AUTHORITY] Decomposição de SKU combinado bloqueada", { response: finalContent });
+      finalContent =
+        "No catálogo carregado, esse serviço aparece como Plays + Ouvintes. Não vou separar em opções que não estejam cadastradas.";
+    } else if (algorithmPromise && !authoritySupportsAlgorithmPromise) {
+      console.error("[AGENT-V3-AUTHORITY] Promessa de algoritmo sem autoridade bloqueada", { response: finalContent });
+      finalContent =
+        "Não posso garantir ativação, impulso ou resultado do algoritmo. Posso explicar apenas o que o serviço entrega conforme o catálogo.";
     }
   }
 
