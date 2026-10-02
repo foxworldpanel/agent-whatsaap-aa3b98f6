@@ -285,10 +285,21 @@ export function orderContextSummaryV3(ctx: OrderContext): string {
   if (ctx.link) known.push(`link: ${ctx.link}`);
   if (ctx.paymentStatus !== "nao_iniciado") known.push(`pagamento: ${ctx.paymentStatus}`);
 
-  return [
+  const lines = [
+    "[CONTEXTO DETERMINÍSTICO DO PEDIDO — fatos persistidos]",
     known.length > 0 ? `Já sabemos: ${known.join(", ")}.` : "Nada conhecido ainda sobre o pedido.",
     ctx.missingFields.length > 0 ? `Falta: ${ctx.missingFields.join(", ")}.` : "Todos os campos essenciais preenchidos.",
-  ].join(" ");
+  ];
+
+  if (ctx.paymentStatus === "confirmado_pelo_cliente") {
+    lines.push(
+      "PAGAMENTO/COMPRA JÁ CONFIRMADO PELO CLIENTE: trate como pós-venda.",
+      "Não volte a qualificar nem pergunte novamente plataforma, serviço ou quantidade que já estejam preenchidos acima.",
+      "Responda primeiro à dúvida atual do cliente. Só peça um dado novamente se ele estiver realmente ausente e for indispensável para resolver essa dúvida.",
+    );
+  }
+
+  return lines.join("\n");
 }
 
 // ============================================================
