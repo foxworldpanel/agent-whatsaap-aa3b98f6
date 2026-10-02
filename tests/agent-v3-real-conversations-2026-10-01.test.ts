@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../src/lib/agent-v3/brain/business-state.server";
+import { applyBusinessDecisionToIntelligence } from "../src/lib/agent-v3/core/intelligence-utils.server";
+import { derivePersistentContactTemperatureV3 } from "../src/lib/agent-v3/memory/contact-temperature.server";
 
 describe("real conversations batch 2026-09-29/30", () => {
   it("generic payment vocabulary does not mean operational payment", () => {
@@ -53,6 +55,47 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(source).toContain("Promessa de algoritmo sem autoridade bloqueada");
     expect(source).not.toContain("entre 500 e 650 plays por dia");
     expect(source).not.toContain("pode ser proporção calculada corretamente");
+  });
+
+  it("current financial/temporal deferral lowers stale closing intelligence", () => {
+    const result = applyBusinessDecisionToIntelligence({
+      state: "adiado",
+      currentProb: 95,
+    });
+    expect(result.purchase_probability).toBe(39);
+    expect(result.temperature).toBe("frio");
+  });
+
+  it("confirmed purchase promotes persistent CRM temperature to cliente", () => {
+    expect(derivePersistentContactTemperatureV3({
+      current: "quente",
+      businessState: "pedido_realizado",
+      purchaseProbability: 100,
+    })).toBe("cliente");
+
+    expect(derivePersistentContactTemperatureV3({
+      current: "quente",
+      businessState: "pos_venda",
+      purchaseProbability: 65,
+    })).toBe("cliente");
+  });
+
+  it("cliente is monotonic even when a later commercial turn looks colder", () => {
+    expect(derivePersistentContactTemperatureV3({
+      current: "cliente",
+      businessState: "descoberta",
+      purchaseProbability: 20,
+      intelligenceTemperature: "frio",
+    })).toBe("cliente");
+  });
+
+  it("price research alone stays orçamento instead of payment", () => {
+    const d = deriveBusinessDecisionV3({
+      message: "Quanto custa por música e quais formas de pagamento vocês aceitam?",
+      recentCustomerMessages: [],
+      customerLifecycle: "lead",
+    });
+    expect(d.state).toBe("orcamento");
   });
 
   it("locks commercial authority rules into P1", () => {
