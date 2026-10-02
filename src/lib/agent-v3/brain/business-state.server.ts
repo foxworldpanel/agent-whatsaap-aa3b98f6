@@ -221,7 +221,7 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
   const socialAckAfterDeferral =
     previous.state === "adiado" &&
     (
-      /^(?:ok|certo|beleza|blz|entendi|obrigad[oa]|valeu|show|perfeito|👍|🙏|😄|😊)[!. ]*$/i.test(message) ||
+      /^(?:(?:mas )?agradeco|ok|certo|beleza|blz|entendi|obrigad[oa]|valeu|show|perfeito|👍|🙏|😄|😊)[!. ]*$/i.test(message) ||
       /^\[(?:figurinha|sticker) recebid[ao]\]$/i.test(message)
     );
   if (socialAckAfterDeferral) {
