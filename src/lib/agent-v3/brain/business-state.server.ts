@@ -118,7 +118,7 @@ export function deriveBusinessDecisionV3(params: {
 
   if (/\b(deixa pra la|deixa para la|desisti|nao quero mais|vou deixar pra outra hora|vou deixar para outra hora)\b/.test(current)) return { state: "abandono", risk: paymentTopic ? "alto" : "atencao", reason: "cliente interrompeu o avanço da compra", nextAction: "encerrar sem pressionar e registrar abandono/adiamento", allowQualification: false, shouldHandoff: false };
   const explicitDeferralNow =
-    /\b(mais tarde|depois eu volto|depois das \d|apos as \d|amanha|agora nao posso|estou trabalhando|vou ver depois|vou ver ate amanha|vou ver quanto|vou olhar (?:aqui )?(?:direitinho|com calma)|vou ler e assistir|estamos? estudando(?: ainda)?|ainda estamos? estudando|ver quanto vai me sobrar|quando cair (?:o )?(?:dinheiro|pagamento)|quando receber|semana que vem|mais pra frente|mais para frente|assim que (?:subir|publicar|postar|lancar)[^.!?]{0,80}(?:falo|chamo|aviso)|quando (?:subir|publicar|postar|lancar)[^.!?]{0,80}(?:falo|chamo|aviso)|(?:eu )?(?:te|vos|vcs?) falo|(?:eu )?chamo (?:voces|vcs?)|continuamos? (?:hoje )?(?:depois|apos) (?:as )?\d)\b/.test(current);
+    /\b(mais tarde|depois eu volto|depois das \d|apos as \d|amanha|agora nao posso|estou trabalhando|vou ver depois|vou ver ate amanha|vou ver quanto|vou olhar (?:aqui )?(?:direitinho|com calma)|vou ler e assistir|estamos? estudando(?: ainda)?|ainda estamos? estudando|ver quanto vai me sobrar|quando cair (?:o )?(?:dinheiro|pagamento)|quando receber|semana que vem|mais pra frente|mais para frente|assim que (?:subir|publicar|postar|lancar)[^.!?]{0,80}(?:falo|chamo|aviso)|quando (?:subir|publicar|postar|lancar)[^.!?]{0,80}(?:falo|chamo|aviso)|(?:eu )?(?:te|vos|vcs?) falo|(?:eu )?chamo (?:voces|vcs?)|continu(?:amos|ar|a) (?:hoje )?(?:depois|apos) (?:as )?\d)\b/.test(current);
   if (explicitDeferralNow) return {
     state: "adiado",
     risk: "normal",
@@ -213,7 +213,7 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
       waitingCustomer: false,
     };
   }
-  const explicitDeferral = current.state === "adiado" || /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|vou ver ate amanha|vou ver quanto|vou olhar (?:aqui )?(?:direitinho|com calma)|vou ler e assistir|estamos? estudando(?: ainda)?|ver quanto vai me sobrar|quando cair (?:o )?(?:dinheiro|pagamento)|quando receber|semana que vem|assim que (?:subir|publicar|postar|lancar)|(?:eu )?(?:te|vos|vcs?) falo|continuamos? (?:hoje )?(?:depois|apos)|deixa pra la|desisti)\b/.test(message);
+  const explicitDeferral = current.state === "adiado" || /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|vou ver ate amanha|vou ver quanto|vou olhar (?:aqui )?(?:direitinho|com calma)|vou ler e assistir|estamos? estudando(?: ainda)?|ver quanto vai me sobrar|quando cair (?:o )?(?:dinheiro|pagamento)|quando receber|semana que vem|assim que (?:subir|publicar|postar|lancar)|(?:eu )?(?:te|vos|vcs?) falo|continu(?:amos|ar|a) (?:hoje )?(?:depois|apos)|deixa pra la|desisti)\b/.test(message);
   if (explicitNewPurchase || explicitPostSaleIncident || explicitDeferral) return current;
 
   // Adiamento é um estado operacional: agradecimento, confirmação curta, emoji
