@@ -197,6 +197,8 @@ describe("real conversations batch 2026-09-29/30", () => {
     });
     expect(d.state).toBe("adiado");
     expect(d.allowQualification).toBe(false);
+    expect(deriveBusinessDecisionV3({ message: "Continuamos hoje após as 9 horas" }).state).toBe("adiado");
+    expect(deriveBusinessDecisionV3({ message: "Continuamos hoje após as 19 horas" }).state).toBe("adiado");
     expect(applyBusinessDecisionToIntelligence({ state: d.state, currentProb: 80 })).toMatchObject({
       temperature: "frio",
       purchase_probability: 39,
