@@ -25,7 +25,7 @@ import { extractLastConfirmedPriceV3 } from "./memory/last-confirmed-price.serve
 import { removeBannedClosingPhrasesV3 } from "./prompt/banned-phrases-filter.server";
 import type { BusinessDecisionV3 } from "./brain/business-state.server";
 import { businessDecisionToPromptV3 } from "./brain/business-state.server";
-import { loadOrderContextV3, deriveOrderContextV3, saveOrderContextV3 } from "./memory/order-context.server";
+import { loadOrderContextV3, deriveOrderContextV3, saveOrderContextV3, orderContextSummaryV3 } from "./memory/order-context.server";
 import { normalizeConversationFactsV3, conversationFactsPromptV3 } from "./memory/conversation-facts.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 import { P0_TEXT } from "./prompt/prompt-p0.server";
@@ -725,6 +725,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
   }
 
   const deterministicFactsPrompt = conversationFactsPromptV3(updatedOrderContext as any);
+  const deterministicOrderContextPrompt = orderContextSummaryV3(updatedOrderContext);
 
 
 
@@ -1130,6 +1131,7 @@ ${buildP2Text({ isAudioInput, isImageInput, isStickerInput, greetingAlreadyPerfo
       type: "text",
       text: `
 ${deterministicFactsPrompt}
+${deterministicOrderContextPrompt}
 ${(() => {
   // Fato calculado por código (não por IA), a cada turno — não depende
   // do modelo "lembrar direito" relendo o histórico inteiro. Achado em
@@ -1392,11 +1394,10 @@ ${extraContext}`
     // já que não chegam separados nesta função.
     const extraContextChars = (extraContext || "").length;
 
-    // conversationFacts e orderContext ainda NÃO são injetados no prompt
-    // hoje (confirmado: não aparecem em nenhum lugar do system prompt
-    // atual) — ficam com 0 tokens, de propósito, refletindo a realidade.
-    const conversationFactsChars = 0;
-    const orderContextChars = 0;
+    // OrderContext agora entra no prompt como memória determinística do pedido.
+    // ConversationFacts permanece contabilizado separadamente.
+    const conversationFactsChars = deterministicFactsPrompt.length;
+    const orderContextChars = deterministicOrderContextPrompt.length;
 
     const modulePromptChars = (finalModulePrompt || "").length;
     const systemPromptFullChars = JSON.stringify(systemPrompt).length;
@@ -1436,9 +1437,9 @@ ${toTokenEstimate(modulePromptChars)} tokens (estimado, ${modulePromptChars} cha
 Business (businessDecision + customerMemory):
 ${toTokenEstimate(extraContextChars)} tokens (estimado, ${extraContextChars} chars) [businessDecision sozinho: ${toTokenEstimate(businessDecisionChars)} tokens]
 Order Context:
-${toTokenEstimate(orderContextChars)} tokens (ainda não injetado no prompt)
+${toTokenEstimate(orderContextChars)} tokens (injetado no prompt)
 Conversation Facts:
-${toTokenEstimate(conversationFactsChars)} tokens (ainda não injetado no prompt)
+${toTokenEstimate(conversationFactsChars)} tokens (injetado no prompt)
 User:
 ${toTokenEstimate(userMessageChars)} tokens (estimado, ${userMessageChars} chars)
 -------------------------
