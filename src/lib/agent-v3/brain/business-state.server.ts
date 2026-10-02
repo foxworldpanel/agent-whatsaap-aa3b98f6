@@ -117,7 +117,17 @@ export function deriveBusinessDecisionV3(params: {
   if (!resolution && paymentTopic && currentProblem) return { state: "compra_bloqueada", risk: "alto", reason: "cliente tentando comprar com problema técnico", nextAction: "dar uma única orientação simples; se persistir, encaminhar", allowQualification: false, shouldHandoff: false };
 
   if (/\b(deixa pra la|deixa para la|desisti|nao quero mais|vou deixar pra outra hora|vou deixar para outra hora)\b/.test(current)) return { state: "abandono", risk: paymentTopic ? "alto" : "atencao", reason: "cliente interrompeu o avanço da compra", nextAction: "encerrar sem pressionar e registrar abandono/adiamento", allowQualification: false, shouldHandoff: false };
-  if (/\b(mais tarde|depois eu volto|depois das \d|amanha|agora nao posso|estou trabalhando|vou ver depois|vou ver quanto|ver quanto vai me sobrar|quando cair (?:o )?(?:dinheiro|pagamento)|quando receber|semana que vem|mais pra frente|mais para frente)\b/.test(current)) return { state: "adiado", risk: "normal", reason: "cliente pediu para continuar depois ou sinalizou bloqueador financeiro temporal", nextAction: "responder curto e não fazer nova pergunta comercial", allowQualification: false, shouldHandoff: false };
+  const explicitDeferralNow =
+    /\b(mais tarde|depois eu volto|depois das \d|apos as \d|amanha|agora nao posso|estou trabalhando|vou ver depois|vou ver ate amanha|vou ver quanto|vou olhar (?:aqui )?(?:direitinho|com calma)|vou ler e assistir|estamos? estudando(?: ainda)?|ainda estamos? estudando|ver quanto vai me sobrar|quando cair (?:o )?(?:dinheiro|pagamento)|quando receber|semana que vem|mais pra frente|mais para frente|assim que (?:subir|publicar|postar|lancar)[^.!?]{0,80}(?:falo|chamo|aviso)|quando (?:subir|publicar|postar|lancar)[^.!?]{0,80}(?:falo|chamo|aviso)|(?:eu )?(?:te|vos|vcs?) falo|(?:eu )?chamo (?:voces|vcs?)|continuamos? (?:hoje )?(?:depois|apos) (?:as )?\d)\b/.test(current);
+  if (explicitDeferralNow) return {
+    state: "adiado",
+    risk: "normal",
+    reason: "cliente pediu para continuar depois, estudar/organizar antes ou definiu que retomará por conta própria",
+    nextAction: "reconhecer o adiamento em uma frase curta e completa; não fazer nova pergunta, oferta, cobrança ou qualificação",
+    allowQualification: false,
+    shouldHandoff: false,
+    waitingCustomer: true,
+  };
 
   if (/\b(ja comprei|ja paguei|comprei ontem|comprei hoje|comprei|paguei|fiz o pedido|pedido feito|pedido realizado|pedido confirmado|pagamento feito|pagamento realizado)\b/.test(current)) return { state: "pedido_realizado", risk: "normal", reason: "cliente confirmou compra/pedido", nextAction: "entrar em pós-venda e responder apenas a dúvida atual", allowQualification: false, shouldHandoff: false };
 
@@ -203,8 +213,26 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
       waitingCustomer: false,
     };
   }
-  const explicitDeferral = /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|vou ver quanto|ver quanto vai me sobrar|quando cair (?:o )?(?:dinheiro|pagamento)|quando receber|semana que vem|deixa pra la|desisti)\b/.test(message);
+  const explicitDeferral = current.state === "adiado" || /\b(mais tarde|depois eu volto|amanha|agora nao posso|vou ver depois|vou ver ate amanha|vou ver quanto|vou olhar (?:aqui )?(?:direitinho|com calma)|vou ler e assistir|estamos? estudando(?: ainda)?|ver quanto vai me sobrar|quando cair (?:o )?(?:dinheiro|pagamento)|quando receber|semana que vem|assim que (?:subir|publicar|postar|lancar)|(?:eu )?(?:te|vos|vcs?) falo|continuamos? (?:hoje )?(?:depois|apos)|deixa pra la|desisti)\b/.test(message);
   if (explicitNewPurchase || explicitPostSaleIncident || explicitDeferral) return current;
+
+  // Adiamento é um estado operacional: agradecimento, confirmação curta, emoji
+  // ou figurinha depois dele não reabre descoberta/qualificação.
+  const socialAckAfterDeferral =
+    previous.state === "adiado" &&
+    (
+      /^(?:ok|certo|beleza|blz|entendi|obrigad[oa]|valeu|show|perfeito|👍|🙏|😄|😊)[!. ]*$/i.test(message) ||
+      /^\[(?:figurinha|sticker) recebid[ao]\]$/i.test(message)
+    );
+  if (socialAckAfterDeferral) {
+    return {
+      ...previous,
+      reason: "adiamento preservado após confirmação social do cliente",
+      nextAction: "responder socialmente apenas se necessário e não reabrir a condução comercial",
+      allowQualification: false,
+      waitingCustomer: true,
+    };
+  }
 
   const salesRank: Partial<Record<BusinessStateV3, number>> = { novo_lead: 0, descoberta: 1, orcamento: 2, fechamento: 3, pagamento: 4, pedido_realizado: 5, pos_venda: 6 };
   const previousRank = salesRank[previous.state];
