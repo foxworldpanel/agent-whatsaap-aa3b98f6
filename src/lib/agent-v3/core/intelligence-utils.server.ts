@@ -80,6 +80,14 @@ export function applyBusinessDecisionToIntelligence(params: {
       prob = Math.min(prob, 20);
       temperature = "frio";
       break;
+    case "adiado":
+      // Evidência temporal/financeira atual vence sinais comerciais antigos.
+      // "Amanhã", "semana que vem", "quando cair o dinheiro" etc. não podem
+      // continuar aparecendo como 85–95% / Quente só porque o cliente já
+      // escolheu produto, quantidade ou chegou perto do pagamento.
+      prob = Math.min(prob, 39);
+      temperature = "frio";
+      break;
     case "abandono":
       prob = Math.min(prob, 35);
       temperature = "frio";
