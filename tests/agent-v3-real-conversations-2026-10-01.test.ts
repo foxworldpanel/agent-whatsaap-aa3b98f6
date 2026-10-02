@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../src/lib/agent-v3/brain/business-state.server";
 import { applyBusinessDecisionToIntelligence } from "../src/lib/agent-v3/core/intelligence-utils.server";
 import { derivePersistentContactTemperatureV3 } from "../src/lib/agent-v3/memory/contact-temperature.server";
+import { deriveOrderContextV3, EMPTY_ORDER_CONTEXT, orderContextSummaryV3 } from "../src/lib/agent-v3/memory/order-context.server";
 
 describe("real conversations batch 2026-09-29/30", () => {
   it("generic payment vocabulary does not mean operational payment", () => {
@@ -118,6 +119,45 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(d.state).toBe("descoberta");
     expect(d.reason).toContain("confusao");
     expect(d.nextAction).toContain("conteudo ja publicado");
+  });
+
+  it("persists confirmed purchase facts and exposes them as post-sale generation context", () => {
+    const beforePayment = deriveOrderContextV3(
+      "Quero 1000 plays no Spotify",
+      [],
+      EMPTY_ORDER_CONTEXT,
+    );
+    const paid = deriveOrderContextV3(
+      "Pagamento feito",
+      [],
+      beforePayment,
+    );
+    const laterTurn = deriveOrderContextV3(
+      "Que painel como assim?",
+      [],
+      paid,
+    );
+
+    expect(paid.paymentStatus).toBe("confirmado_pelo_cliente");
+    expect(laterTurn.paymentStatus).toBe("confirmado_pelo_cliente");
+    expect(laterTurn.platform).toBe(beforePayment.platform);
+    expect(laterTurn.service).toBe(beforePayment.service);
+    expect(laterTurn.quantity).toBe(1000);
+
+    const prompt = orderContextSummaryV3(laterTurn);
+    expect(prompt).toContain("trate como pós-venda");
+    expect(prompt).toContain("Não volte a qualificar");
+    expect(prompt).toContain("quantidade: 1000");
+  });
+
+  it("injects deterministic order context into the generation prompt", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"),
+      "utf8",
+    );
+    expect(source).toContain("orderContextSummaryV3(updatedOrderContext)");
+    expect(source).toContain("${deterministicOrderContextPrompt}");
+    expect(source).toContain("OrderContext agora entra no prompt");
   });
 
   it("locks commercial authority rules into P1", () => {
