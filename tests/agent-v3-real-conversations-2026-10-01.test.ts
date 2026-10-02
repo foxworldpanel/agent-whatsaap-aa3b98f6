@@ -45,6 +45,16 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(result.state).toBe("descoberta");
   });
 
+  it("fails closed on unsupported commercial claims in runtime", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
+    expect(source).toContain("Preço sem autoridade literal bloqueado");
+    expect(source).toContain("Expansão absoluta de permanência bloqueada");
+    expect(source).toContain("Decomposição de SKU combinado bloqueada");
+    expect(source).toContain("Promessa de algoritmo sem autoridade bloqueada");
+    expect(source).not.toContain("entre 500 e 650 plays por dia");
+    expect(source).not.toContain("pode ser proporção calculada corretamente");
+  });
+
   it("locks commercial authority rules into P1", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
