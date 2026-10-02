@@ -121,6 +121,32 @@ export function deriveBusinessDecisionV3(params: {
 
   if (/\b(ja comprei|ja paguei|comprei ontem|comprei hoje|comprei|paguei|fiz o pedido|pedido feito|pedido realizado|pedido confirmado|pagamento feito|pagamento realizado)\b/.test(current)) return { state: "pedido_realizado", risk: "normal", reason: "cliente confirmou compra/pedido", nextAction: "entrar em pós-venda e responder apenas a dúvida atual", allowQualification: false, shouldHandoff: false };
 
+  const contentNotPublishedYet =
+    /\b(ainda nao (?:lancei|publiquei|postei|distribui)|nao (?:lancei|publiquei|postei|distribui) ainda|musica(?:s)? ainda nao (?:esta|estao|saiu|sairam)|nao tenho (?:musica|video|conteudo) publicad)\b/.test(context);
+  if (contentNotPublishedYet) {
+    return {
+      state: "descoberta",
+      risk: "normal",
+      reason: "conteudo ainda nao publicado para impulsionamento",
+      nextAction: "explicar que o servico impulsiona conteudo ja publicado e pedir o link somente quando estiver disponivel; nao conduzir a pagamento agora",
+      allowQualification: false,
+      shouldHandoff: false,
+    };
+  }
+
+  const distributionConfusion =
+    /\b(?:manda(?:r)?|envia(?:r)?) (?:a )?musica\b|\bonde mando (?:a )?musica\b|\bvoces (?:postam|publicam|lancam|distribuem) (?:a )?musica\b/.test(current);
+  if (distributionConfusion) {
+    return {
+      state: "descoberta",
+      risk: "normal",
+      reason: "possivel confusao entre impulsionamento e publicacao/distribuicao",
+      nextAction: "esclarecer antes de cobrar que o servico impulsiona conteudo ja publicado e precisa do link; nao tratar envio do arquivo como etapa de compra",
+      allowQualification: false,
+      shouldHandoff: false,
+    };
+  }
+
   if (/\b(pedido|nao chegou|caiu|reposicao|garantia|demora|quanto tempo|concluido|processando)\b/.test(current) && isExistingCustomer(params.customerLifecycle)) {
     return { state: "pos_venda", risk: currentProblem ? "atencao" : "normal", reason: "cliente existente tratando de pedido/entrega", nextAction: "se houver problema de pedido/pagamento, direcionar ao ticket de SUPORTE sem investigar; caso contrário, responder só a dúvida atual", allowQualification: false, shouldHandoff: false };
   }
