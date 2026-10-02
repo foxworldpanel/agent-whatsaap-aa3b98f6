@@ -98,6 +98,28 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(d.state).toBe("orcamento");
   });
 
+  it("does not advance unpublished content to payment even when price/payment is discussed", () => {
+    const d = deriveBusinessDecisionV3({
+      message: "Ainda não lancei minhas músicas no Spotify. Quanto custa e como é o pagamento?",
+      recentCustomerMessages: [],
+      customerLifecycle: "lead",
+    });
+    expect(d.state).toBe("descoberta");
+    expect(d.allowQualification).toBe(false);
+    expect(d.nextAction).toContain("conteudo ja publicado");
+  });
+
+  it("resolves distribution confusion before an operational payment request", () => {
+    const d = deriveBusinessDecisionV3({
+      message: "Manda o Pix aí que eu vou mandar a música para vocês",
+      recentCustomerMessages: [],
+      customerLifecycle: "lead",
+    });
+    expect(d.state).toBe("descoberta");
+    expect(d.reason).toContain("confusao");
+    expect(d.nextAction).toContain("conteudo ja publicado");
+  });
+
   it("locks commercial authority rules into P1", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
