@@ -106,6 +106,18 @@ export function deriveBusinessDecisionV3(params: {
   const paymentTopic = /\b(cadastro|cadastrar|pix|pagamento|recarga|saldo|finalizar|pedido|comprar)\b/.test(context);
   const asksPanelLink = /\b(site|link|painel|cadastro|cadastrar|criar conta|acessar|acesso)\b/.test(current) && /\b(site|link|painel|cadastro|cadastrar|criar conta|acessar|acesso|manda|mande|passa|envia)\b/.test(current);
   if (asksPanelLink) return { state: "fechamento", risk: "normal", reason: "cliente pediu acesso/link do painel", nextAction: "enviar o link oficial do painel imediatamente, sem nova qualificação antes do link", allowQualification: false, shouldHandoff: false };
+  // Continuidade depois de link/site/painel: "vou entrar agora" significa que o cliente
+  // vai acessar o que acabou de receber. Não é um convite para reabrir qualificação.
+  const accessingNow = /\b(vou (?:entrar|acessar|abrir|olhar|ver)(?: (?:no|na|o|a))?(?: site| painel| link)? agora|estou entrando agora|to entrando agora|vou dar uma olhada agora)\b/.test(current);
+  if (accessingNow) return {
+    state: "fechamento",
+    risk: "normal",
+    reason: "cliente informou que vai acessar agora o site/painel/link já apresentado",
+    nextAction: "reconhecer em uma frase social curta e aguardar; não perguntar plataforma, produto, quantidade ou reabrir qualificação",
+    allowQualification: false,
+    shouldHandoff: false,
+    waitingCustomer: true,
+  };
   const saysUsedBefore = /\b(ja usei|ja utilizei|usei antes|utilizei antes|ja fui cliente|sou cliente|ja conheco o sistema|ja conheco a plataforma)\b/.test(current);
   if (saysUsedBefore) return { state: "descoberta", risk: "normal", reason: "cliente informou que já utilizou o sistema", nextAction: "reconhecer como cliente anterior e perguntar somente o que deseja impulsionar agora", allowQualification: true, shouldHandoff: false };
   const currentProblem = /\b(nao funciona|nao abre|nao aparece|nao completa|nao consigo|nao avanca|nao finaliza|erro|trav|muito complicado|volta|alto risco|transacao de alto risco)\b/.test(current);
