@@ -96,38 +96,47 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
     customerMemoryContext = memoryModule.customerMemoryPromptContext(customerMemory);
   }
 
-      const { data: integ, error: integErr } = await supabaseAdmin
-        .from("integrations")
-        .select("anthropic_api_key, openai_api_key, elevenlabs_api_key, elevenlabs_voice_id")
-        .eq("user_id", num.user_id)
-        .eq("workspace_id", workspaceId)
-        .maybeSingle();
+      let aiCredentials;
+      try {
+        const { resolveAgentAiCredentialsV3 } = await import(
+          "@/lib/agent-v3/integrations/ai-credentials.server"
+        );
 
-      if (integErr) {
+        aiCredentials = await resolveAgentAiCredentialsV3({
+          supabaseAdmin,
+          userId: num.user_id,
+          workspaceId,
+        });
+      } catch (integErr) {
         console.error("[UAZ-WEBHOOK] Failed to load AI integrations:", integErr);
+
         if (conversationId) {
           await supabaseAdmin
             .from("conversations")
             .update({
               needs_review: true,
-              review_reason: "falha ao carregar integraÃ§Ãµes de IA",
+              review_reason: "falha ao carregar integrações de IA",
             })
             .eq("id", conversationId)
             .then(({ error }: { error: any }) => {
-              if (error) console.error("[UAZ-WEBHOOK] Failed to flag integration error for review:", error);
+              if (error) {
+                console.error(
+                  "[UAZ-WEBHOOK] Failed to flag integration error for review:",
+                  error,
+                );
+              }
             });
         }
+
         return runtimeTerminal("ai_integrations_unavailable");
       }
 
-      const anthropicApiKey =
-        integ?.anthropic_api_key?.trim() || process.env.ANTHROPIC_API_KEY?.trim() || "";
-      const openaiApiKey =
-        integ?.openai_api_key?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
-      const elevenlabsApiKey =
-        integ?.elevenlabs_api_key?.trim() || process.env.ELEVENLABS_API_KEY?.trim() || "";
-      const elevenlabsVoiceId =
-        integ?.elevenlabs_voice_id?.trim() || process.env.ELEVENLABS_VOICE_ID?.trim() || "";
+      const {
+        anthropicApiKey,
+        openaiApiKey,
+        elevenlabsApiKey,
+        elevenlabsVoiceId,
+      } = aiCredentials;
 
       const creds = { uazapi_url: num.uazapi_url ?? "", uazapi_token: instanceToken };
 

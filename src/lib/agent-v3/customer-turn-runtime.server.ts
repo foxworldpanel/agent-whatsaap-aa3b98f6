@@ -38,10 +38,19 @@ export async function buildCustomerTurnRuntimeInput(supabaseAdmin: any, turnId: 
   }
   const context = contextByJobId.get(last.job_id)!;
   const deferredFunnelMessage = members.filter((member) => member.deferred_funnel).map((member) => member.input_text.trim()).filter(Boolean).join("\n") || null;
-  const { data: integration, error: integrationError } = await supabaseAdmin.from("integrations").select("openai_api_key, anthropic_api_key").eq("user_id", context.userId).eq("workspace_id", context.workspaceId).maybeSingle();
-  if (integrationError) throw integrationError;
-  const openaiApiKey = integration?.openai_api_key?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
-  const anthropicApiKey = integration?.anthropic_api_key?.trim() || process.env.ANTHROPIC_API_KEY?.trim() || "";
+  const { resolveAgentAiCredentialsV3 } = await import(
+    "./integrations/ai-credentials.server"
+  );
+
+  const {
+    openaiApiKey,
+    anthropicApiKey,
+  } = await resolveAgentAiCredentialsV3({
+    supabaseAdmin,
+    userId: context.userId,
+    workspaceId: context.workspaceId,
+  });
+
   const resolved: string[] = [];
   for (const member of members) {
     const memberContext = contextByJobId.get(member.job_id)!;

@@ -209,12 +209,20 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       rememberedContext: simulatedRememberedContext,
     });
 
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { resolveAgentAiCredentialsV3 } = await import("../integrations/ai-credentials.server");
+    const aiCredentials = await resolveAgentAiCredentialsV3({
+      supabaseAdmin,
+      userId,
+      workspaceId,
+    });
+
     const { executeAgent } = await import("../core/execute-agent.server");
     const execResult = await executeAgent({
       message: effectiveMessage,
       userId,
       history,
-      anthropicApiKey: process.env.ANTHROPIC_API_KEY || "",
+      anthropicApiKey: aiCredentials.anthropicApiKey,
       workspaceId,
       inputKind: inputKind as any,
       businessDecision: executionContext.businessDecision,
@@ -638,10 +646,18 @@ export const generateSimulatedCustomerReply = createServerFn({ method: "POST" })
           .join("\n")
       : "(nenhuma mensagem ainda — essa é a primeira resposta do cliente)";
 
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { resolveAgentAiCredentialsV3 } = await import("../integrations/ai-credentials.server");
+    const aiCredentials = await resolveAgentAiCredentialsV3({
+      supabaseAdmin,
+      userId: context.userId,
+      workspaceId: context.workspaceId,
+    });
+
     const { callAnthropicV3, extractAnthropicTextV3 } = await import("../integrations/llm-client.server");
 
     const raw = await callAnthropicV3({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+      apiKey: aiCredentials.anthropicApiKey,
       system: `Você está simulando um CLIENTE de WhatsApp real, só pra teste interno — nunca revele que é uma simulação.
 
 Personalidade desse cliente: ${personaDescription}
