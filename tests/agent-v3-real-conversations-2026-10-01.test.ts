@@ -258,6 +258,23 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(runtime).toContain("Promessa de renda/royalties sem autoridade bloqueada");
   });
 
+  it("02/10 case 34991803265275: entering the panel after welcome funnel does not reopen qualification", () => {
+    const d = deriveBusinessDecisionV3({
+      message: "Vou entrar agora",
+      recentCustomerMessages: ["Olá! Tenho interesse em divulgar minha música."],
+    });
+    expect(d.state).toBe("fechamento");
+    expect(d.allowQualification).toBe(false);
+    expect(d.waitingCustomer).toBe(true);
+    expect(d.nextAction).toContain("não perguntar plataforma");
+
+    const prompt = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
+    expect(prompt).toContain("CONTINUIDADE APÓS FUNIL/SITE/PAINEL");
+    expect(prompt).toContain("CONTEXTO DO FUNIL NÃO ZERA");
+    expect(prompt).toContain("PROIBIDO perguntar novamente qual plataforma");
+    expect(prompt).toContain("Nunca invente a plataforma quando ela não estiver presente");
+  });
+
   it("locks commercial authority rules into P1", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
