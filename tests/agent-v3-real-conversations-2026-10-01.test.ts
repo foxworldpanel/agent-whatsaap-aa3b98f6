@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../src/lib/agent-v3/brain/business-state.server";
+import { applyBusinessDecisionToIntelligence } from "../src/lib/agent-v3/core/intelligence-utils.server";
+import { derivePersistentContactTemperatureV3 } from "../src/lib/agent-v3/memory/contact-temperature.server";
+import { deriveOrderContextV3, EMPTY_ORDER_CONTEXT, orderContextSummaryV3 } from "../src/lib/agent-v3/memory/order-context.server";
 
 describe("real conversations batch 2026-09-29/30", () => {
   it("generic payment vocabulary does not mean operational payment", () => {
@@ -43,6 +46,185 @@ describe("real conversations batch 2026-09-29/30", () => {
     const current = deriveBusinessDecisionV3({ message: "como funciona esse serviço no Spotify?" });
     const result = reconcileBusinessDecisionV3({ previous, current, message: "como funciona esse serviço no Spotify?" });
     expect(result.state).toBe("descoberta");
+  });
+
+  it("fails closed on unsupported commercial claims in runtime", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
+    expect(source).toContain("Preço sem autoridade literal bloqueado");
+    expect(source).toContain("Expansão absoluta de permanência bloqueada");
+    expect(source).toContain("Decomposição de SKU combinado bloqueada");
+    expect(source).toContain("Promessa de algoritmo sem autoridade bloqueada");
+    expect(source).not.toContain("entre 500 e 650 plays por dia");
+    expect(source).not.toContain("pode ser proporção calculada corretamente");
+  });
+
+  it("current financial/temporal deferral lowers stale closing intelligence", () => {
+    const result = applyBusinessDecisionToIntelligence({
+      state: "adiado",
+      currentProb: 95,
+    });
+    expect(result.purchase_probability).toBe(39);
+    expect(result.temperature).toBe("frio");
+  });
+
+  it("confirmed purchase promotes persistent CRM temperature to cliente", () => {
+    expect(derivePersistentContactTemperatureV3({
+      current: "quente",
+      businessState: "pedido_realizado",
+      purchaseProbability: 100,
+    })).toBe("cliente");
+
+    expect(derivePersistentContactTemperatureV3({
+      current: "quente",
+      businessState: "pos_venda",
+      purchaseProbability: 65,
+    })).toBe("cliente");
+  });
+
+  it("cliente is monotonic even when a later commercial turn looks colder", () => {
+    expect(derivePersistentContactTemperatureV3({
+      current: "cliente",
+      businessState: "descoberta",
+      purchaseProbability: 20,
+      intelligenceTemperature: "frio",
+    })).toBe("cliente");
+  });
+
+  it("price research alone stays orçamento instead of payment", () => {
+    const d = deriveBusinessDecisionV3({
+      message: "Quanto custa por música e quais formas de pagamento vocês aceitam?",
+      recentCustomerMessages: [],
+      customerLifecycle: "lead",
+    });
+    expect(d.state).toBe("orcamento");
+  });
+
+  it("does not advance unpublished content to payment even when price/payment is discussed", () => {
+    const d = deriveBusinessDecisionV3({
+      message: "Ainda não lancei minhas músicas no Spotify. Quanto custa e como é o pagamento?",
+      recentCustomerMessages: [],
+      customerLifecycle: "lead",
+    });
+    expect(d.state).toBe("descoberta");
+    expect(d.allowQualification).toBe(false);
+    expect(d.nextAction).toContain("conteudo ja publicado");
+  });
+
+  it("resolves distribution confusion before an operational payment request", () => {
+    const d = deriveBusinessDecisionV3({
+      message: "Manda o Pix aí que eu vou mandar a música para vocês",
+      recentCustomerMessages: [],
+      customerLifecycle: "lead",
+    });
+    expect(d.state).toBe("descoberta");
+    expect(d.reason).toContain("confusao");
+    expect(d.nextAction).toContain("conteudo ja publicado");
+  });
+
+  it("persists confirmed purchase facts and exposes them as post-sale generation context", () => {
+    const beforePayment = deriveOrderContextV3(
+      "Quero 1000 plays no Spotify",
+      [],
+      EMPTY_ORDER_CONTEXT,
+    );
+    const paid = deriveOrderContextV3(
+      "Pagamento feito",
+      [],
+      beforePayment,
+    );
+    const laterTurn = deriveOrderContextV3(
+      "Que painel como assim?",
+      [],
+      paid,
+    );
+
+    expect(paid.paymentStatus).toBe("confirmado_pelo_cliente");
+    expect(laterTurn.paymentStatus).toBe("confirmado_pelo_cliente");
+    expect(laterTurn.platform).toBe(beforePayment.platform);
+    expect(laterTurn.service).toBe(beforePayment.service);
+    expect(laterTurn.quantity).toBe(1000);
+
+    const prompt = orderContextSummaryV3(laterTurn);
+    expect(prompt).toContain("trate como pós-venda");
+    expect(prompt).toContain("Não volte a qualificar");
+    expect(prompt).toContain("quantidade: 1000");
+  });
+
+  it("injects deterministic order context into the generation prompt", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"),
+      "utf8",
+    );
+    expect(source).toContain("orderContextSummaryV3(updatedOrderContext)");
+    expect(source).toContain("${deterministicOrderContextPrompt}");
+    expect(source).toContain("OrderContext agora entra no prompt");
+  });
+
+  it("02/10 case 44835247550658: published-later callback becomes waiting/adiado", () => {
+    const d = deriveBusinessDecisionV3({
+      message: "Ótimo. Terminando de gravar o clipe. Assim que subir falo com vcs",
+    });
+    expect(d.state).toBe("adiado");
+    expect(d.allowQualification).toBe(false);
+    expect(d.waitingCustomer).toBe(true);
+  });
+
+  it("02/10 case 95361276346534: studying now pauses qualification and polite thanks does not reopen it", () => {
+    const deferred = deriveBusinessDecisionV3({ message: "Então estamos estudando ainda" });
+    expect(deferred.state).toBe("adiado");
+    const thanks = deriveBusinessDecisionV3({ message: "Mas agradeço" });
+    const reconciled = reconcileBusinessDecisionV3({
+      previous: deferred,
+      current: thanks,
+      message: "Mas agradeço",
+    });
+    expect(reconciled.state).toBe("adiado");
+    expect(reconciled.allowQualification).toBe(false);
+    expect(reconciled.waitingCustomer).toBe(true);
+  });
+
+  it("02/10 case 215470187774134: scheduled continuation after 19h is operationally deferred", () => {
+    const previous = deriveBusinessDecisionV3({
+      message: "Ok só preciso me organizar financeiramente",
+    });
+    const current = deriveBusinessDecisionV3({
+      message: "Ok então continuamos hoje após as 19 horas e muito obrigado",
+    });
+    const d = reconcileBusinessDecisionV3({
+      previous,
+      current,
+      message: "Ok então continuamos hoje após as 19 horas e muito obrigado",
+    });
+    expect(d.state).toBe("adiado");
+    expect(d.allowQualification).toBe(false);
+    expect(deriveBusinessDecisionV3({ message: "Continuamos hoje após as 9 horas" }).state).toBe("adiado");
+    expect(deriveBusinessDecisionV3({ message: "Continuamos hoje após as 19 horas" }).state).toBe("adiado");
+    expect(applyBusinessDecisionToIntelligence({ state: d.state, currentProb: 80 })).toMatchObject({
+      temperature: "frio",
+      purchase_probability: 39,
+    });
+  });
+
+  it("02/10 case 49035691978975: tomorrow callback wins over qualification and social close stays deferred", () => {
+    const deferred = deriveBusinessDecisionV3({ message: "Eu vou ver até amanhã. Aí eu te falo" });
+    expect(deferred.state).toBe("adiado");
+    const social = deriveBusinessDecisionV3({ message: "Beleza obrigado eu vou olhar aqui direitinho e te falo" });
+    const d = reconcileBusinessDecisionV3({
+      previous: deferred,
+      current: social,
+      message: "Beleza obrigado eu vou olhar aqui direitinho e te falo",
+    });
+    expect(d.state).toBe("adiado");
+    expect(d.allowQualification).toBe(false);
+    expect(d.waitingCustomer).toBe(true);
+  });
+
+  it("locks direct-question, pause and complete-closing behavior into the shared P1 brain", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
+    expect(source).toContain("DÚVIDA DE PAGAMENTO NÃO EXIGE QUALIFICAÇÃO PRÉVIA");
+    expect(source).toContain("ADIAMENTO/PAUSA É SOBERANO NO TURNO");
+    expect(source).toContain("FECHAMENTO SINTÁTICO");
+    expect(source).toContain("Não reabra a venda nem a qualificação");
   });
 
   it("locks commercial authority rules into P1", () => {
