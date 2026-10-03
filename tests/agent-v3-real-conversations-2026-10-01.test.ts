@@ -275,6 +275,16 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(prompt).toContain("Nunca invente a plataforma quando ela não estiver presente");
   });
 
+  it("03/10 case 23: purchase instructions explain the process and isolate the panel link", () => {
+    const prompt = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
+    expect(prompt).toContain("COMO COMPRAR / COMO FAZER O PEDIDO");
+    expect(prompt).toContain("Não responda apenas com a URL");
+    expect(prompt).toContain("LINK DO PAINEL SEMPRE EM BOLHA PRÓPRIA");
+    expect(prompt).toContain("===SPLIT===");
+    expect(prompt).toContain("depois apenas `https://mindsmmpanel.com`");
+    expect(prompt).toContain("sem texto, emoji ou pontuação na mesma mensagem");
+  });
+
   it("locks commercial authority rules into P1", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
