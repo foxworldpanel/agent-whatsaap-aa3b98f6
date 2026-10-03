@@ -281,7 +281,7 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(prompt).toContain("Não responda apenas com a URL");
     expect(prompt).toContain("LINK DO PAINEL SEMPRE EM BOLHA PRÓPRIA");
     expect(prompt).toContain("===SPLIT===");
-    expect(prompt).toContain("depois apenas `https://mindsmmpanel.com`");
+    expect(prompt).toContain("depois apenas https://mindsmmpanel.com");
     expect(prompt).toContain("sem texto, emoji ou pontuação na mesma mensagem");
   });
 
