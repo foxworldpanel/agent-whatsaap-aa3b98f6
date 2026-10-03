@@ -262,7 +262,7 @@ describe("real conversations batch 2026-09-29/30", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
     expect(source).toContain("nunca decomponha \"Plays + Ouvintes\"");
-    expect(source).toContain("não criar tier, mínimo, desconto ou quantidade intermediária");
+    expect(source).toContain("não invente preço proporcional para uma quantidade intermediária");
     expect(source).toContain("nunca traduza \"vitalício\"");
     expect(source).toContain("SPOTIFY/ALGORITMO/RENDA");
     expect(source).toContain("intenção de pagar não elimina pré-requisitos");
