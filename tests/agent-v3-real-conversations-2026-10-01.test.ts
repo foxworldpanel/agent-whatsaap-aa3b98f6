@@ -227,6 +227,37 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(source).toContain("Não reabra a venda nem a qualificação");
   });
 
+  it("02/10 case 260691730669767: quantity per day is not provider delivery speed and raw catalog metadata is blocked", () => {
+    const prompt = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
+    const runtime = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
+    expect(prompt).toContain("QUANTIDADE DO PEDIDO ≠ VELOCIDADE DE ENTREGA");
+    expect(prompt).toContain("ele pode fazer um pedido de 500 por dia");
+    expect(prompt).toContain("METADADOS DO CATÁLOGO SÃO INTERNOS");
+    expect(runtime).toContain("Dump cru de metadados do catálogo bloqueado");
+  });
+
+  it("02/10 cases 224059954561262/157810637697184: unpublished content blocks qualification", () => {
+    for (const message of [
+      "Ainda não conseguir colocar minhas músicas em plataformas",
+      "Ainda não consegui colocar minhas músicas em plataformas",
+      "Não consegui publicar minhas músicas no Spotify",
+    ]) {
+      const d = deriveBusinessDecisionV3({ message });
+      expect(d.state).toBe("descoberta");
+      expect(d.allowQualification).toBe(false);
+      expect(d.nextAction).toContain("conteudo ja publicado");
+    }
+  });
+
+  it("02/10 cases 20/21: shared brain forbids third-party capability guesses and revenue promises", () => {
+    const prompt = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
+    const runtime = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
+    expect(prompt).toContain("BLOCKER DE PUBLICAÇÃO É SOBERANO");
+    expect(prompt).toContain("não atribua capacidade a empresa, editora, gravadora ou distribuidora");
+    expect(prompt).toContain("mais plays = mais dinheiro");
+    expect(runtime).toContain("Promessa de renda/royalties sem autoridade bloqueada");
+  });
+
   it("locks commercial authority rules into P1", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
