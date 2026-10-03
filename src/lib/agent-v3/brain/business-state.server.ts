@@ -132,7 +132,7 @@ export function deriveBusinessDecisionV3(params: {
   if (/\b(ja comprei|ja paguei|comprei ontem|comprei hoje|comprei|paguei|fiz o pedido|pedido feito|pedido realizado|pedido confirmado|pagamento feito|pagamento realizado)\b/.test(current)) return { state: "pedido_realizado", risk: "normal", reason: "cliente confirmou compra/pedido", nextAction: "entrar em pós-venda e responder apenas a dúvida atual", allowQualification: false, shouldHandoff: false };
 
   const contentNotPublishedYet =
-    /\b(ainda nao (?:lancei|publiquei|postei|distribui)|nao (?:lancei|publiquei|postei|distribui) ainda|musica(?:s)? ainda nao (?:esta|estao|saiu|sairam)|nao tenho (?:musica|video|conteudo) publicad)\b/.test(context);
+    /\b(ainda nao (?:lancei|publiquei|postei|distribui|consegui (?:colocar|publicar|lancar|postar|distribuir))|nao (?:lancei|publiquei|postei|distribui) ainda|(?:ainda )?nao consegui (?:colocar|publicar|lancar|postar|distribuir)(?: (?:minha|meu|minhas|meus|a|as|o|os))? (?:musica|musicas|conteudo|video|videos)(?: (?:em|nas?|nos?) (?:plataforma|plataformas|spotify|youtube))?|musica(?:s)? ainda nao (?:esta|estao|saiu|sairam)|nao tenho (?:musica|video|conteudo) publicad)\b/.test(context);
   if (contentNotPublishedYet) {
     return {
       state: "descoberta",
