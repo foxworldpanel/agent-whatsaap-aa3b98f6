@@ -283,6 +283,11 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(prompt).toContain("===SPLIT===");
     expect(prompt).toContain("depois apenas https://mindsmmpanel.com");
     expect(prompt).toContain("sem texto, emoji ou pontuação na mesma mensagem");
+    expect(prompt).toContain("criar a conta com qualquer e-mail e senha");
+    expect(prompt).toContain("NÃO usamos a senha da rede social");
+    expect(prompt).toContain("fazer uma recarga na conta via PIX");
+    expect(prompt).toContain("a recarga da conta vem antes");
+    expect(prompt).toContain("Não use travessão longo (—) nas respostas ao cliente");
   });
 
   it("locks commercial authority rules into P1", () => {
