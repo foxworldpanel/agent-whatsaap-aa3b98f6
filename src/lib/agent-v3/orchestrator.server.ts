@@ -1910,6 +1910,37 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
     );
   }
 
+  // Guard de apresentação do catálogo: metadados técnicos são autoridade para
+  // raciocínio interno, não texto pronto para o cliente. Evita dumps como
+  // "[mín ...] [máx ...] [entrega ...]" observados em conversa real.
+  const rawCatalogMetadata =
+    /\[(?:m[ií]n(?:imo)?|m[aá]x(?:imo)?)[^\]]*\]/iu.test(finalContent) ||
+    /\[entrega\s+[^\]]+\]/iu.test(finalContent);
+
+  if (rawCatalogMetadata) {
+    console.error("[AGENT-V3-PRESENTATION-GUARD] Dump cru de metadados do catálogo bloqueado", {
+      message,
+      response: finalContent,
+    });
+    finalContent =
+      "Esses detalhes são usados internamente para validar o serviço. Vou te passar somente a informação necessária para a sua dúvida, sem despejar os campos técnicos do catálogo.";
+  }
+
+  // Guard financeiro: impulsionamento não pode ser apresentado como mecanismo
+  // garantido de aumentar royalties/renda. A Mind não conhece elegibilidade,
+  // contrato de distribuição nem condições de monetização do cliente.
+  const unsupportedRevenuePromise =
+    /\b(?:quanto mais (?:gente )?(?:ouve|ouvir|plays?)|mais (?:plays?|ouvintes?))[^.!?]{0,90}\b(?:mais (?:voce )?(?:ganha|recebe)|aumenta(?:r)? (?:seus? )?(?:ganhos?|royalties?|renda))\b|\b(?:impulsionar|aumentar|plays?|ouvintes?)[^.!?]{0,100}\b(?:para|pra) aumentar (?:seus? )?(?:ganhos?|royalties?|renda)\b/iu.test(finalContent);
+
+  if (unsupportedRevenuePromise) {
+    console.error("[AGENT-V3-AUTHORITY] Promessa de renda/royalties sem autoridade bloqueada", {
+      message,
+      response: finalContent,
+    });
+    finalContent =
+      "A Mind não faz distribuição nem gerencia royalties. Nosso serviço é de impulsionamento de conteúdo já publicado; monetização e recebimentos dependem da plataforma, da distribuidora e das condições da conta.";
+  }
+
   // Guard final de autoridade comercial. Uma falha futura no selector não pode
   // voltar a produzir preço Spotify sem spotify_precos.
   const mentionsBrlPrice = /R\$\s*\d/i.test(finalContent);
