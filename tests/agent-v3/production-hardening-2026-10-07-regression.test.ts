@@ -8,7 +8,7 @@ const dashboard = readFileSync(join(root, "src/lib/dashboard.functions.ts"), "ut
 const playground = readFileSync(join(root, "src/lib/agent-v3/admin/playground.functions.ts"), "utf8");
 const runtime = readFileSync(join(root, "src/lib/agent-v3/runtime.server.ts"), "utf8");
 const sender = readFileSync(join(root, "src/lib/send-agent-guarded.server.ts"), "utf8");
-const migration = readFileSync(join(root, "supabase/migrations/20261007203000_restore_welcome_funnel_run_events_observability.sql"), "utf8");
+const migration = readFileSync(join(root, "supabase/migrations/20261007202340_restore_welcome_funnel_run_events_observability.sql"), "utf8");
 
 describe("Agent V3 production hardening 2026-10-07", () => {
   it("does not load durable order memory for synthetic Playground identity", () => {
