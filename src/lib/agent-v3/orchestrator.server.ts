@@ -25,7 +25,7 @@ import { extractLastConfirmedPriceV3 } from "./memory/last-confirmed-price.serve
 import { removeBannedClosingPhrasesV3 } from "./prompt/banned-phrases-filter.server";
 import type { BusinessDecisionV3 } from "./brain/business-state.server";
 import { businessDecisionToPromptV3 } from "./brain/business-state.server";
-import { loadOrderContextV3, deriveOrderContextV3, saveOrderContextV3, orderContextSummaryV3 } from "./memory/order-context.server";
+import { loadOrderContextV3, deriveOrderContextV3, saveOrderContextV3, orderContextSummaryV3, EMPTY_ORDER_CONTEXT } from "./memory/order-context.server";
 import { normalizeConversationFactsV3, conversationFactsPromptV3 } from "./memory/conversation-facts.server";
 import { MIND_OPERATIONAL_TRUTH_V3 } from "./brain/operational-truth.server";
 import { P0_TEXT } from "./prompt/prompt-p0.server";
