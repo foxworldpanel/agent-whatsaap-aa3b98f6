@@ -2252,6 +2252,21 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
     }
   }
 
+  // PÓS-VENDA FAIL-CLOSED: uma resposta de aquisição/cadastro é incompatível
+  // com pedido já realizado. Mesmo se o modelo regredir, não deixamos instruções
+  // de criar conta/comprar novamente chegarem ao cliente.
+  if (
+    (businessDecision?.state === "pos_venda" || businessDecision?.state === "pedido_realizado") &&
+    /\b(?:cria(?:r)? (?:sua |uma )?conta|cadastro|cadastrar|faz(?:er)? (?:uma )?recarga|escolhe(?:r)? (?:o )?servi[cç]o|faz(?:er)? (?:o )?pedido|comprar novamente)\b/i.test(finalContent)
+  ) {
+    console.error("[AGENT-V3-POSTSALE-GUARD] Resposta de aquisição bloqueada em pós-venda", {
+      state: businessDecision?.state,
+      responsePreview: finalContent.slice(0, 240),
+    });
+    finalContent =
+      "Esse pedido já foi criado e está em pós-venda. Vou considerar os dados do pedido que você enviou e não vou te orientar a criar conta ou comprar novamente.";
+  }
+
   // URLs fornecidas pelos módulos chegam isoladas no WhatsApp. O runtime não
   // conhece nem inventa domínio comercial; apenas formata o valor autorizado.
   //
