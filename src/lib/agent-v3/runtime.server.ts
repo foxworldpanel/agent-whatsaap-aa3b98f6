@@ -26,6 +26,34 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
   const inboundStartedAt = Date.now();
   const traceId = generateTraceId();
 
+  // Final stale-reply fence for durable Customer Turns. A new inbound may arrive
+  // after this runtime started but before the provider send. In that case the
+  // already-generated answer belongs to an older snapshot and must not be sent.
+  const hasNewerInboundOutsideCurrentTurn = async (): Promise<boolean> => {
+    if (!input.customerTurnId) return false;
+
+    const { data: members, error: membersError } = await supabaseAdmin
+      .from("agent_customer_turn_messages")
+      .select("job_id")
+      .eq("turn_id", input.customerTurnId);
+    if (membersError) throw membersError;
+
+    const currentJobIds = new Set<string>(
+      (members || []).map((row: { job_id: string }) => row.job_id),
+    );
+
+    const { data: pendingJobs, error: pendingJobsError } = await supabaseAdmin
+      .from("agent_inbound_jobs")
+      .select("id")
+      .eq("conversation_id", conversationId)
+      .eq("status", "pending");
+    if (pendingJobsError) throw pendingJobsError;
+
+    return (pendingJobs || []).some(
+      (row: { id: string }) => !currentJobIds.has(row.id),
+    );
+  };
+
   let contactTemperature = null;
   let outboundLeadContext: import("@/lib/agent-v3/outbound-lead-context.server").OutboundLeadContext | null = null;
   let customerMemory = null;
@@ -1019,6 +1047,14 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
           );
           await sleepMs(remainingAudioDelayMs);
 
+          if (await hasNewerInboundOutsideCurrentTurn()) {
+            console.log("[AGENT-CUSTOMER-TURN] stale audio reply suppressed before provider send", {
+              conversationId,
+              customerTurnId: input.customerTurnId,
+            });
+            return runtimeTerminal("superseded_by_newer_inbound");
+          }
+
           await uazapiSendAudio(creds, sendTarget, audioBase64);
           console.log("[AUDIO-V3] 5/5 nota de voz enviada pela Uazapi");
           await uazapiClearPresence(creds, sendTarget).catch(() => undefined);
@@ -1083,6 +1119,15 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               }
               await sleepMs(partDelayMs);
             }
+          }
+
+          if (await hasNewerInboundOutsideCurrentTurn()) {
+            console.log("[AGENT-CUSTOMER-TURN] stale text reply suppressed before provider send", {
+              conversationId,
+              customerTurnId: input.customerTurnId,
+              partIndex,
+            });
+            break;
           }
 
           console.log("RETURN-PONTO: enviando pro whatsapp", { phone: phoneStr });
