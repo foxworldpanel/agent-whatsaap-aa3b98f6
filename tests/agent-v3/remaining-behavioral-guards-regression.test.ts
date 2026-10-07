@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../src/lib/agent-v3/brain/business-state.server";
-import { repairClearlyIncompleteAgentReplyV3 } from "../src/lib/agent-v3/core/commercial-response-guards.server";
+import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-state.server";
+import { repairClearlyIncompleteAgentReplyV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
 
 describe("Agent V3 remaining behavioral guards", () => {
   it("drops a clearly truncated tail when a complete sentence already exists", () => {
