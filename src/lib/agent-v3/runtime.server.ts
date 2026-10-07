@@ -1,4 +1,4 @@
-import { finalizeAgentText, sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
+import { finalizeAgentReplyParts, sendAgentTextGuarded } from "@/lib/send-agent-guarded.server";
 import { generateTraceId, logExecutionTrace } from "@/lib/agent-v3/telemetry/execution-tracer.server";
 import type { AgentV3RuntimeExecutor } from "@/lib/agent-v3/inbound-runtime-contract.server";
 import { runtimeTerminal } from "@/lib/agent-v3/inbound-runtime-result.server";
@@ -42,15 +42,29 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       (members || []).map((row: { job_id: string }) => row.job_id),
     );
 
+    const { data: currentTurn, error: turnError } = await supabaseAdmin
+      .from("agent_customer_turns")
+      .select("last_received_at")
+      .eq("id", input.customerTurnId)
+      .maybeSingle();
+    if (turnError) throw turnError;
+    if (!currentTurn?.last_received_at) {
+      throw new Error(`Customer Turn ${input.customerTurnId} sem last_received_at para stale fence`);
+    }
+
+    // Em produção os jobs externos ao snapshot que ainda podem alterar a
+    // resposta estão em pending. A comparação temporal impede que um orphan
+    // antigo pendente invalide uma resposta atual.
     const { data: pendingJobs, error: pendingJobsError } = await supabaseAdmin
       .from("agent_inbound_jobs")
-      .select("id")
+      .select("id, created_at")
       .eq("conversation_id", conversationId)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .gt("created_at", currentTurn.last_received_at);
     if (pendingJobsError) throw pendingJobsError;
 
     return (pendingJobs || []).some(
-      (row: { id: string }) => !currentJobIds.has(row.id),
+      (row: { id: string; created_at: string }) => !currentJobIds.has(row.id),
     );
   };
 
@@ -975,14 +989,10 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
         .filter((item) => item.role === "agent")
         .map((item) => item.content)
         .slice(-3);
-      const finalizedReplyParts: string[] = [];
-      for (const part of replyParts) {
-        const finalized = finalizeAgentText(part, {
-          applyHumanize: true,
-          recentAgentBodies: [...recentAgentBodiesForFinalization, ...finalizedReplyParts].slice(-3),
-        });
-        if (finalized.transformed) finalizedReplyParts.push(finalized.transformed);
-      }
+      const finalizedReplyParts = finalizeAgentReplyParts(replyParts, {
+        applyHumanize: true,
+        recentAgentBodies: recentAgentBodiesForFinalization,
+      });
       const replyText = finalizedReplyParts.join("\n\n");
 
       const replyWithAudio = shouldReplyWithAudio({
@@ -1127,7 +1137,7 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
               customerTurnId: input.customerTurnId,
               partIndex,
             });
-            break;
+            return runtimeTerminal("superseded_by_newer_inbound");
           }
 
           console.log("RETURN-PONTO: enviando pro whatsapp", { phone: phoneStr });
