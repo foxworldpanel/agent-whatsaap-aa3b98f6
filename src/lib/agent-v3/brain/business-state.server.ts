@@ -226,8 +226,10 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
   if (previous.shouldHandoff || previous.risk === "humano_obrigatorio" || previous.state === "aguardando_setor") return { ...previous, reason: `handoff humano preservado: ${previous.reason}`, nextAction: "manter o agente pausado até liberação explícita do operador", waitingCustomer: false };
   if (current.shouldHandoff || current.risk === "humano_obrigatorio") return current;
 
-  // Um incidente de pós-venda atual sempre vence a continuidade de venda antiga.
-  if (current.state === "pos_venda" && current.reason.includes("incidente")) return current;
+  // Pós-venda detectado no turno atual sempre vence qualquer continuidade de venda antiga.
+  // ID/status/print de pedido são marcos operacionais fortes e não podem ser
+  // rebaixados novamente para descoberta/fechamento por uma mensagem curta.
+  if (current.state === "pos_venda") return current;
 
   const explicitNewPurchase = /\b(quero comprar|quero fazer|vou comprar|vou fazer|novo pedido|outra compra|mais \d+|agora consegui|agora funcionou)\b/.test(message);
   const explicitPostSaleIncident = /\b((?:como )?saber se (?:ja )?caiu(?: porque| pq)? pedi|ver se (?:ja )?caiu(?: porque| pq)? pedi|caiu(?: porque| pq) pedi)\b/.test(message);
@@ -247,6 +249,20 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
 
   // Adiamento é um estado operacional: agradecimento, confirmação curta, emoji
   // ou figurinha depois dele não reabre descoberta/qualificação.
+  const socialAckAfterPostSale =
+    (previous.state === "pedido_realizado" || previous.state === "pos_venda") &&
+    /^(?:ok|certo|beleza|blz|entendi|obrigad[oa]|valeu|show|perfeito|esta na imagem|ta na imagem|está na imagem)[!. ]*$/i.test(message);
+  if (socialAckAfterPostSale) {
+    return {
+      ...previous,
+      state: "pos_venda",
+      reason: "continuidade de pós-venda preservada após confirmação social ou referência ao print",
+      nextAction: "não reabrir aquisição, cadastro, painel ou qualificação; responder socialmente apenas se necessário e aguardar",
+      allowQualification: false,
+      waitingCustomer: true,
+    };
+  }
+
   const socialAckAfterDeferral =
     previous.state === "adiado" &&
     (
