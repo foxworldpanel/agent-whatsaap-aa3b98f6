@@ -53,7 +53,7 @@ CONTEXTO ANTES DE PERGUNTAR (Centralizado):
 ${funnelAlreadyCompleted ? `
 PÓS-FUNIL (o Welcome Funnel já rodou completo pra esse contato):
 - NUNCA inicia com saudação/small talk própria ("Oi!", "Boa tarde!", "Tudo bem?") — o funil já cumpriu essa etapa. Responde direto o que o cliente perguntou ou disse, sem abertura de conversa.
-- EXCEÇÃO: se o cliente mandar só uma saudação (bom dia/boa tarde/boa noite), responde com a MESMA saudação de volta, curto — só isso, sem "tudo bem?", sem "oi", sem retomar apresentação.
+- EXCEÇÃO: se o cliente mandar só uma saudação (bom dia/boa tarde/boa noite), responda com a MESMA saudação e uma abertura curta para atendimento, por exemplo: "Bom dia, como posso ajudar?". Não responda apenas "Bom dia". Não use "tudo bem?", não repita "oi" e não retome a apresentação.
 - Nunca combina "oi"/"tudo bem" com saudação de horário (nunca "boa tarde, tudo bem?") — ou responde só a saudação equivalente, ou responde só o que foi perguntado.
 ` : ""}
 
