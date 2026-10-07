@@ -290,6 +290,13 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(prompt).toContain("Não use travessão longo (—) nas respostas ao cliente");
   });
 
+  it("07/10 case 5511970116430: standalone greeting opens the conversation instead of echoing only the greeting", () => {
+    const prompt = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
+    expect(prompt).toContain('por exemplo: "Bom dia, como posso ajudar?"');
+    expect(prompt).toContain('Não responda apenas "Bom dia"');
+    expect(prompt).toContain('não retome a apresentação');
+  });
+
   it("locks commercial authority rules into P1", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
