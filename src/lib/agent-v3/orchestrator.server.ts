@@ -32,7 +32,7 @@ import { P0_TEXT } from "./prompt/prompt-p0.server";
 import { OUTBOUND_TEXT } from "./prompt/prompt-outbound.server";
 import { outboundLeadPromptContext, type OutboundLeadContext } from "./outbound-lead-context.server";
 import { checkPromptIntegrity } from "./brain/prompt-integrity-check.server";
-import { saysPreviouslyUsedMindV3, isLowInformationSocialMessageV3 } from "./core/commercial-response-guards.server";
+import { saysPreviouslyUsedMindV3, isLowInformationSocialMessageV3, repairClearlyIncompleteAgentReplyV3 } from "./core/commercial-response-guards.server";
 import { buildP1Text } from "./prompt/prompt-p1.server";
 import { buildP2Text } from "./prompt/prompt-p2.server";
 import { 
@@ -2422,9 +2422,7 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   // Limpeza final para remover frases de despedida genéricas banidas que o
   // prompt às vezes deixa passar (confirmado em 3 conversas reais em
   // 12/08/2026).
-  finalContent = removeBannedClosingPhrasesV3(finalContent);
-
-  // Auto-split logic
+  finalContent = removeBannedClosingPhrasesV3(finalContent);\n\n  // Última trava compartilhada: Playground e WhatsApp recebem exatamente o\n  // mesmo texto já protegido contra fragmento linguisticamente truncado.\n  finalContent = repairClearlyIncompleteAgentReplyV3(finalContent);\n\n  // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
 
   const result = {
