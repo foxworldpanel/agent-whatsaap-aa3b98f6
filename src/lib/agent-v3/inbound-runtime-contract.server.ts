@@ -10,6 +10,7 @@ import type { AgentV3RuntimeResult } from "@/lib/agent-v3/inbound-runtime-result
  */
 export type AgentV3RuntimeInput = {
   source: "webhook" | "dispatcher";
+  customerTurnId?: string;
   messageId: string;
   externalMessageId: string;
   conversationId: string;
