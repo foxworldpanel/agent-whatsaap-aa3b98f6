@@ -17,6 +17,10 @@ export type SmartRouterContext = {
   isFirstTurn: boolean;
   funnelAlreadyCompleted: boolean;
   nowDate?: Date;
+  // True when durable conversation memory expired after 24h of inactivity.
+  // This is channel-agnostic and lets a greeting reopen service naturally
+  // without forgetting that the Welcome Funnel had already run.
+  resumedAfterInactivity?: boolean;
 };
 
 const THANKS_ONLY_PATTERN = /^(?:obrigad[oa]s?|valeu|vlw|muito\s+obrigad[oa])[!.]*$/i;
@@ -48,11 +52,16 @@ export function routeMessage(message: string, context: SmartRouterContext): Smar
     const greetingWord = pickReengagementGreeting(trimmed, context.nowDate ?? new Date());
     // Welcome Funnel owns the first introduction. Once it has already run, a
     // greeting-only turn must not reopen onboarding or add a new qualification CTA.
-    const response = context.funnelAlreadyCompleted
-      ? `${greetingWord}!`
-      : context.isFirstTurn
-        ? `${greetingWord}! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?`
-        : `${greetingWord}! Tudo bem?`;
+    const response =
+      context.funnelAlreadyCompleted && context.resumedAfterInactivity
+        ? `${greetingWord}, como posso ajudar?`
+        : context.funnelAlreadyCompleted
+          ? `${greetingWord}!`
+          : context.isFirstTurn
+            ? `${greetingWord}! Tudo bem? Aqui é a Júlia da Mind. Como posso te ajudar?`
+            : context.resumedAfterInactivity
+              ? `${greetingWord}, como posso ajudar?`
+              : `${greetingWord}! Tudo bem?`;
     return { handled: true, response, reason: "GREETING", route: "code", context: { routeReason: "GREETING" } };
   }
 
