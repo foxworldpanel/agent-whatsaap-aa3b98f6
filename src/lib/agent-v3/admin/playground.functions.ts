@@ -293,12 +293,12 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     // do efeito operacional (pausar/encaminhar). O Playground deve mostrar
     // essa mesma mensagem e encerrar o turno, sem fingir que o Agent segue.
     if (terminalWithReply) {
-      const { finalizeAgentText } = await import("../../send-agent-guarded.server");
+      const { finalizeAgentReplyParts } = await import("../../send-agent-guarded.server");
       const recentAgentBodies = history
         .filter((item) => item.role === "agent")
         .map((item) => item.content)
         .slice(-3);
-      const finalized = finalizeAgentText(execResult.reply, {
+      const [finalizedTerminalReply = ""] = finalizeAgentReplyParts([execResult.reply], {
         applyHumanize: false,
         recentAgentBodies,
       });
@@ -307,7 +307,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         .insert({
           session_id: sessionId,
           role: "agent",
-          content: finalized.transformed,
+          content: finalizedTerminalReply,
           sequence: nextSequence + 1,
           metadata: {
             route: execResult.route,
@@ -325,7 +325,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         session_id: sessionId,
         message_id: savedTerminalMessage.id,
         user_message: effectiveMessage,
-        agent_response: finalized.transformed,
+        agent_response: finalizedTerminalReply,
         latency_ms: latencyMs,
         route: execResult.route,
         conversation_feedback: {
@@ -342,7 +342,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       });
       return {
         message: savedTerminalMessage,
-        reply: finalized.transformed,
+        reply: finalizedTerminalReply,
         terminalDecision: execResult.routerReason,
         route: execResult.route,
         claudeCalled: false,
@@ -405,19 +405,15 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
     // O sender real humaniza somente a rota Claude. Respostas determinísticas
     // do Smart Router usam normalização/emoji guard sem humanizePunctuationV3.
     // O Playground precisa espelhar exatamente essa diferença.
-    const { finalizeAgentText } = await import("../../send-agent-guarded.server");
+    const { finalizeAgentReplyParts } = await import("../../send-agent-guarded.server");
     const recentAgentBodies = history
       .filter((item) => item.role === "agent")
       .map((item) => item.content)
       .slice(-3);
-    const finalizedReplyParts: string[] = [];
-    for (const part of replyParts) {
-      const finalized = finalizeAgentText(part, {
-        applyHumanize: execResult.route === "claude",
-        recentAgentBodies: [...recentAgentBodies, ...finalizedReplyParts].slice(-3),
-      });
-      if (finalized.transformed) finalizedReplyParts.push(finalized.transformed);
-    }
+    const finalizedReplyParts = finalizeAgentReplyParts(replyParts, {
+      applyHumanize: execResult.route === "claude",
+      recentAgentBodies,
+    });
 
     const finalizedReplyText = finalizedReplyParts.join("\n\n");
     const { shouldReplyWithAudio } = await import("../runtime-support.server");
