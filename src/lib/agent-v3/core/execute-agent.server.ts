@@ -135,6 +135,12 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
       (durableStoredMessages == null
         ? input.history.length === 0
         : durableStoredMessages <= 1),
+    // A memória durável já usa 24h como TTL. Não inferimos retomada pela
+    // ausência de history, porque recovery/truncamento também podem esvaziá-la.
+    // Só o motivo explícito de reset autoriza a saudação de reabertura.
+    resumedAfterInactivity:
+      input.routerContext.resumedAfterInactivity === true ||
+      input.historyTelemetry?.session_reset_reason === "inactivity_24h",
   };
 
   const routerResult = input.skipRouter
