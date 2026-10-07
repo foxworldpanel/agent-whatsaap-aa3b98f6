@@ -174,6 +174,12 @@ function detectPaymentStatus(
   previous: OrderContext["paymentStatus"],
 ): OrderContext["paymentStatus"] {
   const normalized = String(text || "").toLowerCase();
+  // No painel, um ID de pedido só existe depois que a compra foi criada
+  // com saldo/pagamento disponível. Portanto o ID é evidência operacional
+  // mais forte que uma pergunta textual sobre pagamento.
+  if (/\b(?:pedido|id(?: do pedido)?|ordem)\s*#?\s*\d{5,}\b/.test(normalized)) {
+    return "confirmado_pelo_cliente";
+  }
   if (/\b(ja paguei|ja comprei|paguei|comprei|pagamento feito|pedido feito|deu certo|funcionou)\b/.test(normalized)) {
     return "confirmado_pelo_cliente";
   }
