@@ -695,6 +695,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     history,
     sessionTimeoutHours: 24,
     greetingAlreadyPerformed: Boolean(funnelAlreadyCompleted),
+    sessionResetReason: historyTelemetry?.session_reset_reason,
   });
 
   console.log(`[V3-ORCHESTRATOR] Conversation Engine V1.1 [${runId}]:`, {
