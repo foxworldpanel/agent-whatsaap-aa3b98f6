@@ -18,6 +18,9 @@ describe("Customer Turn final stale-reply fence", () => {
     expect(runtime).toContain("hasNewerInboundOutsideCurrentTurn");
     expect(runtime).toContain('.from("agent_customer_turn_messages")');
     expect(runtime).toContain('.from("agent_inbound_jobs")');
+    expect(runtime).toContain('.select("last_received_at")');
+    expect(runtime).toContain('.gt("created_at", currentTurn.last_received_at)');
+    expect(runtime).toContain('return runtimeTerminal("superseded_by_newer_inbound")');
     expect(runtime).toContain('stale text reply suppressed before provider send');
     expect(runtime.indexOf("hasNewerInboundOutsideCurrentTurn()", runtime.indexOf("for (let partIndex"))).toBeLessThan(
       runtime.indexOf("sendAgentTextGuarded(", runtime.indexOf("for (let partIndex")),
