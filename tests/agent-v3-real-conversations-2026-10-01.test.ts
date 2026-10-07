@@ -341,6 +341,23 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(orchestrator).toContain("sessionResetReason: historyTelemetry?.session_reset_reason");
   });
 
+  it("07/10 case 233693683699742: order ID is deterministic proof of post-sale", () => {
+    const first = deriveBusinessDecisionV3({
+      message: "O pedido1124998 ainda não foi concluído correto, pois não entrou ainda as visualizações",
+      recentCustomerMessages: ["Boa tarde!"],
+    });
+    expect(first.state).toBe("pos_venda");
+    expect(first.allowQualification).toBe(false);
+    expect(first.nextAction).toContain("nunca perguntar se o pedido foi pago");
+
+    const status = deriveBusinessDecisionV3({
+      message: "In progress significa o que?",
+      recentCustomerMessages: ["O pedido1124998", "Ainda não foi concluído correto", "Pois não entrou ainda as visualizações"],
+    });
+    expect(status.state).toBe("pos_venda");
+    expect(status.allowQualification).toBe(false);
+  });
+
   it("07/10 case 233693683699742: existing order screenshot stays post-sale and never requalifies", () => {
     const prompt = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(prompt).toContain("SUPORTE DE PEDIDO JÁ CRIADO É PÓS-VENDA");
