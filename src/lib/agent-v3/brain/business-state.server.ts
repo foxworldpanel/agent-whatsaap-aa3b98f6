@@ -226,12 +226,27 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
   if (previous.shouldHandoff || previous.risk === "humano_obrigatorio" || previous.state === "aguardando_setor") return { ...previous, reason: `handoff humano preservado: ${previous.reason}`, nextAction: "manter o agente pausado até liberação explícita do operador", waitingCustomer: false };
   if (current.shouldHandoff || current.risk === "humano_obrigatorio") return current;
 
-  // Pós-venda detectado no turno atual sempre vence qualquer continuidade de venda antiga.
-  // ID/status/print de pedido são marcos operacionais fortes e não podem ser
-  // rebaixados novamente para descoberta/fechamento por uma mensagem curta.
-  if (current.state === "pos_venda") return current;
+  const explicitNewPurchase = /\b(quero comprar|quero fazer|vou comprar|vou fazer|quero pedir|vou pedir|novo pedido|outro pedido|outra compra|comprar (?:tambem|novamente|de novo)|mais \d+|agora consegui|agora funcionou)\b/.test(message);
 
-  const explicitNewPurchase = /\b(quero comprar|quero fazer|vou comprar|vou fazer|novo pedido|outra compra|mais \d+|agora consegui|agora funcionou)\b/.test(message);
+  // Uma intenção explícita de NOVA compra encerra a aderência do pós-venda
+  // anterior. O cliente continua sendo cliente, mas o turno atual volta ao
+  // fluxo comercial correspondente ao novo produto, sem ficar preso ao pedido velho.
+  if (
+    (previous.state === "pedido_realizado" || previous.state === "pos_venda") &&
+    explicitNewPurchase &&
+    current.state !== "reclamacao" &&
+    current.state !== "aguardando_setor"
+  ) {
+    return {
+      ...current,
+      reason: `nova compra explícita após pós-venda: ${stripContinuityReasonPrefixV3(current.reason)}`,
+      waitingCustomer: false,
+    };
+  }
+
+  // Pós-venda detectado no turno atual vence continuidade comercial antiga quando
+  // não existe uma intenção explícita e atual de fazer uma nova compra.
+  if (current.state === "pos_venda") return current;
   const explicitPostSaleIncident = /\b((?:como )?saber se (?:ja )?caiu(?: porque| pq)? pedi|ver se (?:ja )?caiu(?: porque| pq)? pedi|caiu(?: porque| pq) pedi)\b/.test(message);
   const postSaleQuestion = /\b(impulsionamento|pedido|compra|servico|plays|ouvintes|spotify).{0,80}\b(prejudic\w*|risco\w*|segur\w*|cancel\w*|demor\w*|comec\w*|resultad\w*|praz\w*)\b|\b(prejudic\w*|risco\w*|segur\w*|cancel\w*|demor\w*|comec\w*|resultad\w*|praz\w*).{0,80}\b(impulsionamento|pedido|compra|servico|plays|ouvintes|spotify)\b/.test(message);
   if ((previous.state === "pedido_realizado" || previous.state === "pos_venda") && postSaleQuestion) {
