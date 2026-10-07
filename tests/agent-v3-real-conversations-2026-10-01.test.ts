@@ -341,6 +341,15 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(orchestrator).toContain("sessionResetReason: historyTelemetry?.session_reset_reason");
   });
 
+  it("07/10 case 233693683699742: existing order screenshot stays post-sale and never requalifies", () => {
+    const prompt = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
+    expect(prompt).toContain("SUPORTE DE PEDIDO JÁ CRIADO É PÓS-VENDA");
+    expect(prompt).toContain("PRINT/IMAGEM É CONTEXTO");
+    expect(prompt).toContain('STATUS "IN PROGRESS"');
+    expect(prompt).toContain("não dá para afirmar o prazo exato");
+    expect(prompt).toContain("Não faça nova pergunta, não qualifique, não ofereça compra e não envie link do painel");
+  });
+
   it("locks commercial authority rules into P1", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(source).toContain("Nunca derive \"500 = metade do preço de 1000\"");
