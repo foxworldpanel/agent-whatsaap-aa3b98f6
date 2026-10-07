@@ -65,6 +65,29 @@ export function finalizeAgentText(
   return { transformed: out, original, strippedEmoji: beforeEmoji !== out };
 }
 
+export function finalizeAgentReplyParts(
+  parts: string[],
+  opts: {
+    applyHumanize?: boolean;
+    recentAgentBodies?: string[];
+    emojiWindow?: number;
+    isBlastOpening?: boolean;
+  } = {},
+): string[] {
+  const finalizedParts: string[] = [];
+  for (const part of parts) {
+    const finalized = finalizeAgentText(part, {
+      ...opts,
+      recentAgentBodies: [
+        ...(opts.recentAgentBodies ?? []),
+        ...finalizedParts,
+      ].slice(-(opts.emojiWindow ?? 3)),
+    });
+    if (finalized.transformed) finalizedParts.push(finalized.transformed);
+  }
+  return finalizedParts;
+}
+
 export async function sendAgentTextGuarded(
   creds: UazapiCreds,
   phone: string,
