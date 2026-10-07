@@ -2422,7 +2422,13 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
   // Limpeza final para remover frases de despedida genéricas banidas que o
   // prompt às vezes deixa passar (confirmado em 3 conversas reais em
   // 12/08/2026).
-  finalContent = removeBannedClosingPhrasesV3(finalContent);\n\n  // Última trava compartilhada: Playground e WhatsApp recebem exatamente o\n  // mesmo texto já protegido contra fragmento linguisticamente truncado.\n  finalContent = repairClearlyIncompleteAgentReplyV3(finalContent);\n\n  // Auto-split logic
+  finalContent = removeBannedClosingPhrasesV3(finalContent);
+
+  // Última trava compartilhada: Playground e WhatsApp recebem exatamente o
+  // mesmo texto já protegido contra fragmento linguisticamente truncado.
+  finalContent = repairClearlyIncompleteAgentReplyV3(finalContent);
+
+  // Auto-split logic
   const replies = autoSplitLongPartsV3(finalContent);
 
   const result = {
