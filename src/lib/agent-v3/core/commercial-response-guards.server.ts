@@ -33,3 +33,26 @@ export function isLowInformationSocialMessageV3(message: string): boolean {
   // Remove emoji/símbolos/pontuação. Se não restar letra/número, é reação social.
   return !/[\p{L}\p{N}]/u.test(text);
 }
+
+
+/**
+ * Trava conservadora para fragmentos claramente cortados no fim da geração.
+ * Não exige ponto final em conversa normal; só reconhece terminações que,
+ * linguisticamente, ainda exigem complemento.
+ */
+export function repairClearlyIncompleteAgentReplyV3(value: string): string {
+  const text = String(value || "").trim();
+  if (!text) return text;
+
+  const danglingTail =
+    /(?:\b(?:e|ou|mas|porque|pois|que|se|para|pra|com|sem|de|do|da|dos|das|em|no|na|nos|nas|por|pelo|pela|um|uma|uns|umas|o|a|os|as|seu|sua|seus|suas|meu|minha|meus|minhas)\s*|[,;:]\s*)$/iu;
+  if (!danglingTail.test(text)) return text;
+
+  // Se já existe uma frase completa antes do fragmento truncado, preserva só
+  // o conteúdo completo. Nunca inventa o complemento que o modelo perdeu.
+  const completePrefix = text.match(/^([\s\S]*[.!?])(?:\s+[^.!?]*)$/u)?.[1]?.trim();
+  if (completePrefix && /[\p{L}\p{N}]/u.test(completePrefix)) return completePrefix;
+
+  // Uma única frase claramente truncada não pode chegar ao cliente.
+  return "Quero te responder isso sem deixar a informação pela metade. Pode me confirmar esse ponto novamente?";
+}
