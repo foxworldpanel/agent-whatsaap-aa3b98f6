@@ -675,6 +675,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     workspaceId: inputWorkspaceId,
     conversationId,
     phone,
+    previousOrderContext,
     flowActionHint,
     offerEligibility,
     objections,
