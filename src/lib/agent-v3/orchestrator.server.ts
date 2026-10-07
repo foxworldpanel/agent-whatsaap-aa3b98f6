@@ -572,6 +572,7 @@ export interface OrchestratorInput {
   workspaceId?: string;
   conversationId?: string;
   phone?: string;
+  previousOrderContext?: OrderContext | null;
   traceId?: string;
   // Quando presente (só quando uma FlowAction está ligada por feature
   // flag), instrui o Claude a apenas ESCREVER a ação já decidida pelo
