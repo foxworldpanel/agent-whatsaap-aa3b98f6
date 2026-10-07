@@ -56,4 +56,60 @@ describe("Agent V3 remaining behavioral guards", () => {
     expect(reconciled.state).toBe("pos_venda");
     expect(reconciled.allowQualification).toBe(false);
   });
+  it("blocks additional semantically dangling reply endings", () => {
+    expect(repairClearlyIncompleteAgentReplyV3("A entrega acontece durante")).toMatch(/[?!.]$/);
+    expect(repairClearlyIncompleteAgentReplyV3("Você consegue acompanhar por meio")).toMatch(/[?!.]$/);
+    expect(repairClearlyIncompleteAgentReplyV3("O prazo depende de")).toMatch(/[?!.]$/);
+  });
+
+  it("preserves complete conversational endings that do not need punctuation", () => {
+    expect(repairClearlyIncompleteAgentReplyV3("Perfeito, pode acompanhar pelo painel")).toBe(
+      "Perfeito, pode acompanhar pelo painel",
+    );
+    expect(repairClearlyIncompleteAgentReplyV3("Certo, esse pedido continua em andamento")).toBe(
+      "Certo, esse pedido continua em andamento",
+    );
+  });
+
+  it.each([
+    "quero outro serviço",
+    "agora quero Instagram",
+    "quero fazer mais um",
+    "também preciso de seguidores",
+    "agora preciso de visualizações",
+  ])("exits post-sale for a clear new commercial intent: %s", (message) => {
+    const previous = {
+      state: "pos_venda" as const,
+      risk: "normal" as const,
+      reason: "pedido anterior em pós-venda",
+      nextAction: "responder ao pedido anterior",
+      allowQualification: false,
+      shouldHandoff: false,
+    };
+    const current = deriveBusinessDecisionV3({ message, customerLifecycle: "cliente" });
+    const reconciled = reconcileBusinessDecisionV3({ previous, current, message });
+    expect(reconciled.state).not.toBe("pos_venda");
+    expect(reconciled.reason).toContain("nova compra explícita após pós-venda");
+  });
+
+  it.each([
+    "o pedido 1124998 ainda não entrou",
+    "e meu pedido?",
+    "continua in progress?",
+    "qual o status do pedido 1124998?",
+    "ainda não chegaram as visualizações do pedido 1124998",
+  ])("does not mistake continuing order support for a new purchase: %s", (message) => {
+    const previous = {
+      state: "pos_venda" as const,
+      risk: "normal" as const,
+      reason: "pedido anterior em pós-venda",
+      nextAction: "responder ao pedido anterior",
+      allowQualification: false,
+      shouldHandoff: false,
+    };
+    const current = deriveBusinessDecisionV3({ message, customerLifecycle: "cliente" });
+    const reconciled = reconcileBusinessDecisionV3({ previous, current, message });
+    expect(reconciled.state).toBe("pos_venda");
+  });
+
 });
