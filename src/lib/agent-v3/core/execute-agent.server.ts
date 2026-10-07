@@ -63,6 +63,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     history: input.history,
     isOutboundReply: input.isOutboundReply,
     outboundInstagram: input.outboundLeadContext?.instagram ?? null,
+    businessState: input.businessDecision?.state ?? null,
   });
 
   if (preDecision.kind !== "continue") {
