@@ -226,7 +226,11 @@ export function reconcileBusinessDecisionV3(params: { previous?: BusinessDecisio
   if (previous.shouldHandoff || previous.risk === "humano_obrigatorio" || previous.state === "aguardando_setor") return { ...previous, reason: `handoff humano preservado: ${previous.reason}`, nextAction: "manter o agente pausado até liberação explícita do operador", waitingCustomer: false };
   if (current.shouldHandoff || current.risk === "humano_obrigatorio") return current;
 
-  const explicitNewPurchase = /\b(quero comprar|quero fazer|vou comprar|vou fazer|quero pedir|vou pedir|novo pedido|outro pedido|outra compra|comprar (?:tambem|novamente|de novo)|mais \d+|agora consegui|agora funcionou)\b/.test(message);
+  const explicitNewPurchase =
+    /\b(quero comprar|quero fazer|vou comprar|vou fazer|quero pedir|vou pedir|novo pedido|outro pedido|outra compra|outro servico|mais um(?:a)?(?: compra| pedido| servico)?|comprar (?:tambem|novamente|de novo)|tambem (?:quero|preciso|vou querer)|agora (?:quero|preciso|vou querer)|quero (?:tambem|agora)|preciso (?:tambem|agora)|mais \d+|agora consegui|agora funcionou)\b/.test(message) ||
+    (/\b(?:agora|tambem|mais)\b/.test(message) &&
+      /\b(?:instagram|spotify|youtube|tiktok|kwai|facebook|seguidores|visualizacoes|views|plays|curtidas|likes|inscritos|saves|playlist|playlists)\b/.test(message) &&
+      !/\b(?:pedido|ordem|in progress|pending|processando|pendente|nao entrou|nao chegou|ainda nao|status|prazo|demora|garantia|reposicao|refill)\b/.test(message));
 
   // Uma intenção explícita de NOVA compra encerra a aderência do pós-venda
   // anterior. O cliente continua sendo cliente, mas o turno atual volta ao
