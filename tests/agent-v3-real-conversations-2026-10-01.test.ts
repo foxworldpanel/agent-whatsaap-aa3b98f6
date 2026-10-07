@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../src/lib/agent-v3/brain/business-state.server";
 import { applyBusinessDecisionToIntelligence } from "../src/lib/agent-v3/core/intelligence-utils.server";
 import { derivePersistentContactTemperatureV3 } from "../src/lib/agent-v3/memory/contact-temperature.server";
-import { deriveOrderContextV3, EMPTY_ORDER_CONTEXT, orderContextSummaryV3 } from "../src/lib/agent-v3/memory/order-context.server";\nimport { routeMessage } from "../src/lib/agent-v3/router/smart-router.server";\nimport { detectConversationState } from "../src/lib/agent-v3/core/conversation-engine.server";
+import { deriveOrderContextV3, EMPTY_ORDER_CONTEXT, orderContextSummaryV3 } from "../src/lib/agent-v3/memory/order-context.server";
+import { routeMessage } from "../src/lib/agent-v3/router/smart-router.server";
+import { detectConversationState } from "../src/lib/agent-v3/core/conversation-engine.server";
 
 describe("real conversations batch 2026-09-29/30", () => {
   it("generic payment vocabulary does not mean operational payment", () => {
