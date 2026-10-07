@@ -35,7 +35,7 @@ export const getDashboardStats = createServerFn({ method: "GET" })
       sb.from("messages").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("sender", "cliente").gte("created_at", startIso),
       sb.from("contacts").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("status", "convertido"),
       sb.from("agent_logs").select("id, summary, level, type, created_at, phone").eq("workspace_id", workspaceId).order("created_at", { ascending: false }).limit(10),
-      sb.from("contacts").select("origem, status").eq("workspace_id", workspaceId),
+      sb.from("contacts").select("source_data, status").eq("workspace_id", workspaceId),
       sb.from("contacts").select("temperatura").eq("workspace_id", workspaceId).gte("temperatura_updated_at", startIso),
       sb.from("agent_modules_v3").select("id", { count: "exact", head: true }).eq("workspace_id", workspaceId).eq("enabled", true),
     ]);
@@ -59,7 +59,9 @@ export const getDashboardStats = createServerFn({ method: "GET" })
 
     const sourceMap = new Map<string, { total: number; convertidos: number }>();
     for (const row of sourcesRes.data ?? []) {
-      const raw = (row as { origem?: string | null }).origem;
+      const sourceData = ((row as { source_data?: unknown }).source_data ?? {}) as Record<string, unknown>;
+      const raw = [sourceData.source, sourceData.provider, sourceData.origin, sourceData.origem]
+        .find((value) => typeof value === "string" && value.trim()) as string | undefined;
       const key = raw?.trim() || "organico";
       const cur = sourceMap.get(key) ?? { total: 0, convertidos: 0 };
       cur.total += 1;
