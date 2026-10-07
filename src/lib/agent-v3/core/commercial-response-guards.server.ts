@@ -45,8 +45,10 @@ export function repairClearlyIncompleteAgentReplyV3(value: string): string {
   if (!text) return text;
 
   const danglingTail =
-    /(?:\b(?:e|ou|mas|porque|pois|que|se|para|pra|com|sem|de|do|da|dos|das|em|no|na|nos|nas|por|pelo|pela|um|uma|uns|umas|o|a|os|as|seu|sua|seus|suas|meu|minha|meus|minhas)\s*|[,;:]\s*)$/iu;
-  if (!danglingTail.test(text)) return text;
+    /(?:\b(?:e|ou|mas|porque|pois|que|se|para|pra|com|sem|de|do|da|dos|das|em|no|na|nos|nas|por|pelo|pela|um|uma|uns|umas|o|a|os|as|seu|sua|seus|suas|meu|minha|meus|minhas|durante|entre|sobre|ate|desde|apos|antes|quando|enquanto|caso|como|quanto|qual|quais)\s*|[,;:]\s*)$/iu;
+  const danglingConstruction =
+    /\b(?:por meio|atraves|a partir|por causa|de acordo|junto|em relacao|em caso|antes de|depois de|alem de|dentro de|fora de|cerca de|perto de|depende de|precisa de|pode ser|vai ser|fica em|acontece em|comeca em|termina em)\s*$/iu;
+  if (!danglingTail.test(text) && !danglingConstruction.test(text)) return text;
 
   // Se já existe uma frase completa antes do fragmento truncado, preserva só
   // o conteúdo completo. Nunca inventa o complemento que o modelo perdeu.
