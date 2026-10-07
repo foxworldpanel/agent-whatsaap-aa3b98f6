@@ -65,15 +65,32 @@ export function deriveBusinessDecisionV3(params: {
   customerLifecycle?: string | null;
 }): BusinessDecisionV3 {
   const current = norm(params.message);
-  const imageOrderEvidence = /\[imagem recebida\]/.test(current) && /\b(id\s*:?\s*\d{5,}|status\s*:?|in progress|em progresso|quantidade\s*:?|restante\s*:?|contagem inicial\s*:?)\b/.test(current);
   const recent = (params.recentCustomerMessages || []).slice(-6).map(norm);
   const context = [...recent, current].filter(Boolean).join(" ");
+  const imageOrderEvidence = /\[(?:imagem recebida|imagem)\b/.test(current) && /\b(id(?: do pedido)?\s*:?\s*\d{5,}|status\s*:?|in progress|em progresso|quantidade\s*:?|restante\s*:?|contagem inicial\s*:?)\b/.test(current);
+  const explicitOrderId = /\b(?:pedido|id(?: do pedido)?|ordem)\s*#?\s*\d{5,}\b/.test(current);
+  const recentOrderId = /\b(?:pedido|id(?: do pedido)?|ordem)\s*#?\s*\d{5,}\b/.test(context);
+  const orderStatusQuestion = /\b(?:in progress|pending|completed|partial|canceled|cancelled|em andamento|em progresso|processando)\b/.test(current);
+  const deliveryNotStarted = /\b(?:nao|ainda nao)\s+(?:entrou|entraram|iniciou|iniciaram|chegou|chegaram|caiu|cairam)\b/.test(current) && /\b(?:visualizacoes|views|seguidores|inscritos|plays|curtidas|likes|pedido|entrega)\b/.test(context);
 
   const explicitHuman = /\b(falar com (?:um |uma )?(?:atendente )?humano|falar com (?:uma )?pessoa|quero (?:um |uma )?atendente|sem ser (?:um )?robo|sem robo|pessoa de verdade)\b/.test(current);
   if (explicitHuman) return { state: "aguardando_setor", risk: "humano_obrigatorio", reason: "cliente solicitou outro atendente", nextAction: "pausar o atendimento automático e encaminhar ao setor responsável", allowQualification: false, shouldHandoff: true };
 
   const legalRisk = /\b(denuncia|procon|advogad|processo|processar|justica|chargeback|contestacao|fraude|golpe)\b/.test(current);
   if (legalRisk) return { state: "reclamacao", risk: "humano_obrigatorio", reason: "risco jurídico ou reputacional", nextAction: "encaminhar imediatamente ao setor responsável", allowQualification: false, shouldHandoff: true };
+
+  // ID de pedido é prova operacional de compra: no painel, pedido só existe
+  // depois de saldo/pagamento e criação do pedido. Nunca perguntar se pagou.
+  if (explicitOrderId || (recentOrderId && (orderStatusQuestion || deliveryNotStarted))) {
+    return {
+      state: "pos_venda",
+      risk: "normal",
+      reason: "cliente informou ID/status de pedido já criado",
+      nextAction: "tratar como pós-venda; considerar pagamento/compra já realizados; explicar o status e usar apenas prazo de início/entrega explicitamente autorizado pelo serviço; nunca perguntar se o pedido foi pago",
+      allowQualification: false,
+      shouldHandoff: false,
+    };
+  }
 
   // Evidência visual de um pedido existente é pós-venda, não qualificação.
   // O conteúdo enriquecido da imagem pode trazer ID/status/data/quantidade;
