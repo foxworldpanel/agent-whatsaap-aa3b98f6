@@ -358,6 +358,31 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(status.allowQualification).toBe(false);
   });
 
+  it("07/10 case 233693683699742: post-sale cannot regress to account creation after short follow-up", () => {
+    const previous = deriveBusinessDecisionV3({
+      message: "O pedido1124998",
+      recentCustomerMessages: [],
+    });
+    expect(previous.state).toBe("pos_venda");
+
+    const shortFollowup = deriveBusinessDecisionV3({
+      message: "Está na imagem",
+      recentCustomerMessages: ["O pedido1124998", "In progress significa o que?", "2550"],
+    });
+    const reconciled = reconcileBusinessDecisionV3({
+      previous,
+      current: shortFollowup,
+      message: "Está na imagem",
+    });
+    expect(reconciled.state).toBe("pos_venda");
+    expect(reconciled.allowQualification).toBe(false);
+    expect(reconciled.nextAction).toContain("não reabrir aquisição");
+
+    const orchestrator = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
+    expect(orchestrator).toContain("[AGENT-V3-POSTSALE-GUARD]");
+    expect(orchestrator).toContain("Resposta de aquisição bloqueada em pós-venda");
+  });
+
   it("07/10 case 233693683699742: existing order screenshot stays post-sale and never requalifies", () => {
     const prompt = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
     expect(prompt).toContain("SUPORTE DE PEDIDO JÁ CRIADO É PÓS-VENDA");
