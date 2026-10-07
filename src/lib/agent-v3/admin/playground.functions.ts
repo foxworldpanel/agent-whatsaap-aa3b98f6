@@ -47,10 +47,13 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       // Um Customer Turn pode conter uma rajada já agregada pelo pipeline real.
       // Cada item vira uma linha, na mesma ordem usada por buildCustomerTurnRuntimeInput().
       customerTurnMessages: z.array(z.string().min(1)).max(20).optional(),
+      // Relógio determinístico da bancada: permite reproduzir o mesmo
+      // session_reset_reason que o runtime real produz após >=24h.
+      simulateInactivityHours: z.number().min(0).max(24 * 365).optional(),
     }).parse(d)
   )
   .handler(async ({ data, context }) => {
-    const { sessionId, message, inputKind = "texto", isOutbound = false, funnelAlreadyCompleted: requestedFunnelCompleted = false, welcomeFunnelId, customerTurnMessages } = data;
+    const { sessionId, message, inputKind = "texto", isOutbound = false, funnelAlreadyCompleted: requestedFunnelCompleted = false, welcomeFunnelId, customerTurnMessages, simulateInactivityHours } = data;
     const effectiveMessage = (customerTurnMessages?.length
       ? customerTurnMessages.map((part) => part.trim()).filter(Boolean).join("\n")
       : message
@@ -232,6 +235,17 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
         isFirstTurn: history.length === 0,
         funnelAlreadyCompleted,
       },
+      // Mesmo contrato de lifecycle do WhatsApp: o Playground não inventa
+      // uma regra paralela, apenas injeta o mesmo sinal durável no cérebro.
+      historyTelemetry:
+        simulateInactivityHours != null
+          ? {
+              total_messages_stored: history.length + 1,
+              session_reset_reason:
+                simulateInactivityHours >= 24 ? "inactivity_24h" : undefined,
+              history_truncated: false,
+            }
+          : undefined,
       // Mesmo contrato do runtime real: texto comum passa pelo Smart Router.
       // Só mídia ou uma mensagem explicitamente retomada atrás do Funnel
       // deve pular o Router. "Funnel concluído" por si só não é motivo.
