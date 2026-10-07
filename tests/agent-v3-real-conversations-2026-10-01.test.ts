@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../src/lib/agent-v3/brain/business-state.server";
 import { applyBusinessDecisionToIntelligence } from "../src/lib/agent-v3/core/intelligence-utils.server";
 import { derivePersistentContactTemperatureV3 } from "../src/lib/agent-v3/memory/contact-temperature.server";
-import { deriveOrderContextV3, EMPTY_ORDER_CONTEXT, orderContextSummaryV3 } from "../src/lib/agent-v3/memory/order-context.server";
+import { deriveOrderContextV3, EMPTY_ORDER_CONTEXT, orderContextSummaryV3 } from "../src/lib/agent-v3/memory/order-context.server";\nimport { routeMessage } from "../src/lib/agent-v3/router/smart-router.server";
 
 describe("real conversations batch 2026-09-29/30", () => {
   it("generic payment vocabulary does not mean operational payment", () => {
@@ -290,11 +290,38 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(prompt).toContain("Não use travessão longo (—) nas respostas ao cliente");
   });
 
-  it("07/10 case 5511970116430: standalone greeting opens the conversation instead of echoing only the greeting", () => {
-    const prompt = readFileSync(join(process.cwd(), "src/lib/agent-v3/prompt/prompt-p1.server.ts"), "utf8");
-    expect(prompt).toContain('por exemplo: "Bom dia, como posso ajudar?"');
-    expect(prompt).toContain('Não responda apenas "Bom dia"');
-    expect(prompt).toContain('não retome a apresentação');
+  it("07/10 case 5511970116430: greeting after 24h reopens service even when funnel was completed", () => {
+    const base = {
+      isFirstTurn: false,
+      funnelAlreadyCompleted: true,
+      resumedAfterInactivity: true,
+    };
+
+    expect(routeMessage("Bom dia", base).response).toBe("Bom dia, como posso ajudar?");
+    expect(routeMessage("Boa tarde", base).response).toBe("Boa tarde, como posso ajudar?");
+    expect(routeMessage("Boa noite", base).response).toBe("Boa noite, como posso ajudar?");
+  });
+
+  it("07/10 greeting regression: immediate post-funnel greeting stays short and a greeting with a question is not swallowed", () => {
+    expect(routeMessage("Bom dia", {
+      isFirstTurn: false,
+      funnelAlreadyCompleted: true,
+      resumedAfterInactivity: false,
+    }).response).toBe("Bom dia!");
+
+    const withQuestion = routeMessage("Bom dia, quanto custa 1000 plays?", {
+      isFirstTurn: false,
+      funnelAlreadyCompleted: true,
+      resumedAfterInactivity: true,
+    });
+    expect(withQuestion.handled).toBe(false);
+    expect(withQuestion.route).toBe("claude");
+  });
+
+  it("07/10 inactivity signal comes from durable 24h reset in the shared execution brain", () => {
+    const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/core/execute-agent.server.ts"), "utf8");
+    expect(source).toContain('input.historyTelemetry?.session_reset_reason === "inactivity_24h"');
+    expect(source).toContain("resumedAfterInactivity:");
   });
 
   it("locks commercial authority rules into P1", () => {
