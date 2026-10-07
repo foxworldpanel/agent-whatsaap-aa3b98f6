@@ -14,6 +14,7 @@ export type AgentV3RuntimeTerminalReason =
   | "smart_router_completed"
   | "smart_router_send_failed"
   | "ai_processed"
+  | "superseded_by_newer_inbound"
   | "ai_error_needs_review";
 
 export type AgentV3RuntimeTerminalClass =
@@ -45,6 +46,7 @@ const TERMINAL_CLASS: Record<AgentV3RuntimeTerminalReason, AgentV3RuntimeTermina
   smart_router_completed: "completed",
   smart_router_send_failed: "operational_attention",
   ai_processed: "completed",
+  superseded_by_newer_inbound: "completed_without_reply",
   ai_error_needs_review: "operational_attention",
 };
 
