@@ -39,6 +39,7 @@ export function decideSharedPreExecution(params: {
   history: Array<{ role: "agent" | "customer"; content: string }>;
   isOutboundReply?: boolean;
   outboundInstagram?: string | null;
+  businessState?: string | null;
 }): SharedPreExecutionDecision {
   const recentCustomerText = params.history
     .filter((item) => item.role === "customer")
@@ -65,7 +66,11 @@ export function decideSharedPreExecution(params: {
   if (params.isOutboundReply && isOutboundColdDecline(params.message)) {
     return { kind: "outbound_decline", reply: OUTBOUND_DECLINE_REPLY };
   }
-  if (isExplicitPanelLinkRequestV3(params.message)) {
+  if (
+    isExplicitPanelLinkRequestV3(params.message) &&
+    params.businessState !== "pos_venda" &&
+    params.businessState !== "pedido_realizado"
+  ) {
     return { kind: "panel_link", reply: panelLinkReplyV3() };
   }
 
