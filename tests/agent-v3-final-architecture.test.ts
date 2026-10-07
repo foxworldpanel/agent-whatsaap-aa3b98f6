@@ -48,8 +48,8 @@ describe("Agent V3 final architecture invariants", () => {
   });
 
   it("keeps finalization, split and audio decision aligned across transports", () => {
-    expect(playground).toContain("finalizeAgentText(part");
-    expect(runtime).toContain("finalizeAgentText(part");
+    expect(playground).toContain("finalizeAgentReplyParts(");
+    expect(runtime).toContain("finalizeAgentReplyParts(");
     expect(playground).toContain("shouldReplyWithAudio({");
     expect(runtime).toContain("shouldReplyWithAudio({");
     expect(playground).toContain("execResult.agentResult?.replies");
