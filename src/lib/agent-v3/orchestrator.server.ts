@@ -1092,6 +1092,7 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
     message,
     history,
     greetingAlreadyPerformed: Boolean(funnelAlreadyCompleted),
+    sessionResetReason: historyTelemetry?.session_reset_reason,
   });
   const conversationPrompt = conversationStateToPrompt(convState);
 
