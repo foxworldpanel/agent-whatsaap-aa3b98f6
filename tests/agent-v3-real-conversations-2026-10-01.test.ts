@@ -402,4 +402,17 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(source).toContain("intenção de pagar não elimina pré-requisitos");
     expect(source).toContain("Short não é Live");
   });
+
+  it("07/10 order context: order ID also confirms payment in shared memory", () => {
+    const order = deriveOrderContextV3("O pedido1124998 ainda está In progress", []);
+    expect(order.paymentStatus).toBe("confirmado_pelo_cliente");
+  });
+
+  it("07/10 playground lifecycle: durable 24h signal is explicitly reproducible", () => {
+    const playground = readFileSync(join(process.cwd(), "src/lib/agent-v3/admin/playground.functions.ts"), "utf8");
+    expect(playground).toContain("simulateInactivityHours");
+    expect(playground).toContain('simulateInactivityHours >= 24 ? "inactivity_24h"');
+    expect(playground).toContain("historyTelemetry:");
+  });
+
 });
