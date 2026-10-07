@@ -714,13 +714,19 @@ export async function runAgentV3Turn(input: OrchestratorInput): Promise<AgentV3T
 
   // 0.5. Conversation Facts Engine (Short-term deterministic memory)
   // Carrega o contexto estruturado (order_context) e extrai novos fatos da mensagem.
-  const storedOrderContext = await loadOrderContextV3(phone || "", workspaceId);
+  // Playground e outros transportes sintéticos não possuem telefone real.
+  // Nesses casos usamos somente o snapshot recebido em memória e nunca tentamos
+  // normalizar/persistir uma identidade telefônica inexistente.
+  const hasDurablePhone = Boolean(phone?.trim()) && !phone!.startsWith("playground:");
+  const storedOrderContext = hasDurablePhone
+    ? await loadOrderContextV3(phone!, workspaceId)
+    : (previousOrderContext ?? EMPTY_ORDER_CONTEXT);
   const currentFacts = normalizeConversationFactsV3(storedOrderContext);
   const updatedOrderContext = deriveOrderContextV3(message, history, storedOrderContext, currentFacts);
 
   // Salva em background (non-blocking) para persistência.
-  if (phone && workspaceId && userId) {
-    saveOrderContextV3(phone, workspaceId, userId, updatedOrderContext).catch(err => 
+  if (hasDurablePhone && workspaceId && userId) {
+    saveOrderContextV3(phone!, workspaceId, userId, updatedOrderContext).catch(err => 
       console.warn("[ORCHESTRATOR-FACTS] Erro ao salvar order_context:", err)
     );
   }
