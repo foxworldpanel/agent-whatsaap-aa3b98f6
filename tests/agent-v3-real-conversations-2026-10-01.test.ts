@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../src/lib/agent-v3/brain/business-state.server";
 import { applyBusinessDecisionToIntelligence } from "../src/lib/agent-v3/core/intelligence-utils.server";
 import { derivePersistentContactTemperatureV3 } from "../src/lib/agent-v3/memory/contact-temperature.server";
-import { deriveOrderContextV3, EMPTY_ORDER_CONTEXT, orderContextSummaryV3 } from "../src/lib/agent-v3/memory/order-context.server";\nimport { routeMessage } from "../src/lib/agent-v3/router/smart-router.server";
+import { deriveOrderContextV3, EMPTY_ORDER_CONTEXT, orderContextSummaryV3 } from "../src/lib/agent-v3/memory/order-context.server";\nimport { routeMessage } from "../src/lib/agent-v3/router/smart-router.server";\nimport { detectConversationState } from "../src/lib/agent-v3/core/conversation-engine.server";
 
 describe("real conversations batch 2026-09-29/30", () => {
   it("generic payment vocabulary does not mean operational payment", () => {
@@ -322,6 +322,21 @@ describe("real conversations batch 2026-09-29/30", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/core/execute-agent.server.ts"), "utf8");
     expect(source).toContain('input.historyTelemetry?.session_reset_reason === "inactivity_24h"');
     expect(source).toContain("resumedAfterInactivity:");
+  });
+
+  it("07/10 greeting plus a real question after 24h may greet naturally without losing the question", () => {
+    const state = detectConversationState({
+      message: "Bom dia, quanto custa 1000 plays?",
+      history: [],
+      greetingAlreadyPerformed: true,
+      sessionResetReason: "inactivity_24h",
+    });
+    expect(state.sessionRestart).toBe(true);
+    expect(state.resumedWithGreeting).toBe(true);
+    expect(state.greetingAlreadyDone).toBe(false);
+
+    const orchestrator = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
+    expect(orchestrator).toContain("sessionResetReason: historyTelemetry?.session_reset_reason");
   });
 
   it("locks commercial authority rules into P1", () => {
