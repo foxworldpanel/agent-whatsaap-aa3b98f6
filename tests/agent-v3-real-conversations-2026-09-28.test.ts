@@ -58,7 +58,9 @@ describe("real conversation regressions 2026-09-28", () => {
     };
     const current = deriveBusinessDecisionV3({ message: "sim", recentCustomerMessages: [] });
     const result = reconcileBusinessDecisionV3({ previous, current, message: "sim" });
-    expect(result.reason).toBe("continuidade preservada: cliente já definiu produto/quantidade ou está fechando");
+    expect(result.state).toBe("pagamento");
+    expect(result.reason).toBe("cliente confirmou explicitamente o fechamento");
+    expect(result.allowQualification).toBe(false);
   });
 
   it("keeps a hard post-funnel no-greeting guard in the shared orchestrator", () => {
