@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-state.server";
 import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
 import { decideSharedPreExecution, institutionalReplyV3 } from "../../src/lib/agent-v3/core/pre-execution-decision.server";
+import { normalizeAgentTextPresentation } from "../../src/lib/send-agent-guarded.server";
 
 describe("Agent V3 remaining behavioral guards", () => {
   it("drops a clearly truncated tail when a complete sentence already exists", () => {
@@ -184,6 +185,19 @@ describe("Agent V3 remaining behavioral guards", () => {
       expect(reply).toContain("Não tenho um país de sede confirmado");
     },
   );
+
+  it.each([
+    [
+      "1.000 Plays + Ouvintes sai por R$ 15,00. Quer confirmar essa quantidade?",
+      "1.000 Plays + Ouvintes sai por R$ 15,00\\n\\nQuer confirmar essa quantidade?",
+    ],
+    [
+      "No Spotify, a gente oferece Plays + Ouvintes. 1.000 Plays + Ouvintes = R$ 15,00 Qual quantidade você tá pensando?",
+      "No Spotify, a gente oferece Plays + Ouvintes.\\n\\n1.000 Plays + Ouvintes = R$ 15,00 Qual quantidade você tá pensando?",
+    ],
+  ])("keeps commercial prices out of prose: %s", (input, expected) => {
+    expect(normalizeAgentTextPresentation(input)).toBe(expected);
+  });
 
   it("requires vertical authoritative price formatting", () => {
     const decision = deriveBusinessDecisionV3({ message: "Quanto custa no Spotify?" });
