@@ -32,7 +32,7 @@ import { P0_TEXT } from "./prompt/prompt-p0.server";
 import { OUTBOUND_TEXT } from "./prompt/prompt-outbound.server";
 import { outboundLeadPromptContext, type OutboundLeadContext } from "./outbound-lead-context.server";
 import { checkPromptIntegrity } from "./brain/prompt-integrity-check.server";
-import { saysPreviouslyUsedMindV3, isLowInformationSocialMessageV3, repairClearlyIncompleteAgentReplyV3 } from "./core/commercial-response-guards.server";
+import { saysPreviouslyUsedMindV3, isLowInformationSocialMessageV3, repairClearlyIncompleteAgentReplyV3, stripUnsupportedQuantityLimitsV3 } from "./core/commercial-response-guards.server";
 import { buildP1Text } from "./prompt/prompt-p1.server";
 import { buildP2Text } from "./prompt/prompt-p2.server";
 import { 
@@ -2424,6 +2424,15 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       finalContent =
         "Não posso garantir ativação, impulso ou resultado do algoritmo. Posso explicar apenas o que o serviço entrega conforme o catálogo.";
     }
+  }
+
+  // LIMITES QUANTITATIVOS: mínimo/máximo só podem ser repetidos quando
+  // aparecem literalmente nos módulos comerciais selecionados.
+  {
+    const quantityLimitAuthority = effectiveSelectedKeys
+      .map((key) => mergedModulesMap[key]?.content || "")
+      .join("\n");
+    finalContent = stripUnsupportedQuantityLimitsV3(finalContent, quantityLimitAuthority);
   }
 
   // FRASES BANIDAS (Trava de código determinística):
