@@ -161,13 +161,13 @@ export function deriveBusinessDecisionV3(params: {
   if (/\b(ja comprei|ja paguei|comprei ontem|comprei hoje|comprei|paguei|fiz o pedido|pedido feito|pedido realizado|pedido confirmado|pagamento feito|pagamento realizado)\b/.test(current)) return { state: "pedido_realizado", risk: "normal", reason: "cliente confirmou compra/pedido", nextAction: "entrar em pós-venda e responder apenas a dúvida atual", allowQualification: false, shouldHandoff: false };
 
   const contentNotPublishedYet =
-    /\b(ainda nao (?:lancei|publiquei|postei|distribui|consegui (?:colocar|publicar|lancar|postar|distribuir))|nao (?:lancei|publiquei|postei|distribui) ainda|(?:ainda )?nao consegui(?:r)? (?:colocar|publicar|lancar|postar|distribuir)(?: (?:minha|meu|minhas|meus|a|as|o|os))? (?:musica|musicas|conteudo|video|videos)(?: (?:em|nas?|nos?) (?:plataforma|plataformas|spotify|youtube))?|musica(?:s)? ainda nao (?:esta|estao|saiu|sairam)|nao tenho (?:musica|video|conteudo) publicad)\b/.test(context);
+    /\b(ainda nao (?:lancei|publiquei|postei|distribui|consegui (?:colocar|publicar|lancar|postar|distribuir))|nao (?:lancei|publiquei|postei|distribui) ainda|(?:ainda )?nao consegui(?:r)? (?:colocar|publicar|lancar|postar|distribuir)(?: (?:minha|meu|minhas|meus|a|as|o|os))? (?:musica|musicas|conteudo|video|videos)(?: (?:em|nas?|nos?) (?:plataforma|plataformas|spotify|youtube))?|musica(?:s)? ainda nao (?:esta|estao|saiu|sairam)|(?:musica|musicas).{0,80}(?:vai|vao) ser lancad|tenho que esperar.{0,50}(?:lancar|lancada|lancamento)|nao tenho (?:musica|video|conteudo) publicad)\b/.test(context);
   if (contentNotPublishedYet) {
     return {
       state: "descoberta",
       risk: "normal",
       reason: "conteudo ainda nao publicado para impulsionamento",
-      nextAction: "explicar que o servico impulsiona conteudo ja publicado e pedir o link somente quando estiver disponivel; nao conduzir a pagamento agora",
+      nextAction: "explicar que precisa aguardar o conteúdo ser lançado/publicado; depois do lançamento, acessar o painel e fazer a compra do serviço desejado; não encaminhar para humano só por ser pré-lançamento",
       allowQualification: false,
       shouldHandoff: false,
     };
