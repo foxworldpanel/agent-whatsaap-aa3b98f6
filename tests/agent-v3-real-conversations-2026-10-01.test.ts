@@ -122,7 +122,8 @@ describe("real conversations batch 2026-09-29/30", () => {
     expect(d.reason).toContain("confusao");
     expect(d.nextAction).toContain("conteudo ja publicado");
     expect(d.nextAction).toContain("precisa do link");
-    expect(d.nextAction).not.toMatch(/cobrar|pix|pagamento/i);
+    expect(d.nextAction).toContain("esclarecer antes de cobrar");
+    expect(d.nextAction).not.toMatch(/(?:mandar|enviar|passar) (?:o )?pix|(?:ir|avançar|seguir) (?:para|pro) pagamento/i);
   });
 
   it("persists confirmed purchase facts and exposes them as post-sale generation context", () => {
