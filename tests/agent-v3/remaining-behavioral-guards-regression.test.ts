@@ -140,8 +140,22 @@ describe("Agent V3 remaining behavioral guards", () => {
     expect(decision.state).toBe("descoberta");
     expect(decision.shouldHandoff).toBe(false);
     expect(decision.nextAction).toContain("não possui sede no Brasil");
-    expect(decision.nextAction).toContain("não há CNPJ brasileiro");
+    expect(decision.nextAction).toContain("sem pedir para o cliente repetir");
+    expect(decision.nextAction).toContain("não inventar número");
+    expect(decision.nextAction).toContain("não afirmar que a empresa não possui CNPJ brasileiro");
   });
+
+  it.each(["a empresa de voces tem CNPJ?", "Manda o CNPJ", "qual é o CNPJ da empresa?"])(
+    "handles direct CNPJ wording without falling back or inventing legal data: %s",
+    (message) => {
+      const decision = deriveBusinessDecisionV3({ message });
+      expect(decision.reason).toBe("cliente pediu informação institucional da MIND");
+      expect(decision.shouldHandoff).toBe(false);
+      expect(decision.allowQualification).toBe(false);
+      expect(decision.nextAction).toContain("sem pedir para o cliente repetir");
+      expect(decision.nextAction).not.toContain("não há CNPJ brasileiro para informar");
+    },
+  );
 
   it("requires vertical authoritative price formatting", () => {
     const decision = deriveBusinessDecisionV3({ message: "Quanto custa no Spotify?" });
