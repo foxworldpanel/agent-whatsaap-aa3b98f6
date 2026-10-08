@@ -19,7 +19,7 @@ describe("Lapidação de venda e pós-venda",()=>{
  it("não usa link enviado como prova de pedido e mantém painel como executor",()=>{
   expect(p1).toContain("Se o cliente mandar o link espontaneamente");
   expect(p1).toContain("nunca diga que \"vai seguir com o pedido\"");
-  expect(p1).toContain("a Júlia não cria pedido pelo WhatsApp");
+  expect(p1).toMatch(/Júlia não cria pedido pelo WhatsApp/i);
  });
  it("não inventa diferença comercial entre variantes",()=>{
   expect(p1).toContain("Preço/serviço que você mesmo já confirmou");
