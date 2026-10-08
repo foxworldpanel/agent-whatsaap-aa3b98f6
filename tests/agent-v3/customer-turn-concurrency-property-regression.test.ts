@@ -18,8 +18,8 @@ function shouldSuppressGeneratedReply(params: {
   const own = new Set(params.currentTurnJobIds);
   return params.inboundJobs.some(
     (job) =>
-      job.status === "pending" &&
-      job.createdAt > params.snapshotAt &&
+      (job.status === "pending" || job.status === "processing_safe") &&
+      job.createdAt >= params.snapshotAt &&
       !own.has(job.id),
   );
 }
@@ -60,4 +60,21 @@ describe("Customer Turn concurrency property", () => {
       }),
     ).toBe(false);
   });
+
+  it("suppresses an external pending job with the exact snapshot timestamp", () => {
+    expect(shouldSuppressGeneratedReply({
+      snapshotAt: 1000,
+      currentTurnJobIds: ["A"],
+      inboundJobs: [{ id: "B", createdAt: 1000, status: "pending" }],
+    })).toBe(true);
+  });
+
+  it("suppresses a newer external job already claimed for safe processing", () => {
+    expect(shouldSuppressGeneratedReply({
+      snapshotAt: 1000,
+      currentTurnJobIds: ["A"],
+      inboundJobs: [{ id: "B", createdAt: 1001, status: "processing_safe" }],
+    })).toBe(true);
+  });
+
 });
