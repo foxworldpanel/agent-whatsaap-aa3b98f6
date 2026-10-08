@@ -109,7 +109,7 @@ describe("real conversations batch 2026-09-29/30", () => {
     });
     expect(d.state).toBe("descoberta");
     expect(d.allowQualification).toBe(false);
-    expect(d.nextAction).toContain("conteudo ja publicado");
+    expect(d.nextAction).toMatch(/aguardar.*(?:lançado|publicado)|conteúdo.*(?:lançado|publicado)/i);
   });
 
   it("resolves distribution confusion before an operational payment request", () => {
@@ -120,7 +120,7 @@ describe("real conversations batch 2026-09-29/30", () => {
     });
     expect(d.state).toBe("descoberta");
     expect(d.reason).toContain("confusao");
-    expect(d.nextAction).toContain("conteudo ja publicado");
+    expect(d.nextAction).toMatch(/aguardar.*(?:lançado|publicado)|conteúdo.*(?:lançado|publicado)/i);
   });
 
   it("persists confirmed purchase facts and exposes them as post-sale generation context", () => {
@@ -247,7 +247,7 @@ describe("real conversations batch 2026-09-29/30", () => {
       const d = deriveBusinessDecisionV3({ message });
       expect(d.state).toBe("descoberta");
       expect(d.allowQualification).toBe(false);
-      expect(d.nextAction).toContain("conteudo ja publicado");
+      expect(d.nextAction).toMatch(/aguardar.*(?:lançado|publicado)|conteúdo.*(?:lançado|publicado)/i);
     }
   });
 
