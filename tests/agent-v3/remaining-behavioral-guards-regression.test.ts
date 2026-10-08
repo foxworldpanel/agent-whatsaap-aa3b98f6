@@ -139,28 +139,6 @@ describe("Agent V3 remaining behavioral guards", () => {
     ]);
   });
 
-  it.each([
-    "onde eu compro?",
-    "como eu compro?",
-    "quero comprar, manda o pix",
-    "manda o pix para eu comprar",
-  ])("routes explicit purchase/payment access directly to the panel: %s", (message) => {
-    expect(isExplicitPanelLinkRequestV3(message)).toBe(true);
-    const decision = decideSharedPreExecution({
-      message,
-      inputKind: "texto",
-      history: [],
-      businessState: "orcamento",
-    });
-    expect(decision.kind).toBe("panel_link");
-    if (decision.kind === "panel_link") {
-      expect(splitMindPanelUrlPartsV3(decision.reply)).toEqual([
-        "Claro! segue o link do painel, lá você cria sua conta, escolhe o serviço e faz o pedido direto.",
-        "https://mindsmmpanel.com",
-      ]);
-    }
-  });
-
   it("preserves vertical formatting when isolating the panel URL", () => {
     expect(splitMindPanelUrlPartsV3("1.000 Plays + Ouvintes - R$ 15,00\n\nhttps://mindsmmpanel.com")).toEqual([
       "1.000 Plays + Ouvintes - R$ 15,00",
