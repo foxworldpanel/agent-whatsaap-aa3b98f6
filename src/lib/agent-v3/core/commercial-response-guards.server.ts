@@ -98,3 +98,57 @@ export function repairClearlyIncompleteAgentReplyV3(value: string): string {
   return text;
 }
 
+
+
+function normalizeCommercialAuthorityV3(value: string): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Remove limites quantitativos inventados pelo modelo.
+ * Mínimo/máximo só podem sair ao cliente quando o mesmo tipo de limite e
+ * quantidade aparecem literalmente na autoridade comercial selecionada.
+ */
+export function stripUnsupportedQuantityLimitsV3(value: string, authority: string): string {
+  let text = String(value || "").trim();
+  if (!text) return text;
+
+  const authorityNormalized = normalizeCommercialAuthorityV3(authority);
+  const isAuthorized = (kind: "min" | "max", rawQuantity: string) => {
+    const quantity = rawQuantity.replace(/\s+/g, "");
+    const kindPattern = kind === "min" ? "min(?:imo)?" : "max(?:imo)?";
+    const escaped = quantity.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    return new RegExp("\\b" + kindPattern + "\\s*[:=]?\\s*" + escaped + "\\b", "i").test(authorityNormalized);
+  };
+
+  const unsupportedPair = /\(\s*m[ií]n(?:imo)?\s*[:=]?\s*([\d.]+)\s*[,;]\s*m[aá]x(?:imo)?\s*[:=]?\s*([\d.]+)\s*\)/giu;
+  text = text.replace(unsupportedPair, (whole, minQty, maxQty) => {
+    const keepMin = isAuthorized("min", minQty);
+    const keepMax = isAuthorized("max", maxQty);
+    if (keepMin && keepMax) return whole;
+    if (keepMin) return "(mínimo " + minQty + ")";
+    if (keepMax) return "(máximo " + maxQty + ")";
+    return "";
+  });
+
+  text = text.replace(
+    /\(?\s*m[ií]n(?:imo)?\s*[:=]?\s*([\d.]+)\s*\)?/giu,
+    (whole, qty) => isAuthorized("min", qty) ? whole : "",
+  );
+  text = text.replace(
+    /\(?\s*m[aá]x(?:imo)?\s*[:=]?\s*([\d.]+)\s*\)?/giu,
+    (whole, qty) => isAuthorized("max", qty) ? whole : "",
+  );
+
+  return text
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
