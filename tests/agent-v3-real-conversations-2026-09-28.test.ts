@@ -93,9 +93,9 @@ describe("real conversation regressions 2026-09-28", () => {
 
   it("locks conservative Spotify safety guidance in the shared orchestrator", () => {
     const source = readFileSync(join(process.cwd(), "src/lib/agent-v3/orchestrator.server.ts"), "utf8");
-    expect(source).toContain("entre 500 e 650 plays por dia");
+    expect(source).not.toContain("entre 500 e 650 plays por dia");
     expect(source).toContain("Não é correto garantir risco zero");
-    expect(source).toContain("isso não é garantia de resultado do algoritmo");
+    expect(source).toContain("ausência de penalização ou resultado do algoritmo");
   });
 });
 
