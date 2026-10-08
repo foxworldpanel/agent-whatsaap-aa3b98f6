@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-state.server";
 import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
+import { decideSharedPreExecution, institutionalReplyV3 } from "../../src/lib/agent-v3/core/pre-execution-decision.server";
 
 describe("Agent V3 remaining behavioral guards", () => {
   it("drops a clearly truncated tail when a complete sentence already exists", () => {
@@ -154,6 +155,33 @@ describe("Agent V3 remaining behavioral guards", () => {
       expect(decision.allowQualification).toBe(false);
       expect(decision.nextAction).toContain("sem pedir para o cliente repetir");
       expect(decision.nextAction).not.toContain("não há CNPJ brasileiro para informar");
+    },
+  );
+
+  it.each(["a empresa tem CNPJ?", "Manda o CNPJ", "qual o CNPJ da empresa?"])(
+    "answers CNPJ deterministically before Claude/fallback: %s",
+    (message) => {
+      const reply = institutionalReplyV3(message);
+      expect(reply).toContain("não possui sede no Brasil");
+      expect(reply).toContain("Não tenho um CNPJ confirmado aqui");
+      expect(reply).not.toMatch(/confirma|mande sua última mensagem|não há CNPJ brasileiro/i);
+
+      const decision = decideSharedPreExecution({
+        message,
+        inputKind: "texto",
+        history: [],
+        businessState: "descoberta",
+      });
+      expect(decision.kind).toBe("institutional");
+    },
+  );
+
+  it.each(["de onde é a empresa?", "qual país é a MIND?", "a empresa é de qual pais?"])(
+    "does not invent a country for institutional questions: %s",
+    (message) => {
+      const reply = institutionalReplyV3(message);
+      expect(reply).toContain("operação da MIND é internacional e online");
+      expect(reply).toContain("Não tenho um país de sede confirmado");
     },
   );
 
