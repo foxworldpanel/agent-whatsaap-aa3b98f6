@@ -61,6 +61,15 @@ export function repairClearlyIncompleteAgentReplyV3(value: string): string {
   const danglingConstruction =
     /\b(?:por meio|atraves|a partir|por causa|de acordo|junto|em relacao|em caso|antes de|depois de|alem de|dentro de|fora de|cerca de|perto de|depende de|precisa de|pode ser|vai ser|fica em|acontece em|comeca em|termina em)\s*$/iu;
 
+  // Não interprete TLDs de URL como preposição em português. O antigo guard
+  // via o ".com" final de https://mindsmmpanel.com como a palavra "com" e,
+  // ao tentar reparar uma suposta frase truncada, removia literalmente o TLD.
+  // A regra vale para qualquer URL/domínio no fim da resposta, não só MIND.
+  const endsWithUrlOrDomain =
+    /(?:https?:\/\/|www\.)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?[.!?]?$/iu.test(text) ||
+    /\b[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+\/?[.!?]?$/iu.test(text);
+  if (endsWithUrlOrDomain) return text;
+
   if (!danglingTail.test(text) && !danglingConstruction.test(text)) return text;
 
   // Se já existe uma frase completa antes do fragmento truncado, preserva só
