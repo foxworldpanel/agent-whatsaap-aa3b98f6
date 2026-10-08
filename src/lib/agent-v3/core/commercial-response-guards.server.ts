@@ -16,20 +16,7 @@ export function isExplicitPanelLinkRequestV3(message: string): boolean {
   if (!text) return false;
   const asksAccess = /\b(site|link|painel|cadastro|cadastrar|criar conta|acessar|acesso)\b/.test(text);
   const request = /\b(tem|manda|mande|passa|passe|envia|envie|qual|onde|quero|pra|para)\b/.test(text);
-  if (asksAccess && request) return true;
-
-  // Intenção explícita de compra/pagamento também deve levar direto ao painel.
-  // Evita mandar esse turno ao LLM e depois cair no reparo de resposta truncada
-  // em frases como "onde eu compro?" ou "quero comprar, manda o pix".
-  const asksWhereOrHowToBuy =
-    /\b(?:onde|aonde|como)\s+(?:eu\s+)?(?:compro|comprar|adquiro|adquirir|faco\s+(?:a\s+)?compra|fazer\s+(?:a\s+)?compra)\b/.test(text);
-  const explicitBuyWithPayment =
-    /\b(?:quero|vou|vamos|preciso)\s+(?:comprar|adquirir|fechar)\b/.test(text) &&
-    /\b(?:pix|pagar|pagamento|recarga|recarregar)\b/.test(text);
-  const asksPixForPurchase =
-    /\b(?:manda|mande|envia|envie|passa|passe)\b.{0,25}\bpix\b/.test(text);
-
-  return asksWhereOrHowToBuy || explicitBuyWithPayment || asksPixForPurchase;
+  return asksAccess && request;
 }
 
 export function panelLinkReplyV3(): string {
@@ -73,6 +60,7 @@ export function repairClearlyIncompleteAgentReplyV3(value: string): string {
     /(?:\b(?:e|ou|mas|porque|pois|que|se|para|pra|com|sem|de|do|da|dos|das|em|no|na|nos|nas|por|pelo|pela|um|uma|uns|umas|o|a|os|as|seu|sua|seus|suas|meu|minha|meus|minhas|durante|entre|sobre|ate|desde|apos|antes|enquanto|caso)\s*|[,;:]\s*)$/iu;
   const danglingConstruction =
     /\b(?:por meio|atraves|a partir|por causa|de acordo|junto|em relacao|em caso|antes de|depois de|alem de|dentro de|fora de|cerca de|perto de|depende de|precisa de|pode ser|vai ser|fica em|acontece em|comeca em|termina em)\s*$/iu;
+
   if (!danglingTail.test(text) && !danglingConstruction.test(text)) return text;
 
   // Se já existe uma frase completa antes do fragmento truncado, preserva só
@@ -80,6 +68,24 @@ export function repairClearlyIncompleteAgentReplyV3(value: string): string {
   const completePrefix = text.match(/^([\s\S]*[.!?])(?:\s+[^.!?]*)$/u)?.[1]?.trim();
   if (completePrefix && /[\p{L}\p{N}]/u.test(completePrefix)) return completePrefix;
 
-  // Uma única frase claramente truncada não pode chegar ao cliente.
-  return "A resposta ficou incompleta. Pode me mandar sua última mensagem novamente?";
+  // Raiz do antigo loop: uma frase truncada inteira era substituída por
+  // "mande sua última mensagem novamente". Em qualquer nova tentativa o mesmo
+  // guard podia cair no mesmo fallback, prendendo a conversa. Em vez disso,
+  // recuperamos somente o prefixo semanticamente utilizável e encerramos a
+  // frase. A regra é independente de intenção, plataforma e etapa comercial.
+  let salvaged = text;
+  let previous = "";
+  while (salvaged !== previous) {
+    previous = salvaged;
+    salvaged = salvaged.replace(danglingConstruction, "").replace(danglingTail, "").trim();
+  }
+
+  if (salvaged.length >= 3 && /[\p{L}\p{N}]/u.test(salvaged)) {
+    return /[.!?]$/u.test(salvaged) ? salvaged : `${salvaged}.`;
+  }
+
+  // Último fail-safe: nunca cria um pedido de repetição que possa entrar em
+  // loop. Mantém o texto original para diagnóstico em vez de fabricar contexto.
+  return text;
 }
+
