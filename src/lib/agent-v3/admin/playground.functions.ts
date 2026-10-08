@@ -262,6 +262,7 @@ export const runPlaygroundTurn = createServerFn({ method: "POST" })
       execResult.routerReason === "STOP_REQUEST";
     const terminalWithReply =
       execResult.routerReason === "HUMAN_HANDOFF_REQUEST" ||
+      execResult.routerReason === "INSTITUTIONAL_INFO" ||
       execResult.routerReason.startsWith("CRITICAL_HUMAN_ESCALATION:");
 
     // Playground é a bancada do cérebro: decisões terminais sem resposta
