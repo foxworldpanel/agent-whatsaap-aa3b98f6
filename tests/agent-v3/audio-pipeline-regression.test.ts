@@ -3,6 +3,7 @@ import fs from "node:fs";
 
 const runtime = fs.readFileSync("src/lib/agent-v3/runtime.server.ts", "utf8");
 const uazapi = fs.readFileSync("src/lib/uazapi.server.ts", "utf8");
+const aiCredentials = fs.readFileSync("src/lib/agent-v3/integrations/ai-credentials.server.ts", "utf8");
 
 describe("Agent V3 audio pipeline", () => {
   it("usa Whisper para áudio inbound e baixa mídia quando mediaUrl faltar", () => {
@@ -11,10 +12,11 @@ describe("Agent V3 audio pipeline", () => {
   });
 
   it("usa fallback de ambiente para OpenAI, Anthropic e ElevenLabs", () => {
-    expect(runtime).toContain("process.env.OPENAI_API_KEY");
-    expect(runtime).toContain("process.env.ANTHROPIC_API_KEY");
-    expect(runtime).toContain("process.env.ELEVENLABS_API_KEY");
-    expect(runtime).toContain("process.env.ELEVENLABS_VOICE_ID");
+    expect(runtime).toContain("resolveAgentAiCredentialsV3");
+    expect(aiCredentials).toContain("process.env.OPENAI_API_KEY");
+    expect(aiCredentials).toContain("process.env.ANTHROPIC_API_KEY");
+    expect(aiCredentials).toContain("process.env.ELEVENLABS_API_KEY");
+    expect(aiCredentials).toContain("process.env.ELEVENLABS_VOICE_ID");
   });
 
   it("responde áudio inbound com ElevenLabs quando key e voice id existem", () => {
