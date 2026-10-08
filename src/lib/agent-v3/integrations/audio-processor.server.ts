@@ -147,23 +147,31 @@ export function autoSplitLongPartsV3(text: string, threshold = LONG_MESSAGE_THRE
     const normalized = value.replace(/\s+/g, " ").trim();
     if (!normalized) return [];
 
-    // Protege pontos internos de URLs/domínios antes de detectar fim de frase.
-    // Ex.: um domínio como painel.exemplo não pode virar "painel." + "exemplo ...".
+    // Protege pontos internos de URLs/domínios e marcadores de listas numeradas
+    // antes de detectar fim de frase. "1. Entra ... 2. Faz ..." não pode ser
+    // interpretado como frases "1." / "2." e gerar bolhas quebradas.
     const urls: string[] = [];
-    const protectedValue = normalized.replace(
+    const listMarkers: string[] = [];
+    let protectedValue = normalized.replace(
       /(?:https?:\/\/|www\.)[^\s]+|\b[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+(?:\/[^\s]*)?/giu,
       (url) => {
         const index = urls.push(url) - 1;
         return `__V3URL_${index}__`;
       },
     );
-    const restoreUrls = (part: string) =>
-      part.replace(/__V3URL_(\d+)__/g, (_match, index) => urls[Number(index)] || _match);
+    protectedValue = protectedValue.replace(/\b\d{1,2}\.(?=[ \t]+\p{L})/giu, (marker) => {
+      const index = listMarkers.push(marker) - 1;
+      return `__V3LIST_${index}__`;
+    });
+    const restoreProtected = (part: string) =>
+      part
+        .replace(/__V3URL_(\d+)__/g, (_match, index) => urls[Number(index)] || _match)
+        .replace(/__V3LIST_(\d+)__/g, (_match, index) => listMarkers[Number(index)] || _match);
 
     return (
       protectedValue
         .match(/[^.!?]+(?:[.!?]+|$)/g)
-        ?.map((item) => restoreUrls(item).trim())
+        ?.map((item) => restoreProtected(item).trim())
         .filter(isMeaningfulPart) || [normalized]
     );
   };
