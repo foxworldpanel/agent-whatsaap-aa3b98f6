@@ -19,8 +19,27 @@ export interface SendAgentTextGuardedOptions {
   emojiWindow?: number;
 }
 
+export function formatCommercialPricesVerticallyV3(text: string): string {
+  let out = String(text || "");
+  if (!/R\$\s*\d/i.test(out)) return out;
+
+  // A price offer must occupy its own visual line. Keep the commercial label
+  // together with the price, but move surrounding prose/CTA to separate blocks.
+  out = out.replace(
+    /(^|[.!?]\s+)([^\n.!?]*?\b(?:\d[\d.]*\s*)?(?:plays(?:\s*\+\s*ouvintes)?|ouvintes|seguidores|saves|curtidas|visualiza(?:ç|c)(?:ões|oes)|views|inscritos|comentários|comentarios|reposts?|stories)\b[^\n.!?]*?R\$\s*\d+(?:[.,]\d{1,2})?)(?=\s*(?:[.!?]|$))/giu,
+    (_match, prefix: string, offer: string) => `${prefix ? "\n\n" : ""}${offer.trim()}\n\n`,
+  );
+
+  // Common generated shape: "... R$ 15,00. Quer ...". Ensure the CTA/prose
+  // cannot remain on the same line as the authoritative price.
+  out = out.replace(/(R\$\s*\d+(?:[.,]\d{1,2})?)[ \t]*[.!?][ \t]+(?=\p{L})/giu, "$1\n\n");
+
+  return out;
+}
+
 export function normalizeAgentTextPresentation(text: string): string {
   let out = stripMarkdownFormattingV3(text ?? "");
+  out = formatCommercialPricesVerticallyV3(out);
   out = out
     .replace(/\r\n/g, "\n")
     .replace(/[ \t]+\n/g, "\n")
