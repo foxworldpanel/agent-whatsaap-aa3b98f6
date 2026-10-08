@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-state.server";
-import { repairClearlyIncompleteAgentReplyV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
+import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
 
 describe("Agent V3 remaining behavioral guards", () => {
   it("drops a clearly truncated tail when a complete sentence already exists", () => {
@@ -110,6 +110,44 @@ describe("Agent V3 remaining behavioral guards", () => {
     const current = deriveBusinessDecisionV3({ message, customerLifecycle: "cliente" });
     const reconciled = reconcileBusinessDecisionV3({ previous, current, message });
     expect(reconciled.state).toBe("pos_venda");
+  });
+
+
+  it("does not mistake complete closing questions for truncation", () => {
+    expect(repairClearlyIncompleteAgentReplyV3("Como você quer seguir?")).toBe("Como você quer seguir?");
+    expect(repairClearlyIncompleteAgentReplyV3("Qual você prefere?")).toBe("Qual você prefere?");
+    expect(repairClearlyIncompleteAgentReplyV3("Quando quiser, pode chamar")).toBe("Quando quiser, pode chamar");
+  });
+
+  it("isolates the MIND panel URL from explanatory text", () => {
+    expect(splitMindPanelUrlPartsV3("Segue o painel https://mindsmmpanel.com para fazer o pedido")).toEqual([
+      "Segue o painel para fazer o pedido",
+      "https://mindsmmpanel.com",
+    ]);
+  });
+
+  it("keeps scheduled unreleased music in discovery without human handoff", () => {
+    const decision = deriveBusinessDecisionV3({
+      message: "Minha música vai ser lançada dia 14. Tenho que esperar ela ser lançada?",
+    });
+    expect(decision.state).toBe("descoberta");
+    expect(decision.shouldHandoff).toBe(false);
+    expect(decision.reason).toContain("ainda nao publicado");
+  });
+
+  it("answers CNPJ questions as an institutional fact, not a handoff", () => {
+    const decision = deriveBusinessDecisionV3({ message: "Qual seu CNPJ?" });
+    expect(decision.state).toBe("descoberta");
+    expect(decision.shouldHandoff).toBe(false);
+    expect(decision.nextAction).toContain("não possui sede no Brasil");
+    expect(decision.nextAction).toContain("não há CNPJ brasileiro");
+  });
+
+  it("requires vertical authoritative price formatting", () => {
+    const decision = deriveBusinessDecisionV3({ message: "Quanto custa no Spotify?" });
+    expect(decision.state).toBe("orcamento");
+    expect(decision.nextAction).toContain("um serviço por linha");
+    expect(decision.nextAction).toContain("sem tabela");
   });
 
 });
