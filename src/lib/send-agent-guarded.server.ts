@@ -25,7 +25,7 @@ export function formatCommercialPricesVerticallyV3(text: string): string {
 
   // Never leave punctuation stranded after moving a priced offer to its own block.
   out = out.replace(
-    /(R\$\s*\d+(?:[.,]\d{1,2})?)[ \t]*[.!?][ \t]+(?=\p{L})/giu,
+    /(R\$\s*\d+(?:[.,]\d{1,2})?(?:[ \t]+por[ \t]+\d[\d.]*)?)[ \t]*[.!?][ \t]+(?=\p{L})/giu,
     "$1\n\n",
   );
 
