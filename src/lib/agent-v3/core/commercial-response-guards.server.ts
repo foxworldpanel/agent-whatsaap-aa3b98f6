@@ -27,9 +27,11 @@ export function panelLinkReplyV3(): string {
 export function splitMindPanelUrlPartsV3(value: string): string[] {
   const text = String(value || "").trim();
   if (!text.includes(MIND_PANEL_URL_V3)) return text ? [text] : [];
-  const without = text.replace(new RegExp(`\\s*${MIND_PANEL_URL_V3.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\export function panelLinkReplyV3(): string {
-  return `Claro! O site é ${MIND_PANEL_URL_V3}. Lá você cria sua conta, escolhe o serviço e faz o pedido direto.`;
-}")}\\s*`, "g"), " ").replace(/\\s{2,}/g, " ").trim();
+  const without = text
+    .split(MIND_PANEL_URL_V3)
+    .join(" ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   return [without, MIND_PANEL_URL_V3].filter(Boolean);
 }
 
