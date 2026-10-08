@@ -20,7 +20,17 @@ export function isExplicitPanelLinkRequestV3(message: string): boolean {
 }
 
 export function panelLinkReplyV3(): string {
+  return `Claro! segue o link do painel, lá você cria sua conta, escolhe o serviço e faz o pedido direto.\n\n${MIND_PANEL_URL_V3}`;
+}
+
+/** URLs do painel nunca ficam misturadas ao texto comercial. */
+export function splitMindPanelUrlPartsV3(value: string): string[] {
+  const text = String(value || "").trim();
+  if (!text.includes(MIND_PANEL_URL_V3)) return text ? [text] : [];
+  const without = text.replace(new RegExp(`\\s*${MIND_PANEL_URL_V3.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\export function panelLinkReplyV3(): string {
   return `Claro! O site é ${MIND_PANEL_URL_V3}. Lá você cria sua conta, escolhe o serviço e faz o pedido direto.`;
+}")}\\s*`, "g"), " ").replace(/\\s{2,}/g, " ").trim();
+  return [without, MIND_PANEL_URL_V3].filter(Boolean);
 }
 
 export function saysPreviouslyUsedMindV3(message: string): boolean {
@@ -45,7 +55,7 @@ export function repairClearlyIncompleteAgentReplyV3(value: string): string {
   if (!text) return text;
 
   const danglingTail =
-    /(?:\b(?:e|ou|mas|porque|pois|que|se|para|pra|com|sem|de|do|da|dos|das|em|no|na|nos|nas|por|pelo|pela|um|uma|uns|umas|o|a|os|as|seu|sua|seus|suas|meu|minha|meus|minhas|durante|entre|sobre|ate|desde|apos|antes|quando|enquanto|caso|como|quanto|qual|quais)\s*|[,;:]\s*)$/iu;
+    /(?:\b(?:e|ou|mas|porque|pois|que|se|para|pra|com|sem|de|do|da|dos|das|em|no|na|nos|nas|por|pelo|pela|um|uma|uns|umas|o|a|os|as|seu|sua|seus|suas|meu|minha|meus|minhas|durante|entre|sobre|ate|desde|apos|antes|enquanto|caso)\s*|[,;:]\s*)$/iu;
   const danglingConstruction =
     /\b(?:por meio|atraves|a partir|por causa|de acordo|junto|em relacao|em caso|antes de|depois de|alem de|dentro de|fora de|cerca de|perto de|depende de|precisa de|pode ser|vai ser|fica em|acontece em|comeca em|termina em)\s*$/iu;
   if (!danglingTail.test(text) && !danglingConstruction.test(text)) return text;
@@ -56,5 +66,5 @@ export function repairClearlyIncompleteAgentReplyV3(value: string): string {
   if (completePrefix && /[\p{L}\p{N}]/u.test(completePrefix)) return completePrefix;
 
   // Uma única frase claramente truncada não pode chegar ao cliente.
-  return "Quero te responder isso sem deixar a informação pela metade. Pode me confirmar esse ponto novamente?";
+  return "A resposta ficou incompleta. Pode me mandar sua última mensagem novamente?";
 }
