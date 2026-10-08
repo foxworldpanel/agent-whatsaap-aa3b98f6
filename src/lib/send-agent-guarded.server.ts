@@ -2,6 +2,7 @@
 // path (LLM and canned/router replies) receives the same WhatsApp-safe shape.
 
 import { limitEmojiFrequency } from "@/lib/emoji-limiter";
+import { splitMindPanelUrlPartsV3 } from "@/lib/agent-v3/core/commercial-response-guards.server";
 import {
   humanizePunctuationV3,
   stripMarkdownFormattingV3,
@@ -76,14 +77,16 @@ export function finalizeAgentReplyParts(
 ): string[] {
   const finalizedParts: string[] = [];
   for (const part of parts) {
-    const finalized = finalizeAgentText(part, {
-      ...opts,
-      recentAgentBodies: [
-        ...(opts.recentAgentBodies ?? []),
-        ...finalizedParts,
-      ].slice(-(opts.emojiWindow ?? 3)),
-    });
-    if (finalized.transformed) finalizedParts.push(finalized.transformed);
+    for (const safePart of splitMindPanelUrlPartsV3(part)) {
+      const finalized = finalizeAgentText(safePart, {
+        ...opts,
+        recentAgentBodies: [
+          ...(opts.recentAgentBodies ?? []),
+          ...finalizedParts,
+        ].slice(-(opts.emojiWindow ?? 3)),
+      });
+      if (finalized.transformed) finalizedParts.push(finalized.transformed);
+    }
   }
   return finalizedParts;
 }
