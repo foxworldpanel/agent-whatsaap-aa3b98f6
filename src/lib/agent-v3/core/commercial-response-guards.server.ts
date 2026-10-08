@@ -16,7 +16,20 @@ export function isExplicitPanelLinkRequestV3(message: string): boolean {
   if (!text) return false;
   const asksAccess = /\b(site|link|painel|cadastro|cadastrar|criar conta|acessar|acesso)\b/.test(text);
   const request = /\b(tem|manda|mande|passa|passe|envia|envie|qual|onde|quero|pra|para)\b/.test(text);
-  return asksAccess && request;
+  if (asksAccess && request) return true;
+
+  // Intenção explícita de compra/pagamento também deve levar direto ao painel.
+  // Evita mandar esse turno ao LLM e depois cair no reparo de resposta truncada
+  // em frases como "onde eu compro?" ou "quero comprar, manda o pix".
+  const asksWhereOrHowToBuy =
+    /\b(?:onde|aonde|como)\s+(?:eu\s+)?(?:compro|comprar|adquiro|adquirir|faco\s+(?:a\s+)?compra|fazer\s+(?:a\s+)?compra)\b/.test(text);
+  const explicitBuyWithPayment =
+    /\b(?:quero|vou|vamos|preciso)\s+(?:comprar|adquirir|fechar)\b/.test(text) &&
+    /\b(?:pix|pagar|pagamento|recarga|recarregar)\b/.test(text);
+  const asksPixForPurchase =
+    /\b(?:manda|mande|envia|envie|passa|passe)\b.{0,25}\bpix\b/.test(text);
+
+  return asksWhereOrHowToBuy || explicitBuyWithPayment || asksPixForPurchase;
 }
 
 export function panelLinkReplyV3(): string {
@@ -30,7 +43,7 @@ export function splitMindPanelUrlPartsV3(value: string): string[] {
   const without = text
     .split(MIND_PANEL_URL_V3)
     .join(" ")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
     .trim();
   return [without, MIND_PANEL_URL_V3].filter(Boolean);
 }
