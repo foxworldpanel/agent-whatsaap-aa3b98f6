@@ -164,7 +164,7 @@ describe("Agent V3 remaining behavioral guards", () => {
       const reply = institutionalReplyV3(message);
       expect(reply).toContain("não possui sede no Brasil");
       expect(reply).toContain("Não tenho um CNPJ confirmado aqui");
-      expect(reply).not.toMatch(/confirma|mande sua última mensagem|não há CNPJ brasileiro/i);
+      expect(reply).not.toMatch(/pode me confirmar|confirme esse ponto|mande sua última mensagem|não há CNPJ brasileiro/i);
 
       const decision = decideSharedPreExecution({
         message,
