@@ -81,7 +81,7 @@ export function deriveBusinessDecisionV3(params: {
     state: "descoberta",
     risk: "normal",
     reason: "cliente pediu informação institucional da MIND",
-    nextAction: "informar que a MIND não possui sede no Brasil, que a operação e o atendimento são online pela plataforma MIND e que não há CNPJ brasileiro para informar; não inventar endereço, registro, documento ou informação de rodapé",
+    nextAction: "responder diretamente à dúvida institucional sem pedir para o cliente repetir: informar somente o fato confirmado de que a MIND não possui sede no Brasil e que a operação e o atendimento são online pela plataforma MIND; se o cliente pedir especificamente CNPJ, não inventar número e não afirmar que a empresa não possui CNPJ brasileiro, pois isso não está confirmado no contexto autoritativo; não inventar endereço, registro, documento, prova fiscal ou informação de rodapé",
     allowQualification: false,
     shouldHandoff: false,
   };
