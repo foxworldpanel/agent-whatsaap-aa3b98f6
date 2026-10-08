@@ -10,9 +10,47 @@ export type SharedPreExecutionDecision =
   | { kind: "natural_silence"; reply: null }
   | { kind: "outbound_decline"; reply: string }
   | { kind: "outbound_source"; reply: string }
-  | { kind: "panel_link"; reply: string };
+  | { kind: "panel_link"; reply: string }
+  | { kind: "institutional"; reply: string };
 
 const OUTBOUND_DECLINE_REPLY = "Tudo bem, sem problema. Obrigada pelo retorno!";
+
+function normalizeInstitutionalQuestionV3(message: string): string {
+  return String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function institutionalReplyV3(message: string): string | null {
+  const normalized = normalizeInstitutionalQuestionV3(message);
+  if (!normalized) return null;
+
+  if (/\bcnpj\b/.test(normalized)) {
+    return "A MIND não possui sede no Brasil e nossa operação e atendimento são feitos online pela plataforma. Não tenho um CNPJ confirmado aqui para te informar com segurança.";
+  }
+
+  const asksCountry =
+    /\b(?:qual|de)\s+(?:o\s+)?pais\b/.test(normalized) ||
+    /\b(?:empresa|mind|voces|vcs)\b.{0,35}\b(?:qual pais|de qual pais|de onde)\b/.test(normalized) ||
+    /\bde onde (?:e|eh) (?:a )?(?:empresa|mind)\b/.test(normalized) ||
+    /\bvoces (?:sao|sao de|sao da|sao do|sao de onde)\b/.test(normalized);
+
+  if (asksCountry) {
+    return "A operação da MIND é internacional e online. Não tenho um país de sede confirmado aqui para te informar com segurança.";
+  }
+
+  const asksLocation =
+    /\b(?:sede|endereco da empresa|onde fica (?:a )?(?:empresa|mind)|empresa brasileira)\b/.test(normalized);
+  if (asksLocation) {
+    return "A MIND não possui sede no Brasil. Nossa operação e atendimento são feitos online pela plataforma.";
+  }
+
+  return null;
+}
 
 export function isOutboundColdDecline(message: string): boolean {
   const normalized = String(message || "")
@@ -56,6 +94,10 @@ export function decideSharedPreExecution(params: {
       reply: "Entendi. Como seu caso precisa de uma análise mais detalhada, vou pausar por aqui e encaminhar para o setor responsável. Assim que possível, a equipe dará continuidade ao seu atendimento.",
       reason: critical.reason || "suporte humano necessário",
     };
+  }
+  const institutionalReply = institutionalReplyV3(params.message);
+  if (institutionalReply) {
+    return { kind: "institutional", reply: institutionalReply };
   }
   if (isHumanHandoffRequest(params.message)) {
     return { kind: "human_handoff", reply: HUMAN_HANDOFF_REPLY };
