@@ -52,15 +52,15 @@ export const executeAgentV3Runtime: AgentV3RuntimeExecutor = async (supabaseAdmi
       throw new Error(`Customer Turn ${input.customerTurnId} sem last_received_at para stale fence`);
     }
 
-    // Em produção os jobs externos ao snapshot que ainda podem alterar a
-    // resposta estão em pending. A comparação temporal impede que um orphan
-    // antigo pendente invalide uma resposta atual.
+    // Qualquer job externo ao snapshot que ainda possa alterar a resposta invalida
+    // a geração antiga. gte cobre o edge de timestamps iguais no banco; jobs do
+    // próprio snapshot são excluídos pelo currentJobIds abaixo.
     const { data: pendingJobs, error: pendingJobsError } = await supabaseAdmin
       .from("agent_inbound_jobs")
       .select("id, created_at")
       .eq("conversation_id", conversationId)
-      .eq("status", "pending")
-      .gt("created_at", currentTurn.last_received_at);
+      .in("status", ["pending", "processing_safe"])
+      .gte("created_at", currentTurn.last_received_at);
     if (pendingJobsError) throw pendingJobsError;
 
     return (pendingJobs || []).some(
