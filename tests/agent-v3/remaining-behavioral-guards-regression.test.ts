@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-state.server";
-import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
+import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3, stripUnsupportedQuantityLimitsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
 import { decideSharedPreExecution, institutionalReplyV3 } from "../../src/lib/agent-v3/core/pre-execution-decision.server";
 import { normalizeAgentTextPresentation } from "../../src/lib/send-agent-guarded.server";
 import { autoSplitLongPartsV3 } from "../../src/lib/agent-v3/integrations/audio-processor.server";
@@ -261,6 +261,20 @@ describe("Agent V3 remaining behavioral guards", () => {
     expect(parts).not.toContain("Você compra pelo nosso painel. É bem simples: 1.");
     expect(parts.join(" ")).toContain("2. Faz uma recarga");
     expect(parts.join(" ")).toContain("4. Pronto");
+  });
+
+  it("removes hallucinated minimum and maximum quantity limits without changing the valid offer", () => {
+    expect(stripUnsupportedQuantityLimitsV3(
+      "*Spotify:*\n1.000 Plays + Ouvintes, R$ 15,00\n(mínimo 500, máximo 500.000)",
+      "Plays + Ouvintes: 1000 = R$ 15,00",
+    )).toBe("*Spotify:*\n1.000 Plays + Ouvintes, R$ 15,00");
+  });
+
+  it("preserves quantity limits when the selected commercial authority explicitly contains them", () => {
+    expect(stripUnsupportedQuantityLimitsV3(
+      "1.000 Seguidores = R$ 30,00 (mínimo 100, máximo 10.000)",
+      "Seguidores Brasil: 1000 = R$ 30,00 | mínimo 100 | máximo 10.000",
+    )).toBe("1.000 Seguidores = R$ 30,00 (mínimo 100, máximo 10.000)");
   });
 
   it("requires vertical authoritative price formatting", () => {
