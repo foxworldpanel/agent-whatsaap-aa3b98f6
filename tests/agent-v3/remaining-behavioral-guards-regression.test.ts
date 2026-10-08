@@ -17,6 +17,25 @@ describe("Agent V3 remaining behavioral guards", () => {
     );
   });
 
+  it.each([
+    "https://mindsmmpanel.com",
+    "Acesse https://mindsmmpanel.com",
+    "Acesse o painel em https://mindsmmpanel.com.",
+    "Confira www.exemplo.com",
+    "Acesse https://exemplo.com.br/cadastro",
+  ])("never treats a URL TLD as a dangling Portuguese word: %s", (input) => {
+    expect(repairClearlyIncompleteAgentReplyV3(input)).toBe(input);
+  });
+
+  it("keeps the canonical MIND panel URL intact through the shared finalizer splitter", () => {
+    expect(splitMindPanelUrlPartsV3(
+      "Você entra no painel e faz a recarga via Pix. https://mindsmmpanel.com",
+    )).toEqual([
+      "Você entra no painel e faz a recarga via Pix.",
+      "https://mindsmmpanel.com",
+    ]);
+  });
+
   it("salvages a single truncated construction instead of asking the customer to repeat", () => {
     expect(repairClearlyIncompleteAgentReplyV3("Você pode fazer o pedido pelo")).toBe(
       "Você pode fazer o pedido.",
