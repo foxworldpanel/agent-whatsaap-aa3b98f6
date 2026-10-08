@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-state.server";
-import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
+import { isExplicitPanelLinkRequestV3, repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
 import { decideSharedPreExecution, institutionalReplyV3 } from "../../src/lib/agent-v3/core/pre-execution-decision.server";
 import { normalizeAgentTextPresentation } from "../../src/lib/send-agent-guarded.server";
 
@@ -124,6 +124,35 @@ describe("Agent V3 remaining behavioral guards", () => {
   it("isolates the MIND panel URL from explanatory text", () => {
     expect(splitMindPanelUrlPartsV3("Segue o painel https://mindsmmpanel.com para fazer o pedido")).toEqual([
       "Segue o painel para fazer o pedido",
+      "https://mindsmmpanel.com",
+    ]);
+  });
+
+  it.each([
+    "onde eu compro?",
+    "como eu compro?",
+    "quero comprar, manda o pix",
+    "manda o pix para eu comprar",
+  ])("routes explicit purchase/payment access directly to the panel: %s", (message) => {
+    expect(isExplicitPanelLinkRequestV3(message)).toBe(true);
+    const decision = decideSharedPreExecution({
+      message,
+      inputKind: "texto",
+      history: [],
+      businessState: "orcamento",
+    });
+    expect(decision.kind).toBe("panel_link");
+    if (decision.kind === "panel_link") {
+      expect(splitMindPanelUrlPartsV3(decision.reply)).toEqual([
+        "Claro! segue o link do painel, lá você cria sua conta, escolhe o serviço e faz o pedido direto.",
+        "https://mindsmmpanel.com",
+      ]);
+    }
+  });
+
+  it("preserves vertical formatting when isolating the panel URL", () => {
+    expect(splitMindPanelUrlPartsV3("1.000 Plays + Ouvintes - R$ 15,00\n\nhttps://mindsmmpanel.com")).toEqual([
+      "1.000 Plays + Ouvintes - R$ 15,00",
       "https://mindsmmpanel.com",
     ]);
   });
