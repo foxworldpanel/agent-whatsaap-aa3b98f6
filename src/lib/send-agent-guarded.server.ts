@@ -31,7 +31,7 @@ export function formatCommercialPricesVerticallyV3(text: string): string {
 
   // If the model continues directly with a CTA after the price, split it too.
   out = out.replace(
-    /(R\$\s*\d+(?:[.,]\d{1,2})?)[ \t]+(?=(?:qual|quer|deseja|confirma|confirmar|posso|podemos|vai|vamos|me diz|me fala)\b)/giu,
+    /(R\$\s*\d+(?:[.,]\d{1,2})?)[ \t]+(?=(?:qual|quantos?|quantas?|quer|deseja|confirma|confirmar|posso|podemos|vai|vamos|me diz|me fala)\b)/giu,
     "$1\n\n",
   );
 
