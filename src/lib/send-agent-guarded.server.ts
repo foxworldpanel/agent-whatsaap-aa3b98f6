@@ -41,6 +41,15 @@ export function formatCommercialPricesVerticallyV3(text: string): string {
     "$1\n\n",
   );
 
+  // Claude may introduce an offer in prose and put the quantity/price after a colon,
+  // e.g. "A gente tem o pacote Plays + Ouvintes: 1.000 = R$ 15,00".
+  // Keep the introduction, but move the authoritative quantity/price to its own block.
+  // This is generic for any commercial sentence containing R$, not tied to Spotify.
+  out = out.replace(
+    /([^\n:]+):[ \t]+(?=(?:\d[\d.]*\s*(?:[\p{L}+]+(?:[ \t]+[\p{L}+]+){0,5})?[ \t]*(?:=|-|–|:)?[ \t]*R\$\s*\d))/giu,
+    "$1:\n\n",
+  );
+
   return out;
 }
 
