@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-state.server";
-import { isExplicitPanelLinkRequestV3, repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
+import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
 import { decideSharedPreExecution, institutionalReplyV3 } from "../../src/lib/agent-v3/core/pre-execution-decision.server";
 import { normalizeAgentTextPresentation } from "../../src/lib/send-agent-guarded.server";
 
@@ -17,10 +17,21 @@ describe("Agent V3 remaining behavioral guards", () => {
     );
   });
 
-  it("never sends a single clearly truncated construction", () => {
-    const repaired = repairClearlyIncompleteAgentReplyV3("Você pode fazer o pedido pelo");
-    expect(repaired).not.toContain("pedido pelo");
-    expect(repaired).toMatch(/[?!.]$/);
+  it("salvages a single truncated construction instead of asking the customer to repeat", () => {
+    expect(repairClearlyIncompleteAgentReplyV3("Você pode fazer o pedido pelo")).toBe(
+      "Você pode fazer o pedido.",
+    );
+  });
+
+  it.each([
+    ["A entrega acontece durante", "A entrega acontece."],
+    ["Você consegue acompanhar por meio", "Você consegue acompanhar."],
+    ["O prazo depende de", "O prazo depende."],
+    ["Para comprar você acessa o painel e faz o pedido por", "Para comprar você acessa o painel e faz o pedido."],
+  ])("repairs truncation generically without creating a repeat loop: %s", (input, expected) => {
+    const repaired = repairClearlyIncompleteAgentReplyV3(input);
+    expect(repaired).toBe(expected);
+    expect(repaired).not.toMatch(/mande sua última mensagem|pode me mandar sua última mensagem|resposta ficou incompleta/i);
   });
 
   it("escapes sticky post-sale when the customer explicitly starts a new purchase", () => {
