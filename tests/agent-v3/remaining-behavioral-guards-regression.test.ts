@@ -189,11 +189,11 @@ describe("Agent V3 remaining behavioral guards", () => {
   it.each([
     [
       "1.000 Plays + Ouvintes sai por R$ 15,00. Quer confirmar essa quantidade?",
-      "1.000 Plays + Ouvintes sai por R$ 15,00\\n\\nQuer confirmar essa quantidade?",
+      "1.000 Plays + Ouvintes sai por R$ 15,00\n\nQuer confirmar essa quantidade?",
     ],
     [
       "No Spotify, a gente oferece Plays + Ouvintes. 1.000 Plays + Ouvintes = R$ 15,00 Qual quantidade você tá pensando?",
-      "No Spotify, a gente oferece Plays + Ouvintes.\\n\\n1.000 Plays + Ouvintes = R$ 15,00 Qual quantidade você tá pensando?",
+      "No Spotify, a gente oferece Plays + Ouvintes.\n\n1.000 Plays + Ouvintes = R$ 15,00\n\nQual quantidade você tá pensando?",
     ],
   ])("keeps commercial prices out of prose: %s", (input, expected) => {
     expect(normalizeAgentTextPresentation(input)).toBe(expected);
