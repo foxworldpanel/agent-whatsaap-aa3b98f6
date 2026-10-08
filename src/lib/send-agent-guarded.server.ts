@@ -29,7 +29,13 @@ export function formatCommercialPricesVerticallyV3(text: string): string {
     "$1\n\n",
   );
 
-  // If the model continues directly with a CTA after the price, split it too.\n  out = out.replace(\n    /(R\\$\\s*\\d+(?:[.,]\\d{1,2})?)[ \\t]+(?=(?:qual|quer|deseja|confirma|confirmar|posso|podemos|vai|vamos|me diz|me fala)\\b)/giu,\n    "$1\\n\\n",\n  );\n\n  // When a priced offer starts after a completed sentence, start it in a new block.
+  // If the model continues directly with a CTA after the price, split it too.
+  out = out.replace(
+    /(R\$\s*\d+(?:[.,]\d{1,2})?)[ \t]+(?=(?:qual|quer|deseja|confirma|confirmar|posso|podemos|vai|vamos|me diz|me fala)\b)/giu,
+    "$1\n\n",
+  );
+
+  // When a priced offer starts after a completed sentence, start it in a new block.
   out = out.replace(
     /([.!?])[ \t]+(?=(?:\d[\d.]*\s*)?(?:plays(?:\s*\+\s*ouvintes)?|ouvintes|seguidores|saves|curtidas|visualiza(?:ç|c)(?:ões|oes)|views|inscritos|comentários|comentarios|reposts?|stories)\b[^\n]*?R\$\s*\d)/giu,
     "$1\n\n",
