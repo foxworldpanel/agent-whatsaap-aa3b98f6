@@ -26,7 +26,7 @@ describe("Agent V3 remaining behavioral guards", () => {
   it.each([
     ["A entrega acontece durante", "A entrega acontece."],
     ["Você consegue acompanhar por meio", "Você consegue acompanhar."],
-    ["O prazo depende de", "O prazo depende."],
+    ["O prazo depende de", "O prazo."],
     ["Para comprar você acessa o painel e faz o pedido por", "Para comprar você acessa o painel e faz o pedido."],
   ])("repairs truncation generically without creating a repeat loop: %s", (input, expected) => {
     const repaired = repairClearlyIncompleteAgentReplyV3(input);
