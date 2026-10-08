@@ -3,6 +3,7 @@ import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../../src
 import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
 import { decideSharedPreExecution, institutionalReplyV3 } from "../../src/lib/agent-v3/core/pre-execution-decision.server";
 import { normalizeAgentTextPresentation } from "../../src/lib/send-agent-guarded.server";
+import { autoSplitLongPartsV3 } from "../../src/lib/agent-v3/integrations/audio-processor.server";
 
 describe("Agent V3 remaining behavioral guards", () => {
   it("drops a clearly truncated tail when a complete sentence already exists", () => {
@@ -242,6 +243,24 @@ describe("Agent V3 remaining behavioral guards", () => {
     ],
   ])("keeps commercial prices out of prose: %s", (input, expected) => {
     expect(normalizeAgentTextPresentation(input)).toBe(expected);
+  });
+
+  it("isolates a price sentence even when the quantity comes after the price", () => {
+    expect(normalizeAgentTextPresentation(
+      "Plays no Spotify saem a R$ 15,00 por 1.000. Quantos você quer comprar?",
+    )).toBe(
+      "Plays no Spotify saem a R$ 15,00 por 1.000\n\nQuantos você quer comprar?",
+    );
+  });
+
+  it("never splits a numbered purchase list at the numeric marker", () => {
+    const input =
+      "Você compra pelo nosso painel. É bem simples: 1. Entra no painel e cria uma conta 2. Faz uma recarga via PIX 3. Escolhe o serviço 4. Pronto, começa o processo";
+    const parts = autoSplitLongPartsV3(input, 80);
+    expect(parts.join(" ")).toContain("É bem simples: 1. Entra");
+    expect(parts).not.toContain("Você compra pelo nosso painel. É bem simples: 1.");
+    expect(parts.join(" ")).toContain("2. Faz uma recarga");
+    expect(parts.join(" ")).toContain("4. Pronto");
   });
 
   it("requires vertical authoritative price formatting", () => {
