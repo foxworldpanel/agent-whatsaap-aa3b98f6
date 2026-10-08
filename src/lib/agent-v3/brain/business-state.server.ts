@@ -76,6 +76,16 @@ export function deriveBusinessDecisionV3(params: {
   const explicitHuman = /\b(falar com (?:um |uma )?(?:atendente )?humano|falar com (?:uma )?pessoa|quero (?:um |uma )?atendente|sem ser (?:um )?robo|sem robo|pessoa de verdade)\b/.test(current);
   if (explicitHuman) return { state: "aguardando_setor", risk: "humano_obrigatorio", reason: "cliente solicitou outro atendente", nextAction: "pausar o atendimento automático e encaminhar ao setor responsável", allowQualification: false, shouldHandoff: true };
 
+  const institutionalQuestion = /\b(cnpj|sede|endereco da empresa|empresa brasileira|onde fica a empresa|dados legais|registro da empresa)\b/.test(current);
+  if (institutionalQuestion) return {
+    state: "descoberta",
+    risk: "normal",
+    reason: "cliente pediu informação institucional da MIND",
+    nextAction: "informar que a MIND não possui sede no Brasil, que a operação e o atendimento são online pela plataforma MIND e que não há CNPJ brasileiro para informar; não inventar endereço, registro, documento ou informação de rodapé",
+    allowQualification: false,
+    shouldHandoff: false,
+  };
+
   const legalRisk = /\b(denuncia|procon|advogad|processo|processar|justica|chargeback|contestacao|fraude|golpe)\b/.test(current);
   if (legalRisk) return { state: "reclamacao", risk: "humano_obrigatorio", reason: "risco jurídico ou reputacional", nextAction: "encaminhar imediatamente ao setor responsável", allowQualification: false, shouldHandoff: true };
 
