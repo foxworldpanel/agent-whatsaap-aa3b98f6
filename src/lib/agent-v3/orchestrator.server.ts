@@ -32,7 +32,7 @@ import { P0_TEXT } from "./prompt/prompt-p0.server";
 import { OUTBOUND_TEXT } from "./prompt/prompt-outbound.server";
 import { outboundLeadPromptContext, type OutboundLeadContext } from "./outbound-lead-context.server";
 import { checkPromptIntegrity } from "./brain/prompt-integrity-check.server";
-import { saysPreviouslyUsedMindV3, isLowInformationSocialMessageV3, repairClearlyIncompleteAgentReplyV3, stripUnsupportedQuantityLimitsV3 } from "./core/commercial-response-guards.server";
+import { saysPreviouslyUsedMindV3, isLowInformationSocialMessageV3, repairClearlyIncompleteAgentReplyV3, stripUnsupportedQuantityLimitsV3, containsPostSaleRepurchaseRegressionV3, spotifyPostSaleSupportReplyV3 } from "./core/commercial-response-guards.server";
 import { buildP1Text } from "./prompt/prompt-p1.server";
 import { buildP2Text } from "./prompt/prompt-p2.server";
 import { 
@@ -2424,6 +2424,22 @@ ${historyDepthBreakdown.map((h) => `Últimas ${h.depth} (${h.messages} reais): $
       finalContent =
         "Não posso garantir ativação, impulso ou resultado do algoritmo. Posso explicar apenas o que o serviço entrega conforme o catálogo.";
     }
+  }
+
+  // PÓS-VENDA NÃO PODE REGREDIR PARA CHECKOUT. Se o motor já sabe que é
+  // pedido realizado/pós-venda e o modelo inventa novo pedido, recarga ou
+  // pagamento, substituímos pela orientação operacional segura. Esta trava é
+  // compartilhada por Playground e WhatsApp.
+  if (
+    (businessDecision?.state === "pedido_realizado" || businessDecision?.state === "pos_venda") &&
+    selectionContext.platform === "spotify" &&
+    containsPostSaleRepurchaseRegressionV3(finalContent)
+  ) {
+    console.error("[AGENT-V3-POST-SALE] Regressão para recompra bloqueada", {
+      state: businessDecision.state,
+      response: finalContent,
+    });
+    finalContent = spotifyPostSaleSupportReplyV3();
   }
 
   // LIMITES QUANTITATIVOS: mínimo/máximo só podem ser repetidos quando
