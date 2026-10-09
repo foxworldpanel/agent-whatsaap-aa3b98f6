@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveBusinessDecisionV3, reconcileBusinessDecisionV3 } from "../../src/lib/agent-v3/brain/business-state.server";
-import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3, stripUnsupportedQuantityLimitsV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
+import { repairClearlyIncompleteAgentReplyV3, splitMindPanelUrlPartsV3, stripUnsupportedQuantityLimitsV3, containsPostSaleRepurchaseRegressionV3, spotifyPostSaleSupportReplyV3 } from "../../src/lib/agent-v3/core/commercial-response-guards.server";
 import { decideSharedPreExecution, institutionalReplyV3 } from "../../src/lib/agent-v3/core/pre-execution-decision.server";
 import { normalizeAgentTextPresentation } from "../../src/lib/send-agent-guarded.server";
 import { autoSplitLongPartsV3 } from "../../src/lib/agent-v3/integrations/audio-processor.server";
@@ -275,6 +275,24 @@ describe("Agent V3 remaining behavioral guards", () => {
       "1.000 Seguidores = R$ 30,00 (mínimo 100, máximo 10.000)",
       "Seguidores Brasil: 1000 = R$ 30,00 | mínimo 100 | máximo 10.000",
     )).toBe("1.000 Seguidores = R$ 30,00 (mínimo 100, máximo 10.000)");
+  });
+
+  it("blocks a paid Spotify customer from being sent back to checkout", () => {
+    expect(containsPostSaleRepurchaseRegressionV3(
+      "Perfeito! Já criei seu pedido de 1.000 Plays + Ouvintes. Agora é só entrar no painel, fazer a recarga via Pix e confirmar.",
+    )).toBe(true);
+  });
+
+  it("gives the confirmed Spotify metric explanation and support route", () => {
+    const reply = spotifyPostSaleSupportReplyV3();
+    expect(reply).toMatch(/quantidade contratada é garantida nos plays/i);
+    expect(reply).toMatch(/ouvintes.+não precisam chegar na mesma quantidade/is);
+    expect(reply).toMatch(/janela de 28 dias/i);
+    expect(reply).toMatch(/< 1\.000/i);
+    expect(reply).toMatch(/Painel > Suporte/i);
+    expect(reply).toMatch(/ID do pedido/i);
+    expect(reply).toMatch(/24 horas/i);
+    expect(reply).not.toMatch(/recarga|pagar novamente|já criei seu pedido/i);
   });
 
   it("requires vertical authoritative price formatting", () => {
