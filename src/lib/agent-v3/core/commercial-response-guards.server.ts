@@ -152,3 +152,18 @@ export function stripUnsupportedQuantityLimitsV3(value: string, authority: strin
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+
+
+export function containsPostSaleRepurchaseRegressionV3(value: string): boolean {
+  const text = normalize(value);
+  if (!text) return false;
+  return /\b(?:ja criei (?:seu|o) pedido|criei (?:seu|o) pedido|fazer (?:uma )?recarga|faca (?:uma )?recarga|faz (?:uma )?recarga|pagar novamente|novo pagamento|confirmar (?:a )?(?:compra|pagamento))\b/.test(text);
+}
+
+export function spotifyPostSaleSupportReplyV3(): string {
+  return [
+    "Nesse serviço, a quantidade contratada é garantida nos plays. Os ouvintes são uma métrica diferente e não precisam chegar na mesma quantidade dos plays. Um mesmo ouvinte pode gerar mais de uma reprodução, e os ouvintes mensais usam uma janela de 28 dias.",
+    "Na tela pública do Spotify, enquanto a faixa não ultrapassa 1.000 plays, pode aparecer < 1.000. Por isso, o número de ouvintes mensais não deve ser usado como se fosse a quantidade de plays entregues.",
+    "Como seu pedido já foi realizado e você está questionando a entrega, recomendo abrir um ticket no Painel > Suporte e informar o ID do pedido. O suporte funciona 24 horas e consegue analisar o status real do pedido com mais detalhes.",
+  ].join("\n\n");
+}
