@@ -108,6 +108,17 @@ export const KEYWORD_MAP: Record<string, string[]> = {
     "sumiu",
     "nao entregou",
     "faltando",
+    "nao subiu",
+    "nao sobe",
+    "nao aumentou",
+    "nao mudou",
+    "parou",
+    "continua igual",
+    "continua tudo igual",
+    "mesmo numero",
+    "mesma quantidade",
+    "travado",
+    "travada",
   ],
 
   seguranca: [
