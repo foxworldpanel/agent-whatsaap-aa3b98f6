@@ -164,6 +164,6 @@ export function spotifyPostSaleSupportReplyV3(): string {
   return [
     "Nesse serviço, a quantidade contratada é garantida nos plays. Os ouvintes são uma métrica diferente e não precisam chegar na mesma quantidade dos plays. Um mesmo ouvinte pode gerar mais de uma reprodução, e os ouvintes mensais usam uma janela de 28 dias.",
     "Na tela pública do Spotify, enquanto a faixa não ultrapassa 1.000 plays, pode aparecer < 1.000. Por isso, o número de ouvintes mensais não deve ser usado como se fosse a quantidade de plays entregues.",
-    "Como seu pedido já foi realizado e você está questionando a entrega, recomendo abrir um ticket no Painel > Suporte e informar o ID do pedido. O suporte funciona 24 horas e consegue analisar o status real do pedido com mais detalhes.",
+    "Como o pedido já foi realizado e existe uma dúvida sobre a entrega, acesse o painel com a sua conta e entre no menu Suporte. Depois, abra um ticket e informe o ID do pedido, que é o código disponível no histórico do pedido. Assim, nossa equipe consegue localizar o pedido e analisar com mais detalhes o que aconteceu. O suporte funciona 24 horas.",
   ].join("\n\n");
 }
