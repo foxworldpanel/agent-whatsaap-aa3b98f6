@@ -51,6 +51,40 @@ describe("Spotify authoritative routing", () => {
     expect(ctx.platform).toBe("spotify");
     expect(ctx.product).toBe("saves");
   });
+
+  it("classifica reclamação de contagem parada como suporte e carrega módulos de pós-venda", () => {
+    const postSaleModules = {
+      identidade: mod("id", { alwaysLoad: true, priority: 100 }),
+      regras_gerais: mod("rules", { alwaysLoad: true, priority: 100 }),
+      suporte: mod("ticket + ID do pedido", {
+        intents: ["suporte", "pos_compra"], stages: ["pos_venda", "suporte"], priority: 94,
+      }),
+      spotify_ouvintes: mod("plays e ouvintes são métricas diferentes", {
+        platforms: ["spotify"], intents: ["suporte", "pos_compra"], stages: ["pos_venda", "suporte"],
+        products: ["plays", "ouvintes"], triggers: ["ouvintes", "não sobe", "parou"], priority: 96,
+      }),
+      spotify_prazos: mod("atualização não é em tempo real", {
+        platforms: ["spotify"], intents: ["suporte", "pos_compra"], stages: ["pos_venda", "suporte"],
+        triggers: ["não sobe", "parou"], priority: 90,
+      }),
+    };
+    const history = [
+      { role: "customer" as const, content: "Comprei 1000 Plays + Ouvintes no Spotify" },
+      { role: "agent" as const, content: "Certo, seu pedido já foi realizado." },
+    ];
+    const ctx = detectConversationContext("Está com 636 ouvintes e desde semana passada não sobe", history);
+    expect(ctx.intent).toBe("suporte");
+    expect(ctx.stage).toBe("suporte");
+    expect(ctx.platform).toBe("spotify");
+    const selected = selectModulesV3(
+      "Está com 636 ouvintes e desde semana passada não sobe",
+      history,
+      postSaleModules as any,
+    ).selectedModules;
+    expect(selected).toContain("suporte");
+    expect(selected).toContain("spotify_ouvintes");
+    expect(selected).toContain("spotify_prazos");
+  });
 });
 
 const orchestrator = fs.readFileSync("src/lib/agent-v3/orchestrator.server.ts", "utf8");
